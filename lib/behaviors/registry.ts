@@ -41,6 +41,7 @@ export const BEHAVIOR_SPECS: BehaviorSpec[] = [
       { name: 'vx', label: 'Velocity X', default: '0' },
       { name: 'vy', label: 'Velocity Y', default: '0' },
       { name: 'omega', label: 'Angular velocity', default: '0' },
+      { name: 'collide', label: 'Collides with bodies (0/1)', default: '1' },
     ],
   },
   {

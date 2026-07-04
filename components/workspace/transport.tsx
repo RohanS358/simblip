@@ -3,7 +3,7 @@
 // Unity-style transport: Edit → Play → Pause → Step → Reset.
 // Nothing is regenerated — the exact drawn scene starts simulating.
 
-import { Play, Pause, StepForward, RotateCcw, Blend } from 'lucide-react'
+import { Play, Pause, StepForward, RotateCcw } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useRuntimeStore, play, pause, stepFrame, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
@@ -11,8 +11,6 @@ import { cn } from '@/lib/utils'
 export function Transport({ pageId }: { pageId: string }) {
   const mode = useRuntimeStore((s) => s.mode)
   const time = useRuntimeStore((s) => s.time)
-  const bodyCollisions = useRuntimeStore((s) => s.bodyCollisions)
-  const toggleBodyCollisions = useRuntimeStore((s) => s.toggleBodyCollisions)
 
   return (
     <motion.div
@@ -61,20 +59,6 @@ export function Transport({ pageId }: { pageId: string }) {
         onClick={stop}
       >
         <RotateCcw className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        aria-label="Toggle rigid body collisions"
-        aria-pressed={bodyCollisions}
-        className={cn(
-          'flex h-9 w-9 items-center justify-center rounded-xl transition-colors',
-          bodyCollisions
-            ? 'text-[var(--accent-mint)] hover:bg-accent'
-            : 'text-muted-foreground opacity-40 hover:bg-accent'
-        )}
-        onClick={toggleBodyCollisions}
-      >
-        <Blend className="h-4 w-4" />
       </button>
       <div className="mx-1 h-6 w-px bg-border" />
       <span

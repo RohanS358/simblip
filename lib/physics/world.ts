@@ -32,28 +32,15 @@ export type PlayMode = 'edit' | 'running' | 'paused'
 interface RuntimeState {
   mode: PlayMode
   time: number // displayed sim time, throttled updates
-  bodyCollisions: boolean // rigid body ↔ rigid body collision toggle
   setMode: (m: PlayMode) => void
   setTime: (t: number) => void
-  toggleBodyCollisions: () => void
 }
 
-export const useRuntimeStore = create<RuntimeState>((set, get) => ({
+export const useRuntimeStore = create<RuntimeState>((set) => ({
   mode: 'edit',
   time: 0,
-  bodyCollisions: true,
   setMode: (mode) => set({ mode }),
   setTime: (time) => set({ time }),
-  toggleBodyCollisions: () => {
-    const next = !get().bodyCollisions
-    set({ bodyCollisions: next })
-    // Live-update any bodies already in the running world.
-    if (world) {
-      for (const b of world.bodies) {
-        if (!b.body.isStatic) b.body.collisionFilter.group = next ? 0 : -1
-      }
-    }
-  },
 }))
 
 // ── DOM element registry (ObjectViews register their wrapper) ──────────────
@@ -147,7 +134,10 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
     Matter.Body.setMass(body, Math.max(p('mass', 1), 0.001))
     Matter.Body.setVelocity(body, { x: p('vx', 0) * PPM / 60, y: -p('vy', 0) * PPM / 60 })
     Matter.Body.setAngularVelocity(body, p('omega', 0) / 60)
-    if (!useRuntimeStore.getState().bodyCollisions) body.collisionFilter.group = -1
+    // Per-body toggle: opt this body out of colliding with other rigid bodies
+    // (statics are a different category, so it still hits ground/walls).
+    body.collisionFilter.category = 0x0002
+    if (p('collide', 1) === 0) body.collisionFilter.mask = 0xffffffff ^ 0x0002
   }
   return body
 }
@@ -297,8 +287,7 @@ function syncDom(w: World) {
   }
   for (const c of w.connectors) {
     const el = elements.get(c.objectId)
-    const path = el?.querySelector<SVGPathElement>('path[data-connector]')
-    if (!el || !path) continue
+    if (!el) continue
     const obj = useDocStore.getState().pages[w.pageId]?.objects[c.objectId]
     if (!obj) continue
     const { constraint } = c
@@ -308,6 +297,13 @@ function syncDom(w: World) {
     const bPt = constraint.bodyB
       ? Matter.Constraint.pointBWorld(constraint)
       : (constraint.pointB as Matter.Vector)
+    const path = el.querySelector<SVGPathElement>('path[data-connector]')
+    if (!path) {
+      // Hinge marker (no path) — follow the pinned joint point.
+      const c0 = bodyCenter(obj)
+      el.style.transform = `translate(${a.x - c0.x}px, ${a.y - c0.y}px)`
+      continue
+    }
     path.setAttribute(
       'd',
       connectorPath(c.render, a.x - obj.position.x, a.y - obj.position.y, bPt.x - obj.position.x, bPt.y - obj.position.y)
