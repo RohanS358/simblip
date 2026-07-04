@@ -1,0 +1,121 @@
+'use client'
+
+// Floating tool switcher. Tools are data — adding one never touches layout.
+// The palette (component library) opens from here; drawing tools recognize
+// sketches into geometry that behaviors can then make real.
+
+import {
+  MousePointer2,
+  Pen,
+  Circle,
+  Square,
+  Minus,
+  Type,
+  StickyNote,
+  Sigma,
+  ChartLine,
+  Shapes,
+  Sparkles,
+} from 'lucide-react'
+import { motion } from 'framer-motion'
+import { useDocStore, type Tool } from '@/lib/store/document'
+import { useWorkspaceStore } from '@/lib/store/workspace'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
+
+const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
+  { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
+  { tool: 'pen', icon: Pen, label: 'Pen — sketches become shapes', key: 'P' },
+  { tool: 'circle', icon: Circle, label: 'Circle', key: 'C' },
+  { tool: 'rect', icon: Square, label: 'Rectangle', key: 'R' },
+  { tool: 'line', icon: Minus, label: 'Line / Beam', key: 'L' },
+  { tool: 'text', icon: Type, label: 'Text', key: 'T' },
+  { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
+  { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
+  { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
+]
+
+function ToolButton({
+  active,
+  label,
+  shortcut,
+  accent,
+  onClick,
+  children,
+}: {
+  active: boolean
+  label: string
+  shortcut?: string
+  accent?: string
+  onClick?: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          aria-pressed={active}
+          onClick={onClick}
+          className={cn(
+            'flex h-9 w-9 items-center justify-center rounded-xl transition-all',
+            active
+              ? 'text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          )}
+          style={active ? { background: accent ?? 'var(--accent-blue)' } : undefined}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="text-xs">
+        {label}
+        {shortcut && <span className="ml-1.5 font-mono text-[10px] opacity-60">{shortcut}</span>}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+export function Toolbar({
+  paletteOpen,
+  onTogglePalette,
+}: {
+  paletteOpen: boolean
+  onTogglePalette: () => void
+}) {
+  const tool = useDocStore((s) => s.tool)
+  const setTool = useDocStore((s) => s.setTool)
+  const aiOpen = useWorkspaceStore((s) => s.aiOpen)
+  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+
+  return (
+    <motion.div
+      initial={{ y: 24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+      className="glass-strong absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl p-1.5"
+    >
+      {TOOLS.map(({ tool: t, icon: Icon, label, key }) => (
+        <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
+          <Icon className="h-4 w-4" />
+        </ToolButton>
+      ))}
+
+      <div className="mx-1 h-6 w-px bg-border" />
+
+      <ToolButton
+        active={paletteOpen || tool === 'place'}
+        label="Components — masses, springs, circuits"
+        accent="var(--accent-mint)"
+        onClick={onTogglePalette}
+      >
+        <Shapes className="h-4 w-4" />
+      </ToolButton>
+
+      <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>
+        <Sparkles className="h-4 w-4" />
+      </ToolButton>
+    </motion.div>
+  )
+}

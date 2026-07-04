@@ -1,0 +1,171 @@
+// Behavior registry — the extension point of the whole editor.
+// A behavior declares its params and which geometry it can attach to; the
+// inspector, the world builder and the AI importer all read this table.
+// Adding a domain (thermal, optics…) = adding rows here + a solver.
+
+import type { BehaviorType, GeometryKind, Behavior, ParamValue } from '@/lib/scene/types'
+import { num, uid } from '@/lib/scene/types'
+
+export interface BehaviorParamSpec {
+  name: string
+  label: string
+  default: string // default expression
+}
+
+export interface BehaviorSpec {
+  type: BehaviorType
+  label: string
+  /** Which geometry kinds this behavior can attach to. Empty = any. */
+  geometry: GeometryKind[]
+  params: BehaviorParamSpec[]
+  /** One-line meaning shown in the Add Behavior menu. */
+  hint: string
+  /** Simulated by the current engine (false = registered, solver on roadmap). */
+  live: boolean
+}
+
+const CONNECTOR: GeometryKind[] = ['line', 'stroke']
+const BODYLIKE: GeometryKind[] = ['circle', 'rect', 'polygon', 'stroke', 'line']
+
+export const BEHAVIOR_SPECS: BehaviorSpec[] = [
+  {
+    type: 'rigidBody',
+    label: 'Rigid Body',
+    geometry: BODYLIKE,
+    hint: 'Mass, collisions, gravity — the shape becomes real.',
+    live: true,
+    params: [
+      { name: 'mass', label: 'Mass (kg)', default: '1' },
+      { name: 'friction', label: 'Friction', default: '0.1' },
+      { name: 'restitution', label: 'Elasticity', default: '0.4' },
+      { name: 'vx', label: 'Velocity X', default: '0' },
+      { name: 'vy', label: 'Velocity Y', default: '0' },
+      { name: 'omega', label: 'Angular velocity', default: '0' },
+    ],
+  },
+  {
+    type: 'staticBody',
+    label: 'Static Body',
+    geometry: BODYLIKE,
+    hint: 'Immovable collider — ground, wall, anchor.',
+    live: true,
+    params: [
+      { name: 'friction', label: 'Friction', default: '0.4' },
+      { name: 'restitution', label: 'Elasticity', default: '0.2' },
+    ],
+  },
+  {
+    type: 'spring',
+    label: 'Spring',
+    geometry: CONNECTOR,
+    hint: 'Connects whatever its two endpoints touch.',
+    live: true,
+    params: [
+      { name: 'k', label: 'Stiffness k', default: '20' },
+      { name: 'damping', label: 'Damping', default: '0.05' },
+      { name: 'restScale', label: 'Rest length ×', default: '1' },
+    ],
+  },
+  {
+    type: 'rope',
+    label: 'Rope',
+    geometry: CONNECTOR,
+    hint: 'Flexible link at fixed length.',
+    live: true,
+    params: [{ name: 'damping', label: 'Damping', default: '0.02' }],
+  },
+  {
+    type: 'rod',
+    label: 'Rigid Rod',
+    geometry: CONNECTOR,
+    hint: 'Inextensible link — pendulum arms, linkages.',
+    live: true,
+    params: [],
+  },
+  {
+    type: 'damper',
+    label: 'Damper',
+    geometry: CONNECTOR,
+    hint: 'Dashpot — resists relative motion.',
+    live: true,
+    params: [{ name: 'damping', label: 'Damping', default: '0.3' }],
+  },
+  {
+    type: 'hinge',
+    label: 'Hinge',
+    geometry: ['circle', 'symbol'],
+    hint: 'Revolute joint — pins the bodies under it (or one body to the world).',
+    live: true,
+    params: [],
+  },
+  {
+    type: 'motor',
+    label: 'Motor',
+    geometry: BODYLIKE,
+    hint: 'Drives this body’s rotation at a target speed.',
+    live: true,
+    params: [{ name: 'speed', label: 'Speed (rad/s)', default: '2' }],
+  },
+  {
+    type: 'force',
+    label: 'Force Field',
+    geometry: BODYLIKE,
+    hint: 'fx / fy expressions applied every frame (can use t and variables).',
+    live: true,
+    params: [
+      { name: 'fx', label: 'Force X', default: '0' },
+      { name: 'fy', label: 'Force Y', default: '0' },
+    ],
+  },
+  {
+    type: 'electricalNode',
+    label: 'Electrical Node',
+    geometry: [],
+    hint: 'Circuit participation — solver arrives with the electrical module.',
+    live: false,
+    params: [{ name: 'value', label: 'Value', default: '0' }],
+  },
+  {
+    type: 'heatSource',
+    label: 'Heat Source',
+    geometry: [],
+    hint: 'Thermal emission — solver on the roadmap.',
+    live: false,
+    params: [{ name: 'power', label: 'Power (W)', default: '10' }],
+  },
+  {
+    type: 'sensor',
+    label: 'Sensor',
+    geometry: [],
+    hint: 'Measurement region — graphs & triggers on the roadmap.',
+    live: false,
+    params: [],
+  },
+]
+
+export const behaviorSpec = (type: BehaviorType): BehaviorSpec | undefined =>
+  BEHAVIOR_SPECS.find((s) => s.type === type)
+
+export function specsForGeometry(kind: GeometryKind): BehaviorSpec[] {
+  return BEHAVIOR_SPECS.filter((s) => s.geometry.length === 0 || s.geometry.includes(kind))
+}
+
+export function createBehavior(type: BehaviorType): Behavior {
+  const spec = behaviorSpec(type)
+  const params: Record<string, ParamValue> = {}
+  for (const p of spec?.params ?? []) params[p.name] = num(p.default)
+  return { id: uid(), type, enabled: true, params }
+}
+
+/** Is this object physically present in the world when Play starts? */
+export function isBody(behaviors: Behavior[]): 'dynamic' | 'static' | null {
+  if (behaviors.some((b) => b.enabled && b.type === 'rigidBody')) return 'dynamic'
+  if (behaviors.some((b) => b.enabled && b.type === 'staticBody')) return 'static'
+  return null
+}
+
+export function connectorBehavior(behaviors: Behavior[]): Behavior | undefined {
+  return behaviors.find(
+    (b) => b.enabled && ['spring', 'rope', 'rod', 'damper'].includes(b.type)
+  )
+}

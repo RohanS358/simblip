@@ -1,0 +1,415 @@
+'use client'
+
+// Blender-style inspector — and the conversion surface of the whole app.
+// "Convert to physics object" = attaching a behavior here. Every numeric
+// field accepts an expression against the page's variable scope.
+
+import { useState, useEffect } from 'react'
+import { Plus, Trash2, Zap, ZapOff } from 'lucide-react'
+import { motion } from 'framer-motion'
+import { useDocStore } from '@/lib/store/document'
+import { readBuffer } from '@/lib/physics/bus'
+import { isBody } from '@/lib/behaviors/registry'
+import { specsForGeometry, behaviorSpec } from '@/lib/behaviors/registry'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
+import type { SceneObject } from '@/lib/scene/types'
+
+/** Commits on blur/Enter — mid-typing never hits the engine. */
+function ExprInput({
+  value,
+  onCommit,
+  error,
+  ariaLabel,
+  mono = true,
+}: {
+  value: string
+  onCommit: (v: string) => void
+  error?: string
+  ariaLabel: string
+  mono?: boolean
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  return (
+    <input
+      aria-label={ariaLabel}
+      aria-invalid={Boolean(error)}
+      className={cn(
+        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)]',
+        mono && 'font-mono',
+        error ? 'border-[var(--accent-rose)]' : 'border-input'
+      )}
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => draft !== value && onCommit(draft)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        e.stopPropagation()
+      }}
+    />
+  )
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      {children}
+    </p>
+  )
+}
+
+function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const addBehavior = useDocStore((s) => s.addBehavior)
+  const removeBehavior = useDocStore((s) => s.removeBehavior)
+  const toggleBehavior = useDocStore((s) => s.toggleBehavior)
+  const setBehaviorParam = useDocStore((s) => s.setBehaviorParam)
+
+  const available = specsForGeometry(object.geometry.kind).filter(
+    (spec) => !object.behaviors.some((b) => b.type === spec.type)
+  )
+
+  return (
+    <div>
+      <SectionTitle>Behaviors</SectionTitle>
+      {object.behaviors.length === 0 && (
+        <p className="mb-2 rounded-lg bg-accent/40 p-2 text-[11.5px] leading-relaxed text-muted-foreground">
+          This is a drawing. Attach a behavior to make it real — a Rigid Body
+          falls and collides, a Spring connects what it touches.
+        </p>
+      )}
+
+      <div className="space-y-2">
+        {object.behaviors.map((b) => {
+          const spec = behaviorSpec(b.type)
+          return (
+            <div key={b.id} className="rounded-xl border border-border/70 p-2">
+              <div className="flex items-center gap-1.5">
+                <span
+                  className={cn(
+                    'flex-1 text-[12px] font-semibold',
+                    !b.enabled && 'text-muted-foreground line-through'
+                  )}
+                >
+                  {spec?.label ?? b.type}
+                </span>
+                {spec && !spec.live && (
+                  <span className="rounded bg-accent px-1 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                    solver soon
+                  </span>
+                )}
+                <button
+                  type="button"
+                  aria-label={b.enabled ? 'Disable behavior' : 'Enable behavior'}
+                  className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                  onClick={() => toggleBehavior(pageId, object.id, b.id)}
+                >
+                  {b.enabled ? <Zap className="h-3 w-3" /> : <ZapOff className="h-3 w-3" />}
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove behavior"
+                  className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+                  onClick={() => removeBehavior(pageId, object.id, b.id)}
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+
+              {(spec?.params ?? []).map((ps) => {
+                const p = b.params[ps.name]
+                if (!p || p.kind !== 'number') return null
+                return (
+                  <div key={ps.name} className="mt-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={ps.label}>
+                        {ps.label}
+                      </span>
+                      <ExprInput
+                        ariaLabel={`${spec?.label} ${ps.label}`}
+                        value={p.expr}
+                        error={p.error}
+                        onCommit={(v) => setBehaviorParam(pageId, object.id, b.id, ps.name, v)}
+                      />
+                      <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+                        {Number.isFinite(p.value) ? +p.value.toFixed(3) : '—'}
+                      </span>
+                    </div>
+                    {p.error && (
+                      <p className="ml-[5.5rem] mt-0.5 text-[10px] text-[var(--accent-rose)]">{p.error}</p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        })}
+      </div>
+
+      {available.length > 0 && (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add behavior
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="glass-strong w-64">
+            {available.map((spec) => (
+              <DropdownMenuItem
+                key={spec.type}
+                className="flex-col items-start gap-0 py-2"
+                onClick={() => addBehavior(pageId, object.id, spec.type)}
+              >
+                <span className="text-[12.5px] font-medium">
+                  {spec.label}
+                  {!spec.live && (
+                    <span className="ml-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                      solver soon
+                    </span>
+                  )}
+                </span>
+                <span className="text-[11px] text-muted-foreground">{spec.hint}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
+    </div>
+  )
+}
+
+const GRAPH_CHANNELS = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
+
+function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setParam = useDocStore((s) => s.setParam)
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const updateObject = useDocStore((s) => s.updateObject)
+  const page = useDocStore((s) => s.pages[pageId])
+
+  const contentParams = Object.entries(object.parameters).filter(([, p]) => p.kind === 'number') as [
+    string,
+    Extract<SceneObject['parameters'][string], { kind: 'number' }>,
+  ][]
+
+  const bodies = Object.values(page?.objects ?? {}).filter((o) => isBody(o.behaviors) === 'dynamic')
+  const sourceParam = object.parameters.sourceId
+  const sourceId = sourceParam?.kind === 'string' ? sourceParam.value : ''
+
+  const numField = (label: string, value: number, commit: (n: number) => void) => (
+    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      {label}
+      <ExprInput
+        ariaLabel={label}
+        value={String(Math.round(value * 100) / 100)}
+        onCommit={(v) => {
+          const n = Number(v)
+          if (Number.isFinite(n)) commit(n)
+        }}
+      />
+    </label>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <ExprInput
+          ariaLabel="Object name"
+          mono={false}
+          value={object.name}
+          onCommit={(name) => name.trim() && updateObject(pageId, object.id, { name: name.trim() }, { history: true })}
+        />
+        <p className="mt-1 text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
+          {object.geometry.kind}
+          {object.geometry.symbol ? ` · ${object.geometry.symbol}` : ''}
+        </p>
+      </div>
+
+      <div>
+        <SectionTitle>Transform</SectionTitle>
+        <div className="grid grid-cols-2 gap-1.5">
+          {numField('X', object.position.x, (n) =>
+            updateObject(pageId, object.id, { position: { ...object.position, x: n } }, { history: true })
+          )}
+          {numField('Y', object.position.y, (n) =>
+            updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
+          )}
+          {numField('W', object.size.w, (n) =>
+            n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
+          )}
+          {numField('H', object.size.h, (n) =>
+            n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
+          )}
+          {numField('Rot°', object.rotation, (n) =>
+            updateObject(pageId, object.id, { rotation: n }, { history: true })
+          )}
+        </div>
+      </div>
+
+      {object.geometry.kind === 'graph' && (
+        <div className="space-y-1.5">
+          <SectionTitle>Data source</SectionTitle>
+          <select
+            aria-label="Graph source object"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none focus:border-[var(--ring)]"
+            value={sourceId}
+            onChange={(e) => setStringParam(pageId, object.id, 'sourceId', e.target.value)}
+          >
+            <option value="">— pick a physics object —</option>
+            {bodies.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name}
+              </option>
+            ))}
+          </select>
+          <label className="block text-[11px] text-muted-foreground">
+            Channels: {(readBuffer(sourceId)?.channelNames ?? GRAPH_CHANNELS).join(', ')}
+            <ExprInput
+              ariaLabel="Graph channels"
+              value={object.parameters.yChannels?.kind === 'string' ? object.parameters.yChannels.value : ''}
+              onCommit={(v) => setStringParam(pageId, object.id, 'yChannels', v)}
+              mono={false}
+            />
+          </label>
+        </div>
+      )}
+
+      {contentParams.length > 0 && (
+        <div className="space-y-1.5">
+          <SectionTitle>Parameters</SectionTitle>
+          {contentParams.map(([name, p]) => (
+            <div key={name}>
+              <div className="flex items-center gap-2">
+                <span className="w-14 shrink-0 font-mono text-[11.5px] text-muted-foreground">{name}</span>
+                <ExprInput
+                  ariaLabel={`Parameter ${name}`}
+                  value={p.expr}
+                  error={p.error}
+                  onCommit={(v) => setParam(pageId, object.id, name, v)}
+                />
+                <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+                  {Number.isFinite(p.value) ? +p.value.toFixed(3) : '—'}
+                </span>
+              </div>
+              {p.error && <p className="ml-16 mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{p.error}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {!['note', 'text', 'formula', 'graph'].includes(object.geometry.kind) && (
+        <BehaviorsSection pageId={pageId} object={object} />
+      )}
+    </div>
+  )
+}
+
+function VariablesPanel({ pageId }: { pageId: string }) {
+  const variables = useDocStore((s) => s.pages[pageId]?.variables) ?? []
+  const addVariable = useDocStore((s) => s.addVariable)
+  const updateVariable = useDocStore((s) => s.updateVariable)
+  const removeVariable = useDocStore((s) => s.removeVariable)
+
+  return (
+    <div className="space-y-1.5">
+      {variables.length === 0 && (
+        <p className="py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
+          Variables are shared by every object on this page.
+          <br />
+          Try <span className="font-mono">g = 9.81</span>, then use{' '}
+          <span className="font-mono">g</span> in any parameter — even while
+          the simulation runs.
+        </p>
+      )}
+      {variables.map((v) => (
+        <div key={v.id}>
+          <div className="group flex items-center gap-1.5">
+            <ExprInput
+              ariaLabel="Variable name"
+              value={v.name}
+              onCommit={(name) =>
+                /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) && updateVariable(pageId, v.id, { name })
+              }
+            />
+            <span className="text-muted-foreground">=</span>
+            <ExprInput
+              ariaLabel={`Expression for ${v.name}`}
+              value={v.expr}
+              error={v.error}
+              onCommit={(expr) => updateVariable(pageId, v.id, { expr })}
+            />
+            <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+              {v.error ? '—' : +v.value.toFixed(3)}
+            </span>
+            <button
+              type="button"
+              aria-label={`Delete variable ${v.name}`}
+              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-[var(--accent-rose)] group-hover:opacity-100"
+              onClick={() => removeVariable(pageId, v.id)}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+          {v.error && <p className="mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{v.error}</p>}
+        </div>
+      ))}
+      <button
+        type="button"
+        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+        onClick={() => addVariable(pageId)}
+      >
+        <Plus className="h-3.5 w-3.5" /> Add variable
+      </button>
+    </div>
+  )
+}
+
+export function Inspector({ pageId }: { pageId: string }) {
+  const selection = useDocStore((s) => s.selection)
+  const object = useDocStore((s) =>
+    selection.length === 1 ? s.pages[pageId]?.objects[selection[0]] : undefined
+  )
+
+  return (
+    <motion.aside
+      initial={{ x: 16, opacity: 0 }}
+      animate={{ x: 0, opacity: 1 }}
+      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+      className="glass z-30 m-3 flex w-72 flex-col rounded-2xl"
+      aria-label="Inspector"
+    >
+      <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
+        <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
+          <TabsTrigger value="properties" className="text-[12px]">
+            Properties
+          </TabsTrigger>
+          <TabsTrigger value="variables" className="text-[12px]">
+            Variables
+          </TabsTrigger>
+        </TabsList>
+        <TabsContent value="properties" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+          {object ? (
+            <ObjectProperties pageId={pageId} object={object} />
+          ) : (
+            <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+              {selection.length > 1
+                ? `${selection.length} objects selected`
+                : 'Select an object — or draw one and give it a behavior.'}
+            </p>
+          )}
+        </TabsContent>
+        <TabsContent value="variables" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+          <VariablesPanel pageId={pageId} />
+        </TabsContent>
+      </Tabs>
+    </motion.aside>
+  )
+}
