@@ -125,6 +125,31 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
               {(spec?.params ?? []).map((ps) => {
                 const p = b.params[ps.name]
                 if (!p || p.kind !== 'number') return null
+                if (ps.name === 'collide') {
+                  const on = p.value !== 0
+                  return (
+                    <div key={ps.name} className="mt-1.5 flex items-center gap-2">
+                      <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={ps.label}>
+                        Collides
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={on}
+                        aria-label={ps.label}
+                        onClick={() => setBehaviorParam(pageId, object.id, b.id, ps.name, on ? '0' : '1')}
+                        className={cn(
+                          'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                          on
+                            ? 'bg-[var(--accent-amber)]/20 text-[var(--accent-amber)]'
+                            : 'bg-accent text-muted-foreground'
+                        )}
+                      >
+                        {on ? 'On' : 'Off'}
+                      </button>
+                    </div>
+                  )
+                }
                 return (
                   <div key={ps.name} className="mt-1.5">
                     <div className="flex items-center gap-2">
