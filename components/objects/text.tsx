@@ -10,7 +10,7 @@
 // supported in practice, and the only dependency-free way to get ranged
 // formatting. Legacy whole-box fmt* params still render as base styles.
 
-import { useEffect, useRef, type CSSProperties } from 'react'
+import { useEffect, useRef, useState, type CSSProperties } from 'react'
 import { Bold, Italic, Underline } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
@@ -187,7 +187,17 @@ export function RichTextArea({
   const setSelection = useDocStore((s) => s.setSelection)
   const ref = useRef<HTMLDivElement>(null)
   const focusedRef = useRef(false)
+  // Single click selects/drags the box like any object; only a double click
+  // enters edit mode (Canva-style). Deselecting leaves edit mode.
+  const [editing, setEditing] = useState(false)
   const value = getString(object, 'text')
+
+  useEffect(() => {
+    if (!selected && editing) {
+      setEditing(false)
+      ref.current?.blur()
+    }
+  }, [selected, editing])
 
   // External changes (undo, sync, AI) land in the DOM only while unfocused —
   // never clobber the caret mid-typing.
@@ -219,11 +229,11 @@ export function RichTextArea({
     <>
       {/* Toolbar lives OUTSIDE the clipping wrapper below — it floats above
           the box and overflow-hidden would swallow it. */}
-      {selected && <TextFormatBar onChanged={commit} />}
+      {selected && editing && <TextFormatBar onChanged={commit} />}
       <div className="h-full w-full overflow-hidden">
         <div
           ref={ref}
-          contentEditable
+          contentEditable={editing}
           suppressContentEditableWarning
           role="textbox"
           aria-multiline="true"
@@ -231,18 +241,25 @@ export function RichTextArea({
           data-placeholder={placeholder}
           className={cn(
             'h-full w-full whitespace-pre-wrap break-words leading-relaxed outline-none',
+            editing ? 'select-text cursor-text' : 'cursor-inherit',
             'empty:before:pointer-events-none empty:before:text-muted-foreground/50 empty:before:content-[attr(data-placeholder)]',
             className
           )}
           style={textFormatStyle(object)}
+          onDoubleClick={(e) => {
+            // Double click = enter edit mode and place the caret.
+            e.stopPropagation()
+            if (!editing) {
+              setEditing(true)
+              setSelection([object.id])
+              requestAnimationFrame(() => ref.current?.focus())
+            }
+          }}
           onFocus={() => {
             if (!focusedRef.current) {
               focusedRef.current = true
               pushHistory(pageId)
             }
-            // Clicking straight into the text never reaches the object
-            // wrapper (we stop propagation), so select here — that's what
-            // summons the formatting toolbar.
             setSelection([object.id])
           }}
           onBlur={() => {
@@ -250,7 +267,9 @@ export function RichTextArea({
             commit()
           }}
           onInput={commit}
-          onPointerDown={(e) => e.stopPropagation()}
+          // While NOT editing, let pointer events bubble to the object
+          // wrapper — first click selects and drags like any other object.
+          onPointerDown={(e) => editing && e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
         />
       </div>

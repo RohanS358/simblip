@@ -3,6 +3,7 @@ import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { JetBrains_Mono } from 'next/font/google'
 import { ThemeProvider } from '@/components/theme-provider'
+import { PwaRegister } from '@/components/pwa-register'
 import 'katex/dist/katex.min.css'
 import './globals.css'
 
@@ -108,6 +109,7 @@ export default function RootLayout({
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
           {children}
         </ThemeProvider>
+        <PwaRegister />
       </body>
     </html>
   )

@@ -11,7 +11,8 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
-import { num } from '@/lib/scene/types'
+import { num, uid } from '@/lib/scene/types'
+import { useWorkspaceStore } from '@/lib/store/workspace'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { nearTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
@@ -75,6 +76,32 @@ interface Gesture {
   placeComponent?: string
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
   placeTool?: Tool
+}
+
+type CtxItem = [label: string, action: () => void, danger?: boolean]
+
+function ctxMenuItems(
+  objectId: string | null,
+  editing: boolean,
+  pageId: string,
+  duplicateObject: (id: string) => void,
+  restack: (id: string, where: 'front' | 'back') => void
+): CtxItem[] {
+  const toggleInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
+  if (!objectId) {
+    return [
+      ['Toggle inspector', toggleInspector],
+      ['Reset view', () => useDocStore.getState().setViewport(pageId, { x: 0, y: 0, zoom: 1 })],
+    ]
+  }
+  if (!editing) return [['Properties', toggleInspector]] // Play mode: hands off
+  return [
+    ['Properties', toggleInspector],
+    ['Duplicate', () => duplicateObject(objectId)],
+    ['Bring to front', () => restack(objectId, 'front')],
+    ['Send to back', () => restack(objectId, 'back')],
+    ['Delete', () => useDocStore.getState().removeObjects(pageId, [objectId]), true],
+  ]
 }
 
 const ObjectView = memo(function ObjectView({
@@ -193,6 +220,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     h: number
     round: boolean
   } | null>(null)
+  // Custom right-click menu: screen-space position + the object under it.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; objectId: string | null } | null>(null)
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -732,6 +761,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   }
 
   const handleObjectPointerDown = (e: React.PointerEvent, id: string) => {
+    setCtxMenu(null)
     if ((tool !== 'select' && editing) || e.button !== 0) return
     e.stopPropagation()
     const store = useDocStore.getState()
@@ -816,18 +846,59 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     })
   }
 
+  // ── Custom right-click menu ───────────────────────────────────────────────
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault() // the browser menu never belongs on the canvas
+    const rect = containerRef.current!.getBoundingClientRect()
+    const hit = (e.target as HTMLElement).closest?.('[data-object-id]')
+    const objectId = hit?.getAttribute('data-object-id') ?? null
+    if (objectId) useDocStore.getState().setSelection([objectId])
+    setCtxMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, objectId })
+  }
+
+  const duplicateObject = (id: string) => {
+    const store = useDocStore.getState()
+    const src = store.pages[pageId]?.objects[id]
+    if (!src) return
+    const clone: SceneObject = JSON.parse(JSON.stringify(src))
+    clone.id = uid()
+    clone.name = `${src.name} copy`
+    clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
+    clone.z = Date.now() % 1_000_000
+    clone.behaviors.forEach((b) => (b.id = uid()))
+    store.addObject(pageId, clone)
+    store.setSelection([clone.id])
+  }
+
+  const restack = (id: string, where: 'front' | 'back') => {
+    const store = useDocStore.getState()
+    const zs = Object.values(store.pages[pageId]?.objects ?? {}).map((o) => o.z)
+    store.updateObject(
+      pageId,
+      id,
+      { z: where === 'front' ? Math.max(...zs, 0) + 1 : Math.min(...zs, 0) - 1 },
+      { history: true }
+    )
+  }
+
   const cursor = tool === 'pen' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
 
   return (
     <div
       ref={containerRef}
-      className="canvas-dots relative h-full w-full touch-none overflow-hidden bg-background"
+      // select-none: mouse drags must marquee/move, never highlight text —
+      // editing text re-enables selection locally via select-text.
+      className="canvas-dots relative h-full w-full touch-none select-none overflow-hidden bg-background"
       style={{
         cursor: editing ? cursor : 'default',
         backgroundSize: `${GRID * viewport.zoom}px ${GRID * viewport.zoom}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
       }}
-      onPointerDown={handleBackgroundPointerDown}
+      onPointerDown={(e) => {
+        setCtxMenu(null)
+        handleBackgroundPointerDown(e)
+      }}
+      onContextMenu={handleContextMenu}
       role="application"
       aria-label="Infinite canvas"
     >
@@ -952,6 +1023,32 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               setQuickLabel(null)
             }}
           />
+        </div>
+      )}
+
+      {ctxMenu && (
+        <div
+          className="glass-strong absolute z-50 w-48 rounded-xl p-1 text-[12.5px]"
+          style={{ left: Math.min(ctxMenu.x, (containerRef.current?.clientWidth ?? 400) - 200), top: ctxMenu.y }}
+          onPointerDown={(e) => e.stopPropagation()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {ctxMenuItems(ctxMenu.objectId, editing, pageId, duplicateObject, restack).map(([label, action, danger]) => (
+            <button
+              key={label}
+              type="button"
+              className={cn(
+                'flex w-full items-center rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent',
+                danger && 'text-[var(--accent-rose)]'
+              )}
+              onClick={() => {
+                action()
+                setCtxMenu(null)
+              }}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       )}
 
