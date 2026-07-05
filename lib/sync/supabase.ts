@@ -118,7 +118,9 @@ async function pushPages(ws: string, pageIds: string[]) {
       updated_at: new Date().toISOString(),
     }))
   if (rows.length === 0) return
-  const { error } = await supabase!.from('simblip_pages').upsert(rows)
+  // Composite key: a page id can exist under many accounts; conflicts are
+  // resolved only within this user's workspace.
+  const { error } = await supabase!.from('simblip_pages').upsert(rows, { onConflict: 'workspace_id,id' })
   if (error) throw new Error(error.message)
 }
 

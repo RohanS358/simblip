@@ -4,7 +4,7 @@
 // engine is the product — hence the transport sits front and center.
 
 import { useEffect, useState } from 'react'
-import { PanelLeft, PanelRight, Sun, Moon } from 'lucide-react'
+import { PanelLeft, PanelRight, Sun, Moon, HelpCircle } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
@@ -18,6 +18,7 @@ import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
 import { AccountButton } from './account'
+import { Tutorial } from './tutorial'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
@@ -78,6 +79,15 @@ export function WorkspaceShell() {
   // a server/client markup mismatch.
   const [ready, setReady] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  // Hands-on tutorial: auto-opens once for new users; ? reopens it anytime.
+  const [showTutorial, setShowTutorial] = useState(false)
+  useEffect(() => {
+    if (!localStorage.getItem('simblip-tutorial-done')) setShowTutorial(true)
+  }, [])
+  const closeTutorial = () => {
+    localStorage.setItem('simblip-tutorial-done', '1')
+    setShowTutorial(false)
+  }
   const { resolvedTheme, setTheme } = useTheme()
 
   const activePageId = useWorkspaceStore((s) => s.activePageId)
@@ -137,6 +147,17 @@ export function WorkspaceShell() {
         <AccountButton />
         <button
           type="button"
+          aria-label="Open tutorial"
+          className={cn(
+            'rounded-lg p-1.5 transition-colors hover:bg-accent',
+            showTutorial ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          onClick={() => setShowTutorial(true)}
+        >
+          <HelpCircle className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           aria-label="Toggle theme"
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
@@ -167,6 +188,7 @@ export function WorkspaceShell() {
               <Toolbar paletteOpen={paletteOpen} onTogglePalette={() => setPaletteOpen((o) => !o)} />
               <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
               <AiPanel pageId={activePageId} />
+              {showTutorial && <Tutorial pageId={activePageId} onClose={closeTutorial} />}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
