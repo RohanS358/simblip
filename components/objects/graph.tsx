@@ -9,6 +9,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
   Legend,
+  Tooltip,
 } from 'recharts'
 import { subscribe, readBuffer, decimate } from '@/lib/physics/bus'
 import { getString, type ObjectRendererProps } from './types'
@@ -74,6 +75,21 @@ export function GraphObject({ object }: ObjectRendererProps) {
                 fontSize={10}
               />
               <YAxis stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} width={46} />
+              <Tooltip
+                isAnimationActive={false}
+                cursor={{ stroke: 'var(--ring)', strokeWidth: 1, strokeDasharray: '3 3' }}
+                labelFormatter={(v) => `${xChannel} = ${Number(v).toFixed(3)}`}
+                formatter={(value: number | string) => Number(value).toPrecision(4)}
+                contentStyle={{
+                  background: 'var(--card)',
+                  border: '1px solid var(--border)',
+                  borderRadius: 8,
+                  fontSize: 10.5,
+                  fontFamily: 'var(--font-mono, monospace)',
+                  padding: '4px 8px',
+                }}
+                labelStyle={{ color: 'var(--muted-foreground)', marginBottom: 2 }}
+              />
               <Legend wrapperStyle={{ fontSize: 10.5 }} iconSize={8} />
               {channels.map((c, i) => (
                 <Line

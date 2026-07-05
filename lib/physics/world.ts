@@ -144,10 +144,27 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
   return body
 }
 
-function compiledParam(obj: SceneObject, behaviorType: string, name: string, fallback: number) {
-  const b = obj.behaviors.find((x) => x.enabled && x.type === behaviorType)
-  const p = b?.params[name]
-  return p?.kind === 'number' ? compileExpr(p.expr, p.value) : () => fallback
+// Live behavior expression: re-reads the param from the store each call and
+// recompiles when the user edits it mid-run — a running experiment follows
+// both variable changes AND direct expression edits.
+function compiledParam(
+  pageId: string,
+  objectId: string,
+  behaviorType: string,
+  name: string,
+  fallback: number
+) {
+  let expr: string | null = null
+  let fn: (s: Scope) => number = () => fallback
+  return (scope: Scope) => {
+    const obj = useDocStore.getState().pages[pageId]?.objects[objectId]
+    const p = obj?.behaviors.find((x) => x.enabled && x.type === behaviorType)?.params[name]
+    if (p?.kind === 'number' && p.expr !== expr) {
+      expr = p.expr
+      fn = compileExpr(p.expr, p.value)
+    }
+    return fn(scope)
+  }
 }
 
 function endpointWorld(obj: SceneObject, index: 0 | 1): { x: number; y: number } {
@@ -171,18 +188,17 @@ export function buildWorld(pageId: string): World {
     if (!kind) continue
     const body = makeBody(obj, kind)
     if (!body) continue
-    const motors = obj.behaviors
-      .filter((b) => b.enabled && b.type === 'motor')
-      .map((b) => {
-        const p = b.params.speed
-        return p?.kind === 'number' ? compileExpr(p.expr, p.value) : () => 0
-      })
-    const forces = obj.behaviors
-      .filter((b) => b.enabled && b.type === 'force')
-      .map((b) => ({
-        fx: b.params.fx?.kind === 'number' ? compileExpr(b.params.fx.expr, 0) : () => 0,
-        fy: b.params.fy?.kind === 'number' ? compileExpr(b.params.fy.expr, 0) : () => 0,
-      }))
+    const motors = obj.behaviors.some((b) => b.enabled && b.type === 'motor')
+      ? [compiledParam(pageId, obj.id, 'motor', 'speed', 0)]
+      : []
+    const forces = obj.behaviors.some((b) => b.enabled && b.type === 'force')
+      ? [
+          {
+            fx: compiledParam(pageId, obj.id, 'force', 'fx', 0),
+            fy: compiledParam(pageId, obj.id, 'force', 'fy', 0),
+          },
+        ]
+      : []
     bodies.push({
       objectId: obj.id,
       body,
@@ -221,10 +237,13 @@ export function buildWorld(pageId: string): World {
         objectId: obj.id,
         constraint,
         render: (obj.metadata.render as string) ?? (conn.type === 'spring' ? 'spring' : conn.type === 'rope' ? 'rope' : conn.type === 'damper' ? 'damper' : undefined),
-        k: conn.type === 'spring' ? compiledParam(obj, 'spring', 'k', 20) : undefined,
+        k: conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'k', 20) : undefined,
         damping:
-          conn.type !== 'rod' ? compiledParam(obj, conn.type, 'damping', 0.05) : undefined,
-        restScale: conn.type === 'spring' ? compiledParam(obj, 'spring', 'restScale', 1) : undefined,
+          conn.type !== 'rod'
+            ? compiledParam(pageId, obj.id, conn.type, 'damping', 0.05)
+            : undefined,
+        restScale:
+          conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'restScale', 1) : undefined,
         rest0,
       })
     }

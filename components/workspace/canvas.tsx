@@ -26,7 +26,7 @@ const GRID = 24
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 4
 
-type GestureMode = 'idle' | 'pan' | 'move' | 'marquee' | 'draw' | 'resize'
+type GestureMode = 'idle' | 'pan' | 'move' | 'marquee' | 'draw' | 'resize' | 'rotate'
 
 interface Gesture {
   mode: GestureMode
@@ -37,6 +37,10 @@ interface Gesture {
   objectStartPositions: Map<string, Vec2>
   resizeId?: string
   resizeStart?: { w: number; h: number }
+  rotateId?: string
+  rotateCenter?: Vec2
+  rotateStartAngle?: number
+  rotateStartRotation?: number
 }
 
 const ObjectView = memo(function ObjectView({
@@ -45,12 +49,14 @@ const ObjectView = memo(function ObjectView({
   selected,
   onPointerDown,
   onResizeStart,
+  onRotateStart,
 }: {
   pageId: string
   object: SceneObject
   selected: boolean
   onPointerDown: (e: React.PointerEvent, id: string) => void
   onResizeStart: (e: React.PointerEvent, id: string) => void
+  onRotateStart: (e: React.PointerEvent, id: string) => void
 }) {
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
   if (!Renderer) return null
@@ -76,7 +82,7 @@ const ObjectView = memo(function ObjectView({
       <div
         className={cn(
           'h-full w-full rounded-xl',
-          selected && 'ring-2 ring-[var(--ring)] ring-offset-2 ring-offset-transparent'
+          selected && 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent'
         )}
         style={{ transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined }}
       >
@@ -86,9 +92,22 @@ const ObjectView = memo(function ObjectView({
         <div
           role="button"
           aria-label="Resize"
-          className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 cursor-se-resize rounded-full border-2 border-[var(--ring)] bg-background"
+          className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-se-resize rounded-full border border-[var(--ring)] bg-background"
           onPointerDown={(e) => onResizeStart(e, object.id)}
         />
+      )}
+      {selected && (
+        // Canva-style rotation grip above the selection box.
+        <div
+          role="button"
+          aria-label="Rotate"
+          className="absolute -top-6 left-1/2 flex -translate-x-1/2 flex-col items-center"
+          style={{ cursor: 'grab' }}
+          onPointerDown={(e) => onRotateStart(e, object.id)}
+        >
+          <div className="h-3 w-3 rounded-full border border-[var(--ring)] bg-background" />
+          <div className="h-2.5 w-px bg-[var(--ring)] opacity-60" />
+        </div>
       )}
     </div>
   )
@@ -235,6 +254,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             h: Math.max(16, g.resizeStart.h + dyScreen / zoom),
           },
         })
+      } else if (g.mode === 'rotate' && g.rotateId && g.rotateCenter) {
+        const angle = Math.atan2(point.y - g.rotateCenter.y, point.x - g.rotateCenter.x)
+        let deg =
+          (g.rotateStartRotation ?? 0) + ((angle - (g.rotateStartAngle ?? 0)) * 180) / Math.PI
+        // Shift snaps to 15° steps, like Figma/Canva.
+        if (e.shiftKey) deg = Math.round(deg / 15) * 15
+        deg = ((deg % 360) + 360) % 360
+        store.updateObject(pageId, g.rotateId, { rotation: Math.round(deg * 10) / 10 })
       }
     },
     [pageId, toCanvas]
@@ -401,6 +428,26 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     beginGesture('resize', e, { resizeId: id, resizeStart: { ...obj.size } })
   }
 
+  const handleRotateStart = (e: React.PointerEvent, id: string) => {
+    if (!editing) return
+    e.stopPropagation()
+    const store = useDocStore.getState()
+    const obj = store.pages[pageId]?.objects[id]
+    if (!obj) return
+    store.pushHistory(pageId)
+    const center = {
+      x: obj.position.x + obj.size.w / 2,
+      y: obj.position.y + obj.size.h / 2,
+    }
+    const p = toCanvas(e.clientX, e.clientY)
+    beginGesture('rotate', e, {
+      rotateId: id,
+      rotateCenter: center,
+      rotateStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
+      rotateStartRotation: obj.rotation,
+    })
+  }
+
   const cursor = tool === 'pen' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
 
   return (
@@ -432,6 +479,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               selected={selection.includes(obj.id)}
               onPointerDown={handleObjectPointerDown}
               onResizeStart={handleResizeStart}
+              onRotateStart={handleRotateStart}
             />
           ))}
 
