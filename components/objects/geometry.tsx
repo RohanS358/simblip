@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
-import { TERMINALS } from '@/lib/circuit/engine'
+import { terminalsOf } from '@/lib/circuit/engine'
 import type { ObjectRendererProps } from './types'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
@@ -73,19 +73,20 @@ const GLYPHS: Record<string, React.ReactNode> = {
   ),
   mosfet: <path d="M4 24 h28 M36 12 v24 M44 10 v8 M44 20 v8 M44 30 v8 M44 14 h24 v-8 M44 34 h24 v8 M44 24 h16" />,
   opamp: <path d="M24 6 v36 l48 -18 z M8 15 h16 M8 33 h16 M72 24 h16 M29 15 h6 M32 12 v6 M29 33 h6" />,
-  'and-gate': <path d="M24 8 h28 a16 16 0 0 1 0 32 h-28 z M4 16 h20 M4 32 h20 M68 24 h24" fill="none" />,
-  'or-gate': (
-    <path d="M20 8 q14 16 0 32 q30 0 48 -16 q-18 -16 -48 -16 z M4 16 h22 M4 32 h22 M68 24 h24" fill="none" />
-  ),
+  // Variable-model symbols (N-input gates, mux, decoder) carry only their
+  // body here — pin stubs are drawn dynamically from terminalsOf() so they
+  // always line up with the chosen model. See STUB_EXTENTS below.
+  'and-gate': <path d="M24 8 h28 a16 16 0 0 1 0 32 h-28 z" fill="none" />,
+  'or-gate': <path d="M20 8 q14 16 0 32 q30 0 48 -16 q-18 -16 -48 -16 z" fill="none" />,
   'xor-gate': (
-    <path d="M26 8 q14 16 0 32 q30 0 46 -16 q-16 -16 -46 -16 z M18 8 q14 16 0 32 M4 16 h18 M4 32 h18 M72 24 h20" fill="none" />
+    <path d="M26 8 q14 16 0 32 q30 0 46 -16 q-16 -16 -46 -16 z M18 8 q14 16 0 32" fill="none" />
   ),
   'not-gate': <path d="M28 8 v32 l36 -16 z M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M4 24 h24 M72 24 h20" fill="none" />,
   'nand-gate': (
-    <path d="M20 8 h28 a16 16 0 0 1 0 32 h-28 z M4 16 h16 M4 32 h16 M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M72 24 h20" fill="none" />
+    <path d="M20 8 h28 a16 16 0 0 1 0 32 h-28 z M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0" fill="none" />
   ),
   'nor-gate': (
-    <path d="M16 8 q14 16 0 32 q28 0 44 -16 q-16 -16 -44 -16 z M4 16 h18 M4 32 h18 M60 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M68 24 h24" fill="none" />
+    <path d="M16 8 q14 16 0 32 q28 0 44 -16 q-16 -16 -44 -16 z M60 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0" fill="none" />
   ),
   bulb: (
     <>
@@ -134,7 +135,7 @@ const GLYPHS: Record<string, React.ReactNode> = {
   ),
   mux: (
     <>
-      <path d="M28 4 L64 14 V34 L28 44 z M4 12 h24 M4 24 h24 M4 36 h24 M64 24 h28" fill="none" />
+      <path d="M28 4 L64 14 V34 L28 44 z" fill="none" />
       <text x="38" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">MUX</text>
     </>
   ),
@@ -166,7 +167,7 @@ const GLYPHS: Record<string, React.ReactNode> = {
   ),
   decoder: (
     <>
-      <path d="M26 4 h44 v40 h-44 z M4 16 h22 M4 32 h22 M70 9.6 h22 M70 19.2 h22 M70 28.8 h22 M70 38.4 h22" fill="none" />
+      <path d="M26 4 h44 v40 h-44 z" fill="none" />
       <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">DEC</text>
     </>
   ),
@@ -185,13 +186,40 @@ const GLOW_POS: Record<string, { cx: number; cy: number; r: number }> = {
   output: { cx: 32, cy: 24, r: 15 },
 }
 
+// Body extents for variable-model symbols: where dynamic pin stubs stop on
+// the left and start on the right (bottom stubs are vertical, into the body).
+const STUB_EXTENTS: Record<string, { leftEnd: number; rightStart: number }> = {
+  'and-gate': { leftEnd: 26, rightStart: 68 },
+  'or-gate': { leftEnd: 24, rightStart: 68 },
+  'xor-gate': { leftEnd: 21, rightStart: 72 },
+  'nand-gate': { leftEnd: 22, rightStart: 72 },
+  'nor-gate': { leftEnd: 20, rightStart: 68 },
+  mux: { leftEnd: 30, rightStart: 64 },
+  decoder: { leftEnd: 28, rightStart: 70 },
+}
+
 function SymbolGlyph({ obj }: { obj: SceneObject }) {
   const name = obj.geometry.symbol ?? ''
   const glyph = GLYPHS[name]
   const glow = GLOW_POS[name]
-  const terminals = TERMINALS[name] ?? []
+  const terminals = terminalsOf(obj)
+  const stubExt = STUB_EXTENTS[name]
+  // Pin stubs generated from the live terminal layout (glyph space 96×48).
+  const stubPath = stubExt
+    ? terminals
+        .map((td) =>
+          td.y === 1
+            ? `M${(td.x * 96).toFixed(1)} 46 V34`
+            : td.x === 0
+              ? `M4 ${(td.y * 48).toFixed(1)} H${stubExt.leftEnd}`
+              : `M${stubExt.rightStart} ${(td.y * 48).toFixed(1)} H92`
+        )
+        .join(' ')
+    : ''
   const digital = obj.geometry.domain === 'digital'
-  const firstParam = Object.entries(obj.parameters).find(([, p]) => p.kind === 'number')
+  const firstParam = Object.entries(obj.parameters).find(
+    ([n, p]) => p.kind === 'number' && n !== 'inputs'
+  )
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center">
       <svg
@@ -217,6 +245,7 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
             style={{ opacity: 0, transition: 'opacity 120ms linear' }}
           />
         )}
+        {stubPath && <path d={stubPath} fill="none" />}
         {glyph ?? (
           <>
             <rect x="16" y="8" width="64" height="32" rx="6" />

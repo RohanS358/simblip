@@ -14,7 +14,7 @@ import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num } from '@/lib/scene/types'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
-import { nearTerminal, TERMINALS, terminalWorld, SNAP } from '@/lib/circuit/engine'
+import { nearTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize } from '@/lib/sketch/recognize'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
@@ -319,14 +319,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           let pinned = false
           outer: for (const [id, sp0] of g.objectStartPositions) {
             const obj = page.objects[id]
-            const defs = obj?.geometry.kind === 'symbol' ? TERMINALS[obj.geometry.symbol ?? ''] : undefined
+            const defs = obj?.geometry.kind === 'symbol' ? terminalsOf(obj) : undefined
             if (!obj || !defs) continue
             const proposed = { ...obj, position: { x: sp0.x + dx, y: sp0.y + dy } }
             for (const td of defs) {
               const mp = terminalWorld(proposed, td)
               for (const so of statics) {
                 if (so.geometry.kind !== 'symbol') continue
-                for (const sd of TERMINALS[so.geometry.symbol ?? ''] ?? []) {
+                for (const sd of terminalsOf(so)) {
                   const tp = terminalWorld(so, sd)
                   if (Math.hypot(tp.x - mp.x, tp.y - mp.y) < SNAP / zoom + 4) {
                     dx += tp.x - mp.x

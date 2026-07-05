@@ -120,6 +120,57 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
   ], // [A, B, A<B, A=B, A>B]
 }
 
+// ── Variable component models ───────────────────────────────────────────────
+// Gates take 2–8 inputs, MUX is 2:1 or 4:1, decoder 2:4 or 3:8 — chosen via
+// an `inputs` number param on the object (absent = the familiar default).
+// Terminals, glyph stubs and the logic pass all derive from terminalsOf().
+
+export const VARIABLE_INPUTS = new Set(['and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate'])
+
+export function inputCountOf(obj: SceneObject): number {
+  const sym = obj.geometry.symbol ?? ''
+  const p = obj.parameters.inputs
+  const raw = p?.kind === 'number' ? Math.round(p.value) : NaN
+  if (VARIABLE_INPUTS.has(sym)) return Number.isFinite(raw) ? Math.min(8, Math.max(2, raw)) : 2
+  if (sym === 'mux') return raw === 4 ? 4 : 2
+  if (sym === 'decoder') return raw === 3 ? 3 : 2
+  return 0
+}
+
+/** Terminal layout for an object, honoring its model (input count). */
+export function terminalsOf(obj: SceneObject): TerminalDef[] {
+  const sym = obj.geometry.symbol ?? ''
+  const n = inputCountOf(obj)
+  if (VARIABLE_INPUTS.has(sym) && n > 2) {
+    return [
+      ...Array.from({ length: n }, (_, i) => ({ x: 0, y: (i + 1) / (n + 1) })),
+      { x: 1, y: 0.5 },
+    ]
+  }
+  if (sym === 'mux' && n === 4) {
+    // [in0..in3, sel0, sel1, out] — selects enter from the bottom.
+    return [
+      { x: 0, y: 0.2 },
+      { x: 0, y: 0.4 },
+      { x: 0, y: 0.6 },
+      { x: 0, y: 0.8 },
+      { x: 0.38, y: 1 },
+      { x: 0.62, y: 1 },
+      { x: 1, y: 0.5 },
+    ]
+  }
+  if (sym === 'decoder' && n === 3) {
+    // [A, B, C, Y0..Y7]
+    return [
+      { x: 0, y: 0.25 },
+      { x: 0, y: 0.5 },
+      { x: 0, y: 0.75 },
+      ...Array.from({ length: 8 }, (_, i) => ({ x: 1, y: (i + 1) / 9 })),
+    ]
+  }
+  return TERMINALS[sym] ?? []
+}
+
 const GATES = new Set(['and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate', 'not-gate'])
 const DIGITAL = new Set([
   ...GATES,
@@ -219,7 +270,7 @@ export function nearTerminal(
 ): boolean {
   for (const o of objects) {
     if (!isElectrical(o)) continue
-    for (const t of TERMINALS[o.geometry.symbol!] ?? []) {
+    for (const t of terminalsOf(o)) {
       const w = terminalWorld(o, t)
       if (Math.hypot(w.x - p.x, w.y - p.y) < snap) return true
     }
@@ -286,7 +337,7 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
   let itemCount = 0
   comps.forEach((o, ci) => {
     termBase.push(itemCount)
-    const defs = TERMINALS[o.geometry.symbol!] ?? []
+    const defs = terminalsOf(o)
     defs.forEach((td, ti) => {
       const w = terminalWorld(o, td)
       termPts.push({ comp: ci, term: ti, x: w.x, y: w.y, item: itemCount++ })
@@ -341,7 +392,7 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
 
   let nVsrc = 0
   const circComps: CircuitComponent[] = comps.map((o, ci) => {
-    const defs = TERMINALS[o.geometry.symbol!] ?? []
+    const defs = terminalsOf(o)
     const nets = defs.map((_, ti) => netId(termPts[termBase[ci] + ti].item))
     const symbol = o.geometry.symbol!
     const comp: CircuitComponent = {
@@ -735,19 +786,34 @@ function stepDigital(
         if (s === 'not-gate') {
           L[comp.nets[1]] = L[comp.nets[0]] ? 0 : 1
         } else {
-          const a = L[comp.nets[0]] ?? 0
-          const b = L[comp.nets[1]] ?? 0
+          // N-input gates: the last net is the output, the rest are inputs.
+          const nIn = comp.nets.length - 1
+          let and = 1
+          let or = 0
+          let xor = 0
+          for (let i = 0; i < nIn; i++) {
+            const bit = L[comp.nets[i]] ?? 0
+            and &= bit
+            or |= bit
+            xor ^= bit
+          }
           const out =
-            s === 'and-gate' ? a & b
-            : s === 'or-gate' ? a | b
-            : s === 'xor-gate' ? a ^ b
-            : s === 'nand-gate' ? 1 - (a & b)
-            : 1 - (a | b) // nor
-          L[comp.nets[2]] = out
+            s === 'and-gate' ? and
+            : s === 'or-gate' ? or
+            : s === 'xor-gate' ? xor
+            : s === 'nand-gate' ? 1 - and
+            : 1 - or // nor
+          L[comp.nets[nIn]] = out
         }
       } else if (s === 'mux') {
-        const [i0, i1, sel, out] = comp.nets
-        L[out] = (L[sel] ? L[i1] : L[i0]) ?? 0
+        if (comp.nets.length === 7) {
+          // 4:1 — [in0..in3, sel0, sel1, out]
+          const idx = (L[comp.nets[4]] ?? 0) + 2 * (L[comp.nets[5]] ?? 0)
+          L[comp.nets[6]] = L[comp.nets[idx]] ?? 0
+        } else {
+          const [i0, i1, sel, out] = comp.nets
+          L[out] = (L[sel] ? L[i1] : L[i0]) ?? 0
+        }
       } else if (s === 'half-adder') {
         const [a, b, sum, carry] = comp.nets
         L[sum] = (L[a] ?? 0) ^ (L[b] ?? 0)
@@ -758,9 +824,11 @@ function stepDigital(
         L[sum] = total & 1
         L[cout] = total >> 1
       } else if (s === 'decoder') {
-        const [a, b, ...ys] = comp.nets
-        const idx = (L[a] ?? 0) + 2 * (L[b] ?? 0)
-        ys.forEach((y, i) => (L[y] = i === idx ? 1 : 0))
+        // 2:4 (6 nets) or 3:8 (11 nets); address bits are LSB-first.
+        const nIn = comp.nets.length > 6 ? 3 : 2
+        let idx = 0
+        for (let i = 0; i < nIn; i++) idx += (L[comp.nets[i]] ?? 0) << i
+        comp.nets.slice(nIn).forEach((y, i) => (L[y] = i === idx ? 1 : 0))
       } else if (s === 'comparator') {
         const [a, b, lt, eq, gt] = comp.nets
         const av = L[a] ?? 0

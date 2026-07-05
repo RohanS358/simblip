@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import type { SceneObject } from '@/lib/scene/types'
+import { num, type SceneObject } from '@/lib/scene/types'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. */
 function ExprInput({
@@ -217,6 +217,26 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
 }
 
 const GRAPH_CHANNELS = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
+
+// Component models: symbols whose pin layout is selectable. The chosen
+// input count lives in an `inputs` param; terminals, glyph and solver all
+// follow it (lib/circuit/engine.ts terminalsOf).
+const GATE_MODELS = [2, 3, 4, 5, 6, 8].map((n) => ({ value: n, label: `${n}-input` }))
+const MODEL_OPTIONS: Record<string, { value: number; label: string }[]> = {
+  'and-gate': GATE_MODELS,
+  'or-gate': GATE_MODELS,
+  'xor-gate': GATE_MODELS,
+  'nand-gate': GATE_MODELS,
+  'nor-gate': GATE_MODELS,
+  mux: [
+    { value: 2, label: '2:1 (1 select)' },
+    { value: 4, label: '4:1 (2 selects)' },
+  ],
+  decoder: [
+    { value: 2, label: '2:4' },
+    { value: 3, label: '3:8' },
+  ],
+}
 
 const getStr = (obj: SceneObject, name: string): string => {
   const p = obj.parameters[name]
@@ -489,7 +509,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   const updateObject = useDocStore((s) => s.updateObject)
   const page = useDocStore((s) => s.pages[pageId])
 
-  const contentParams = Object.entries(object.parameters).filter(([, p]) => p.kind === 'number') as [
+  const contentParams = Object.entries(object.parameters).filter(
+    // `inputs` is structural (component model) — the Model dropdown owns it.
+    ([name, p]) => p.kind === 'number' && name !== 'inputs'
+  ) as [
     string,
     Extract<SceneObject['parameters'][string], { kind: 'number' }>,
   ][]
@@ -548,6 +571,38 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           )}
         </div>
       </div>
+
+      {object.geometry.kind === 'symbol' && MODEL_OPTIONS[object.geometry.symbol ?? ''] && (
+        <div className="space-y-1.5">
+          <SectionTitle>Model</SectionTitle>
+          <select
+            aria-label="Component model"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none focus:border-[var(--ring)]"
+            value={
+              object.parameters.inputs?.kind === 'number'
+                ? Math.round(object.parameters.inputs.value)
+                : MODEL_OPTIONS[object.geometry.symbol ?? ''][0].value
+            }
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, inputs: num(e.target.value) } },
+                { history: true }
+              )
+            }
+          >
+            {MODEL_OPTIONS[object.geometry.symbol ?? ''].map((m) => (
+              <option key={m.value} value={m.value}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+            Pins move to match — rewire connections after changing the model.
+          </p>
+        </div>
+      )}
 
       {object.metadata.render === 'system' && (
         <div className="space-y-1.5">
