@@ -14,7 +14,8 @@ import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num } from '@/lib/scene/types'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
-import { nearTerminal } from '@/lib/circuit/engine'
+import { nearTerminal, TERMINALS, terminalWorld, SNAP } from '@/lib/circuit/engine'
+import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize } from '@/lib/sketch/recognize'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { registerElement, useRuntimeStore } from '@/lib/physics/world'
@@ -26,7 +27,20 @@ const GRID = 24
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 4
 
-type GestureMode = 'idle' | 'pan' | 'move' | 'marquee' | 'draw' | 'resize' | 'rotate'
+// Palette components that are line-like connectors: placed by dragging
+// from one anchor point to the other instead of click-to-spawn.
+const CONNECTOR_IDS = new Set(['spring', 'rope', 'rod', 'damper'])
+
+// Inside a system boundary, recognized doodle shapes become that domain's
+// components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
+const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
+  mechanics: { circle: 'mass', rect: 'block' },
+  electrical: { spring: 'resistor', rect: 'battery', circle: 'bulb', polygon: 'capacitor' },
+  electronics: { spring: 'resistor', circle: 'bjt', polygon: 'diode', rect: 'mosfet' },
+  digital: { rect: 'and-gate', circle: 'or-gate', polygon: 'xor-gate', spring: 'clock' },
+}
+
+type GestureMode = 'idle' | 'pan' | 'move' | 'marquee' | 'draw' | 'resize' | 'rotate' | 'placeLine'
 
 interface Gesture {
   mode: GestureMode
@@ -43,6 +57,8 @@ interface Gesture {
   rotateCenter?: Vec2
   rotateStartAngle?: number
   rotateStartRotation?: number
+  /** Palette component id for drag-to-draw connectors (rope, spring, rod…). */
+  placeComponent?: string
 }
 
 const ObjectView = memo(function ObjectView({
@@ -147,6 +163,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
   const [stroke, setStroke] = useState<number[][] | null>(null)
+  // Snap assistant: alignment guide lines + terminal connection points,
+  // populated during move gestures and cleared on release.
+  const [guides, setGuides] = useState<{ v: number[]; h: number[]; pts: Vec2[] } | null>(null)
+  // Ink annotation: a tiny scribble near a component opens this mini input;
+  // its text sets the nearest component's value ("100k", "9V") or name.
+  const [quickLabel, setQuickLabel] = useState<{ x: number; y: number; id: string } | null>(null)
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -256,11 +278,91 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const point = toCanvas(e.clientX, e.clientY)
 
       if (g.mode === 'move') {
-        const dx = point.x - g.start.x
-        const dy = point.y - g.start.y
+        let dx = point.x - g.start.x
+        let dy = point.y - g.start.y
+        const page = store.pages[pageId]
+        const newGuides: { v: number[]; h: number[]; pts: Vec2[] } = { v: [], h: [], pts: [] }
+
+        // Snap assistant (hold Alt to move freely).
+        if (!e.altKey && page && g.objectStartPositions.size > 0) {
+          const zoom = g.startViewport.zoom
+          const th = 6 / zoom
+          const movingIds = new Set(g.objectStartPositions.keys())
+          const statics = Object.values(page.objects).filter((o) => !movingIds.has(o.id))
+
+          // 1) Electrical terminals click together exactly — a solid
+          // connection beats mere alignment, so it wins outright.
+          let pinned = false
+          outer: for (const [id, sp0] of g.objectStartPositions) {
+            const obj = page.objects[id]
+            const defs = obj?.geometry.kind === 'symbol' ? TERMINALS[obj.geometry.symbol ?? ''] : undefined
+            if (!obj || !defs) continue
+            const proposed = { ...obj, position: { x: sp0.x + dx, y: sp0.y + dy } }
+            for (const td of defs) {
+              const mp = terminalWorld(proposed, td)
+              for (const so of statics) {
+                if (so.geometry.kind !== 'symbol') continue
+                for (const sd of TERMINALS[so.geometry.symbol ?? ''] ?? []) {
+                  const tp = terminalWorld(so, sd)
+                  if (Math.hypot(tp.x - mp.x, tp.y - mp.y) < SNAP / zoom + 4) {
+                    dx += tp.x - mp.x
+                    dy += tp.y - mp.y
+                    newGuides.pts.push(tp)
+                    pinned = true
+                    break outer
+                  }
+                }
+              }
+            }
+          }
+
+          // 2) Edges & centers align against every other object, per axis —
+          // centers included, so finding a rigid body's middle is free.
+          if (!pinned) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+            for (const [id, sp0] of g.objectStartPositions) {
+              const o = page.objects[id]
+              if (!o) continue
+              minX = Math.min(minX, sp0.x + dx)
+              maxX = Math.max(maxX, sp0.x + dx + o.size.w)
+              minY = Math.min(minY, sp0.y + dy)
+              maxY = Math.max(maxY, sp0.y + dy + o.size.h)
+            }
+            if (Number.isFinite(minX)) {
+              const mxs = [minX, (minX + maxX) / 2, maxX]
+              const mys = [minY, (minY + maxY) / 2, maxY]
+              let bestX: { d: number; adj: number; at: number } | null = null
+              let bestY: { d: number; adj: number; at: number } | null = null
+              for (const so of statics) {
+                const sxs = [so.position.x, so.position.x + so.size.w / 2, so.position.x + so.size.w]
+                const sys = [so.position.y, so.position.y + so.size.h / 2, so.position.y + so.size.h]
+                for (const mv of mxs)
+                  for (const sv of sxs) {
+                    const d = Math.abs(sv - mv)
+                    if (d < th && (!bestX || d < bestX.d)) bestX = { d, adj: sv - mv, at: sv }
+                  }
+                for (const mv of mys)
+                  for (const sv of sys) {
+                    const d = Math.abs(sv - mv)
+                    if (d < th && (!bestY || d < bestY.d)) bestY = { d, adj: sv - mv, at: sv }
+                  }
+              }
+              if (bestX) {
+                dx += bestX.adj
+                newGuides.v.push(bestX.at)
+              }
+              if (bestY) {
+                dy += bestY.adj
+                newGuides.h.push(bestY.at)
+              }
+            }
+          }
+        }
+
         for (const [id, startPos] of g.objectStartPositions) {
           store.updateObject(pageId, id, { position: { x: startPos.x + dx, y: startPos.y + dy } })
         }
+        setGuides(newGuides.v.length + newGuides.h.length + newGuides.pts.length > 0 ? newGuides : null)
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
@@ -278,6 +380,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           return next
         })
+      } else if (g.mode === 'placeLine') {
+        // Straight rubber-band preview; Shift snaps the angle to 15° steps.
+        let end = point
+        if (e.shiftKey) {
+          const ang = Math.atan2(point.y - g.start.y, point.x - g.start.x)
+          const snap = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12)
+          const len = Math.hypot(point.x - g.start.x, point.y - g.start.y)
+          end = { x: g.start.x + len * Math.cos(snap), y: g.start.y + len * Math.sin(snap) }
+        }
+        setStroke([
+          [g.start.x, g.start.y],
+          [end.x, end.y],
+        ])
       } else if (g.mode === 'resize' && g.resizeId && g.resizeStart && g.resizeOrigin) {
         const zoom = g.startViewport.zoom
         const corner = g.resizeCorner ?? 'se'
@@ -316,6 +431,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       gestureRef.current = null
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      setGuides(null)
       if (!g) return
       const store = useDocStore.getState()
 
@@ -340,11 +456,117 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         } else {
           store.setSelection([])
         }
+      } else if (g.mode === 'placeLine') {
+        // Drag-to-draw connector: anchor at press point, end at release.
+        // Read the endpoint from the preview stroke so Shift-snap sticks.
+        setStroke((pts) => {
+          const def = g.placeComponent ? componentById(g.placeComponent) : undefined
+          if (def) {
+            const a = g.start
+            const b =
+              pts && pts.length > 1 ? { x: pts[pts.length - 1][0], y: pts[pts.length - 1][1] } : a
+            const obj = def.create(a)
+            if (g.moved && Math.hypot(b.x - a.x, b.y - a.y) > 12) {
+              const px = Math.min(a.x, b.x)
+              const py = Math.min(a.y, b.y)
+              obj.position = { x: px, y: py }
+              obj.geometry.points = [
+                [a.x - px, a.y - py],
+                [b.x - px, b.y - py],
+              ]
+              obj.size = { w: Math.max(Math.abs(b.x - a.x), 2), h: Math.max(Math.abs(b.y - a.y), 2) }
+            } else {
+              // Plain click: legacy behavior, default length centered on the click.
+              obj.position = { x: a.x - obj.size.w / 2, y: a.y - obj.size.h / 2 }
+            }
+            store.addObject(pageId, obj)
+            store.setSelection([obj.id])
+          }
+          return null
+        })
       } else if (g.mode === 'draw') {
         setStroke((points) => {
-          if (points && points.length > 1) {
+          if (!points || points.length < 2) return null
+          const rec = recognize(points)
+          const all = Object.values(store.pages[pageId]?.objects ?? {})
+          const cx = rec.x + rec.w / 2
+          const cy = rec.y + rec.h / 2
+
+          // A tiny scribble near a component is an annotation, not a shape:
+          // open the mini input (tablet handwriting lands here as text).
+          if (store.inkAnnotate && rec.w < 36 && rec.h < 36) {
+            let best: SceneObject | null = null
+            let bestD = 170
+            for (const o of all) {
+              if (o.metadata.render === 'system') continue
+              const d = Math.hypot(o.position.x + o.size.w / 2 - cx, o.position.y + o.size.h / 2 - cy)
+              if (d < bestD) {
+                bestD = d
+                best = o
+              }
+            }
+            if (best) {
+              setQuickLabel({ x: rec.x, y: rec.y + rec.h + 6, id: best.id })
+              return null
+            }
+          }
+
+          // Recognition off → the ink stays exactly as drawn, no upgrades.
+          if (!store.inkToShape) {
+            const raw = fromRecognition({
+              kind: 'stroke',
+              points: points.map(([x, y]) => [x - rec.x, y - rec.y]),
+              x: rec.x,
+              y: rec.y,
+              w: rec.w,
+              h: rec.h,
+            })
+            store.addObject(pageId, raw)
+            store.setSelection([raw.id])
+            return null
+          }
+
+          // Inside a system boundary the doodle becomes that domain's part.
+          const sys = all
+            .filter(
+              (o) =>
+                o.metadata.render === 'system' &&
+                cx > o.position.x &&
+                cx < o.position.x + o.size.w &&
+                cy > o.position.y &&
+                cy < o.position.y + o.size.h
+            )
+            .sort((a, b) => a.size.w * a.size.h - b.size.w * b.size.h)[0]
+          const domain = sys?.metadata.domain as string | undefined
+
+          let obj: SceneObject | null = null
+          if (domain) {
+            const mapped = DOMAIN_SKETCH[domain]?.[rec.kind]
+            const def = mapped ? componentById(mapped) : undefined
+            if (def) {
+              obj = def.create({ x: cx, y: cy })
+              if (obj.geometry.kind === 'symbol') {
+                // Symbols keep their 2:1 glyph box, scaled to the sketch.
+                const w = Math.min(200, Math.max(72, rec.w))
+                obj.size = { w, h: w / 2 }
+              } else {
+                obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
+              }
+              obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
+            } else if ((rec.kind === 'line' || rec.kind === 'stroke') && domain !== 'mechanics') {
+              // Any free line in a circuit system conducts.
+              obj = fromRecognition(rec)
+              obj.behaviors.push(createBehavior('wire'))
+              obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+            } else if (rec.kind === 'line' && domain === 'mechanics') {
+              obj = fromRecognition(rec)
+              obj.behaviors.push(createBehavior('rod'))
+            }
+          }
+
+          if (!obj) {
             // Sketch → recognized geometry. A zigzag lands as a live spring.
-            const obj = fromRecognition(recognize(points))
+            obj = fromRecognition(rec)
             // A doodle whose end touches a circuit terminal IS a wire.
             if (
               (obj.geometry.kind === 'line' || obj.geometry.kind === 'stroke') &&
@@ -352,19 +574,18 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             ) {
               const pts = obj.geometry.points ?? []
               const ends = [pts[0], pts[pts.length - 1]].filter(Boolean)
-              const others = Object.values(store.pages[pageId]?.objects ?? {})
               if (
                 ends.some(([x, y]) =>
-                  nearTerminal(others, { x: obj.position.x + x, y: obj.position.y + y })
+                  nearTerminal(all, { x: obj!.position.x + x, y: obj!.position.y + y })
                 )
               ) {
                 obj.behaviors.push(createBehavior('wire'))
                 obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
               }
             }
-            store.addObject(pageId, obj)
-            store.setSelection([obj.id])
           }
+          store.addObject(pageId, obj)
+          store.setSelection([obj.id])
           return null
         })
       }
@@ -416,7 +637,16 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     let obj: SceneObject | null = null
     if (tool === 'place') {
       const def = toolOption ? componentById(toolOption) : undefined
-      if (def) obj = def.create(point)
+      if (!def) return
+      // Connectors (rope, spring, rod, damper…) draw like a pen stroke:
+      // press at one anchor, drag, release at the other. A plain click
+      // still drops the default-length one.
+      if (CONNECTOR_IDS.has(def.id)) {
+        setStroke([[point.x, point.y]])
+        beginGesture('placeLine', e, { placeComponent: def.id })
+        return
+      }
+      obj = def.create(point)
     } else {
       obj = createGeometry(tool, point)
     }
@@ -431,6 +661,22 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     if ((tool !== 'select' && editing) || e.button !== 0) return
     e.stopPropagation()
     const store = useDocStore.getState()
+    // System boundaries only grab their border/label — clicks in the middle
+    // fall through to marquee so the contents stay selectable.
+    const hit = store.pages[pageId]?.objects[id]
+    if (hit?.metadata.render === 'system' && editing) {
+      const p = toCanvas(e.clientX, e.clientY)
+      const m = 16
+      if (
+        p.x > hit.position.x + m &&
+        p.x < hit.position.x + hit.size.w - m &&
+        p.y > hit.position.y + m &&
+        p.y < hit.position.y + hit.size.h - m
+      ) {
+        beginGesture('marquee', e)
+        return
+      }
+    }
     let nextSelection: string[]
     if (e.shiftKey) {
       nextSelection = store.selection.includes(id)
@@ -546,6 +792,36 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           </svg>
         )}
 
+        {guides && (
+          <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+            {guides.v.map((x, i) => (
+              <line
+                key={`v${i}`}
+                x1={x} x2={x} y1={-100000} y2={100000}
+                stroke="var(--accent-rose)"
+                strokeWidth={1 / viewport.zoom}
+                strokeDasharray={`${4 / viewport.zoom} ${3 / viewport.zoom}`}
+              />
+            ))}
+            {guides.h.map((y, i) => (
+              <line
+                key={`h${i}`}
+                x1={-100000} x2={100000} y1={y} y2={y}
+                stroke="var(--accent-rose)"
+                strokeWidth={1 / viewport.zoom}
+                strokeDasharray={`${4 / viewport.zoom} ${3 / viewport.zoom}`}
+              />
+            ))}
+            {guides.pts.map((p, i) => (
+              // Terminal connection: a filled ring says "this pin is seated".
+              <g key={`p${i}`}>
+                <circle cx={p.x} cy={p.y} r={7 / viewport.zoom} fill="none" stroke="var(--accent-mint)" strokeWidth={1.5 / viewport.zoom} />
+                <circle cx={p.x} cy={p.y} r={2.5 / viewport.zoom} fill="var(--accent-mint)" />
+              </g>
+            ))}
+          </svg>
+        )}
+
         {marquee && (
           <div
             className="pointer-events-none absolute rounded-md border border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_8%,transparent)]"
@@ -558,6 +834,39 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           />
         )}
       </div>
+
+      {quickLabel && (
+        // Own transformed layer: the objects layer may be pointer-events-none
+        // while a drawing tool is armed, and this input must stay typable.
+        <div
+          className="absolute left-0 top-0"
+          style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+            transformOrigin: '0 0',
+          }}
+        >
+          <input
+            autoFocus
+            aria-label="Component value or name"
+            placeholder="100k · 9V · name"
+            className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-[12px] shadow-md outline-none placeholder:text-muted-foreground/50"
+            style={{ left: quickLabel.x, top: quickLabel.y }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Enter') {
+                applyAnnotation(pageId, quickLabel.id, e.currentTarget.value)
+                setQuickLabel(null)
+              }
+              if (e.key === 'Escape') setQuickLabel(null)
+            }}
+            onBlur={(e) => {
+              applyAnnotation(pageId, quickLabel.id, e.target.value)
+              setQuickLabel(null)
+            }}
+          />
+        </div>
+      )}
 
       <div className="glass absolute bottom-4 right-4 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
         {Math.round(viewport.zoom * 100)}%

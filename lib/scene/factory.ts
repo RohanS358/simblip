@@ -112,7 +112,40 @@ const mech = (id: string, label: string, create: ComponentDef['create']): Compon
   id, label, domain: 'mechanics', live: true, create,
 })
 
+// ── System boundaries ───────────────────────────────────────────────────────
+// A dashed region that declares its domain. Doodles drawn inside it are
+// recognized as that domain's components (canvas.tsx), so tablet users can
+// sketch a whole circuit without touching the palette.
+
+const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
+  mechanics: 'Mechanics',
+  electrical: 'Electrical',
+  electronics: 'Electronics',
+  digital: 'Digital',
+}
+
+export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
+  const obj = baseObject('rect', position, autoName(`${SYSTEM_LABELS[domain]} System`))
+  obj.size = { w: 460, h: 320 }
+  obj.metadata.render = 'system'
+  obj.metadata.domain = domain
+  obj.z = 1 // always beneath its contents (their z is a timestamp)
+  return obj
+}
+
+const systemDef = (domain: ComponentDef['domain']): ComponentDef => ({
+  id: `system-${domain}`,
+  label: 'System',
+  domain,
+  live: true,
+  create: (p) => createSystem(domain, p),
+})
+
 export const COMPONENTS: ComponentDef[] = [
+  systemDef('mechanics'),
+  systemDef('electrical'),
+  systemDef('electronics'),
+  systemDef('digital'),
   // ── Mechanics: geometry + behaviors, fully live ──
   mech('mass', 'Mass', (p) => {
     const o = baseObject('circle', p, autoName('Mass'))

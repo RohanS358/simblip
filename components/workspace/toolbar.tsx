@@ -16,6 +16,8 @@ import {
   ChartLine,
   Shapes,
   Sparkles,
+  Wand2,
+  ScanText,
 } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
@@ -86,6 +88,10 @@ export function Toolbar({
 }) {
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
+  const inkToShape = useDocStore((s) => s.inkToShape)
+  const inkAnnotate = useDocStore((s) => s.inkAnnotate)
+  const toggleInkToShape = useDocStore((s) => s.toggleInkToShape)
+  const toggleInkAnnotate = useDocStore((s) => s.toggleInkAnnotate)
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
 
@@ -101,6 +107,26 @@ export function Toolbar({
           <Icon className="h-4 w-4" />
         </ToolButton>
       ))}
+
+      <div className="mx-1 h-6 w-px bg-border" />
+
+      <ToolButton
+        active={inkToShape}
+        label={inkToShape ? 'Ink → shape: on (sketches become components)' : 'Ink → shape: off (raw ink stays ink)'}
+        accent="var(--accent-amber)"
+        onClick={toggleInkToShape}
+      >
+        <Wand2 className="h-4 w-4" />
+      </ToolButton>
+
+      <ToolButton
+        active={inkAnnotate}
+        label={inkAnnotate ? 'Ink annotations: on (scribble near a part to set value/name)' : 'Ink annotations: off'}
+        accent="var(--accent-amber)"
+        onClick={toggleInkAnnotate}
+      >
+        <ScanText className="h-4 w-4" />
+      </ToolButton>
 
       <div className="mx-1 h-6 w-px bg-border" />
 

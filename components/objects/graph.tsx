@@ -1,10 +1,12 @@
 'use client'
 
-// Graph object. Plots live simulation channels AND user formulas (full
-// expressions against the page scope + sample channels), with customizable
-// axes, scales and reference lines — all driven by string parameters the
-// inspector edits. With no source bound, formulas plot over the x range,
-// so it doubles as a function plotter.
+// Graph object. Plots live simulation channels from ONE OR MORE source
+// objects AND user formulas (full expressions against the page scope +
+// sample channels), with customizable axes, scales and reference lines.
+// Series are stored as "objectId:channel" pairs in the `series` string
+// param (";"-separated); legacy `sourceId` + `yChannels` params are still
+// honored. With no series bound, formulas plot over the x range, so it
+// doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -23,7 +25,13 @@ import { compileExpr, evalExpr, type Scope } from '@/lib/formula/engine'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
 
-const COLORS = ['var(--chart-1)', 'var(--chart-2)', 'var(--chart-3)', 'var(--chart-4)', 'var(--chart-5)']
+export const GRAPH_COLORS = [
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
+]
 const MAX_POINTS = 300
 const MIN_FRAME_MS = 80 // ≤ ~12 Hz chart repaint; the bus updates far faster
 
@@ -33,6 +41,34 @@ const splitList = (s: string) =>
     .map((c) => c.trim())
     .filter(Boolean)
 
+export interface GraphSeries {
+  objectId: string
+  channel: string
+}
+
+/** Parse the `series` param, falling back to legacy sourceId+yChannels. */
+export function parseSeries(object: ObjectRendererProps['object']): GraphSeries[] {
+  const raw = splitList(getString(object, 'series'))
+  if (raw.length > 0) {
+    return raw
+      .map((entry) => {
+        const i = entry.indexOf(':')
+        if (i <= 0) return null
+        return { objectId: entry.slice(0, i), channel: entry.slice(i + 1) }
+      })
+      .filter((s): s is GraphSeries => s !== null && s.channel.length > 0)
+  }
+  // Legacy format: one source, comma/semicolon-separated channels.
+  const sourceId = getString(object, 'sourceId')
+  if (!sourceId) return []
+  const channels = getString(object, 'yChannels')
+    .split(/[,;]/)
+    .map((c) => c.trim())
+    .filter(Boolean)
+  const chs = channels.length > 0 ? channels : (readBuffer(sourceId)?.channelNames.slice(0, 2) ?? [])
+  return chs.map((channel) => ({ objectId: sourceId, channel }))
+}
+
 /** Bound expression → number, or undefined for auto. */
 function bound(expr: string, scope: Scope): number | undefined {
   if (!expr.trim()) return undefined
@@ -41,14 +77,15 @@ function bound(expr: string, scope: Scope): number | undefined {
 }
 
 export function GraphObject({ pageId, object }: ObjectRendererProps) {
-  const sourceId = getString(object, 'sourceId')
   const xChannel = getString(object, 'xChannel', 't') || 't'
-  const yChannels = getString(object, 'yChannels')
-    .split(/[,;]/)
-    .map((c) => c.trim())
-    .filter(Boolean)
   const formulasStr = getString(object, 'formulas')
   const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
+  const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
+
+  const seriesKey = getString(object, 'series') + '|' + getString(object, 'sourceId') + '|' + getString(object, 'yChannels')
+  const series = useMemo(() => parseSeries(object), [seriesKey]) // eslint-disable-line react-hooks/exhaustive-deps
+  const sourceIds = useMemo(() => [...new Set(series.map((s) => s.objectId))], [series])
+  const primaryId = sourceIds[0] ?? ''
 
   const formulas = useMemo(
     () => splitList(formulasStr).map((expr) => ({ expr, fn: compileExpr(expr, NaN) })),
@@ -70,7 +107,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const lastPaint = useRef(0)
 
   useEffect(() => {
-    if (!sourceId) {
+    if (sourceIds.length === 0) {
       setData([])
       return
     }
@@ -78,25 +115,38 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
       const now = performance.now()
       if (now - lastPaint.current < MIN_FRAME_MS) return
       lastPaint.current = now
-      const buf = readBuffer(sourceId)
-      if (!buf) return
-      const rows = decimate(buf.samples, MAX_POINTS).map((s) => ({
-        t: Number(s.t.toFixed(3)),
-        ...s.channels,
-      }))
-      setData(rows)
+      // Merge every source's samples into rows keyed by (rounded) time.
+      // Physics pushes all objects on the same tick, so timestamps align.
+      const merged = new Map<number, Record<string, number>>()
+      for (const id of sourceIds) {
+        const buf = readBuffer(id)
+        if (!buf) continue
+        for (const s of decimate(buf.samples, MAX_POINTS)) {
+          const t = Number(s.t.toFixed(3))
+          let row = merged.get(t)
+          if (!row) {
+            row = { t }
+            merged.set(t, row)
+          }
+          for (const [ch, v] of Object.entries(s.channels)) {
+            row[`${id}:${ch}`] = v
+            // Primary source also exposes bare channel names so the x-axis
+            // picker and formulas keep working like the single-source days.
+            if (id === primaryId) row[ch] = v
+          }
+        }
+      }
+      setData([...merged.values()].sort((a, b) => a.t - b.t))
     }
     pull()
-    return subscribe(sourceId, pull)
-  }, [sourceId, xChannel])
-
-  const channels =
-    yChannels.length > 0 ? yChannels : sourceId ? (readBuffer(sourceId)?.channelNames.slice(0, 2) ?? []) : []
+    const unsubs = sourceIds.map((id) => subscribe(id, pull))
+    return () => unsubs.forEach((u) => u())
+  }, [sourceIds, primaryId, xChannel])
 
   // Final rows: live samples enriched with formula columns — or, with no
   // source, a pure function plot across the x range.
   const rows = useMemo(() => {
-    if (sourceId) {
+    if (sourceIds.length > 0) {
       if (formulas.length === 0) return data
       return data.map((row) => {
         const s = { ...scope, ...row }
@@ -117,15 +167,19 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
       formulas.forEach((f, j) => (out[`f${j}`] = f.fn(s)))
       return out
     })
-  }, [sourceId, data, formulas, scope, xMin, xMax, xChannel])
+  }, [sourceIds, data, formulas, scope, xMin, xMax, xChannel])
 
-  const hasPlot = rows.length > 1 && (channels.length > 0 || formulas.length > 0)
+  const multiSource = sourceIds.length > 1
+  const nameOf = (id: string) => pageObjects?.[id]?.name ?? '?'
+  const seriesLabel = (s: GraphSeries) => (multiSource ? `${nameOf(s.objectId)} · ${s.channel}` : s.channel)
+
+  const hasPlot = rows.length > 1 && (series.length > 0 || formulas.length > 0)
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
       <div className="border-b border-border/60 px-3 py-1.5">
         <span className="text-[11.5px] font-semibold tracking-wide text-muted-foreground">
-          {[...channels, ...formulas.map((f) => f.expr)].join(', ') || 'Graph'}
+          {[...series.map(seriesLabel), ...formulas.map((f) => f.expr)].join(', ') || 'Graph'}
           {hasPlot ? ` vs ${xChannel}` : ''}
         </span>
       </div>
@@ -188,15 +242,21 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                   label={{ value: String(v), fontSize: 9, fill: 'var(--accent-rose)', position: 'top' }}
                 />
               ))}
-              {channels.map((c, i) => (
+              {series.map((s, i) => (
                 <Line
-                  key={c}
+                  key={`${s.objectId}:${s.channel}`}
                   type="monotone"
-                  dataKey={c}
-                  stroke={COLORS[i % COLORS.length]}
+                  dataKey={
+                    // Bare key when plotting the primary source keeps phase
+                    // plots (x = a channel) and legacy docs rendering.
+                    s.objectId === primaryId && !multiSource ? s.channel : `${s.objectId}:${s.channel}`
+                  }
+                  name={seriesLabel(s)}
+                  stroke={GRAPH_COLORS[i % GRAPH_COLORS.length]}
                   strokeWidth={1.8}
                   dot={false}
                   isAnimationActive={false}
+                  connectNulls
                 />
               ))}
               {formulas.map((f, i) => (
@@ -205,11 +265,12 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                   type="monotone"
                   dataKey={`f${i}`}
                   name={f.expr}
-                  stroke={COLORS[(channels.length + i) % COLORS.length]}
+                  stroke={GRAPH_COLORS[(series.length + i) % GRAPH_COLORS.length]}
                   strokeWidth={1.8}
-                  strokeDasharray={sourceId ? '6 3' : undefined}
+                  strokeDasharray={sourceIds.length > 0 ? '6 3' : undefined}
                   dot={false}
                   isAnimationActive={false}
+                  connectNulls
                 />
               ))}
             </LineChart>
@@ -217,9 +278,9 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center p-4 text-center text-[12px] text-muted-foreground">
-          {sourceId
+          {series.length > 0
             ? 'Run the bound simulation to see live data.'
-            : 'Pick a source in the Inspector — or type a formula (e.g. sin(t)) to plot it.'}
+            : 'Add a series in the Inspector — or type a formula (e.g. sin(t)) to plot it.'}
         </div>
       )}
     </div>

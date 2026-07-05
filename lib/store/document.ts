@@ -80,6 +80,10 @@ interface DocState {
   pages: Record<string, PageContent>
   tool: Tool
   toolOption: string | null
+  /** Pen strokes are recognized into shapes/components (off = raw ink). */
+  inkToShape: boolean
+  /** Small scribbles near components open the value/name annotation input. */
+  inkAnnotate: boolean
   selection: string[]
   viewports: Record<string, Viewport>
   scopes: Record<string, Scope>
@@ -116,6 +120,8 @@ interface DocState {
   removeVariable: (pageId: string, id: string) => void
 
   setTool: (tool: Tool, option?: string | null) => void
+  toggleInkToShape: () => void
+  toggleInkAnnotate: () => void
   setSelection: (ids: string[]) => void
   setViewport: (pageId: string, vp: Viewport) => void
 }
@@ -143,6 +149,8 @@ export const useDocStore = create<DocState>()(
       pages: {},
       tool: 'select',
       toolOption: null,
+      inkToShape: true,
+      inkAnnotate: true,
       selection: [],
       viewports: {},
       scopes: {},
@@ -370,6 +378,8 @@ export const useDocStore = create<DocState>()(
       },
 
       setTool: (tool, option = null) => set({ tool, toolOption: option }),
+      toggleInkToShape: () => set((s) => ({ inkToShape: !s.inkToShape })),
+      toggleInkAnnotate: () => set((s) => ({ inkAnnotate: !s.inkAnnotate })),
       setSelection: (ids) => set({ selection: ids }),
       setViewport: (pageId, vp) =>
         set((s) => ({ viewports: { ...s.viewports, [pageId]: vp } })),

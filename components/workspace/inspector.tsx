@@ -9,6 +9,7 @@ import { Plus, Trash2, Zap, ZapOff } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
+import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { isBody } from '@/lib/behaviors/registry'
 import { specsForGeometry, behaviorSpec } from '@/lib/behaviors/registry'
 import {
@@ -28,12 +29,14 @@ function ExprInput({
   error,
   ariaLabel,
   mono = true,
+  placeholder,
 }: {
   value: string
   onCommit: (v: string) => void
   error?: string
   ariaLabel: string
   mono?: boolean
+  placeholder?: string
 }) {
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
@@ -41,6 +44,7 @@ function ExprInput({
     <input
       aria-label={ariaLabel}
       aria-invalid={Boolean(error)}
+      placeholder={placeholder}
       className={cn(
         'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)]',
         mono && 'font-mono',
@@ -219,9 +223,233 @@ const getStr = (obj: SceneObject, name: string): string => {
   return p?.kind === 'string' ? p.value : ''
 }
 
+const splitList = (s: string) =>
+  s
+    .split(';')
+    .map((c) => c.trim())
+    .filter(Boolean)
+
+const selectCls =
+  'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 text-[11.5px] outline-none focus:border-[var(--ring)]'
+
+function AddRowButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+      onClick={onClick}
+    >
+      <Plus className="h-3 w-3" /> {label}
+    </button>
+  )
+}
+
+/** Visual editor for the Graph object — series, axes, formulas, ref lines. */
+function GraphOptions({
+  pageId,
+  object,
+  bodies,
+}: {
+  pageId: string
+  object: SceneObject
+  bodies: SceneObject[]
+}) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const set = (name: string, v: string) => setStringParam(pageId, object.id, name, v)
+
+  const series = parseSeries(object)
+  const channelsFor = (objId: string) => readBuffer(objId)?.channelNames ?? GRAPH_CHANNELS
+
+  const writeSeries = (list: GraphSeries[]) => {
+    set('series', list.map((s) => `${s.objectId}:${s.channel}`).join('; '))
+    // Legacy single-source params would resurrect as a fallback once the
+    // series list empties — clear them the first time the editor writes.
+    if (getStr(object, 'sourceId')) set('sourceId', '')
+    if (getStr(object, 'yChannels')) set('yChannels', '')
+  }
+  const updateSeries = (i: number, patch: Partial<GraphSeries>) =>
+    writeSeries(series.map((s, j) => (j === i ? { ...s, ...patch } : s)))
+
+  const formulas = splitList(getStr(object, 'formulas'))
+  const writeFormulas = (list: string[]) => set('formulas', list.join('; '))
+
+  const editableList = (list: string[], write: (l: string[]) => void, itemLabel: string) => (
+    <div className="space-y-1">
+      {list.map((item, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <ExprInput
+            ariaLabel={`${itemLabel} ${i + 1}`}
+            value={item}
+            onCommit={(v) =>
+              write(v.trim() ? list.map((x, j) => (j === i ? v.trim() : x)) : list.filter((_, j) => j !== i))
+            }
+          />
+          <button
+            type="button"
+            aria-label={`Remove ${itemLabel} ${i + 1}`}
+            className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+            onClick={() => write(list.filter((_, j) => j !== i))}
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+
+  const rangeField = (name: string, label: string) => (
+    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className="w-9 shrink-0">{label}</span>
+      <ExprInput
+        ariaLabel={`Graph ${label}`}
+        value={getStr(object, name)}
+        placeholder="auto"
+        onCommit={(v) => set(name, v)}
+      />
+    </label>
+  )
+
+  const xChannel = getStr(object, 'xChannel') || 't'
+  const xOptions = [...new Set(['t', ...(series[0] ? channelsFor(series[0].objectId) : [])])]
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <SectionTitle>Series</SectionTitle>
+        {series.length === 0 && (
+          <p className="rounded-lg bg-accent/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
+            Each series plots one channel of one object — add several to
+            compare objects on the same graph.
+          </p>
+        )}
+        {series.map((s, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: GRAPH_COLORS[i % GRAPH_COLORS.length] }}
+              aria-hidden
+            />
+            <select
+              aria-label={`Series ${i + 1} object`}
+              className={selectCls}
+              value={s.objectId}
+              onChange={(e) => {
+                const objId = e.target.value
+                const chs = channelsFor(objId)
+                updateSeries(i, { objectId: objId, channel: chs.includes(s.channel) ? s.channel : chs[0] })
+              }}
+            >
+              {!bodies.some((o) => o.id === s.objectId) && <option value={s.objectId}>(missing)</option>}
+              {bodies.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+            <select
+              aria-label={`Series ${i + 1} channel`}
+              className={cn(selectCls, 'w-24 shrink-0 font-mono')}
+              value={s.channel}
+              onChange={(e) => updateSeries(i, { channel: e.target.value })}
+            >
+              {!channelsFor(s.objectId).includes(s.channel) && <option value={s.channel}>{s.channel}</option>}
+              {channelsFor(s.objectId).map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              aria-label={`Remove series ${i + 1}`}
+              className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+              onClick={() => writeSeries(series.filter((_, j) => j !== i))}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        {bodies.length > 0 ? (
+          <AddRowButton
+            label="Add series"
+            onClick={() => {
+              const objId = series[series.length - 1]?.objectId ?? bodies[0].id
+              const used = series.filter((s) => s.objectId === objId).map((s) => s.channel)
+              const chs = channelsFor(objId)
+              writeSeries([...series, { objectId: objId, channel: chs.find((c) => !used.includes(c)) ?? chs[0] }])
+            }}
+          />
+        ) : (
+          <p className="text-[10.5px] text-muted-foreground">
+            No physics objects yet — give something a Rigid Body behavior first.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Axes</SectionTitle>
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="w-9 shrink-0">X axis</span>
+          <select
+            aria-label="Graph X axis channel"
+            className={cn(selectCls, 'font-mono')}
+            value={xChannel}
+            onChange={(e) => set('xChannel', e.target.value)}
+          >
+            {!xOptions.includes(xChannel) && <option value={xChannel}>{xChannel}</option>}
+            {xOptions.map((c) => (
+              <option key={c} value={c}>
+                {c === 't' ? 't (time)' : c}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="grid grid-cols-2 gap-1.5">
+          {rangeField('xMin', 'X min')}
+          {rangeField('xMax', 'X max')}
+          {rangeField('yMin', 'Y min')}
+          {rangeField('yMax', 'Y max')}
+        </div>
+        <p className="text-[10.5px] text-muted-foreground">
+          Blank = auto. Values can be expressions (e.g. <span className="font-mono">2*g</span>).
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Formulas</SectionTitle>
+        {editableList(formulas, writeFormulas, 'Formula')}
+        <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'sin(t)'])} />
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Plotted as dashed lines. Can use page variables, <span className="font-mono">t</span> and the
+          first series&apos; channels. Without a series, formulas plot over the X range.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Reference lines</SectionTitle>
+        {(
+          [
+            ['refY', 'Horizontal (y =)'],
+            ['refX', 'Vertical (x =)'],
+          ] as const
+        ).map(([name, label]) => {
+          const list = splitList(getStr(object, name))
+          const write = (l: string[]) => set(name, l.join('; '))
+          return (
+            <div key={name} className="space-y-1">
+              <p className="text-[10.5px] text-muted-foreground">{label}</p>
+              {editableList(list, write, label)}
+              <AddRowButton label="Add line" onClick={() => write([...list, '0'])} />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setParam = useDocStore((s) => s.setParam)
-  const setStringParam = useDocStore((s) => s.setStringParam)
   const updateObject = useDocStore((s) => s.updateObject)
   const page = useDocStore((s) => s.pages[pageId])
 
@@ -235,9 +463,6 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       isBody(o.behaviors) === 'dynamic' ||
       o.behaviors.some((b) => b.enabled && b.type === 'electricalNode')
   )
-  const sourceParam = object.parameters.sourceId
-  const sourceId = sourceParam?.kind === 'string' ? sourceParam.value : ''
-
   const numField = (label: string, value: number, commit: (n: number) => void) => (
     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
       {label}
@@ -288,54 +513,37 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       </div>
 
-      {object.geometry.kind === 'graph' && (
+      {object.metadata.render === 'system' && (
         <div className="space-y-1.5">
-          <SectionTitle>Data source</SectionTitle>
+          <SectionTitle>System domain</SectionTitle>
           <select
-            aria-label="Graph source object"
+            aria-label="System domain"
             className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none focus:border-[var(--ring)]"
-            value={sourceId}
-            onChange={(e) => setStringParam(pageId, object.id, 'sourceId', e.target.value)}
+            value={(object.metadata.domain as string) ?? 'electrical'}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { metadata: { ...object.metadata, domain: e.target.value } },
+                { history: true }
+              )
+            }
           >
-            <option value="">— none (formula plotter) —</option>
-            {bodies.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name}
-              </option>
-            ))}
+            <option value="mechanics">Mechanics</option>
+            <option value="electrical">Electrical</option>
+            <option value="electronics">Electronics</option>
+            <option value="digital">Digital</option>
           </select>
-          <p className="text-[10.5px] text-muted-foreground">
-            Channels: {(readBuffer(sourceId)?.channelNames ?? GRAPH_CHANNELS).join(', ')}
-          </p>
-          {(
-            [
-              ['yChannels', 'Y channels', 'e.g. y, vy'],
-              ['xChannel', 'X axis', 't (or any channel — vx for phase plots)'],
-              ['formulas', 'Formulas', '“;”-separated, e.g. 0.5*m*speed^2; sin(t)'],
-              ['xMin', 'X min', 'blank = auto'],
-              ['xMax', 'X max', 'blank = auto'],
-              ['yMin', 'Y min', 'blank = auto'],
-              ['yMax', 'Y max', 'blank = auto'],
-              ['refY', 'Ref lines Y', '“;”-separated values/exprs'],
-              ['refX', 'Ref lines X', '“;”-separated values/exprs'],
-            ] as const
-          ).map(([name, label, hint]) => (
-            <div key={name} className="flex items-center gap-2">
-              <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={hint}>
-                {label}
-              </span>
-              <ExprInput
-                ariaLabel={`Graph ${label}`}
-                value={getStr(object, name)}
-                onCommit={(v) => setStringParam(pageId, object.id, name, v)}
-              />
-            </div>
-          ))}
           <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-            Formulas can use page variables, t and the source channels. Without
-            a source the graph plots formulas over the X range.
+            Doodles inside become this domain&apos;s components — zigzag →
+            resistor, box → battery/gate, blob → bulb/BJT, lines → wires.
+            Scribble a small mark near any part to write its value or name.
           </p>
         </div>
+      )}
+
+      {object.geometry.kind === 'graph' && (
+        <GraphOptions pageId={pageId} object={object} bodies={bodies} />
       )}
 
       {contentParams.length > 0 && (
@@ -361,9 +569,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {!['note', 'text', 'formula', 'graph'].includes(object.geometry.kind) && (
-        <BehaviorsSection pageId={pageId} object={object} />
-      )}
+      {!['note', 'text', 'formula', 'graph'].includes(object.geometry.kind) &&
+        object.metadata.render !== 'system' && (
+          <BehaviorsSection pageId={pageId} object={object} />
+        )}
     </div>
   )
 }

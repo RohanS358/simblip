@@ -270,6 +270,36 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />
 
+  // System boundary: a labeled dashed region. Purely declarative — the
+  // canvas reads its domain to steer sketch recognition inside it.
+  if (render === 'system') {
+    const domain = (object.metadata.domain as string) ?? 'electrical'
+    const tint: Record<string, string> = {
+      mechanics: 'var(--accent-amber)',
+      electrical: 'var(--accent-mint)',
+      electronics: 'var(--accent-violet)',
+      digital: 'var(--accent-blue)',
+    }
+    const c = tint[domain] ?? 'var(--accent-mint)'
+    return (
+      <div
+        className="h-full w-full rounded-2xl"
+        style={{
+          border: `1.5px dashed ${c}`,
+          background: `color-mix(in oklch, ${c} 4%, transparent)`,
+        }}
+        aria-label={object.name}
+      >
+        <span
+          className="absolute -top-2.5 left-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+          style={{ background: 'var(--background)', color: c, border: `1px solid ${c}` }}
+        >
+          {domain}
+        </span>
+      </div>
+    )
+  }
+
   // Wires (explicit behavior, or bare ink that may conduct): base path plus
   // two flow overlays the runtime animates — conventional current (amber
   // dashes) and electron flow (blue dots, opposite direction).
