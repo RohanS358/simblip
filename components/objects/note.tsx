@@ -17,7 +17,7 @@ export function NoteObject(props: ObjectRendererProps) {
   return (
     <div
       className={cn(
-        'relative h-full w-full overflow-hidden rounded-xl p-3 hairline shadow-sm',
+        'relative h-full w-full rounded-xl p-3 hairline shadow-sm',
         FILLS[color] ?? FILLS.amber
       )}
     >

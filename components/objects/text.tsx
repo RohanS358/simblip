@@ -184,6 +184,7 @@ export function RichTextArea({
   const setStringParam = useDocStore((s) => s.setStringParam)
   const updateObject = useDocStore((s) => s.updateObject)
   const pushHistory = useDocStore((s) => s.pushHistory)
+  const setSelection = useDocStore((s) => s.setSelection)
   const ref = useRef<HTMLDivElement>(null)
   const focusedRef = useRef(false)
   const value = getString(object, 'text')
@@ -216,42 +217,50 @@ export function RichTextArea({
 
   return (
     <>
+      {/* Toolbar lives OUTSIDE the clipping wrapper below — it floats above
+          the box and overflow-hidden would swallow it. */}
       {selected && <TextFormatBar onChanged={commit} />}
-      <div
-        ref={ref}
-        contentEditable
-        suppressContentEditableWarning
-        role="textbox"
-        aria-multiline="true"
-        aria-label={placeholder}
-        data-placeholder={placeholder}
-        className={cn(
-          'h-full w-full whitespace-pre-wrap break-words leading-relaxed outline-none',
-          'empty:before:pointer-events-none empty:before:text-muted-foreground/50 empty:before:content-[attr(data-placeholder)]',
-          className
-        )}
-        style={textFormatStyle(object)}
-        onFocus={() => {
-          if (!focusedRef.current) {
-            focusedRef.current = true
-            pushHistory(pageId)
-          }
-        }}
-        onBlur={() => {
-          focusedRef.current = false
-          commit()
-        }}
-        onInput={commit}
-        onPointerDown={(e) => e.stopPropagation()}
-        onKeyDown={(e) => e.stopPropagation()}
-      />
+      <div className="h-full w-full overflow-hidden">
+        <div
+          ref={ref}
+          contentEditable
+          suppressContentEditableWarning
+          role="textbox"
+          aria-multiline="true"
+          aria-label={placeholder}
+          data-placeholder={placeholder}
+          className={cn(
+            'h-full w-full whitespace-pre-wrap break-words leading-relaxed outline-none',
+            'empty:before:pointer-events-none empty:before:text-muted-foreground/50 empty:before:content-[attr(data-placeholder)]',
+            className
+          )}
+          style={textFormatStyle(object)}
+          onFocus={() => {
+            if (!focusedRef.current) {
+              focusedRef.current = true
+              pushHistory(pageId)
+            }
+            // Clicking straight into the text never reaches the object
+            // wrapper (we stop propagation), so select here — that's what
+            // summons the formatting toolbar.
+            setSelection([object.id])
+          }}
+          onBlur={() => {
+            focusedRef.current = false
+            commit()
+          }}
+          onInput={commit}
+          onPointerDown={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        />
+      </div>
     </>
   )
 }
 
 export function TextObject(props: ObjectRendererProps) {
   return (
-    <div className="relative h-full w-full overflow-hidden">
+    <div className="relative h-full w-full">
       <RichTextArea {...props} placeholder="Type something…" />
     </div>
   )
