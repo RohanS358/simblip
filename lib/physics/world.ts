@@ -374,6 +374,22 @@ function syncDom(w: World) {
       'd',
       connectorPath(c.render, a.x - obj.position.x, a.y - obj.position.y, bPt.x - obj.position.x, bPt.y - obj.position.y)
     )
+    moveEndpointDots(el, a.x - obj.position.x, a.y - obj.position.y, bPt.x - obj.position.x, bPt.y - obj.position.y)
+  }
+}
+
+// Attachment dots ride along with the constraint endpoints (same DOM-mutation
+// path as the connector `d` above — React never repaints these during Play).
+function moveEndpointDots(el: HTMLElement, ax: number, ay: number, bx: number, by: number) {
+  const dotA = el.querySelector<SVGCircleElement>('circle[data-endpoint="a"]')
+  const dotB = el.querySelector<SVGCircleElement>('circle[data-endpoint="b"]')
+  if (dotA) {
+    dotA.setAttribute('cx', String(ax))
+    dotA.setAttribute('cy', String(ay))
+  }
+  if (dotB) {
+    dotB.setAttribute('cx', String(bx))
+    dotB.setAttribute('cy', String(by))
   }
 }
 
@@ -569,6 +585,7 @@ export function stop() {
         'd',
         connectorPath((obj.metadata.render as string) ?? undefined, a[0], a[1], b[0], b[1])
       )
+      if (el) moveEndpointDots(el, a[0], a[1], b[0], b[1])
     }
     world = null
   }

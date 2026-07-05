@@ -374,6 +374,9 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     const a = pts[0]
     const b = pts[pts.length - 1]
     const d = connectorPath(render, a[0], a[1], b[0], b[1])
+    // Attachment dots: mark where a connector/wire meets whatever it touches,
+    // in the same color as the line itself.
+    const endColor = connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : undefined
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
         <path
@@ -387,6 +390,12 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
           strokeLinejoin="round"
         />
         {flowOverlays(d)}
+        {endColor && (
+          <>
+            <circle data-endpoint="a" cx={a[0]} cy={a[1]} r={3.5} fill={endColor} />
+            <circle data-endpoint="b" cx={b[0]} cy={b[1]} r={3.5} fill={endColor} />
+          </>
+        )}
         {selected && (
           <>
             <circle cx={a[0]} cy={a[1]} r={4} fill="var(--ring)" />
@@ -398,6 +407,8 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
   }
 
   if (kind === 'stroke') {
+    const strokePts = points ?? []
+    const showEnds = isWire && !isBody(object.behaviors) && strokePts.length > 0
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
         <path
@@ -410,6 +421,17 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
           strokeLinejoin="round"
         />
         {flowOverlays(strokePath)}
+        {showEnds && (
+          <>
+            <circle cx={strokePts[0][0]} cy={strokePts[0][1]} r={3.5} fill="var(--accent-amber)" />
+            <circle
+              cx={strokePts[strokePts.length - 1][0]}
+              cy={strokePts[strokePts.length - 1][1]}
+              r={3.5}
+              fill="var(--accent-amber)"
+            />
+          </>
+        )}
       </svg>
     )
   }
