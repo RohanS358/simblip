@@ -27,9 +27,13 @@ const GRID = 24
 const MIN_ZOOM = 0.2
 const MAX_ZOOM = 4
 
-// Palette components that are line-like connectors: placed by dragging
-// from one anchor point to the other instead of click-to-spawn.
+// Universal placement gestures: click spawns the default; dragging sizes
+// the object while placing it. Line-likes go point→point, circle-likes grow
+// by radius from the press point (their center), everything else stretches
+// corner→corner like a marquee.
 const CONNECTOR_IDS = new Set(['spring', 'rope', 'rod', 'damper'])
+const CIRCULAR_IDS = new Set(['mass', 'wheel', 'motor', 'hinge'])
+const MIN_PLACE_DRAG = 8 // screen px below which a drag counts as a click
 
 // Inside a system boundary, recognized doodle shapes become that domain's
 // components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
@@ -40,7 +44,17 @@ const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
   digital: { rect: 'and-gate', circle: 'or-gate', polygon: 'xor-gate', spring: 'clock' },
 }
 
-type GestureMode = 'idle' | 'pan' | 'move' | 'marquee' | 'draw' | 'resize' | 'rotate' | 'placeLine'
+type GestureMode =
+  | 'idle'
+  | 'pan'
+  | 'move'
+  | 'marquee'
+  | 'draw'
+  | 'resize'
+  | 'rotate'
+  | 'placeLine'
+  | 'placeRect'
+  | 'placeRadius'
 
 interface Gesture {
   mode: GestureMode
@@ -57,8 +71,10 @@ interface Gesture {
   rotateCenter?: Vec2
   rotateStartAngle?: number
   rotateStartRotation?: number
-  /** Palette component id for drag-to-draw connectors (rope, spring, rod…). */
+  /** Palette component id for drag-to-draw placement. */
   placeComponent?: string
+  /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
+  placeTool?: Tool
 }
 
 const ObjectView = memo(function ObjectView({
@@ -169,6 +185,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // Ink annotation: a tiny scribble near a component opens this mini input;
   // its text sets the nearest component's value ("100k", "9V") or name.
   const [quickLabel, setQuickLabel] = useState<{ x: number; y: number; id: string } | null>(null)
+  // Drag-to-place outline (dashed box or circle) while sizing a new object.
+  const [placePreview, setPlacePreview] = useState<{
+    x: number
+    y: number
+    w: number
+    h: number
+    round: boolean
+  } | null>(null)
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -393,6 +417,26 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           [g.start.x, g.start.y],
           [end.x, end.y],
         ])
+      } else if (g.mode === 'placeRect') {
+        // Corner→corner outline; Shift keeps it square.
+        let w = point.x - g.start.x
+        let h = point.y - g.start.y
+        if (e.shiftKey) {
+          const k = Math.max(Math.abs(w), Math.abs(h))
+          w = Math.sign(w || 1) * k
+          h = Math.sign(h || 1) * k
+        }
+        setPlacePreview({
+          x: Math.min(g.start.x, g.start.x + w),
+          y: Math.min(g.start.y, g.start.y + h),
+          w: Math.abs(w),
+          h: Math.abs(h),
+          round: false,
+        })
+      } else if (g.mode === 'placeRadius') {
+        // Press point is the center; drag distance is the radius.
+        const r = Math.hypot(point.x - g.start.x, point.y - g.start.y)
+        setPlacePreview({ x: g.start.x - r, y: g.start.y - r, w: 2 * r, h: 2 * r, round: true })
       } else if (g.mode === 'resize' && g.resizeId && g.resizeStart && g.resizeOrigin) {
         const zoom = g.startViewport.zoom
         const corner = g.resizeCorner ?? 'se'
@@ -456,16 +500,45 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         } else {
           store.setSelection([])
         }
+      } else if (g.mode === 'placeRect' || g.mode === 'placeRadius') {
+        // Drag-to-size placement: the preview outline (which already encodes
+        // Shift-square and radius-from-center) becomes the object's box; a
+        // plain click falls back to the default size centered on the press.
+        setPlacePreview((pv) => {
+          const def = g.placeComponent ? componentById(g.placeComponent) : undefined
+          const obj = def
+            ? def.create(g.start)
+            : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
+              ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
+              : null
+          if (obj) {
+            if (pv && g.moved && Math.max(pv.w, pv.h) > MIN_PLACE_DRAG) {
+              obj.size = { w: Math.max(16, pv.w), h: Math.max(16, pv.h) }
+              obj.position = { x: pv.x, y: pv.y }
+            } else {
+              obj.position = { x: g.start.x - obj.size.w / 2, y: g.start.y - obj.size.h / 2 }
+            }
+            store.addObject(pageId, obj)
+            store.setSelection([obj.id])
+            if (!g.placeComponent) store.setTool('select')
+          }
+          return null
+        })
       } else if (g.mode === 'placeLine') {
         // Drag-to-draw connector: anchor at press point, end at release.
         // Read the endpoint from the preview stroke so Shift-snap sticks.
         setStroke((pts) => {
           const def = g.placeComponent ? componentById(g.placeComponent) : undefined
-          if (def) {
+          const maker = def
+            ? () => def.create(g.start)
+            : g.placeTool === 'line'
+              ? () => createGeometry('line', g.start)
+              : null
+          if (maker) {
             const a = g.start
             const b =
               pts && pts.length > 1 ? { x: pts[pts.length - 1][0], y: pts[pts.length - 1][1] } : a
-            const obj = def.create(a)
+            const obj = maker()
             if (g.moved && Math.hypot(b.x - a.x, b.y - a.y) > 12) {
               const px = Math.min(a.x, b.x)
               const py = Math.min(a.y, b.y)
@@ -481,6 +554,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
+            if (!g.placeComponent) store.setTool('select')
           }
           return null
         })
@@ -632,29 +706,29 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       return
     }
 
-    // Placement: geometry primitives or a palette component.
+    // Placement: one gesture language everywhere — click spawns the default
+    // size, dragging sizes the object as you place it (corner→corner for
+    // boxes, radius from center for circles, point→point for lines).
     const point = toCanvas(e.clientX, e.clientY)
-    let obj: SceneObject | null = null
     if (tool === 'place') {
       const def = toolOption ? componentById(toolOption) : undefined
       if (!def) return
-      // Connectors (rope, spring, rod, damper…) draw like a pen stroke:
-      // press at one anchor, drag, release at the other. A plain click
-      // still drops the default-length one.
       if (CONNECTOR_IDS.has(def.id)) {
         setStroke([[point.x, point.y]])
         beginGesture('placeLine', e, { placeComponent: def.id })
         return
       }
-      obj = def.create(point)
-    } else {
-      obj = createGeometry(tool, point)
+      beginGesture(CIRCULAR_IDS.has(def.id) ? 'placeRadius' : 'placeRect', e, {
+        placeComponent: def.id,
+      })
+      return
     }
-    if (!obj) return
-    obj.position = { x: point.x - obj.size.w / 2, y: point.y - obj.size.h / 2 }
-    store.addObject(pageId, obj)
-    store.setSelection([obj.id])
-    if (tool !== 'place') store.setTool('select')
+    if (tool === 'line') {
+      setStroke([[point.x, point.y]])
+      beginGesture('placeLine', e, { placeTool: tool })
+      return
+    }
+    beginGesture(tool === 'circle' ? 'placeRadius' : 'placeRect', e, { placeTool: tool })
   }
 
   const handleObjectPointerDown = (e: React.PointerEvent, id: string) => {
@@ -820,6 +894,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               </g>
             ))}
           </svg>
+        )}
+
+        {placePreview && (
+          <div
+            className="pointer-events-none absolute border-2 border-dashed border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_6%,transparent)]"
+            style={{
+              left: placePreview.x,
+              top: placePreview.y,
+              width: placePreview.w,
+              height: placePreview.h,
+              borderRadius: placePreview.round ? '50%' : 12,
+            }}
+          />
         )}
 
         {marquee && (
