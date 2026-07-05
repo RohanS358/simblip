@@ -309,9 +309,10 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
   // velocity-shaped filled outline instead of a uniform polyline.
   const bareInk =
     kind === 'stroke' && !isBody(object.behaviors) && !object.behaviors.some((b) => b.enabled && b.type === 'wire')
+  const inkSize = typeof object.metadata.inkSize === 'number' ? object.metadata.inkSize : 5
   const inkD = useMemo(
-    () => (bareInk && points ? inkPath(points) : ''),
-    [bareInk, points]
+    () => (bareInk && points ? inkPath(points, { size: inkSize }) : ''),
+    [bareInk, points, inkSize]
   )
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />

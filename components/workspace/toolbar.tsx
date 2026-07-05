@@ -19,6 +19,7 @@ import {
   Wand2,
   ScanText,
 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -92,23 +93,98 @@ export function Toolbar({
   const inkAnnotate = useDocStore((s) => s.inkAnnotate)
   const toggleInkToShape = useDocStore((s) => s.toggleInkToShape)
   const toggleInkAnnotate = useDocStore((s) => s.toggleInkAnnotate)
+  const penSize = useDocStore((s) => s.penSize)
+  const setPenSize = useDocStore((s) => s.setPenSize)
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+
+  // Pen-size flyout: opens on hover (mouse) with a grace timer so the cursor
+  // can travel to the slider; on touch, tapping the already-active pen toggles it.
+  const [showSize, setShowSize] = useState(false)
+  const hideTimer = useRef<number | null>(null)
+  const openSize = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setShowSize(true)
+  }
+  const closeSize = () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    hideTimer.current = window.setTimeout(() => setShowSize(false), 250)
+  }
+  useEffect(() => () => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+  }, [])
 
   return (
     <motion.div
       initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-      // On narrow screens the row can't fit — it clamps to the viewport and
-      // scrolls horizontally instead of spilling off-screen.
-      className="glass-strong no-scrollbar absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-2xl p-1.5"
+      className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 max-w-[calc(100vw-1rem)] -translate-x-1/2"
     >
-      {TOOLS.map(({ tool: t, icon: Icon, label, key }) => (
-        <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
-          <Icon className="h-4 w-4" />
-        </ToolButton>
-      ))}
+      {showSize && (
+        <div
+          className="glass-strong absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-2.5 rounded-xl px-3 py-2"
+          // Mouse-gated: on touch, pointerleave fires after every slider drag
+          // and would dismiss the flyout mid-adjustment.
+          onPointerEnter={(e) => e.pointerType === 'mouse' && openSize()}
+          onPointerLeave={(e) => e.pointerType === 'mouse' && closeSize()}
+        >
+          <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
+            <span
+              className="rounded-full bg-foreground"
+              style={{ width: penSize, height: penSize }}
+            />
+          </span>
+          <input
+            type="range"
+            min={1.5}
+            max={12}
+            step={0.5}
+            value={penSize}
+            aria-label="Pen thickness"
+            className="w-28 accent-[var(--accent-blue)]"
+            onChange={(e) => setPenSize(Number(e.target.value))}
+          />
+          <span className="w-7 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+            {penSize}px
+          </span>
+        </div>
+      )}
+
+      {/* Inner pill owns the horizontal scroll so the flyout above never clips. */}
+      <div className="glass-strong no-scrollbar flex items-center gap-1 overflow-x-auto rounded-2xl p-1.5">
+      {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
+        t === 'pen' ? (
+          <span
+            key={t}
+            className="shrink-0"
+            onPointerEnter={(e) => e.pointerType === 'mouse' && openSize()}
+            onPointerLeave={(e) => e.pointerType === 'mouse' && closeSize()}
+          >
+            <ToolButton
+              active={tool === 'pen'}
+              label={`${label} — hover for thickness`}
+              shortcut={key}
+              onClick={() => (tool === 'pen' ? setShowSize((v) => !v) : setTool('pen'))}
+            >
+              <Icon className="h-4 w-4" />
+            </ToolButton>
+          </span>
+        ) : (
+          <ToolButton
+            key={t}
+            active={tool === t}
+            label={label}
+            shortcut={key}
+            onClick={() => {
+              setShowSize(false)
+              setTool(t)
+            }}
+          >
+            <Icon className="h-4 w-4" />
+          </ToolButton>
+        )
+      )}
 
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 
@@ -144,6 +220,7 @@ export function Toolbar({
       <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>
         <Sparkles className="h-4 w-4" />
       </ToolButton>
+      </div>
     </motion.div>
   )
 }

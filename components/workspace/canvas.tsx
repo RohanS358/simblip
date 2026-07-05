@@ -208,6 +208,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
+  const penSize = useDocStore((s) => s.penSize)
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
@@ -636,6 +637,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               w: rec.w,
               h: rec.h,
             })
+            raw.metadata.inkSize = store.penSize
             store.addObject(pageId, raw)
             store.setSelection([raw.id])
             return null
@@ -699,6 +701,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               }
             }
           }
+          if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
           store.addObject(pageId, obj)
           store.setSelection([obj.id])
           return null
@@ -1082,7 +1085,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
             {tool === 'pen' ? (
               // Live ink matches the committed stroke — same renderer.
-              <path d={inkPath(stroke, { last: false })} fill="var(--foreground)" stroke="none" />
+              <path
+                d={inkPath(stroke, { size: penSize, last: false })}
+                fill="var(--foreground)"
+                stroke="none"
+              />
             ) : (
               <path
                 d={pointsToPath(stroke)}
