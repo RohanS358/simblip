@@ -28,10 +28,74 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains',
 })
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.vercel.app'
+
 export const metadata: Metadata = {
-  title: 'SIMBLIP — Engineering Workspace',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'SIMBLIP — The Engineering Notebook That Simulates',
+    template: '%s · SIMBLIP',
+  },
   description:
-    'Notes, simulations, equations and live graphs on one infinite canvas. The engineering operating system for students.',
+    'Notes, live physics simulations, circuits, equations and graphs on one infinite canvas. Draw a shape, give it a behavior, press Play — the engineering operating system for students. Built by Rohan Singh.',
+  applicationName: 'SIMBLIP',
+  authors: [{ name: 'Rohan Singh', url: 'https://github.com/rohansingh' }],
+  creator: 'Rohan Singh',
+  publisher: 'Rohan Singh',
+  keywords: [
+    'engineering notebook',
+    'physics simulation',
+    'circuit simulator',
+    'infinite canvas',
+    'interactive physics',
+    'STEM education',
+    'live graphs',
+    'formula engine',
+    'mechanics simulator',
+    'digital logic simulator',
+    'SIMBLIP',
+    'Rohan Singh',
+  ],
+  alternates: { canonical: '/' },
+  openGraph: {
+    type: 'website',
+    url: SITE_URL,
+    siteName: 'SIMBLIP',
+    title: 'SIMBLIP — The Engineering Notebook That Simulates',
+    description:
+      'Draw it. Behave it. Play it. Notes, simulations, circuits, equations and live graphs on one infinite canvas.',
+    locale: 'en_US',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SIMBLIP — The Engineering Notebook That Simulates',
+    description:
+      'Notes, physics simulations, circuits and live graphs on one infinite canvas. Built by Rohan Singh.',
+    creator: '@rohansingh',
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, 'max-image-preview': 'large', 'max-snippet': -1 },
+  },
+  icons: {
+    icon: [
+      { url: '/icon.svg', type: 'image/svg+xml' },
+      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
+      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
+    ],
+    apple: '/apple-icon.png',
+  },
+  category: 'education',
+}
+
+export const viewport = {
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#0a0a0b' },
+  ],
+  width: 'device-width',
+  initialScale: 1,
 }
 
 export default function RootLayout({

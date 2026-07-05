@@ -4,32 +4,32 @@ import { useEffect, useState } from "react";
 
 const testimonials = [
   {
-    quote: "Optimus transformed our deployment pipeline. What used to take hours now happens in seconds.",
+    quote: "I sketched a spring–mass system in class and it just… started moving. Physics finally clicked.",
     author: "Sarah Chen",
-    role: "CTO",
-    company: "Meridian Labs",
-    metric: "10x faster deployments",
+    role: "Mechanical Engineering",
+    company: "2nd year",
+    metric: "Drew it, played it, got it",
   },
   {
-    quote: "The developer experience is unmatched. Our team's productivity has never been higher.",
+    quote: "Doodled a circuit on my tablet, wrote 100Ω next to the resistor, and the bulb dimmed. Unreal.",
     author: "Marcus Webb",
-    role: "Engineering Lead",
-    company: "Flux Systems",
-    metric: "40% more features shipped",
+    role: "EE Student",
+    company: "Circuits I",
+    metric: "Sketch → live circuit",
   },
   {
-    quote: "Finally, infrastructure that scales with our ambition. Zero downtime since we switched.",
+    quote: "Notes, derivations and the live graph of my pendulum on one page. My whole lab report, one canvas.",
     author: "Elena Rodriguez",
-    role: "VP Engineering",
-    company: "Beacon AI",
-    metric: "99.99% uptime",
+    role: "Physics Tutor",
+    company: "STEM Center",
+    metric: "One canvas, whole lab",
   },
   {
-    quote: "The integrations are seamless. We connected our entire stack in a single afternoon.",
+    quote: "I change g in Variables while the simulation runs and my students watch the graph bend. Best demo tool I have.",
     author: "James Liu",
-    role: "Founder",
-    company: "Prism Analytics",
-    metric: "50+ integrations used",
+    role: "Physics Teacher",
+    company: "High School",
+    metric: "Live variables in class",
   },
 ];
 

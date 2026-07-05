@@ -1,7 +1,11 @@
 {
-  "name": "my-v0-project",
-  "version": "0.1.0",
+  "name": "simblip",
+  "version": "1.0.0",
   "private": true,
+  "description": "The engineering notebook that simulates — notes, physics, circuits, equations and live graphs on one infinite canvas.",
+  "author": {
+    "name": "Rohan Singh"
+  },
   "scripts": {
     "build": "next build",
     "dev": "next dev",

@@ -58,8 +58,8 @@ export function CtaSection() {
                 </h2>
 
                 <p className="text-xl text-muted-foreground mb-12 leading-relaxed max-w-xl">
-                  Join thousands of teams shipping faster with Optimus. 
-                  Start free, scale infinitely.
+                  Join students and engineers who sketch, simulate and understand
+                  faster with SIMBLIP. Free, in your browser.
                 </p>
 
                 <div className="flex flex-col sm:flex-row items-start gap-4">

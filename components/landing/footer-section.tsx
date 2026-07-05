@@ -50,12 +50,12 @@ export function FooterSection() {
             {/* Brand Column */}
             <div className="col-span-2">
               <a href="#" className="inline-flex items-center gap-2 mb-6">
-                <span className="text-2xl font-display">Optimus</span>
+                <span className="text-2xl font-display">SIMBLIP</span>
                 <span className="text-xs text-muted-foreground font-mono">TM</span>
               </a>
 
               <p className="text-muted-foreground leading-relaxed mb-8 max-w-xs">
-                The platform for teams who ship. Build, deploy, and scale with unprecedented velocity.
+                The engineering notebook that simulates. Draw it, behave it, play it — by Rohan Singh.
               </p>
 
               {/* Social Links */}
@@ -102,7 +102,8 @@ export function FooterSection() {
         {/* Bottom Bar */}
         <div className="py-8 border-t border-foreground/10 flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-sm text-muted-foreground">
-            2025 Optimus. All rights reserved.
+            © {new Date().getFullYear()} SIMBLIP. Designed &amp; developed by{' '}
+            <span className="font-semibold text-foreground">Rohan Singh</span>. All rights reserved.
           </p>
 
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
