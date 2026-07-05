@@ -10,6 +10,7 @@ import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
+import { inkPath } from './ink'
 import type { ObjectRendererProps } from './types'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
@@ -304,6 +305,14 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     () => (kind === 'stroke' && points ? pointsToPath(points) : ''),
     [kind, points]
   )
+  // Bare ink is the primary writing surface — render it as a pressure/
+  // velocity-shaped filled outline instead of a uniform polyline.
+  const bareInk =
+    kind === 'stroke' && !isBody(object.behaviors) && !object.behaviors.some((b) => b.enabled && b.type === 'wire')
+  const inkD = useMemo(
+    () => (bareInk && points ? inkPath(points) : ''),
+    [bareInk, points]
+  )
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />
 
@@ -411,15 +420,32 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     const showEnds = isWire && !isBody(object.behaviors) && strokePts.length > 0
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
-        <path
-          data-wire={flowable ? '' : undefined}
-          d={strokePath}
-          fill={isBody(object.behaviors) ? fill : 'none'}
-          stroke={isWire && !isBody(object.behaviors) ? 'var(--accent-amber)' : stroke}
-          strokeWidth={isWire ? 2.5 : 2}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
+        {bareInk ? (
+          // Ink body plus an invisible centerline: the circuit runtime still
+          // finds a data-wire path to recolor if this doodle conducts.
+          <>
+            <path d={inkD} fill={stroke} stroke="none" />
+            <path
+              data-wire=""
+              d={strokePath}
+              fill="none"
+              stroke="transparent"
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </>
+        ) : (
+          <path
+            data-wire={flowable ? '' : undefined}
+            d={strokePath}
+            fill={isBody(object.behaviors) ? fill : 'none'}
+            stroke={isWire && !isBody(object.behaviors) ? 'var(--accent-amber)' : stroke}
+            strokeWidth={isWire ? 2.5 : 2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
         {flowOverlays(strokePath)}
         {showEnds && (
           <>

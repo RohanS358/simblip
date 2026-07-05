@@ -83,7 +83,9 @@ export function Tutorial({ pageId, onClose }: { pageId: string; onClose: () => v
       initial={{ y: 16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 360, damping: 30 }}
-      className="glass-strong absolute bottom-5 left-4 z-40 w-72 rounded-2xl p-3"
+      // Phones: sit above the toolbar and span the width; desktop keeps the
+      // bottom-left card clear of the centered toolbar.
+      className="glass-strong absolute bottom-[5.5rem] left-4 right-4 z-40 rounded-2xl p-3 sm:bottom-5 sm:right-auto sm:w-72"
       aria-label="Getting started tutorial"
     >
       <div className="mb-2 flex items-center gap-2">

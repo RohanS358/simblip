@@ -61,7 +61,7 @@ function ToolButton({
           aria-pressed={active}
           onClick={onClick}
           className={cn(
-            'flex h-9 w-9 items-center justify-center rounded-xl transition-all',
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all',
             active
               ? 'text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -100,7 +100,9 @@ export function Toolbar({
       initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-      className="glass-strong absolute bottom-5 left-1/2 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl p-1.5"
+      // On narrow screens the row can't fit — it clamps to the viewport and
+      // scrolls horizontally instead of spilling off-screen.
+      className="glass-strong no-scrollbar absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 flex max-w-[calc(100vw-1rem)] -translate-x-1/2 items-center gap-1 overflow-x-auto rounded-2xl p-1.5"
     >
       {TOOLS.map(({ tool: t, icon: Icon, label, key }) => (
         <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
@@ -108,7 +110,7 @@ export function Toolbar({
         </ToolButton>
       ))}
 
-      <div className="mx-1 h-6 w-px bg-border" />
+      <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 
       <ToolButton
         active={inkToShape}
@@ -128,7 +130,7 @@ export function Toolbar({
         <ScanText className="h-4 w-4" />
       </ToolButton>
 
-      <div className="mx-1 h-6 w-px bg-border" />
+      <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 
       <ToolButton
         active={paletteOpen || tool === 'place'}

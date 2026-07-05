@@ -128,7 +128,7 @@ export function Sidebar() {
               <button
                 type="button"
                 aria-label="Add section"
-                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
+                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 pointer-coarse:opacity-100"
                 onClick={() => store.getState().addSection(nb.id)}
               >
                 <Plus className="h-3 w-3" />
@@ -136,7 +136,7 @@ export function Sidebar() {
               <button
                 type="button"
                 aria-label="Delete notebook"
-                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100"
+                className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100 pointer-coarse:opacity-100"
                 onClick={() => store.getState().removeNotebook(nb.id)}
               >
                 <Trash2 className="h-3 w-3" />
@@ -156,7 +156,7 @@ export function Sidebar() {
                     <button
                       type="button"
                       aria-label="Add page"
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
+                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 pointer-coarse:opacity-100"
                       onClick={() => store.getState().addPage(nb.id, sec.id)}
                     >
                       <Plus className="h-3 w-3" />
@@ -164,7 +164,7 @@ export function Sidebar() {
                     <button
                       type="button"
                       aria-label="Delete section"
-                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100"
+                      className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100 pointer-coarse:opacity-100"
                       onClick={() => store.getState().removeSection(nb.id, sec.id)}
                     >
                       <Trash2 className="h-3 w-3" />
@@ -190,7 +190,7 @@ export function Sidebar() {
                       <button
                         type="button"
                         aria-label="Delete page"
-                        className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100"
+                        className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100 pointer-coarse:opacity-100"
                         onClick={(e) => {
                           e.stopPropagation()
                           store.getState().removePage(page.id)

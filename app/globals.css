@@ -159,6 +159,15 @@
     outline-offset: 2px;
     border-radius: 4px;
   }
+  /* Kill double-tap-to-zoom on controls so touch taps register instantly. */
+  button,
+  [role='button'],
+  a,
+  input,
+  textarea,
+  select {
+    touch-action: manipulation;
+  }
 }
 
 @layer utilities {

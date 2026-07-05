@@ -8,6 +8,7 @@ import { PanelLeft, PanelRight, Sun, Moon, HelpCircle } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Toolbar } from './toolbar'
@@ -101,10 +102,21 @@ export function WorkspaceShell() {
     return null
   })
 
+  const isMobile = useIsMobile()
+
   useEffect(() => {
     seedFirstRun()
+    // Small screens: the canvas is the workspace — panels open on demand.
+    if (window.matchMedia('(max-width: 767px)').matches)
+      useWorkspaceStore.setState({ sidebarOpen: false, inspectorOpen: false })
     setReady(true)
   }, [])
+
+  // Picking a page on a phone should reveal the canvas, not leave the
+  // full-screen sidebar covering it.
+  useEffect(() => {
+    if (isMobile && activePageId) useWorkspaceStore.setState({ sidebarOpen: false })
+  }, [isMobile, activePageId])
 
   // Page switch tears down any running world — simulations are per page.
   useEffect(() => {
@@ -138,8 +150,10 @@ export function WorkspaceShell() {
         </span>
         {pageName && (
           <>
-            <span className="text-muted-foreground/50">/</span>
-            <span className="truncate text-[13px] text-muted-foreground">{pageName}</span>
+            <span className="hidden text-muted-foreground/50 sm:inline">/</span>
+            <span className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:inline">
+              {pageName}
+            </span>
           </>
         )}
         <div className="flex-1" />
@@ -178,7 +192,7 @@ export function WorkspaceShell() {
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {sidebarOpen && <Sidebar />}
+        {sidebarOpen && !isMobile && <Sidebar />}
 
         <main className="relative min-w-0 flex-1">
           {activePageId ? (
@@ -200,7 +214,35 @@ export function WorkspaceShell() {
           )}
         </main>
 
-        {inspectorOpen && activePageId && <Inspector pageId={activePageId} />}
+        {inspectorOpen && activePageId && !isMobile && <Inspector pageId={activePageId} />}
+
+        {/* On phones the panels float over the canvas; a backdrop tap closes them. */}
+        {isMobile && sidebarOpen && (
+          <div className="absolute inset-0 z-50 flex">
+            <button
+              type="button"
+              aria-label="Close sidebar"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => togglePanel('sidebar')}
+            />
+            <div className="relative z-10 flex h-full">
+              <Sidebar />
+            </div>
+          </div>
+        )}
+        {isMobile && inspectorOpen && activePageId && (
+          <div className="absolute inset-0 z-50 flex justify-end">
+            <button
+              type="button"
+              aria-label="Close inspector"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => togglePanel('inspector')}
+            />
+            <div className="relative z-10 flex h-full">
+              <Inspector pageId={activePageId} />
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

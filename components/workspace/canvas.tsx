@@ -22,6 +22,7 @@ import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { registerElement, useRuntimeStore } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { pointsToPath } from '@/components/objects/geometry'
+import { inkPath } from '@/components/objects/ink'
 import { cn } from '@/lib/utils'
 
 const GRID = 24
@@ -166,7 +167,9 @@ const ObjectView = memo(function ObjectView({
               role="button"
               aria-label={`Resize ${corner}`}
               className={cn(
+                // The ::after pad widens the touch target without fattening the dot.
                 'absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--ring)] bg-background',
+                "after:absolute after:-inset-2 after:content-['']",
                 cls
               )}
               onPointerDown={(e) => onResizeStart(e, object.id, corner)}
@@ -179,7 +182,7 @@ const ObjectView = memo(function ObjectView({
         <div
           role="button"
           aria-label="Rotate"
-          className="absolute -top-6 left-1/2 flex -translate-x-1/2 flex-col items-center"
+          className="absolute -top-6 left-1/2 flex -translate-x-1/2 flex-col items-center after:absolute after:-inset-2 after:content-['']"
           style={{ cursor: 'grab' }}
           onPointerDown={(e) => onRotateStart(e, object.id)}
         >
@@ -195,6 +198,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const spaceRef = useRef(false)
+  // Touch state: live touch points, the two-finger pinch baseline, and the
+  // long-press timer that stands in for right-click on touch screens.
+  const touchesRef = useRef<Map<number, Vec2>>(new Map())
+  const pinchRef = useRef<{ dist: number; center: Vec2; viewport: Viewport } | null>(null)
+  const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
 
   const objects = useDocStore((s) => s.pages[pageId]?.objects)
   const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
@@ -419,17 +427,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
-        // Coalesced pointer events give the full-resolution ink trail.
-        const raw: { clientX: number; clientY: number }[] =
+        // Coalesced pointer events give the full-resolution ink trail;
+        // pressure rides along as a third component for the ink renderer.
+        const raw: { clientX: number; clientY: number; pressure: number }[] =
           typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
             ? e.getCoalescedEvents()
             : [e]
-        const pts = raw.map((ev) => toCanvas(ev.clientX, ev.clientY))
+        const pts = raw.map((ev) => ({ ...toCanvas(ev.clientX, ev.clientY), p: ev.pressure }))
         setStroke((prev) => {
           const next = prev ? [...prev] : []
           for (const p of pts) {
             const last = next[next.length - 1]
-            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75) next.push([p.x, p.y])
+            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
+              next.push([p.x, p.y, p.p])
           }
           return next
         })
@@ -618,7 +628,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           if (!store.inkToShape) {
             const raw = fromRecognition({
               kind: 'stroke',
-              points: points.map(([x, y]) => [x - rec.x, y - rec.y]),
+              points: points.map(([x, y, pr]) =>
+                pr === undefined ? [x - rec.x, y - rec.y] : [x - rec.x, y - rec.y, pr]
+              ),
               x: rec.x,
               y: rec.y,
               w: rec.w,
@@ -696,6 +708,141 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     [pageId, onPointerMove, toCanvas]
   )
 
+  // Aborts an in-flight one-finger gesture — a second finger means pinch,
+  // a long-press means menu; either way the started gesture must not commit.
+  const cancelGesture = useCallback(() => {
+    const g = gestureRef.current
+    if (!g) return
+    gestureRef.current = null
+    window.removeEventListener('pointermove', onPointerMove)
+    window.removeEventListener('pointerup', onPointerUp)
+    if (g.mode === 'move') {
+      const store = useDocStore.getState()
+      for (const [id, p] of g.objectStartPositions)
+        store.updateObject(pageId, id, { position: { ...p } })
+    }
+    setStroke(null)
+    setMarquee(null)
+    setPlacePreview(null)
+    setGuides(null)
+  }, [pageId, onPointerMove, onPointerUp])
+
+  const clearLongPress = useCallback(() => {
+    if (longPressRef.current) {
+      clearTimeout(longPressRef.current.timer)
+      longPressRef.current = null
+    }
+  }, [])
+
+  // Two-finger pan/zoom, tldraw-style: the canvas point under the initial
+  // touch midpoint stays under the current midpoint, so moving both fingers
+  // pans and spreading them zooms — one formula covers both.
+  const onPinchMove = useCallback(
+    (e: PointerEvent) => {
+      const touches = touchesRef.current
+      if (!touches.has(e.pointerId)) return
+      touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
+      const p = pinchRef.current
+      if (!p || touches.size < 2) return
+      const [a, b] = [...touches.values()]
+      const dist = Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1)
+      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, p.viewport.zoom * (dist / p.dist)))
+      const rect = containerRef.current!.getBoundingClientRect()
+      const cx = (a.x + b.x) / 2 - rect.left
+      const cy = (a.y + b.y) / 2 - rect.top
+      useDocStore.getState().setViewport(pageId, {
+        zoom,
+        x: cx - ((p.center.x - rect.left - p.viewport.x) * zoom) / p.viewport.zoom,
+        y: cy - ((p.center.y - rect.top - p.viewport.y) * zoom) / p.viewport.zoom,
+      })
+    },
+    [pageId]
+  )
+
+  const pinchBaseline = useCallback(() => {
+    const [a, b] = [...touchesRef.current.values()]
+    pinchRef.current = {
+      dist: Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1),
+      center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+      viewport: useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 },
+    }
+  }, [pageId])
+
+  const onPinchEnd = useCallback(
+    (e: PointerEvent) => {
+      touchesRef.current.delete(e.pointerId)
+      if (touchesRef.current.size >= 2) {
+        pinchBaseline() // a finger lifted but two remain — re-anchor
+        return
+      }
+      pinchRef.current = null
+      window.removeEventListener('pointermove', onPinchMove)
+      window.removeEventListener('pointerup', onPinchEnd)
+      window.removeEventListener('pointercancel', onPinchEnd)
+    },
+    [onPinchMove, pinchBaseline]
+  )
+
+  useEffect(
+    () => () => {
+      window.removeEventListener('pointermove', onPinchMove)
+      window.removeEventListener('pointerup', onPinchEnd)
+      window.removeEventListener('pointercancel', onPinchEnd)
+    },
+    [onPinchMove, onPinchEnd]
+  )
+
+  // Capture-phase touch bookkeeping: runs before object handlers regardless
+  // of their stopPropagation, so every finger is accounted for.
+  const handleTouchDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    clearLongPress()
+    if (touchesRef.current.size === 2) {
+      cancelGesture() // whatever one finger started, a pair means pan/zoom
+      if (!pinchRef.current) {
+        window.addEventListener('pointermove', onPinchMove)
+        window.addEventListener('pointerup', onPinchEnd)
+        window.addEventListener('pointercancel', onPinchEnd)
+      }
+      pinchBaseline()
+      return
+    }
+    if (touchesRef.current.size > 2 || pinchRef.current) return
+    // Long-press = right-click. Armed only while selecting/inspecting —
+    // drawing and placement tools need press-and-hold for their own gestures.
+    if (editing && tool !== 'select') return
+    const objectId =
+      (e.target as HTMLElement).closest?.('[data-object-id]')?.getAttribute('data-object-id') ??
+      null
+    const { clientX: x, clientY: y } = e
+    longPressRef.current = {
+      x,
+      y,
+      timer: window.setTimeout(() => {
+        longPressRef.current = null
+        cancelGesture()
+        const rect = containerRef.current!.getBoundingClientRect()
+        if (objectId) useDocStore.getState().setSelection([objectId])
+        setCtxMenu({ x: x - rect.left, y: y - rect.top, objectId })
+      }, 500),
+    }
+  }
+
+  const handleTouchMoveCapture = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    if (touchesRef.current.has(e.pointerId))
+      touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const lp = longPressRef.current
+    if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLongPress()
+  }
+
+  const handleTouchUpCapture = (e: React.PointerEvent) => {
+    if (e.pointerType !== 'touch') return
+    touchesRef.current.delete(e.pointerId)
+    clearLongPress()
+  }
+
   const beginGesture = (mode: GestureMode, e: React.PointerEvent, extra?: Partial<Gesture>) => {
     const store = useDocStore.getState()
     gestureRef.current = {
@@ -717,6 +864,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   }
 
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
+    if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if (e.button === 1 || spaceRef.current) {
       beginGesture('pan', e)
       return
@@ -730,7 +878,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     if (tool === 'pen') {
       const p = toCanvas(e.clientX, e.clientY)
-      setStroke([[p.x, p.y]])
+      setStroke([[p.x, p.y, e.pressure]])
       beginGesture('draw', e)
       return
     }
@@ -762,6 +910,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
   const handleObjectPointerDown = (e: React.PointerEvent, id: string) => {
     setCtxMenu(null)
+    if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if ((tool !== 'select' && editing) || e.button !== 0) return
     e.stopPropagation()
     const store = useDocStore.getState()
@@ -849,6 +998,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // ── Custom right-click menu ───────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault() // the browser menu never belongs on the canvas
+    clearLongPress() // Android fires contextmenu on long-press; avoid doubling
     const rect = containerRef.current!.getBoundingClientRect()
     const hit = (e.target as HTMLElement).closest?.('[data-object-id]')
     const objectId = hit?.getAttribute('data-object-id') ?? null
@@ -894,6 +1044,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         backgroundSize: `${GRID * viewport.zoom}px ${GRID * viewport.zoom}px`,
         backgroundPosition: `${viewport.x}px ${viewport.y}px`,
       }}
+      onPointerDownCapture={handleTouchDownCapture}
+      onPointerMoveCapture={handleTouchMoveCapture}
+      onPointerUpCapture={handleTouchUpCapture}
+      onPointerCancelCapture={handleTouchUpCapture}
       onPointerDown={(e) => {
         setCtxMenu(null)
         handleBackgroundPointerDown(e)
@@ -926,14 +1080,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
         {stroke && stroke.length > 1 && (
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
-            <path
-              d={pointsToPath(stroke)}
-              fill="none"
-              stroke="var(--foreground)"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
+            {tool === 'pen' ? (
+              // Live ink matches the committed stroke — same renderer.
+              <path d={inkPath(stroke, { last: false })} fill="var(--foreground)" stroke="none" />
+            ) : (
+              <path
+                d={pointsToPath(stroke)}
+                fill="none"
+                stroke="var(--foreground)"
+                strokeWidth={2}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
           </svg>
         )}
 
@@ -1052,7 +1211,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         </div>
       )}
 
-      <div className="glass absolute bottom-4 right-4 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
+      <div className="glass absolute bottom-[4.5rem] right-3 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
         {Math.round(viewport.zoom * 100)}%
       </div>
     </div>

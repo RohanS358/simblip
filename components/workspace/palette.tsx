@@ -32,7 +32,7 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 16, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-          className="glass-strong absolute bottom-20 left-1/2 z-40 w-[26rem] -translate-x-1/2 rounded-2xl p-3"
+          className="glass-strong absolute bottom-20 left-1/2 z-40 w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-2xl p-3"
           aria-label="Component palette"
         >
           <div className="mb-2 flex items-center gap-1">
@@ -62,7 +62,7 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
             </button>
           </div>
 
-          <div className="grid max-h-56 grid-cols-4 gap-1.5 overflow-y-auto no-scrollbar">
+          <div className="no-scrollbar grid max-h-56 grid-cols-3 gap-1.5 overflow-y-auto sm:grid-cols-4">
             {COMPONENTS.filter((c) => c.domain === domain).map((c) => {
               const armed = tool === 'place' && toolOption === c.id
               return (

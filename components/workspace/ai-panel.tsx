@@ -84,7 +84,7 @@ export function AiPanel({ pageId }: { pageId: string }) {
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 40, opacity: 0 }}
           transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-          className="glass-strong absolute bottom-3 right-3 top-3 z-50 flex w-[22rem] flex-col rounded-2xl"
+          className="glass-strong absolute bottom-3 right-3 top-3 z-50 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-2xl"
           aria-label="AI assistant"
         >
           <div className="flex items-center gap-2 border-b border-border/60 px-4 py-3">

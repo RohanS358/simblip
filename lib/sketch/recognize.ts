@@ -51,7 +51,11 @@ export function simplify(points: number[][], epsilon: number): number[][] {
 
 export function recognize(raw: number[][]): Recognition {
   const { minX, minY, w, h } = bbox(raw)
-  const rel = raw.map(([x, y]) => [x - minX, y - minY])
+  // Pressure (a third component, when present) survives into the stroke
+  // fallback so committed ink renders with the same widths as the preview.
+  const rel = raw.map(([x, y, p]) =>
+    p === undefined ? [x - minX, y - minY] : [x - minX, y - minY, p]
+  )
   const diag = Math.hypot(w, h)
   const base: Omit<Recognition, 'kind' | 'points'> = { w, h, x: minX, y: minY }
   const fallback: Recognition = { kind: 'stroke', points: rel, ...base }
