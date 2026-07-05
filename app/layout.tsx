@@ -29,7 +29,7 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.vercel.app'
-
+  
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
@@ -39,7 +39,7 @@ export const metadata: Metadata = {
   description:
     'Notes, live physics simulations, circuits, equations and graphs on one infinite canvas. Draw a shape, give it a behavior, press Play — the engineering operating system for students. Built by Rohan Singh.',
   applicationName: 'SIMBLIP',
-  authors: [{ name: 'Rohan Singh', url: 'https://github.com/rohansingh' }],
+  authors: [{ name: 'Rohan Singh', url: 'https://github.com/RohanS358' }],
   creator: 'Rohan Singh',
   publisher: 'Rohan Singh',
   keywords: [
@@ -71,7 +71,7 @@ export const metadata: Metadata = {
     title: 'SIMBLIP — The Engineering Notebook That Simulates',
     description:
       'Notes, physics simulations, circuits and live graphs on one infinite canvas. Built by Rohan Singh.',
-    creator: '@rohansingh',
+    creator: '@RohanSingh',
   },
   robots: {
     index: true,
@@ -80,11 +80,10 @@ export const metadata: Metadata = {
   },
   icons: {
     icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
+      { url: '/logo.png', media: '(prefers-color-scheme: light)' },
+      { url: '/logo.png', media: '(prefers-color-scheme: dark)' },
     ],
-    apple: '/apple-icon.png',
+    apple: '/logo.png',
   },
   category: 'education',
 }
