@@ -212,7 +212,13 @@ export const COMPONENTS: ComponentDef[] = [
       ['digital', 'nor-gate', 'NOR', {}],
       ['digital', 'not-gate', 'NOT', {}],
       ['digital', 'd-ff', 'D Flip-Flop', {}],
+      ['digital', 'jk-ff', 'JK Flip-Flop', {}],
+      ['digital', 'sr-latch', 'SR Latch', {}],
       ['digital', 'mux', 'MUX', {}],
+      ['digital', 'half-adder', 'Half Adder', {}],
+      ['digital', 'full-adder', 'Full Adder', {}],
+      ['digital', 'decoder', 'Decoder 2:4', {}],
+      ['digital', 'comparator', 'Comparator', {}],
     ] as [ComponentDef['domain'], string, string, Record<string, string>][]
   ).map(([domain, name, label, params]): ComponentDef => ({
     id: name,

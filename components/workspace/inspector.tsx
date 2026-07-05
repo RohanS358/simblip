@@ -214,6 +214,11 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
 
 const GRAPH_CHANNELS = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
 
+const getStr = (obj: SceneObject, name: string): string => {
+  const p = obj.parameters[name]
+  return p?.kind === 'string' ? p.value : ''
+}
+
 function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setParam = useDocStore((s) => s.setParam)
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -292,22 +297,44 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
             value={sourceId}
             onChange={(e) => setStringParam(pageId, object.id, 'sourceId', e.target.value)}
           >
-            <option value="">— pick a physics object —</option>
+            <option value="">— none (formula plotter) —</option>
             {bodies.map((o) => (
               <option key={o.id} value={o.id}>
                 {o.name}
               </option>
             ))}
           </select>
-          <label className="block text-[11px] text-muted-foreground">
+          <p className="text-[10.5px] text-muted-foreground">
             Channels: {(readBuffer(sourceId)?.channelNames ?? GRAPH_CHANNELS).join(', ')}
-            <ExprInput
-              ariaLabel="Graph channels"
-              value={object.parameters.yChannels?.kind === 'string' ? object.parameters.yChannels.value : ''}
-              onCommit={(v) => setStringParam(pageId, object.id, 'yChannels', v)}
-              mono={false}
-            />
-          </label>
+          </p>
+          {(
+            [
+              ['yChannels', 'Y channels', 'e.g. y, vy'],
+              ['xChannel', 'X axis', 't (or any channel — vx for phase plots)'],
+              ['formulas', 'Formulas', '“;”-separated, e.g. 0.5*m*speed^2; sin(t)'],
+              ['xMin', 'X min', 'blank = auto'],
+              ['xMax', 'X max', 'blank = auto'],
+              ['yMin', 'Y min', 'blank = auto'],
+              ['yMax', 'Y max', 'blank = auto'],
+              ['refY', 'Ref lines Y', '“;”-separated values/exprs'],
+              ['refX', 'Ref lines X', '“;”-separated values/exprs'],
+            ] as const
+          ).map(([name, label, hint]) => (
+            <div key={name} className="flex items-center gap-2">
+              <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={hint}>
+                {label}
+              </span>
+              <ExprInput
+                ariaLabel={`Graph ${label}`}
+                value={getStr(object, name)}
+                onCommit={(v) => setStringParam(pageId, object.id, name, v)}
+              />
+            </div>
+          ))}
+          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+            Formulas can use page variables, t and the source channels. Without
+            a source the graph plots formulas over the X range.
+          </p>
         </div>
       )}
 
@@ -341,11 +368,21 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   )
 }
 
+// Engine defaults surfaced as editable variables. Overriding one creates a
+// normal page variable the runtime reads live — delete it to restore default.
+const SYSTEM_VARS = [
+  { name: 'g', def: '9.81', label: 'Gravity (m/s²)' },
+  { name: 'drag', def: '0.01', label: 'Air resistance (0 = vacuum)' },
+  { name: 'timeScale', def: '1', label: 'Simulation speed ×' },
+]
+
 function VariablesPanel({ pageId }: { pageId: string }) {
   const variables = useDocStore((s) => s.pages[pageId]?.variables) ?? []
   const addVariable = useDocStore((s) => s.addVariable)
   const updateVariable = useDocStore((s) => s.updateVariable)
   const removeVariable = useDocStore((s) => s.removeVariable)
+
+  const unsetSystem = SYSTEM_VARS.filter((sv) => !variables.some((v) => v.name === sv.name))
 
   return (
     <div className="space-y-1.5">
@@ -397,6 +434,29 @@ function VariablesPanel({ pageId }: { pageId: string }) {
       >
         <Plus className="h-3.5 w-3.5" /> Add variable
       </button>
+
+      {unsetSystem.length > 0 && (
+        <div className="pt-2">
+          <SectionTitle>System (engine defaults)</SectionTitle>
+          {unsetSystem.map((sv) => (
+            <div key={sv.name} className="flex items-center gap-1.5 py-0.5">
+              <span className="w-20 shrink-0 font-mono text-[11.5px] text-muted-foreground">{sv.name}</span>
+              <ExprInput
+                ariaLabel={`System variable ${sv.name}`}
+                value={sv.def}
+                onCommit={(expr) => addVariable(pageId, sv.name, expr)}
+              />
+              <span className="w-28 shrink-0 truncate text-[10px] text-muted-foreground" title={sv.label}>
+                {sv.label}
+              </span>
+            </div>
+          ))}
+          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
+            Edit a value to override it for this page — it becomes a normal
+            variable above (delete it to restore the default).
+          </p>
+        </div>
+      )}
     </div>
   )
 }

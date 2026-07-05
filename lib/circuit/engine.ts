@@ -78,10 +78,53 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
   input: [{ x: 1, y: 0.5 }],
   clock: [{ x: 1, y: 0.5 }],
   output: [{ x: 0, y: 0.5 }],
+  'half-adder': [
+    { x: 0, y: 0.333 },
+    { x: 0, y: 0.667 },
+    { x: 1, y: 0.333 },
+    { x: 1, y: 0.667 },
+  ], // [A, B, S, C]
+  'full-adder': [
+    { x: 0, y: 0.25 },
+    { x: 0, y: 0.5 },
+    { x: 0, y: 0.75 },
+    { x: 1, y: 0.333 },
+    { x: 1, y: 0.667 },
+  ], // [A, B, Cin, S, Cout]
+  'sr-latch': [
+    { x: 0, y: 0.333 },
+    { x: 0, y: 0.667 },
+    { x: 1, y: 0.5 },
+  ], // [S, R, Q]
+  'jk-ff': [
+    { x: 0, y: 0.25 },
+    { x: 0, y: 0.5 },
+    { x: 0, y: 0.75 },
+    { x: 1, y: 0.5 },
+  ], // [J, CLK, K, Q]
+  decoder: [
+    { x: 0, y: 0.333 },
+    { x: 0, y: 0.667 },
+    { x: 1, y: 0.2 },
+    { x: 1, y: 0.4 },
+    { x: 1, y: 0.6 },
+    { x: 1, y: 0.8 },
+  ], // [A(lsb), B, Y0..Y3]
+  comparator: [
+    { x: 0, y: 0.333 },
+    { x: 0, y: 0.667 },
+    { x: 1, y: 0.25 },
+    { x: 1, y: 0.5 },
+    { x: 1, y: 0.75 },
+  ], // [A, B, A<B, A=B, A>B]
 }
 
 const GATES = new Set(['and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate', 'not-gate'])
-const DIGITAL = new Set([...GATES, 'd-ff', 'mux', 'input', 'clock', 'output'])
+const DIGITAL = new Set([
+  ...GATES,
+  'd-ff', 'mux', 'input', 'clock', 'output',
+  'half-adder', 'full-adder', 'sr-latch', 'jk-ff', 'decoder', 'comparator',
+])
 
 export const SNAP = 14
 
@@ -694,16 +737,55 @@ function stepDigital(
       } else if (s === 'mux') {
         const [i0, i1, sel, out] = comp.nets
         L[out] = (L[sel] ? L[i1] : L[i0]) ?? 0
+      } else if (s === 'half-adder') {
+        const [a, b, sum, carry] = comp.nets
+        L[sum] = (L[a] ?? 0) ^ (L[b] ?? 0)
+        L[carry] = (L[a] ?? 0) & (L[b] ?? 0)
+      } else if (s === 'full-adder') {
+        const [a, b, cin, sum, cout] = comp.nets
+        const total = (L[a] ?? 0) + (L[b] ?? 0) + (L[cin] ?? 0)
+        L[sum] = total & 1
+        L[cout] = total >> 1
+      } else if (s === 'decoder') {
+        const [a, b, ...ys] = comp.nets
+        const idx = (L[a] ?? 0) + 2 * (L[b] ?? 0)
+        ys.forEach((y, i) => (L[y] = i === idx ? 1 : 0))
+      } else if (s === 'comparator') {
+        const [a, b, lt, eq, gt] = comp.nets
+        const av = L[a] ?? 0
+        const bv = L[b] ?? 0
+        L[lt] = av < bv ? 1 : 0
+        L[eq] = av === bv ? 1 : 0
+        L[gt] = av > bv ? 1 : 0
+      } else if (s === 'sr-latch') {
+        const set = L[comp.nets[0]] ?? 0
+        const reset = L[comp.nets[1]] ?? 0
+        if (set && !reset) comp.state.q = 1
+        else if (reset && !set) comp.state.q = 0
+        L[comp.nets[2]] = comp.state.q ?? 0
       }
     }
   }
 
-  // sequential: D flip-flops sample on the rising clock edge
+  // sequential: flip-flops sample on the rising clock edge
   for (const comp of c.comps) {
-    if (comp.symbol !== 'd-ff') continue
-    const clk = L[comp.nets[1]] ?? 0
-    if (clk === 1 && (comp.state.prevClk ?? 0) === 0) comp.state.q = L[comp.nets[0]] ?? 0
-    comp.state.prevClk = clk
-    L[comp.nets[2]] = comp.state.q ?? 0
+    if (comp.symbol === 'd-ff') {
+      const clk = L[comp.nets[1]] ?? 0
+      if (clk === 1 && (comp.state.prevClk ?? 0) === 0) comp.state.q = L[comp.nets[0]] ?? 0
+      comp.state.prevClk = clk
+      L[comp.nets[2]] = comp.state.q ?? 0
+    } else if (comp.symbol === 'jk-ff') {
+      const [j, clkNet, k, q] = comp.nets
+      const clk = L[clkNet] ?? 0
+      if (clk === 1 && (comp.state.prevClk ?? 0) === 0) {
+        const J = L[j] ?? 0
+        const K = L[k] ?? 0
+        if (J && K) comp.state.q = (comp.state.q ?? 0) ? 0 : 1 // toggle
+        else if (J) comp.state.q = 1
+        else if (K) comp.state.q = 0
+      }
+      comp.state.prevClk = clk
+      L[q] = comp.state.q ?? 0
+    }
   }
 }

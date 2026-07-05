@@ -130,6 +130,44 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <text x="38" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">MUX</text>
     </>
   ),
+  'half-adder': (
+    <>
+      <path d="M26 6 h44 v36 h-44 z M4 16 h22 M4 32 h22 M70 16 h22 M70 32 h22" fill="none" />
+      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">HA</text>
+    </>
+  ),
+  'full-adder': (
+    <>
+      <path d="M26 6 h44 v36 h-44 z M4 12 h22 M4 24 h22 M4 36 h22 M70 16 h22 M70 32 h22" fill="none" />
+      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">FA</text>
+    </>
+  ),
+  'sr-latch': (
+    <>
+      <path d="M26 6 h44 v36 h-44 z M4 16 h22 M4 32 h22 M70 24 h22" fill="none" />
+      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">SR</text>
+    </>
+  ),
+  'jk-ff': (
+    <>
+      <path d="M26 6 h44 v36 h-44 z M4 12 h22 M4 24 h22 M4 36 h22 M70 24 h22 M26 20 l7 4 -7 4" fill="none" />
+      <text x="42" y="16" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">J</text>
+      <text x="42" y="40" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">K</text>
+      <text x="58" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
+    </>
+  ),
+  decoder: (
+    <>
+      <path d="M26 4 h44 v40 h-44 z M4 16 h22 M4 32 h22 M70 9.6 h22 M70 19.2 h22 M70 28.8 h22 M70 38.4 h22" fill="none" />
+      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">DEC</text>
+    </>
+  ),
+  comparator: (
+    <>
+      <path d="M26 4 h44 v40 h-44 z M4 16 h22 M4 32 h22 M70 12 h22 M70 24 h22 M70 36 h22" fill="none" />
+      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">CMP</text>
+    </>
+  ),
 }
 
 // Glow center per glowing symbol (viewBox coords).

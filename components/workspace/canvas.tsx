@@ -37,6 +37,8 @@ interface Gesture {
   objectStartPositions: Map<string, Vec2>
   resizeId?: string
   resizeStart?: { w: number; h: number }
+  resizeOrigin?: Vec2
+  resizeCorner?: 'nw' | 'ne' | 'sw' | 'se'
   rotateId?: string
   rotateCenter?: Vec2
   rotateStartAngle?: number
@@ -55,7 +57,7 @@ const ObjectView = memo(function ObjectView({
   object: SceneObject
   selected: boolean
   onPointerDown: (e: React.PointerEvent, id: string) => void
-  onResizeStart: (e: React.PointerEvent, id: string) => void
+  onResizeStart: (e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => void
   onRotateStart: (e: React.PointerEvent, id: string) => void
 }) {
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
@@ -89,12 +91,29 @@ const ObjectView = memo(function ObjectView({
         <Renderer pageId={pageId} object={object} selected={selected} />
       </div>
       {selected && resizable && (
-        <div
-          role="button"
-          aria-label="Resize"
-          className="absolute -bottom-1.5 -right-1.5 h-3 w-3 cursor-se-resize rounded-full border border-[var(--ring)] bg-background"
-          onPointerDown={(e) => onResizeStart(e, object.id)}
-        />
+        // Figma-style corner handles — resize from any corner; opposite corner
+        // stays anchored. Shift keeps the aspect ratio.
+        <>
+          {(
+            [
+              ['nw', '-top-1 -left-1 cursor-nwse-resize'],
+              ['ne', '-top-1 -right-1 cursor-nesw-resize'],
+              ['sw', '-bottom-1 -left-1 cursor-nesw-resize'],
+              ['se', '-bottom-1 -right-1 cursor-nwse-resize'],
+            ] as const
+          ).map(([corner, cls]) => (
+            <div
+              key={corner}
+              role="button"
+              aria-label={`Resize ${corner}`}
+              className={cn(
+                'absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--ring)] bg-background',
+                cls
+              )}
+              onPointerDown={(e) => onResizeStart(e, object.id, corner)}
+            />
+          ))}
+        </>
       )}
       {selected && (
         // Canva-style rotation grip above the selection box.
@@ -245,13 +264,37 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
-        setStroke((prev) => (prev ? [...prev, [point.x, point.y]] : [[point.x, point.y]]))
-      } else if (g.mode === 'resize' && g.resizeId && g.resizeStart) {
+        // Coalesced pointer events give the full-resolution ink trail.
+        const raw: { clientX: number; clientY: number }[] =
+          typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
+            ? e.getCoalescedEvents()
+            : [e]
+        const pts = raw.map((ev) => toCanvas(ev.clientX, ev.clientY))
+        setStroke((prev) => {
+          const next = prev ? [...prev] : []
+          for (const p of pts) {
+            const last = next[next.length - 1]
+            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75) next.push([p.x, p.y])
+          }
+          return next
+        })
+      } else if (g.mode === 'resize' && g.resizeId && g.resizeStart && g.resizeOrigin) {
         const zoom = g.startViewport.zoom
+        const corner = g.resizeCorner ?? 'se'
+        const dx = dxScreen / zoom
+        const dy = dyScreen / zoom
+        let w = Math.max(16, g.resizeStart.w + (corner.includes('e') ? dx : -dx))
+        let h = Math.max(16, g.resizeStart.h + (corner.includes('s') ? dy : -dy))
+        if (e.shiftKey) {
+          const k = Math.max(w / g.resizeStart.w, h / g.resizeStart.h)
+          w = Math.max(16, g.resizeStart.w * k)
+          h = Math.max(16, g.resizeStart.h * k)
+        }
         store.updateObject(pageId, g.resizeId, {
-          size: {
-            w: Math.max(16, g.resizeStart.w + dxScreen / zoom),
-            h: Math.max(16, g.resizeStart.h + dyScreen / zoom),
+          size: { w, h },
+          position: {
+            x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
+            y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
           },
         })
       } else if (g.mode === 'rotate' && g.rotateId && g.rotateCenter) {
@@ -418,14 +461,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     beginGesture('move', e)
   }
 
-  const handleResizeStart = (e: React.PointerEvent, id: string) => {
+  const handleResizeStart = (e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => {
     if (!editing) return
     e.stopPropagation()
     const store = useDocStore.getState()
     const obj = store.pages[pageId]?.objects[id]
     if (!obj) return
     store.pushHistory(pageId)
-    beginGesture('resize', e, { resizeId: id, resizeStart: { ...obj.size } })
+    beginGesture('resize', e, {
+      resizeId: id,
+      resizeStart: { ...obj.size },
+      resizeOrigin: { ...obj.position },
+      resizeCorner: corner,
+    })
   }
 
   const handleRotateStart = (e: React.PointerEvent, id: string) => {
@@ -464,7 +512,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       aria-label="Infinite canvas"
     >
       <div
-        className="absolute left-0 top-0"
+        // While a drawing/placement tool is armed, objects must not swallow
+        // the pointer (graphs/notes stop propagation) — ink goes through.
+        className={cn('absolute left-0 top-0', editing && tool !== 'select' && 'pointer-events-none')}
         style={{
           transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
           transformOrigin: '0 0',

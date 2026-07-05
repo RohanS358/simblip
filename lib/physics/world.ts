@@ -286,6 +286,10 @@ function applyLiveParams(w: World, scope: Scope) {
   const g = typeof scope.g === 'number' ? scope.g : 9.81
   w.engine.gravity.y = g / 9.81
 
+  // air resistance: page variable `drag` (Matter's frictionAir, 0 = vacuum)
+  const drag = typeof scope.drag === 'number' ? Math.max(0, scope.drag) : 0.01
+  for (const b of w.bodies) if (!b.body.isStatic) b.body.frictionAir = drag
+
   const frameScope = { ...scope, t: w.t }
   for (const c of w.connectors) {
     if (c.k) {
@@ -445,14 +449,18 @@ function frame(now: number) {
   const docState = useDocStore.getState()
   const scope = docState.scopes[w.pageId] ?? {}
   const pageObjects = docState.pages[w.pageId]?.objects ?? {}
+  // `timeScale` variable: slow-motion / fast-forward without losing accuracy
+  const ts = Math.min(5, Math.max(0, typeof scope.timeScale === 'number' ? scope.timeScale : 1))
   let stepped = false
   while (w.acc >= STEP) {
-    applyLiveParams(w, scope)
-    Matter.Engine.update(w.engine, STEP)
-    if (w.circuit) stepCircuit(w.circuit, STEP / 1000, w.t, pageObjects)
-    w.t += STEP / 1000
+    if (ts > 0) {
+      applyLiveParams(w, scope)
+      Matter.Engine.update(w.engine, STEP * ts)
+      if (w.circuit) stepCircuit(w.circuit, (STEP / 1000) * ts, w.t, pageObjects)
+      w.t += (STEP / 1000) * ts
+      stepped = true
+    }
     w.acc -= STEP
-    stepped = true
   }
   if (stepped) {
     syncDom(w)
