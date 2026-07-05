@@ -22,6 +22,7 @@ import { compileExpr, type Scope } from '@/lib/formula/engine'
 import { useDocStore } from '@/lib/store/document'
 import { pushSample, notify, clearBuffer } from './bus'
 import { connectorPath } from '@/lib/render/connector-path'
+import { buildCircuit, stepCircuit, type Circuit } from '@/lib/circuit/engine'
 
 Matter.Common.setDecomp(decomp)
 
@@ -78,6 +79,7 @@ interface World {
   engine: Matter.Engine
   bodies: BodyEntry[]
   connectors: ConnectorEntry[]
+  circuit: Circuit | null
   t: number
   raf: number | null
   last: number
@@ -247,7 +249,17 @@ export function buildWorld(pageId: string): World {
     }
   }
 
-  return { pageId, engine, bodies, connectors, t: 0, raf: null, last: 0, acc: 0 }
+  return {
+    pageId,
+    engine,
+    bodies,
+    connectors,
+    circuit: buildCircuit(objs),
+    t: 0,
+    raf: null,
+    last: 0,
+    acc: 0,
+  }
 }
 
 function applyLiveParams(w: World, scope: Scope) {
@@ -311,7 +323,79 @@ function syncDom(w: World) {
   }
 }
 
+// Circuit results → DOM, outside React (flow dashes, readouts, pins, glow).
+function syncCircuitDom(w: World) {
+  const c = w.circuit
+  if (!c) return
+  for (const [id, flow] of c.frame.wires) {
+    const el = elements.get(id)
+    if (!el) continue
+    const conv = el.querySelector<SVGPathElement>('path[data-flow="conv"]')
+    const elec = el.querySelector<SVGPathElement>('path[data-flow="elec"]')
+    if (conv) {
+      conv.style.strokeDashoffset = `${-flow.charge}px`
+      conv.style.opacity = String(flow.intensity)
+    }
+    if (elec) {
+      // electrons drift opposite to conventional current
+      elec.style.strokeDashoffset = `${flow.charge}px`
+      elec.style.opacity = String(flow.intensity * 0.9)
+    }
+    const base = el.querySelector<SVGPathElement>('path[data-wire]')
+    if (base && flow.digital !== undefined) {
+      base.style.stroke = flow.digital ? 'var(--accent-mint)' : ''
+    }
+  }
+  for (const [id, r] of c.frame.readings) {
+    const el = elements.get(id)
+    if (!el) continue
+    if (r.text !== undefined) {
+      const s = el.querySelector('[data-reading]')
+      if (s && s.textContent !== r.text) s.textContent = r.text
+    }
+    if (r.glow !== undefined) {
+      const g = el.querySelector<SVGElement>('[data-glow]')
+      if (g) g.style.opacity = String(Math.min(1, r.glow) * 0.55)
+    }
+  }
+  for (const [id, pins] of c.frame.pins) {
+    const el = elements.get(id)
+    if (!el) continue
+    el.querySelectorAll<HTMLElement>('[data-pin]').forEach((p) => {
+      const v = pins[Number(p.dataset.pin)]
+      const txt = v === undefined ? '' : String(v)
+      if (p.textContent !== txt) p.textContent = txt
+      p.dataset.state = v ? '1' : '0'
+    })
+  }
+}
+
+function resetCircuitDom() {
+  for (const el of elements.values()) {
+    el.querySelectorAll<SVGPathElement>('path[data-flow]').forEach((p) => {
+      p.style.opacity = '0'
+      p.style.strokeDashoffset = '0'
+    })
+    el.querySelectorAll<HTMLElement>('[data-reading], [data-pin]').forEach((s) => {
+      s.textContent = ''
+    })
+    const g = el.querySelector<SVGElement>('[data-glow]')
+    if (g) g.style.opacity = '0'
+    const base = el.querySelector<SVGPathElement>('path[data-wire]')
+    if (base) base.style.stroke = ''
+  }
+}
+
 function sample(w: World) {
+  if (w.circuit) {
+    // electrical readings feed the same graph bus as body channels
+    for (const [id, r] of w.circuit.frame.readings) {
+      if (r.channels) {
+        pushSample(id, { t: w.t, channels: r.channels })
+        notify(id)
+      }
+    }
+  }
   for (const b of w.bodies) {
     if (b.body.isStatic) continue
     const v = b.body.velocity // px per 60Hz frame
@@ -339,17 +423,21 @@ function frame(now: number) {
   w.last = now
   w.acc += elapsed
 
-  const scope = useDocStore.getState().scopes[w.pageId] ?? {}
+  const docState = useDocStore.getState()
+  const scope = docState.scopes[w.pageId] ?? {}
+  const pageObjects = docState.pages[w.pageId]?.objects ?? {}
   let stepped = false
   while (w.acc >= STEP) {
     applyLiveParams(w, scope)
     Matter.Engine.update(w.engine, STEP)
+    if (w.circuit) stepCircuit(w.circuit, STEP / 1000, w.t, pageObjects)
     w.t += STEP / 1000
     w.acc -= STEP
     stepped = true
   }
   if (stepped) {
     syncDom(w)
+    syncCircuitDom(w)
     sample(w)
     if (now - timeUpdateAt > 150) {
       timeUpdateAt = now
@@ -373,6 +461,7 @@ export function play(pageId: string) {
   stop() // clean previous world if any
   world = buildWorld(pageId)
   for (const b of world.bodies) clearBuffer(b.objectId)
+  for (const comp of world.circuit?.comps ?? []) clearBuffer(comp.id)
   world.last = performance.now()
   world.raf = requestAnimationFrame(frame)
   rt.setMode('running')
@@ -388,14 +477,18 @@ export function pause() {
 
 export function stepFrame() {
   if (!world) return
-  const scope = useDocStore.getState().scopes[world.pageId] ?? {}
+  const docState = useDocStore.getState()
+  const scope = docState.scopes[world.pageId] ?? {}
+  const pageObjects = docState.pages[world.pageId]?.objects ?? {}
   // one display frame = two 120 Hz physics steps
   for (let i = 0; i < 2; i++) {
     applyLiveParams(world, scope)
     Matter.Engine.update(world.engine, STEP)
+    if (world.circuit) stepCircuit(world.circuit, STEP / 1000, world.t, pageObjects)
     world.t += STEP / 1000
   }
   syncDom(world)
+  syncCircuitDom(world)
   sample(world)
   useRuntimeStore.getState().setTime(world.t)
 }
@@ -422,6 +515,7 @@ export function stop() {
     world = null
   }
   for (const el of elements.values()) el.style.transform = ''
+  resetCircuitDom()
   useRuntimeStore.getState().setMode('edit')
   useRuntimeStore.getState().setTime(0)
 }

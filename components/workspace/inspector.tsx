@@ -225,7 +225,11 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
     Extract<SceneObject['parameters'][string], { kind: 'number' }>,
   ][]
 
-  const bodies = Object.values(page?.objects ?? {}).filter((o) => isBody(o.behaviors) === 'dynamic')
+  const bodies = Object.values(page?.objects ?? {}).filter(
+    (o) =>
+      isBody(o.behaviors) === 'dynamic' ||
+      o.behaviors.some((b) => b.enabled && b.type === 'electricalNode')
+  )
   const sourceParam = object.parameters.sourceId
   const sourceId = sourceParam?.kind === 'string' ? sourceParam.value : ''
 

@@ -7,7 +7,7 @@
 import type { SimulationPayload } from './schema'
 import type { Vec2, SceneObject } from '@/lib/scene/types'
 import { num, str } from '@/lib/scene/types'
-import { createGeometry, baseObject } from '@/lib/scene/factory'
+import { createGeometry, baseObject, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { useDocStore } from '@/lib/store/document'
 
@@ -28,10 +28,21 @@ export function importSimulation(pageId: string, payload: SimulationPayload, dro
 
   for (const spec of payload.objects) {
     const position = { x: dropPoint.x + spec.dx, y: dropPoint.y + spec.dy }
-    const obj: SceneObject =
-      ['note', 'text', 'formula', 'graph'].includes(spec.geometry) || !spec.points
-        ? createGeometry(spec.geometry, position)
-        : baseObject(spec.geometry, position)
+    let obj: SceneObject
+    if (spec.geometry === 'symbol') {
+      // circuit symbols come from the same palette factories a user clicks
+      const def = componentById(spec.symbol ?? '')
+      if (!def) continue
+      obj = def.create(position)
+      for (const [name, expr] of Object.entries(spec.params ?? {})) {
+        obj.parameters[name] = num(expr)
+      }
+    } else {
+      obj =
+        ['note', 'text', 'formula', 'graph'].includes(spec.geometry) || !spec.points
+          ? createGeometry(spec.geometry, position)
+          : baseObject(spec.geometry, position)
+    }
     obj.position = position
     if (spec.name) obj.name = spec.name
     if (spec.w && spec.h) obj.size = { w: spec.w, h: spec.h }

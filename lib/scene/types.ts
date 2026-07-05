@@ -66,7 +66,8 @@ export type BehaviorType =
   | 'hinge' // revolute joint at this object's center (pins overlapping bodies)
   | 'motor' // drives angular velocity of the body it's attached to
   | 'force' // fx/fy expressions applied every frame
-  | 'electricalNode' // roadmap: circuit solver participation
+  | 'wire' // conductor: joins the circuit terminals it touches
+  | 'electricalNode' // circuit solver participation (symbols)
   | 'heatSource' // roadmap: thermal
   | 'sensor' // roadmap: triggers/measurement region
   | 'custom'

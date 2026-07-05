@@ -9,6 +9,7 @@ import { useMemo } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
+import { TERMINALS } from '@/lib/circuit/engine'
 import type { ObjectRendererProps } from './types'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
@@ -80,14 +81,73 @@ const GLYPHS: Record<string, React.ReactNode> = {
     <path d="M26 8 q14 16 0 32 q30 0 46 -16 q-16 -16 -46 -16 z M18 8 q14 16 0 32 M4 16 h18 M4 32 h18 M72 24 h20" fill="none" />
   ),
   'not-gate': <path d="M28 8 v32 l36 -16 z M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M4 24 h24 M72 24 h20" fill="none" />,
+  'nand-gate': (
+    <path d="M20 8 h28 a16 16 0 0 1 0 32 h-28 z M4 16 h16 M4 32 h16 M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M72 24 h20" fill="none" />
+  ),
+  'nor-gate': (
+    <path d="M16 8 q14 16 0 32 q28 0 44 -16 q-16 -16 -44 -16 z M4 16 h18 M4 32 h18 M60 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M68 24 h24" fill="none" />
+  ),
+  bulb: (
+    <>
+      <circle cx="48" cy="24" r="14" fill="none" />
+      <path d="M4 24 h30 M62 24 h30 M38 14 l20 20 M58 14 l-20 20" />
+    </>
+  ),
+  fuse: <path d="M4 24 h12 M80 24 h12 M16 16 h64 v16 h-64 z M16 24 h64" fill="none" />,
+  voltmeter: (
+    <>
+      <circle cx="48" cy="24" r="16" fill="none" />
+      <path d="M4 24 h28 M64 24 h28 M42 16 l6 16 6 -16" fill="none" />
+    </>
+  ),
+  ammeter: (
+    <>
+      <circle cx="48" cy="24" r="16" fill="none" />
+      <path d="M4 24 h28 M64 24 h28 M42 32 l6 -16 6 16 M44 27 h8" fill="none" />
+    </>
+  ),
+  probe: (
+    <>
+      <circle cx="48" cy="12" r="8" fill="none" />
+      <path d="M48 20 v26 M44 40 l4 6 4 -6" />
+    </>
+  ),
+  input: <path d="M8 10 h52 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-52 z M66 24 h26" fill="none" />,
+  output: <path d="M4 24 h12 M16 24 a16 16 0 1 0 32 0 a16 16 0 1 0 -32 0" fill="none" />,
+  clock: (
+    <path d="M8 10 h52 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-52 z M16 32 h8 v-16 h8 v16 h8 v-16 h8 M66 24 h26" fill="none" />
+  ),
+  'd-ff': (
+    <>
+      <path d="M28 6 h44 v36 h-44 z M4 16 h24 M4 32 h24 M72 24 h20 M28 28 l7 4 -7 4" fill="none" />
+      <text x="36" y="20" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">D</text>
+      <text x="60" y="28" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
+    </>
+  ),
+  mux: (
+    <>
+      <path d="M28 4 L64 14 V34 L28 44 z M4 12 h24 M4 24 h24 M4 36 h24 M64 24 h28" fill="none" />
+      <text x="38" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">MUX</text>
+    </>
+  ),
+}
+
+// Glow center per glowing symbol (viewBox coords).
+const GLOW_POS: Record<string, { cx: number; cy: number; r: number }> = {
+  led: { cx: 46, cy: 24, r: 16 },
+  bulb: { cx: 48, cy: 24, r: 15 },
+  output: { cx: 32, cy: 24, r: 15 },
 }
 
 function SymbolGlyph({ obj }: { obj: SceneObject }) {
   const name = obj.geometry.symbol ?? ''
   const glyph = GLYPHS[name]
+  const glow = GLOW_POS[name]
+  const terminals = TERMINALS[name] ?? []
+  const digital = obj.geometry.domain === 'digital'
   const firstParam = Object.entries(obj.parameters).find(([, p]) => p.kind === 'number')
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center">
+    <div className="relative flex h-full w-full flex-col items-center justify-center">
       <svg
         viewBox="0 0 96 48"
         width="100%"
@@ -100,6 +160,17 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
         strokeLinejoin="round"
         aria-label={obj.name}
       >
+        {glow && (
+          <circle
+            data-glow=""
+            cx={glow.cx}
+            cy={glow.cy}
+            r={glow.r}
+            fill="var(--accent-amber)"
+            stroke="none"
+            style={{ opacity: 0, transition: 'opacity 120ms linear' }}
+          />
+        )}
         {glyph ?? (
           <>
             <rect x="16" y="8" width="64" height="32" rx="6" />
@@ -122,6 +193,27 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
           {firstParam[0]}={firstParam[1].kind === 'number' ? firstParam[1].value : ''}
         </span>
       )}
+      {/* live readout — the world runtime writes textContent during Play */}
+      <span
+        data-reading=""
+        className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-semibold text-[var(--accent-amber)]"
+      />
+      {/* connection terminals; digital pins get a live 0/1 badge */}
+      {terminals.map((td, i) => (
+        <span
+          key={i}
+          className="pointer-events-none absolute"
+          style={{ left: `calc(${td.x * 100}% - 3px)`, top: `calc(${td.y * 100}% - 3px)` }}
+        >
+          <span className="block h-1.5 w-1.5 rounded-full bg-[var(--accent-mint)] opacity-70" />
+          {digital && (
+            <span
+              data-pin={i}
+              className="absolute -top-3.5 left-1/2 -translate-x-1/2 font-mono text-[9.5px] font-bold text-muted-foreground data-[state=1]:text-[var(--accent-mint)]"
+            />
+          )}
+        </span>
+      ))}
     </div>
   )
 }
@@ -140,21 +232,56 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />
 
+  // Wires (explicit behavior, or bare ink that may conduct): base path plus
+  // two flow overlays the runtime animates — conventional current (amber
+  // dashes) and electron flow (blue dots, opposite direction).
+  const isWire = object.behaviors.some((b) => b.enabled && b.type === 'wire')
+  const flowable = isWire || object.behaviors.length === 0
+
+  const flowOverlays = (d: string) =>
+    flowable && (
+      <>
+        <path
+          data-flow="conv"
+          d={d}
+          fill="none"
+          stroke="var(--accent-amber)"
+          strokeWidth={3}
+          strokeDasharray="6 10"
+          strokeLinecap="round"
+          style={{ opacity: 0 }}
+        />
+        <path
+          data-flow="elec"
+          d={d}
+          fill="none"
+          stroke="var(--accent-blue)"
+          strokeWidth={2.5}
+          strokeDasharray="2.5 13.5"
+          strokeLinecap="round"
+          style={{ opacity: 0 }}
+        />
+      </>
+    )
+
   if (kind === 'line') {
     const pts = points ?? [[0, 0], [w, 0]]
     const a = pts[0]
     const b = pts[pts.length - 1]
+    const d = connectorPath(render, a[0], a[1], b[0], b[1])
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
         <path
           data-connector={connector ? '' : undefined}
-          d={connectorPath(render, a[0], a[1], b[0], b[1])}
+          data-wire={flowable ? '' : undefined}
+          d={d}
           fill="none"
-          stroke={connector ? 'var(--accent-mint)' : stroke}
-          strokeWidth={connector ? 2 : isBody(object.behaviors) ? 6 : 2}
+          stroke={connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
+          strokeWidth={connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {flowOverlays(d)}
         {selected && (
           <>
             <circle cx={a[0]} cy={a[1]} r={4} fill="var(--ring)" />
@@ -169,13 +296,15 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
         <path
+          data-wire={flowable ? '' : undefined}
           d={strokePath}
           fill={isBody(object.behaviors) ? fill : 'none'}
-          stroke={stroke}
-          strokeWidth={2}
+          stroke={isWire && !isBody(object.behaviors) ? 'var(--accent-amber)' : stroke}
+          strokeWidth={isWire ? 2.5 : 2}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {flowOverlays(strokePath)}
       </svg>
     )
   }

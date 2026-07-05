@@ -6,14 +6,18 @@ import { z } from 'zod'
 
 export const aiBehaviorSchema = z.object({
   type: z.enum([
-    'rigidBody', 'staticBody', 'spring', 'rope', 'rod', 'damper', 'hinge', 'motor', 'force',
+    'rigidBody', 'staticBody', 'spring', 'rope', 'rod', 'damper', 'hinge', 'motor', 'force', 'wire',
   ]),
   /** parameter name → expression (enters the page's formula scope) */
   params: z.record(z.string(), z.string()).default({}),
 })
 
 export const aiObjectSchema = z.object({
-  geometry: z.enum(['circle', 'rect', 'polygon', 'line', 'note', 'text', 'formula', 'graph']),
+  geometry: z.enum(['circle', 'rect', 'polygon', 'line', 'note', 'text', 'formula', 'graph', 'symbol']),
+  /** symbol: palette component id (resistor, battery, and-gate, voltmeter…) */
+  symbol: z.string().optional(),
+  /** symbol: numeric params, e.g. { R: "100", V: "9" } */
+  params: z.record(z.string(), z.string()).optional(),
   name: z.string().optional(),
   /** Offsets relative to the drop point (top-left of bbox). */
   dx: z.number().default(0),

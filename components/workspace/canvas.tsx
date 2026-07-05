@@ -11,7 +11,10 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
+import { num } from '@/lib/scene/types'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
+import { createBehavior } from '@/lib/behaviors/registry'
+import { nearTerminal } from '@/lib/circuit/engine'
 import { recognize } from '@/lib/sketch/recognize'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { registerElement, useRuntimeStore } from '@/lib/physics/world'
@@ -272,6 +275,23 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           if (points && points.length > 1) {
             // Sketch → recognized geometry. A zigzag lands as a live spring.
             const obj = fromRecognition(recognize(points))
+            // A doodle whose end touches a circuit terminal IS a wire.
+            if (
+              (obj.geometry.kind === 'line' || obj.geometry.kind === 'stroke') &&
+              obj.behaviors.length === 0
+            ) {
+              const pts = obj.geometry.points ?? []
+              const ends = [pts[0], pts[pts.length - 1]].filter(Boolean)
+              const others = Object.values(store.pages[pageId]?.objects ?? {})
+              if (
+                ends.some(([x, y]) =>
+                  nearTerminal(others, { x: obj.position.x + x, y: obj.position.y + y })
+                )
+              ) {
+                obj.behaviors.push(createBehavior('wire'))
+                obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+              }
+            }
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
           }
@@ -350,7 +370,23 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       nextSelection = store.selection.includes(id) ? store.selection : [id]
     }
     store.setSelection(nextSelection)
-    if (!editing) return // inspecting during Play is fine; moving is not
+    if (!editing) {
+      // Interactive components stay clickable while the circuit runs.
+      const obj = store.pages[pageId]?.objects[id]
+      const sym = obj?.geometry.kind === 'symbol' ? obj.geometry.symbol : undefined
+      const param = sym === 'switch' ? 'closed' : sym === 'input' ? 'value' : undefined
+      if (obj && param) {
+        const p = obj.parameters[param]
+        const cur = p?.kind === 'number' ? p.value : sym === 'switch' ? 1 : 0
+        const next = cur >= 0.5 ? '0' : '1'
+        if (p) store.setParam(pageId, id, param, next)
+        else
+          store.updateObject(pageId, id, {
+            parameters: { ...obj.parameters, [param]: num(next) },
+          })
+      }
+      return // inspecting during Play is fine; moving is not
+    }
     store.pushHistory(pageId)
     beginGesture('move', e)
   }
