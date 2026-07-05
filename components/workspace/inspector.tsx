@@ -258,7 +258,20 @@ function GraphOptions({
   const set = (name: string, v: string) => setStringParam(pageId, object.id, name, v)
 
   const series = parseSeries(object)
-  const channelsFor = (objId: string) => readBuffer(objId)?.channelNames ?? GRAPH_CHANNELS
+  const channelsFor = (objId: string) => {
+    const live = readBuffer(objId)?.channelNames
+    if (live && live.length > 0) return live
+    // No samples yet: guess from the object kind — circuit parts stream
+    // V/I/P (analog) or level/value (digital), bodies stream motion.
+    const o = bodies.find((b) => b.id === objId)
+    if (o?.behaviors.some((b) => b.enabled && b.type === 'electricalNode')) {
+      const sym = o.geometry.symbol ?? ''
+      if (sym === 'logic-probe') return ['level']
+      if (sym === 'output' || sym === 'input' || sym === 'clock') return ['value']
+      return ['V', 'I', 'P']
+    }
+    return GRAPH_CHANNELS
+  }
 
   const writeSeries = (list: GraphSeries[]) => {
     set('series', list.map((s) => `${s.objectId}:${s.channel}`).join('; '))
@@ -384,6 +397,29 @@ function GraphOptions({
             No physics objects yet — give something a Rigid Body behavior first.
           </p>
         )}
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Layout</SectionTitle>
+        <div className="flex items-center gap-2">
+          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Stacked</span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={getStr(object, 'stacked') === '1'}
+            aria-label="Stacked charts"
+            onClick={() => set('stacked', getStr(object, 'stacked') === '1' ? '' : '1')}
+            className={cn(
+              'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+              getStr(object, 'stacked') === '1'
+                ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]'
+                : 'bg-accent text-muted-foreground'
+            )}
+          >
+            {getStr(object, 'stacked') === '1' ? 'On' : 'Off'}
+          </button>
+          <span className="text-[10.5px] text-muted-foreground">one mini chart per series</span>
+        </div>
       </div>
 
       <div className="space-y-1.5">

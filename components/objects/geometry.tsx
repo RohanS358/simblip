@@ -112,6 +112,14 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <path d="M48 20 v26 M44 40 l4 6 4 -6" />
     </>
   ),
+  'logic-probe': (
+    <>
+      {/* square-wave badge instead of the analog circle */}
+      <path d="M36 4 h24 v16 h-24 z" fill="none" />
+      <path d="M40 16 h4 v-8 h4 v8 h4 v-8 h4" fill="none" />
+      <path d="M48 20 v26 M44 40 l4 6 4 -6" />
+    </>
+  ),
   input: <path d="M8 10 h52 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-52 z M66 24 h26" fill="none" />,
   output: <path d="M4 24 h12 M16 24 a16 16 0 1 0 32 0 a16 16 0 1 0 -32 0" fill="none" />,
   clock: (

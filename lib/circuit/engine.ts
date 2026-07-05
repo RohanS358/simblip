@@ -44,6 +44,7 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
   voltmeter: T2,
   gnd: [{ x: 0.5, y: 0.12 }],
   probe: [{ x: 0.5, y: 1 }],
+  'logic-probe': [{ x: 0.5, y: 1 }],
   bjt: [
     { x: 0, y: 0.5 },
     { x: 0.583, y: 0.083 },
@@ -492,7 +493,7 @@ export function stepCircuit(
     for (const comp of c.comps) {
       const [a, b] = comp.nets
       const s = comp.symbol
-      if (DIGITAL.has(s) || s === 'gnd' || s === 'probe') continue
+      if (DIGITAL.has(s) || s === 'gnd' || s === 'probe' || s === 'logic-probe') continue
 
       if (s === 'resistor' || s === 'bulb') stampG(a, b, 1 / Math.max(pv(comp, 'R'), 1e-6))
       else if (s === 'voltmeter') stampG(a, b, 1e-7)
@@ -593,7 +594,7 @@ export function stepCircuit(
   for (const comp of c.comps) {
     const s = comp.symbol
     comp.outflow.fill(0)
-    if (DIGITAL.has(s) || s === 'gnd' || s === 'probe') continue
+    if (DIGITAL.has(s) || s === 'gnd' || s === 'probe' || s === 'logic-probe') continue
     const [a, b] = comp.nets
     const vab = v(a) - v(b)
     let I = 0 // internal current a → b
@@ -654,9 +655,19 @@ export function stepCircuit(
     if (comp.symbol === 'probe') {
       const val = v(comp.nets[0])
       c.frame.readings.set(comp.id, { text: fmtUnit(val, 'V'), channels: { V: val } })
+    } else if (comp.symbol === 'logic-probe') {
+      // Logic probe: the net's digital level, streamed to the graph bus so
+      // clock edges can be charted at any point in the circuit.
+      const val = c.logic[comp.nets[0]] ?? 0
+      c.frame.readings.set(comp.id, { text: val ? 'HIGH' : 'LOW', glow: val, channels: { level: val } })
     } else if (comp.symbol === 'output') {
       const val = c.logic[comp.nets[0]] ?? 0
       c.frame.readings.set(comp.id, { text: String(val), glow: val, channels: { value: val } })
+    } else if (comp.symbol === 'clock' || comp.symbol === 'input') {
+      // Sources stream their level too, so clock waveforms can be graphed
+      // directly without needing a probe on the wire.
+      const val = c.logic[comp.nets[0]] ?? 0
+      c.frame.readings.set(comp.id, { channels: { value: val } })
     }
   }
 

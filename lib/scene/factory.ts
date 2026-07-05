@@ -238,6 +238,7 @@ export const COMPONENTS: ComponentDef[] = [
       ['digital', 'input', 'Input', { value: '0' }],
       ['digital', 'clock', 'Clock', { f: '1' }],
       ['digital', 'output', 'Output', {}],
+      ['digital', 'logic-probe', 'Logic Probe', {}],
       ['digital', 'and-gate', 'AND', {}],
       ['digital', 'or-gate', 'OR', {}],
       ['digital', 'xor-gate', 'XOR', {}],

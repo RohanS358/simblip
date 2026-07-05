@@ -9,6 +9,7 @@
 // doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Layers } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -79,8 +80,10 @@ function bound(expr: string, scope: Scope): number | undefined {
 export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const xChannel = getString(object, 'xChannel', 't') || 't'
   const formulasStr = getString(object, 'formulas')
+  const stacked = getString(object, 'stacked') === '1'
   const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
   const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
+  const setStringParam = useDocStore((s) => s.setStringParam)
 
   const seriesKey = getString(object, 'series') + '|' + getString(object, 'sourceId') + '|' + getString(object, 'yChannels')
   const series = useMemo(() => parseSeries(object), [seriesKey]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -172,18 +175,137 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const multiSource = sourceIds.length > 1
   const nameOf = (id: string) => pageObjects?.[id]?.name ?? '?'
   const seriesLabel = (s: GraphSeries) => (multiSource ? `${nameOf(s.objectId)} · ${s.channel}` : s.channel)
+  // Bare key when plotting the primary source keeps phase plots (x = a
+  // channel) and legacy docs rendering.
+  const seriesKeyOf = (s: GraphSeries) =>
+    s.objectId === primaryId && !multiSource ? s.channel : `${s.objectId}:${s.channel}`
 
-  const hasPlot = rows.length > 1 && (series.length > 0 || formulas.length > 0)
+  // One descriptor per plotted line — the combined chart and the stacked
+  // small-multiples view render the same panels.
+  const panels = [
+    ...series.map((s, i) => ({
+      key: seriesKeyOf(s),
+      name: seriesLabel(s),
+      color: GRAPH_COLORS[i % GRAPH_COLORS.length],
+      dash: undefined as string | undefined,
+      // Logic-probe/output channels are square waves — step rendering shows
+      // clean clock edges instead of interpolated slopes.
+      step: s.channel === 'level' || s.channel === 'value',
+    })),
+    ...formulas.map((f, i) => ({
+      key: `f${i}`,
+      name: f.expr,
+      color: GRAPH_COLORS[(series.length + i) % GRAPH_COLORS.length],
+      dash: sourceIds.length > 0 ? '6 3' : undefined,
+      step: false,
+    })),
+  ]
+
+  const hasPlot = rows.length > 1 && panels.length > 0
+  const useStacked = stacked && panels.length > 1
+
+  const tooltipProps = {
+    isAnimationActive: false,
+    cursor: { stroke: 'var(--ring)', strokeWidth: 1, strokeDasharray: '3 3' },
+    labelFormatter: (v: number | string) => `${xChannel} = ${Number(v).toFixed(3)}`,
+    formatter: (value: number | string) => Number(value).toPrecision(4),
+    contentStyle: {
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 8,
+      fontSize: 10.5,
+      fontFamily: 'var(--font-mono, monospace)',
+      padding: '4px 8px',
+    },
+    labelStyle: { color: 'var(--muted-foreground)', marginBottom: 2 },
+  } as const
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
-      <div className="border-b border-border/60 px-3 py-1.5">
-        <span className="text-[11.5px] font-semibold tracking-wide text-muted-foreground">
-          {[...series.map(seriesLabel), ...formulas.map((f) => f.expr)].join(', ') || 'Graph'}
+      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
+        <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
+          {panels.map((p) => p.name).join(', ') || 'Graph'}
           {hasPlot ? ` vs ${xChannel}` : ''}
         </span>
+        {panels.length > 1 && (
+          <button
+            type="button"
+            aria-label={stacked ? 'Combine into one chart' : 'Split into stacked charts'}
+            aria-pressed={stacked}
+            title={stacked ? 'Combined view' : 'Stacked view — one mini chart per series'}
+            className={
+              stacked
+                ? 'rounded p-0.5 text-[var(--accent-blue)]'
+                : 'rounded p-0.5 text-muted-foreground hover:text-foreground'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setStringParam(pageId, object.id, 'stacked', stacked ? '' : '1')}
+          >
+            <Layers className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
-      {hasPlot ? (
+      {hasPlot && useStacked ? (
+        // Small multiples: one mini chart per series, shared X domain and a
+        // synced tooltip cursor so values line up vertically for comparison.
+        <div className="flex min-h-0 flex-1 flex-col p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
+          {panels.map((p, i) => (
+            <div key={p.key} className="relative min-h-0 flex-1">
+              <span
+                className="absolute right-2 top-0 z-10 font-mono text-[9.5px] font-semibold"
+                style={{ color: p.color }}
+              >
+                {p.name}
+              </span>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={rows} syncId={`graph-${object.id}`} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
+                  <CartesianGrid stroke="var(--border)" strokeOpacity={0.5} vertical={false} />
+                  <XAxis
+                    dataKey={xChannel}
+                    type="number"
+                    domain={[xMin ?? 'dataMin', xMax ?? 'dataMax']}
+                    allowDataOverflow
+                    stroke="var(--muted-foreground)"
+                    tickLine={false}
+                    axisLine={false}
+                    fontSize={9}
+                    tick={i === panels.length - 1}
+                    height={i === panels.length - 1 ? 22 : 4}
+                  />
+                  <YAxis
+                    type="number"
+                    domain={[yMin ?? 'auto', yMax ?? 'auto']}
+                    allowDataOverflow
+                    stroke="var(--muted-foreground)"
+                    tickLine={false}
+                    axisLine={false}
+                    fontSize={9}
+                    width={46}
+                  />
+                  <Tooltip {...tooltipProps} />
+                  {refYs.map((v, j) => (
+                    <ReferenceLine key={`ry${j}`} y={v} stroke="var(--accent-rose)" strokeDasharray="5 4" />
+                  ))}
+                  {refXs.map((v, j) => (
+                    <ReferenceLine key={`rx${j}`} x={v} stroke="var(--accent-rose)" strokeDasharray="5 4" />
+                  ))}
+                  <Line
+                    type={p.step ? 'stepAfter' : 'monotone'}
+                    dataKey={p.key}
+                    name={p.name}
+                    stroke={p.color}
+                    strokeWidth={1.8}
+                    strokeDasharray={p.dash}
+                    dot={false}
+                    isAnimationActive={false}
+                    connectNulls
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          ))}
+        </div>
+      ) : hasPlot ? (
         <div className="min-h-0 flex-1 p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
@@ -208,21 +330,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                 fontSize={10}
                 width={46}
               />
-              <Tooltip
-                isAnimationActive={false}
-                cursor={{ stroke: 'var(--ring)', strokeWidth: 1, strokeDasharray: '3 3' }}
-                labelFormatter={(v) => `${xChannel} = ${Number(v).toFixed(3)}`}
-                formatter={(value: number | string) => Number(value).toPrecision(4)}
-                contentStyle={{
-                  background: 'var(--card)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 8,
-                  fontSize: 10.5,
-                  fontFamily: 'var(--font-mono, monospace)',
-                  padding: '4px 8px',
-                }}
-                labelStyle={{ color: 'var(--muted-foreground)', marginBottom: 2 }}
-              />
+              <Tooltip {...tooltipProps} />
               <Legend wrapperStyle={{ fontSize: 10.5 }} iconSize={8} />
               {refYs.map((v, i) => (
                 <ReferenceLine
@@ -242,32 +350,15 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                   label={{ value: String(v), fontSize: 9, fill: 'var(--accent-rose)', position: 'top' }}
                 />
               ))}
-              {series.map((s, i) => (
+              {panels.map((p) => (
                 <Line
-                  key={`${s.objectId}:${s.channel}`}
-                  type="monotone"
-                  dataKey={
-                    // Bare key when plotting the primary source keeps phase
-                    // plots (x = a channel) and legacy docs rendering.
-                    s.objectId === primaryId && !multiSource ? s.channel : `${s.objectId}:${s.channel}`
-                  }
-                  name={seriesLabel(s)}
-                  stroke={GRAPH_COLORS[i % GRAPH_COLORS.length]}
+                  key={p.key}
+                  type={p.step ? 'stepAfter' : 'monotone'}
+                  dataKey={p.key}
+                  name={p.name}
+                  stroke={p.color}
                   strokeWidth={1.8}
-                  dot={false}
-                  isAnimationActive={false}
-                  connectNulls
-                />
-              ))}
-              {formulas.map((f, i) => (
-                <Line
-                  key={`f${i}`}
-                  type="monotone"
-                  dataKey={`f${i}`}
-                  name={f.expr}
-                  stroke={GRAPH_COLORS[(series.length + i) % GRAPH_COLORS.length]}
-                  strokeWidth={1.8}
-                  strokeDasharray={sourceIds.length > 0 ? '6 3' : undefined}
+                  strokeDasharray={p.dash}
                   dot={false}
                   isAnimationActive={false}
                   connectNulls
