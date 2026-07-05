@@ -17,6 +17,7 @@ import { Inspector } from './inspector'
 import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
+import { AccountButton } from './account'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
@@ -133,6 +134,7 @@ export function WorkspaceShell() {
         )}
         <div className="flex-1" />
         <SyncStatus />
+        <AccountButton />
         <button
           type="button"
           aria-label="Toggle theme"

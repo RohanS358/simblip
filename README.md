@@ -29,18 +29,18 @@ npm run dev        # http://localhost:3000
 
 The landing page is `/`, the workspace is `/notebook`. No accounts, no setup — the notebook persists in your browser (offline mode).
 
-## Cloud sync (Supabase)
+## Cloud sync + sign-in (Supabase)
 
-1. Create a [Supabase](https://supabase.com) project.
-2. Run `supabase/schema.sql` in the SQL editor.
+1. Create a [Supabase](https://supabase.com) project and run `supabase/schema.sql` in the SQL editor.
+2. Optional: disable "Confirm email" (Authentication → Sign In / Up) so new accounts work instantly. No OAuth provider setup needed — auth is Supabase's built-in email/password.
 3. Copy `.env.example` → `.env.local` and set:
    ```
    NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
    NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
    ```
-4. Restart the dev server. The cloud icon in the workspace header shows sync status.
+4. Restart. A **Sign in** button appears in the workspace header — create an account with any email + password, and your notebooks are stored under that account and follow you to any device. Row-level security guarantees users can only ever read/write their own rows.
 
-Sync is last-write-wins per page, debounced 2 s after each change; if the network drops, changes queue locally and retry. Without the env vars the app stays in offline mode — nothing else changes.
+Sync is last-write-wins per page, debounced 2 s after each change; if the network drops, changes queue locally and retry. Signed out (or without the env vars) the app is fully offline/local — nothing else changes.
 
 ## Project map
 

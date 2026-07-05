@@ -18,9 +18,13 @@ export function SyncStatus() {
     startSync()
   }, [])
 
+  const user = useSyncStore((s) => s.user)
+
   const view = !syncConfigured
     ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Offline mode — notebooks live in this browser. Add Supabase keys to sync.' }
-    : phase === 'syncing'
+    : !user
+      ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not signed in — notebooks stay in this browser. Sign in to sync across devices.' }
+      : phase === 'syncing'
       ? { icon: RefreshCw, cls: 'animate-spin text-[var(--accent-blue)]', label: 'Syncing…' }
       : phase === 'error'
         ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: `Sync error — changes kept locally and retried. ${lastError ?? ''}` }

@@ -34,7 +34,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.vercel.app
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'SIMBLIP — The Engineering Notebook That Simulates',
+    default: 'SIMBLIP',
     template: '%s · SIMBLIP',
   },
   description:
