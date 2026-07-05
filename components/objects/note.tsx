@@ -1,9 +1,7 @@
 'use client'
 
-import { useRef } from 'react'
-import { useDocStore } from '@/lib/store/document'
-import { getString, type ObjectRendererProps } from './types'
-import { TextFormatBar, textFormatStyle } from './text'
+import type { ObjectRendererProps } from './types'
+import { RichTextArea } from './text'
 import { cn } from '@/lib/utils'
 
 const FILLS: Record<string, string> = {
@@ -14,30 +12,20 @@ const FILLS: Record<string, string> = {
   rose: 'bg-[color-mix(in_oklch,var(--accent-rose)_14%,var(--card))]',
 }
 
-export function NoteObject({ pageId, object, selected }: ObjectRendererProps) {
-  const setStringParam = useDocStore((s) => s.setStringParam)
-  const pushHistory = useDocStore((s) => s.pushHistory)
-  const focusedRef = useRef(false)
-  const color = (object.metadata.color as string) ?? 'amber'
-
+export function NoteObject(props: ObjectRendererProps) {
+  const color = (props.object.metadata.color as string) ?? 'amber'
   return (
-    <div className={cn('relative h-full w-full rounded-xl p-3 hairline shadow-sm', FILLS[color] ?? FILLS.amber)}>
-      {selected && <TextFormatBar pageId={pageId} object={object} selected={selected} />}
-      <textarea
-        aria-label="Sticky note"
-        className="h-full w-full resize-none bg-transparent leading-relaxed outline-none placeholder:text-muted-foreground/60"
-        style={{ fontSize: 13.5, ...textFormatStyle(object) }}
+    <div
+      className={cn(
+        'relative h-full w-full overflow-hidden rounded-xl p-3 hairline shadow-sm',
+        FILLS[color] ?? FILLS.amber
+      )}
+    >
+      <RichTextArea
+        {...props}
         placeholder="Write a note…"
-        value={getString(object, 'text')}
-        onFocus={() => {
-          if (!focusedRef.current) {
-            focusedRef.current = true
-            pushHistory(pageId)
-          }
-        }}
-        onBlur={() => (focusedRef.current = false)}
-        onChange={(e) => setStringParam(pageId, object.id, 'text', e.target.value)}
-        onPointerDown={(e) => e.stopPropagation()}
+        padY={24 /* p-3 top + bottom, so the box grows before clipping */}
+        className="text-[13.5px]"
       />
     </div>
   )
