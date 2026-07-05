@@ -122,7 +122,38 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
     const mx = obj.position.x + (a[0] + b[0]) / 2
     const my = obj.position.y + (a[1] + b[1]) / 2
     body = Matter.Bodies.rectangle(mx, my, len, 10, { ...options, angle: lineAngle })
-  } else if ((g.kind === 'polygon' || g.kind === 'stroke') && g.points && g.points.length >= 3) {
+  } else if (g.kind === 'stroke' && g.points && g.points.length >= 2) {
+    // A doodle is an open polyline — decomposing it as a "polygon" yields
+    // degenerate slivers that never collide. Build a chain of thin segments
+    // along the ink instead: drawn ramps, bowls and terrain collide exactly
+    // where the line is.
+    const parts: Matter.Body[] = []
+    let prev = g.points[0]
+    for (let i = 1; i < g.points.length; i++) {
+      const cur = g.points[i]
+      const len = Math.hypot(cur[0] - prev[0], cur[1] - prev[1])
+      // Resample: merge sub-8px steps so a scribble stays a few dozen parts.
+      if (len < 8 && i < g.points.length - 1) continue
+      if (len >= 1) {
+        parts.push(
+          Matter.Bodies.rectangle(
+            obj.position.x + (prev[0] + cur[0]) / 2,
+            obj.position.y + (prev[1] + cur[1]) / 2,
+            len + 4, // slight overlap keeps the chain gap-free on curves
+            8,
+            {
+              angle: Math.atan2(cur[1] - prev[1], cur[0] - prev[0]),
+              // Collisions read material props from the touched PART.
+              friction: options.friction,
+              restitution: options.restitution,
+            }
+          )
+        )
+      }
+      prev = cur
+    }
+    if (parts.length > 0) body = Matter.Body.create({ parts, ...options })
+  } else if (g.kind === 'polygon' && g.points && g.points.length >= 3) {
     const verts = g.points.map(([x, y]) => ({ x, y }))
     try {
       body = Matter.Bodies.fromVertices(c.x, c.y, [verts], options, true)
