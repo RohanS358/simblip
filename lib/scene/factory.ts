@@ -274,28 +274,28 @@ export const COMPONENTS: ComponentDef[] = [
   }),
   optic('thin-lens', 'Thin Lens', (p) => {
     const o = baseObject('line', p, autoName('Lens'))
-    o.geometry.points = [[0, -60], [0, 60]]
+    o.geometry.points = [[0, 0], [0, 120]]
     o.size = { w: 2, h: 120 }
     o.metadata.render = 'lens'
     return withBehaviors(o, createBehavior('thinLens'))
   }),
   optic('optical-mirror', 'Mirror', (p) => {
     const o = baseObject('line', p, autoName('Mirror'))
-    o.geometry.points = [[0, -60], [0, 60]]
+    o.geometry.points = [[0, 0], [0, 120]]
     o.size = { w: 2, h: 120 }
     o.metadata.render = 'mirror'
     return withBehaviors(o, createBehavior('opticalMirror'))
   }),
   optic('optical-screen', 'Screen', (p) => {
     const o = baseObject('line', p, autoName('Screen'))
-    o.geometry.points = [[0, -80], [0, 80]]
+    o.geometry.points = [[0, 0], [0, 160]]
     o.size = { w: 2, h: 160 }
     o.metadata.render = 'optical-screen'
     return withBehaviors(o, createBehavior('opticalScreen'))
   }),
   optic('slit', 'Slit', (p) => {
     const o = baseObject('line', p, autoName('Slit'))
-    o.geometry.points = [[0, -100], [0, 100]]
+    o.geometry.points = [[0, 0], [0, 200]]
     o.size = { w: 2, h: 200 }
     o.metadata.render = 'slit'
     return withBehaviors(o, createBehavior('slit'))

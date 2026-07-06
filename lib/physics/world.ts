@@ -103,10 +103,21 @@ interface ThermalEntry {
   temp: number // °C — persists across steps
 }
 
+interface TracerEntry {
+  objectId: string
+  body: Matter.Body
+  motion: (s: Scope) => number
+  trail: (s: Scope) => number
+  forcesOn: (s: Scope) => number
+  trailPts: number[][]
+  prevV: { x: number; y: number }
+}
+
 interface World {
   pageId: string
   engine: Matter.Engine
   bodies: BodyEntry[]
+  tracers: TracerEntry[]
   connectors: ConnectorEntry[]
   charges: ChargeEntry[]
   fields: FieldRegion[]
@@ -244,6 +255,7 @@ export function buildWorld(pageId: string): World {
   engine.gravity.y = 1 // scaled per-frame from the `g` variable
 
   const bodies: BodyEntry[] = []
+  const tracers: TracerEntry[] = []
   const connectors: ConnectorEntry[] = []
   const charges: ChargeEntry[] = []
   const fields: FieldRegion[] = []
@@ -276,6 +288,17 @@ export function buildWorld(pageId: string): World {
       forces,
     })
     Matter.Composite.add(engine.world, body)
+    if (kind === 'dynamic') {
+      tracers.push({
+        objectId: obj.id,
+        body,
+        motion: compiledParam(pageId, obj.id, 'rigidBody', 'showMotion', 0),
+        trail: compiledParam(pageId, obj.id, 'rigidBody', 'showTrail', 0),
+        forcesOn: compiledParam(pageId, obj.id, 'rigidBody', 'showForces', 0),
+        trailPts: [],
+        prevV: { x: 0, y: 0 },
+      })
+    }
     if (kind === 'dynamic' && obj.behaviors.some((b) => b.enabled && b.type === 'charge')) {
       charges.push({ body, q: compiledParam(pageId, obj.id, 'charge', 'q', 1) })
     }
@@ -383,6 +406,7 @@ export function buildWorld(pageId: string): World {
     pageId,
     engine,
     bodies,
+    tracers,
     connectors,
     charges,
     fields,
@@ -522,6 +546,179 @@ function applyLiveParams(w: World, scope: Scope, dtMs: number) {
   applyChargeForces(w, frameScope)
   applyTorsionSprings(w, frameScope, dtMs / 1000)
   stepThermal(w, frameScope, dtMs / 1000)
+}
+
+// ── Tracers: per-body motion vectors, path trail, force arrows ─────────────
+// Drawn on one imperative SVG overlay (page coordinates, same parent as the
+// object wrappers) so React never repaints during Play. All three are opt-in
+// per body via rigidBody params showMotion/showTrail/showForces (default 0).
+
+let tracerOverlay: SVGSVGElement | null = null
+
+function ensureTracerOverlay(w: World): SVGSVGElement | null {
+  if (tracerOverlay && tracerOverlay.isConnected) return tracerOverlay
+  let host: HTMLElement | null = null
+  for (const t of w.tracers) {
+    const el = elements.get(t.objectId)
+    if (el?.parentElement) {
+      host = el.parentElement
+      break
+    }
+  }
+  if (!host) return null
+  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+  // A width/height of exactly 0 on the root <svg> disables rendering of the
+  // whole element per spec, regardless of overflow:visible — use 1px like
+  // the other imperative overlays in this app (guides/stroke in canvas.tsx).
+  svg.setAttribute('width', '1')
+  svg.setAttribute('height', '1')
+  svg.style.position = 'absolute'
+  svg.style.left = '0'
+  svg.style.top = '0'
+  svg.style.overflow = 'visible'
+  svg.style.pointerEvents = 'none'
+  svg.style.zIndex = '999999'
+  host.appendChild(svg)
+  tracerOverlay = svg
+  return svg
+}
+
+function removeTracerOverlay() {
+  tracerOverlay?.remove()
+  tracerOverlay = null
+}
+
+function arrowSvg(x: number, y: number, dx: number, dy: number, color: string, label: string): string {
+  const len = Math.hypot(dx, dy)
+  if (len < 3) return ''
+  const ux = dx / len
+  const uy = dy / len
+  const hx = x + dx
+  const hy = y + dy
+  const px = -uy
+  const py = ux
+  return (
+    `<line x1="${x.toFixed(1)}" y1="${y.toFixed(1)}" x2="${hx.toFixed(1)}" y2="${hy.toFixed(1)}" stroke="${color}" stroke-width="2"/>` +
+    `<path d="M ${hx.toFixed(1)} ${hy.toFixed(1)} L ${(hx - ux * 8 + px * 4).toFixed(1)} ${(hy - uy * 8 + py * 4).toFixed(1)} L ${(hx - ux * 8 - px * 4).toFixed(1)} ${(hy - uy * 8 - py * 4).toFixed(1)} Z" fill="${color}"/>` +
+    (label
+      ? `<text x="${(hx + ux * 6 + px * 4).toFixed(1)}" y="${(hy + uy * 6 + py * 4).toFixed(1)}" fill="${color}" font-size="10" font-family="monospace">${label}</text>`
+      : '')
+  )
+}
+
+// Clamp an arrow to a sane on-screen length while keeping direction.
+function scaled(dx: number, dy: number, scale: number, maxLen: number): { x: number; y: number } {
+  let x = dx * scale
+  let y = dy * scale
+  const len = Math.hypot(x, y)
+  if (len > maxLen) {
+    x = (x / len) * maxLen
+    y = (y / len) * maxLen
+  }
+  return { x, y }
+}
+
+const TRAIL_MAX = 900
+
+function syncTracers(w: World, scope: Scope, dtSeconds: number) {
+  const active = w.tracers.some(
+    (t) => t.motion(scope) > 0 || t.trail(scope) > 0 || t.forcesOn(scope) > 0
+  )
+  const svg = active ? ensureTracerOverlay(w) : tracerOverlay
+  if (!svg) return
+  if (!active) {
+    svg.innerHTML = ''
+    return
+  }
+  const frameScope = { ...scope, t: w.t }
+  const g = typeof scope.g === 'number' ? scope.g : 9.81
+  let html = ''
+
+  for (const t of w.tracers) {
+    const { x, y } = t.body.position
+    const v = t.body.velocity // px per engine step
+    const vps = { x: v.x * 60, y: v.y * 60 } // ≈ px/s for display
+    const a = dtSeconds > 0 ? { x: (v.x - t.prevV.x) * 60 / dtSeconds, y: (v.y - t.prevV.y) * 60 / dtSeconds } : { x: 0, y: 0 }
+    t.prevV = { x: v.x, y: v.y }
+
+    // (b) path trail
+    if (t.trail(frameScope) > 0) {
+      const last = t.trailPts[t.trailPts.length - 1]
+      if (!last || Math.hypot(x - last[0], y - last[1]) > 1.5) {
+        t.trailPts.push([x, y])
+        if (t.trailPts.length > TRAIL_MAX) t.trailPts.splice(0, t.trailPts.length - TRAIL_MAX)
+      }
+      if (t.trailPts.length > 1) {
+        html += `<polyline points="${t.trailPts.map((p) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`).join(' ')}" fill="none" stroke="var(--accent-mint)" stroke-width="1.5" opacity="0.55" stroke-dasharray="4 3"/>`
+      }
+    } else if (t.trailPts.length) {
+      t.trailPts.length = 0
+    }
+
+    // (a) motion vectors: velocity + acceleration, magnitude labels
+    if (t.motion(frameScope) > 0) {
+      const speed = Math.hypot(vps.x, vps.y)
+      if (speed > 2) {
+        const dv = scaled(vps.x, vps.y, 0.35, 110)
+        html += arrowSvg(x, y, dv.x, dv.y, 'var(--accent-mint)', `v ${speed.toFixed(0)}px/s`)
+      }
+      const amag = Math.hypot(a.x, a.y)
+      if (amag > 5) {
+        const da = scaled(a.x, a.y, 0.04, 90)
+        html += arrowSvg(x, y, da.x, da.y, 'var(--accent-violet)', `a ${amag.toFixed(0)}px/s²`)
+      }
+    }
+
+    // (c) all forces acting on the body
+    if (t.forcesOn(frameScope) > 0) {
+      const be = w.bodies.find((b) => b.body === t.body)
+      const m = t.body.mass
+      // weight
+      html += arrowSvg(x, y, 0, Math.min(30 + m * g, 100), 'var(--accent-rose)', `W ${(m * g).toFixed(1)}N`)
+      // applied force behavior
+      for (const f of be?.forces ?? []) {
+        const fx = f.fx(frameScope)
+        const fy = -f.fy(frameScope)
+        if (Math.hypot(fx, fy) > 0.01) {
+          const df = scaled(fx, fy, 3, 110)
+          html += arrowSvg(x, y, df.x, df.y, 'var(--accent-amber)', `F ${Math.hypot(fx, f.fy(frameScope)).toFixed(1)}N`)
+        }
+      }
+      // connector (spring/rope/rod) tension along the constraint
+      for (const c of w.connectors) {
+        const { constraint } = c
+        if (constraint.bodyA !== t.body && constraint.bodyB !== t.body) continue
+        const pa = constraint.bodyA ? Matter.Constraint.pointAWorld(constraint) : (constraint.pointA as Matter.Vector)
+        const pb = constraint.bodyB ? Matter.Constraint.pointBWorld(constraint) : (constraint.pointB as Matter.Vector)
+        const other = constraint.bodyA === t.body ? pb : pa
+        const dx = other.x - x
+        const dy = other.y - y
+        const len = Math.hypot(dx, dy) || 1
+        const stretch = len - constraint.length
+        const k = c.k ? c.k(frameScope) : 0
+        const mag = k > 0 ? Math.abs(k * stretch) : 0
+        // spring pulls toward the other end when stretched, pushes when compressed
+        const sign = stretch >= 0 ? 1 : -1
+        const dT = scaled((dx / len) * sign, (dy / len) * sign, Math.min(20 + mag * 0.2, 90), 90)
+        html += arrowSvg(x, y, dT.x, dT.y, 'var(--accent-blue)', mag > 0 ? `T ${mag.toFixed(1)}N` : 'T')
+      }
+      // contact normals from active collision pairs
+      for (const pair of w.engine.pairs.list) {
+        if (!pair.isActive) continue
+        if (pair.bodyA !== t.body && pair.bodyB !== t.body) continue
+        const n = pair.collision.normal
+        const s = pair.bodyA === t.body ? -1 : 1
+        html += arrowSvg(x, y, n.x * 45 * s, n.y * 45 * s, 'var(--muted-foreground)', 'N')
+      }
+      // drag (air resistance) opposes motion
+      const speed = Math.hypot(vps.x, vps.y)
+      if (t.body.frictionAir > 0.001 && speed > 20) {
+        const dd = scaled(-vps.x, -vps.y, 0.15, 60)
+        html += arrowSvg(x, y, dd.x, dd.y, 'var(--foreground)', 'drag')
+      }
+    }
+  }
+  svg.innerHTML = html
 }
 
 function syncDom(w: World) {
@@ -721,6 +918,7 @@ function frame(now: number) {
   }
   if (stepped) {
     syncDom(w)
+    syncTracers(w, scope, (elapsed / 1000) * ts)
     syncCircuitDom(w)
     sample(w)
     if (now - timeUpdateAt > 150) {
@@ -772,6 +970,7 @@ export function stepFrame() {
     world.t += STEP / 1000
   }
   syncDom(world)
+  syncTracers(world, scope, (2 * STEP) / 1000)
   syncCircuitDom(world)
   sample(world)
   useRuntimeStore.getState().setTime(world.t)
@@ -799,6 +998,7 @@ export function stop() {
     }
     world = null
   }
+  removeTracerOverlay()
   for (const el of elements.values()) {
     el.style.transform = ''
     const tint = el.querySelector<SVGElement>('[data-heat]')

@@ -33,8 +33,19 @@ const MAX_ZOOM = 4
 // the object while placing it. Line-likes go point→point, circle-likes grow
 // by radius from the press point (their center), everything else stretches
 // corner→corner like a marquee.
-const CONNECTOR_IDS = new Set(['spring', 'rope', 'rod', 'damper'])
-const CIRCULAR_IDS = new Set(['mass', 'wheel', 'motor', 'hinge'])
+// Components whose geometry is a two-point 'line' — drag sizes them
+// point→point (placeLine), not corner→corner like boxes/circles.
+const CONNECTOR_IDS = new Set([
+  'spring',
+  'rope',
+  'rod',
+  'damper',
+  'thin-lens',
+  'optical-mirror',
+  'optical-screen',
+  'slit',
+])
+const CIRCULAR_IDS = new Set(['mass', 'wheel', 'motor', 'hinge', 'charge', 'torsion-pendulum', 'light-source'])
 const MIN_PLACE_DRAG = 8 // screen px below which a drag counts as a click
 
 // Inside a system boundary, recognized doodle shapes become that domain's
@@ -215,6 +226,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
   const [stroke, setStroke] = useState<number[][] | null>(null)
+  // Mirror refs: gesture-commit handlers must NOT create objects inside
+  // setState updaters (StrictMode double-invokes them → duplicate spawns).
+  const strokeRef = useRef<number[][] | null>(null)
+  strokeRef.current = stroke
   // Snap assistant: alignment guide lines + terminal connection points,
   // populated during move gestures and cleared on release.
   const [guides, setGuides] = useState<{ v: number[]; h: number[]; pts: Vec2[] } | null>(null)
@@ -229,6 +244,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     h: number
     round: boolean
   } | null>(null)
+  const placePreviewRef = useRef<{ x: number; y: number; w: number; h: number; round: boolean } | null>(null)
+  placePreviewRef.current = placePreview
   // Custom right-click menu: screen-space position + the object under it.
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; objectId: string | null } | null>(null)
 
@@ -544,30 +561,31 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         // Drag-to-size placement: the preview outline (which already encodes
         // Shift-square and radius-from-center) becomes the object's box; a
         // plain click falls back to the default size centered on the press.
-        setPlacePreview((pv) => {
-          const def = g.placeComponent ? componentById(g.placeComponent) : undefined
-          const obj = def
-            ? def.create(g.start)
-            : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
-              ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
-              : null
-          if (obj) {
-            if (pv && g.moved && Math.max(pv.w, pv.h) > MIN_PLACE_DRAG) {
-              obj.size = { w: Math.max(16, pv.w), h: Math.max(16, pv.h) }
-              obj.position = { x: pv.x, y: pv.y }
-            } else {
-              obj.position = { x: g.start.x - obj.size.w / 2, y: g.start.y - obj.size.h / 2 }
-            }
-            store.addObject(pageId, obj)
-            store.setSelection([obj.id])
-            if (!g.placeComponent) store.setTool('select')
+        const pv = placePreviewRef.current
+        setPlacePreview(null)
+        const def = g.placeComponent ? componentById(g.placeComponent) : undefined
+        const obj = def
+          ? def.create(g.start)
+          : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
+            ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
+            : null
+        if (obj) {
+          if (pv && g.moved && Math.max(pv.w, pv.h) > MIN_PLACE_DRAG) {
+            obj.size = { w: Math.max(16, pv.w), h: Math.max(16, pv.h) }
+            obj.position = { x: pv.x, y: pv.y }
+          } else {
+            obj.position = { x: g.start.x - obj.size.w / 2, y: g.start.y - obj.size.h / 2 }
           }
-          return null
-        })
+          store.addObject(pageId, obj)
+          store.setSelection([obj.id])
+          if (!g.placeComponent) store.setTool('select')
+        }
       } else if (g.mode === 'placeLine') {
         // Drag-to-draw connector: anchor at press point, end at release.
         // Read the endpoint from the preview stroke so Shift-snap sticks.
-        setStroke((pts) => {
+        {
+          const pts = strokeRef.current
+          setStroke(null)
           const def = g.placeComponent ? componentById(g.placeComponent) : undefined
           const maker = def
             ? () => def.create(g.start)
@@ -596,11 +614,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             store.setSelection([obj.id])
             if (!g.placeComponent) store.setTool('select')
           }
-          return null
-        })
+        }
       } else if (g.mode === 'draw') {
-        setStroke((points) => {
-          if (!points || points.length < 2) return null
+        {
+          const points = strokeRef.current
+          setStroke(null)
+          if (!points || points.length < 2) return
           const rec = recognize(points)
           const all = Object.values(store.pages[pageId]?.objects ?? {})
           const cx = rec.x + rec.w / 2
@@ -704,8 +723,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
           store.addObject(pageId, obj)
           store.setSelection([obj.id])
-          return null
-        })
+        }
       }
     },
     [pageId, onPointerMove, toCanvas]

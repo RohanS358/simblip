@@ -12,7 +12,7 @@ import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
 import { getNumber, type ObjectRendererProps } from './types'
-import { traceRays, wavelengthColor } from '@/lib/optics/engine'
+import { traceRays, wavelengthColor, opticParam } from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
@@ -658,9 +658,9 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         {render === 'slit' && (
           <g stroke="var(--card)" strokeWidth={optics!.width + 2}>
             {(() => {
-              const gap = getNumber(object, 'gap', 20)
-              const count = Math.max(1, Math.min(2, Math.round(getNumber(object, 'count', 1))))
-              const spacing = getNumber(object, 'spacing', 60)
+              const gap = opticParam(object, 'slit', 'gap', 20)
+              const count = Math.max(1, Math.min(2, Math.round(opticParam(object, 'slit', 'count', 1))))
+              const spacing = opticParam(object, 'slit', 'spacing', 60)
               const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
               const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
               const ux = (b[0] - a[0]) / len
@@ -761,28 +761,33 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const myRays = isLightSource ? rays.filter((r) => r.sourceId === object.id) : []
     return (
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
-        {myRays.map((r, i) => (
-          <path
-            key={i}
-            d={`M ${r.points.map((p) => `${p.x - object.position.x} ${p.y - object.position.y}`).join(' L ')}`}
-            fill="none"
-            stroke={wavelengthColor(r.wavelengthNm)}
-            strokeWidth={1.5}
-            opacity={0.85}
-          />
-        ))}
-        {myRays.map(
-          (r, i) =>
-            r.hitScreen && (
-              <circle
-                key={`hit-${i}`}
-                cx={r.hitScreen.x - object.position.x}
-                cy={r.hitScreen.y - object.position.y}
-                r={3}
-                fill={wavelengthColor(r.wavelengthNm)}
-              />
-            )
-        )}
+        {/* Rays are traced in world space (rotation already baked into the
+            beam direction); counter-rotate so the container's rotate()
+            transform doesn't double-apply it. */}
+        <g transform={object.rotation ? `rotate(${-object.rotation} ${w / 2} ${h / 2})` : undefined}>
+          {myRays.map((r, i) => (
+            <path
+              key={i}
+              d={`M ${r.points.map((p) => `${p.x - object.position.x} ${p.y - object.position.y}`).join(' L ')}`}
+              fill="none"
+              stroke={wavelengthColor(r.wavelengthNm)}
+              strokeWidth={1.5}
+              opacity={0.85}
+            />
+          ))}
+          {myRays.map(
+            (r, i) =>
+              r.hitScreen && (
+                <circle
+                  key={`hit-${i}`}
+                  cx={r.hitScreen.x - object.position.x}
+                  cy={r.hitScreen.y - object.position.y}
+                  r={3}
+                  fill={wavelengthColor(r.wavelengthNm)}
+                />
+              )
+          )}
+        </g>
         <ellipse
           cx={w / 2}
           cy={h / 2}

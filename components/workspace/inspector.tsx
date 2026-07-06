@@ -5,7 +5,7 @@
 // field accepts an expression against the page's variable scope.
 
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Zap, ZapOff } from 'lucide-react'
+import { Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
@@ -70,6 +70,51 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   )
 }
 
+const TRACER_PARAMS = [
+  { name: 'showMotion', label: 'Motion', icon: Navigation2, color: 'var(--accent-mint)', hint: 'Velocity + acceleration arrows, magnitude labeled' },
+  { name: 'showTrail', label: 'Trail', icon: Route, color: 'var(--accent-blue)', hint: 'Dashed line tracing the path taken' },
+  { name: 'showForces', label: 'Forces', icon: Weight, color: 'var(--accent-rose)', hint: 'Weight, applied force, tension, contact & drag arrows' },
+] as const
+
+function TracerToggle({
+  label,
+  icon: Icon,
+  color,
+  on,
+  hint,
+  onClick,
+}: {
+  label: string
+  icon: typeof Navigation2
+  color: string
+  on: boolean
+  hint: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={`Tracer: ${label}`}
+      title={hint}
+      onClick={onClick}
+      className={cn(
+        'flex flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors',
+        on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
+      )}
+      style={
+        on
+          ? { background: `color-mix(in oklch, ${color} 22%, transparent)`, color, borderColor: color }
+          : undefined
+      }
+    >
+      <Icon className="h-3.5 w-3.5" />
+      {label}
+    </button>
+  )
+}
+
 function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObject }) {
   const addBehavior = useDocStore((s) => s.addBehavior)
   const removeBehavior = useDocStore((s) => s.removeBehavior)
@@ -127,7 +172,34 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                 </button>
               </div>
 
-              {(spec?.params ?? []).map((ps) => {
+              {b.type === 'rigidBody' && (
+                <div className="mt-1.5 border-t border-border/50 pt-1.5">
+                  <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    Tracers · off by default
+                  </p>
+                  <div className="flex gap-1.5">
+                    {TRACER_PARAMS.map((tp) => {
+                      const p = b.params[tp.name]
+                      const on = p?.kind === 'number' && p.value !== 0
+                      return (
+                        <TracerToggle
+                          key={tp.name}
+                          label={tp.label}
+                          icon={tp.icon}
+                          color={tp.color}
+                          hint={tp.hint}
+                          on={on}
+                          onClick={() => setBehaviorParam(pageId, object.id, b.id, tp.name, on ? '0' : '1')}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {(spec?.params ?? [])
+                .filter((ps) => !TRACER_PARAMS.some((tp) => tp.name === ps.name))
+                .map((ps) => {
                 const p = b.params[ps.name]
                 if (!p || p.kind !== 'number') return null
                 if (ps.name === 'collide') {

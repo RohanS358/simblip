@@ -42,6 +42,9 @@ export const BEHAVIOR_SPECS: BehaviorSpec[] = [
       { name: 'vy', label: 'Velocity Y', default: '0' },
       { name: 'omega', label: 'Angular velocity', default: '0' },
       { name: 'collide', label: 'Collides with bodies (0/1)', default: '1' },
+      { name: 'showMotion', label: 'Tracer: motion vectors (0/1)', default: '0' },
+      { name: 'showTrail', label: 'Tracer: path trail (0/1)', default: '0' },
+      { name: 'showForces', label: 'Tracer: force arrows (0/1)', default: '0' },
     ],
   },
   {

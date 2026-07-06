@@ -26,9 +26,14 @@ export interface RayPath {
   hitScreen?: Vec2
 }
 
-function pv(obj: SceneObject, name: string, fallback: number): number {
-  const p = obj.parameters[name]
-  return p?.kind === 'number' && Number.isFinite(p.value) ? p.value : fallback
+/** Read a numeric param off the object's optics behavior (falls back to an
+ *  object-level parameter of the same name, then the default). */
+export function opticParam(obj: SceneObject, type: string, name: string, fallback: number): number {
+  const b = obj.behaviors.find((bb) => bb.enabled && bb.type === type)
+  const p = b?.params[name]
+  if (p?.kind === 'number' && Number.isFinite(p.value)) return p.value
+  const op = obj.parameters[name]
+  return op?.kind === 'number' && Number.isFinite(op.value) ? op.value : fallback
 }
 
 function hasBehavior(obj: SceneObject, type: string): boolean {
@@ -151,9 +156,9 @@ function traceOneRay(origin: Vec2, dir: Vec2, elements: OpticalElement[], wavele
     }
     if (bestEl.kind === 'slit') {
       const y = heightAlong(bestEl, hit)
-      const gap = pv(bestEl.obj, 'gap', 20)
-      const count = Math.max(1, Math.min(2, Math.round(pv(bestEl.obj, 'count', 1))))
-      const spacing = pv(bestEl.obj, 'spacing', 60)
+      const gap = opticParam(bestEl.obj, 'slit', 'gap', 20)
+      const count = Math.max(1, Math.min(2, Math.round(opticParam(bestEl.obj, 'slit', 'count', 1))))
+      const spacing = opticParam(bestEl.obj, 'slit', 'spacing', 60)
       const centers = count === 2 ? [-spacing / 2, spacing / 2] : [0]
       const open = centers.some((c) => Math.abs(y - c) <= gap / 2)
       if (!open) break // absorbed by the mask
@@ -169,7 +174,7 @@ function traceOneRay(origin: Vec2, dir: Vec2, elements: OpticalElement[], wavele
       continue
     }
     if (bestEl.kind === 'lens') {
-      const f = pv(bestEl.obj, 'f', 150) || 1e6
+      const f = opticParam(bestEl.obj, 'thinLens', 'f', 150) || 1e6
       const n = normalOf(bestEl)
       const t = normalize({ x: bestEl.b.x - bestEl.a.x, y: bestEl.b.y - bestEl.a.y })
       const y = heightAlong(bestEl, hit)
@@ -197,9 +202,9 @@ export function traceRays(objects: SceneObject[]): RayPath[] {
     const angle = (src.rotation * Math.PI) / 180
     const dir = { x: Math.cos(angle), y: Math.sin(angle) }
     const perp = { x: -dir.y, y: dir.x }
-    const n = Math.max(1, Math.round(pv(src, 'rays', 3)))
-    const aperture = pv(src, 'aperture', 80)
-    const wavelengthNm = pv(src, 'wavelength', 550)
+    const n = Math.max(1, Math.round(opticParam(src, 'lightSource', 'rays', 3)))
+    const aperture = opticParam(src, 'lightSource', 'aperture', 80)
+    const wavelengthNm = opticParam(src, 'lightSource', 'wavelength', 550)
     const cx = src.position.x + src.size.w / 2
     const cy = src.position.y + src.size.h / 2
     for (let i = 0; i < n; i++) {
