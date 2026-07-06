@@ -3,9 +3,9 @@
 // Unity-style transport: Edit → Play → Pause → Step → Reset.
 // Nothing is regenerated — the exact drawn scene starts simulating.
 
-import { Play, Pause, StepForward, RotateCcw } from 'lucide-react'
+import { Play, Pause, StepBack, StepForward, RotateCcw } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { useRuntimeStore, play, pause, stepFrame, stop } from '@/lib/physics/world'
+import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
 
 export function Transport({ pageId }: { pageId: string }) {
@@ -35,6 +35,15 @@ export function Transport({ pageId }: { pageId: string }) {
         onClick={() => (mode === 'running' ? pause() : play(pageId))}
       >
         {mode === 'running' ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        aria-label="Step back one frame"
+        disabled={mode === 'edit' || mode === 'running'}
+        className="flex h-9 w-9 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
+        onClick={stepBack}
+      >
+        <StepBack className="h-4 w-4" />
       </button>
       <button
         type="button"

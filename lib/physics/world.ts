@@ -133,6 +133,74 @@ interface World {
 let world: World | null = null
 const STEP = 1000 / 120
 
+// ── Step-back history: a bounded stack of pre-step snapshots ───────────────
+// Matter.js integration isn't reversible, so "step back" doesn't rewind
+// physics — it restores the exact state captured just before the step that's
+// being undone. One entry per display frame (Play) or per Step-button press.
+interface Snapshot {
+  t: number
+  bodies: { id: string; x: number; y: number; angle: number; vx: number; vy: number; av: number }[]
+  thermal: { objectId: string; temp: number }[]
+  compState: { id: string; state: Record<string, number> }[]
+  trailLens: { objectId: string; len: number }[]
+}
+
+const HISTORY_MAX = 900
+let history: Snapshot[] = []
+
+function captureSnapshot(w: World): Snapshot {
+  return {
+    t: w.t,
+    bodies: w.bodies.map((b) => ({
+      id: b.objectId,
+      x: b.body.position.x,
+      y: b.body.position.y,
+      angle: b.body.angle,
+      vx: b.body.velocity.x,
+      vy: b.body.velocity.y,
+      av: b.body.angularVelocity,
+    })),
+    thermal: w.thermal.map((th) => ({ objectId: th.objectId, temp: th.temp })),
+    compState: (w.circuit?.comps ?? []).map((c) => ({ id: c.id, state: { ...c.state } })),
+    trailLens: w.tracers.map((t) => ({ objectId: t.objectId, len: t.trailPts.length })),
+  }
+}
+
+function restoreSnapshot(w: World, snap: Snapshot) {
+  const byId = new Map(w.bodies.map((b) => [b.objectId, b]))
+  for (const bs of snap.bodies) {
+    const b = byId.get(bs.id)
+    if (!b) continue
+    Matter.Body.setPosition(b.body, { x: bs.x, y: bs.y })
+    Matter.Body.setAngle(b.body, bs.angle)
+    Matter.Body.setVelocity(b.body, { x: bs.vx, y: bs.vy })
+    Matter.Body.setAngularVelocity(b.body, bs.av)
+  }
+  for (const ts of snap.thermal) {
+    const th = w.thermal.find((x) => x.objectId === ts.objectId)
+    if (th) th.temp = ts.temp
+  }
+  if (w.circuit) {
+    const compById = new Map(w.circuit.comps.map((c) => [c.id, c]))
+    for (const cs of snap.compState) {
+      const c = compById.get(cs.id)
+      if (c) c.state = { ...cs.state }
+    }
+  }
+  for (const tl of snap.trailLens) {
+    const tr = w.tracers.find((x) => x.objectId === tl.objectId)
+    if (!tr) continue
+    tr.trailPts.length = Math.min(tr.trailPts.length, tl.len)
+    tr.prevV = { x: tr.body.velocity.x, y: tr.body.velocity.y }
+  }
+  w.t = snap.t
+}
+
+function pushHistory(w: World) {
+  history.push(captureSnapshot(w))
+  if (history.length > HISTORY_MAX) history.shift()
+}
+
 function bodyCenter(obj: SceneObject) {
   return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
 }
@@ -906,6 +974,7 @@ function frame(now: number) {
   // `timeScale` variable: slow-motion / fast-forward without losing accuracy
   const ts = Math.min(5, Math.max(0, typeof scope.timeScale === 'number' ? scope.timeScale : 1))
   let stepped = false
+  if (ts > 0 && w.acc >= STEP) pushHistory(w)
   while (w.acc >= STEP) {
     if (ts > 0) {
       applyLiveParams(w, scope, STEP * ts)
@@ -962,6 +1031,7 @@ export function stepFrame() {
   const docState = useDocStore.getState()
   const scope = docState.scopes[world.pageId] ?? {}
   const pageObjects = docState.pages[world.pageId]?.objects ?? {}
+  pushHistory(world)
   // one display frame = two 120 Hz physics steps
   for (let i = 0; i < 2; i++) {
     applyLiveParams(world, scope, STEP)
@@ -973,6 +1043,21 @@ export function stepFrame() {
   syncTracers(world, scope, (2 * STEP) / 1000)
   syncCircuitDom(world)
   sample(world)
+  useRuntimeStore.getState().setTime(world.t)
+}
+
+/** Undo one Step (or one Played display frame) — restores the exact
+ * pre-step snapshot rather than integrating backward (Matter.js can't). */
+export function stepBack() {
+  if (!world) return
+  const snap = history.pop()
+  if (!snap) return
+  if (useRuntimeStore.getState().mode === 'running') pause()
+  restoreSnapshot(world, snap)
+  const scope = useDocStore.getState().scopes[world.pageId] ?? {}
+  syncDom(world)
+  syncTracers(world, scope, STEP / 1000)
+  syncCircuitDom(world)
   useRuntimeStore.getState().setTime(world.t)
 }
 
@@ -998,6 +1083,7 @@ export function stop() {
     }
     world = null
   }
+  history = []
   removeTracerOverlay()
   for (const el of elements.values()) {
     el.style.transform = ''

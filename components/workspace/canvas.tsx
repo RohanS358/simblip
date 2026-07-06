@@ -123,6 +123,7 @@ const ObjectView = memo(function ObjectView({
   onPointerDown,
   onResizeStart,
   onRotateStart,
+  onHover,
 }: {
   pageId: string
   object: SceneObject
@@ -130,6 +131,7 @@ const ObjectView = memo(function ObjectView({
   onPointerDown: (e: React.PointerEvent, id: string) => void
   onResizeStart: (e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => void
   onRotateStart: (e: React.PointerEvent, id: string) => void
+  onHover: (id: string | null) => void
 }) {
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
   if (!Renderer) return null
@@ -151,6 +153,8 @@ const ObjectView = memo(function ObjectView({
         transformOrigin: 'center center',
       }}
       onPointerDown={(e) => onPointerDown(e, object.id)}
+      onPointerEnter={() => onHover(object.id)}
+      onPointerLeave={() => onHover(null)}
     >
       <div
         className={cn(
@@ -248,6 +252,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   placePreviewRef.current = placePreview
   // Custom right-click menu: screen-space position + the object under it.
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; objectId: string | null } | null>(null)
+  // Alt+hover measurement: while Alt is held, hovering a second object with
+  // one already selected shows the displacement between their centers.
+  const [altHeld, setAltHeld] = useState(false)
+  const [hoveredId, setHoveredId] = useState<string | null>(null)
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -297,6 +305,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code === 'Space' && !isTyping(e.target)) spaceRef.current = true
+      if (e.key === 'Alt' && !isTyping(e.target)) setAltHeld(true)
       if (isTyping(e.target)) return
       const store = useDocStore.getState()
       const locked = useRuntimeStore.getState().mode !== 'edit'
@@ -327,12 +336,16 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.code === 'Space') spaceRef.current = false
+      if (e.key === 'Alt') setAltHeld(false)
     }
+    const onBlur = () => setAltHeld(false)
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
     }
   }, [pageId])
 
@@ -445,22 +458,34 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
-        // Coalesced pointer events give the full-resolution ink trail;
-        // pressure rides along as a third component for the ink renderer.
-        const raw: { clientX: number; clientY: number; pressure: number }[] =
-          typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
-            ? e.getCoalescedEvents()
-            : [e]
-        const pts = raw.map((ev) => ({ ...toCanvas(ev.clientX, ev.clientY), p: ev.pressure }))
-        setStroke((prev) => {
-          const next = prev ? [...prev] : []
-          for (const p of pts) {
-            const last = next[next.length - 1]
-            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
-              next.push([p.x, p.y, p.p])
-          }
-          return next
-        })
+        if (e.shiftKey) {
+          // Shift+pen: snap to a straight horizontal/vertical stroke instead
+          // of freehand — whichever axis has moved further wins.
+          const dx = point.x - g.start.x
+          const dy = point.y - g.start.y
+          const end = Math.abs(dx) > Math.abs(dy) ? { x: point.x, y: g.start.y } : { x: g.start.x, y: point.y }
+          setStroke([
+            [g.start.x, g.start.y, 0.5],
+            [end.x, end.y, 0.5],
+          ])
+        } else {
+          // Coalesced pointer events give the full-resolution ink trail;
+          // pressure rides along as a third component for the ink renderer.
+          const raw: { clientX: number; clientY: number; pressure: number }[] =
+            typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
+              ? e.getCoalescedEvents()
+              : [e]
+          const pts = raw.map((ev) => ({ ...toCanvas(ev.clientX, ev.clientY), p: ev.pressure }))
+          setStroke((prev) => {
+            const next = prev ? [...prev] : []
+            for (const p of pts) {
+              const last = next[next.length - 1]
+              if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
+                next.push([p.x, p.y, p.p])
+            }
+            return next
+          })
+        }
       } else if (g.mode === 'placeLine') {
         // Straight rubber-band preview; Shift snaps the angle to 15° steps.
         let end = point
@@ -1096,8 +1121,60 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               onPointerDown={handleObjectPointerDown}
               onResizeStart={handleResizeStart}
               onRotateStart={handleRotateStart}
+              onHover={setHoveredId}
             />
           ))}
+
+        {altHeld &&
+          selection.length === 1 &&
+          hoveredId &&
+          hoveredId !== selection[0] &&
+          objects &&
+          (() => {
+            const a = objects[selection[0]]
+            const b = objects[hoveredId]
+            if (!a || !b) return null
+            const ac = { x: a.position.x + a.size.w / 2, y: a.position.y + a.size.h / 2 }
+            const bc = { x: b.position.x + b.size.w / 2, y: b.position.y + b.size.h / 2 }
+            const dist = Math.hypot(bc.x - ac.x, bc.y - ac.y)
+            const mx = (ac.x + bc.x) / 2
+            const my = (ac.y + bc.y) / 2
+            const label = `${dist.toFixed(1)}px`
+            const z = viewport.zoom
+            return (
+              <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+                <line
+                  x1={ac.x} y1={ac.y} x2={bc.x} y2={bc.y}
+                  stroke="var(--accent-blue)"
+                  strokeWidth={1.5 / z}
+                  strokeDasharray={`${5 / z} ${4 / z}`}
+                  strokeLinecap="round"
+                />
+                <circle cx={ac.x} cy={ac.y} r={3.5 / z} fill="var(--accent-blue)" />
+                <circle cx={bc.x} cy={bc.y} r={3.5 / z} fill="var(--accent-blue)" />
+                <rect
+                  x={mx - (label.length * 3.6) / z}
+                  y={my - 17 / z}
+                  width={(label.length * 7.2) / z}
+                  height={14 / z}
+                  rx={4 / z}
+                  fill="var(--card)"
+                  stroke="var(--accent-blue)"
+                  strokeWidth={1 / z}
+                />
+                <text
+                  x={mx}
+                  y={my - 7 / z}
+                  fill="var(--accent-blue)"
+                  fontSize={10.5 / z}
+                  fontFamily="monospace"
+                  textAnchor="middle"
+                >
+                  {label}
+                </text>
+              </svg>
+            )
+          })()}
 
         {stroke && stroke.length > 1 && (
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
