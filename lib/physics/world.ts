@@ -495,6 +495,49 @@ const COULOMB_K = 8
 const FORCE_SCALE = 1e-4
 const BFIELD_SCALE = 1e-3
 
+/** Net Coulomb + field (E/B) force on one charged body, in the same raw
+ * pedagogical units as applyChargeForces — before FORCE_SCALE/BFIELD_SCALE —
+ * so tracer arrows can apply their own visual scale. Read-only: no mutation. */
+function chargeForceOn(w: World, body: Matter.Body, q: number, frameScope: Scope): { x: number; y: number } {
+  let fx = 0
+  let fy = 0
+  for (const other of w.charges) {
+    if (other.body === body) continue
+    const oq = other.q(frameScope)
+    const dx = (body.position.x - other.body.position.x) / PPM
+    const dy = (body.position.y - other.body.position.y) / PPM
+    const r2 = Math.max(dx * dx + dy * dy, 0.01)
+    const r = Math.sqrt(r2)
+    const F = (COULOMB_K * q * oq) / r2
+    fx += (F * dx) / r
+    fy += (F * dy) / r
+  }
+  if (w.fields.length > 0) {
+    const pageObjs = useDocStore.getState().pages[w.pageId]?.objects ?? {}
+    for (const f of w.fields) {
+      const region = pageObjs[f.objectId]
+      if (!region) continue
+      const p = body.position
+      if (
+        p.x < region.position.x ||
+        p.x > region.position.x + region.size.w ||
+        p.y < region.position.y ||
+        p.y > region.position.y + region.size.h
+      )
+        continue
+      if (f.kind === 'e' && f.Ex && f.Ey) {
+        fx += q * f.Ex(frameScope)
+        fy += -q * f.Ey(frameScope)
+      } else if (f.kind === 'b' && f.Bz) {
+        const Bz = f.Bz(frameScope)
+        fx += q * -body.velocity.y * Bz
+        fy += q * body.velocity.x * Bz
+      }
+    }
+  }
+  return { x: fx, y: fy }
+}
+
 function applyChargeForces(w: World, frameScope: Scope) {
   if (w.charges.length === 0 && w.fields.length === 0) return
   const qs = w.charges.map((c) => ({ c, q: c.q(frameScope) }))
@@ -769,6 +812,18 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
         const sign = stretch >= 0 ? 1 : -1
         const dT = scaled((dx / len) * sign, (dy / len) * sign, Math.min(20 + mag * 0.2, 90), 90)
         html += arrowSvg(x, y, dT.x, dT.y, 'var(--accent-blue)', mag > 0 ? `T ${mag.toFixed(1)}N` : 'T')
+      }
+      // electric/magnetic force (charge behavior in E-field/B-field regions,
+      // plus Coulomb interaction with every other charged body)
+      const chg = w.charges.find((c) => c.body === t.body)
+      if (chg) {
+        const q = chg.q(frameScope)
+        const cf = chargeForceOn(w, t.body, q, frameScope)
+        const mag = Math.hypot(cf.x, cf.y)
+        if (mag > 0.02) {
+          const dc = scaled(cf.x, cf.y, 10, 100)
+          html += arrowSvg(x, y, dc.x, dc.y, 'var(--accent-violet)', `Fe ${mag.toFixed(1)}N`)
+        }
       }
       // contact normals from active collision pairs
       for (const pair of w.engine.pairs.list) {

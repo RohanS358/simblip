@@ -198,4 +198,153 @@
   .no-scrollbar {
     scrollbar-width: none;
   }
+
+  /* Rendered markdown (Note/Text objects) — Obsidian-ish reading view.
+     Margins collapse to 0 since each block already sits inside a sized,
+     grow-only box; spacing comes from margin-top on non-first children. */
+  .markdown-view :where(h1, h2, h3, h4, h5, h6) {
+    font-weight: 700;
+    line-height: 1.25;
+    margin: 0.6em 0 0.25em;
+  }
+  .markdown-view :where(h1, h2, h3, h4, h5, h6):first-child {
+    margin-top: 0;
+  }
+  .markdown-view h1 { font-size: 1.5em; }
+  .markdown-view h2 { font-size: 1.28em; }
+  .markdown-view h3 { font-size: 1.14em; }
+  .markdown-view h4,
+  .markdown-view h5,
+  .markdown-view h6 { font-size: 1em; }
+  .markdown-view p {
+    margin: 0.4em 0;
+  }
+  .markdown-view p:first-child {
+    margin-top: 0;
+  }
+  .markdown-view p:last-child {
+    margin-bottom: 0;
+  }
+  .markdown-view :where(ul, ol) {
+    margin: 0.3em 0;
+    padding-left: 1.3em;
+  }
+  .markdown-view ul { list-style: disc; }
+  .markdown-view ol { list-style: decimal; }
+  .markdown-view li {
+    margin: 0.15em 0;
+  }
+  .markdown-view li.task-item {
+    list-style: none;
+    margin-left: -1.3em;
+  }
+  .markdown-view li.task-item input {
+    margin-right: 0.35em;
+    vertical-align: middle;
+  }
+  .markdown-view blockquote {
+    margin: 0.4em 0;
+    padding-left: 0.75em;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+  }
+  .markdown-view code {
+    background: color-mix(in oklch, var(--foreground) 8%, transparent);
+    border-radius: 4px;
+    padding: 0.1em 0.35em;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.92em;
+  }
+  .markdown-view pre {
+    margin: 0.5em 0;
+    padding: 0.6em 0.75em;
+    border-radius: 8px;
+    background: color-mix(in oklch, var(--foreground) 6%, transparent);
+    overflow-x: auto;
+  }
+  .markdown-view pre code {
+    background: none;
+    padding: 0;
+  }
+  .markdown-view hr {
+    margin: 0.6em 0;
+    border: none;
+    border-top: 1px solid var(--border);
+  }
+  .markdown-view a {
+    color: var(--accent-blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+  .markdown-view strong {
+    font-weight: 700;
+  }
+  .markdown-view del {
+    opacity: 0.6;
+  }
+
+  /* Live per-line markdown editor (editing mode) — each line is its own
+     block; the line holding the caret shows raw source, every other line
+     renders inline (Obsidian Live Preview style). */
+  .md-editor {
+    position: relative;
+    caret-color: var(--foreground);
+  }
+  .md-editor .md-line {
+    min-height: 1.35em;
+  }
+  .md-editor[data-empty='true']::before {
+    content: attr(data-placeholder);
+    color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+    pointer-events: none;
+    position: absolute;
+  }
+  .md-editor .md-marker {
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+  .md-editor .md-h {
+    font-weight: 700;
+    display: inline-block;
+  }
+  .md-editor .md-h1 { font-size: 1.5em; }
+  .md-editor .md-h2 { font-size: 1.28em; }
+  .md-editor .md-h3 { font-size: 1.14em; }
+  .md-editor .md-h4,
+  .md-editor .md-h5,
+  .md-editor .md-h6 { font-size: 1em; }
+  .md-editor .md-quote {
+    display: block;
+    padding-left: 0.5em;
+    border-left: 3px solid var(--border);
+    color: var(--muted-foreground);
+  }
+  .md-editor .md-li {
+    display: block;
+    padding-left: 0.2em;
+  }
+  .md-editor .md-hr {
+    display: block;
+    color: var(--muted-foreground);
+    opacity: 0.6;
+  }
+  .md-editor .md-done {
+    text-decoration: line-through;
+    opacity: 0.6;
+  }
+  .md-editor code {
+    background: color-mix(in oklch, var(--foreground) 8%, transparent);
+    border-radius: 4px;
+    padding: 0.05em 0.3em;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 0.92em;
+  }
+  .md-editor strong {
+    font-weight: 700;
+  }
+  .md-editor a {
+    color: var(--accent-blue);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
 }
