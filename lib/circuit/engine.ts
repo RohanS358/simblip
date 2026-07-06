@@ -29,23 +29,49 @@ const GATE3: TerminalDef[] = [
   { x: 1, y: 0.5 },
 ]
 
+// Dependent-source / two-port terminal layout: [ctrl+, ctrl−, out+, out−].
+const T4: TerminalDef[] = [
+  { x: 0, y: 0.2 },
+  { x: 0, y: 0.8 },
+  { x: 1, y: 0.2 },
+  { x: 1, y: 0.8 },
+]
+
 export const TERMINALS: Record<string, TerminalDef[]> = {
   resistor: T2,
   capacitor: T2,
   inductor: T2,
   battery: T2, // [+, −]
   'ac-source': T2,
+  'current-source': T2, // [+, −] — current flows internally − → + (out of +)
   switch: T2,
   fuse: T2,
   bulb: T2,
   diode: T2, // [anode, cathode]
   led: T2,
+  zener: T2, // [anode, cathode] — conducts forward at Vf, breaks down in reverse at Vz
   ammeter: T2,
   voltmeter: T2,
+  wattmeter: [
+    { x: 0, y: 0.2 }, // current coil +
+    { x: 0, y: 0.8 }, // current coil −
+    { x: 1, y: 0.2 }, // voltage coil +
+    { x: 1, y: 0.8 }, // voltage coil −
+  ],
+  potentiometer: [
+    { x: 0, y: 0 }, // top
+    { x: 0.5, y: 1 }, // wiper
+    { x: 1, y: 0 }, // bottom
+  ],
   gnd: [{ x: 0.5, y: 0.12 }],
   probe: [{ x: 0.5, y: 1 }],
   'logic-probe': [{ x: 0.5, y: 1 }],
   bjt: [
+    { x: 0, y: 0.5 },
+    { x: 0.583, y: 0.083 },
+    { x: 0.583, y: 0.917 },
+  ], // [B, C, E]
+  'bjt-pnp': [
     { x: 0, y: 0.5 },
     { x: 0.583, y: 0.083 },
     { x: 0.583, y: 0.917 },
@@ -55,11 +81,39 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
     { x: 0.708, y: 0.125 },
     { x: 0.708, y: 0.875 },
   ], // [G, D, S]
+  'mosfet-pmos': [
+    { x: 0, y: 0.5 },
+    { x: 0.708, y: 0.125 },
+    { x: 0.708, y: 0.875 },
+  ], // [G, D, S]
   opamp: [
     { x: 0, y: 0.3125 },
     { x: 0, y: 0.6875 },
     { x: 1, y: 0.5 },
   ], // [in+, in−, out]
+  vcvs: T4, // voltage-controlled voltage source
+  vccs: T4, // voltage-controlled current source
+  ccvs: T4, // current-controlled voltage source (ctrl pins carry the sensed current)
+  cccs: T4, // current-controlled current source
+  transformer: [
+    { x: 0, y: 0.2 }, // primary +
+    { x: 0, y: 0.8 }, // primary −
+    { x: 1, y: 0.2 }, // secondary +
+    { x: 1, y: 0.8 }, // secondary −
+  ],
+  'transformer-ct': [
+    { x: 0, y: 0.2 }, // primary +
+    { x: 0, y: 0.8 }, // primary −
+    { x: 1, y: 0.1 }, // secondary 1
+    { x: 1, y: 0.5 }, // center tap
+    { x: 1, y: 0.9 }, // secondary 2
+  ],
+  'three-phase-source': [
+    { x: 0.2, y: 0 }, // A
+    { x: 0.5, y: 0 }, // B
+    { x: 0.8, y: 0 }, // C
+    { x: 0.5, y: 1 }, // N (star point)
+  ],
   'and-gate': GATE3,
   'or-gate': GATE3,
   'xor-gate': GATE3,
@@ -118,6 +172,44 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
     { x: 1, y: 0.5 },
     { x: 1, y: 0.75 },
   ], // [A, B, A<B, A=B, A>B]
+  't-ff': GATE3, // [T, CLK, Q]
+  tristate: GATE3, // [in, enable, out]
+  'seven-seg': Array.from({ length: 7 }, (_, i) => ({ x: 0, y: (i + 1) / 8 })), // [a, b, c, d, e, f, g]
+  'bcd-7seg': [
+    { x: 0, y: 0.2 },
+    { x: 0, y: 0.4 },
+    { x: 0, y: 0.6 },
+    { x: 0, y: 0.8 }, // A, B, C, D (BCD in, LSB first)
+    ...Array.from({ length: 7 }, (_, i) => ({ x: 1, y: (i + 1) / 8 })), // a..g out
+  ],
+  counter4: [
+    { x: 0, y: 0.5 }, // CLK
+    { x: 1, y: 0.2 },
+    { x: 1, y: 0.4 },
+    { x: 1, y: 0.6 },
+    { x: 1, y: 0.8 }, // Q0..Q3
+  ],
+  // Variable-model fallbacks (isElectrical only checks this static table —
+  // terminalsOf() computes the real layout per model at netlist-build time).
+  demux: [
+    { x: 0, y: 0.5 },
+    { x: 0.5, y: 0 },
+    { x: 1, y: 0.333 },
+    { x: 1, y: 0.667 },
+  ], // 1:2 default — [in, sel, out0, out1]
+  encoder: [
+    { x: 0, y: 0.2 },
+    { x: 0, y: 0.4 },
+    { x: 0, y: 0.6 },
+    { x: 0, y: 0.8 },
+    { x: 1, y: 0.4 },
+    { x: 1, y: 0.6 },
+  ], // 4:2 default — [in0..in3, out0, out1]
+  register4: [
+    { x: 0, y: 0.3 },
+    { x: 0, y: 0.7 },
+    { x: 1, y: 0.5 },
+  ], // SISO default — [SIN, CLK, SOUT]
 }
 
 // ── Variable component models ───────────────────────────────────────────────
@@ -132,8 +224,10 @@ export function inputCountOf(obj: SceneObject): number {
   const p = obj.parameters.inputs
   const raw = p?.kind === 'number' ? Math.round(p.value) : NaN
   if (VARIABLE_INPUTS.has(sym)) return Number.isFinite(raw) ? Math.min(8, Math.max(2, raw)) : 2
-  if (sym === 'mux') return raw === 4 ? 4 : 2
+  if (sym === 'mux' || sym === 'demux') return raw === 4 ? 4 : 2
   if (sym === 'decoder') return raw === 3 ? 3 : 2
+  if (sym === 'encoder') return raw === 8 ? 8 : 4
+  if (sym === 'register4') return Number.isFinite(raw) ? Math.min(3, Math.max(0, raw)) : 0
   return 0
 }
 
@@ -168,7 +262,66 @@ export function terminalsOf(obj: SceneObject): TerminalDef[] {
       ...Array.from({ length: 8 }, (_, i) => ({ x: 1, y: (i + 1) / 9 })),
     ]
   }
+  if (sym === 'demux' && n === 4) {
+    // [in, sel0, sel1, out0..out3] — selects enter from the top.
+    return [
+      { x: 0, y: 0.5 },
+      { x: 0.38, y: 0 },
+      { x: 0.62, y: 0 },
+      { x: 1, y: 0.2 },
+      { x: 1, y: 0.4 },
+      { x: 1, y: 0.6 },
+      { x: 1, y: 0.8 },
+    ]
+  }
+  if (sym === 'demux') {
+    // 1:2 — [in, sel, out0, out1]
+    return [
+      { x: 0, y: 0.5 },
+      { x: 0.5, y: 0 },
+      { x: 1, y: 0.333 },
+      { x: 1, y: 0.667 },
+    ]
+  }
+  if (sym === 'encoder' && n === 8) {
+    // 8:3 — [in0..in7, out0..out2]
+    return [
+      ...Array.from({ length: 8 }, (_, i) => ({ x: 0, y: (i + 1) / 9 })),
+      { x: 1, y: 0.35 },
+      { x: 1, y: 0.5 },
+      { x: 1, y: 0.65 },
+    ]
+  }
+  if (sym === 'encoder') {
+    // 4:2 — [in0..in3, out0, out1]
+    return [
+      ...Array.from({ length: 4 }, (_, i) => ({ x: 0, y: (i + 1) / 5 })),
+      { x: 1, y: 0.4 },
+      { x: 1, y: 0.6 },
+    ]
+  }
+  if (sym === 'register4') {
+    if (n === 1) return [{ x: 0, y: 0.3 }, { x: 0, y: 0.7 }, { x: 1, y: 0.2 }, { x: 1, y: 0.4 }, { x: 1, y: 0.6 }, { x: 1, y: 0.8 }] // SIPO: SIN, CLK, Q0..Q3
+    if (n === 2) return [{ x: 0, y: 0.15 }, { x: 0, y: 0.35 }, { x: 0, y: 0.55 }, { x: 0, y: 0.75 }, { x: 0.35, y: 0 }, { x: 0.65, y: 0 }, { x: 1, y: 0.5 }] // PISO: D0..D3, LOAD, CLK, SOUT
+    if (n === 3) return [{ x: 0, y: 0.15 }, { x: 0, y: 0.35 }, { x: 0, y: 0.55 }, { x: 0, y: 0.75 }, { x: 0.5, y: 0 }, { x: 1, y: 0.15 }, { x: 1, y: 0.35 }, { x: 1, y: 0.55 }, { x: 1, y: 0.75 }] // PIPO: D0..D3, CLK, Q0..Q3
+    return [{ x: 0, y: 0.3 }, { x: 0, y: 0.7 }, { x: 1, y: 0.5 }] // SISO: SIN, CLK, SOUT
+  }
   return TERMINALS[sym] ?? []
+}
+
+/**
+ * Minimum box height so a wide model's same-edge pins clear the wire snap
+ * radius (SNAP) — a 96×48 8-input gate packs pins 5px apart, well inside
+ * SNAP=14, so a wire meant for one pin can bond to its neighbor instead.
+ * Returns null when the default 48px box is already safe (narrow models).
+ */
+export function recommendedHeight(symbol: string, n: number): number | null {
+  const gap = 18 // > SNAP with margin
+  if (VARIABLE_INPUTS.has(symbol) && n > 2) return Math.ceil(gap * (n + 1))
+  if ((symbol === 'mux' || symbol === 'demux') && n === 4) return Math.ceil(gap * 5)
+  if (symbol === 'decoder' && n === 3) return Math.ceil(gap * 9)
+  if (symbol === 'encoder' && n === 8) return Math.ceil(gap * 9)
+  return null
 }
 
 const GATES = new Set(['and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate', 'not-gate'])
@@ -176,6 +329,7 @@ const DIGITAL = new Set([
   ...GATES,
   'd-ff', 'mux', 'input', 'clock', 'output',
   'half-adder', 'full-adder', 'sr-latch', 'jk-ff', 'decoder', 'comparator',
+  't-ff', 'tristate', 'demux', 'encoder', 'seven-seg', 'bcd-7seg', 'register4', 'counter4',
 ])
 
 export const SNAP = 14
@@ -187,15 +341,49 @@ const DEF: Record<string, Record<string, number>> = {
   capacitor: { C: 0.001 },
   inductor: { L: 0.1 },
   battery: { V: 9 },
-  'ac-source': { V: 12, f: 1 },
+  'ac-source': { V: 12, f: 1, wave: 0 }, // wave: 0=sine, 1=square, 2=triangle
+  'current-source': { I: 0.01 },
   switch: { closed: 1 },
   fuse: { Imax: 1 },
   diode: { Vf: 0.7 },
   led: { Vf: 2 },
+  zener: { Vf: 0.7, Vz: 5.1 },
+  potentiometer: { R: 1000, ratio: 0.5 },
   mosfet: { Vt: 2 },
+  'mosfet-pmos': { Vt: 2 },
   opamp: { gain: 1e5 },
+  vcvs: { gain: 2 },
+  vccs: { gm: 0.01 },
+  ccvs: { r: 100 },
+  cccs: { beta: 2 },
+  transformer: { n: 2 },
+  'transformer-ct': { n: 2 },
+  'three-phase-source': { V: 220, f: 50 },
   input: { value: 0 },
   clock: { f: 1 },
+  encoder: { priority: 0 },
+  counter4: { mod: 16, dir: 0 },
+}
+
+/** AC waveform generator — function-generator style: sine, square, triangle. */
+function waveform(kind: number, phaseAngle: number): number {
+  const wrapped = ((phaseAngle % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI)
+  if (kind >= 1.5) {
+    // triangle: linear ramp −1..1..−1 over the cycle
+    const frac = wrapped / (2 * Math.PI)
+    return frac < 0.5 ? 4 * frac - 1 : 3 - 4 * frac
+  }
+  if (kind >= 0.5) return wrapped < Math.PI ? 1 : -1 // square
+  return Math.sin(wrapped)
+}
+
+/** How many extra MNA unknowns (branch currents) a component's stamp needs. */
+function vsrcRowsFor(symbol: string): number {
+  if (symbol === 'battery' || symbol === 'ac-source' || symbol === 'opamp') return 1
+  if (symbol === 'vcvs' || symbol === 'cccs' || symbol === 'transformer') return 1
+  if (symbol === 'ccvs' || symbol === 'transformer-ct') return 2
+  if (symbol === 'three-phase-source') return 3
+  return 0
 }
 
 // ── Geometry helpers ────────────────────────────────────────────────────────
@@ -352,9 +540,13 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
     parent[find(a)] = find(b)
   }
 
-  // terminal ↔ terminal (abutting components), and all grounds are one earth
+  // terminal ↔ terminal (abutting components), and all grounds are one earth.
+  // Never auto-union two terminals of the SAME component — multi-pin parts
+  // (3+ input gates, decoders, mux 4:1…) routinely pack pins closer than
+  // SNAP on a compact glyph; those are always logically distinct nets.
   for (let i = 0; i < termPts.length; i++) {
     for (let j = i + 1; j < termPts.length; j++) {
+      if (termPts[i].comp === termPts[j].comp) continue
       if (Math.hypot(termPts[i].x - termPts[j].x, termPts[i].y - termPts[j].y) < SNAP) {
         union(termPts[i].item, termPts[j].item)
       }
@@ -402,7 +594,11 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
       state: {},
       outflow: nets.map(() => 0),
     }
-    if (symbol === 'battery' || symbol === 'ac-source' || symbol === 'opamp') comp.vsrcRow = nVsrc++
+    const rows = vsrcRowsFor(symbol)
+    if (rows > 0) {
+      comp.vsrcRow = nVsrc
+      nVsrc += rows
+    }
     return comp
   })
 
@@ -551,7 +747,20 @@ export function stepCircuit(
       else if (s === 'ammeter') stampG(a, b, CLOSED)
       else if (s === 'switch') stampG(a, b, pv(comp, 'closed') >= 0.5 ? CLOSED : OPEN)
       else if (s === 'fuse') stampG(a, b, comp.state.blown ? OPEN : CLOSED)
-      else if (s === 'capacitor') {
+      else if (s === 'current-source') stampI(a, b, pv(comp, 'I'))
+      else if (s === 'wattmeter') {
+        // current coil (a,b): near-zero impedance, in series with the load
+        // voltage coil (c,d): near-infinite impedance, in parallel
+        const [ia, ib2, va, vb] = comp.nets
+        stampG(ia, ib2, CLOSED)
+        stampG(va, vb, 1e-7)
+      } else if (s === 'potentiometer') {
+        const [top, wiper, bottom] = comp.nets
+        const R = Math.max(pv(comp, 'R'), 1)
+        const ratio = Math.min(1, Math.max(0, pv(comp, 'ratio')))
+        stampG(top, wiper, 1 / Math.max(R * ratio, 1e-6))
+        stampG(wiper, bottom, 1 / Math.max(R * (1 - ratio), 1e-6))
+      } else if (s === 'capacitor') {
         const geq = Math.max(pv(comp, 'C'), 1e-12) / dt
         stampG(a, b, geq)
         stampI(a, b, -geq * (comp.state.v ?? 0)) // companion source
@@ -564,23 +773,44 @@ export function stepCircuit(
           stampG(a, b, g)
           stampI(a, b, -g * pv(comp, 'Vf')) // shifts the I-V curve by Vf
         } else stampG(a, b, OPEN)
-      } else if (s === 'bjt') {
+      } else if (s === 'zener') {
+        if (comp.state.mode === 1) {
+          // forward-conducting, same as a diode
+          const g = 1 / 2
+          stampG(a, b, g)
+          stampI(a, b, -g * pv(comp, 'Vf'))
+        } else if (comp.state.mode === -1) {
+          // reverse breakdown: clamps at −Vz, conducts b → a
+          const g = 1 / 5
+          stampG(a, b, g)
+          stampI(a, b, g * pv(comp, 'Vz'))
+        } else stampG(a, b, OPEN)
+      } else if (s === 'bjt' || s === 'bjt-pnp') {
         const [B, C2, E] = comp.nets
+        const pnp = s === 'bjt-pnp'
         if (comp.state.on) {
           const gbe = 1 / 1000
-          stampG(B, E, gbe)
-          stampI(B, E, -gbe * 0.7)
+          if (pnp) {
+            stampG(E, B, gbe)
+            stampI(E, B, -gbe * 0.7)
+          } else {
+            stampG(B, E, gbe)
+            stampI(B, E, -gbe * 0.7)
+          }
           stampG(C2, E, 1 / 5) // saturated switch
         } else {
           stampG(B, E, OPEN)
           stampG(C2, E, OPEN)
         }
-      } else if (s === 'mosfet') {
+      } else if (s === 'mosfet' || s === 'mosfet-pmos') {
         const [, D, S] = comp.nets
         stampG(D, S, comp.state.on ? 1 : OPEN)
       } else if (s === 'battery' || s === 'ac-source') {
         const row = n + comp.vsrcRow!
-        const V = s === 'battery' ? pv(comp, 'V') : pv(comp, 'V') * Math.sin(2 * Math.PI * pv(comp, 'f') * t)
+        const V =
+          s === 'battery'
+            ? pv(comp, 'V')
+            : pv(comp, 'V') * waveform(pv(comp, 'wave'), 2 * Math.PI * pv(comp, 'f') * t)
         A[a][row] += 1
         A[b][row] -= 1
         A[row][a] += 1
@@ -594,6 +824,104 @@ export function stepCircuit(
         A[row][out] += 1 // Vout − gain·(V+ − V−) = 0
         A[row][p] -= gain
         A[row][m] += gain
+      } else if (s === 'vcvs') {
+        const [p, m, outP, outM] = comp.nets
+        const row = n + comp.vsrcRow!
+        const gain = pv(comp, 'gain')
+        A[outP][row] += 1
+        A[outM][row] -= 1
+        A[row][outP] += 1
+        A[row][outM] -= 1
+        A[row][p] -= gain
+        A[row][m] += gain
+      } else if (s === 'vccs') {
+        const [p, m, outP, outM] = comp.nets
+        const gm = pv(comp, 'gm')
+        A[outP][p] -= gm
+        A[outP][m] += gm
+        A[outM][p] += gm
+        A[outM][m] -= gm
+      } else if (s === 'ccvs') {
+        // row0 senses the control current (zero-volt branch across ctrl pins),
+        // row1 is the output voltage source: Vout = r · Isense
+        const [ctrlP, ctrlM, outP, outM] = comp.nets
+        const senseRow = n + comp.vsrcRow!
+        const outRow = senseRow + 1
+        const r = pv(comp, 'r')
+        A[ctrlP][senseRow] += 1
+        A[ctrlM][senseRow] -= 1
+        A[senseRow][ctrlP] += 1
+        A[senseRow][ctrlM] -= 1
+        A[outP][outRow] += 1
+        A[outM][outRow] -= 1
+        A[outRow][outP] += 1
+        A[outRow][outM] -= 1
+        A[outRow][senseRow] -= r
+      } else if (s === 'cccs') {
+        // sense row carries Isense through the ctrl pins (zero-volt branch);
+        // the output current beta·Isense is stamped directly from that unknown.
+        const [ctrlP, ctrlM, outP, outM] = comp.nets
+        const senseRow = n + comp.vsrcRow!
+        const beta = pv(comp, 'beta')
+        A[ctrlP][senseRow] += 1
+        A[ctrlM][senseRow] -= 1
+        A[senseRow][ctrlP] += 1
+        A[senseRow][ctrlM] -= 1
+        A[outP][senseRow] += beta
+        A[outM][senseRow] -= beta
+      } else if (s === 'transformer') {
+        const [p1, p2, s1, s2] = comp.nets
+        const row = n + comp.vsrcRow!
+        const nt = Math.max(pv(comp, 'n'), 1e-3)
+        A[p1][row] += 1
+        A[p2][row] -= 1
+        A[s1][row] -= nt
+        A[s2][row] += nt
+        A[row][p1] += 1
+        A[row][p2] -= 1
+        A[row][s1] -= nt
+        A[row][s2] += nt
+      } else if (s === 'transformer-ct') {
+        const [p1, p2, sec1, ct, sec2] = comp.nets
+        const row1 = n + comp.vsrcRow!
+        const row2 = row1 + 1
+        const nt = Math.max(pv(comp, 'n'), 1e-3)
+        // half 1: primary − n·(sec1 − ct) = 0
+        A[p1][row1] += 1
+        A[p2][row1] -= 1
+        A[sec1][row1] -= nt
+        A[ct][row1] += nt
+        A[row1][p1] += 1
+        A[row1][p2] -= 1
+        A[row1][sec1] -= nt
+        A[row1][ct] += nt
+        // half 2: primary − n·(ct − sec2) = 0 (opposite polarity → full-wave center tap)
+        A[p1][row2] += 1
+        A[p2][row2] -= 1
+        A[ct][row2] -= nt
+        A[sec2][row2] += nt
+        A[row2][p1] += 1
+        A[row2][p2] -= 1
+        A[row2][ct] -= nt
+        A[row2][sec2] += nt
+      } else if (s === 'three-phase-source') {
+        const [pa, pb, pc, nRef] = comp.nets
+        const row0 = n + comp.vsrcRow!
+        const V = pv(comp, 'V') * Math.SQRT2
+        const w = 2 * Math.PI * pv(comp, 'f') * t
+        const phases: [number, number][] = [
+          [pa, 0],
+          [pb, (-2 * Math.PI) / 3],
+          [pc, (2 * Math.PI) / 3],
+        ]
+        phases.forEach(([net, offset], i) => {
+          const row = row0 + i
+          A[net][row] += 1
+          A[nRef][row] -= 1
+          A[row][net] += 1
+          A[row][nRef] -= 1
+          z[row] = V * Math.sin(w + offset)
+        })
       }
     }
     // reference net is 0 V by definition
@@ -614,20 +942,48 @@ export function stepCircuit(
       const s = comp.symbol
       if (s === 'diode' || s === 'led') {
         const vab = x[comp.nets[0]] - x[comp.nets[1]]
-        const on = comp.state.on ? vab > pv(comp, 'Vf') - 0.35 : vab > pv(comp, 'Vf')
+        const Vf = pv(comp, 'Vf')
+        let on = comp.state.on ? vab > Vf - 0.35 : vab > Vf
+        // The "on" companion model actively pulls vab toward Vf, which can
+        // make a reverse-biased diode look self-consistently "forward" when
+        // it's the sole bridge between two otherwise-unconnected subnets
+        // (e.g. a bare half-wave rectifier during the blocked half-cycle) —
+        // nothing else calibrates vab, so the forced value satisfies its own
+        // turn-on test. Guard with the branch current's sign: a diode that's
+        // really conducting forward always has I ≥ 0 by this same formula.
+        if (on && (vab - Vf) / 2 < 0) on = false
         if ((comp.state.on ?? 0) !== +on) {
           comp.state.on = +on
           changed = true
         }
-      } else if (s === 'bjt') {
-        const vbe = x[comp.nets[0]] - x[comp.nets[2]]
+      } else if (s === 'zener') {
+        const vab = x[comp.nets[0]] - x[comp.nets[1]]
+        const Vf = pv(comp, 'Vf')
+        const Vz = pv(comp, 'Vz')
+        const prevMode = comp.state.mode ?? 0
+        let mode: number
+        if (prevMode === 1) {
+          mode = (vab - Vf) / 2 < 0 ? 0 : vab > Vf - 0.35 ? 1 : 0
+        } else if (prevMode === -1) {
+          mode = (vab + Vz) / 5 > 0 ? 0 : vab < -Vz + 0.35 ? -1 : 0
+        } else {
+          mode = vab > Vf ? 1 : vab < -Vz ? -1 : 0
+        }
+        if (prevMode !== mode) {
+          comp.state.mode = mode
+          changed = true
+        }
+      } else if (s === 'bjt' || s === 'bjt-pnp') {
+        const pnp = s === 'bjt-pnp'
+        const vbe = pnp ? x[comp.nets[2]] - x[comp.nets[0]] : x[comp.nets[0]] - x[comp.nets[2]]
         const on = comp.state.on ? vbe > 0.55 : vbe > 0.65
         if ((comp.state.on ?? 0) !== +on) {
           comp.state.on = +on
           changed = true
         }
-      } else if (s === 'mosfet') {
-        const vgs = x[comp.nets[0]] - x[comp.nets[2]]
+      } else if (s === 'mosfet' || s === 'mosfet-pmos') {
+        const pmos = s === 'mosfet-pmos'
+        const vgs = pmos ? x[comp.nets[2]] - x[comp.nets[0]] : x[comp.nets[0]] - x[comp.nets[2]]
         const vt = pv(comp, 'Vt')
         const on = comp.state.on ? vgs > vt - 0.5 : vgs > vt
         if ((comp.state.on ?? 0) !== +on) {
@@ -646,6 +1002,149 @@ export function stepCircuit(
     const s = comp.symbol
     comp.outflow.fill(0)
     if (DIGITAL.has(s) || s === 'gnd' || s === 'probe' || s === 'logic-probe') continue
+
+    // ── multi-terminal (3+) components: handled fully here, then skip ahead ──
+    if (s === 'potentiometer') {
+      const [top, wiper, bottom] = comp.nets
+      const R = Math.max(pv(comp, 'R'), 1)
+      const ratio = Math.min(1, Math.max(0, pv(comp, 'ratio')))
+      const Itw = (v(top) - v(wiper)) / Math.max(R * ratio, 1e-6)
+      const Iwb = (v(wiper) - v(bottom)) / Math.max(R * (1 - ratio), 1e-6)
+      comp.outflow[0] = -Itw
+      comp.outflow[1] = Itw - Iwb
+      comp.outflow[2] = Iwb
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(v(wiper) - v(bottom), 'V'),
+        channels: { Vtop: v(top), Vwiper: v(wiper), Vbottom: v(bottom) },
+      })
+      continue
+    }
+    if (s === 'wattmeter') {
+      const [ia, ib2, va, vb] = comp.nets
+      const I = (v(ia) - v(ib2)) * CLOSED
+      const V = v(va) - v(vb)
+      comp.outflow[0] = -I
+      comp.outflow[1] = I
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(Math.abs(V * I), 'W'),
+        channels: { V, I: Math.abs(I), P: Math.abs(V * I) },
+      })
+      continue
+    }
+    if (s === 'vcvs') {
+      const [p, m, outP, outM] = comp.nets
+      const io = x[n + comp.vsrcRow!] ?? 0
+      comp.outflow[2] = -io
+      comp.outflow[3] = io
+      const V = v(outP) - v(outM)
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(V, 'V'),
+        channels: { Vctrl: v(p) - v(m), Vout: V, I: Math.abs(io) },
+      })
+      continue
+    }
+    if (s === 'vccs') {
+      const [p, m, outP, outM] = comp.nets
+      const gm = pv(comp, 'gm')
+      const io = gm * (v(p) - v(m))
+      comp.outflow[2] = io
+      comp.outflow[3] = -io
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(io, 'A'),
+        channels: { Vctrl: v(p) - v(m), Vout: v(outP) - v(outM), I: Math.abs(io) },
+      })
+      continue
+    }
+    if (s === 'ccvs') {
+      const [, , outP, outM] = comp.nets
+      const senseRow = n + comp.vsrcRow!
+      const outRow = senseRow + 1
+      const isense = x[senseRow] ?? 0
+      const iout = x[outRow] ?? 0
+      comp.outflow[0] = -isense
+      comp.outflow[1] = isense
+      comp.outflow[2] = -iout
+      comp.outflow[3] = iout
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(v(outP) - v(outM), 'V'),
+        channels: { Isense: isense, Vout: v(outP) - v(outM), I: Math.abs(iout) },
+      })
+      continue
+    }
+    if (s === 'cccs') {
+      const [, , outP, outM] = comp.nets
+      const senseRow = n + comp.vsrcRow!
+      const isense = x[senseRow] ?? 0
+      const beta = pv(comp, 'beta')
+      const io = beta * isense
+      comp.outflow[0] = -isense
+      comp.outflow[1] = isense
+      comp.outflow[2] = io
+      comp.outflow[3] = -io
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(io, 'A'),
+        channels: { Isense: isense, Vout: v(outP) - v(outM), I: Math.abs(io) },
+      })
+      continue
+    }
+    if (s === 'transformer') {
+      const [p1, p2, s1, s2] = comp.nets
+      const io = x[n + comp.vsrcRow!] ?? 0
+      const nt = Math.max(pv(comp, 'n'), 1e-3)
+      comp.outflow[0] = -io
+      comp.outflow[1] = io
+      comp.outflow[2] = nt * io
+      comp.outflow[3] = -nt * io
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(v(s1) - v(s2), 'V'),
+        channels: { Vprimary: v(p1) - v(p2), Vsecondary: v(s1) - v(s2), I: Math.abs(io) },
+      })
+      continue
+    }
+    if (s === 'transformer-ct') {
+      const [p1, p2, sec1, ct, sec2] = comp.nets
+      const row1 = n + comp.vsrcRow!
+      const row2 = row1 + 1
+      const i1 = x[row1] ?? 0
+      const i2 = x[row2] ?? 0
+      const nt = Math.max(pv(comp, 'n'), 1e-3)
+      comp.outflow[0] = -(i1 + i2)
+      comp.outflow[1] = i1 + i2
+      comp.outflow[2] = nt * i1
+      comp.outflow[3] = -nt * i1 + nt * i2
+      comp.outflow[4] = -nt * i2
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(v(sec1) - v(sec2), 'V'),
+        channels: {
+          Vprimary: v(p1) - v(p2),
+          Vsec1: v(sec1) - v(ct),
+          Vsec2: v(ct) - v(sec2),
+        },
+      })
+      continue
+    }
+    if (s === 'three-phase-source') {
+      const [pa, pb, pc, nRef] = comp.nets
+      const row0 = n + comp.vsrcRow!
+      const ia = x[row0] ?? 0
+      const ib3 = x[row0 + 1] ?? 0
+      const ic3 = x[row0 + 2] ?? 0
+      comp.outflow[0] = -ia
+      comp.outflow[1] = -ib3
+      comp.outflow[2] = -ic3
+      comp.outflow[3] = ia + ib3 + ic3
+      c.frame.readings.set(comp.id, {
+        text: fmtUnit(v(pa) - v(nRef), 'V'),
+        channels: {
+          Va: v(pa) - v(nRef),
+          Vb: v(pb) - v(nRef),
+          Vc: v(pc) - v(nRef),
+          Vab: v(pa) - v(pb),
+        },
+      })
+      continue
+    }
+
     const [a, b] = comp.nets
     const vab = v(a) - v(b)
     let I = 0 // internal current a → b
@@ -657,6 +1156,8 @@ export function stepCircuit(
     else if (s === 'fuse') {
       I = vab * (comp.state.blown ? OPEN : CLOSED)
       if (Math.abs(I) > pv(comp, 'Imax')) comp.state.blown = 1
+    } else if (s === 'current-source') {
+      I = pv(comp, 'I')
     } else if (s === 'capacitor') {
       const geq = Math.max(pv(comp, 'C'), 1e-12) / dt
       I = geq * (vab - (comp.state.v ?? 0))
@@ -666,20 +1167,40 @@ export function stepCircuit(
       comp.state.i = I
     } else if (s === 'diode' || s === 'led') {
       I = comp.state.on ? (vab - pv(comp, 'Vf')) / 2 : vab * OPEN
+    } else if (s === 'zener') {
+      I =
+        comp.state.mode === 1
+          ? (vab - pv(comp, 'Vf')) / 2
+          : comp.state.mode === -1
+            ? (vab + pv(comp, 'Vz')) / 5
+            : vab * OPEN
     } else if (s === 'battery' || s === 'ac-source') {
       I = x[n + comp.vsrcRow!] ?? 0
-    } else if (s === 'bjt') {
+    } else if (s === 'bjt' || s === 'bjt-pnp') {
       const [B, C2, E] = comp.nets
-      const ib = comp.state.on ? (v(B) - v(E) - 0.7) / 1000 : 0
-      const ic = comp.state.on ? (v(C2) - v(E)) / 5 : 0
-      comp.outflow[0] = -ib
-      comp.outflow[1] = -ic
-      comp.outflow[2] = ib + ic
-    } else if (s === 'mosfet') {
+      const pnp = s === 'bjt-pnp'
+      const ib = comp.state.on ? (pnp ? (v(E) - v(B) - 0.7) / 1000 : (v(B) - v(E) - 0.7) / 1000) : 0
+      const ic = comp.state.on ? (pnp ? (v(E) - v(C2)) / 5 : (v(C2) - v(E)) / 5) : 0
+      if (pnp) {
+        comp.outflow[0] = ib
+        comp.outflow[1] = ic
+        comp.outflow[2] = -(ib + ic)
+      } else {
+        comp.outflow[0] = -ib
+        comp.outflow[1] = -ic
+        comp.outflow[2] = ib + ic
+      }
+    } else if (s === 'mosfet' || s === 'mosfet-pmos') {
       const [, D, S] = comp.nets
-      const id = comp.state.on ? v(D) - v(S) : 0
-      comp.outflow[1] = -id
-      comp.outflow[2] = id
+      const pmos = s === 'mosfet-pmos'
+      const id = comp.state.on ? (pmos ? v(S) - v(D) : v(D) - v(S)) : 0
+      if (pmos) {
+        comp.outflow[1] = id
+        comp.outflow[2] = -id
+      } else {
+        comp.outflow[1] = -id
+        comp.outflow[2] = id
+      }
     } else if (s === 'opamp') {
       const io = x[n + comp.vsrcRow!] ?? 0
       comp.outflow[2] = -io
@@ -697,6 +1218,7 @@ export function stepCircuit(
     else if (s === 'fuse' && comp.state.blown) r.text = 'blown'
     else if (s === 'led') r.glow = comp.state.on ? Math.min(1, Math.abs(I) / 0.02) : 0
     else if (s === 'bulb') r.glow = Math.min(1, Math.sqrt(Math.abs(vab * I)) / 2)
+    else if (s === 'zener' && comp.state.mode === -1) r.text = fmtUnit(vab, 'V')
     if (s === 'battery' || s === 'ac-source') r.channels = { V: v(a) - v(b), I: Math.abs(I), P: Math.abs(vab * I) }
     c.frame.readings.set(comp.id, r)
   }
@@ -842,6 +1364,52 @@ function stepDigital(
         if (set && !reset) comp.state.q = 1
         else if (reset && !set) comp.state.q = 0
         L[comp.nets[2]] = comp.state.q ?? 0
+      } else if (s === 'demux') {
+        if (comp.nets.length === 7) {
+          // 1:4 — [in, sel0, sel1, out0..out3]
+          const idx = (L[comp.nets[1]] ?? 0) + 2 * (L[comp.nets[2]] ?? 0)
+          const inV = L[comp.nets[0]] ?? 0
+          comp.nets.slice(3).forEach((y, i) => (L[y] = i === idx ? inV : 0))
+        } else {
+          // 1:2 — [in, sel, out0, out1]
+          const [inN, sel, o0, o1] = comp.nets
+          const inV = L[inN] ?? 0
+          L[o0] = L[sel] ? 0 : inV
+          L[o1] = L[sel] ? inV : 0
+        }
+      } else if (s === 'encoder') {
+        // 4:2 (6 nets) or 8:3 (11 nets); with `priority`, the highest-index
+        // active input wins — otherwise the first (lowest-index) one does.
+        const nIn = comp.nets.length > 6 ? 8 : 4
+        const ins = comp.nets.slice(0, nIn)
+        const outs = comp.nets.slice(nIn)
+        const usePriority = pv(comp, 'priority') >= 0.5
+        let idx = -1
+        if (usePriority) {
+          for (let i = nIn - 1; i >= 0; i--) {
+            if (L[ins[i]]) {
+              idx = i
+              break
+            }
+          }
+        } else {
+          idx = ins.findIndex((n) => L[n])
+        }
+        const val = idx < 0 ? 0 : idx
+        outs.forEach((y, i) => (L[y] = (val >> i) & 1))
+      } else if (s === 'bcd-7seg') {
+        const [A, B, C, D] = comp.nets
+        const outs = comp.nets.slice(4)
+        const val = (L[A] ?? 0) + 2 * (L[B] ?? 0) + 4 * (L[C] ?? 0) + 8 * (L[D] ?? 0)
+        // Segment patterns a..g (MSB-first), 1 = lit. Common-cathode digits 0–9.
+        const TABLE = [0x7e, 0x30, 0x6d, 0x79, 0x33, 0x5b, 0x5f, 0x70, 0x7f, 0x7b]
+        const bits = val >= 0 && val <= 9 ? TABLE[val] : 0
+        outs.forEach((y, i) => (L[y] = (bits >> (6 - i)) & 1))
+      } else if (s === 'tristate') {
+        const [inN, en, out] = comp.nets
+        // Disabled: the buffer stops driving — the net just holds its last
+        // value (a simplified stand-in for a floating tri-state bus).
+        if (L[en]) L[out] = L[inN] ?? 0
       }
     }
   }
@@ -865,6 +1433,61 @@ function stepDigital(
       }
       comp.state.prevClk = clk
       L[q] = comp.state.q ?? 0
+    } else if (comp.symbol === 't-ff') {
+      const [t, clkNet, q] = comp.nets
+      const clk = L[clkNet] ?? 0
+      if (clk === 1 && (comp.state.prevClk ?? 0) === 0 && L[t]) comp.state.q = (comp.state.q ?? 0) ? 0 : 1
+      comp.state.prevClk = clk
+      L[q] = comp.state.q ?? 0
+    } else if (comp.symbol === 'register4') {
+      // 4 bits packed into comp.state.bits; mode (0=SISO,1=SIPO,2=PISO,
+      // 3=PIPO) picks which pins exist — see terminalsOf('register4').
+      const raw = pv(comp, 'inputs')
+      const mode = Math.min(3, Math.max(0, Math.round(Number.isFinite(raw) ? raw : 0)))
+      const nets = comp.nets
+      const clkNet = mode === 2 ? nets[5] : mode === 3 ? nets[4] : nets[1]
+      const clk = L[clkNet] ?? 0
+      if (clk === 1 && (comp.state.prevClk ?? 0) === 0) {
+        let b = comp.state.bits ?? 0
+        if (mode === 0 || mode === 1) {
+          const sin = L[nets[0]] ?? 0
+          if (mode === 0) comp.state.sout = (b >> 3) & 1
+          b = ((b << 1) | sin) & 0xf
+        } else if (mode === 2) {
+          if (L[nets[4]]) {
+            b = (L[nets[0]] ? 1 : 0) | (L[nets[1]] ? 2 : 0) | (L[nets[2]] ? 4 : 0) | (L[nets[3]] ? 8 : 0)
+          } else {
+            comp.state.sout = (b >> 3) & 1
+            b = (b << 1) & 0xf
+          }
+        } else {
+          b = (L[nets[0]] ? 1 : 0) | (L[nets[1]] ? 2 : 0) | (L[nets[2]] ? 4 : 0) | (L[nets[3]] ? 8 : 0)
+        }
+        comp.state.bits = b
+      }
+      comp.state.prevClk = clk
+      const b = comp.state.bits ?? 0
+      if (mode === 0) L[nets[2]] = comp.state.sout ?? 0
+      else if (mode === 1) [nets[2], nets[3], nets[4], nets[5]].forEach((n, i) => (L[n] = (b >> i) & 1))
+      else if (mode === 2) L[nets[6]] = comp.state.sout ?? 0
+      else [nets[5], nets[6], nets[7], nets[8]].forEach((n, i) => (L[n] = (b >> i) & 1))
+    } else if (comp.symbol === 'counter4') {
+      const [clkNet, ...qNets] = comp.nets
+      const clk = L[clkNet] ?? 0
+      if (clk === 1 && (comp.state.prevClk ?? 0) === 0) {
+        // "sync" vs "async" produce the same count sequence at this level of
+        // simulation (no propagation-delay modeling), so `sync` is exposed
+        // as a labeling param only — both wrap mod-N identically.
+        const mod = Math.max(2, Math.min(16, Math.round(pv(comp, 'mod'))))
+        const dir = pv(comp, 'dir') >= 0.5 ? -1 : 1
+        let v = (comp.state.count ?? 0) + dir
+        if (v >= mod) v = 0
+        if (v < 0) v = mod - 1
+        comp.state.count = v
+      }
+      comp.state.prevClk = clk
+      const v = comp.state.count ?? 0
+      qNets.forEach((n, i) => (L[n] = (v >> i) & 1))
     }
   }
 }

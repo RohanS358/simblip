@@ -98,11 +98,24 @@ function withBehaviors(obj: SceneObject, ...behaviors: Behavior[]): SceneObject 
   return obj
 }
 
+// Components that pack many pins onto one edge need a taller box than the
+// 48px default — otherwise pin-to-pin spacing falls under the wire snap
+// radius (lib/circuit/engine.ts SNAP) and a wire meant for one pin can
+// accidentally bond to its neighbor. Height only; width stays 96.
+const TALL_SYMBOLS: Record<string, number> = {
+  'seven-seg': 150, // 7 pins at 1/8 spacing → 18.75px gaps, clear of SNAP=14
+  'bcd-7seg': 150, // same 7-pin edge
+  register4: 100, // widest mode packs 4 pins at 1/5 spacing → 20px gaps
+  counter4: 90, // 4 fixed output pins at 1/5 spacing
+  // encoder/demux default narrow (4:2 / 1:2) at creation — widening to 8:3
+  // or 1:4 via the Model dropdown resizes automatically (recommendedHeight).
+}
+
 function symbol(domain: ComponentDef['domain'], name: string, label: string, position: Vec2, params: Record<string, string> = {}): SceneObject {
   const obj = baseObject('symbol', position, autoName(label))
   obj.geometry.symbol = name
   obj.geometry.domain = domain
-  obj.size = { w: 96, h: 48 }
+  obj.size = { w: 96, h: TALL_SYMBOLS[name] ?? 48 }
   for (const [k, v] of Object.entries(params)) obj.parameters[k] = num(v)
   obj.behaviors.push(createBehavior('electricalNode'))
   return obj
@@ -219,21 +232,34 @@ export const COMPONENTS: ComponentDef[] = [
   ...(
     [
       ['electrical', 'battery', 'Battery', { V: '9' }],
-      ['electrical', 'ac-source', 'AC Source', { V: '12', f: '1' }],
+      ['electrical', 'ac-source', 'AC Source', { V: '12', f: '1', wave: '0' }],
+      ['electrical', 'current-source', 'Current Source', { I: '0.01' }],
       ['electrical', 'resistor', 'Resistor', { R: '100' }],
       ['electrical', 'bulb', 'Bulb', { R: '20' }],
       ['electrical', 'capacitor', 'Capacitor', { C: '0.001' }],
       ['electrical', 'inductor', 'Inductor', { L: '0.1' }],
+      ['electrical', 'potentiometer', 'Potentiometer', { R: '1000', ratio: '0.5' }],
       ['electrical', 'switch', 'Switch', { closed: '1' }],
       ['electrical', 'fuse', 'Fuse', { Imax: '1' }],
       ['electrical', 'gnd', 'Ground', {}],
       ['electrical', 'voltmeter', 'Voltmeter', {}],
       ['electrical', 'ammeter', 'Ammeter', {}],
+      ['electrical', 'wattmeter', 'Wattmeter', {}],
       ['electrical', 'probe', 'Probe', {}],
+      ['electrical', 'vcvs', 'VCVS', { gain: '2' }],
+      ['electrical', 'vccs', 'VCCS', { gm: '0.01' }],
+      ['electrical', 'ccvs', 'CCVS', { r: '100' }],
+      ['electrical', 'cccs', 'CCCS', { beta: '2' }],
+      ['electrical', 'transformer', 'Transformer', { n: '2' }],
+      ['electrical', 'transformer-ct', 'Transformer (CT)', { n: '2' }],
+      ['electrical', 'three-phase-source', '3-Phase Source', { V: '220', f: '50' }],
       ['electronics', 'diode', 'Diode', { Vf: '0.7' }],
       ['electronics', 'led', 'LED', { Vf: '2' }],
-      ['electronics', 'bjt', 'BJT', { beta: '100' }],
-      ['electronics', 'mosfet', 'MOSFET', { Vt: '2' }],
+      ['electronics', 'zener', 'Zener Diode', { Vf: '0.7', Vz: '5.1' }],
+      ['electronics', 'bjt', 'BJT (NPN)', { beta: '100' }],
+      ['electronics', 'bjt-pnp', 'BJT (PNP)', { beta: '100' }],
+      ['electronics', 'mosfet', 'MOSFET (N)', { Vt: '2' }],
+      ['electronics', 'mosfet-pmos', 'MOSFET (P)', { Vt: '2' }],
       ['electronics', 'opamp', 'Op-Amp', { gain: '100000' }],
       ['digital', 'input', 'Input', { value: '0' }],
       ['digital', 'clock', 'Clock', { f: '1' }],
@@ -247,12 +273,20 @@ export const COMPONENTS: ComponentDef[] = [
       ['digital', 'not-gate', 'NOT', {}],
       ['digital', 'd-ff', 'D Flip-Flop', {}],
       ['digital', 'jk-ff', 'JK Flip-Flop', {}],
+      ['digital', 't-ff', 'T Flip-Flop', {}],
       ['digital', 'sr-latch', 'SR Latch', {}],
+      ['digital', 'tristate', 'Tri-State Buffer', {}],
       ['digital', 'mux', 'MUX', {}],
+      ['digital', 'demux', 'DEMUX', {}],
+      ['digital', 'encoder', 'Encoder 4:2', {}],
       ['digital', 'half-adder', 'Half Adder', {}],
       ['digital', 'full-adder', 'Full Adder', {}],
       ['digital', 'decoder', 'Decoder 2:4', {}],
       ['digital', 'comparator', 'Comparator', {}],
+      ['digital', 'seven-seg', '7-Segment Display', {}],
+      ['digital', 'bcd-7seg', 'BCD → 7-Seg', {}],
+      ['digital', 'register4', 'Shift Register 4-bit', {}],
+      ['digital', 'counter4', 'Counter 4-bit', { mod: '16', dir: '0' }],
     ] as [ComponentDef['domain'], string, string, Record<string, string>][]
   ).map(([domain, name, label, params]): ComponentDef => ({
     id: name,

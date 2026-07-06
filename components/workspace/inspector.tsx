@@ -12,6 +12,7 @@ import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { isBody } from '@/lib/behaviors/registry'
 import { specsForGeometry, behaviorSpec } from '@/lib/behaviors/registry'
+import { recommendedHeight } from '@/lib/circuit/engine'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -232,9 +233,23 @@ const MODEL_OPTIONS: Record<string, { value: number; label: string }[]> = {
     { value: 2, label: '2:1 (1 select)' },
     { value: 4, label: '4:1 (2 selects)' },
   ],
+  demux: [
+    { value: 2, label: '1:2 (1 select)' },
+    { value: 4, label: '1:4 (2 selects)' },
+  ],
   decoder: [
     { value: 2, label: '2:4' },
     { value: 3, label: '3:8' },
+  ],
+  encoder: [
+    { value: 4, label: '4:2' },
+    { value: 8, label: '8:3' },
+  ],
+  register4: [
+    { value: 0, label: 'SISO' },
+    { value: 1, label: 'SIPO' },
+    { value: 2, label: 'PISO' },
+    { value: 3, label: 'PIPO' },
   ],
 }
 
@@ -583,14 +598,21 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
                 ? Math.round(object.parameters.inputs.value)
                 : MODEL_OPTIONS[object.geometry.symbol ?? ''][0].value
             }
-            onChange={(e) =>
+            onChange={(e) => {
+              const n = Number(e.target.value)
+              const h = recommendedHeight(object.geometry.symbol ?? '', n)
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, inputs: num(e.target.value) } },
+                {
+                  parameters: { ...object.parameters, inputs: num(e.target.value) },
+                  // Widening to a many-pin model needs a taller box, or its
+                  // own pins pack closer than the wire snap radius.
+                  ...(h && h > object.size.h ? { size: { ...object.size, h } } : {}),
+                },
                 { history: true }
               )
-            }
+            }}
           >
             {MODEL_OPTIONS[object.geometry.symbol ?? ''].map((m) => (
               <option key={m.value} value={m.value}>

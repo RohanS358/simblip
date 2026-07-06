@@ -43,6 +43,21 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string } {
   return { fill: 'transparent', stroke: 'var(--foreground)' }
 }
 
+// Dependent sources render as a diamond (vs. a circle for independent
+// sources) per convention, labeled with the IEEE controlled-source letter:
+// E=VCVS, F=CCCS, G=VCCS, H=CCVS.
+function depSource(label: string) {
+  return (
+    <>
+      <path d="M4 9.6 H22 M4 38.4 H22 M22 9.6 V38.4 M74 9.6 H92 M74 38.4 H92 M74 9.6 V38.4" fill="none" />
+      <path d="M48 6 L74 24 L48 42 L22 24 Z" fill="none" />
+      <text x="48" y="28" textAnchor="middle" fontSize="14" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+        {label}
+      </text>
+    </>
+  )
+}
+
 // Schematic glyphs in a 96×48 box. Recognizable beats ornate.
 const GLYPHS: Record<string, React.ReactNode> = {
   resistor: <path d="M4 24 h14 l5 -12 10 24 10 -24 10 24 10 -24 5 12 h24" />,
@@ -66,13 +81,81 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <path d="M52 8 l8 -6 M60 14 l8 -6" strokeWidth="1.4" />
     </>
   ),
+  zener: <path d="M4 24 h28 M32 12 v24 l28 -12 z M64 8 L60 12 V36 L56 40 M60 24 h32" />,
+  'current-source': (
+    <>
+      <circle cx="48" cy="24" r="16" fill="none" />
+      <path d="M4 24 h28 M64 24 h28 M40 24 h12 M46 18 l6 6 -6 6" fill="none" />
+    </>
+  ),
+  potentiometer: (
+    <>
+      <path d="M0 0 V10 H14 M82 10 H96 V0" fill="none" />
+      <rect x="14" y="4" width="68" height="12" rx="2" fill="none" />
+      <path d="M48 46 V18 M43 24 l5 -8 5 8" fill="none" />
+    </>
+  ),
+  wattmeter: (
+    <>
+      <circle cx="48" cy="24" r="18" fill="none" />
+      <path d="M4 9.6 H30 M4 38.4 H30 M66 9.6 H92 M66 38.4 H92" fill="none" />
+      <text x="48" y="29" textAnchor="middle" fontSize="13" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+        W
+      </text>
+    </>
+  ),
+  vcvs: depSource('E'),
+  vccs: depSource('G'),
+  ccvs: depSource('H'),
+  cccs: depSource('F'),
+  transformer: (
+    <path
+      d="M4 9.6 H30 M4 38.4 H30 M66 9.6 H92 M66 38.4 H92
+         M30 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6
+         M66 9.6 a6 6 0 0 0 0 9.6 a6 6 0 0 0 0 9.6 a6 6 0 0 0 0 9.6
+         M44 4 V44 M52 4 V44"
+      fill="none"
+    />
+  ),
+  'transformer-ct': (
+    <path
+      d="M4 9.6 H30 M4 38.4 H30
+         M30 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6
+         M44 4 V44 M52 4 V44
+         M66 4.8 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6
+         M66 4.8 H92 M66 43.2 H92 M78 24 H92"
+      fill="none"
+    />
+  ),
+  'three-phase-source': (
+    <>
+      <circle cx="48" cy="24" r="16" fill="none" />
+      <path d="M19.2 0 V10 M48 0 V8 M76.8 0 V10 M48 40 V48" fill="none" />
+      <text x="48" y="29" textAnchor="middle" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+        3~
+      </text>
+    </>
+  ),
   bjt: (
     <>
       <circle cx="48" cy="24" r="18" fill="none" />
       <path d="M40 12 v24 M40 20 l16 -12 M40 28 l16 12 M4 24 h36 M56 8 v-4 M56 40 v4" />
     </>
   ),
+  'bjt-pnp': (
+    <>
+      <circle cx="48" cy="24" r="18" fill="none" />
+      <path d="M40 12 v24 M40 20 l16 -12 M40 28 l16 12 M4 24 h36 M56 8 v-4 M56 40 v4" />
+      <path d="M44 26.5 l-4 1.5 1.5 4" fill="none" />
+    </>
+  ),
   mosfet: <path d="M4 24 h28 M36 12 v24 M44 10 v8 M44 20 v8 M44 30 v8 M44 14 h24 v-8 M44 34 h24 v8 M44 24 h16" />,
+  'mosfet-pmos': (
+    <>
+      <path d="M4 24 h22 M36 12 v24 M44 10 v8 M44 20 v8 M44 30 v8 M44 14 h24 v-8 M44 34 h24 v8 M44 24 h16" />
+      <circle cx="29" cy="24" r="4" fill="none" />
+    </>
+  ),
   opamp: <path d="M24 6 v36 l48 -18 z M8 15 h16 M8 33 h16 M72 24 h16 M29 15 h6 M32 12 v6 M29 33 h6" />,
   // Variable-model symbols (N-input gates, mux, decoder) carry only their
   // body here — pin stubs are drawn dynamically from terminalsOf() so they
@@ -178,6 +261,51 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">CMP</text>
     </>
   ),
+  't-ff': (
+    <>
+      <path d="M28 6 h44 v36 h-44 z M4 16 h24 M4 32 h24 M72 24 h20 M28 28 l7 4 -7 4" fill="none" />
+      <text x="36" y="20" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">T</text>
+      <text x="60" y="28" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
+    </>
+  ),
+  tristate: (
+    <>
+      <path d="M28 6 L28 42 L68 24 Z M4 16 H28 M4 32 H28 M68 24 H92" fill="none" />
+      <text x="33" y="18.5" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">A</text>
+      <text x="33" y="35.5" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">EN</text>
+    </>
+  ),
+  demux: (
+    <>
+      <path d="M32 14 L32 34 L68 44 V4 Z" fill="none" />
+      <text x="36" y="28" fontSize="8" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">DMX</text>
+    </>
+  ),
+  encoder: (
+    <>
+      <path d="M26 4 h44 v40 h-44 z" fill="none" />
+      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">ENC</text>
+    </>
+  ),
+  'bcd-7seg': (
+    <>
+      <path d="M26 4 h44 v40 h-44 z" fill="none" />
+      <text x="30" y="22" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">BCD</text>
+      <text x="32" y="33" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">7SEG</text>
+    </>
+  ),
+  register4: (
+    <>
+      <path d="M20 4 h56 v40 h-56 z" fill="none" />
+      <text x="28" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">SHIFT</text>
+    </>
+  ),
+  counter4: (
+    <>
+      <path d="M20 4 h56 v40 h-56 z" fill="none" />
+      <text x="30" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">CTR4</text>
+    </>
+  ),
 }
 
 // Glow center per glowing symbol (viewBox coords).
@@ -189,7 +317,7 @@ const GLOW_POS: Record<string, { cx: number; cy: number; r: number }> = {
 
 // Body extents for variable-model symbols: where dynamic pin stubs stop on
 // the left and start on the right (bottom stubs are vertical, into the body).
-const STUB_EXTENTS: Record<string, { leftEnd: number; rightStart: number }> = {
+const STUB_EXTENTS: Record<string, { leftEnd: number; rightStart: number; topEnd?: number }> = {
   'and-gate': { leftEnd: 26, rightStart: 68 },
   'or-gate': { leftEnd: 24, rightStart: 68 },
   'xor-gate': { leftEnd: 21, rightStart: 72 },
@@ -197,11 +325,45 @@ const STUB_EXTENTS: Record<string, { leftEnd: number; rightStart: number }> = {
   'nor-gate': { leftEnd: 20, rightStart: 68 },
   mux: { leftEnd: 30, rightStart: 64 },
   decoder: { leftEnd: 28, rightStart: 70 },
+  demux: { leftEnd: 32, rightStart: 68 },
+  encoder: { leftEnd: 26, rightStart: 70 },
+  register4: { leftEnd: 20, rightStart: 76, topEnd: 4 },
+}
+
+// 7-segment display: each segment is a live pin (a..g, matching terminal
+// order) — lit/dimmed by the same data-pin/data-state sync every other
+// digital object's pin badges use (world.ts writes it generically).
+const SEVEN_SEG_SEGMENTS = [
+  'M48 6 H80', // a — top
+  'M82 8 V22', // b — upper-right
+  'M82 26 V40', // c — lower-right
+  'M48 40 H80', // d — bottom
+  'M46 26 V40', // e — lower-left
+  'M46 8 V22', // f — upper-left
+  'M48 23 H80', // g — middle
+]
+function SevenSegGlyph() {
+  return (
+    <>
+      <path d={Array.from({ length: 7 }, (_, i) => `M0 ${((i + 1) / 8) * 48} H44`).join(' ')} fill="none" strokeWidth={1.5} opacity={0.6} />
+      {SEVEN_SEG_SEGMENTS.map((d, i) => (
+        <path
+          key={i}
+          data-pin={i}
+          d={d}
+          fill="none"
+          strokeWidth={5}
+          className="opacity-15 transition-opacity duration-100 data-[state='1']:opacity-100"
+          stroke="var(--accent-mint)"
+        />
+      ))}
+    </>
+  )
 }
 
 function SymbolGlyph({ obj }: { obj: SceneObject }) {
   const name = obj.geometry.symbol ?? ''
-  const glyph = GLYPHS[name]
+  const glyph = name === 'seven-seg' ? <SevenSegGlyph /> : GLYPHS[name]
   const glow = GLOW_POS[name]
   const terminals = terminalsOf(obj)
   const stubExt = STUB_EXTENTS[name]
@@ -211,9 +373,11 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
         .map((td) =>
           td.y === 1
             ? `M${(td.x * 96).toFixed(1)} 46 V34`
-            : td.x === 0
-              ? `M4 ${(td.y * 48).toFixed(1)} H${stubExt.leftEnd}`
-              : `M${stubExt.rightStart} ${(td.y * 48).toFixed(1)} H92`
+            : td.y === 0 && stubExt.topEnd !== undefined
+              ? `M${(td.x * 96).toFixed(1)} 2 V${stubExt.topEnd}`
+              : td.x === 0
+                ? `M4 ${(td.y * 48).toFixed(1)} H${stubExt.leftEnd}`
+                : `M${stubExt.rightStart} ${(td.y * 48).toFixed(1)} H92`
         )
         .join(' ')
     : ''
