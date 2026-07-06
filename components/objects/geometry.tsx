@@ -11,7 +11,9 @@ import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
-import type { ObjectRendererProps } from './types'
+import { getNumber, type ObjectRendererProps } from './types'
+import { traceRays, wavelengthColor } from '@/lib/optics/engine'
+import { useDocStore } from '@/lib/store/document'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
 export function pointsToPath(points: number[][]): string {
@@ -133,6 +135,18 @@ const GLYPHS: Record<string, React.ReactNode> = {
       <path d="M19.2 0 V10 M48 0 V8 M76.8 0 V10 M48 40 V48" fill="none" />
       <text x="48" y="29" textAnchor="middle" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
         3~
+      </text>
+    </>
+  ),
+  'dc-machine': (
+    <>
+      <path d="M4 24 h16 M76 24 h16" fill="none" />
+      <circle cx="48" cy="24" r="20" fill="none" />
+      <g data-spin="" style={{ transformOrigin: '48px 24px' }}>
+        <line x1="48" y1="24" x2="48" y2="8" strokeWidth={2} />
+      </g>
+      <text x="48" y="29" textAnchor="middle" fontSize="13" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+        M
       </text>
     </>
   ),
@@ -458,12 +472,23 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
   )
 }
 
-export function GeometryObject({ object, selected }: ObjectRendererProps) {
+export function GeometryObject({ pageId, object, selected }: ObjectRendererProps) {
   const { kind, points } = object.geometry
   const { w, h } = object.size
   const { fill, stroke } = bodyFill(object)
   const render = object.metadata.render as string | undefined
   const connector = connectorBehavior(object.behaviors)
+  const hasHeat = object.behaviors.some((b) => b.enabled && b.type === 'heatSource')
+
+  // Optics: a light source re-traces reactively against the WHOLE page
+  // whenever anything moves, since ray paths are a pure function of the
+  // current scene (no time-stepping engine needed — see lib/optics/engine.ts).
+  const isLightSource = render === 'light-source'
+  const pageObjects = useDocStore((s) => (isLightSource ? s.pages[pageId]?.objects : undefined))
+  const rays = useMemo(() => {
+    if (!isLightSource || !pageObjects) return []
+    return traceRays(Object.values(pageObjects))
+  }, [isLightSource, pageObjects])
 
   const strokePath = useMemo(
     () => (kind === 'stroke' && points ? pointsToPath(points) : ''),
@@ -511,6 +536,47 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     )
   }
 
+  // Field region: a tinted zone any charge inside it feels. Direction hints
+  // (arrows for E, dots for B-out-of-page) are decorative, not simulated —
+  // the actual force comes from lib/physics/world.ts's live Ex/Ey/Bz params.
+  if (render === 'field') {
+    const isE = object.metadata.fieldKind !== 'b'
+    const c = isE ? 'var(--accent-rose)' : 'var(--accent-violet)'
+    return (
+      <div
+        className="relative h-full w-full overflow-hidden rounded-2xl"
+        style={{ border: `1.5px dashed ${c}`, background: `color-mix(in oklch, ${c} 6%, transparent)` }}
+        aria-label={object.name}
+      >
+        <span
+          className="absolute -top-2.5 left-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+          style={{ background: 'var(--background)', color: c, border: `1px solid ${c}` }}
+        >
+          {isE ? 'E field' : 'B field (out of page)'}
+        </span>
+        <svg width="100%" height="100%" className="absolute inset-0 opacity-40">
+          {isE
+            ? Array.from({ length: 4 }, (_, row) =>
+                Array.from({ length: 5 }, (_, col) => (
+                  <path
+                    key={`${row}-${col}`}
+                    d={`M${30 + col * 50} ${40 + row * 40} v20 m-5 -8 l5 8 5 -8`}
+                    stroke={c}
+                    strokeWidth={1.5}
+                    fill="none"
+                  />
+                ))
+              )
+            : Array.from({ length: 4 }, (_, row) =>
+                Array.from({ length: 5 }, (_, col) => (
+                  <circle key={`${row}-${col}`} cx={30 + col * 50} cy={40 + row * 40} r={2.5} fill={c} />
+                ))
+              )}
+        </svg>
+      </div>
+    )
+  }
+
   // Wires (explicit behavior, or bare ink that may conduct): base path plus
   // two flow overlays the runtime animates — conventional current (amber
   // dashes) and electron flow (blue dots, opposite direction).
@@ -548,6 +614,13 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
     const a = pts[0]
     const b = pts[pts.length - 1]
     const d = connectorPath(render, a[0], a[1], b[0], b[1])
+    const OPTICS_STYLE: Record<string, { color: string; width: number }> = {
+      lens: { color: 'var(--accent-violet)', width: 3 },
+      mirror: { color: 'var(--accent-blue)', width: 4 },
+      'optical-screen': { color: 'var(--muted-foreground)', width: 5 },
+      slit: { color: 'var(--accent-amber)', width: 3 },
+    }
+    const optics = render ? OPTICS_STYLE[render] : undefined
     // Attachment dots: mark where a connector/wire meets whatever it touches,
     // in the same color as the line itself.
     const endColor = connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : undefined
@@ -558,11 +631,53 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
           data-wire={flowable ? '' : undefined}
           d={d}
           fill="none"
-          stroke={connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
-          strokeWidth={connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
+          stroke={optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
+          strokeWidth={optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {render === 'lens' && (
+          <g stroke={optics!.color} strokeWidth={2} fill="none">
+            <path d={`M${a[0] - 8} ${a[1] + 10} L${a[0]} ${a[1]} L${a[0] - 8} ${a[1] - 10}`} />
+            <path d={`M${b[0] - 8} ${b[1] + 10} L${b[0]} ${b[1]} L${b[0] - 8} ${b[1] - 10}`} />
+          </g>
+        )}
+        {render === 'mirror' && (
+          <g stroke={optics!.color} strokeWidth={1.5} opacity={0.6}>
+            {(() => {
+              const hatchCount = Math.max(2, Math.round(Math.hypot(b[0] - a[0], b[1] - a[1]) / 16))
+              return Array.from({ length: hatchCount }, (_, i) => {
+                const t = (i + 0.5) / hatchCount
+                const x = a[0] + (b[0] - a[0]) * t
+                const y = a[1] + (b[1] - a[1]) * t
+                return <line key={i} x1={x} y1={y} x2={x - 8} y2={y + 6} />
+              })
+            })()}
+          </g>
+        )}
+        {render === 'slit' && (
+          <g stroke="var(--card)" strokeWidth={optics!.width + 2}>
+            {(() => {
+              const gap = getNumber(object, 'gap', 20)
+              const count = Math.max(1, Math.min(2, Math.round(getNumber(object, 'count', 1))))
+              const spacing = getNumber(object, 'spacing', 60)
+              const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
+              const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+              const ux = (b[0] - a[0]) / len
+              const uy = (b[1] - a[1]) / len
+              const centers = count === 2 ? [-spacing / 2, spacing / 2] : [0]
+              return centers.map((c, i) => (
+                <line
+                  key={i}
+                  x1={mid.x + ux * (c - gap / 2)}
+                  y1={mid.y + uy * (c - gap / 2)}
+                  x2={mid.x + ux * (c + gap / 2)}
+                  y2={mid.y + uy * (c + gap / 2)}
+                />
+              ))
+            })()}
+          </g>
+        )}
         {flowOverlays(d)}
         {endColor && (
           <>
@@ -638,10 +753,53 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
   }
 
   if (kind === 'circle') {
-    const special = render === 'hinge' || render === 'motor'
+    const special = render === 'hinge' || render === 'motor' || render === 'charge'
+    const chargeBehavior = render === 'charge' ? object.behaviors.find((b) => b.type === 'charge') : undefined
+    const qParam = chargeBehavior?.params.q
+    const qVal = qParam?.kind === 'number' ? qParam.value : 1
+    const chargeColor = qVal < 0 ? 'var(--accent-blue)' : 'var(--accent-rose)'
+    const myRays = isLightSource ? rays.filter((r) => r.sourceId === object.id) : []
     return (
-      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} aria-label={object.name}>
-        <ellipse cx={w / 2} cy={h / 2} rx={w / 2 - 1.5} ry={h / 2 - 1.5} fill={special ? 'var(--card)' : fill} stroke={stroke} strokeWidth={2} />
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
+        {myRays.map((r, i) => (
+          <path
+            key={i}
+            d={`M ${r.points.map((p) => `${p.x - object.position.x} ${p.y - object.position.y}`).join(' L ')}`}
+            fill="none"
+            stroke={wavelengthColor(r.wavelengthNm)}
+            strokeWidth={1.5}
+            opacity={0.85}
+          />
+        ))}
+        {myRays.map(
+          (r, i) =>
+            r.hitScreen && (
+              <circle
+                key={`hit-${i}`}
+                cx={r.hitScreen.x - object.position.x}
+                cy={r.hitScreen.y - object.position.y}
+                r={3}
+                fill={wavelengthColor(r.wavelengthNm)}
+              />
+            )
+        )}
+        <ellipse
+          cx={w / 2}
+          cy={h / 2}
+          rx={w / 2 - 1.5}
+          ry={h / 2 - 1.5}
+          fill={
+            render === 'light-source'
+              ? 'var(--accent-amber)'
+              : render === 'charge'
+                ? `color-mix(in oklch, ${chargeColor} 20%, var(--card))`
+                : special
+                  ? 'var(--card)'
+                  : fill
+          }
+          stroke={render === 'charge' ? chargeColor : stroke}
+          strokeWidth={2}
+        />
         {render === 'hinge' && (
           <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 6} fill="var(--foreground)" />
         )}
@@ -652,9 +810,26 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
             <line x1={w / 2} y1={h / 2} x2={8} y2={h * 0.72} />
           </g>
         )}
+        {render === 'charge' && (
+          <g stroke={chargeColor} strokeWidth={2.5} strokeLinecap="round">
+            <line x1={w / 2 - 7} y1={h / 2} x2={w / 2 + 7} y2={h / 2} />
+            {qVal >= 0 && <line x1={w / 2} y1={h / 2 - 7} x2={w / 2} y2={h / 2 + 7} />}
+          </g>
+        )}
         {isBody(object.behaviors) === 'dynamic' && !special && (
           // orientation tick so spin is visible
           <line x1={w / 2} y1={h / 2} x2={w - 4} y2={h / 2} stroke={stroke} strokeWidth={1.5} opacity={0.5} />
+        )}
+        {hasHeat && (
+          <ellipse
+            data-heat=""
+            cx={w / 2}
+            cy={h / 2}
+            rx={w / 2 - 1.5}
+            ry={h / 2 - 1.5}
+            stroke="none"
+            style={{ opacity: 0, transition: 'opacity 200ms linear' }}
+          />
         )}
       </svg>
     )
@@ -670,6 +845,18 @@ export function GeometryObject({ object, selected }: ObjectRendererProps) {
             <line key={i} x1={10 + i * 26} y1={h - 3} x2={22 + i * 26} y2={3} />
           ))}
         </g>
+      )}
+      {hasHeat && (
+        <rect
+          data-heat=""
+          x={1.5}
+          y={1.5}
+          width={w - 3}
+          height={h - 3}
+          rx={render === 'ground' ? 3 : 8}
+          stroke="none"
+          style={{ opacity: 0, transition: 'opacity 200ms linear' }}
+        />
       )}
     </svg>
   )

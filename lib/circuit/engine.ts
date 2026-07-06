@@ -44,6 +44,7 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
   battery: T2, // [+, −]
   'ac-source': T2,
   'current-source': T2, // [+, −] — current flows internally − → + (out of +)
+  'dc-machine': T2, // armature [+, −] — self-contained shaft: see comp.state.omega
   switch: T2,
   fuse: T2,
   bulb: T2,
@@ -343,6 +344,7 @@ const DEF: Record<string, Record<string, number>> = {
   battery: { V: 9 },
   'ac-source': { V: 12, f: 1, wave: 0 }, // wave: 0=sine, 1=square, 2=triangle
   'current-source': { I: 0.01 },
+  'dc-machine': { Ra: 2, k: 0.5, J: 0.02, load: 0, friction: 0.001 },
   switch: { closed: 1 },
   fuse: { Imax: 1 },
   diode: { Vf: 0.7 },
@@ -748,6 +750,17 @@ export function stepCircuit(
       else if (s === 'switch') stampG(a, b, pv(comp, 'closed') >= 0.5 ? CLOSED : OPEN)
       else if (s === 'fuse') stampG(a, b, comp.state.blown ? OPEN : CLOSED)
       else if (s === 'current-source') stampI(a, b, pv(comp, 'I'))
+      else if (s === 'dc-machine') {
+        // Self-contained shaft (comp.state.omega) — no separate physics body.
+        // Armature = back-EMF (k·ω) in series with Ra, exactly like a diode's
+        // "on" companion model but with a state-driven source instead of Vf.
+        const Ra = Math.max(pv(comp, 'Ra'), 1e-3)
+        const k = pv(comp, 'k')
+        const omega = comp.state.omega ?? 0
+        const g = 1 / Ra
+        stampG(a, b, g)
+        stampI(a, b, -g * k * omega)
+      }
       else if (s === 'wattmeter') {
         // current coil (a,b): near-zero impedance, in series with the load
         // voltage coil (c,d): near-infinite impedance, in parallel
@@ -1158,6 +1171,18 @@ export function stepCircuit(
       if (Math.abs(I) > pv(comp, 'Imax')) comp.state.blown = 1
     } else if (s === 'current-source') {
       I = pv(comp, 'I')
+    } else if (s === 'dc-machine') {
+      const Ra = Math.max(pv(comp, 'Ra'), 1e-3)
+      const k = pv(comp, 'k')
+      const omega = comp.state.omega ?? 0
+      I = (vab - k * omega) / Ra // armature current
+      const Tem = k * I // electromagnetic torque
+      const J = Math.max(pv(comp, 'J'), 1e-4)
+      const load = pv(comp, 'load')
+      const friction = Math.max(pv(comp, 'friction'), 0)
+      comp.state.omega = omega + ((Tem - load - friction * omega) / J) * dt
+      comp.state.torque = Tem
+      comp.state.angle = ((comp.state.angle ?? 0) + omega * dt) % (2 * Math.PI)
     } else if (s === 'capacitor') {
       const geq = Math.max(pv(comp, 'C'), 1e-12) / dt
       I = geq * (vab - (comp.state.v ?? 0))
@@ -1219,6 +1244,11 @@ export function stepCircuit(
     else if (s === 'led') r.glow = comp.state.on ? Math.min(1, Math.abs(I) / 0.02) : 0
     else if (s === 'bulb') r.glow = Math.min(1, Math.sqrt(Math.abs(vab * I)) / 2)
     else if (s === 'zener' && comp.state.mode === -1) r.text = fmtUnit(vab, 'V')
+    else if (s === 'dc-machine') {
+      const omega = comp.state.omega ?? 0
+      r.text = `${((omega * 60) / (2 * Math.PI)).toFixed(0)} RPM`
+      r.channels = { V: vab, I: Math.abs(I), P: Math.abs(vab * I), omega, torque: comp.state.torque ?? 0 }
+    }
     if (s === 'battery' || s === 'ac-source') r.channels = { V: v(a) - v(b), I: Math.abs(I), P: Math.abs(vab * I) }
     c.frame.readings.set(comp.id, r)
   }

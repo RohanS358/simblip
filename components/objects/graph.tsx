@@ -9,7 +9,7 @@
 // doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Layers } from 'lucide-react'
+import { Layers, Activity } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -77,10 +77,47 @@ function bound(expr: string, scope: Scope): number | undefined {
   return error || !Number.isFinite(value) ? undefined : value
 }
 
+export interface ChannelStats {
+  mean: number
+  rms: number
+  peak: number
+  pp: number
+  freq: number
+  period: number
+}
+
+/** Oscilloscope-style measurements over the plotted window: RMS, average,
+ * peak-to-peak and a zero-crossing frequency/period estimate. */
+export function computeStats(rows: Record<string, number>[], key: string, xChannel: string): ChannelStats | null {
+  const pts = rows
+    .map((r) => ({ x: r[xChannel], v: r[key] }))
+    .filter((p): p is { x: number; v: number } => Number.isFinite(p.x) && Number.isFinite(p.v))
+  if (pts.length < 2) return null
+  const n = pts.length
+  const vals = pts.map((p) => p.v)
+  const mean = vals.reduce((a, b) => a + b, 0) / n
+  const rms = Math.sqrt(vals.reduce((a, b) => a + b * b, 0) / n)
+  const peak = Math.max(...vals.map(Math.abs))
+  const pp = Math.max(...vals) - Math.min(...vals)
+  let crossings = 0
+  for (let i = 1; i < n; i++) if ((vals[i - 1] - mean) * (vals[i] - mean) < 0) crossings++
+  const span = pts[n - 1].x - pts[0].x
+  const freq = span > 0 ? crossings / 2 / span : 0
+  return { mean, rms, peak, pp, freq, period: freq > 0 ? 1 / freq : 0 }
+}
+
+function fmtMeas(v: number): string {
+  if (!Number.isFinite(v)) return '—'
+  const a = Math.abs(v)
+  if (a !== 0 && (a >= 1e4 || a < 1e-3)) return v.toExponential(2)
+  return v.toPrecision(3)
+}
+
 export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const xChannel = getString(object, 'xChannel', 't') || 't'
   const formulasStr = getString(object, 'formulas')
   const stacked = getString(object, 'stacked') === '1'
+  const measuring = getString(object, 'measure') === '1'
   const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
   const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -203,6 +240,10 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
 
   const hasPlot = rows.length > 1 && panels.length > 0
   const useStacked = stacked && panels.length > 1
+  const stats = useMemo(
+    () => (measuring && panels[0] ? computeStats(rows, panels[0].key, xChannel) : null),
+    [measuring, rows, panels, xChannel]
+  )
 
   const tooltipProps = {
     isAnimationActive: false,
@@ -227,6 +268,23 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           {panels.map((p) => p.name).join(', ') || 'Graph'}
           {hasPlot ? ` vs ${xChannel}` : ''}
         </span>
+        {panels.length > 0 && (
+          <button
+            type="button"
+            aria-label={measuring ? 'Hide measurements' : 'Show measurements (RMS, avg, peak, frequency)'}
+            aria-pressed={measuring}
+            title={measuring ? 'Hide measurements' : 'Oscilloscope readouts for the first series'}
+            className={
+              measuring
+                ? 'rounded p-0.5 text-[var(--accent-amber)]'
+                : 'rounded p-0.5 text-muted-foreground hover:text-foreground'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setStringParam(pageId, object.id, 'measure', measuring ? '' : '1')}
+          >
+            <Activity className="h-3.5 w-3.5" />
+          </button>
+        )}
         {panels.length > 1 && (
           <button
             type="button"
@@ -245,6 +303,18 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           </button>
         )}
       </div>
+      {stats && (
+        <div
+          className="grid grid-cols-5 gap-1 border-b border-border/60 bg-accent/30 px-2 py-1 font-mono text-[9.5px] text-muted-foreground"
+          aria-label="Channel measurements"
+        >
+          <span>RMS {fmtMeas(stats.rms)}</span>
+          <span>Avg {fmtMeas(stats.mean)}</span>
+          <span>Pk-Pk {fmtMeas(stats.pp)}</span>
+          <span>Freq {fmtMeas(stats.freq)}</span>
+          <span>T {fmtMeas(stats.period)}</span>
+        </div>
+      )}
       {hasPlot && useStacked ? (
         // Small multiples: one mini chart per series, shared X domain and a
         // synced tooltip cursor so values line up vertically for comparison.

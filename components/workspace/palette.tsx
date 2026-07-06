@@ -16,6 +16,7 @@ const DOMAINS = [
   { id: 'electrical', label: 'Electrical' },
   { id: 'electronics', label: 'Electronics' },
   { id: 'digital', label: 'Digital' },
+  { id: 'optics', label: 'Optics' },
 ] as const
 
 export function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {

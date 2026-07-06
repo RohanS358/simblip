@@ -74,11 +74,44 @@ interface ConnectorEntry {
   rest0: number
 }
 
+interface ChargeEntry {
+  body: Matter.Body
+  q: (s: Scope) => number
+}
+
+interface FieldRegion {
+  kind: 'e' | 'b'
+  objectId: string // position/size read live — the region itself never moves
+  Ex?: (s: Scope) => number
+  Ey?: (s: Scope) => number
+  Bz?: (s: Scope) => number
+}
+
+interface TorsionEntry {
+  body: Matter.Body
+  angle0: number
+  k: (s: Scope) => number
+  restAngle: (s: Scope) => number
+}
+
+interface ThermalEntry {
+  objectId: string
+  body: Matter.Body
+  power: (s: Scope) => number
+  conductivity: (s: Scope) => number
+  coolRate: (s: Scope) => number
+  temp: number // °C — persists across steps
+}
+
 interface World {
   pageId: string
   engine: Matter.Engine
   bodies: BodyEntry[]
   connectors: ConnectorEntry[]
+  charges: ChargeEntry[]
+  fields: FieldRegion[]
+  torsions: TorsionEntry[]
+  thermal: ThermalEntry[]
   circuit: Circuit | null
   t: number
   raf: number | null
@@ -212,6 +245,10 @@ export function buildWorld(pageId: string): World {
 
   const bodies: BodyEntry[] = []
   const connectors: ConnectorEntry[] = []
+  const charges: ChargeEntry[] = []
+  const fields: FieldRegion[] = []
+  const torsions: TorsionEntry[] = []
+  const thermal: ThermalEntry[] = []
   const objs = Object.values(page?.objects ?? {})
 
   for (const obj of objs) {
@@ -239,6 +276,39 @@ export function buildWorld(pageId: string): World {
       forces,
     })
     Matter.Composite.add(engine.world, body)
+    if (kind === 'dynamic' && obj.behaviors.some((b) => b.enabled && b.type === 'charge')) {
+      charges.push({ body, q: compiledParam(pageId, obj.id, 'charge', 'q', 1) })
+    }
+    if (obj.behaviors.some((b) => b.enabled && b.type === 'heatSource')) {
+      const initT = (() => {
+        const v = obj.behaviors.find((b) => b.type === 'heatSource')?.params.tempInit
+        return v?.kind === 'number' && Number.isFinite(v.value) ? v.value : 20
+      })()
+      thermal.push({
+        objectId: obj.id,
+        body,
+        power: compiledParam(pageId, obj.id, 'heatSource', 'power', 10),
+        conductivity: compiledParam(pageId, obj.id, 'heatSource', 'conductivity', 5),
+        coolRate: compiledParam(pageId, obj.id, 'heatSource', 'coolRate', 0.05),
+        temp: initT,
+      })
+    }
+  }
+
+  // Field regions aren't bodies — they're zones a charge's center can be
+  // inside of. Position/size are read live each frame (see applyFieldForces).
+  for (const obj of objs) {
+    if (obj.behaviors.some((b) => b.enabled && b.type === 'efield')) {
+      fields.push({
+        kind: 'e',
+        objectId: obj.id,
+        Ex: compiledParam(pageId, obj.id, 'efield', 'Ex', 0),
+        Ey: compiledParam(pageId, obj.id, 'efield', 'Ey', 100),
+      })
+    }
+    if (obj.behaviors.some((b) => b.enabled && b.type === 'bfield')) {
+      fields.push({ kind: 'b', objectId: obj.id, Bz: compiledParam(pageId, obj.id, 'bfield', 'Bz', 1) })
+    }
   }
 
   const allBodies = bodies.map((b) => b.body)
@@ -295,6 +365,16 @@ export function buildWorld(pageId: string): World {
         })
         Matter.Composite.add(engine.world, constraint)
         connectors.push({ objectId: obj.id, constraint, rest0: 0 })
+
+        const torsion = obj.behaviors.find((bh) => bh.enabled && bh.type === 'torsionSpring')
+        if (torsion) {
+          torsions.push({
+            body: a,
+            angle0: a.angle,
+            k: compiledParam(pageId, obj.id, 'torsionSpring', 'k', 5),
+            restAngle: compiledParam(pageId, obj.id, 'torsionSpring', 'restAngle', 0),
+          })
+        }
       }
     }
   }
@@ -304,6 +384,10 @@ export function buildWorld(pageId: string): World {
     engine,
     bodies,
     connectors,
+    charges,
+    fields,
+    torsions,
+    thermal,
     circuit: buildCircuit(objs),
     t: 0,
     raf: null,
@@ -312,7 +396,103 @@ export function buildWorld(pageId: string): World {
   }
 }
 
-function applyLiveParams(w: World, scope: Scope) {
+// Pedagogical force scales — tunable via the live q/E/B params rather than
+// SI-accurate, matching how spring k / gravity / motor speed are already
+// calibrated in this engine for visible-but-controllable behavior.
+const COULOMB_K = 8
+const FORCE_SCALE = 1e-4
+const BFIELD_SCALE = 1e-3
+
+function applyChargeForces(w: World, frameScope: Scope) {
+  if (w.charges.length === 0 && w.fields.length === 0) return
+  const qs = w.charges.map((c) => ({ c, q: c.q(frameScope) }))
+
+  // Coulomb pairs: like charges repel, opposite attract.
+  for (let i = 0; i < qs.length; i++) {
+    for (let j = i + 1; j < qs.length; j++) {
+      const a = qs[i]
+      const b = qs[j]
+      const dx = (b.c.body.position.x - a.c.body.position.x) / PPM
+      const dy = (b.c.body.position.y - a.c.body.position.y) / PPM
+      const r2 = Math.max(dx * dx + dy * dy, 0.01)
+      const r = Math.sqrt(r2)
+      const F = (COULOMB_K * a.q * b.q) / r2
+      const fx = ((F * dx) / r) * FORCE_SCALE
+      const fy = ((F * dy) / r) * FORCE_SCALE
+      Matter.Body.applyForce(a.c.body, a.c.body.position, { x: -fx, y: -fy })
+      Matter.Body.applyForce(b.c.body, b.c.body.position, { x: fx, y: fy })
+    }
+  }
+
+  if (w.fields.length === 0 || qs.length === 0) return
+  const pageObjs = useDocStore.getState().pages[w.pageId]?.objects ?? {}
+  for (const f of w.fields) {
+    const region = pageObjs[f.objectId]
+    if (!region) continue
+    const x0 = region.position.x
+    const y0 = region.position.y
+    const x1 = x0 + region.size.w
+    const y1 = y0 + region.size.h
+    for (const { c, q } of qs) {
+      const p = c.body.position
+      if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue
+      if (f.kind === 'e' && f.Ex && f.Ey) {
+        const Ex = f.Ex(frameScope)
+        const Ey = f.Ey(frameScope)
+        Matter.Body.applyForce(c.body, p, { x: q * Ex * FORCE_SCALE, y: -q * Ey * FORCE_SCALE })
+      } else if (f.kind === 'b' && f.Bz) {
+        const Bz = f.Bz(frameScope)
+        // Lorentz force F = q·v×B with B = (0,0,Bz) out of the page, converted
+        // through the same screen/physical Y-flip the rest of the engine uses.
+        const vx = c.body.velocity.x
+        const vy = c.body.velocity.y
+        Matter.Body.applyForce(c.body, p, {
+          x: q * -vy * Bz * BFIELD_SCALE,
+          y: q * vx * Bz * BFIELD_SCALE,
+        })
+      }
+    }
+  }
+}
+
+function applyTorsionSprings(w: World, frameScope: Scope, dtSeconds: number) {
+  for (const th of w.torsions) {
+    const k = Math.max(th.k(frameScope), 0)
+    const restRad = th.angle0 + (th.restAngle(frameScope) * Math.PI) / 180
+    const diff = th.body.angle - restRad
+    const angAccel = (-k * diff) / Math.max(th.body.inertia, 1e-6)
+    Matter.Body.setAngularVelocity(th.body, th.body.angularVelocity + angAccel * dtSeconds)
+  }
+}
+
+function stepThermal(w: World, frameScope: Scope, dtSeconds: number) {
+  if (w.thermal.length === 0) return
+  const ambient = typeof frameScope.ambient === 'number' ? frameScope.ambient : 20
+  const byBody = new Map(w.thermal.map((t) => [t.body, t]))
+  const netQ = new Map<ThermalEntry, number>()
+
+  // Conduction: Fourier's law between bodies Matter currently reports as
+  // touching — reuses the collision system already running for contacts.
+  const pairs = (w.engine.pairs as unknown as { list: Matter.Pair[] } | null)?.list ?? []
+  for (const pair of pairs) {
+    if (!pair.isActive) continue
+    const ta = byBody.get(pair.bodyA)
+    const tb = byBody.get(pair.bodyB)
+    if (!ta || !tb) continue
+    const k = (ta.conductivity(frameScope) + tb.conductivity(frameScope)) / 2
+    const q = k * (ta.temp - tb.temp)
+    netQ.set(ta, (netQ.get(ta) ?? 0) - q)
+    netQ.set(tb, (netQ.get(tb) ?? 0) + q)
+  }
+
+  for (const t of w.thermal) {
+    const power = t.power(frameScope)
+    const cooling = Math.max(t.coolRate(frameScope), 0) * (t.temp - ambient)
+    t.temp += (power - cooling + (netQ.get(t) ?? 0)) * dtSeconds
+  }
+}
+
+function applyLiveParams(w: World, scope: Scope, dtMs: number) {
   // gravity: page variable g (m/s²) relative to Earth default
   const g = typeof scope.g === 'number' ? scope.g : 9.81
   w.engine.gravity.y = g / 9.81
@@ -339,6 +519,9 @@ function applyLiveParams(w: World, scope: Scope) {
       })
     }
   }
+  applyChargeForces(w, frameScope)
+  applyTorsionSprings(w, frameScope, dtMs / 1000)
+  stepThermal(w, frameScope, dtMs / 1000)
 }
 
 function syncDom(w: World) {
@@ -350,6 +533,15 @@ function syncDom(w: World) {
     // Delta rotation only — the object's edit-time rotation is already
     // rendered on the inner div (see ObjectView).
     el.style.transform = `translate(${dx}px, ${dy}px) rotate(${b.body.angle - b.angle0}rad)`
+  }
+  for (const th of w.thermal) {
+    const el = elements.get(th.objectId)
+    const tint = el?.querySelector<SVGElement>('[data-heat]')
+    if (!tint) continue
+    // Blue (cold) → red (hot) around a ±40°C band centered on ambient.
+    const frac = Math.max(-1, Math.min(1, (th.temp - 20) / 40))
+    tint.style.opacity = String(Math.min(0.75, Math.abs(frac) * 0.75))
+    tint.style.fill = frac >= 0 ? 'var(--accent-rose)' : 'var(--accent-blue)'
   }
   for (const c of w.connectors) {
     const el = elements.get(c.objectId)
@@ -397,6 +589,12 @@ function moveEndpointDots(el: HTMLElement, ax: number, ay: number, bx: number, b
 function syncCircuitDom(w: World) {
   const c = w.circuit
   if (!c) return
+  for (const comp of c.comps) {
+    if (comp.symbol !== 'dc-machine') continue
+    const el = elements.get(comp.id)
+    const spin = el?.querySelector<SVGElement>('[data-spin]')
+    if (spin) spin.style.transform = `rotate(${comp.state.angle ?? 0}rad)`
+  }
   for (const [id, flow] of c.frame.wires) {
     const el = elements.get(id)
     if (!el) continue
@@ -466,10 +664,11 @@ function sample(w: World) {
       }
     }
   }
+  const thermalByObj = new Map(w.thermal.map((t) => [t.objectId, t]))
   for (const b of w.bodies) {
     if (b.body.isStatic) continue
     const v = b.body.velocity // px per 60Hz frame
-    const channels = {
+    const channels: Record<string, number> = {
       x: b.body.position.x / PPM,
       y: -b.body.position.y / PPM,
       vx: (v.x * 60) / PPM,
@@ -479,8 +678,19 @@ function sample(w: World) {
       omega: b.body.angularVelocity * 60,
       ke: 0.5 * b.body.mass * ((Math.hypot(v.x, v.y) * 60) / PPM) ** 2,
     }
+    const th = thermalByObj.get(b.objectId)
+    if (th) {
+      channels.temp = th.temp
+      thermalByObj.delete(b.objectId) // handled — don't double-push below
+    }
     pushSample(b.objectId, { t: w.t, channels })
     notify(b.objectId)
+  }
+  // Static bodies (heat sinks/reservoirs) carry temperature but no motion —
+  // stream just the temp channel for them.
+  for (const th of thermalByObj.values()) {
+    pushSample(th.objectId, { t: w.t, channels: { temp: th.temp } })
+    notify(th.objectId)
   }
 }
 
@@ -501,7 +711,7 @@ function frame(now: number) {
   let stepped = false
   while (w.acc >= STEP) {
     if (ts > 0) {
-      applyLiveParams(w, scope)
+      applyLiveParams(w, scope, STEP * ts)
       Matter.Engine.update(w.engine, STEP * ts)
       if (w.circuit) stepCircuit(w.circuit, (STEP / 1000) * ts, w.t, pageObjects)
       w.t += (STEP / 1000) * ts
@@ -556,7 +766,7 @@ export function stepFrame() {
   const pageObjects = docState.pages[world.pageId]?.objects ?? {}
   // one display frame = two 120 Hz physics steps
   for (let i = 0; i < 2; i++) {
-    applyLiveParams(world, scope)
+    applyLiveParams(world, scope, STEP)
     Matter.Engine.update(world.engine, STEP)
     if (world.circuit) stepCircuit(world.circuit, STEP / 1000, world.t, pageObjects)
     world.t += STEP / 1000
@@ -589,7 +799,11 @@ export function stop() {
     }
     world = null
   }
-  for (const el of elements.values()) el.style.transform = ''
+  for (const el of elements.values()) {
+    el.style.transform = ''
+    const tint = el.querySelector<SVGElement>('[data-heat]')
+    if (tint) tint.style.opacity = '0'
+  }
   resetCircuitDom()
   useRuntimeStore.getState().setMode('edit')
   useRuntimeStore.getState().setTime(0)

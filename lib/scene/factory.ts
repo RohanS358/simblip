@@ -87,7 +87,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital'
+  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics'
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -125,6 +125,10 @@ const mech = (id: string, label: string, create: ComponentDef['create']): Compon
   id, label, domain: 'mechanics', live: true, create,
 })
 
+const optic = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
+  id, label, domain: 'optics', live: true, create,
+})
+
 // ── System boundaries ───────────────────────────────────────────────────────
 // A dashed region that declares its domain. Doodles drawn inside it are
 // recognized as that domain's components (canvas.tsx), so tablet users can
@@ -135,6 +139,7 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   electrical: 'Electrical',
   electronics: 'Electronics',
   digital: 'Digital',
+  optics: 'Optics',
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -227,6 +232,74 @@ export const COMPONENTS: ComponentDef[] = [
     o.metadata.render = 'motor'
     return withBehaviors(o, createBehavior('rigidBody'), createBehavior('motor'))
   }),
+  mech('charge', 'Charged Ball', (p) => {
+    const o = baseObject('circle', p, autoName('Charge'))
+    o.size = { w: 46, h: 46 }
+    o.metadata.render = 'charge'
+    return withBehaviors(o, createBehavior('rigidBody'), createBehavior('charge'))
+  }),
+  mech('efield', 'E-Field Region', (p) => {
+    const o = baseObject('rect', p, autoName('E-Field'))
+    o.size = { w: 260, h: 180 }
+    o.metadata.render = 'field'
+    o.metadata.fieldKind = 'e'
+    return withBehaviors(o, createBehavior('efield'))
+  }),
+  mech('bfield', 'B-Field Region', (p) => {
+    const o = baseObject('rect', p, autoName('B-Field'))
+    o.size = { w: 260, h: 180 }
+    o.metadata.render = 'field'
+    o.metadata.fieldKind = 'b'
+    return withBehaviors(o, createBehavior('bfield'))
+  }),
+  mech('torsion-pendulum', 'Torsion Pendulum', (p) => {
+    const o = baseObject('circle', p, autoName('Torsion Hinge'))
+    o.size = { w: 22, h: 22 }
+    o.metadata.render = 'hinge'
+    return withBehaviors(o, createBehavior('hinge'), createBehavior('torsionSpring'))
+  }),
+  mech('heat-block', 'Heat Source', (p) => {
+    const o = baseObject('rect', p, autoName('Heat Block'))
+    o.size = { w: 100, h: 100 }
+    return withBehaviors(o, createBehavior('staticBody'), createBehavior('heatSource'))
+  }),
+
+  // ── Optics: a ray tracer, not a body/behavior solver — geometry.tsx reads
+  // the whole page and re-traces reactively (lib/optics/engine.ts). ──
+  optic('light-source', 'Light Source', (p) => {
+    const o = baseObject('circle', p, autoName('Light Source'))
+    o.size = { w: 24, h: 24 }
+    o.metadata.render = 'light-source'
+    return withBehaviors(o, createBehavior('lightSource'))
+  }),
+  optic('thin-lens', 'Thin Lens', (p) => {
+    const o = baseObject('line', p, autoName('Lens'))
+    o.geometry.points = [[0, -60], [0, 60]]
+    o.size = { w: 2, h: 120 }
+    o.metadata.render = 'lens'
+    return withBehaviors(o, createBehavior('thinLens'))
+  }),
+  optic('optical-mirror', 'Mirror', (p) => {
+    const o = baseObject('line', p, autoName('Mirror'))
+    o.geometry.points = [[0, -60], [0, 60]]
+    o.size = { w: 2, h: 120 }
+    o.metadata.render = 'mirror'
+    return withBehaviors(o, createBehavior('opticalMirror'))
+  }),
+  optic('optical-screen', 'Screen', (p) => {
+    const o = baseObject('line', p, autoName('Screen'))
+    o.geometry.points = [[0, -80], [0, 80]]
+    o.size = { w: 2, h: 160 }
+    o.metadata.render = 'optical-screen'
+    return withBehaviors(o, createBehavior('opticalScreen'))
+  }),
+  optic('slit', 'Slit', (p) => {
+    const o = baseObject('line', p, autoName('Slit'))
+    o.geometry.points = [[0, -100], [0, 100]]
+    o.size = { w: 2, h: 200 }
+    o.metadata.render = 'slit'
+    return withBehaviors(o, createBehavior('slit'))
+  }),
 
   // ── Electrical / Electronics / Digital: live symbols, MNA + logic solver ──
   ...(
@@ -253,6 +326,7 @@ export const COMPONENTS: ComponentDef[] = [
       ['electrical', 'transformer', 'Transformer', { n: '2' }],
       ['electrical', 'transformer-ct', 'Transformer (CT)', { n: '2' }],
       ['electrical', 'three-phase-source', '3-Phase Source', { V: '220', f: '50' }],
+      ['electrical', 'dc-machine', 'DC Machine', { Ra: '2', k: '0.5', J: '0.02', load: '0', friction: '0.001' }],
       ['electronics', 'diode', 'Diode', { Vf: '0.7' }],
       ['electronics', 'led', 'LED', { Vf: '2' }],
       ['electronics', 'zener', 'Zener Diode', { Vf: '0.7', Vz: '5.1' }],

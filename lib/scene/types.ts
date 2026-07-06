@@ -68,8 +68,17 @@ export type BehaviorType =
   | 'force' // fx/fy expressions applied every frame
   | 'wire' // conductor: joins the circuit terminals it touches
   | 'electricalNode' // circuit solver participation (symbols)
-  | 'heatSource' // roadmap: thermal
+  | 'charge' // point charge on a rigid body: Coulomb force + qE, qv×B
+  | 'efield' // region behavior (rect/circle): uniform electric field inside it
+  | 'bfield' // region behavior (rect/circle): uniform B field (out of plane) inside it
+  | 'torsionSpring' // on a hinge: angular restoring torque toward a rest angle
+  | 'heatSource' // thermal emission — see Phase F
   | 'sensor' // roadmap: triggers/measurement region
+  | 'lightSource' // on a circle: fires a ray bundle for the optics ray tracer
+  | 'thinLens' // on a line: paraxial thin-lens refraction (focal length f)
+  | 'opticalMirror' // on a line: specular reflection
+  | 'opticalScreen' // on a line: absorbs rays, marks where they land
+  | 'slit' // on a line: blocks rays except through 1–2 gaps
   | 'custom'
 
 export interface Behavior {
