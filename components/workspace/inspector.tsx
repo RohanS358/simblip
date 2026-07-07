@@ -4,7 +4,7 @@
 // "Convert to physics object" = attaching a behavior here. Every numeric
 // field accepts an expression against the page's variable scope.
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
@@ -23,7 +23,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { num, type SceneObject } from '@/lib/scene/types'
 
-/** Commits on blur/Enter — mid-typing never hits the engine. */
+/** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
+ * a single click never enters text edit — only a double-click does. A
+ * plain click-drag instead SCRUBS a purely numeric value (right = up, left
+ * = down; hold Shift for coarse, Alt for fine), committing live so the
+ * canvas follows the drag, exactly like dragging a resize handle — see the
+ * pushHistory coalescing in lib/store/document.ts for why that's safe to
+ * call on every pointermove instead of just on release. Non-numeric values
+ * (an expression, a variable name) simply aren't scrubbable; double-click
+ * still edits them normally. */
 function ExprInput({
   value,
   onCommit,
@@ -40,22 +48,61 @@ function ExprInput({
   placeholder?: string
 }) {
   const [draft, setDraft] = useState(value)
+  const [editing, setEditing] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
   useEffect(() => setDraft(value), [value])
+
+  const scrubbable = !editing && draft.trim() !== '' && Number.isFinite(Number(draft))
+
   return (
     <input
+      ref={inputRef}
       aria-label={ariaLabel}
       aria-invalid={Boolean(error)}
       placeholder={placeholder}
+      readOnly={!editing}
       className={cn(
         'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)]',
         mono && 'font-mono',
-        error ? 'border-[var(--accent-rose)]' : 'border-input'
+        error ? 'border-[var(--accent-rose)]' : 'border-input',
+        scrubbable && 'cursor-ew-resize select-none'
       )}
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
-      onBlur={() => draft !== value && onCommit(draft)}
+      onChange={(e) => editing && setDraft(e.target.value)}
+      onPointerDown={(e) => {
+        if (!scrubbable || e.button !== 0) return
+        e.currentTarget.setPointerCapture(e.pointerId)
+        dragRef.current = { startX: e.clientX, startVal: Number(draft), dragged: false }
+      }}
+      onPointerMove={(e) => {
+        const drag = dragRef.current
+        if (!drag) return
+        const dx = e.clientX - drag.startX
+        if (Math.abs(dx) > 3) drag.dragged = true
+        if (!drag.dragged) return
+        const sensitivity = e.shiftKey ? 5 : e.altKey ? 0.05 : 0.5
+        const next = String(Math.round((drag.startVal + dx * sensitivity) * 1000) / 1000)
+        setDraft(next)
+        onCommit(next)
+      }}
+      onPointerUp={() => {
+        dragRef.current = null
+      }}
+      onDoubleClick={() => {
+        setEditing(true)
+        requestAnimationFrame(() => inputRef.current?.select())
+      }}
+      onBlur={() => {
+        if (draft !== value) onCommit(draft)
+        setEditing(false)
+      }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          setDraft(value)
+          e.currentTarget.blur()
+        }
         e.stopPropagation()
       }}
     />

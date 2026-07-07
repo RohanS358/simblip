@@ -36,6 +36,14 @@ interface PageContent {
 
 const HISTORY_CAP = 100
 const histories = new Map<string, { past: PageContent[]; future: PageContent[] }>()
+// Continuous gestures (resize/rotate drags, and the Inspector's Figma-style
+// scrub-to-adjust) call updateObject(...,{history:true}) on every intermediate
+// move so the canvas updates live — without this, that would push one undo
+// entry per pixel moved. Coalesce same-page pushes within a short window
+// into the single entry from before the gesture started; a real pause
+// (>400ms) between edits still opens a fresh boundary.
+const COALESCE_MS = 400
+const lastPushAt = new Map<string, number>()
 
 const snapshotOf = (c: PageContent): PageContent => JSON.parse(JSON.stringify(c))
 
@@ -178,6 +186,10 @@ export const useDocStore = create<DocState>()(
       },
 
       pushHistory: (pageId) => {
+        const now = Date.now()
+        const last = lastPushAt.get(pageId) ?? 0
+        lastPushAt.set(pageId, now)
+        if (now - last < COALESCE_MS) return // mid-gesture — the pre-gesture snapshot already covers this
         const content = get().pages[pageId]
         if (!content) return
         let h = histories.get(pageId)

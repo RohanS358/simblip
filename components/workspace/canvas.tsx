@@ -10,6 +10,8 @@
 // registered here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
+import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal } from 'lucide-react'
+import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
@@ -20,7 +22,7 @@ import { nearTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/en
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize } from '@/lib/sketch/recognize'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
-import { registerElement, useRuntimeStore } from '@/lib/physics/world'
+import { registerElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
@@ -290,6 +292,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
+  const isMobile = useIsMobile()
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
   const [stroke, setStroke] = useState<number[][] | null>(null)
@@ -403,6 +406,44 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         store.setSelection([])
         store.setTool('select')
         return
+      }
+      // Transport hotkeys — mirror the Transport buttons' own disabled
+      // conditions exactly, so a hotkey press is a no-op (not an error)
+      // wherever the corresponding button would be greyed out. 'r' falls
+      // through to the rect tool below in edit mode, same key, no conflict
+      // since Reset is only meaningful outside edit mode anyway.
+      if (!mod) {
+        const key = e.key.toLowerCase()
+        const rt = useRuntimeStore.getState()
+        if (key === 'q') {
+          e.preventDefault()
+          if (rt.mode === 'running') pause()
+          else play(pageId)
+          return
+        }
+        if (key === 'w') {
+          if (rt.mode === 'paused') {
+            e.preventDefault()
+            stepBack()
+          }
+          return
+        }
+        if (key === 'e') {
+          if (rt.mode !== 'running') {
+            e.preventDefault()
+            if (rt.mode === 'edit') {
+              play(pageId)
+              pause()
+            }
+            stepFrame()
+          }
+          return
+        }
+        if (key === 'r' && rt.mode !== 'edit') {
+          e.preventDefault()
+          stop()
+          return
+        }
       }
       if (mod || locked) return
       const toolKeys: Record<string, Tool> = {
@@ -1390,6 +1431,57 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           ))}
         </div>
       )}
+
+      {isMobile &&
+        editing &&
+        selection.length === 1 &&
+        objects?.[selection[0]] &&
+        (() => {
+          const obj = objects[selection[0]]
+          // The exact same action list as the desktop right-click menu —
+          // "Properties" included: shell.tsx has a real mobile Inspector
+          // drawer (isMobile && inspectorOpen), it's just presented as a
+          // slide-in overlay instead of the docked desktop panel, so this
+          // icon is what opens it here. Everything else is unchanged, just
+          // icons sized for a fingertip instead of a text menu meant for a mouse.
+          const items = ctxMenuItems(obj.id, editing, pageId, duplicateObject, restack)
+          const ICONS: Record<string, typeof Copy> = {
+            Properties: SlidersHorizontal,
+            Copy: Copy,
+            Duplicate: CopyPlus,
+            'Bring to front': BringToFront,
+            'Send to back': SendToBack,
+            Delete: Trash2,
+          }
+          const screenX = obj.position.x * viewport.zoom + viewport.x
+          const screenY = obj.position.y * viewport.zoom + viewport.y
+          const screenW = obj.size.w * viewport.zoom
+          return (
+            <div
+              className="glass-strong absolute z-40 flex items-center gap-0.5 rounded-xl p-1"
+              style={{ left: screenX + screenW / 2, top: Math.max(8, screenY - 52), transform: 'translateX(-50%)' }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {items.map(([label, action, danger]) => {
+                const Icon = ICONS[label] ?? Copy
+                return (
+                  <button
+                    key={label}
+                    type="button"
+                    aria-label={label}
+                    className={cn(
+                      'flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent',
+                      danger ? 'text-[var(--accent-rose)]' : 'text-foreground'
+                    )}
+                    onClick={action}
+                  >
+                    <Icon className="h-4 w-4" />
+                  </button>
+                )
+              })}
+            </div>
+          )
+        })()}
 
       <div className="glass absolute bottom-[4.5rem] right-3 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
         {Math.round(viewport.zoom * 100)}%
