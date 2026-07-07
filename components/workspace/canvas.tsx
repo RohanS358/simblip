@@ -11,7 +11,8 @@
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
-import { num, uid } from '@/lib/scene/types'
+import { num, str, uid } from '@/lib/scene/types'
+import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
@@ -112,19 +113,70 @@ function ctxMenuItems(
 ): CtxItem[] {
   const toggleInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   if (!objectId) {
-    return [
+    const items: CtxItem[] = [
       ['Toggle inspector', toggleInspector],
       ['Reset view', () => useDocStore.getState().setViewport(pageId, { x: 0, y: 0, zoom: 1 })],
     ]
+    if (editing && hasClipboard()) items.push(['Paste', () => pasteClipboard(pageId)])
+    return items
   }
   if (!editing) return [['Properties', toggleInspector]] // Play mode: hands off
   return [
     ['Properties', toggleInspector],
+    ['Copy', () => copySelection(pageId)],
     ['Duplicate', () => duplicateObject(objectId)],
     ['Bring to front', () => restack(objectId, 'front')],
     ['Send to back', () => restack(objectId, 'back')],
     ['Delete', () => useDocStore.getState().removeObjects(pageId, [objectId]), true],
   ]
+}
+
+// Copy/cut/paste the current selection — plain functions (not closures over
+// component state) so they're safe to call from both the keyboard handler
+// and the context menu without any stale-pageId risk. Works across pages
+// too: the clipboard (lib/store/clipboard.ts) is a module that outlives
+// Canvas unmounting when the user switches pages.
+function copySelection(pageId: string) {
+  const store = useDocStore.getState()
+  const objs = store.selection
+    .map((id) => store.pages[pageId]?.objects[id])
+    .filter((o): o is SceneObject => Boolean(o))
+  if (objs.length > 0) setClipboard(objs)
+}
+
+function cutSelection(pageId: string) {
+  copySelection(pageId)
+  const store = useDocStore.getState()
+  if (store.selection.length > 0) store.removeObjects(pageId, store.selection)
+}
+
+function pasteClipboard(pageId: string) {
+  const items = getClipboard()
+  if (items.length === 0) return
+  const store = useDocStore.getState()
+  const offset = nextPasteOffset()
+  const idMap = new Map<string, string>()
+  const clones = items.map((src) => {
+    const clone: SceneObject = JSON.parse(JSON.stringify(src))
+    const newId = uid()
+    idMap.set(src.id, newId)
+    clone.id = newId
+    clone.position = { x: src.position.x + offset, y: src.position.y + offset }
+    clone.z = Date.now() % 1_000_000
+    clone.behaviors.forEach((b) => (b.id = uid()))
+    return clone
+  })
+  // A graph pasted together with the object it's bound to should stay
+  // paired with the NEW copy, not silently keep pointing at the original.
+  for (const clone of clones) {
+    const sourceId = clone.parameters.sourceId
+    if (clone.geometry.kind === 'graph' && sourceId?.kind === 'string' && idMap.has(sourceId.value)) {
+      clone.parameters.sourceId = str(idMap.get(sourceId.value)!)
+    }
+  }
+  store.pushHistory(pageId)
+  for (const clone of clones) store.addObject(pageId, clone, { history: false })
+  store.setSelection(clones.map((c) => c.id))
 }
 
 const ObjectView = memo(function ObjectView({
@@ -325,6 +377,21 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         e.preventDefault()
         if (e.shiftKey) store.redo(pageId)
         else store.undo(pageId)
+        return
+      }
+      if (mod && e.key.toLowerCase() === 'c' && !locked) {
+        e.preventDefault()
+        copySelection(pageId)
+        return
+      }
+      if (mod && e.key.toLowerCase() === 'x' && !locked) {
+        e.preventDefault()
+        cutSelection(pageId)
+        return
+      }
+      if (mod && e.key.toLowerCase() === 'v' && !locked) {
+        e.preventDefault()
+        pasteClipboard(pageId)
         return
       }
       if ((e.key === 'Delete' || e.key === 'Backspace') && store.selection.length > 0 && !locked) {
