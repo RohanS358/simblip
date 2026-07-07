@@ -16,11 +16,15 @@ export function importSimulation(pageId: string, payload: SimulationPayload, dro
   store.ensurePage(pageId)
   store.pushHistory(pageId)
 
-  const page = useDocStore.getState().pages[pageId]
+  // Existing variables win — the user's page scope is the source of truth.
+  // Re-read after ensurePage/pushHistory (not the pre-import snapshot) and
+  // track names added so far so two same-named variables in ONE payload
+  // (a duplicate add_variable call slipping through) don't both land.
+  const seenVarNames = new Set(useDocStore.getState().pages[pageId].variables.map((v) => v.name))
   for (const v of payload.variables) {
-    // Existing variables win — the user's page scope is the source of truth.
-    if (!page.variables.some((existing) => existing.name === v.name)) {
+    if (!seenVarNames.has(v.name)) {
       store.addVariable(pageId, v.name, v.expr)
+      seenVarNames.add(v.name)
     }
   }
 

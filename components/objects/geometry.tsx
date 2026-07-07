@@ -14,6 +14,23 @@ import { inkPath } from './ink'
 import { getNumber, type ObjectRendererProps } from './types'
 import { traceRays, wavelengthColor, opticParam } from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
+import { useRuntimeStore } from '@/lib/physics/world'
+import {
+  C as cx,
+  cAbs,
+  cArg,
+  propagationConstant,
+  intrinsicImpedance,
+  reflectionCoefficient,
+  transmissionCoefficient as waveTransmission,
+  swr,
+  waveInstant,
+  lineInputImpedance,
+  lineReflectionCoefficient,
+  voltageEnvelope,
+  type Medium,
+} from '@/lib/waves/engine'
+import { psi, energyLevel, transmissionCoefficient as quantumTransmission } from '@/lib/quantum/engine'
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
 export function pointsToPath(points: number[][]): string {
@@ -490,6 +507,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     return traceRays(Object.values(pageObjects))
   }, [isLightSource, pageObjects])
 
+  // Wave source is the one new-domain object that animates continuously
+  // (a traveling-wave snapshot) — it reads the runtime clock and freezes
+  // outside Play, same rule the physics tracers already follow. The
+  // conditional inside the selector (not around the hook) keeps every
+  // OTHER object's render from being retriggered by the clock ticking.
+  const isWaveSource = render === 'wave-source'
+  const waveTime = useRuntimeStore((s) => (isWaveSource ? s.time : 0))
+
   const strokePath = useMemo(
     () => (kind === 'stroke' && points ? pointsToPath(points) : ''),
     [kind, points]
@@ -577,6 +602,172 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     )
   }
 
+  // Wave source: an animated plane wave emitted along its rotation axis —
+  // amplitude decays with the medium's attenuation α, wavelength/speed set
+  // by εr·μr (Hayt ch.11, lib/waves/engine.ts). The only wave/quantum object
+  // that varies in time; freezes at a snapshot outside Play.
+  if (render === 'wave-source') {
+    const f = opticParam(object, 'waveSource', 'f', 1)
+    const E0 = opticParam(object, 'waveSource', 'E0', 40)
+    const medium: Medium = {
+      epsr: opticParam(object, 'waveSource', 'epsr', 1),
+      mur: opticParam(object, 'waveSource', 'mur', 1),
+      sigma: opticParam(object, 'waveSource', 'sigma', 0),
+    }
+    const { alpha, beta } = propagationConstant(f, medium)
+    const wt = 2 * Math.PI * f * waveTime
+    const len = 260
+    const samples = 70
+    const path = Array.from({ length: samples }, (_, i) => {
+      const x = (i / (samples - 1)) * len
+      const y = waveInstant(E0, beta, alpha, x, wt)
+      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+    }).join(' ')
+    const cx0 = w / 2
+    const cy0 = h / 2
+    return (
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
+        <g transform={`translate(${cx0} ${cy0})`}>
+          <line x1={0} y1={0} x2={len} y2={0} stroke="var(--accent-violet)" strokeWidth={1} opacity={0.2} strokeDasharray="2 4" />
+          <path d={path} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} opacity={0.9} />
+        </g>
+        <ellipse cx={cx0} cy={cy0} rx={w / 2 - 1.5} ry={h / 2 - 1.5} fill="var(--accent-violet)" stroke="var(--foreground)" strokeWidth={2} />
+        <text x={cx0} y={h + 13} textAnchor="middle" fontSize="9.5" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {`α=${alpha.toFixed(3)} β=${beta.toFixed(3)}`}
+        </text>
+      </svg>
+    )
+  }
+
+  // Quantum well (particle-in-a-box): wavefunction + probability density
+  // plus a compact energy-level ladder. Pure function of n/L — stationary
+  // state, no time dependence, no scene interaction (self-contained, like
+  // efield/bfield — see lib/quantum/engine.ts).
+  if (render === 'quantum-well') {
+    const n = Math.max(1, Math.round(opticParam(object, 'quantumWell', 'n', 1)))
+    const L = Math.max(0.01, opticParam(object, 'quantumWell', 'L', 1))
+    const En = energyLevel(n, L)
+    const padX = 16
+    const padTop = 26
+    const plotW = Math.max(10, w - padX * 2 - 46)
+    const plotH = Math.max(10, h - padTop - 14)
+    const baseY = padTop + plotH
+    const samples = 60
+    const psiMax = Math.sqrt(2 / L) || 1
+    const psiScale = (plotH / 2 - 2) / psiMax
+    const probScale = (plotH - 4) / (psiMax * psiMax)
+    const pts = Array.from({ length: samples }, (_, i) => {
+      const x = (i / (samples - 1)) * L
+      const px = padX + (i / (samples - 1)) * plotW
+      return { px, v: psi(n, L, x) }
+    })
+    const psiPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.px} ${baseY - plotH / 2 - p.v * psiScale}`).join(' ')
+    const probPath =
+      `M ${padX} ${baseY} ` +
+      pts.map((p) => `L ${p.px} ${baseY - p.v * p.v * probScale}`).join(' ') +
+      ` L ${padX + plotW} ${baseY} Z`
+    const ladderLevels = Math.min(5, Math.max(3, n + 2))
+    const ladderMaxE = energyLevel(ladderLevels, L) || 1
+    const ladderX = padX + plotW + 14
+    const ladderW = 26
+    return (
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="overflow-visible" aria-label={object.name}>
+        <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={8} fill="transparent" stroke="var(--foreground)" strokeWidth={2} />
+        <line x1={padX} y1={baseY} x2={padX + plotW} y2={baseY} stroke="var(--muted-foreground)" strokeWidth={1} opacity={0.4} />
+        <path d={probPath} fill="color-mix(in oklch, var(--accent-mint) 30%, transparent)" stroke="var(--accent-mint)" strokeWidth={1} />
+        <path d={psiPath} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} />
+        {Array.from({ length: ladderLevels }, (_, i) => {
+          const level = i + 1
+          const e = energyLevel(level, L)
+          const y = baseY - (e / ladderMaxE) * plotH
+          const active = level === n
+          return (
+            <g key={level}>
+              <line
+                x1={ladderX}
+                y1={y}
+                x2={ladderX + ladderW}
+                y2={y}
+                stroke={active ? 'var(--accent-violet)' : 'var(--muted-foreground)'}
+                strokeWidth={active ? 2.5 : 1.5}
+                opacity={active ? 1 : 0.5}
+              />
+              <text x={ladderX + ladderW + 3} y={y + 3} fontSize="8" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+                {level}
+              </text>
+            </g>
+          )
+        })}
+        <text x={padX} y={14} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {`n=${n}  L=${L}  Eₙ=${En.toFixed(2)}`}
+        </text>
+      </svg>
+    )
+  }
+
+  // Tunnel barrier: rectangular barrier V0/L for a particle of energy E —
+  // incident/reflected/transmitted amplitude schematic, T/R read directly
+  // off the closed-form transmission coefficient (lib/quantum/engine.ts).
+  if (render === 'tunnel-barrier') {
+    const E = opticParam(object, 'tunnelBarrier', 'E', 0.5)
+    const V0 = opticParam(object, 'tunnelBarrier', 'V0', 1)
+    const L = Math.max(0.01, opticParam(object, 'tunnelBarrier', 'L', 1))
+    const T = quantumTransmission(E, V0, L)
+    const R = 1 - T
+    const padX = 16
+    const padTop = 26
+    const plotW = w - padX * 2
+    const plotH = h - padTop - 30
+    const baseY = padTop + plotH
+    const barrierX0 = padX + plotW * 0.4
+    const barrierX1 = padX + plotW * 0.6
+    const eY = baseY - (Math.min(E, V0 * 1.4) / (V0 * 1.4 || 1)) * plotH
+    const v0Y = baseY - plotH
+    const waveSeg = (x0: number, x1: number, amp: number, cycles: number, phase = 0) => {
+      const n = 40
+      let d = ''
+      for (let i = 0; i <= n; i++) {
+        const t = i / n
+        const x = x0 + (x1 - x0) * t
+        const y = eY - amp * Math.sin(cycles * Math.PI * 2 * t + phase)
+        d += `${i === 0 ? 'M' : 'L'} ${x} ${y} `
+      }
+      return d
+    }
+    const ampIncident = 16
+    return (
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="overflow-visible" aria-label={object.name}>
+        <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={8} fill="transparent" stroke="var(--foreground)" strokeWidth={2} />
+        <line x1={padX} y1={baseY} x2={padX + plotW} y2={baseY} stroke="var(--muted-foreground)" strokeWidth={1} opacity={0.4} />
+        <rect
+          x={barrierX0}
+          y={v0Y}
+          width={barrierX1 - barrierX0}
+          height={baseY - v0Y}
+          fill="color-mix(in oklch, var(--accent-rose) 22%, transparent)"
+          stroke="var(--accent-rose)"
+          strokeWidth={1.5}
+        />
+        <line x1={padX} y1={eY} x2={padX + plotW} y2={eY} stroke="var(--accent-amber)" strokeWidth={1.5} strokeDasharray="4 3" />
+        <path d={waveSeg(padX, barrierX0, ampIncident, 3)} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} />
+        <path
+          d={waveSeg(padX, barrierX0, ampIncident * Math.sqrt(R), 3, Math.PI)}
+          fill="none"
+          stroke="var(--accent-blue)"
+          strokeWidth={1.25}
+          opacity={0.6}
+        />
+        <path d={waveSeg(barrierX1, padX + plotW, ampIncident * Math.sqrt(T), 3)} fill="none" stroke="var(--accent-mint)" strokeWidth={1.75} />
+        <text x={padX} y={14} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {`E=${E}  V0=${V0}  L=${L}`}
+        </text>
+        <text x={padX} y={h - 6} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {`T=${T.toFixed(3)}  R=${R.toFixed(3)}`}
+        </text>
+      </svg>
+    )
+  }
+
   // Wires (explicit behavior, or bare ink that may conduct): base path plus
   // two flow overlays the runtime animates — conventional current (amber
   // dashes) and electron flow (blue dots, opposite direction).
@@ -619,6 +810,8 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
       mirror: { color: 'var(--accent-blue)', width: 4 },
       'optical-screen': { color: 'var(--muted-foreground)', width: 5 },
       slit: { color: 'var(--accent-amber)', width: 3 },
+      'wave-boundary': { color: 'var(--accent-rose)', width: 3 },
+      'transmission-line': { color: 'var(--accent-mint)', width: 3 },
     }
     const optics = render ? OPTICS_STYLE[render] : undefined
     // Attachment dots: mark where a connector/wire meets whatever it touches,
@@ -678,6 +871,106 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             })()}
           </g>
         )}
+        {render === 'wave-boundary' &&
+          (() => {
+            const f = opticParam(object, 'waveBoundary', 'f', 1)
+            const m1: Medium = {
+              epsr: opticParam(object, 'waveBoundary', 'epsr1', 1),
+              mur: opticParam(object, 'waveBoundary', 'mur1', 1),
+              sigma: opticParam(object, 'waveBoundary', 'sigma1', 0),
+            }
+            const m2: Medium = {
+              epsr: opticParam(object, 'waveBoundary', 'epsr2', 4),
+              mur: opticParam(object, 'waveBoundary', 'mur2', 1),
+              sigma: opticParam(object, 'waveBoundary', 'sigma2', 0),
+            }
+            const eta1 = intrinsicImpedance(f, m1)
+            const eta2 = intrinsicImpedance(f, m2)
+            const gamma = reflectionCoefficient(eta1, eta2)
+            const tau = waveTransmission(eta1, eta2)
+            const gAbs = cAbs(gamma)
+            const s = swr(gAbs)
+            const pc1 = propagationConstant(f, m1)
+            const pc2 = propagationConstant(f, m2)
+            const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
+            const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+            const ux = (b[0] - a[0]) / segLen
+            const uy = (b[1] - a[1]) / segLen
+            const nx = -uy
+            const ny = ux
+            const half = Math.min(50, segLen / 2)
+            const N = 24
+            const env1 = voltageEnvelope(gamma, pc1.beta * half, N)
+            const tauAbs = cAbs(tau)
+            const env2 = Array.from({ length: N }, (_, i) => tauAbs * Math.exp(-pc2.alpha * (i / (N - 1)) * half))
+            const amp = 12
+            const path1 = env1
+              .map((v, i) => {
+                const t = -half * (i / (N - 1))
+                const x = mid.x + ux * t + nx * v * amp
+                const y = mid.y + uy * t + ny * v * amp
+                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+              })
+              .join(' ')
+            const path2 = env2
+              .map((v, i) => {
+                const t = half * (i / (N - 1))
+                const x = mid.x + ux * t + nx * v * amp
+                const y = mid.y + uy * t + ny * v * amp
+                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+              })
+              .join(' ')
+            const gArgDeg = (cArg(gamma) * 180) / Math.PI
+            return (
+              <g>
+                <path d={path1} fill="none" stroke="var(--accent-rose)" strokeWidth={1.5} opacity={0.85} />
+                <path d={path2} fill="none" stroke="var(--accent-mint)" strokeWidth={1.5} opacity={0.85} />
+                <text x={mid.x + 6} y={mid.y - 8} fontSize="9" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+                  {`Γ=${gAbs.toFixed(2)}∠${gArgDeg.toFixed(0)}° SWR=${s.toFixed(2)} τ=${tauAbs.toFixed(2)}`}
+                </text>
+              </g>
+            )
+          })()}
+        {render === 'transmission-line' &&
+          (() => {
+            const Z0 = opticParam(object, 'transmissionLine', 'Z0', 50)
+            const ZLre = opticParam(object, 'transmissionLine', 'ZLre', 100)
+            const ZLim = opticParam(object, 'transmissionLine', 'ZLim', 0)
+            const lambdaFrac = opticParam(object, 'transmissionLine', 'lambdaFrac', 0.25)
+            const ZL = cx(ZLre, ZLim)
+            const betaL = 2 * Math.PI * lambdaFrac
+            const zin = lineInputImpedance(Z0, ZL, betaL)
+            const gamma = lineReflectionCoefficient(Z0, ZL)
+            const gAbs = cAbs(gamma)
+            const s = swr(gAbs)
+            const N = 40
+            const env = voltageEnvelope(gamma, betaL, N)
+            const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
+            const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+            const ux = (b[0] - a[0]) / segLen
+            const uy = (b[1] - a[1]) / segLen
+            const nx = -uy
+            const ny = ux
+            const half = segLen / 2
+            const amp = 10
+            // a = source end (t=-half), b = load end (t=+half); env[0]=load.
+            const path = env
+              .map((v, i) => {
+                const t = half - (i / (N - 1)) * segLen
+                const x = mid.x + ux * t + nx * v * amp
+                const y = mid.y + uy * t + ny * v * amp
+                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
+              })
+              .join(' ')
+            return (
+              <g>
+                <path d={path} fill="none" stroke="var(--accent-mint)" strokeWidth={1.5} opacity={0.85} />
+                <text x={mid.x} y={mid.y - 10} textAnchor="middle" fontSize="9" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+                  {`Zin=${zin.re.toFixed(0)}${zin.im >= 0 ? '+' : ''}${zin.im.toFixed(0)}j  Γ=${gAbs.toFixed(2)}  SWR=${s.toFixed(2)}`}
+                </text>
+              </g>
+            )
+          })()}
         {flowOverlays(d)}
         {endColor && (
           <>

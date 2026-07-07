@@ -244,7 +244,78 @@ export const BEHAVIOR_SPECS: BehaviorSpec[] = [
       { name: 'spacing', label: 'Slit spacing (px)', default: '60' },
     ],
   },
+  {
+    type: 'waveSource',
+    label: 'Wave Source',
+    geometry: ['circle'],
+    hint: 'Emits an animated plane wave along its rotation — set the medium (εr/μr/σ) to see lossless/lossy/conductor propagation.',
+    live: true,
+    params: [
+      { name: 'f', label: 'Frequency f', default: '1' },
+      { name: 'E0', label: 'Amplitude E0 (px)', default: '40' },
+      { name: 'epsr', label: 'Medium εr', default: '1' },
+      { name: 'mur', label: 'Medium μr', default: '1' },
+      { name: 'sigma', label: 'Medium σ (0 = lossless)', default: '0' },
+    ],
+  },
+  {
+    type: 'waveBoundary',
+    label: 'Wave Boundary',
+    geometry: ['line'],
+    hint: 'Normal-incidence interface between two declared media — shows Γ, τ and SWR.',
+    live: true,
+    params: [
+      { name: 'f', label: 'Frequency f', default: '1' },
+      { name: 'epsr1', label: 'Medium 1 εr', default: '1' },
+      { name: 'mur1', label: 'Medium 1 μr', default: '1' },
+      { name: 'sigma1', label: 'Medium 1 σ', default: '0' },
+      { name: 'epsr2', label: 'Medium 2 εr', default: '4' },
+      { name: 'mur2', label: 'Medium 2 μr', default: '1' },
+      { name: 'sigma2', label: 'Medium 2 σ', default: '0' },
+    ],
+  },
+  {
+    type: 'transmissionLine',
+    label: 'Transmission Line',
+    geometry: ['line'],
+    hint: 'Lossless line — Z0, load and electrical length determine Zin, Γ and the standing-wave pattern.',
+    live: true,
+    params: [
+      { name: 'Z0', label: 'Z0 (Ω)', default: '50' },
+      { name: 'ZLre', label: 'Load R (Ω)', default: '100' },
+      { name: 'ZLim', label: 'Load X (Ω)', default: '0' },
+      { name: 'lambdaFrac', label: 'Length (× λ)', default: '0.25' },
+    ],
+  },
+  {
+    type: 'quantumWell',
+    label: 'Quantum Well',
+    geometry: ['rect'],
+    hint: 'Particle-in-a-box — wavefunction, probability density and the energy-level ladder.',
+    live: true,
+    params: [
+      { name: 'n', label: 'Quantum number n', default: '1' },
+      { name: 'L', label: 'Well width L', default: '1' },
+    ],
+  },
+  {
+    type: 'tunnelBarrier',
+    label: 'Tunnel Barrier',
+    geometry: ['rect'],
+    hint: 'Rectangular barrier — transmission/reflection probability (quantum tunneling).',
+    live: true,
+    params: [
+      { name: 'E', label: 'Particle energy E', default: '0.5' },
+      { name: 'V0', label: 'Barrier height V0', default: '1' },
+      { name: 'L', label: 'Barrier width L', default: '1' },
+    ],
+  },
 ]
+
+// Single source of truth for "every behavior type that exists" — the AI tool
+// schema (lib/ai/schema.ts) derives its zod enum from this so it can never
+// drift out of sync with BEHAVIOR_SPECS again.
+export const BEHAVIOR_TYPES = BEHAVIOR_SPECS.map((s) => s.type)
 
 export const behaviorSpec = (type: BehaviorType): BehaviorSpec | undefined =>
   BEHAVIOR_SPECS.find((s) => s.type === type)

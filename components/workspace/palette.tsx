@@ -17,6 +17,8 @@ const DOMAINS = [
   { id: 'electronics', label: 'Electronics' },
   { id: 'digital', label: 'Digital' },
   { id: 'optics', label: 'Optics' },
+  { id: 'waves', label: 'Waves' },
+  { id: 'quantum', label: 'Quantum' },
 ] as const
 
 export function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -37,26 +39,27 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
           aria-label="Component palette"
         >
           <div className="mb-2 flex items-center gap-1">
-            {DOMAINS.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                className={cn(
-                  'rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors',
-                  domain === d.id
-                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                )}
-                onClick={() => setDomain(d.id)}
-              >
-                {d.label}
-              </button>
-            ))}
-            <div className="flex-1" />
+            <div className="no-scrollbar flex flex-1 items-center gap-1 overflow-x-auto">
+              {DOMAINS.map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  className={cn(
+                    'shrink-0 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors',
+                    domain === d.id
+                      ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                  onClick={() => setDomain(d.id)}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
             <button
               type="button"
               aria-label="Close palette"
-              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
               onClick={onClose}
             >
               <X className="h-3.5 w-3.5" />

@@ -79,6 +79,11 @@ export type BehaviorType =
   | 'opticalMirror' // on a line: specular reflection
   | 'opticalScreen' // on a line: absorbs rays, marks where they land
   | 'slit' // on a line: blocks rays except through 1–2 gaps
+  | 'waveSource' // on a circle: emits an animated plane wave along its rotation
+  | 'waveBoundary' // on a line: normal-incidence interface between two declared media
+  | 'transmissionLine' // on a line: Z0/length/load — input impedance + SWR pattern
+  | 'quantumWell' // on a rect: particle-in-a-box — wavefunction/probability/energy levels
+  | 'tunnelBarrier' // on a rect: rectangular barrier — tunneling T/R
   | 'custom'
 
 export interface Behavior {

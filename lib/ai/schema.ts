@@ -3,11 +3,14 @@
 // never direct canvas access. The editor validates and imports (docs/architecture.md).
 
 import { z } from 'zod'
+import { BEHAVIOR_TYPES } from '@/lib/behaviors/registry'
+import type { BehaviorType } from '@/lib/scene/types'
 
 export const aiBehaviorSchema = z.object({
-  type: z.enum([
-    'rigidBody', 'staticBody', 'spring', 'rope', 'rod', 'damper', 'hinge', 'motor', 'force', 'wire',
-  ]),
+  // Derived from BEHAVIOR_SPECS (lib/behaviors/registry.ts) — every behavior
+  // that actually exists, never hand-copied, so this can't silently drift
+  // out of sync as new domains (waves, quantum…) get added.
+  type: z.enum(BEHAVIOR_TYPES as [BehaviorType, ...BehaviorType[]]),
   /** parameter name → expression (enters the page's formula scope) */
   params: z.record(z.string(), z.string()).default({}),
 })

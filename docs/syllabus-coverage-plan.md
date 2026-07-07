@@ -1,6 +1,6 @@
 # SIMBLIP — Syllabus Coverage Plan
 
-Goal: make SIMBLIP a complete simulator for the four Year-I courses whose PDFs live in
+Goal: make SIMBLIP a complete simulator for the Year-I/II courses whose PDFs live in
 `public/`:
 
 | # | Course | Code | Focus |
@@ -9,6 +9,7 @@ Goal: make SIMBLIP a complete simulator for the four Year-I courses whose PDFs l
 | 2 | Engineering Physics | ENSH 102 | Oscillation, heat, optics, fields, EM, quantum |
 | 3 | Electrical Circuits & Machines | ENEE 154 | Transients, frequency response, transformers, machines |
 | 4 | Digital Logic | ENEX 152 | Gates, combinational, sequential, registers/counters |
+| 5 | Electromagnetics | ENEX 254 | Vector fields, electro/magnetostatics, time-varying fields, plane waves, transmission lines |
 
 Everything below follows the non-negotiable architecture: **geometry + behaviors + a
 solver per domain**. A "new component" is never special-cased UI — it is a palette row
@@ -62,6 +63,21 @@ magnitude/phase, bandwidth, Q); filters are then free (RLC + analyzer); two-port
 parameter extraction (Z/Y/ABCD/h); B-H hysteresis demo; **DC machine**
 (motor/generator with back-EMF, torque — bridges circuit solver ↔ physics world);
 induction motor torque-slip model; stepper motor. Transients themselves ✅ already live.
+
+### Syllabus 5 — ENEX 254 (new, added 2026-07-07)
+Chapters 1–3 (scalar/vector fields & coordinate systems, Gauss's-law/Laplace-Poisson
+electrostatics, Biot-Savart/Ampere magnetostatics) are field-theory derivation content —
+not simulation-shaped for a drag-and-run tool, and largely already gestured at by Phase
+D's `charge`/`efield`/`bfield` (uniform-region approximation, not a real solved
+potential map). Out of scope for now; revisit only if a boundary-value-problem solver
+is explicitly requested. Chapters 4–6 are exactly "waves": time-varying fields
+(Faraday/Maxwell), **plane-wave propagation in lossless/lossy/conducting media,
+Poynting power, normal-incidence reflection, standing-wave ratio, intrinsic
+impedance**, and **transmission-line equations (lossless/lossy/distortionless, input
+impedance, reflection coefficient, SWR)**. This is genuinely new — nothing existing
+covers wave propagation or transmission lines — and it upgrades Syllabus 2's "EM
+plane-wave visualization" item (previously deferred to a bare formula in Phase H) into
+a real object. See Phase I below.
 
 ### Syllabus 4 — ENEX 152
 Missing: T flip-flop; DEMUX; encoder + priority encoder; BCD/4:10 decoder option;
@@ -214,17 +230,134 @@ needed — this phase was a coverage gap in documentation, not code.
 4. Sabine reverberation calculator as a formula template (acoustics is formula-level,
    no solver justified).
 
+Superseded by **Phase J** below: items 1–3 stop being "the user builds a Formula/Graph
+object by hand" and become real first-class components with their own params and
+live-redrawn plots, matching how every other domain in this app works. Item 4
+(Sabine) stays formula-level — it's genuinely just one closed-form number, a
+dedicated object would be over-engineering.
+
+---
+
+### Phase I — Waves (S5 ch. 4–6 + upgrades S2's EM-wave item) ~large, new engine — ✅ DONE
+`wave-source`, `wave-boundary` and `transmission-line` are live, verified against
+hand-calculated textbook values: a quarter-wave line (`Z0=50, ZL=100+0j, lambdaFrac=
+0.25`) reads back `Zin=25Ω` — the standard `Z0²/ZL` quarter-wave-transformer result —
+and a lossless ε_r1=1/ε_r2=4 boundary reads `Γ=0.33∠180°, τ=0.67, SWR=2.00`, matching
+η=√(μr/εr) by hand. Verified end-to-end in a real browser (Play advances the
+wave-source animation with zero console errors). Simplified from the original design
+below in one way: `wave-boundary`/`transmission-line` render the time-independent
+standing-wave *envelope* (the curve students actually draw in these labs) rather than
+an animated instantaneous snapshot — only `wave-source` needs the runtime clock.
+
+New `lib/waves/engine.ts`: plane-wave and transmission-line equations are closed-form
+(no PDE/time-stepping needed) — same "pure function, reactively retraced" shape as
+`lib/optics/engine.ts`, plus one new wrinkle optics didn't need: the animated phase
+ωt has to keep advancing, which comes from the already-running `useRuntimeStore`
+clock (`time`, `mode` — exported from `lib/physics/world.ts`, already read by
+`components/workspace/transport.tsx`). Diagrams render static (t frozen) in Edit
+mode and animate once Play is pressed, matching how tracers already behave — no new
+stepper, no new "is the sim running" concept.
+
+1. `wave-source` — circle, aims via rotation (same convention as `light-source`);
+   params `f` (frequency), `E0` (amplitude), and a `medium` param selecting
+   lossless / lossy-dielectric / good-conductor, which derives the propagation
+   constant `γ = α + jβ` and intrinsic impedance `η` from `εr`, `μr`, `σ` params —
+   the exact chapter-5 formulas. Emits `E(x,t) = E0·cos(kx − ωt)·e^(−αx)`.
+2. `wave-boundary` — line object (an interface between two declared media, drawn
+   like a `screen`/`mirror`): computes `Γ = (η2−η1)/(η2+η1)`, draws
+   incident + reflected (+ transmitted) waves, exposes `SWR = (1+|Γ|)/(1−|Γ|)` as a
+   reading channel — covers normal-incidence reflection + standing waves directly.
+3. `transmission-line` — line object with `Z0`, length `l`, and a load impedance
+   `ZL` at its far end; renders the standing-wave voltage envelope along its length
+   from the standard `Zin` formula; exposes `Zin`, `Γ`, `SWR` as reading channels
+   (same `channels: Record<string,number>` mechanism the circuit solver already
+   feeds into Graph objects — no new binding plumbing).
+4. Poynting/average-power reading `S_avg = |E0|²/(2η)` exposed as a channel on
+   `wave-source`, bindable into a Graph like any other channel.
+
+**Exact touch points** (all additive — nothing existing is modified, only extended):
+- `lib/scene/types.ts:59` — add `waveSource | waveBoundary | transmissionLine` to
+  the `BehaviorType` union.
+- `lib/behaviors/registry.ts` — three new `BehaviorSpec` rows (mirror the
+  `lightSource`/`thinLens`/`opticalMirror` rows at lines ~200–234).
+- `lib/waves/engine.ts` (new file) — `traceWaves(objects, t)`, mirroring
+  `traceRays(objects)` in shape but taking a time argument.
+- `lib/scene/factory.ts` — add `'waves'` to `ComponentDef['domain']` (line 90), a
+  `wave()` helper next to `optic()` (line 128), a `systemDef('waves')` +
+  `SYSTEM_LABELS` entry (lines 137–143, TS will force this — the `Record` is keyed
+  by the domain union so a missing entry is a compile error, not a silent gap), and
+  3 palette rows in the `COMPONENTS` array.
+- `components/objects/geometry.tsx` — new render branches dispatched off
+  `metadata.render` (mirrors the optics cases around line 490/773/786), calling
+  `traceWaves` with `useRuntimeStore((s) => s.time)`.
+- `components/workspace/canvas.tsx` — add `'wave-boundary'`, `'transmission-line'`
+  to `CONNECTOR_IDS` (line 38, both are line-geometry) and `'wave-source'` to
+  `CIRCULAR_IDS` (line 48, drag-from-center like `light-source`). **Skipping this
+  step is exactly the bug already hit once with optics** (drag-resize silently
+  falling back to corner-box placement) — do it in the same commit as the factory
+  entries, not after.
+- `components/workspace/palette.tsx` — add `{ id: 'waves', label: 'Waves' }` to
+  `DOMAINS` (line ~14).
+- Verified safe to extend: grepped every consumer of the domain/behavior-type
+  unions — all are `===` string comparisons or `Record`s keyed by the union (which
+  TS forces you to complete), never an unguarded exhaustive `switch`. No existing
+  optics/circuit/physics code path is touched.
+
+### Phase J — Quantum demos as first-class objects (S2, upgrades Phase H) ~small — ✅ DONE
+`quantum-well` (ψ curve + probability-density fill + energy-level ladder) and
+`tunnel-barrier` (incident/reflected/transmitted schematic + T/R readout) are live.
+Barrier tunneling checked by hand: `E=0.5, V0=1, L=1` → `k2=1, sinh(1)=1.175,
+T=1/(1+1.381/1)=0.420` — exactly what the object renders. Verified in a real browser
+alongside Phase I with zero console errors.
+
+No new physics to derive — Phase H already verified all the formulas against the
+sandboxed mathjs instance. This phase only wires that verified math into
+self-contained objects with real params and a live-redrawn plot, instead of asking
+the user to hand-build a Formula/Graph object. Simpler than optics/waves: each object
+reads only its own params (no scene-wide ray/wave tracing), and the demos are
+stationary-state (time-independent), so there's no runtime-clock dependency either —
+pure re-render on param change, same as the *original* static optics ray trace.
+
+1. `quantum-well` (particle-in-a-box) — rect; params `n`, `L`, `m`. Renders
+   `ψn(x) = √(2/L)·sin(nπx/L)` and/or `|ψn(x)|²` as a sampled SVG path across its
+   width, plus an energy-level ladder from `En = n²π²ℏ²/(2mL²)`, exposed as a
+   reading channel.
+2. `tunnel-barrier` — rect; params `E`, `V0`, `L`. Renders the incident/reflected/
+   transmitted wave amplitude schematically; exposes `T`, `R` as reading channels
+   from `T = 1/(1 + V0²sinh²(k2L)/(4E(V0−E)))`, `R = 1−T`.
+3. Sabine reverberation stays a formula template (no object) — already covered by
+   Phase H item 4.
+
+**Exact touch points:**
+- `lib/quantum/engine.ts` (new) — pure functions `psi(n, L, x)`,
+  `probabilityDensity`, `energyLevel(n, L, m)`, `transmissionCoefficient(E, V0, L, m)`.
+- `lib/scene/types.ts` — add `quantumWell | tunnelBarrier` to `BehaviorType`.
+- `lib/behaviors/registry.ts` — two new `BehaviorSpec` rows.
+- `lib/scene/factory.ts` — add `'quantum'` domain, `systemDef('quantum')` +
+  `SYSTEM_LABELS` entry, 2 palette rows. Rect geometry needs no `CONNECTOR_IDS`/
+  `CIRCULAR_IDS` entry (default corner-drag is correct, same as `block`/`efield`).
+- `components/objects/geometry.tsx` — two new render branches.
+- `components/workspace/palette.tsx` — add `{ id: 'quantum', label: 'Quantum' }`.
+
 ---
 
 ## Suggested order & why
 
-**A → B → C → D → F → E → G → H.**
+**A → B → C → D → F → E → G → H → J → I.**
 A and B are pure registry work on live solvers — maximum syllabus coverage per line of
 code, and they complete S4 almost entirely. C turns existing sims into *measurable*
 labs (that's what the practicals grade). D and F extend the physics world without a
 new engine. E is the one genuinely new engine — schedule it when the registry pattern
 is well-worn. G is the showpiece (two engines coupled) and depends on A's transformer
 and D's field work. H is self-contained demos, anytime filler.
+
+**J before I**: J (quantum) is the smallest possible unit of new work — single-object,
+time-independent, zero cross-object interaction, formulas already verified — good for
+re-warming the registry pattern before I. I (waves) is the bigger lift: it's a genuine
+new engine *and* the first thing in this app that needs to animate against the runtime
+clock while in Edit-vs-Play modes, which E/H never had to deal with (optics rays are
+static; quantum demos are static; only waves have a `cos(kx − ωt)` term). Do I last so
+that wrinkle is solved once, deliberately, not rushed alongside a dozen other things.
 
 After each phase: add the new components to doodle recognition where a natural sketch
 exists, and to the AI importer examples so "draw me a full-wave rectifier" works.

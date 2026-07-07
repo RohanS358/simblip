@@ -87,7 +87,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics'
+  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum'
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -129,6 +129,14 @@ const optic = (id: string, label: string, create: ComponentDef['create']): Compo
   id, label, domain: 'optics', live: true, create,
 })
 
+const wave = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
+  id, label, domain: 'waves', live: true, create,
+})
+
+const quantum = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
+  id, label, domain: 'quantum', live: true, create,
+})
+
 // ── System boundaries ───────────────────────────────────────────────────────
 // A dashed region that declares its domain. Doodles drawn inside it are
 // recognized as that domain's components (canvas.tsx), so tablet users can
@@ -140,6 +148,8 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   electronics: 'Electronics',
   digital: 'Digital',
   optics: 'Optics',
+  waves: 'Waves',
+  quantum: 'Quantum',
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -164,6 +174,8 @@ export const COMPONENTS: ComponentDef[] = [
   systemDef('electrical'),
   systemDef('electronics'),
   systemDef('digital'),
+  systemDef('waves'),
+  systemDef('quantum'),
   // ── Mechanics: geometry + behaviors, fully live ──
   mech('mass', 'Mass', (p) => {
     const o = baseObject('circle', p, autoName('Mass'))
@@ -299,6 +311,44 @@ export const COMPONENTS: ComponentDef[] = [
     o.size = { w: 2, h: 200 }
     o.metadata.render = 'slit'
     return withBehaviors(o, createBehavior('slit'))
+  }),
+
+  // ── Waves: closed-form plane-wave/transmission-line formulas, not a new
+  // time-stepping solver — see lib/waves/engine.ts. ──
+  wave('wave-source', 'Wave Source', (p) => {
+    const o = baseObject('circle', p, autoName('Wave Source'))
+    o.size = { w: 24, h: 24 }
+    o.metadata.render = 'wave-source'
+    return withBehaviors(o, createBehavior('waveSource'))
+  }),
+  wave('wave-boundary', 'Wave Boundary', (p) => {
+    const o = baseObject('line', p, autoName('Boundary'))
+    o.geometry.points = [[0, 0], [0, 120]]
+    o.size = { w: 2, h: 120 }
+    o.metadata.render = 'wave-boundary'
+    return withBehaviors(o, createBehavior('waveBoundary'))
+  }),
+  wave('transmission-line', 'Transmission Line', (p) => {
+    const o = baseObject('line', p, autoName('T-Line'))
+    o.geometry.points = [[0, 0], [220, 0]]
+    o.size = { w: 220, h: 2 }
+    o.metadata.render = 'transmission-line'
+    return withBehaviors(o, createBehavior('transmissionLine'))
+  }),
+
+  // ── Quantum: self-contained param → plot objects, no scene interaction
+  // (stationary states — see lib/quantum/engine.ts). ──
+  quantum('quantum-well', 'Quantum Well', (p) => {
+    const o = baseObject('rect', p, autoName('Quantum Well'))
+    o.size = { w: 260, h: 160 }
+    o.metadata.render = 'quantum-well'
+    return withBehaviors(o, createBehavior('quantumWell'))
+  }),
+  quantum('tunnel-barrier', 'Tunnel Barrier', (p) => {
+    const o = baseObject('rect', p, autoName('Tunnel Barrier'))
+    o.size = { w: 260, h: 140 }
+    o.metadata.render = 'tunnel-barrier'
+    return withBehaviors(o, createBehavior('tunnelBarrier'))
   }),
 
   // ── Electrical / Electronics / Digital: live symbols, MNA + logic solver ──

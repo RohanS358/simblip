@@ -44,8 +44,19 @@ const CONNECTOR_IDS = new Set([
   'optical-mirror',
   'optical-screen',
   'slit',
+  'wave-boundary',
+  'transmission-line',
 ])
-const CIRCULAR_IDS = new Set(['mass', 'wheel', 'motor', 'hinge', 'charge', 'torsion-pendulum', 'light-source'])
+const CIRCULAR_IDS = new Set([
+  'mass',
+  'wheel',
+  'motor',
+  'hinge',
+  'charge',
+  'torsion-pendulum',
+  'light-source',
+  'wave-source',
+])
 const MIN_PLACE_DRAG = 8 // screen px below which a drag counts as a click
 
 // Inside a system boundary, recognized doodle shapes become that domain's
