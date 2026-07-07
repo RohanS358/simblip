@@ -276,6 +276,11 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
     } catch {
       body = Matter.Bodies.rectangle(c.x, c.y, obj.size.w, obj.size.h, options)
     }
+  } else if (g.kind === 'symbol') {
+    // A circuit symbol given a rigidBody/staticBody (e.g. the Pressure Plate
+    // preset) gets a plain rectangular collider matching its footprint — no
+    // existing component combines symbol+body, so this is purely additive.
+    body = Matter.Bodies.rectangle(c.x, c.y, obj.size.w, obj.size.h, options)
   }
   if (!body) return null
 
@@ -479,7 +484,8 @@ export function buildWorld(pageId: string): World {
     }
   }
 
-  return {
+  const circuit = buildCircuit(objs)
+  const w: World = {
     pageId,
     engine,
     bodies,
@@ -489,12 +495,40 @@ export function buildWorld(pageId: string): World {
     fields,
     torsions,
     thermal,
-    circuit: buildCircuit(objs),
+    circuit,
     t: 0,
     raf: null,
     last: 0,
     acc: 0,
   }
+
+  // Pressure plates: a rigid body touching one closes it like a switch,
+  // detected via real Matter.js collisions (it's a genuine static body —
+  // see makeBody's 'symbol' case above — not just a position heuristic).
+  const plateIds = new Set(circuit?.comps.filter((c) => c.symbol === 'pressure-plate').map((c) => c.id) ?? [])
+  if (plateIds.size > 0) {
+    const onTouch = (pressed: boolean) => (event: Matter.IEventCollision<Matter.Engine>) => {
+      if (!w.circuit) return
+      for (const pair of event.pairs) {
+        for (const [plateBody, otherBody] of [
+          [pair.bodyA, pair.bodyB],
+          [pair.bodyB, pair.bodyA],
+        ] as const) {
+          if (otherBody.isStatic) continue
+          const entry = w.bodies.find((b) => b.body === plateBody)
+          if (!entry || !plateIds.has(entry.objectId)) continue
+          const comp = w.circuit.comps.find((cc) => cc.id === entry.objectId)
+          if (!comp) continue
+          comp.state.touchCount = Math.max(0, (comp.state.touchCount ?? 0) + (pressed ? 1 : -1))
+          comp.state.pressed = comp.state.touchCount > 0 ? 1 : 0
+        }
+      }
+    }
+    Matter.Events.on(engine, 'collisionStart', onTouch(true))
+    Matter.Events.on(engine, 'collisionEnd', onTouch(false))
+  }
+
+  return w
 }
 
 // Pedagogical force scales — tunable via the live q/E/B params rather than
@@ -633,6 +667,26 @@ function stepThermal(w: World, frameScope: Scope, dtSeconds: number) {
     const power = t.power(frameScope)
     const cooling = Math.max(t.coolRate(frameScope), 0) * (t.temp - ambient)
     t.temp += (power - cooling + (netQ.get(t) ?? 0)) * dtSeconds
+  }
+}
+
+// Electric Motor / 3-Phase Induction Motor: same "hinge pins whatever's
+// touching it" mechanism as a plain Hinge (see the hinge loop in
+// buildWorld, which already pushed a point constraint into w.connectors for
+// any of these that has something to pin) — the only new thing is driving
+// that pin's angular velocity from the circuit's own electrically-computed
+// omega instead of a fixed speed expression. Runs right after stepCircuit
+// so the body carries this step's freshly-computed omega into the next one.
+const ELECTRIC_MOTOR_SYMBOLS = new Set(['dc-machine', 'induction-motor'])
+
+function syncElectricMotors(w: World) {
+  if (!w.circuit) return
+  for (const comp of w.circuit.comps) {
+    if (!ELECTRIC_MOTOR_SYMBOLS.has(comp.symbol)) continue
+    const hinge = w.connectors.find((c) => c.objectId === comp.id)
+    const spun = hinge?.constraint.bodyA
+    if (!spun) continue // no hinge behavior on this motor, or nothing pinned to it
+    Matter.Body.setAngularVelocity(spun, (comp.state.omega ?? 0) / 60)
   }
 }
 
@@ -936,7 +990,7 @@ function syncCircuitDom(w: World) {
   const c = w.circuit
   if (!c) return
   for (const comp of c.comps) {
-    if (comp.symbol !== 'dc-machine') continue
+    if (comp.symbol !== 'dc-machine' && comp.symbol !== 'induction-motor') continue
     const el = elements.get(comp.id)
     const spin = el?.querySelector<SVGElement>('[data-spin]')
     if (spin) spin.style.transform = `rotate(${comp.state.angle ?? 0}rad)`
@@ -1060,7 +1114,10 @@ function frame(now: number) {
     if (ts > 0) {
       applyLiveParams(w, scope, STEP * ts)
       Matter.Engine.update(w.engine, STEP * ts)
-      if (w.circuit) stepCircuit(w.circuit, (STEP / 1000) * ts, w.t, pageObjects)
+      if (w.circuit) {
+        stepCircuit(w.circuit, (STEP / 1000) * ts, w.t, pageObjects)
+        syncElectricMotors(w)
+      }
       w.t += (STEP / 1000) * ts
       stepped = true
     }

@@ -167,6 +167,25 @@ const GLYPHS: Record<string, React.ReactNode> = {
       </text>
     </>
   ),
+  'induction-motor': (
+    <>
+      <path d="M4 9.6 H30 M4 24 H30 M4 38.4 H30 M68 24 H92" fill="none" />
+      <circle cx="48" cy="24" r="18" fill="none" />
+      <g data-spin="" style={{ transformOrigin: '48px 24px' }}>
+        <line x1="48" y1="24" x2="48" y2="10" strokeWidth={2} />
+      </g>
+      <text x="48" y="29" textAnchor="middle" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+        3~M
+      </text>
+    </>
+  ),
+  'pressure-plate': (
+    <>
+      <path d="M4 24 h24 M68 24 h24 M28 24 l32 -10 M64 24 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" fill="none" />
+      <path d="M20 4 h56" strokeWidth={3} fill="none" />
+      <path d="M48 4 v9 M42 8 l6 6 6 -6" fill="none" />
+    </>
+  ),
   bjt: (
     <>
       <circle cx="48" cy="24" r="18" fill="none" />

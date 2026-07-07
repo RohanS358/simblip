@@ -45,6 +45,7 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
   'ac-source': T2,
   'current-source': T2, // [+, −] — current flows internally − → + (out of +)
   'dc-machine': T2, // armature [+, −] — self-contained shaft: see comp.state.omega
+  'pressure-plate': T2, // closes like a switch when a rigid body touches it (physics-driven, not user-toggled)
   switch: T2,
   fuse: T2,
   bulb: T2,
@@ -114,6 +115,12 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
     { x: 0.5, y: 0 }, // B
     { x: 0.8, y: 0 }, // C
     { x: 0.5, y: 1 }, // N (star point)
+  ],
+  'induction-motor': [
+    { x: 0, y: 0.2 }, // A
+    { x: 0, y: 0.5 }, // B
+    { x: 0, y: 0.8 }, // C
+    { x: 1, y: 0.5 }, // N (wire to the source's neutral)
   ],
   'and-gate': GATE3,
   'or-gate': GATE3,
@@ -345,6 +352,7 @@ const DEF: Record<string, Record<string, number>> = {
   'ac-source': { V: 12, f: 1, wave: 0 }, // wave: 0=sine, 1=square, 2=triangle
   'current-source': { I: 0.01 },
   'dc-machine': { Ra: 2, k: 0.5, J: 0.02, load: 0, friction: 0.001 },
+  'induction-motor': { R2: 5, X: 8, poles: 4, f: 50, J: 0.05, load: 0, friction: 0.001 },
   switch: { closed: 1 },
   fuse: { Imax: 1 },
   diode: { Vf: 0.7 },
@@ -748,10 +756,16 @@ export function stepCircuit(
       else if (s === 'voltmeter') stampG(a, b, 1e-7)
       else if (s === 'ammeter') stampG(a, b, CLOSED)
       else if (s === 'switch') stampG(a, b, pv(comp, 'closed') >= 0.5 ? CLOSED : OPEN)
+      else if (s === 'pressure-plate') stampG(a, b, (comp.state.pressed ?? 0) >= 0.5 ? CLOSED : OPEN)
       else if (s === 'fuse') stampG(a, b, comp.state.blown ? OPEN : CLOSED)
       else if (s === 'current-source') stampI(a, b, pv(comp, 'I'))
       else if (s === 'dc-machine') {
-        // Self-contained shaft (comp.state.omega) — no separate physics body.
+        // Shaft state (comp.state.omega) lives here regardless of whether
+        // anything physical is attached. The "Electric Motor" palette preset
+        // is this exact symbol plus a hinge behavior — see syncElectricMotors
+        // in lib/physics/world.ts, which spins whatever body is pinned to
+        // that hinge at this omega. Plain "DC Machine" just leaves the shaft
+        // abstract (no hinge), for circuit-only labs.
         // Armature = back-EMF (k·ω) in series with Ra, exactly like a diode's
         // "on" companion model but with a state-driven source instead of Vf.
         const Ra = Math.max(pv(comp, 'Ra'), 1e-3)
@@ -767,6 +781,25 @@ export function stepCircuit(
         const [ia, ib2, va, vb] = comp.nets
         stampG(ia, ib2, CLOSED)
         stampG(va, vb, 1e-7)
+      } else if (s === 'induction-motor') {
+        // Balanced wye load, each phase A/B/C stamped independently to N
+        // (the user wires N to the source's neutral — no internal-only net
+        // needed). Per-phase resistance is R2/|slip| — this is what makes
+        // the physical torque-slip curve below actually draw more current
+        // near stall and roughly none at synchronous speed, same as a real
+        // cage rotor's referred resistance.
+        const [pa, pb, pc, nRef] = comp.nets
+        const R2 = Math.max(pv(comp, 'R2'), 1e-3)
+        const poles = Math.max(2, Math.round(pv(comp, 'poles')) || 4)
+        const f = Math.max(pv(comp, 'f'), 1e-3)
+        const omegaSync = (2 * Math.PI * f) / (poles / 2)
+        const omega = comp.state.omega ?? 0
+        const slip = (omegaSync - omega) / omegaSync
+        const slipMag = Math.max(Math.abs(slip), 1e-3)
+        const g = 1 / Math.max(R2 / slipMag, 1e-3)
+        stampG(pa, nRef, g)
+        stampG(pb, nRef, g)
+        stampG(pc, nRef, g)
       } else if (s === 'potentiometer') {
         const [top, wiper, bottom] = comp.nets
         const R = Math.max(pv(comp, 'R'), 1)
@@ -1044,6 +1077,56 @@ export function stepCircuit(
       })
       continue
     }
+    if (s === 'induction-motor') {
+      const [pa, pb, pc, nRef] = comp.nets
+      const R2 = Math.max(pv(comp, 'R2'), 1e-3)
+      const X = Math.max(pv(comp, 'X'), 1e-3)
+      const poles = Math.max(2, Math.round(pv(comp, 'poles')) || 4)
+      const f = Math.max(pv(comp, 'f'), 1e-3)
+      const omegaSync = (2 * Math.PI * f) / (poles / 2)
+      const omega = comp.state.omega ?? 0
+      const slip = (omegaSync - omega) / omegaSync
+      const slipSafe = Math.abs(slip) < 1e-3 ? (slip < 0 ? -1e-3 : 1e-3) : slip
+
+      const va = v(pa) - v(nRef)
+      const vb = v(pb) - v(nRef)
+      const vc = v(pc) - v(nRef)
+      const g = 1 / Math.max(R2 / Math.abs(slipSafe), 1e-3)
+      const ia = va * g
+      const ib = vb * g
+      const ic = vc * g
+      comp.outflow[0] = -ia
+      comp.outflow[1] = -ib
+      comp.outflow[2] = -ic
+      comp.outflow[3] = ia + ib + ic
+
+      // This is a time-domain (not phasor) solver, so the raw phase voltage
+      // is a 2f ripple, not a steady RMS — smooth it before feeding the
+      // torque formula so torque (and therefore RPM) doesn't judder at line
+      // frequency. Settles over roughly one AC cycle.
+      const vrmsPrev = comp.state.vrms ?? 0
+      const alpha = Math.min(1, dt * 8)
+      comp.state.vrms = vrmsPrev + (Math.abs(va) - vrmsPrev) * alpha
+
+      // Standard simplified (stator impedance neglected) torque-slip curve:
+      // T(s) = 3·V²·(R2/s) / (ωs·((R2/s)² + X²)) — correctly →0 torque at
+      // synchronous speed and flips sign (braking) once slip goes negative.
+      const R2s = R2 / slipSafe
+      const Tem = (3 * comp.state.vrms * comp.state.vrms * R2s) / (omegaSync * (R2s * R2s + X * X))
+      const J = Math.max(pv(comp, 'J'), 1e-4)
+      const load = pv(comp, 'load')
+      const friction = Math.max(pv(comp, 'friction'), 0)
+      comp.state.omega = omega + ((Tem - load - friction * omega) / J) * dt
+      comp.state.torque = Tem
+      comp.state.slip = slip
+      comp.state.angle = ((comp.state.angle ?? 0) + omega * dt) % (2 * Math.PI)
+
+      c.frame.readings.set(comp.id, {
+        text: `${((omega * 60) / (2 * Math.PI)).toFixed(0)} RPM`,
+        channels: { omega, torque: Tem, slip, I: Math.abs(ia) + Math.abs(ib) + Math.abs(ic) },
+      })
+      continue
+    }
     if (s === 'vcvs') {
       const [p, m, outP, outM] = comp.nets
       const io = x[n + comp.vsrcRow!] ?? 0
@@ -1166,6 +1249,7 @@ export function stepCircuit(
     else if (s === 'voltmeter') I = vab * 1e-7
     else if (s === 'ammeter') I = vab * CLOSED
     else if (s === 'switch') I = vab * (pv(comp, 'closed') >= 0.5 ? CLOSED : OPEN)
+    else if (s === 'pressure-plate') I = vab * ((comp.state.pressed ?? 0) >= 0.5 ? CLOSED : OPEN)
     else if (s === 'fuse') {
       I = vab * (comp.state.blown ? OPEN : CLOSED)
       if (Math.abs(I) > pv(comp, 'Imax')) comp.state.blown = 1
@@ -1241,6 +1325,7 @@ export function stepCircuit(
     if (s === 'voltmeter') r.text = fmtUnit(vab, 'V')
     else if (s === 'ammeter') r.text = fmtUnit(I, 'A')
     else if (s === 'fuse' && comp.state.blown) r.text = 'blown'
+    else if (s === 'pressure-plate') r.text = (comp.state.pressed ?? 0) >= 0.5 ? 'pressed' : 'open'
     else if (s === 'led') r.glow = comp.state.on ? Math.min(1, Math.abs(I) / 0.02) : 0
     else if (s === 'bulb') r.glow = Math.min(1, Math.sqrt(Math.abs(vab * I)) / 2)
     else if (s === 'zener' && comp.state.mode === -1) r.text = fmtUnit(vab, 'V')

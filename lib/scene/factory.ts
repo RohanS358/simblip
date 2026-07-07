@@ -419,6 +419,44 @@ export const COMPONENTS: ComponentDef[] = [
     live: true,
     create: (p) => symbol(domain, name, label, p, params),
   })),
+
+  // ── Cross-domain: physics ↔ circuit couplings that need an extra behavior
+  // beyond bare electricalNode, so they can't go through the generic map
+  // above. See lib/physics/world.ts (makeBody's symbol case, the pressure-
+  // plate collision listener, and syncElectricMotors). ──
+  {
+    id: 'pressure-plate',
+    label: 'Pressure Plate',
+    domain: 'electrical',
+    live: true,
+    create: (p) => withBehaviors(symbol('electrical', 'pressure-plate', 'Pressure Plate', p, {}), createBehavior('staticBody')),
+  },
+  {
+    id: 'electric-motor',
+    label: 'Electric Motor',
+    domain: 'electrical',
+    live: true,
+    // Same symbol/circuit math as plain "DC Machine" — the only difference
+    // is the hinge, which is what lets a real body pin to it and spin.
+    create: (p) =>
+      withBehaviors(
+        symbol('electrical', 'dc-machine', 'Electric Motor', p, { Ra: '2', k: '0.5', J: '0.02', load: '0', friction: '0.001' }),
+        createBehavior('hinge')
+      ),
+  },
+  {
+    id: 'induction-motor',
+    label: '3-Phase Induction Motor',
+    domain: 'electrical',
+    live: true,
+    create: (p) =>
+      withBehaviors(
+        symbol('electrical', 'induction-motor', '3-Phase Induction Motor', p, {
+          R2: '5', X: '8', poles: '4', f: '50', J: '0.05', load: '0', friction: '0.001',
+        }),
+        createBehavior('hinge')
+      ),
+  },
 ]
 
 export const componentById = (id: string) => COMPONENTS.find((c) => c.id === id)
