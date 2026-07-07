@@ -72,6 +72,10 @@ interface ConnectorEntry {
   damping?: (s: Scope) => number
   restScale?: (s: Scope) => number
   rest0: number
+  /** A rope only resists STRETCHING past its length — unlike a rod/spring it
+   * must go slack (exert nothing) once its two ends are closer together than
+   * that, or it's just a softer rod. See applyLiveParams. */
+  isRope?: boolean
 }
 
 interface ChargeEntry {
@@ -414,7 +418,11 @@ export function buildWorld(pageId: string): World {
       const hitA = Matter.Query.point(allBodies, pA)[0]
       const hitB = Matter.Query.point(allBodies, pB)[0]
       const rest0 = Math.hypot(pB.x - pA.x, pB.y - pA.y)
-      const stiffnessFor = (type: string) => (type === 'rod' ? 1 : type === 'rope' ? 0.9 : 0.05)
+      // Rope starts taut (its drawn length IS its max length); whether it
+      // stays taut or goes slack from here is decided live, every frame,
+      // in applyLiveParams — a fixed stiffness here would just make it a
+      // softer rod, which was exactly the bug.
+      const stiffnessFor = (type: string) => (type === 'rod' || type === 'rope' ? 1 : 0.05)
       const constraint = Matter.Constraint.create({
         bodyA: hitA,
         bodyB: hitB,
@@ -437,6 +445,7 @@ export function buildWorld(pageId: string): World {
         restScale:
           conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'restScale', 1) : undefined,
         rest0,
+        isRope: conn.type === 'rope',
       })
     }
 
@@ -644,6 +653,23 @@ function applyLiveParams(w: World, scope: Scope, dtMs: number) {
     }
     if (c.damping) c.constraint.damping = Math.min(0.5, Math.max(0, c.damping(frameScope)))
     if (c.restScale) c.constraint.length = c.rest0 * Math.max(c.restScale(frameScope), 0.01)
+    if (c.isRope) {
+      // A rope only resists being STRETCHED past its length — closer than
+      // that, it must go slack (no pull at all), unlike a rod/spring which
+      // always fights to hold one exact distance. Recomputed every step
+      // since "closer or farther than rest0" changes as the bodies move.
+      const { bodyA, bodyB, pointA, pointB } = c.constraint
+      const wa = bodyA ? { x: bodyA.position.x + pointA.x, y: bodyA.position.y + pointA.y } : pointA
+      const wb = bodyB ? { x: bodyB.position.x + pointB.x, y: bodyB.position.y + pointB.y } : pointB
+      const dist = Math.hypot(wb.x - wa.x, wb.y - wa.y)
+      if (dist <= c.rest0) {
+        c.constraint.length = dist
+        c.constraint.stiffness = 0.0005 // effectively inert while slack
+      } else {
+        c.constraint.length = c.rest0
+        c.constraint.stiffness = 1
+      }
+    }
   }
   for (const b of w.bodies) {
     for (const speed of b.motors) Matter.Body.setAngularVelocity(b.body, speed(frameScope) / 60)
