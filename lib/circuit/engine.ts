@@ -706,6 +706,14 @@ export function fmtUnit(v: number, unit: string): string {
 
 const OPEN = 1e-9 // conductance of an open branch
 const CLOSED = 1e3 // conductance of a closed switch / ammeter shunt
+// Digital logic HIGH represents a real 5V rail wherever a digital net meets
+// the analog world (a gate/output/clock pin wired to a resistor, LED, or
+// voltmeter) — see the digital→analog bridge stamp in assemble(). Modeled
+// as a Norton source (small source resistance) rather than an ideal
+// vsrcRow: no new MNA unknown needed, and it's a bit more realistic (a real
+// logic output isn't a zero-ohm source either).
+const DIGITAL_HIGH_V = 5
+const DIGITAL_SOURCE_R = 20
 
 export function stepCircuit(
   c: Circuit,
@@ -970,6 +978,20 @@ export function stepCircuit(
         })
       }
     }
+
+    // Digital→analog bridge: every net a digital component touches gets
+    // pulled toward DIGITAL_HIGH_V·logic through a small source resistance,
+    // so any analog device sharing that net (resistor, LED, voltmeter…)
+    // actually sees ~5V/0V instead of whatever gmin leaves it floating at.
+    // A pure-digital net with no analog device attached is unaffected by
+    // this in practice — nothing reads its analog "voltage".
+    for (const net of c.digitalNets) {
+      const level = c.logic[net] ?? 0
+      const g = 1 / DIGITAL_SOURCE_R
+      stampG(net, c.ref, g)
+      stampI(net, c.ref, g * DIGITAL_HIGH_V * level)
+    }
+
     // reference net is 0 V by definition
     A[c.ref].fill(0)
     A[c.ref][c.ref] = 1
