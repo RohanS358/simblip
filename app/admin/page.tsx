@@ -93,15 +93,15 @@ function Overview({ people, rooms, boards, assets }: { people: ProfileRow[]; roo
           <p className="font-semibold text-foreground">Provisioning</p>
           {dbMode === 'local' ? (
             <p>
-              Local demo tenant — accounts you create below work immediately on this device. In cloud
-              mode, institutions and their auth users are provisioned by the SIMBLIP operator
-              (enterprise licensing, no self-service sign-up).
+              Local demo tenant — accounts you create below work immediately on this device. The
+              institution itself is provisioned by the SIMBLIP operator (enterprise licensing, no
+              self-service sign-up).
             </p>
           ) : (
             <p>
-              Cloud tenant. New auth accounts are provisioned by the SIMBLIP operator with the service
-              role (supabase/provision.sql); everything else — rooms, enrollment, boards, library,
-              announcements — is managed here.
+              Cloud tenant. You manage everything inside your institution here — teachers, students,
+              password resets, rooms, boards, enrollment, library and announcements. Only the
+              institution itself is provisioned by the SIMBLIP operator.
             </p>
           )}
           <p className="mt-1">{assets.length} assets in the institution library.</p>
@@ -179,7 +179,7 @@ function PeopleTab({ people, refresh }: { people: ProfileRow[]; refresh: () => v
             <Badge variant="secondary" className="text-[10.5px]">{ROLE_LABEL[p.role as Role]}</Badge>
             {p.department && <span className="text-[11px] text-muted-foreground">{p.department}</span>}
             <div className="flex-1" />
-            {dbMode === 'local' && p.role !== 'admin' && (
+            {p.role !== 'admin' && (
               <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => void doReset(p)}>
                 <KeyRound className="h-3 w-3" /> Reset password
               </Button>

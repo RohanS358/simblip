@@ -2,13 +2,14 @@
 
 // Institution admin operations: people, rooms, boards, branding.
 //
-// In local demo mode these are fully functional (accounts live in the demo
-// database). In cloud mode, creating auth users requires the service role —
-// that is the platform operator's provisioning path (supabase/provision.sql),
-// so `createPerson`/`createBoard` throw a descriptive error instead.
+// Local demo mode works directly against the demo database. In cloud mode,
+// actions that touch auth accounts (create person/board, reset password) go
+// through /api/admin/provision — a server route holding the service role key
+// that verifies the caller is an active institution admin and forces every
+// action into the caller's own institution.
 
 import * as db from './db'
-import { useAuthStore } from '@/lib/auth/store'
+import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import type { Role } from '@/lib/auth/types'
 import type { BoardRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from './types'
 import { newPairingCode } from './boards'
@@ -20,10 +21,19 @@ const requireAdmin = (): ProfileRow => {
   return profile
 }
 
-const cloudProvisioningError = () =>
-  new Error(
-    'Cloud mode: user accounts are provisioned by the SIMBLIP operator with the service role key (see supabase/provision.sql). In local demo mode this works directly.'
-  )
+async function adminProvision<T>(action: string, payload: unknown): Promise<T> {
+  const response = await fetch('/api/admin/provision', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getAccessToken() ?? ''}`,
+    },
+    body: JSON.stringify({ action, payload }),
+  })
+  const data = (await response.json().catch(() => ({}))) as T & { error?: string }
+  if (!response.ok) throw new Error(data.error || 'Provisioning failed')
+  return data
+}
 
 // ── People ──────────────────────────────────────────────────────────────────
 
@@ -41,7 +51,15 @@ export async function createPerson(input: {
   password: string
 }): Promise<ProfileRow> {
   const admin = requireAdmin()
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
+  if (db.dbMode === 'cloud') {
+    return adminProvision<ProfileRow>('createPerson', {
+      role: input.role,
+      full_name: input.fullName,
+      email: input.email,
+      password: input.password,
+      department: input.department ?? null,
+    })
+  }
   const existing = await db.list<ProfileRow>('profiles', { email: input.email.trim().toLowerCase() })
   if (existing.length > 0) throw new Error('An account with this email already exists.')
   const row: ProfileRow = {
@@ -62,7 +80,10 @@ export const setPersonActive = (id: string, active: boolean) =>
   db.update('profiles', id, { active })
 
 export async function resetPassword(id: string, password: string): Promise<void> {
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
+  if (db.dbMode === 'cloud') {
+    await adminProvision('resetPassword', { profile_id: id, password })
+    return
+  }
   await db.update('profiles', id, { password })
 }
 
@@ -123,11 +144,18 @@ export const listBoards = () => db.list<BoardRow>('boards')
 
 export async function createBoard(roomId: string, roomName: string, password: string): Promise<{ board: BoardRow; email: string }> {
   const admin = requireAdmin()
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
-  const existing = await db.list<BoardRow>('boards', { room_id: roomId })
-  if (existing.length > 0) throw new Error('This room already has a board.')
   const slug = roomName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
   const email = `board-${slug}@${(admin.email.split('@')[1] ?? 'demo.edu')}`
+  if (db.dbMode === 'cloud') {
+    return adminProvision<{ board: BoardRow; email: string }>('createBoard', {
+      room_id: roomId,
+      email,
+      password,
+      pairing_code: newPairingCode(),
+    })
+  }
+  const existing = await db.list<BoardRow>('boards', { room_id: roomId })
+  if (existing.length > 0) throw new Error('This room already has a board.')
   const boardProfile: ProfileRow = {
     id: db.newId(),
     institution_id: admin.institution_id,
