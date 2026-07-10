@@ -134,7 +134,7 @@ export function Sidebar() {
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-60 flex-col rounded-2xl"
+      className="glass z-30 m-3 flex w-60 min-h-0 flex-col rounded-2xl"
       aria-label="Notebooks"
     >
       <div className="flex items-center justify-between px-3.5 pb-1 pt-3">

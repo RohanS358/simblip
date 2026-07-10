@@ -81,7 +81,7 @@ interface TokenResponse {
 async function gotrue(path: string, body: unknown): Promise<TokenResponse> {
   const res = await fetch(`${URL_}/auth/v1/${path}`, {
     method: 'POST',
-    headers: { apikey: KEY!, 'Content-Type': 'application/json' },
+    headers: { apikey: KEY!, Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!res.ok) {

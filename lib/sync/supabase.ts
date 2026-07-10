@@ -18,7 +18,7 @@
 // (supabase/schema.sql). Conflicts are last-write-wins per row.
 
 import { create } from 'zustand'
-import { createClient } from '@supabase/supabase-js'
+
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
@@ -26,8 +26,7 @@ import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = URL_ && KEY ? createClient(URL_, KEY) : null
-export const syncConfigured = Boolean(supabase)
+export const syncConfigured = Boolean(URL_ && KEY)
 
 export type SyncPhase = 'offline' | 'syncing' | 'synced' | 'error'
 
@@ -93,19 +92,22 @@ const upsert = (table: string, rows: unknown) =>
 // ── Pull / push ─────────────────────────────────────────────────────────────
 
 async function pull(ws: string) {
+  const qWs = `id=eq.${encodeURIComponent(ws)}`
+  const qPg = `workspace_id=eq.${encodeURIComponent(ws)}`
   const [wsRes, pgRes] = await Promise.all([
-    supabase!.from('simblip_workspaces').select('notebooks,updated_at').eq('id', ws),
-    supabase!.from('simblip_pages').select('id,content,viewport,updated_at').eq('workspace_id', ws),
+    rest(`simblip_workspaces?select=notebooks,updated_at&${qWs}`),
+    rest(`simblip_pages?select=id,content,viewport,updated_at&${qPg}`),
   ])
-  if (wsRes.error) throw new Error(wsRes.error.message)
-  if (pgRes.error) throw new Error(pgRes.error.message)
-  if (!wsRes.data || wsRes.data.length === 0) return null
-  const pages = pgRes.data ?? []
+  const wsData = await wsRes.json()
+  const pgData = await pgRes.json()
+  
+  if (!wsData || wsData.length === 0) return null
+  const pages = pgData ?? []
   const newest = Math.max(
-    Date.parse(wsRes.data[0].updated_at),
-    ...pages.map((r) => Date.parse(r.updated_at))
+    Date.parse(wsData[0].updated_at),
+    ...pages.map((r: any) => Date.parse(r.updated_at))
   )
-  return { notebooks: wsRes.data[0].notebooks, pages, newest }
+  return { notebooks: wsData[0].notebooks, pages, newest }
 }
 
 async function pushWorkspace(ws: string) {
@@ -130,20 +132,14 @@ async function pushPages(ws: string, pageIds: string[]) {
       updated_at: new Date().toISOString(),
     }))
   if (rows.length === 0) return
-  // Composite key: a page id can exist under many accounts; conflicts are
-  // resolved only within this user's workspace.
-  const { error } = await supabase!.from('simblip_pages').upsert(rows, { onConflict: 'workspace_id,id' })
-  if (error) throw new Error(error.message)
+  await upsert('simblip_pages', rows)
 }
 
 async function deletePages(ws: string, ids: string[]) {
   for (const id of ids) {
-    const { error } = await supabase!
-      .from('simblip_pages')
-      .delete()
-      .eq('id', id)
-      .eq('workspace_id', ws)
-    if (error) throw new Error(error.message)
+    const qId = `id=eq.${encodeURIComponent(id)}`
+    const qWs = `workspace_id=eq.${encodeURIComponent(ws)}`
+    await rest(`simblip_pages?${qId}&${qWs}`, { method: 'DELETE' })
   }
 }
 
@@ -254,15 +250,15 @@ export function startSync() {
     }
   }
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    const u = session?.user ?? null
+  useAuthStore.subscribe((s, prev) => {
+    const u = s.profile
     useSyncStore.setState({
       user: u
         ? {
             id: u.id,
             email: u.email ?? '',
-            name: (u.user_metadata?.full_name as string) ?? u.email ?? 'Account',
-            avatarUrl: (u.user_metadata?.avatar_url as string) ?? '',
+            name: u.full_name ?? u.email ?? 'Account',
+            avatarUrl: u.avatar_url ?? '',
           }
         : null,
     })

@@ -913,7 +913,7 @@ export function Inspector({ pageId }: { pageId: string }) {
       initial={{ x: 16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-2xl"
+      className="glass z-30 m-3 flex w-72 max-w-[calc(100vw-1.5rem)] min-h-0 flex-col rounded-2xl"
       aria-label="Inspector"
     >
       <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
