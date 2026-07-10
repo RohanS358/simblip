@@ -36,7 +36,7 @@ export async function createInstitution(input: {
   active?: boolean
 }): Promise<InstitutionRow> {
   requirePlatformAdmin()
-  if (db.dbMode === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
   const row: InstitutionRow = {
     id: db.newId(),
     name: input.name.trim(),
@@ -92,7 +92,7 @@ export async function createAccount(input: {
   active?: boolean
 }): Promise<ProfileRow> {
   requirePlatformAdmin()
-  if (db.dbMode === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
   const row: ProfileRow = {
     id: db.newId(),
     institution_id: input.institutionId,
@@ -113,7 +113,7 @@ export async function createRoom(input: {
   department?: string | null
 }): Promise<RoomRow> {
   requirePlatformAdmin()
-  if (db.dbMode === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
   const row: RoomRow = {
     id: db.newId(),
     institution_id: input.institutionId,
@@ -132,7 +132,7 @@ export async function createBoard(input: {
   password: string
 }): Promise<{ profile: ProfileRow; board: BoardRow }> {
   requirePlatformAdmin()
-  if (db.dbMode === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
   const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@demo.edu`
   const profile: ProfileRow = {
     id: db.newId(),

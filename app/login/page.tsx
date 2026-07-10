@@ -10,7 +10,6 @@ import Link from 'next/link'
 import { GraduationCap, Loader2, Lock, Mail, MonitorPlay, ShieldCheck, UserRound, Wrench } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth/store'
 import { homeFor } from '@/lib/auth/types'
-import { cloudConfigured } from '@/lib/data/db'
 import { DEMO_INSTITUTION } from '@/lib/auth/demo'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -121,27 +120,25 @@ export default function LoginPage() {
           </p>
         </form>
 
-        {!cloudConfigured && (
-          <div className="mt-6">
-            <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Demo tenant — {DEMO_INSTITUTION.name}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_CHIPS.map((chip) => (
-                <button
-                  key={chip.email}
-                  type="button"
-                  disabled={busy}
-                  className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-medium transition-colors hover:bg-accent"
-                  onClick={() => void signIn(chip.email, chip.password)}
-                >
-                  <chip.icon className="h-3.5 w-3.5 shrink-0 text-[var(--accent-blue)]" />
-                  {chip.label}
-                </button>
-              ))}
-            </div>
+        <div className="mt-6">
+          <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Demo tenant — {DEMO_INSTITUTION.name}
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {DEMO_CHIPS.map((chip) => (
+              <button
+                key={chip.email}
+                type="button"
+                disabled={busy}
+                className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-medium transition-colors hover:bg-accent"
+                onClick={() => void signIn(chip.email, chip.password)}
+              >
+                <chip.icon className="h-3.5 w-3.5 shrink-0 text-[var(--accent-blue)]" />
+                {chip.label}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
 
         <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground">
           Institutions license SIMBLIP directly — there is no public sign-up.{' '}

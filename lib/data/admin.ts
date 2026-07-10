@@ -41,7 +41,7 @@ export async function createPerson(input: {
   password: string
 }): Promise<ProfileRow> {
   const admin = requireAdmin()
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
+  if (db.getDbMode() === 'cloud') throw cloudProvisioningError()
   const existing = await db.list<ProfileRow>('profiles', { email: input.email.trim().toLowerCase() })
   if (existing.length > 0) throw new Error('An account with this email already exists.')
   const row: ProfileRow = {
@@ -62,7 +62,7 @@ export const setPersonActive = (id: string, active: boolean) =>
   db.update('profiles', id, { active })
 
 export async function resetPassword(id: string, password: string): Promise<void> {
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
+  if (db.getDbMode() === 'cloud') throw cloudProvisioningError()
   await db.update('profiles', id, { password })
 }
 
@@ -123,7 +123,7 @@ export const listBoards = () => db.list<BoardRow>('boards')
 
 export async function createBoard(roomId: string, roomName: string, password: string): Promise<{ board: BoardRow; email: string }> {
   const admin = requireAdmin()
-  if (db.dbMode === 'cloud') throw cloudProvisioningError()
+  if (db.getDbMode() === 'cloud') throw cloudProvisioningError()
   const existing = await db.list<BoardRow>('boards', { room_id: roomId })
   if (existing.length > 0) throw new Error('This room already has a board.')
   const slug = roomName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

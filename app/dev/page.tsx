@@ -14,7 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
-import { dbMode } from '@/lib/data/db'
+import { getDbMode } from '@/lib/data/db'
 import type { BoardRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from '@/lib/data/types'
 import {
   createAccount,
@@ -242,7 +242,7 @@ export default function DevPage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><Wrench className="h-4 w-4" /> Platform controls</CardTitle>
               <CardDescription>
-                Dev login: aalubhentakobhi / loonivaislobhi. Mode: {dbMode}.
+                Dev login: aalubhentakobhi / loonivaislobhi. Mode: {getDbMode()}.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-2">

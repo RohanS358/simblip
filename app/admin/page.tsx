@@ -42,7 +42,7 @@ import {
 } from '@/lib/data/admin'
 import { listAssets, setApproved, subscribeLibrary } from '@/lib/data/library'
 import { listMyAnnouncements, postAnnouncement } from '@/lib/data/announcements'
-import { dbMode } from '@/lib/data/db'
+import { getDbMode } from '@/lib/data/db'
 import type {
   AnnouncementRow,
   BoardRow,
@@ -91,7 +91,7 @@ function Overview({ people, rooms, boards, assets }: { people: ProfileRow[]; roo
       <div className="col-span-2 md:col-span-4">
         <div className="glass rounded-2xl p-4 text-[12.5px] leading-relaxed text-muted-foreground">
           <p className="font-semibold text-foreground">Provisioning</p>
-          {dbMode === 'local' ? (
+          {getDbMode() === 'local' ? (
             <p>
               Local demo tenant — accounts you create below work immediately on this device. In cloud
               mode, institutions and their auth users are provisioned by the SIMBLIP operator
@@ -179,7 +179,7 @@ function PeopleTab({ people, refresh }: { people: ProfileRow[]; refresh: () => v
             <Badge variant="secondary" className="text-[10.5px]">{ROLE_LABEL[p.role as Role]}</Badge>
             {p.department && <span className="text-[11px] text-muted-foreground">{p.department}</span>}
             <div className="flex-1" />
-            {dbMode === 'local' && p.role !== 'admin' && (
+            {getDbMode() === 'local' && p.role !== 'admin' && (
               <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => void doReset(p)}>
                 <KeyRound className="h-3 w-3" /> Reset password
               </Button>

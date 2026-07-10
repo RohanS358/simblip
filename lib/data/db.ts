@@ -19,7 +19,25 @@ const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 export const cloudConfigured = Boolean(URL_ && KEY)
-export const dbMode: 'cloud' | 'local' = cloudConfigured ? 'cloud' : 'local'
+export type DbMode = 'cloud' | 'local'
+
+const MODE_KEY = 'simblip-db-mode'
+
+export function setDbMode(mode: DbMode) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(MODE_KEY, mode)
+}
+
+export function clearDbMode() {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(MODE_KEY)
+}
+
+export function getDbMode(): DbMode {
+  if (!cloudConfigured) return 'local'
+  if (typeof window === 'undefined') return 'cloud'
+  return localStorage.getItem(MODE_KEY) === 'local' ? 'local' : 'cloud'
+}
 
 export interface Row {
   id: string
@@ -88,14 +106,14 @@ const matches = (row: Row, eq?: Eq) =>
 
 /** Seed a local table once (no-op if it already exists or in cloud mode). */
 export function seedTable(table: string, rows: Row[]) {
-  if (dbMode === 'cloud' || typeof window === 'undefined') return
+  if (getDbMode() === 'cloud' || typeof window === 'undefined') return
   if (localStorage.getItem(LS_PREFIX + table) === null) writeTable(table, rows)
 }
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
 export async function list<T extends Row>(table: string, eq?: Eq): Promise<T[]> {
-  if (dbMode === 'cloud') {
+  if (getDbMode() === 'cloud') {
     const q = eqQuery(eq)
     const res = await restFetch(`simblip_${table}?select=*${q ? `&${q}` : ''}`)
     return (await res.json()) as T[]
@@ -106,7 +124,7 @@ export async function list<T extends Row>(table: string, eq?: Eq): Promise<T[]> 
 export async function insert<T extends Row>(table: string, rows: T | T[]): Promise<void> {
   const batch = Array.isArray(rows) ? rows : [rows]
   if (batch.length === 0) return
-  if (dbMode === 'cloud') {
+  if (getDbMode() === 'cloud') {
     await restFetch(`simblip_${table}`, {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -119,7 +137,7 @@ export async function insert<T extends Row>(table: string, rows: T | T[]): Promi
 }
 
 export async function update(table: string, id: string, patch: Record<string, unknown>): Promise<void> {
-  if (dbMode === 'cloud') {
+  if (getDbMode() === 'cloud') {
     await restFetch(`simblip_${table}?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: { Prefer: 'return=minimal' },
@@ -134,7 +152,7 @@ export async function update(table: string, id: string, patch: Record<string, un
 }
 
 export async function removeWhere(table: string, eq: Eq): Promise<void> {
-  if (dbMode === 'cloud') {
+  if (getDbMode() === 'cloud') {
     await restFetch(`simblip_${table}?${eqQuery(eq)}`, { method: 'DELETE' })
     return
   }
@@ -176,7 +194,7 @@ export function subscribe(table: string, fn: Listener): () => void {
     listeners.set(table, set)
   }
   set.add(fn)
-  if (dbMode === 'cloud' && !pollers.has(table)) {
+  if (getDbMode() === 'cloud' && !pollers.has(table)) {
     pollers.set(table, setInterval(() => emitLocal(table), POLL_MS))
   }
   return () => {

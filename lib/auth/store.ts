@@ -99,7 +99,7 @@ const adoptTokens = (t: TokenResponse): StoredSession => ({
 })
 
 async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | null> {
-  if (!db.cloudConfigured) return session
+  if (!db.cloudConfigured || db.getDbMode() === 'local') return session
   if (session.expiresAt && session.expiresAt - Date.now() / 1000 > 60) return session
   if (!session.refreshToken) return null
   try {
@@ -114,7 +114,7 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
 // ── Demo seeding ────────────────────────────────────────────────────────────
 
 async function mergeDemoTable(table: string, rows: Record<string, unknown>[]) {
-  if (db.dbMode !== 'local' || typeof window === 'undefined') return
+  if (db.getDbMode() !== 'local' || typeof window === 'undefined') return
   const existing = await db.list<Record<string, unknown>>(table)
   const byId = new Map(existing.map((row) => [String(row.id), row]))
   for (const row of rows) byId.set(String(row.id), { ...(byId.get(String(row.id)) ?? {}), ...row })
@@ -142,6 +142,12 @@ export async function seedDemoTenant() {
     pairing_rotated_at: new Date().toISOString(),
   })))
 }
+
+const isDemoLogin = (email: string, password: string) =>
+  DEMO_ACCOUNTS.some((account) =>
+    (account.email === email.trim().toLowerCase() || account.username === email.trim().toLowerCase()) &&
+    account.password === password
+  )
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
@@ -173,7 +179,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     if (typeof window === 'undefined') return
-    if (!db.cloudConfigured) await seedDemoTenant()
+    if (!db.cloudConfigured || db.getDbMode() === 'local') await seedDemoTenant()
     let session = loadSession()
     if (session) session = await refreshIfNeeded(session)
     if (!session) {
@@ -199,9 +205,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     set({ error: null })
     try {
       let session: StoredSession
-      if (db.cloudConfigured) {
+      if (isDemoLogin(email, password)) {
+        db.setDbMode('local')
+        await seedDemoTenant()
+        const lookup = email.trim().toLowerCase()
+        const rows = await db.list<ProfileRow>('profiles')
+        const account = rows.find(
+          (row) => row.email === lookup || String(row.username ?? '').toLowerCase() === lookup
+        )
+        if (!account || account.password !== password) throw new Error('Invalid email or password.')
+        if (!account.active) throw new Error('This account has been deactivated.')
+        session = { userId: account.id }
+      } else if (db.cloudConfigured) {
+        db.setDbMode('cloud')
         session = adoptTokens(await gotrue('token?grant_type=password', { email, password }))
       } else {
+        db.setDbMode('local')
         await seedDemoTenant()
         const lookup = email.trim().toLowerCase()
         const rows = await db.list<ProfileRow>('profiles')
@@ -233,6 +252,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }).catch(() => {})
     }
     saveSession(null)
+    db.clearDbMode()
     localStorage.removeItem(ACTIVE_USER_KEY)
     set({ status: 'anon', profile: null, institution: null, myRoomIds: [] })
     window.location.href = '/login'
