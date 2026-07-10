@@ -17,7 +17,7 @@
 import { create } from 'zustand'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { uid } from '@/lib/scene/types'
+import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -42,19 +42,14 @@ const setPhase = (phase: SyncPhase, lastError: string | null = null) =>
   useSyncStore.setState({ phase, lastError, ...(phase === 'synced' ? { lastSyncedAt: Date.now() } : {}) })
 
 // ── Identity ────────────────────────────────────────────────────────────────
-// No auth yet: a stable per-user workspace id minted on first run. Signing
-// in later just means replacing this with the Supabase auth user id.
+// Authentication is mandatory: the workspace id IS the signed-in profile id,
+// and the RLS policies only let a user touch their own workspace row.
 
-const WS_KEY = 'simblip-sync-workspace'
-const SEEN_KEY = 'simblip-sync-seen' // newest remote updated_at we've applied/produced
+/** newest remote updated_at we've applied/produced, per user */
+const seenKey = (ws: string) => `simblip-sync-seen:${ws}`
 
-export function workspaceId(): string {
-  let id = localStorage.getItem(WS_KEY)
-  if (!id) {
-    id = uid()
-    localStorage.setItem(WS_KEY, id)
-  }
-  return id
+export function workspaceId(): string | null {
+  return useAuthStore.getState().profile?.id ?? null
 }
 
 // ── REST helpers ────────────────────────────────────────────────────────────
@@ -64,7 +59,8 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
     ...init,
     headers: {
       apikey: KEY!,
-      Authorization: `Bearer ${KEY}`,
+      // The user's JWT, so RLS scopes every row to the signed-in profile.
+      Authorization: `Bearer ${getAccessToken() ?? KEY}`,
       'Content-Type': 'application/json',
       ...init.headers,
     },
@@ -104,16 +100,21 @@ async function pull(ws: string) {
 
 async function pushWorkspace(ws: string) {
   const { notebooks } = useWorkspaceStore.getState()
-  await upsert('simblip_workspaces', [{ id: ws, notebooks, updated_at: new Date().toISOString() }])
+  const institution = useAuthStore.getState().profile?.institution_id
+  await upsert('simblip_workspaces', [
+    { id: ws, institution_id: institution, notebooks, updated_at: new Date().toISOString() },
+  ])
 }
 
 async function pushPages(ws: string, pageIds: string[]) {
   const { pages, viewports } = useDocStore.getState()
+  const institution = useAuthStore.getState().profile?.institution_id
   const rows = pageIds
     .filter((id) => pages[id])
     .map((id) => ({
       id,
       workspace_id: ws,
+      institution_id: institution,
       content: pages[id],
       viewport: viewports[id] ?? null,
       updated_at: new Date().toISOString(),
@@ -132,8 +133,9 @@ let started = false
 
 export function startSync() {
   if (started || !syncConfigured || typeof window === 'undefined') return
-  started = true
   const ws = workspaceId()
+  if (!ws) return // not signed in yet; the shell retries after auth
+  started = true
 
   const dirtyPages = new Set<string>()
   const deletedPages = new Set<string>()
@@ -160,7 +162,7 @@ export function startSync() {
       if (wsBatch || pageBatch.length > 0) await pushWorkspace(ws)
       await pushPages(ws, pageBatch)
       if (delBatch.length > 0) await deletePages(ws, delBatch)
-      localStorage.setItem(SEEN_KEY, String(Date.now()))
+      localStorage.setItem(seenKey(ws), String(Date.now()))
       setPhase('synced')
     } catch (err) {
       // Re-queue so nothing is lost; next change retries.
@@ -204,7 +206,7 @@ export function startSync() {
     setPhase('syncing')
     try {
       const remote = await pull(ws)
-      const seen = Number(localStorage.getItem(SEEN_KEY) ?? 0)
+      const seen = Number(localStorage.getItem(seenKey(ws)) ?? 0)
       if (remote && remote.newest > seen) {
         useWorkspaceStore.setState({ notebooks: remote.notebooks as never })
         useDocStore.setState((s) => {
@@ -216,7 +218,7 @@ export function startSync() {
           }
           return { pages, viewports }
         })
-        localStorage.setItem(SEEN_KEY, String(remote.newest))
+        localStorage.setItem(seenKey(ws), String(remote.newest))
       } else {
         // First device, or we're already ahead: publish everything local.
         workspaceDirty = true

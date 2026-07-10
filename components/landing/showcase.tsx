@@ -184,10 +184,10 @@ export function Landing() {
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
         <Link
-          href="/notebook"
+          href="/login"
           className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
         >
-          Open Notebook
+          Sign in
         </Link>
       </header>
 
@@ -202,10 +202,10 @@ export function Landing() {
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
-            href="/notebook"
+            href="/login"
             className="rounded-full bg-[var(--accent-blue)] px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
-            Start simulating — it&apos;s free
+            Sign in to your institution
           </Link>
           <a
             href="#demos"
@@ -248,10 +248,38 @@ export function Landing() {
         </div>
       </section>
 
+      <section id="pricing" className="border-t border-border/60 px-6 py-16 text-center">
+        <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight">
+          Built for <span className="text-[var(--accent-blue)]">institutions</span>, not accounts
+        </h2>
+        <p className="mx-auto mt-3 max-w-xl text-pretty text-[14px] leading-relaxed text-muted-foreground">
+          SIMBLIP is licensed to universities, colleges and schools as a complete engineering
+          education platform — role-based workspaces for admins, teachers and students, QR-paired
+          classroom boards, an institution library, and a live assignment workflow. There is no
+          public sign-up: your institution is provisioned for you, branded as yours.
+        </p>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <a
+            href="mailto:licensing@simblip.app?subject=SIMBLIP%20institution%20licensing"
+            className="rounded-full bg-[var(--accent-blue)] px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+          >
+            Contact us for licensing
+          </a>
+          <Link
+            href="/login"
+            className="rounded-full border border-border px-6 py-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Already licensed? Sign in
+          </Link>
+        </div>
+      </section>
+
       <footer className="flex items-center justify-between px-6 py-8 text-[12px] text-muted-foreground">
-        <span>© {new Date().getFullYear()} SIMBLIP</span>
-        <Link href="/notebook" className="hover:text-foreground">
-          Open Notebook →
+        <span>
+          © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
+        </span>
+        <Link href="/login" className="hover:text-foreground">
+          Sign in →
         </Link>
       </footer>
     </div>

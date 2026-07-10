@@ -82,9 +82,12 @@ function ToolButton({
 export function Toolbar({
   paletteOpen,
   onTogglePalette,
+  showAi = true,
 }: {
   paletteOpen: boolean
   onTogglePalette: () => void
+  /** Students learn by building — the AI shortcut is staff-only. */
+  showAi?: boolean
 }) {
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
@@ -139,9 +142,11 @@ export function Toolbar({
         <Shapes className="h-4 w-4" />
       </ToolButton>
 
-      <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>
-        <Sparkles className="h-4 w-4" />
-      </ToolButton>
+      {showAi && (
+        <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>
+          <Sparkles className="h-4 w-4" />
+        </ToolButton>
+      )}
     </motion.div>
   )
 }

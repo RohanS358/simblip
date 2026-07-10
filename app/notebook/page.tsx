@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { WorkspaceShell } from '@/components/workspace/shell'
+import { RequireAuth } from '@/components/auth/require-auth'
 
 export const metadata: Metadata = {
   title: 'Notebook',
@@ -9,5 +10,9 @@ export const metadata: Metadata = {
 }
 
 export default function NotebookPage() {
-  return <WorkspaceShell />
+  return (
+    <RequireAuth allow={['admin', 'teacher', 'student', 'super_admin']}>
+      <WorkspaceShell />
+    </RequireAuth>
+  )
 }
