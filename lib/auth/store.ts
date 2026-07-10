@@ -113,22 +113,30 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
 
 // ── Demo seeding ────────────────────────────────────────────────────────────
 
-export function seedDemoTenant() {
-  db.seedTable('institutions', [DEMO_INSTITUTION].map((i) => ({
+async function mergeDemoTable(table: string, rows: Record<string, unknown>[]) {
+  if (db.dbMode !== 'local' || typeof window === 'undefined') return
+  const existing = await db.list<Record<string, unknown>>(table)
+  const byId = new Map(existing.map((row) => [String(row.id), row]))
+  for (const row of rows) byId.set(String(row.id), { ...(byId.get(String(row.id)) ?? {}), ...row })
+  await db.insert(table, [...byId.values()])
+}
+
+export async function seedDemoTenant() {
+  await mergeDemoTable('institutions', [DEMO_INSTITUTION].map((i) => ({
     id: i.id, name: i.name, slug: i.slug, logo_url: i.logoUrl ?? null,
     accent_color: i.accentColor ?? null, active: true,
   })))
-  db.seedTable('profiles', DEMO_ACCOUNTS.map((a) => ({
+  await mergeDemoTable('profiles', DEMO_ACCOUNTS.map((a) => ({
     id: a.id, institution_id: a.institutionId, role: a.role, full_name: a.fullName,
     email: a.email, username: a.username ?? null, department: a.department ?? null, active: a.active, password: a.password,
   })))
-  db.seedTable('rooms', DEMO_ROOMS.map((r) => ({
+  await mergeDemoTable('rooms', DEMO_ROOMS.map((r) => ({
     id: r.id, institution_id: r.institutionId, name: r.name, department: r.department ?? null,
   })))
-  db.seedTable('room_members', DEMO_MEMBERS.map((m) => ({
+  await mergeDemoTable('room_members', DEMO_MEMBERS.map((m) => ({
     id: `${m.roomId}:${m.profileId}`, room_id: m.roomId, profile_id: m.profileId, member_role: m.memberRole,
   })))
-  db.seedTable('boards', DEMO_BOARDS.map((b) => ({
+  await mergeDemoTable('boards', DEMO_BOARDS.map((b) => ({
     id: b.id, institution_id: b.institutionId, room_id: b.roomId, profile_id: b.profileId,
     pairing_code: Math.random().toString(36).slice(2, 8).toUpperCase(),
     pairing_rotated_at: new Date().toISOString(),
@@ -165,7 +173,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     if (typeof window === 'undefined') return
-    if (!db.cloudConfigured) seedDemoTenant()
+    if (!db.cloudConfigured) await seedDemoTenant()
     let session = loadSession()
     if (session) session = await refreshIfNeeded(session)
     if (!session) {
@@ -194,7 +202,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (db.cloudConfigured) {
         session = adoptTokens(await gotrue('token?grant_type=password', { email, password }))
       } else {
-        seedDemoTenant()
+        await seedDemoTenant()
         const lookup = email.trim().toLowerCase()
         const rows = await db.list<ProfileRow>('profiles')
         const account = rows.find(
