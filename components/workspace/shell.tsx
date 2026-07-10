@@ -13,6 +13,7 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can, ROLE_LABEL } from '@/lib/auth/types'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useShareInbox } from '@/hooks/use-share-inbox'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
@@ -93,6 +94,7 @@ export function WorkspaceShell() {
   const [commandOpen, setCommandOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
+  const isMobile = useIsMobile()
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
