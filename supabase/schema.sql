@@ -68,6 +68,17 @@ create table if not exists public.simblip_room_members (
   primary key (room_id, profile_id)
 );
 
+-- A student belongs to exactly ONE room (teachers are independent and may
+-- appear in several). Clean up any historical multi-room students first,
+-- then enforce it.
+delete from public.simblip_room_members a
+using public.simblip_room_members b
+where a.member_role = 'student' and b.member_role = 'student'
+  and a.profile_id = b.profile_id and a.ctid < b.ctid;
+
+create unique index if not exists simblip_one_room_per_student
+  on public.simblip_room_members (profile_id) where member_role = 'student';
+
 -- One virtual board per room. The board signs in with its own credentials
 -- (a `board`-role profile) and shows a rotating pairing code as a QR.
 

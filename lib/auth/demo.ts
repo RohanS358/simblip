@@ -94,11 +94,10 @@ export const DEMO_ROOMS: Room[] = [
   { id: 'room-204', institutionId: 'inst-demo', name: 'Room 204', department: 'Electronics' },
 ]
 
+// One room per student; teachers are independent (no enrollment needed —
+// they assign and present to any room in the institution).
 export const DEMO_MEMBERS: RoomMember[] = [
-  { roomId: 'room-201', profileId: 'user-teacher', memberRole: 'teacher' },
   { roomId: 'room-201', profileId: 'user-student', memberRole: 'student' },
-  { roomId: 'room-201', profileId: 'user-student-2', memberRole: 'student' },
-  { roomId: 'room-204', profileId: 'user-teacher', memberRole: 'teacher' },
   { roomId: 'room-204', profileId: 'user-student-2', memberRole: 'student' },
 ]
 

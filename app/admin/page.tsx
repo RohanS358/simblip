@@ -20,6 +20,7 @@ import {
   Trash2,
   UserRound,
   Users,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { RequireAuth } from '@/components/auth/require-auth'
@@ -60,7 +61,6 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -133,7 +133,7 @@ function PeopleTab({
   const [role, setRole] = useState<'teacher' | 'student'>('student')
   const [department, setDepartment] = useState('')
   const [password, setPassword] = useState('')
-  const [roomIds, setRoomIds] = useState<Set<string>>(new Set())
+  const [roomId, setRoomId] = useState<string>('')
   const [busy, setBusy] = useState(false)
 
   const roomsOf = (profileId: string) =>
@@ -147,15 +147,16 @@ function PeopleTab({
     setBusy(true)
     try {
       const person = await createPerson({ fullName: name.trim(), email: email.trim(), role, department: department.trim() || undefined, password })
-      // Enroll into the selected rooms right away — no second trip to the
-      // Rooms tab, and room-targeted assignments reach them immediately.
-      for (const roomId of roomIds) {
-        await setMembership(roomId, person.id, role, true)
+      // Students get their room right away — no second trip to the Rooms
+      // tab, and room-targeted assignments reach them immediately.
+      const roomName = rooms.find((r) => r.id === roomId)?.name
+      if (role === 'student' && roomId) {
+        await setMembership(roomId, person.id, 'student', true)
       }
       toast.success(
-        `${ROLE_LABEL[role]} account created for ${name.trim()}${roomIds.size > 0 ? ` · enrolled in ${roomIds.size} room${roomIds.size === 1 ? '' : 's'}` : ''}`
+        `${ROLE_LABEL[role]} account created for ${name.trim()}${role === 'student' && roomName ? ` · ${roomName}` : ''}`
       )
-      setName(''); setEmail(''); setDepartment(''); setPassword(''); setRoomIds(new Set())
+      setName(''); setEmail(''); setDepartment(''); setPassword(''); setRoomId('')
       refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not create the account')
@@ -192,29 +193,29 @@ function PeopleTab({
           <Input placeholder="Department (optional)" value={department} onChange={(e) => setDepartment(e.target.value)} />
           <Input placeholder="Initial password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
         </div>
-        {rooms.length > 0 && (
-          <div className="mt-3">
-            <p className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Enroll in rooms</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-              {rooms.map((r) => (
-                <label key={r.id} className="flex cursor-pointer items-center gap-1.5 text-[12.5px]">
-                  <Checkbox
-                    checked={roomIds.has(r.id)}
-                    onCheckedChange={(v) =>
-                      setRoomIds((prev) => {
-                        const next = new Set(prev)
-                        if (v) next.add(r.id)
-                        else next.delete(r.id)
-                        return next
-                      })
-                    }
-                  />
-                  {r.name}
-                </label>
-              ))}
+        <div className="mt-3">
+          {role === 'student' ? (
+            <div className="max-w-56 space-y-1.5">
+              <p className="text-[11.5px] font-medium text-muted-foreground">Room</p>
+              <Select value={roomId} onValueChange={setRoomId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Assign a room…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-[11.5px] text-muted-foreground">
+              Teachers are independent — they can assign, share and present to any room.
+            </p>
+          )}
+        </div>
         <Button className="mt-3" onClick={() => void add()} disabled={busy || !name.trim() || !email.trim() || !password}>
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4" /> Create account</>}
         </Button>
@@ -317,7 +318,25 @@ function RoomsTab({
     }
   }
 
-  const enrollable = people.filter((p) => (p.role === 'teacher' || p.role === 'student') && p.active)
+  // Rooms hold STUDENTS (exactly one room each). Teachers are independent
+  // and never appear here — they can assign and present to any room.
+  const students = people.filter((p) => p.role === 'student' && p.active)
+  const roomOf = (profileId: string) =>
+    rooms.find((r) => r.id === members.find((m) => m.profile_id === profileId)?.room_id)
+  const [pick, setPick] = useState<Record<string, string>>({})
+
+  const enrollStudent = async (room: RoomRow, studentId: string) => {
+    const student = students.find((s) => s.id === studentId)
+    const from = roomOf(studentId)
+    await setMembership(room.id, studentId, 'student', true)
+    setPick((s) => ({ ...s, [room.id]: '' }))
+    toast.success(
+      from && from.id !== room.id
+        ? `${student?.full_name} moved from ${from.name} to ${room.name}`
+        : `${student?.full_name} enrolled in ${room.name}`
+    )
+    refresh()
+  }
 
   return (
     <div className="space-y-4 pt-4">
@@ -389,22 +408,59 @@ function RoomsTab({
                 </div>
               )}
             </div>
-            <div className="mt-3 grid gap-1 border-t border-border/50 pt-3 sm:grid-cols-2">
-              {enrollable.map((p) => {
-                const m = roomMembers.find((x) => x.profile_id === p.id)
-                return (
-                  <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] hover:bg-accent/40">
-                    <Checkbox
-                      checked={Boolean(m)}
-                      onCheckedChange={(v) =>
-                        void setMembership(room.id, p.id, p.role === 'teacher' ? 'teacher' : 'student', Boolean(v)).then(refresh)
-                      }
-                    />
-                    <span className="flex-1 truncate">{p.full_name}</span>
-                    <span className="text-[10.5px] uppercase text-muted-foreground">{p.role}</span>
-                  </label>
-                )
-              })}
+            <div className="mt-3 border-t border-border/50 pt-3">
+              <div className="flex flex-wrap items-center gap-1.5">
+                {roomMembers
+                  .filter((m) => m.member_role === 'student')
+                  .map((m) => {
+                    const student = people.find((p) => p.id === m.profile_id)
+                    if (!student) return null
+                    return (
+                      <span
+                        key={m.profile_id}
+                        className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[12px] font-medium"
+                      >
+                        {student.full_name}
+                        <button
+                          type="button"
+                          aria-label={`Remove ${student.full_name} from ${room.name}`}
+                          className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+                          onClick={() =>
+                            void setMembership(room.id, student.id, 'student', false).then(refresh)
+                          }
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    )
+                  })}
+                {roomMembers.filter((m) => m.member_role === 'student').length === 0 && (
+                  <span className="text-[12px] text-muted-foreground">No students enrolled yet.</span>
+                )}
+                <div className="ml-auto">
+                  <Select
+                    value={pick[room.id] ?? ''}
+                    onValueChange={(v) => void enrollStudent(room, v)}
+                  >
+                    <SelectTrigger className="h-7 w-52 text-[12px]">
+                      <SelectValue placeholder="Add student…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {students
+                        .filter((s) => !roomMembers.some((m) => m.profile_id === s.id))
+                        .map((s) => {
+                          const from = roomOf(s.id)
+                          return (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.full_name}
+                              {from ? ` — moves from ${from.name}` : ''}
+                            </SelectItem>
+                          )
+                        })}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
         )

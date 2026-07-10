@@ -142,10 +142,15 @@ export async function setMembership(
   enrolled: boolean
 ): Promise<void> {
   requireAdmin()
-  const id = `${roomId}:${profileId}`
   if (enrolled) {
+    // A student belongs to exactly ONE room: enrolling is a move, so any
+    // previous membership is dropped first. (Teachers are independent —
+    // they assign and present to any room without enrollment.)
+    if (memberRole === 'student') {
+      await db.removeWhere('room_members', { profile_id: profileId })
+    }
     await db.insert<RoomMemberRow>('room_members', {
-      id,
+      id: `${roomId}:${profileId}`,
       room_id: roomId,
       profile_id: profileId,
       member_role: memberRole,
