@@ -189,8 +189,6 @@ export function Toolbar({
         )
       )}
 
-      </div>
-
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 
       <ToolButton
@@ -227,6 +225,7 @@ export function Toolbar({
           <Sparkles className="h-4 w-4" />
         </ToolButton>
       )}
+      </div>
     </motion.div>
   )
 }

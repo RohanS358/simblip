@@ -118,10 +118,18 @@ export function seedDemoTenant() {
     id: i.id, name: i.name, slug: i.slug, logo_url: i.logoUrl ?? null,
     accent_color: i.accentColor ?? null, active: true,
   })))
-  db.seedTable('profiles', DEMO_ACCOUNTS.map((a) => ({
+  const accountRows = DEMO_ACCOUNTS.map((a) => ({
     id: a.id, institution_id: a.institutionId, role: a.role, full_name: a.fullName,
     email: a.email, department: a.department ?? null, active: a.active, password: a.password,
-  })))
+  }))
+  db.seedTable('profiles', accountRows)
+  // Backfill seeded accounts added in newer versions (e.g. the operator)
+  // into browsers whose demo db predates them — never clobber edits.
+  void db.list<ProfileRow>('profiles').then((existing) => {
+    const known = new Set(existing.map((p) => p.id))
+    const missing = accountRows.filter((a) => !known.has(a.id))
+    if (missing.length > 0) void db.insert('profiles', missing)
+  })
   db.seedTable('rooms', DEMO_ROOMS.map((r) => ({
     id: r.id, institution_id: r.institutionId, name: r.name, department: r.department ?? null,
   })))
@@ -195,8 +203,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session = adoptTokens(await gotrue('token?grant_type=password', { email, password }))
       } else {
         seedDemoTenant()
-        const rows = await db.list<ProfileRow>('profiles', { email: email.trim().toLowerCase() })
-        const account = rows[0]
+        const needle = email.trim().toLowerCase()
+        const rows = await db.list<ProfileRow>('profiles')
+        // Demo nicety: a bare username matches its email's local part.
+        const account = rows.find(
+          (p) => p.email === needle || (!needle.includes('@') && p.email.split('@')[0] === needle)
+        )
         if (!account || account.password !== password) throw new Error('Invalid email or password.')
         if (!account.active) throw new Error('This account has been deactivated.')
         session = { userId: account.id }

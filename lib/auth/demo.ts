@@ -20,6 +20,17 @@ export interface DemoAccount extends Profile {
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
   {
+    // Platform operator — the /dev console. Not part of any real tenant's
+    // staff; in demo mode it lives under the demo institution for simplicity.
+    id: 'user-operator',
+    institutionId: 'inst-demo',
+    role: 'super_admin',
+    fullName: 'SIMBLIP Operator',
+    email: 'aalubhentakobhi@simblip.dev',
+    password: 'loonivaislobhi',
+    active: true,
+  },
+  {
     id: 'user-admin',
     institutionId: 'inst-demo',
     role: 'admin',

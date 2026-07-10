@@ -1,11 +1,11 @@
 'use client'
 
-// Cloud sync + auth: Supabase with Google sign-in.
+// Notebook cloud sync: Supabase PostgREST over fetch (zero client deps).
 //
 // Offline-first. Without NEXT_PUBLIC_SUPABASE_URL/ANON_KEY the module is
-// dormant and SIMBLIP persists to localStorage only (offline mode). With
-// credentials, the model is per-USER: sign in with Google and your
-// notebooks live under your account — sign in anywhere to get them back.
+// dormant and SIMBLIP persists to localStorage only (local demo mode). With
+// credentials, the model is per-USER and driven by the platform auth store
+// (lib/auth/store.ts — GoTrue password sessions, not supabase-js):
 //
 //   sign-in → pull that user's workspace; if the cloud copy is newer than
 //             anything this browser has synced for that user, adopt it;
@@ -18,7 +18,6 @@
 // (supabase/schema.sql). Conflicts are last-write-wins per row.
 
 import { create } from 'zustand'
-import { createClient } from '@supabase/supabase-js'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
@@ -26,38 +25,27 @@ import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = URL_ && KEY ? createClient(URL_, KEY) : null
-export const syncConfigured = Boolean(supabase)
+export const syncConfigured = Boolean(URL_ && KEY)
 
 export type SyncPhase = 'offline' | 'syncing' | 'synced' | 'error'
-
-export interface SyncUser {
-  id: string
-  email: string
-  name: string
-  avatarUrl: string
-}
 
 interface SyncState {
   phase: SyncPhase
   lastError: string | null
   lastSyncedAt: number | null
-  user: SyncUser | null
 }
 
 export const useSyncStore = create<SyncState>(() => ({
   phase: 'offline',
   lastError: null,
   lastSyncedAt: null,
-  user: null,
 }))
 
 const setPhase = (phase: SyncPhase, lastError: string | null = null) =>
   useSyncStore.setState({ phase, lastError, ...(phase === 'synced' ? { lastSyncedAt: Date.now() } : {}) })
 
 // ── Identity ────────────────────────────────────────────────────────────────
-// Authentication is mandatory: the workspace id IS the signed-in profile id,
-// and the RLS policies only let a user touch their own workspace row.
+// Authentication is mandatory: the workspace id IS the signed-in profile id.
 
 /** newest remote updated_at we've applied/produced, per user */
 const seenKey = (ws: string) => `simblip-sync-seen:${ws}`
@@ -94,18 +82,22 @@ const upsert = (table: string, rows: unknown) =>
 
 async function pull(ws: string) {
   const [wsRes, pgRes] = await Promise.all([
-    supabase!.from('simblip_workspaces').select('notebooks,updated_at').eq('id', ws),
-    supabase!.from('simblip_pages').select('id,content,viewport,updated_at').eq('workspace_id', ws),
+    rest(`simblip_workspaces?id=eq.${ws}&select=notebooks,updated_at`),
+    rest(`simblip_pages?workspace_id=eq.${ws}&select=id,content,viewport,updated_at`),
   ])
-  if (wsRes.error) throw new Error(wsRes.error.message)
-  if (pgRes.error) throw new Error(pgRes.error.message)
-  if (!wsRes.data || wsRes.data.length === 0) return null
-  const pages = pgRes.data ?? []
+  const wsRows = (await wsRes.json()) as { notebooks: unknown; updated_at: string }[]
+  const pgRows = (await pgRes.json()) as {
+    id: string
+    content: unknown
+    viewport: unknown
+    updated_at: string
+  }[]
+  if (wsRows.length === 0) return null
   const newest = Math.max(
-    Date.parse(wsRes.data[0].updated_at),
-    ...pages.map((r) => Date.parse(r.updated_at))
+    Date.parse(wsRows[0].updated_at),
+    ...pgRows.map((r) => Date.parse(r.updated_at))
   )
-  return { notebooks: wsRes.data[0].notebooks, pages, newest }
+  return { notebooks: wsRows[0].notebooks, pages: pgRows, newest }
 }
 
 async function pushWorkspace(ws: string) {
@@ -129,23 +121,13 @@ async function pushPages(ws: string, pageIds: string[]) {
       viewport: viewports[id] ?? null,
       updated_at: new Date().toISOString(),
     }))
-  if (rows.length === 0) return
-  // Composite key: a page id can exist under many accounts; conflicts are
-  // resolved only within this user's workspace.
-  const { error } = await supabase!.from('simblip_pages').upsert(rows, { onConflict: 'workspace_id,id' })
-  if (error) throw new Error(error.message)
+  if (rows.length > 0) await upsert('simblip_pages', rows)
 }
 
-async function deletePages(ws: string, ids: string[]) {
-  for (const id of ids) {
-    const { error } = await supabase!
-      .from('simblip_pages')
-      .delete()
-      .eq('id', id)
-      .eq('workspace_id', ws)
-    if (error) throw new Error(error.message)
-  }
-}
+const deletePages = (ws: string, ids: string[]) =>
+  Promise.all(
+    ids.map((id) => rest(`simblip_pages?id=eq.${id}&workspace_id=eq.${ws}`, { method: 'DELETE' }))
+  )
 
 // ── Engine ──────────────────────────────────────────────────────────────────
 
@@ -154,8 +136,6 @@ let activeUser: string | null = null
 
 export function startSync() {
   if (started || !syncConfigured || typeof window === 'undefined') return
-  const ws = workspaceId()
-  if (!ws) return // not signed in yet; the shell retries after auth
   started = true
 
   const dirtyPages = new Set<string>()
@@ -169,7 +149,7 @@ export function startSync() {
     const ws = activeUser
     if (!ws) return // signed out: keep the dirty sets for the next sign-in
     if (flushing) {
-      schedule()
+      schedule() // a push is in flight; run again after
       return
     }
     flushing = true
@@ -188,6 +168,7 @@ export function startSync() {
       localStorage.setItem(seenKey(ws), String(Date.now()))
       setPhase('synced')
     } catch (err) {
+      // Re-queue so nothing is lost; next change retries.
       pageBatch.forEach((id) => dirtyPages.add(id))
       delBatch.forEach((id) => deletedPages.add(id))
       workspaceDirty ||= wsBatch
@@ -242,6 +223,7 @@ export function startSync() {
           return { pages, viewports }
         })
         localStorage.setItem(seenKey(ws), String(remote.newest))
+        setPhase('synced')
       } else {
         // First device for this account, or we're ahead: publish everything.
         workspaceDirty = true
@@ -254,24 +236,19 @@ export function startSync() {
     }
   }
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    const u = session?.user ?? null
-    useSyncStore.setState({
-      user: u
-        ? {
-            id: u.id,
-            email: u.email ?? '',
-            name: (u.user_metadata?.full_name as string) ?? u.email ?? 'Account',
-            avatarUrl: (u.user_metadata?.avatar_url as string) ?? '',
-          }
-        : null,
-    })
-    if (u && u.id !== activeUser) {
-      activeUser = u.id
-      void reconcile(u.id)
-    } else if (!u) {
+  // The platform auth store is the single source of identity — boards don't
+  // sync notebooks (their pages are temporary presentation copies).
+  const follow = () => {
+    const profile = useAuthStore.getState().profile
+    const ws = profile && profile.role !== 'board' ? profile.id : null
+    if (ws && ws !== activeUser) {
+      activeUser = ws
+      void reconcile(ws)
+    } else if (!ws && activeUser) {
       activeUser = null
       setPhase('offline')
     }
-  })
+  }
+  follow()
+  useAuthStore.subscribe(follow)
 }

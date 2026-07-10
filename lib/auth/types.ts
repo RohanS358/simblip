@@ -80,7 +80,13 @@ export const can = (role: Role | null | undefined, p: Permission): boolean =>
 
 /** Where each role lands after signing in. */
 export const homeFor = (role: Role): string =>
-  role === 'board' ? '/board' : role === 'admin' || role === 'super_admin' ? '/admin' : '/notebook'
+  role === 'board'
+    ? '/board'
+    : role === 'super_admin'
+      ? '/dev'
+      : role === 'admin'
+        ? '/admin'
+        : '/notebook'
 
 export const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Platform Admin',

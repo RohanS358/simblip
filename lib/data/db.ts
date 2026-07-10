@@ -20,6 +20,7 @@ const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 export const cloudConfigured = Boolean(URL_ && KEY)
 export const dbMode: 'cloud' | 'local' = cloudConfigured ? 'cloud' : 'local'
+export const getDbMode = (): 'cloud' | 'local' => dbMode
 
 export interface Row {
   id: string

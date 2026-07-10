@@ -77,8 +77,9 @@ export default function LoginPage() {
               <Mail className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                inputMode="email"
+                autoComplete="username"
                 required
                 className="pl-8"
                 placeholder="you@institution.edu"

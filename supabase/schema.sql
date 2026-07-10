@@ -105,6 +105,21 @@ create index if not exists simblip_board_sessions_board_idx
 -- ── Notebooks (per-user workspaces) ─────────────────────────────────────────
 -- The offline-first stores sync here. One workspace row per profile.
 
+-- v1 → v2 migration: v1 was anonymous — text workspace ids minted per
+-- browser (base36, NOT castable to uuid) with permissive policies. Those
+-- rows cannot be attributed to any auth user, so if the legacy shape is
+-- detected the tables are dropped and recreated with uuid owners.
+do $$ begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'simblip_workspaces'
+      and column_name = 'id' and data_type = 'text'
+  ) then
+    drop table if exists public.simblip_pages;
+    drop table if exists public.simblip_workspaces;
+  end if;
+end $$;
+
 create table if not exists public.simblip_workspaces (
   id             uuid primary key references public.simblip_profiles (id) on delete cascade,
   institution_id uuid not null references public.simblip_institutions (id) on delete cascade,
@@ -123,12 +138,6 @@ create table if not exists public.simblip_pages (
 
 create index if not exists simblip_pages_workspace_idx
   on public.simblip_pages (workspace_id);
-
-alter table if exists public.simblip_workspaces
-  alter column id type uuid using id::uuid;
-
-alter table if exists public.simblip_pages
-  alter column workspace_id type uuid using workspace_id::uuid;
 
 -- ── Sharing (clone-on-share, Google-Classroom-style) ────────────────────────
 -- A share is a frozen copy of a page. Recipients import it into their own
@@ -434,3 +443,27 @@ create policy "announcements read" on public.simblip_announcements
                      where profile_id = auth.uid())
     )
   );
+
+-- ── Platform operator (super_admin) ─────────────────────────────────────────
+-- The operator can VIEW every tenant (the /dev console). Writes still go
+-- through the service-role provisioning API, never the operator's own JWT.
+
+drop policy if exists "operator institutions read" on public.simblip_institutions;
+create policy "operator institutions read" on public.simblip_institutions
+  for select using (public.simblip_current_role() = 'super_admin');
+
+drop policy if exists "operator profiles read" on public.simblip_profiles;
+create policy "operator profiles read" on public.simblip_profiles
+  for select using (public.simblip_current_role() = 'super_admin');
+
+drop policy if exists "operator rooms read" on public.simblip_rooms;
+create policy "operator rooms read" on public.simblip_rooms
+  for select using (public.simblip_current_role() = 'super_admin');
+
+drop policy if exists "operator room members read" on public.simblip_room_members;
+create policy "operator room members read" on public.simblip_room_members
+  for select using (public.simblip_current_role() = 'super_admin');
+
+drop policy if exists "operator boards read" on public.simblip_boards;
+create policy "operator boards read" on public.simblip_boards
+  for select using (public.simblip_current_role() = 'super_admin');

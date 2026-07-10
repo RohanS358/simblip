@@ -14,6 +14,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can, ROLE_LABEL } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Toolbar } from './toolbar'
@@ -93,6 +94,7 @@ export function WorkspaceShell() {
   const [commandOpen, setCommandOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
+  const isMobile = useIsMobile()
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -249,7 +251,24 @@ export function WorkspaceShell() {
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {sidebarOpen && !isMobile && <Sidebar />}
+        {/* Desktop: docked. Mobile: full overlay with a scrim, so the toggle
+            in the top bar always works and the canvas stays full-bleed. */}
+        {sidebarOpen &&
+          (isMobile ? (
+            <div className="absolute inset-0 z-40 flex">
+              <button
+                type="button"
+                aria-label="Close sidebar"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => togglePanel('sidebar')}
+              />
+              <div className="relative z-10 flex h-full max-w-[85vw]">
+                <Sidebar />
+              </div>
+            </div>
+          ) : (
+            <Sidebar />
+          ))}
 
         <main className="relative min-w-0 flex-1">
           {activePageId ? (

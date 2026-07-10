@@ -6,6 +6,7 @@
 import { useEffect } from 'react'
 import { Cloud, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
 import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/supabase'
+import { useAuthStore } from '@/lib/auth/store'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
@@ -13,17 +14,17 @@ export function SyncStatus() {
   const phase = useSyncStore((s) => s.phase)
   const lastError = useSyncStore((s) => s.lastError)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
+  // Identity comes from the platform auth store — the engine follows it.
+  const signedIn = useAuthStore((s) => s.status === 'authed')
 
   useEffect(() => {
     startSync()
   }, [])
 
-  const user = useSyncStore((s) => s.user)
-
   const view = !syncConfigured
-    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Offline mode — notebooks live in this browser. Add Supabase keys to sync.' }
-    : !user
-      ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not signed in — notebooks stay in this browser. Sign in to sync across devices.' }
+    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local demo mode — notebooks live in this browser. Add Supabase keys to sync.' }
+    : !signedIn || phase === 'offline'
+      ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — notebooks stay in this browser until your session is active.' }
       : phase === 'syncing'
       ? { icon: RefreshCw, cls: 'animate-spin text-[var(--accent-blue)]', label: 'Syncing…' }
       : phase === 'error'
