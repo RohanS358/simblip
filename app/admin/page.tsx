@@ -14,8 +14,10 @@ import {
   Loader2,
   Megaphone,
   MonitorPlay,
+  Pencil,
   Plus,
   School,
+  Trash2,
   UserRound,
   Users,
 } from 'lucide-react'
@@ -32,9 +34,11 @@ import {
   listPeople,
   listRooms,
   listAllMembers,
+  removeRoom,
   resetPassword,
   setMembership,
   setPersonActive,
+  updateRoom,
   subscribeMembers,
   subscribeProfiles,
   subscribeRooms,
@@ -113,21 +117,45 @@ function Overview({ people, rooms, boards, assets }: { people: ProfileRow[]; roo
 
 // ── People ──────────────────────────────────────────────────────────────────
 
-function PeopleTab({ people, refresh }: { people: ProfileRow[]; refresh: () => void }) {
+function PeopleTab({
+  people,
+  rooms,
+  members,
+  refresh,
+}: {
+  people: ProfileRow[]
+  rooms: RoomRow[]
+  members: RoomMemberRow[]
+  refresh: () => void
+}) {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<'teacher' | 'student'>('student')
   const [department, setDepartment] = useState('')
   const [password, setPassword] = useState('')
+  const [roomIds, setRoomIds] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
+
+  const roomsOf = (profileId: string) =>
+    members
+      .filter((m) => m.profile_id === profileId)
+      .map((m) => rooms.find((r) => r.id === m.room_id)?.name)
+      .filter(Boolean) as string[]
 
   const add = async () => {
     if (!name.trim() || !email.trim() || !password) return
     setBusy(true)
     try {
-      await createPerson({ fullName: name.trim(), email: email.trim(), role, department: department.trim() || undefined, password })
-      toast.success(`${ROLE_LABEL[role]} account created for ${name.trim()}`)
-      setName(''); setEmail(''); setDepartment(''); setPassword('')
+      const person = await createPerson({ fullName: name.trim(), email: email.trim(), role, department: department.trim() || undefined, password })
+      // Enroll into the selected rooms right away — no second trip to the
+      // Rooms tab, and room-targeted assignments reach them immediately.
+      for (const roomId of roomIds) {
+        await setMembership(roomId, person.id, role, true)
+      }
+      toast.success(
+        `${ROLE_LABEL[role]} account created for ${name.trim()}${roomIds.size > 0 ? ` · enrolled in ${roomIds.size} room${roomIds.size === 1 ? '' : 's'}` : ''}`
+      )
+      setName(''); setEmail(''); setDepartment(''); setPassword(''); setRoomIds(new Set())
       refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not create the account')
@@ -163,10 +191,33 @@ function PeopleTab({ people, refresh }: { people: ProfileRow[]; refresh: () => v
           </Select>
           <Input placeholder="Department (optional)" value={department} onChange={(e) => setDepartment(e.target.value)} />
           <Input placeholder="Initial password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} />
-          <Button onClick={() => void add()} disabled={busy || !name.trim() || !email.trim() || !password}>
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4" /> Create account</>}
-          </Button>
         </div>
+        {rooms.length > 0 && (
+          <div className="mt-3">
+            <p className="mb-1.5 text-[11.5px] font-medium text-muted-foreground">Enroll in rooms</p>
+            <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+              {rooms.map((r) => (
+                <label key={r.id} className="flex cursor-pointer items-center gap-1.5 text-[12.5px]">
+                  <Checkbox
+                    checked={roomIds.has(r.id)}
+                    onCheckedChange={(v) =>
+                      setRoomIds((prev) => {
+                        const next = new Set(prev)
+                        if (v) next.add(r.id)
+                        else next.delete(r.id)
+                        return next
+                      })
+                    }
+                  />
+                  {r.name}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+        <Button className="mt-3" onClick={() => void add()} disabled={busy || !name.trim() || !email.trim() || !password}>
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <><Plus className="h-4 w-4" /> Create account</>}
+        </Button>
       </div>
 
       <div className="glass overflow-hidden rounded-2xl">
@@ -178,6 +229,11 @@ function PeopleTab({ people, refresh }: { people: ProfileRow[]; refresh: () => v
             </div>
             <Badge variant="secondary" className="text-[10.5px]">{ROLE_LABEL[p.role as Role]}</Badge>
             {p.department && <span className="text-[11px] text-muted-foreground">{p.department}</span>}
+            {roomsOf(p.id).map((roomName) => (
+              <Badge key={roomName} variant="outline" className="text-[10px]">
+                {roomName}
+              </Badge>
+            ))}
             <div className="flex-1" />
             {p.role !== 'admin' && (
               <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => void doReset(p)}>
@@ -218,6 +274,8 @@ function RoomsTab({
 }) {
   const [roomName, setRoomName] = useState('')
   const [boardPw, setBoardPw] = useState<Record<string, string>>({})
+  const [renamingId, setRenamingId] = useState<string | null>(null)
+  const [renameDraft, setRenameDraft] = useState('')
 
   const addRoom = async () => {
     if (!roomName.trim()) return
@@ -225,6 +283,26 @@ function RoomsTab({
     setRoomName('')
     toast.success('Room created')
     refresh()
+  }
+
+  const commitRename = async (room: RoomRow) => {
+    setRenamingId(null)
+    const next = renameDraft.trim()
+    if (!next || next === room.name) return
+    await updateRoom(room.id, { name: next })
+    toast.success(`Renamed to ${next}`)
+    refresh()
+  }
+
+  const deleteRoom = async (room: RoomRow) => {
+    if (!window.confirm(`Delete ${room.name}? Enrollment is removed and its board (if any) is deactivated.`)) return
+    try {
+      await removeRoom(room.id)
+      toast.success(`${room.name} deleted`)
+      refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not delete the room')
+    }
   }
 
   const addBoard = async (room: RoomRow) => {
@@ -258,7 +336,40 @@ function RoomsTab({
           <div key={room.id} className="glass rounded-2xl p-4">
             <div className="flex items-center gap-2">
               <School className="h-4 w-4 text-[var(--accent-blue)]" />
-              <p className="flex-1 text-[14px] font-bold">{room.name}</p>
+              {renamingId === room.id ? (
+                <Input
+                  autoFocus
+                  className="h-7 flex-1 text-[13px]"
+                  value={renameDraft}
+                  onChange={(e) => setRenameDraft(e.target.value)}
+                  onBlur={() => void commitRename(room)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') e.currentTarget.blur()
+                    if (e.key === 'Escape') setRenamingId(null)
+                  }}
+                />
+              ) : (
+                <p className="flex-1 text-[14px] font-bold">{room.name}</p>
+              )}
+              <button
+                type="button"
+                aria-label={`Rename ${room.name}`}
+                className="rounded p-1 text-muted-foreground hover:text-foreground"
+                onClick={() => {
+                  setRenameDraft(room.name)
+                  setRenamingId(room.id)
+                }}
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Delete ${room.name}`}
+                className="rounded p-1 text-muted-foreground hover:text-[var(--accent-rose)]"
+                onClick={() => void deleteRoom(room)}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
               {board ? (
                 <Badge variant="secondary" className="text-[10.5px]">
                   <MonitorPlay className="mr-1 h-3 w-3" /> Board: {boardProfile?.email ?? 'configured'} · code{' '}
@@ -484,7 +595,7 @@ function AdminConsole() {
           <Overview people={people} rooms={rooms} boards={boards} assets={assets} />
         </TabsContent>
         <TabsContent value="people">
-          <PeopleTab people={people} refresh={refresh} />
+          <PeopleTab people={people} rooms={rooms} members={members} refresh={refresh} />
         </TabsContent>
         <TabsContent value="rooms">
           <RoomsTab people={people} rooms={rooms} boards={boards} members={members} refresh={refresh} />

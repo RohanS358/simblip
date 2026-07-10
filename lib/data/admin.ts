@@ -115,6 +115,26 @@ export async function createRoom(name: string, department?: string): Promise<Roo
   return row
 }
 
+export async function updateRoom(id: string, patch: { name?: string; department?: string | null }): Promise<void> {
+  requireAdmin()
+  await db.update('rooms', id, patch)
+}
+
+/** Delete a room. Enrollment and the board row go with it; the board's
+ * sign-in account is deactivated (cloud FKs cascade, demo cascades here). */
+export async function removeRoom(id: string): Promise<void> {
+  requireAdmin()
+  const boards = await db.list<BoardRow>('boards', { room_id: id })
+  for (const b of boards) {
+    await db.update('profiles', b.profile_id, { active: false })
+  }
+  if (db.dbMode === 'local') {
+    await db.removeWhere('room_members', { room_id: id })
+    await db.removeWhere('boards', { room_id: id })
+  }
+  await db.removeById('rooms', id)
+}
+
 export async function setMembership(
   roomId: string,
   profileId: string,
