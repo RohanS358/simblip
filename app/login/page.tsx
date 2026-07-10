@@ -16,11 +16,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
 const DEMO_CHIPS = [
-  { email: 'admin@demo.edu', password: 'admin', label: 'Admin', icon: ShieldCheck },
+  { email: 'school-admin@demo.edu', password: 'admin', label: 'Admin', icon: ShieldCheck },
   { email: 'teacher@demo.edu', password: 'teacher', label: 'Teacher', icon: GraduationCap },
   { email: 'student@demo.edu', password: 'student', label: 'Student', icon: UserRound },
   { email: 'board-201@demo.edu', password: 'board201', label: 'Room 201 Board', icon: MonitorPlay },
-  { email: 'aalubhentakobhi', password: 'loonivaislobhi', label: 'Dev', icon: Wrench },
+  { email: 'admin', password: 'admin', label: 'Dev', icon: Wrench },
 ]
 
 export default function LoginPage() {

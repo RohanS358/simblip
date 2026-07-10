@@ -21,6 +21,23 @@ const normalizeSlug = (value: string) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
 
+async function cloudProvision<T>(action: string, payload: any): Promise<T> {
+  const session = useAuthStore.getState().session
+  const response = await fetch('/api/dev/provision', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session?.access_token}`,
+    },
+    body: JSON.stringify({ action, payload }),
+  })
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}))
+    throw new Error(data.error || 'Cloud provisioning failed')
+  }
+  return response.json()
+}
+
 export const listInstitutions = () => db.list<InstitutionRow>('institutions')
 export const listProfiles = () => db.list<ProfileRow>('profiles')
 export const listRooms = () => db.list<RoomRow>('rooms')
@@ -36,7 +53,6 @@ export async function createInstitution(input: {
   active?: boolean
 }): Promise<InstitutionRow> {
   requirePlatformAdmin()
-  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
   const row: InstitutionRow = {
     id: db.newId(),
     name: input.name.trim(),
@@ -67,6 +83,10 @@ export async function createInstitutionWithAdmin(input: {
     department?: string | null
   }
 }): Promise<{ institution: InstitutionRow; admin: ProfileRow }> {
+  if (db.getDbMode() === 'cloud') {
+    requirePlatformAdmin()
+    return cloudProvision('createInstitutionWithAdmin', input)
+  }
   const institution = await createInstitution(input.institution)
   const admin: ProfileRow = {
     id: db.newId(),
@@ -92,7 +112,9 @@ export async function createAccount(input: {
   active?: boolean
 }): Promise<ProfileRow> {
   requirePlatformAdmin()
-  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') {
+    return cloudProvision('createAccount', input)
+  }
   const row: ProfileRow = {
     id: db.newId(),
     institution_id: input.institutionId,
@@ -113,7 +135,15 @@ export async function createRoom(input: {
   department?: string | null
 }): Promise<RoomRow> {
   requirePlatformAdmin()
-  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') {
+    const row: RoomRow = {
+      id: db.newId(),
+      institution_id: input.institutionId,
+      name: input.name.trim(),
+      department: input.department ?? null,
+    }
+    return cloudProvision('createRoom', row)
+  }
   const row: RoomRow = {
     id: db.newId(),
     institution_id: input.institutionId,
@@ -132,7 +162,27 @@ export async function createBoard(input: {
   password: string
 }): Promise<{ profile: ProfileRow; board: BoardRow }> {
   requirePlatformAdmin()
-  if (db.getDbMode() === 'cloud') throw new Error('Cloud mode provisioning is handled by the SIMBLIP operator.')
+  if (db.getDbMode() === 'cloud') {
+    const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@demo.edu`
+    const profile: ProfileRow = {
+      id: db.newId(),
+      institution_id: input.institutionId,
+      role: 'board',
+      full_name: `${input.roomName} Board`,
+      email,
+      active: true,
+      password: input.password,
+    }
+    const board: BoardRow = {
+      id: db.newId(),
+      institution_id: input.institutionId,
+      room_id: input.roomId,
+      profile_id: profile.id, // Replaced by API endpoint
+      pairing_code: newPairingCode(),
+      pairing_rotated_at: new Date().toISOString(),
+    }
+    return cloudProvision('createBoard', { profile, board })
+  }
   const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@demo.edu`
   const profile: ProfileRow = {
     id: db.newId(),
@@ -163,6 +213,9 @@ export async function setMembership(input: {
   enrolled: boolean
 }): Promise<void> {
   requirePlatformAdmin()
+  if (db.getDbMode() === 'cloud') {
+    return cloudProvision('setMembership', input)
+  }
   if (input.enrolled) {
     await db.insert<RoomMemberRow>('room_members', {
       id: `${input.roomId}:${input.profileId}`,
