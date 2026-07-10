@@ -10,6 +10,7 @@ import type { SceneObject, Variable, BehaviorType } from '@/lib/scene/types'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, type Scope } from '@/lib/formula/engine'
+import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 
 export type Tool =
   | 'select'
@@ -403,7 +404,8 @@ export const useDocStore = create<DocState>()(
     }),
     {
       name: 'simblip-documents-v2', // v2: entity/component scene model
-      partialize: (s) => ({ pages: s.pages, viewports: s.viewports, penSize: s.penSize }),
+      storage: scopedJSONStorage,
+      partialize: (s) => ({ pages: s.pages, viewports: s.viewports }),
     }
   )
 )

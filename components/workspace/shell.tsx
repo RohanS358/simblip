@@ -1,14 +1,19 @@
 'use client'
 
-// The workspace shell. The notebook is the environment; the simulation
-// engine is the product — hence the transport sits front and center.
+// The workspace shell — a desktop-style environment: top bar with global
+// search and identity, notebook tree, infinite canvas, inspector, library
+// panel, notification center and a status bar. The notebook is the medium;
+// the simulation engine is the product — the transport sits front and center.
 
 import { useEffect, useState } from 'react'
-import { PanelLeft, PanelRight, Sun, Moon, HelpCircle } from 'lucide-react'
+import Image from 'next/image'
+import { LibraryBig, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useAuthStore } from '@/lib/auth/store'
+import { can, ROLE_LABEL } from '@/lib/auth/types'
+import { useShareInbox } from '@/hooks/use-share-inbox'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Toolbar } from './toolbar'
@@ -18,10 +23,14 @@ import { Inspector } from './inspector'
 import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
-import { AccountButton } from './account'
-import { Tutorial } from './tutorial'
+import { LibraryPanel } from './library-panel'
+import { CommandPalette } from './command-palette'
+import { NotificationCenter } from './notifications'
+import { ProfileMenu } from './profile-menu'
+import { SettingsDialog } from './settings-dialog'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
+import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
 
 function seedFirstRun() {
@@ -80,17 +89,13 @@ export function WorkspaceShell() {
   // a server/client markup mismatch.
   const [ready, setReady] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  // Hands-on tutorial: auto-opens once for new users; ? reopens it anytime.
-  const [showTutorial, setShowTutorial] = useState(false)
-  useEffect(() => {
-    if (!localStorage.getItem('simblip-tutorial-done')) setShowTutorial(true)
-  }, [])
-  const closeTutorial = () => {
-    localStorage.setItem('simblip-tutorial-done', '1')
-    setShowTutorial(false)
-  }
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
 
+  const profile = useAuthStore((s) => s.profile)
+  const institution = useAuthStore((s) => s.institution)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
@@ -101,8 +106,12 @@ export function WorkspaceShell() {
         for (const p of sec.pages) if (p.id === s.activePageId) return p.name
     return null
   })
+  const objectCount = useDocStore((s) =>
+    activePageId ? Object.keys(s.pages[activePageId]?.objects ?? {}).length : 0
+  )
 
-  const isMobile = useIsMobile()
+  // Incoming shared pages auto-deliver into "Shared with me".
+  useShareInbox()
 
   useEffect(() => {
     seedFirstRun()
@@ -123,6 +132,18 @@ export function WorkspaceShell() {
     stop()
   }, [activePageId])
 
+  // Global command palette.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandOpen((o) => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   if (!ready) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
@@ -130,6 +151,8 @@ export function WorkspaceShell() {
       </div>
     )
   }
+
+  const aiAllowed = can(profile?.role, 'use-ai')
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
@@ -145,9 +168,24 @@ export function WorkspaceShell() {
         >
           <PanelLeft className="h-4 w-4" />
         </button>
+        {institution?.logo_url ? (
+          <Image
+            src={String(institution.logo_url)}
+            alt={institution.name}
+            width={20}
+            height={20}
+            unoptimized
+            className="h-5 w-5 rounded object-contain"
+          />
+        ) : null}
         <span className="text-[14px] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
+        {institution && (
+          <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+            · {institution.name}
+          </span>
+        )}
         {pageName && (
           <>
             <span className="hidden text-muted-foreground/50 sm:inline">/</span>
@@ -157,18 +195,36 @@ export function WorkspaceShell() {
           </>
         )}
         <div className="flex-1" />
-        <SyncStatus />
-        <AccountButton />
         <button
           type="button"
-          aria-label="Open tutorial"
+          aria-label="Search (Ctrl+K)"
+          className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+          onClick={() => setCommandOpen(true)}
+        >
+          <Search className="h-3.5 w-3.5" />
+          Search
+          <Kbd className="text-[10px]">⌘K</Kbd>
+        </button>
+        <button
+          type="button"
+          aria-label="Search"
+          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+          onClick={() => setCommandOpen(true)}
+        >
+          <Search className="h-4 w-4" />
+        </button>
+        <SyncStatus />
+        <NotificationCenter />
+        <button
+          type="button"
+          aria-label="Toggle library"
           className={cn(
             'rounded-lg p-1.5 transition-colors hover:bg-accent',
-            showTutorial ? 'text-foreground' : 'text-muted-foreground'
+            libraryOpen ? 'text-foreground' : 'text-muted-foreground'
           )}
-          onClick={() => setShowTutorial(true)}
+          onClick={() => setLibraryOpen((o) => !o)}
         >
-          <HelpCircle className="h-4 w-4" />
+          <LibraryBig className="h-4 w-4" />
         </button>
         <button
           type="button"
@@ -189,6 +245,7 @@ export function WorkspaceShell() {
         >
           <PanelRight className="h-4 w-4" />
         </button>
+        <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
       </header>
 
       <div className="relative flex min-h-0 flex-1">
@@ -199,10 +256,13 @@ export function WorkspaceShell() {
             <>
               <InfiniteCanvas key={activePageId} pageId={activePageId} />
               <Transport pageId={activePageId} />
-              <Toolbar paletteOpen={paletteOpen} onTogglePalette={() => setPaletteOpen((o) => !o)} />
+              <Toolbar
+                paletteOpen={paletteOpen}
+                onTogglePalette={() => setPaletteOpen((o) => !o)}
+                showAi={aiAllowed}
+              />
               <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-              <AiPanel pageId={activePageId} />
-              {showTutorial && <Tutorial pageId={activePageId} onClose={closeTutorial} />}
+              {aiAllowed && <AiPanel pageId={activePageId} />}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -214,36 +274,29 @@ export function WorkspaceShell() {
           )}
         </main>
 
-        {inspectorOpen && activePageId && !isMobile && <Inspector pageId={activePageId} />}
-
-        {/* On phones the panels float over the canvas; a backdrop tap closes them. */}
-        {isMobile && sidebarOpen && (
-          <div className="absolute inset-0 z-50 flex">
-            <button
-              type="button"
-              aria-label="Close sidebar"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => togglePanel('sidebar')}
-            />
-            <div className="relative z-10 flex h-full">
-              <Sidebar />
-            </div>
-          </div>
-        )}
-        {isMobile && inspectorOpen && activePageId && (
-          <div className="absolute inset-0 z-50 flex justify-end">
-            <button
-              type="button"
-              aria-label="Close inspector"
-              className="absolute inset-0 bg-black/40"
-              onClick={() => togglePanel('inspector')}
-            />
-            <div className="relative z-10 flex h-full">
-              <Inspector pageId={activePageId} />
-            </div>
-          </div>
-        )}
+        <LibraryPanel open={libraryOpen} onClose={() => setLibraryOpen(false)} pageId={activePageId} />
+        {inspectorOpen && activePageId && <Inspector pageId={activePageId} />}
       </div>
+
+      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+        {profile && (
+          <span className="font-medium">
+            {profile.full_name} · {ROLE_LABEL[profile.role]}
+          </span>
+        )}
+        {institution && <span className="hidden sm:inline">{institution.name}</span>}
+        <div className="flex-1" />
+        {activePageId && <span>{objectCount} objects</span>}
+        <span>SIMBLIP · Built by Rohan Singh</span>
+      </footer>
+
+      <CommandPalette
+        open={commandOpen}
+        onOpenChange={setCommandOpen}
+        onOpenSettings={() => setSettingsOpen(true)}
+        onOpenLibrary={() => setLibraryOpen(true)}
+      />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>
   )
 }

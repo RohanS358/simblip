@@ -21,6 +21,7 @@ import { create } from 'zustand'
 import { createClient } from '@supabase/supabase-js'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 
 const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
 const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -54,33 +55,42 @@ export const useSyncStore = create<SyncState>(() => ({
 const setPhase = (phase: SyncPhase, lastError: string | null = null) =>
   useSyncStore.setState({ phase, lastError, ...(phase === 'synced' ? { lastSyncedAt: Date.now() } : {}) })
 
-// ── Auth actions (used by the header account button) ────────────────────────
-// Plain Supabase email auth — no external OAuth provider to configure.
-// Both return an error message for the form, or null on success.
+// ── Identity ────────────────────────────────────────────────────────────────
+// Authentication is mandatory: the workspace id IS the signed-in profile id,
+// and the RLS policies only let a user touch their own workspace row.
 
-export async function signInWithEmail(email: string, password: string): Promise<string | null> {
-  if (!supabase) return 'Sync is not configured.'
-  const { error } = await supabase.auth.signInWithPassword({ email, password })
-  return error ? error.message : null
+/** newest remote updated_at we've applied/produced, per user */
+const seenKey = (ws: string) => `simblip-sync-seen:${ws}`
+
+export function workspaceId(): string | null {
+  return useAuthStore.getState().profile?.id ?? null
 }
 
-export async function signUpWithEmail(email: string, password: string): Promise<string | null> {
-  if (!supabase) return 'Sync is not configured.'
-  const { data, error } = await supabase.auth.signUp({ email, password })
-  if (error) return error.message
-  // With "Confirm email" enabled there's no session yet — tell the user.
-  if (!data.session) return 'Check your inbox to confirm the address, then sign in.'
-  return null
+// ── REST helpers ────────────────────────────────────────────────────────────
+
+async function rest(path: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fetch(`${URL_}/rest/v1/${path}`, {
+    ...init,
+    headers: {
+      apikey: KEY!,
+      // The user's JWT, so RLS scopes every row to the signed-in profile.
+      Authorization: `Bearer ${getAccessToken() ?? KEY}`,
+      'Content-Type': 'application/json',
+      ...init.headers,
+    },
+  })
+  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
+  return res
 }
 
-export async function signOut() {
-  if (!supabase) return
-  await supabase.auth.signOut()
-}
+const upsert = (table: string, rows: unknown) =>
+  rest(table, {
+    method: 'POST',
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows),
+  })
 
-// ── Pull / push (rows keyed by the auth user id) ────────────────────────────
-
-const seenKey = (ws: string) => `simblip-sync-seen-${ws}`
+// ── Pull / push ─────────────────────────────────────────────────────────────
 
 async function pull(ws: string) {
   const [wsRes, pgRes] = await Promise.all([
@@ -100,19 +110,21 @@ async function pull(ws: string) {
 
 async function pushWorkspace(ws: string) {
   const { notebooks } = useWorkspaceStore.getState()
-  const { error } = await supabase!
-    .from('simblip_workspaces')
-    .upsert([{ id: ws, notebooks, updated_at: new Date().toISOString() }])
-  if (error) throw new Error(error.message)
+  const institution = useAuthStore.getState().profile?.institution_id
+  await upsert('simblip_workspaces', [
+    { id: ws, institution_id: institution, notebooks, updated_at: new Date().toISOString() },
+  ])
 }
 
 async function pushPages(ws: string, pageIds: string[]) {
   const { pages, viewports } = useDocStore.getState()
+  const institution = useAuthStore.getState().profile?.institution_id
   const rows = pageIds
     .filter((id) => pages[id])
     .map((id) => ({
       id,
       workspace_id: ws,
+      institution_id: institution,
       content: pages[id],
       viewport: viewports[id] ?? null,
       updated_at: new Date().toISOString(),
@@ -141,7 +153,9 @@ let started = false
 let activeUser: string | null = null
 
 export function startSync() {
-  if (started || !supabase || typeof window === 'undefined') return
+  if (started || !syncConfigured || typeof window === 'undefined') return
+  const ws = workspaceId()
+  if (!ws) return // not signed in yet; the shell retries after auth
   started = true
 
   const dirtyPages = new Set<string>()
@@ -228,7 +242,6 @@ export function startSync() {
           return { pages, viewports }
         })
         localStorage.setItem(seenKey(ws), String(remote.newest))
-        setPhase('synced')
       } else {
         // First device for this account, or we're ahead: publish everything.
         workspaceDirty = true

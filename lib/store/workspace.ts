@@ -7,6 +7,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { uid, type Notebook } from '@/lib/scene/types'
+import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 
 interface WorkspaceState {
   notebooks: Notebook[]
@@ -153,6 +154,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               : { aiOpen: !s.aiOpen }
         ),
     }),
-    { name: 'simblip-workspace' }
+    { name: 'simblip-workspace', storage: scopedJSONStorage }
   )
 )
