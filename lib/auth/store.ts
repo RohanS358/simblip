@@ -213,13 +213,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         if (!account.active) throw new Error('This account has been deactivated.')
         session = { userId: account.id }
       }
+      // Persist the session BEFORE loading the profile: the data layer reads
+      // the JWT from storage, and RLS only reveals the profile row to its
+      // authenticated owner — an anon query would come back empty.
+      saveSession(session)
       const ctx = await loadContext(session.userId)
       if (!ctx) throw new Error('No profile found for this account. Ask your institution admin.')
-      saveSession(session)
       localStorage.setItem(ACTIVE_USER_KEY, ctx.profile.id)
       set({ status: 'authed', ...ctx, error: null })
       return ctx.profile
     } catch (err) {
+      saveSession(null) // never keep a session that couldn't resolve a profile
       set({ error: err instanceof Error ? err.message : String(err) })
       return null
     }
