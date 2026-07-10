@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { GraduationCap, Loader2, Lock, Mail, MonitorPlay, ShieldCheck, UserRound } from 'lucide-react'
+import { GraduationCap, Loader2, Lock, Mail, MonitorPlay, ShieldCheck, UserRound, Wrench } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth/store'
 import { homeFor } from '@/lib/auth/types'
 import { cloudConfigured } from '@/lib/data/db'
@@ -21,6 +21,7 @@ const DEMO_CHIPS = [
   { email: 'teacher@demo.edu', password: 'teacher', label: 'Teacher', icon: GraduationCap },
   { email: 'student@demo.edu', password: 'student', label: 'Student', icon: UserRound },
   { email: 'board-201@demo.edu', password: 'board201', label: 'Room 201 Board', icon: MonitorPlay },
+  { email: 'aalubhentakobhi', password: 'loonivaislobhi', label: 'Dev', icon: Wrench },
 ]
 
 export default function LoginPage() {
@@ -71,17 +72,17 @@ export default function LoginPage() {
         >
           <div className="space-y-1.5">
             <Label htmlFor="email" className="text-[12px]">
-              Email
+              Email or username
             </Label>
             <div className="relative">
               <Mail className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 id="email"
-                type="email"
-                autoComplete="email"
+                type="text"
+                autoComplete="username"
                 required
                 className="pl-8"
-                placeholder="you@institution.edu"
+                placeholder="you@institution.edu or username"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />

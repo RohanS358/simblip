@@ -16,9 +16,20 @@ export const DEMO_INSTITUTION: Institution = {
 
 export interface DemoAccount extends Profile {
   password: string
+  username?: string
 }
 
 export const DEMO_ACCOUNTS: DemoAccount[] = [
+  {
+    id: 'user-dev',
+    institutionId: 'inst-demo',
+    role: 'super_admin',
+    fullName: 'Aalubhentakobhi Dev',
+    email: 'aalubhentakobhi@demo.edu',
+    username: 'aalubhentakobhi',
+    password: 'loonivaislobhi',
+    active: true,
+  },
   {
     id: 'user-admin',
     institutionId: 'inst-demo',

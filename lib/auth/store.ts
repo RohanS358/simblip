@@ -120,7 +120,7 @@ export function seedDemoTenant() {
   })))
   db.seedTable('profiles', DEMO_ACCOUNTS.map((a) => ({
     id: a.id, institution_id: a.institutionId, role: a.role, full_name: a.fullName,
-    email: a.email, department: a.department ?? null, active: a.active, password: a.password,
+    email: a.email, username: a.username ?? null, department: a.department ?? null, active: a.active, password: a.password,
   })))
   db.seedTable('rooms', DEMO_ROOMS.map((r) => ({
     id: r.id, institution_id: r.institutionId, name: r.name, department: r.department ?? null,
@@ -195,8 +195,11 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         session = adoptTokens(await gotrue('token?grant_type=password', { email, password }))
       } else {
         seedDemoTenant()
-        const rows = await db.list<ProfileRow>('profiles', { email: email.trim().toLowerCase() })
-        const account = rows[0]
+        const lookup = email.trim().toLowerCase()
+        const rows = await db.list<ProfileRow>('profiles')
+        const account = rows.find(
+          (row) => row.email === lookup || String(row.username ?? '').toLowerCase() === lookup
+        )
         if (!account || account.password !== password) throw new Error('Invalid email or password.')
         if (!account.active) throw new Error('This account has been deactivated.')
         session = { userId: account.id }
