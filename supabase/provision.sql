@@ -15,6 +15,32 @@
 --   5. The institution admin signs in and manages everything else in-app.
 -- ═══════════════════════════════════════════════════════════════════════════
 
+-- Demo tenant seed for tests / local verification
+-- Use this as a reference shape for the one-click login accounts on the login page.
+-- The auth users must already exist with these emails/passwords:
+--   admin@demo.edu / admin
+--   teacher@demo.edu / teacher
+--   student@demo.edu / student
+--   board-201@demo.edu / board201
+
+-- insert into public.simblip_institutions (name, slug, accent_color, licensed_until)
+-- values ('Demo Institution', 'demo', '#3b82f6', '2027-07-01')
+-- returning id;
+
+-- insert into public.simblip_profiles (id, institution_id, role, full_name, email)
+-- values
+--   ('<admin-auth-user-uuid>', '<institution-uuid>', 'admin', 'Demo Admin', 'admin@demo.edu'),
+--   ('<teacher-auth-user-uuid>', '<institution-uuid>', 'teacher', 'Demo Teacher', 'teacher@demo.edu'),
+--   ('<student-auth-user-uuid>', '<institution-uuid>', 'student', 'Demo Student', 'student@demo.edu'),
+--   ('<board-auth-user-uuid>', '<institution-uuid>', 'board', 'Room 201 Board', 'board-201@demo.edu');
+
+-- insert into public.simblip_rooms (institution_id, name)
+-- values ('<institution-uuid>', 'Room 201')
+-- returning id;
+
+-- insert into public.simblip_boards (institution_id, room_id, profile_id, pairing_code)
+-- values ('<institution-uuid>', '<room-uuid>', '<board-auth-user-uuid>', 'BOARD201');
+
 -- 1 ── The tenant ────────────────────────────────────────────────────────────
 insert into public.simblip_institutions (name, slug, accent_color, licensed_until)
 values ('Aurora Institute of Technology', 'aurora-tech', '#3b82f6', '2027-07-01')
