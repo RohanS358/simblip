@@ -452,13 +452,17 @@ function RoomsTab({
   const enrollStudent = async (room: RoomRow, studentId: string) => {
     const student = students.find((s) => s.id === studentId)
     const from = roomOf(studentId)
-    await setMembership(room.id, studentId, 'student', true)
-    setPick((s) => ({ ...s, [room.id]: '' }))
-    toast.success(
-      from && from.id !== room.id
-        ? `${student?.full_name} moved from ${from.name} to ${room.name}`
-        : `${student?.full_name} enrolled in ${room.name}`
-    )
+    try {
+      await setMembership(room.id, studentId, 'student', true)
+      setPick((s) => ({ ...s, [room.id]: '' }))
+      toast.success(
+        from && from.id !== room.id
+          ? `${student?.full_name} moved from ${from.name} to ${room.name}`
+          : `${student?.full_name} enrolled in ${room.name}`
+      )
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Enrollment failed')
+    }
     refresh()
   }
 
@@ -550,7 +554,11 @@ function RoomsTab({
                           aria-label={`Remove ${student.full_name} from ${room.name}`}
                           className="rounded-full p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
                           onClick={() =>
-                            void setMembership(room.id, student.id, 'student', false).then(refresh)
+                            void setMembership(room.id, student.id, 'student', false)
+                              .then(refresh)
+                              .catch((err: unknown) =>
+                                toast.error(err instanceof Error ? err.message : 'Could not remove')
+                              )
                           }
                         >
                           <X className="h-3 w-3" />

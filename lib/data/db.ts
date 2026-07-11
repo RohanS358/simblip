@@ -104,14 +104,22 @@ export async function list<T extends Row>(table: string, eq?: Eq): Promise<T[]> 
   return readTable(table).filter((r) => matches(r, eq)) as T[]
 }
 
+// Tables whose SQL shape uses a composite primary key: the local backend
+// still synthesizes an `id` (its API needs one), but it must never reach
+// PostgREST — the column doesn't exist there.
+const SYNTHETIC_ID_TABLES = new Set(['room_members'])
+
 export async function insert<T extends Row>(table: string, rows: T | T[]): Promise<void> {
   const batch = Array.isArray(rows) ? rows : [rows]
   if (batch.length === 0) return
   if (dbMode === 'cloud') {
+    const payload = SYNTHETIC_ID_TABLES.has(table)
+      ? batch.map(({ id: _id, ...rest }) => rest)
+      : batch
     await restFetch(`simblip_${table}`, {
       method: 'POST',
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-      body: JSON.stringify(batch),
+      body: JSON.stringify(payload),
     })
     return
   }

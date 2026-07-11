@@ -24,6 +24,49 @@ interface Step {
   text: string
   /** auto-complete predicate; omit for read-and-continue steps */
   check?: (ctx: Ctx) => boolean
+  /** CSS selector of the UI control this step uses — gets a spotlight ring */
+  target?: string
+}
+
+const T = {
+  pen: '[aria-label^="Pen"]',
+  eraser: '[aria-label^="Eraser"]',
+  note: '[aria-label="Note"]',
+  graph: '[aria-label="Graph"]',
+  components: '[aria-label^="Components"]',
+  play: '[aria-label="Play"], [aria-label="Pause"]',
+  inspector: '[aria-label="Toggle inspector"], [aria-label="Close inspector"]',
+}
+
+/** Pulsing ring pinned over the step's control; tracks it as layout moves. */
+function StepHighlight({ selector }: { selector?: string }) {
+  const [rect, setRect] = useState<{ left: number; top: number; width: number; height: number } | null>(null)
+  useEffect(() => {
+    if (!selector) {
+      setRect(null)
+      return
+    }
+    const update = () => {
+      const el = document.querySelector(selector)
+      const r = el?.getBoundingClientRect()
+      setRect(r && r.width > 0 ? { left: r.left, top: r.top, width: r.width, height: r.height } : null)
+    }
+    update()
+    const timer = setInterval(update, 350)
+    window.addEventListener('resize', update)
+    return () => {
+      clearInterval(timer)
+      window.removeEventListener('resize', update)
+    }
+  }, [selector])
+  if (!rect) return null
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed z-[60] animate-pulse rounded-xl border-2 border-[var(--accent-blue)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--accent-blue)_25%,transparent)] transition-all duration-300"
+      style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }}
+    />
+  )
 }
 
 interface Course {
@@ -45,10 +88,10 @@ const COURSES: Course[] = [
     title: 'Notebook basics',
     goal: 'Draw, write and control the canvas.',
     steps: [
-      { text: 'Pick the Pen (P) in the bottom dock and draw anything — a scribble is fine.', check: (c) => objs(c).some((o) => o.geometry.kind === 'stroke') || c.tool === 'pen' },
-      { text: 'Draw a rough circle slowly — sketch recognition turns it into a real circle.', check: (c) => objs(c).some((o) => o.geometry.kind === 'circle') },
-      { text: 'Add a Note (N) and type a caption. Two fingers (or Space+drag) pan; pinch or scroll zooms.', check: (c) => objs(c).some((o) => o.geometry.kind === 'note') },
-      { text: 'Try the Eraser (E): drag across leftover ink to clean up. You know the surface now.' },
+      { text: 'Pick the Pen (P) in the bottom dock and draw anything — a scribble is fine.', target: T.pen, check: (c) => objs(c).some((o) => o.geometry.kind === 'stroke') || c.tool === 'pen' },
+      { text: 'Draw a rough circle slowly — sketch recognition turns it into a real circle.', target: T.pen, check: (c) => objs(c).some((o) => o.geometry.kind === 'circle') },
+      { text: 'Add a Note (N) and type a caption. Two fingers (or Space+drag) pan; pinch or scroll zooms.', target: T.note, check: (c) => objs(c).some((o) => o.geometry.kind === 'note') },
+      { text: 'Try the Eraser (E): drag across leftover ink to clean up. You know the surface now.', target: T.eraser },
     ],
   },
   {
@@ -56,11 +99,11 @@ const COURSES: Course[] = [
     title: 'Mechanics — spring–mass oscillator',
     goal: 'Build and run your first simulation.',
     steps: [
-      { text: 'Open Components (the shapes icon) and place a Spring, then a Mass touching its lower end.', check: (c) => hasB(c, 'spring') && hasB(c, 'rigidBody') },
-      { text: 'Place a Ground under everything so the world has a floor.', check: (c) => hasB(c, 'staticBody') },
-      { text: 'Add a Graph (G); in the Inspector point its source at the mass, channels “y,vy”.', check: (c) => objs(c).some((o) => o.geometry.kind === 'graph') },
-      { text: 'Press ▶ Play. The mass oscillates and the graph traces y(t) — simple harmonic motion, live.', check: (c) => c.played },
-      { text: 'While it runs, select the spring and change k in the Inspector. Stiffer spring, higher frequency: ω = √(k/m).' },
+      { text: 'Open Components (the shapes icon) and place a Spring, then a Mass touching its lower end.', target: T.components, check: (c) => hasB(c, 'spring') && hasB(c, 'rigidBody') },
+      { text: 'Place a Ground under everything so the world has a floor.', target: T.components, check: (c) => hasB(c, 'staticBody') },
+      { text: 'Add a Graph (G); in the Inspector point its source at the mass, channels “y,vy”.', target: T.graph, check: (c) => objs(c).some((o) => o.geometry.kind === 'graph') },
+      { text: 'Press ▶ Play. The mass oscillates and the graph traces y(t) — simple harmonic motion, live.', target: T.play, check: (c) => c.played },
+      { text: 'While it runs, select the spring and change k in the Inspector. Stiffer spring, higher frequency: ω = √(k/m).', target: T.inspector },
     ],
   },
   {
@@ -68,10 +111,10 @@ const COURSES: Course[] = [
     title: 'Circuits — Ohm’s law loop',
     goal: 'A battery, a resistor and real Kirchhoff current.',
     steps: [
-      { text: 'From Components, place a Battery and a Resistor side by side.', check: (c) => hasSymbol(c, 'electrical', 2) },
-      { text: 'Draw ink from terminal to terminal to wire them into a loop — ink that touches terminals conducts.', check: (c) => hasB(c, 'wire') },
-      { text: 'Press ▶ Play: amber dashes are conventional current; their speed tracks the real amps.', check: (c) => c.played },
-      { text: 'Change the resistance in the Inspector and watch the current respond — I = V/R, solved every frame.' },
+      { text: 'From Components, place a Battery and a Resistor side by side.', target: T.components, check: (c) => hasSymbol(c, 'electrical', 2) },
+      { text: 'Draw ink from terminal to terminal to wire them into a loop — ink that touches terminals conducts.', target: T.pen, check: (c) => hasB(c, 'wire') },
+      { text: 'Press ▶ Play: amber dashes are conventional current; their speed tracks the real amps.', target: T.play, check: (c) => c.played },
+      { text: 'Change the resistance in the Inspector and watch the current respond — I = V/R, solved every frame.', target: T.inspector },
     ],
   },
   {
@@ -79,11 +122,11 @@ const COURSES: Course[] = [
     title: 'Optics & quantum light — Young’s double slit',
     goal: 'Interference fringes, then photon-by-photon build-up.',
     steps: [
-      { text: 'Place a Light Source (Optics section) — a coherent beam fires along its rotation.', check: (c) => hasB(c, 'lightSource') },
-      { text: 'Place a Slit across the beam. Its defaults are already Young’s d = 40 µm double slit.', check: (c) => hasB(c, 'slit') },
-      { text: 'Place a Screen a few hundred µm behind the slit, facing the beam.', check: (c) => hasB(c, 'opticalScreen') },
-      { text: 'Fringes! The band and curve on the screen are a real Huygens–Fresnel sum. Change λ or the slit spacing d — Δy = λL/d obeys.', check: (c) => hasB(c, 'lightSource') && hasB(c, 'slit') && hasB(c, 'opticalScreen') },
-      { text: 'Press ▶ Play: single photons now land at Born-rule positions, building the same pattern out of raw randomness. That IS quantum mechanics.', check: (c) => c.played },
+      { text: 'Place a Light Source (Optics section) — a coherent beam fires along its rotation.', target: T.components, check: (c) => hasB(c, 'lightSource') },
+      { text: 'Place a Slit across the beam. Its defaults are already Young’s d = 40 µm double slit.', target: T.components, check: (c) => hasB(c, 'slit') },
+      { text: 'Place a Screen a few hundred µm behind the slit, facing the beam.', target: T.components, check: (c) => hasB(c, 'opticalScreen') },
+      { text: 'Fringes! The band and curve on the screen are a real Huygens–Fresnel sum. Change λ or the slit spacing d — Δy = λL/d obeys.', target: T.inspector, check: (c) => hasB(c, 'lightSource') && hasB(c, 'slit') && hasB(c, 'opticalScreen') },
+      { text: 'Press ▶ Play: single photons now land at Born-rule positions, building the same pattern out of raw randomness. That IS quantum mechanics.', target: T.play, check: (c) => c.played },
     ],
   },
   {
@@ -91,10 +134,10 @@ const COURSES: Course[] = [
     title: 'Waves — media & standing waves',
     goal: 'Propagation, loss and reflection.',
     steps: [
-      { text: 'Place a Wave Source (Waves section) and press ▶ Play to watch the travelling wave.', check: (c) => hasB(c, 'waveSource') && c.played },
-      { text: 'In the Inspector set σ > 0 — the envelope decays: a lossy medium. Large σ ⇒ conductor-like skin depth.', check: (c) => hasB(c, 'waveSource') },
-      { text: 'Place a Wave Boundary: with εr2 = 4 (glass) you get Γ, τ and a standing-wave ratio at the interface.', check: (c) => hasB(c, 'waveBoundary') },
-      { text: 'Add a Transmission Line and sweep its load — Zin, Γ and the SWR pattern respond like the Smith chart says.', check: (c) => hasB(c, 'transmissionLine') },
+      { text: 'Place a Wave Source (Waves section) and press ▶ Play to watch the travelling wave.', target: T.components, check: (c) => hasB(c, 'waveSource') && c.played },
+      { text: 'In the Inspector set σ > 0 — the envelope decays: a lossy medium. Large σ ⇒ conductor-like skin depth.', target: T.inspector, check: (c) => hasB(c, 'waveSource') },
+      { text: 'Place a Wave Boundary: with εr2 = 4 (glass) you get Γ, τ and a standing-wave ratio at the interface.', target: T.components, check: (c) => hasB(c, 'waveBoundary') },
+      { text: 'Add a Transmission Line and sweep its load — Zin, Γ and the SWR pattern respond like the Smith chart says.', target: T.components, check: (c) => hasB(c, 'transmissionLine') },
     ],
   },
   {
@@ -102,10 +145,10 @@ const COURSES: Course[] = [
     title: 'Quantum — confinement & tunneling',
     goal: 'Wells, wavefunctions and barriers.',
     steps: [
-      { text: 'Place a Quantum Well (Quantum section) — you see ψ, |ψ|² and the energy ladder.', check: (c) => hasB(c, 'quantumWell') },
-      { text: 'Step n to 2, then 3 in the Inspector — nodes appear; En grows as n².', check: (c) => hasB(c, 'quantumWell') },
-      { text: 'Narrow the well (smaller L): every level rises as 1/L² — confinement costs energy.', check: (c) => hasB(c, 'quantumWell') },
-      { text: 'Place a Tunnel Barrier with E < V0. Transmission is NOT zero — sweep E and the width to map how tunneling decays.', check: (c) => hasB(c, 'tunnelBarrier') },
+      { text: 'Place a Quantum Well (Quantum section) — you see ψ, |ψ|² and the energy ladder.', target: T.components, check: (c) => hasB(c, 'quantumWell') },
+      { text: 'Step n to 2, then 3 in the Inspector — nodes appear; En grows as n².', target: T.inspector, check: (c) => hasB(c, 'quantumWell') },
+      { text: 'Narrow the well (smaller L): every level rises as 1/L² — confinement costs energy.', target: T.inspector, check: (c) => hasB(c, 'quantumWell') },
+      { text: 'Place a Tunnel Barrier with E < V0. Transmission is NOT zero — sweep E and the width to map how tunneling decays.', target: T.components, check: (c) => hasB(c, 'tunnelBarrier') },
     ],
   },
 ]
@@ -153,6 +196,8 @@ export function TutorialPanel({ pageId, onClose }: { pageId: string | null; onCl
       className="glass-strong fixed bottom-20 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col rounded-2xl p-3"
       aria-label="Tutorial"
     >
+      {/* Spotlight the control this step uses. */}
+      {course && step < course.steps.length && <StepHighlight selector={current?.target} />}
       <div className="mb-1 flex items-center gap-2">
         {course ? (
           <button
