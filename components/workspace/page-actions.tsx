@@ -12,7 +12,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { useDocStore } from '@/lib/store/document'
 import { sharePage } from '@/lib/data/shares'
 import { createAssignment } from '@/lib/data/assignments'
-import { startSession } from '@/lib/data/boards'
+import { resolvePairing, startSession } from '@/lib/data/boards'
 import { listRooms, listBoards } from '@/lib/data/admin'
 import * as db from '@/lib/data/db'
 import type { BoardRow, ProfileRow, RoomRow } from '@/lib/data/types'
@@ -266,6 +266,7 @@ export function PresentDialog({
   const router = useRouter()
   const [boards, setBoards] = useState<Array<BoardRow & { roomName: string }>>([])
   const [boardId, setBoardId] = useState('')
+  const [code, setCode] = useState('')
   const [busy, setBusy] = useState(false)
 
   useEffect(() => {
@@ -280,9 +281,18 @@ export function PresentDialog({
   }, [page])
 
   const present = async () => {
-    if (!page || !boardId) return
+    if (!page || !boardId || !code.trim()) return
     setBusy(true)
     try {
+      // Same gate as scanning the QR: presenting requires the board's
+      // CURRENT pairing code, so only someone who can see the display
+      // (it rotates after every session) can take it over.
+      const paired = await resolvePairing(boardId, code.trim())
+      if (!paired) {
+        toast.error('Wrong code — check the pairing panel at the bottom-left of the board.')
+        setBusy(false)
+        return
+      }
       const session = await startSession({
         boardId,
         pageId: page.id,
@@ -325,15 +335,27 @@ export function PresentDialog({
               ))}
             </SelectContent>
           </Select>
+          <div className="space-y-1.5 pt-2">
+            <Label className="text-[12px]">Pairing code</Label>
+            <Input
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="6-character code on the board"
+              maxLength={6}
+              autoCapitalize="characters"
+              className="font-mono tracking-[0.2em]"
+            />
+          </div>
           <p className="pt-1 text-[11.5px] text-muted-foreground">
-            In the classroom? Scan the QR on the board with your phone instead.
+            The code sits bottom-left on the board and rotates after every presentation. In the
+            classroom? Scanning the QR with your phone fills it in for you.
           </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => void present()} disabled={busy || !boardId}>
+          <Button onClick={() => void present()} disabled={busy || !boardId || code.trim().length < 4}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Present'}
           </Button>
         </DialogFooter>

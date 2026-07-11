@@ -7,7 +7,7 @@
 // control bar is interactive. Files are session-only, never saved.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileUp, Maximize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileUp, Maximize2, Minimize2 } from 'lucide-react'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
 import type { ObjectRendererProps } from './types'
 
@@ -36,6 +36,7 @@ export function FileObject({ object }: ObjectRendererProps) {
   const [page, setPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
   const [rev, setRev] = useState(0) // bumps when a file is (re)attached
+  const [fs, setFs] = useState(false)
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -88,7 +89,24 @@ export function FileObject({ object }: ObjectRendererProps) {
     return () => {
       dead = true
     }
-  }, [page, numPages, rev, object.size.w, object.size.h])
+  }, [page, numPages, rev, fs, object.size.w, object.size.h])
+
+  // Fullscreen presentation: track state, re-render at the bigger size and
+  // page with the arrow keys while it's up.
+  useEffect(() => {
+    const onChange = () => setFs(document.fullscreenElement === boxRef.current)
+    document.addEventListener('fullscreenchange', onChange)
+    return () => document.removeEventListener('fullscreenchange', onChange)
+  }, [])
+  useEffect(() => {
+    if (!fs) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'PageDown') setPage((p) => Math.min(numPages, p + 1))
+      if (e.key === 'ArrowLeft' || e.key === 'PageUp') setPage((p) => Math.max(1, p - 1))
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [fs, numPages])
 
   const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation()
 
@@ -98,7 +116,7 @@ export function FileObject({ object }: ObjectRendererProps) {
           so the element selects and drags — never the document. */}
       <div
         ref={boxRef}
-        className="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-neutral-900"
+        className="pointer-events-none relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-neutral-900"
       >
         {!file ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -119,6 +137,46 @@ export function FileObject({ object }: ObjectRendererProps) {
         ) : (
           <div className="px-4 text-center text-[12px] text-muted-foreground">
             {file.name}: this format can't be shown inline — export it as PDF and re-attach.
+          </div>
+        )}
+
+        {/* In fullscreen the element's outer bar is gone — float the same
+            controls inside (children may re-enable pointer events). */}
+        {fs && (
+          <div className="glass-strong pointer-events-auto absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-1.5">
+            {isPdf && numPages > 0 && (
+              <>
+                <button
+                  type="button"
+                  aria-label="Previous page"
+                  disabled={page <= 1}
+                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+                <span className="min-w-14 text-center font-mono text-[12.5px] tabular-nums">
+                  {page} / {numPages}
+                </span>
+                <button
+                  type="button"
+                  aria-label="Next page"
+                  disabled={page >= numPages}
+                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                  onClick={() => setPage((p) => Math.min(numPages, p + 1))}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </>
+            )}
+            <button
+              type="button"
+              aria-label="Exit fullscreen"
+              className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => void document.exitFullscreen?.()}
+            >
+              <Minimize2 className="h-5 w-5" />
+            </button>
           </div>
         )}
       </div>
