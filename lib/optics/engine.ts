@@ -216,6 +216,115 @@ export function traceRays(objects: SceneObject[]): RayPath[] {
   return rays
 }
 
+// ═══ Wave & quantum layer ════════════════════════════════════════════════
+// Real physics, not decoration. Scale: 1 canvas px = 1 µm, so a 20 px slit
+// gap is a 20 µm slit and λ=550 nm is 0.55 px — genuine lab dimensions.
+//
+// For every screen behind a slit mask we do a Huygens–Fresnel phasor sum:
+// each open gap is sampled as M secondary emitters, and the complex
+// amplitude at a screen point is Σ e^{ikr}/√r over all emitters (2D wave,
+// hence 1/√r). |A|² gives the intensity — the single-slit sinc² envelope
+// and the double-slit cos² fringes fall out of the sum, nothing is faked.
+//
+// Quantum view: while the transport runs, photons land one at a time at
+// positions drawn from |A|² (Born rule) — the canonical build-up of an
+// interference pattern from individually detected quanta.
+
+export interface ScreenPattern {
+  screenId: string
+  a: Vec2 // screen aperture endpoints (world)
+  b: Vec2
+  /** normalized |A|² sampled uniformly from a→b */
+  intensity: number[]
+  wavelengthNm: number
+}
+
+const SCREEN_SAMPLES = 140
+const EMITTERS_PER_GAP = 9
+
+/** Interference/diffraction pattern on every screen fed by a coherent
+ *  source through a slit mask. Pure function of the scene. */
+export function screenPatterns(objects: SceneObject[]): ScreenPattern[] {
+  const all = collectElements(objects)
+  const screens = all.filter((e) => e.kind === 'screen')
+  const slits = all.filter((e) => e.kind === 'slit')
+  const sources = objects.filter((o) => o.geometry.kind === 'circle' && hasBehavior(o, 'lightSource'))
+  if (screens.length === 0 || slits.length === 0 || sources.length === 0) return []
+
+  const out: ScreenPattern[] = []
+  for (const screen of screens) {
+    for (const src of sources) {
+      const cx = src.position.x + src.size.w / 2
+      const cy = src.position.y + src.size.h / 2
+      // Nearest slit between this source and this screen (by midpoints).
+      const sMid = { x: (screen.a.x + screen.b.x) / 2, y: (screen.a.y + screen.b.y) / 2 }
+      const slit = slits
+        .map((el) => ({ el, mid: { x: (el.a.x + el.b.x) / 2, y: (el.a.y + el.b.y) / 2 } }))
+        .filter(({ mid }) => Math.hypot(mid.x - cx, mid.y - cy) < Math.hypot(sMid.x - cx, sMid.y - cy))
+        .sort(
+          (p, q) => Math.hypot(p.mid.x - cx, p.mid.y - cy) - Math.hypot(q.mid.x - cx, q.mid.y - cy)
+        )[0]
+      if (!slit) continue
+
+      const gap = opticParam(slit.el.obj, 'slit', 'gap', 20)
+      const count = Math.max(1, Math.min(2, Math.round(opticParam(slit.el.obj, 'slit', 'count', 1))))
+      const spacing = opticParam(slit.el.obj, 'slit', 'spacing', 60)
+      const wavelengthNm = opticParam(src, 'lightSource', 'wavelength', 550)
+      const lambdaPx = wavelengthNm / 1000 // 1 px = 1 µm
+      const k = (2 * Math.PI) / lambdaPx
+
+      // Secondary emitters across each open gap, positioned in world space
+      // along the slit's own aperture axis.
+      const mid = slit.mid
+      const axis = normalize({ x: slit.el.b.x - slit.el.a.x, y: slit.el.b.y - slit.el.a.y })
+      const centers = count === 2 ? [-spacing / 2, spacing / 2] : [0]
+      const emitters: { p: Vec2; phase0: number }[] = []
+      for (const c of centers) {
+        for (let m = 0; m < EMITTERS_PER_GAP; m++) {
+          const off = c - gap / 2 + (gap * (m + 0.5)) / EMITTERS_PER_GAP
+          const p = { x: mid.x + axis.x * off, y: mid.y + axis.y * off }
+          // Phase acquired travelling source → slit point (spherical wave).
+          emitters.push({ p, phase0: k * Math.hypot(p.x - cx, p.y - cy) })
+        }
+      }
+
+      const intensity: number[] = new Array(SCREEN_SAMPLES)
+      let max = 0
+      for (let i = 0; i < SCREEN_SAMPLES; i++) {
+        const t = i / (SCREEN_SAMPLES - 1)
+        const q = { x: screen.a.x + (screen.b.x - screen.a.x) * t, y: screen.a.y + (screen.b.y - screen.a.y) * t }
+        let re = 0
+        let im = 0
+        for (const e of emitters) {
+          const r = Math.hypot(q.x - e.p.x, q.y - e.p.y) || 1e-6
+          const ph = e.phase0 + k * r
+          const amp = 1 / Math.sqrt(r)
+          re += amp * Math.cos(ph)
+          im += amp * Math.sin(ph)
+        }
+        const I = re * re + im * im
+        intensity[i] = I
+        if (I > max) max = I
+      }
+      if (max > 0) for (let i = 0; i < SCREEN_SAMPLES; i++) intensity[i] /= max
+      out.push({ screenId: screen.obj.id, a: screen.a, b: screen.b, intensity, wavelengthNm })
+    }
+  }
+  return out
+}
+
+/** Born rule: draw one photon landing position (0..1 along the screen)
+ *  from the pattern's |A|² distribution via inverse-CDF sampling. */
+export function samplePhoton(pattern: ScreenPattern): number {
+  const total = pattern.intensity.reduce((s, v) => s + v, 0) || 1
+  let r = Math.random() * total
+  for (let i = 0; i < pattern.intensity.length; i++) {
+    r -= pattern.intensity[i]
+    if (r <= 0) return i / (pattern.intensity.length - 1)
+  }
+  return 1
+}
+
 /** Rough visible-spectrum tint for a wavelength, purely cosmetic. */
 export function wavelengthColor(nm: number): string {
   if (nm < 450) return '#7c4dff'

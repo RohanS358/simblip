@@ -47,6 +47,7 @@ import {
 } from '@/lib/data/admin'
 import { listAssets, setApproved, subscribeLibrary } from '@/lib/data/library'
 import { listMyAnnouncements, postAnnouncement } from '@/lib/data/announcements'
+import * as db from '@/lib/data/db'
 import { dbMode } from '@/lib/data/db'
 import type {
   AnnouncementRow,
@@ -55,7 +56,20 @@ import type {
   ProfileRow,
   RoomMemberRow,
   RoomRow,
+  SubmissionRow,
 } from '@/lib/data/types'
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Legend,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip as RechartsTooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -85,13 +99,123 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string;
   )
 }
 
-function Overview({ people, rooms, boards, assets }: { people: ProfileRow[]; rooms: RoomRow[]; boards: BoardRow[]; assets: LibraryAssetRow[] }) {
+const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e']
+
+function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="glass rounded-2xl p-4">
+      <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
+      <div className="h-52">{children}</div>
+    </div>
+  )
+}
+
+function Overview({
+  people,
+  rooms,
+  boards,
+  assets,
+  members,
+}: {
+  people: ProfileRow[]
+  rooms: RoomRow[]
+  boards: BoardRow[]
+  assets: LibraryAssetRow[]
+  members: RoomMemberRow[]
+}) {
+  const profile = useAuthStore((s) => s.profile)
+  const [submissions, setSubmissions] = useState<SubmissionRow[]>([])
+  const [assignmentCount, setAssignmentCount] = useState(0)
+
+  useEffect(() => {
+    if (!profile) return
+    void db.list<SubmissionRow>('submissions', { institution_id: profile.institution_id }).then(setSubmissions).catch(() => {})
+    void db.list('assignments', { institution_id: profile.institution_id }).then((r) => setAssignmentCount(r.length)).catch(() => {})
+  }, [profile])
+
+  const roleData = (['teacher', 'student', 'board'] as const).map((r) => ({
+    name: ROLE_LABEL[r],
+    value: people.filter((p) => p.role === r).length,
+  }))
+  const roomData = rooms.map((r) => ({
+    name: r.name,
+    students: members.filter((m) => m.room_id === r.id && m.member_role === 'student').length,
+  }))
+  const subData = (['opened', 'in_progress', 'submitted', 'late', 'reviewed'] as const).map((s, i) => ({
+    name: s.replace('_', ' '),
+    value: submissions.filter((x) => x.status === s).length,
+    fill: CHART_COLORS[i],
+  }))
+  const libData = [
+    { name: 'Student-visible', value: assets.filter((a) => a.approved).length },
+    { name: 'Staff only', value: assets.filter((a) => !a.approved).length },
+  ]
+
   return (
     <div className="grid grid-cols-2 gap-3 pt-4 md:grid-cols-4">
       <Stat icon={GraduationCap} label="Teachers" value={people.filter((p) => p.role === 'teacher').length} />
       <Stat icon={UserRound} label="Students" value={people.filter((p) => p.role === 'student').length} />
       <Stat icon={School} label="Rooms" value={rooms.length} />
       <Stat icon={MonitorPlay} label="Room boards" value={boards.length} />
+
+      <div className="col-span-2">
+        <ChartCard title={`Enrollment by room`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={roomData} margin={{ top: 4, right: 4, left: -26, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <RechartsTooltip cursor={{ fill: 'transparent' }} contentStyle={{ fontSize: 12, borderRadius: 12 }} />
+              <Bar dataKey="students" fill="#3b82f6" radius={[6, 6, 0, 0]} maxBarSize={44} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+      <div className="col-span-2">
+        <ChartCard title={`Assignment pipeline · ${assignmentCount} assignments`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={subData} margin={{ top: 4, right: 4, left: -26, bottom: 0 }}>
+              <XAxis dataKey="name" tick={{ fontSize: 11 }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <RechartsTooltip cursor={{ fill: 'transparent' }} contentStyle={{ fontSize: 12, borderRadius: 12 }} />
+              <Bar dataKey="value" radius={[6, 6, 0, 0]} maxBarSize={44}>
+                {subData.map((d) => (
+                  <Cell key={d.name} fill={d.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+      <div className="col-span-2">
+        <ChartCard title="People by role">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={roleData} dataKey="value" nameKey="name" innerRadius={44} outerRadius={70} paddingAngle={3}>
+                {roleData.map((_, i) => (
+                  <Cell key={i} fill={CHART_COLORS[i]} />
+                ))}
+              </Pie>
+              <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+      <div className="col-span-2">
+        <ChartCard title={`Library · ${assets.length} assets`}>
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie data={libData} dataKey="value" nameKey="name" innerRadius={44} outerRadius={70} paddingAngle={3}>
+                <Cell fill="#10b981" />
+                <Cell fill="#f59e0b" />
+              </Pie>
+              <RechartsTooltip contentStyle={{ fontSize: 12, borderRadius: 12 }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartCard>
+      </div>
+
       <div className="col-span-2 md:col-span-4">
         <div className="glass rounded-2xl p-4 text-[12.5px] leading-relaxed text-muted-foreground">
           <p className="font-semibold text-foreground">Provisioning</p>
@@ -648,7 +772,7 @@ function AdminConsole() {
           <TabsTrigger value="branding">Branding</TabsTrigger>
         </TabsList>
         <TabsContent value="overview">
-          <Overview people={people} rooms={rooms} boards={boards} assets={assets} />
+          <Overview people={people} rooms={rooms} boards={boards} assets={assets} members={members} />
         </TabsContent>
         <TabsContent value="people">
           <PeopleTab people={people} rooms={rooms} members={members} refresh={refresh} />

@@ -195,10 +195,13 @@ export function LibraryPanel({
   open,
   onClose,
   pageId,
+  inline = false,
 }: {
   open: boolean
   onClose: () => void
   pageId: string | null
+  /** Rendered inside the notebook sidebar (no floating chrome of its own). */
+  inline?: boolean
 }) {
   const profile = useAuthStore((s) => s.profile)
   const [assets, setAssets] = useState<LibraryAssetRow[]>([])
@@ -258,10 +261,14 @@ export function LibraryPanel({
 
   return (
     <motion.aside
-      initial={{ x: 16, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
+      initial={inline ? false : { x: 16, opacity: 0 }}
+      animate={inline ? undefined : { x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-80 flex-col rounded-2xl"
+      className={
+        inline
+          ? 'flex h-full min-h-0 w-full flex-col'
+          : 'glass z-30 m-3 flex w-80 flex-col rounded-2xl'
+      }
       aria-label="Institution library"
     >
       <div className="flex items-center gap-2 px-3.5 pb-2 pt-3">

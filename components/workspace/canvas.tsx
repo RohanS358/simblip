@@ -282,6 +282,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // long-press timer that stands in for right-click on touch screens.
   const touchesRef = useRef<Map<number, Vec2>>(new Map())
   const pinchRef = useRef<{ dist: number; center: Vec2; viewport: Viewport } | null>(null)
+  const lastPenRef = useRef(0) // last stylus contact, for palm rejection
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
 
   const objects = useDocStore((s) => s.pages[pageId]?.objects)
@@ -960,6 +961,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // Capture-phase touch bookkeeping: runs before object handlers regardless
   // of their stopPropagation, so every finger is accounted for.
   const handleTouchDownCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'pen') {
+      lastPenRef.current = Date.now() // stylus present → arm palm rejection
+      return
+    }
     if (e.pointerType !== 'touch') return
     touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     clearLongPress()
@@ -1030,6 +1035,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
+    // Palm rejection: once a stylus has been seen recently, a resting palm
+    // (single touch) must not ink or marquee — two fingers still pan/zoom.
+    if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < 20000)
+      return
     if (e.button === 1 || spaceRef.current) {
       beginGesture('pan', e)
       return

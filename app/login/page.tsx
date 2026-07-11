@@ -13,6 +13,7 @@ import { homeFor } from '@/lib/auth/types'
 import { cloudConfigured } from '@/lib/data/db'
 import { DEMO_INSTITUTION } from '@/lib/auth/demo'
 import { Button } from '@/components/ui/button'
+import { SimBackdrop } from '@/components/landing/sim-backdrop'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -49,8 +50,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
+    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4">
+      <SimBackdrop />
+      <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center">
           <span className="text-[22px] font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>

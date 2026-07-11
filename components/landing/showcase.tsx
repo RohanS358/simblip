@@ -3,6 +3,8 @@
 // workspace, so the marketing page IS the product's UI.
 
 import Link from 'next/link'
+import { ScrollFx } from './scroll-fx'
+import { SimBackdrop } from './sim-backdrop'
 
 function DemoCard({
   title,
@@ -166,6 +168,7 @@ const FEATURES = [
 
 export function Landing() {
   return (
+    <ScrollFx>
     <div className="min-h-screen bg-background text-foreground">
       <style>{`
         @keyframes sb-swing { from { transform: rotate(-26deg) } to { transform: rotate(26deg) } }
@@ -191,14 +194,17 @@ export function Landing() {
         </Link>
       </header>
 
-      <section className="canvas-dots px-6 pb-16 pt-20 text-center [background-size:24px_24px]">
+      <section className="canvas-dots relative overflow-hidden px-6 pb-16 pt-20 text-center [background-size:24px_24px]">
+        <SimBackdrop />
+        <div data-fx="hero" className="relative">
         <h1 className="mx-auto max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
           The notebook where your <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
           <span className="text-[var(--accent-mint)]">experiments</span>
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground">
-          Sketch mechanics, wire circuits, build logic — then press Play. One canvas, real
-          physics, real Kirchhoff, real waveforms. Everything editable while it runs.
+          Sketch mechanics, wire circuits, build logic, fire photons at a double slit — then press
+          Play. One canvas, real physics, real Kirchhoff, real interference. Everything editable
+          while it runs.
         </p>
         <div className="mt-8 flex items-center justify-center gap-3">
           <Link
@@ -214,9 +220,27 @@ export function Landing() {
             See it in action
           </a>
         </div>
+        </div>
       </section>
 
-      <section id="demos" className="mx-auto grid max-w-5xl gap-4 px-6 pb-20 sm:grid-cols-2 lg:grid-cols-3">
+      <section className="mx-auto max-w-5xl px-6 pb-8 pt-4">
+        <div data-fx="domino" className="grid gap-3 sm:grid-cols-5 [perspective:900px]">
+          {[
+            ['Mechanics', 'Rigid bodies, springs, hinges, motors — drawn, then simulated.'],
+            ['Circuits', 'Kirchhoff-solved R/L/C, diodes, op-amps at 120 Hz.'],
+            ['Digital logic', 'Gates to flip-flops, every pin live.'],
+            ['Optics & waves', 'Ray tracing, lenses, mirrors — and real diffraction.'],
+            ['Quantum', 'Double-slit photons, wells, tunneling barriers.'],
+          ].map(([t, b]) => (
+            <div key={t} className="glass rounded-2xl p-4 text-left">
+              <p className="text-[13px] font-bold">{t}</p>
+              <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{b}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="demos" data-fx="domino" className="mx-auto grid max-w-5xl gap-4 px-6 pb-20 [perspective:1100px] sm:grid-cols-2 lg:grid-cols-3">
         <DemoCard title="Mechanics that obey you" caption="Pendulums, springs, collisions — gravity and air drag are just variables you edit, even mid-swing.">
           <PendulumDemo />
         </DemoCard>
@@ -237,8 +261,68 @@ export function Landing() {
         </DemoCard>
       </section>
 
+      {/* Wave & quantum nature of light — the physics is computed, not drawn. */}
+      <section className="border-t border-border/60 px-6 py-16">
+        <div className="mx-auto max-w-5xl">
+          <div data-fx="rise" className="max-w-2xl">
+            <h2 className="text-balance text-3xl font-bold tracking-tight">
+              Light that behaves like <span className="text-[var(--accent-violet)]">light</span>
+            </h2>
+            <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+              Build a double-slit experiment on the canvas — a coherent source, a slit mask, a
+              screen — and SIMBLIP performs a Huygens–Fresnel phasor sum over the open apertures
+              at real dimensions (1 px = 1 µm). The single-slit diffraction envelope and the
+              cos² fringes emerge from the wave equation, not from a picture of them. Press Play
+              and photons land one at a time at Born-rule positions, building the interference
+              pattern from individual detections — the experiment that defines quantum mechanics,
+              reproduced faithfully in your notebook.
+            </p>
+          </div>
+          <div data-fx="domino" className="mt-8 grid gap-3 sm:grid-cols-3 [perspective:900px]">
+            {[
+              ['Huygens–Fresnel', 'Every open slit is summed as secondary wavelets — Σ e^{ikr}/√r. Change λ, gap or spacing and the fringes respond exactly as theory predicts.'],
+              ['Born rule photons', 'In Play mode single photons accumulate stochastically from |A|². Watch randomness become the interference pattern.'],
+              ['Wells & barriers', 'Particle-in-a-box eigenstates and tunneling transmission, solved from the Schrödinger picture with live parameters.'],
+            ].map(([t, b]) => (
+              <div key={t} className="glass rounded-2xl p-4">
+                <p className="text-[13px] font-bold text-[var(--accent-violet)]">{t}</p>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{b}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Classroom platform */}
       <section className="border-t border-border/60 bg-card/40 px-6 py-16">
-        <div className="mx-auto grid max-w-5xl gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto max-w-5xl">
+          <div data-fx="rise" className="max-w-2xl">
+            <h2 className="text-balance text-3xl font-bold tracking-tight">
+              A whole <span className="text-[var(--accent-blue)]">classroom</span> operating system
+            </h2>
+            <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+              SIMBLIP is not a lone notebook — it is the environment an engineering institution
+              runs on. Teachers teach from it, boards present it, students submit through it.
+            </p>
+          </div>
+          <div data-fx="domino" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [perspective:900px]">
+            {[
+              ['1 · Scan', 'Every classroom display shows a rotating QR. A teacher scans it with their phone and picks any notebook page.'],
+              ['2 · Present', 'The board loads a temporary copy — annotate, simulate, rewind. The original teaching material is never touched.'],
+              ['3 · Assign', 'Any page becomes an assignment. Each student gets their own working copy and submits from their notebook.'],
+              ['4 · Review', 'A live dashboard tracks opened → in progress → submitted → reviewed, with feedback flowing back instantly.'],
+            ].map(([t, b]) => (
+              <div key={t} className="glass rounded-2xl p-4">
+                <p className="text-[13px] font-bold">{t}</p>
+                <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{b}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="border-t border-border/60 px-6 py-16">
+        <div data-fx="domino" className="mx-auto grid max-w-5xl gap-x-10 gap-y-8 [perspective:900px] sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(([title, body]) => (
             <div key={title}>
               <h3 className="text-[14px] font-semibold">{title}</h3>
@@ -248,7 +332,7 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="pricing" className="border-t border-border/60 px-6 py-16 text-center">
+      <section id="pricing" data-fx="rise" className="border-t border-border/60 px-6 py-16 text-center">
         <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight">
           Built for <span className="text-[var(--accent-blue)]">institutions</span>, not accounts
         </h2>
@@ -283,5 +367,6 @@ export function Landing() {
         </Link>
       </footer>
     </div>
+    </ScrollFx>
   )
 }

@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { LibraryBig, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
+import { PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
@@ -24,7 +24,7 @@ import { Inspector } from './inspector'
 import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
-import { LibraryPanel } from './library-panel'
+import { MobileShell } from './mobile-shell'
 import { CommandPalette } from './command-palette'
 import { NotificationCenter } from './notifications'
 import { ProfileMenu } from './profile-menu'
@@ -90,7 +90,6 @@ export function WorkspaceShell() {
   // a server/client markup mismatch.
   const [ready, setReady] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
-  const [libraryOpen, setLibraryOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
@@ -153,6 +152,9 @@ export function WorkspaceShell() {
       </div>
     )
   }
+
+  // Phones get a Notes-style navigation app, not a shrunken desktop.
+  if (isMobile) return <MobileShell />
 
   const aiAllowed = can(profile?.role, 'use-ai')
 
@@ -219,17 +221,6 @@ export function WorkspaceShell() {
         <NotificationCenter />
         <button
           type="button"
-          aria-label="Toggle library"
-          className={cn(
-            'rounded-lg p-1.5 transition-colors hover:bg-accent',
-            libraryOpen ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          onClick={() => setLibraryOpen((o) => !o)}
-        >
-          <LibraryBig className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
           aria-label="Toggle theme"
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
@@ -251,24 +242,7 @@ export function WorkspaceShell() {
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {/* Desktop: docked. Mobile: full overlay with a scrim, so the toggle
-            in the top bar always works and the canvas stays full-bleed. */}
-        {sidebarOpen &&
-          (isMobile ? (
-            <div className="absolute inset-0 z-40 flex">
-              <button
-                type="button"
-                aria-label="Close sidebar"
-                className="absolute inset-0 bg-black/40"
-                onClick={() => togglePanel('sidebar')}
-              />
-              <div className="relative z-10 flex h-full max-w-[85vw]">
-                <Sidebar />
-              </div>
-            </div>
-          ) : (
-            <Sidebar />
-          ))}
+        {sidebarOpen && <Sidebar />}
 
         <main className="relative min-w-0 flex-1">
           {activePageId ? (
@@ -293,7 +267,6 @@ export function WorkspaceShell() {
           )}
         </main>
 
-        <LibraryPanel open={libraryOpen} onClose={() => setLibraryOpen(false)} pageId={activePageId} />
         {inspectorOpen && activePageId && <Inspector pageId={activePageId} />}
       </div>
 
@@ -313,7 +286,6 @@ export function WorkspaceShell() {
         open={commandOpen}
         onOpenChange={setCommandOpen}
         onOpenSettings={() => setSettingsOpen(true)}
-        onOpenLibrary={() => setLibraryOpen(true)}
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </div>

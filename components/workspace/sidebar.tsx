@@ -31,7 +31,7 @@ import {
   exportPageJson,
   type PageRef,
 } from './page-actions'
-import { PublishDialog } from './library-panel'
+import { LibraryPanel, PublishDialog } from './library-panel'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -112,6 +112,7 @@ export function Sidebar() {
   const store = useWorkspaceStore
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [libOpen, setLibOpen] = useState(true)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
@@ -134,7 +135,7 @@ export function Sidebar() {
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-60 flex-col rounded-2xl"
+      className="glass z-30 m-3 flex w-72 flex-col rounded-2xl"
       aria-label="Notebooks"
     >
       <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
@@ -317,6 +318,22 @@ export function Sidebar() {
           </div>
         ))}
       </div>
+
+      {/* The institution library lives in the bottom half of this sidebar —
+          browse and insert without a second panel fighting for space. */}
+      {libOpen ? (
+        <div className="flex h-[46%] min-h-0 shrink-0 flex-col border-t border-border/50">
+          <LibraryPanel inline open onClose={() => setLibOpen(false)} pageId={activePageId} />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="flex items-center gap-2 border-t border-border/50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          onClick={() => setLibOpen(true)}
+        >
+          <LibraryBig className="h-3.5 w-3.5 text-[var(--accent-blue)]" /> Library
+        </button>
+      )}
 
       <ShareDialog page={shareFor} onOpenChange={(o) => !o && setShareFor(null)} />
       <AssignDialog page={assignFor} onOpenChange={(o) => !o && setAssignFor(null)} />

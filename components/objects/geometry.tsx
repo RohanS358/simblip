@@ -5,14 +5,21 @@
 // a rigidBody reads as matter, a bare sketch reads as ink. Same object, the
 // behavior is the difference (docs/architecture.md).
 
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
 import { getNumber, type ObjectRendererProps } from './types'
-import { traceRays, wavelengthColor, opticParam } from '@/lib/optics/engine'
+import {
+  traceRays,
+  screenPatterns,
+  samplePhoton,
+  wavelengthColor,
+  opticParam,
+  type ScreenPattern,
+} from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
 import { useRuntimeStore } from '@/lib/physics/world'
 import {
@@ -525,6 +532,37 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     if (!isLightSource || !pageObjects) return []
     return traceRays(Object.values(pageObjects))
   }, [isLightSource, pageObjects])
+
+  // Wave layer: Huygens–Fresnel interference on every screen behind a slit
+  // (real single/double-slit physics at 1 px = 1 µm — lib/optics/engine.ts).
+  const patterns = useMemo(() => {
+    if (!isLightSource || !pageObjects) return []
+    return screenPatterns(Object.values(pageObjects))
+  }, [isLightSource, pageObjects])
+
+  // Quantum layer: while the transport runs, photons land one by one at
+  // Born-rule positions — the pattern builds up from individual detections.
+  const playMode = useRuntimeStore((s) => (isLightSource ? s.mode : 'edit'))
+  const [photons, setPhotons] = useState<{ s: number; t: number; j: number }[]>([])
+  useEffect(() => {
+    if (!isLightSource) return
+    if (playMode !== 'running' || patterns.length === 0) {
+      if (playMode === 'edit') setPhotons([])
+      return
+    }
+    const timer = setInterval(() => {
+      setPhotons((prev) => {
+        if (prev.length >= 1400) return prev
+        const next = [...prev]
+        for (let i = 0; i < 6; i++) {
+          const s = Math.floor(Math.random() * patterns.length)
+          next.push({ s, t: samplePhoton(patterns[s]), j: (Math.random() - 0.5) * 8 })
+        }
+        return next
+      })
+    }, 60)
+    return () => clearInterval(timer)
+  }, [isLightSource, playMode, patterns])
 
   // Wave source is the one new-domain object that animates continuously
   // (a traveling-wave snapshot) — it reads the runtime clock and freezes
@@ -1099,6 +1137,60 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
                 />
               )
           )}
+          {/* Interference: fringe band on the screen + |A|² intensity curve. */}
+          {isLightSource &&
+            patterns.map((pat: ScreenPattern, pi: number) => {
+              const ox = object.position.x
+              const oy = object.position.y
+              const n = pat.intensity.length
+              const dx = (pat.b.x - pat.a.x) / (n - 1)
+              const dy = (pat.b.y - pat.a.y) / (n - 1)
+              const len = Math.hypot(pat.b.x - pat.a.x, pat.b.y - pat.a.y) || 1
+              // outward normal of the screen line, curve drawn on that side
+              const nx = -(pat.b.y - pat.a.y) / len
+              const ny = (pat.b.x - pat.a.x) / len
+              const CURVE = 46
+              const color = wavelengthColor(pat.wavelengthNm)
+              const curve = pat.intensity
+                .map((I, i) => {
+                  const px = pat.a.x + dx * i + nx * I * CURVE - ox
+                  const py = pat.a.y + dy * i + ny * I * CURVE - oy
+                  return `${i === 0 ? 'M' : 'L'} ${px.toFixed(1)} ${py.toFixed(1)}`
+                })
+                .join(' ')
+              return (
+                <g key={`pat-${pi}`}>
+                  {pat.intensity.map((I, i) =>
+                    I > 0.02 ? (
+                      <line
+                        key={i}
+                        x1={pat.a.x + dx * i - ox}
+                        y1={pat.a.y + dy * i - oy}
+                        x2={pat.a.x + dx * i + nx * 10 - ox}
+                        y2={pat.a.y + dy * i + ny * 10 - oy}
+                        stroke={color}
+                        strokeWidth={len / n + 0.5}
+                        opacity={I * 0.9}
+                      />
+                    ) : null
+                  )}
+                  <path d={curve} fill="none" stroke={color} strokeWidth={1.5} opacity={0.8} />
+                  {/* Photons detected one at a time (Born rule) while playing. */}
+                  {photons
+                    .filter((p) => p.s === pi)
+                    .map((p, i) => (
+                      <circle
+                        key={`ph-${i}`}
+                        cx={pat.a.x + (pat.b.x - pat.a.x) * p.t + nx * (12 + p.j) - ox}
+                        cy={pat.a.y + (pat.b.y - pat.a.y) * p.t + ny * (12 + p.j) - oy}
+                        r={1.3}
+                        fill={color}
+                        opacity={0.85}
+                      />
+                    ))}
+                </g>
+              )
+            })}
         </g>
         <ellipse
           cx={w / 2}
