@@ -20,6 +20,7 @@ export type Tool =
   | 'circle'
   | 'rect'
   | 'line'
+  | 'shape' // placing a shape from the Shapes group (toolOption = shape id)
   | 'text'
   | 'note'
   | 'formula'

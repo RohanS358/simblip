@@ -33,15 +33,46 @@ import { cn } from '@/lib/utils'
 const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
   { tool: 'pen', icon: Pen, label: 'Pen — ink stays as drawn', key: 'P' },
-  { tool: 'shaper', icon: Spline, label: 'Shaper — cleans up what you draw', key: 'S' },
+  { tool: 'shaper', icon: Spline, label: 'Shaper — 90° elbowed lines, like Shift+pen', key: 'S' },
   { tool: 'eraser', icon: Eraser, label: 'Eraser — drag over ink to remove it', key: 'E' },
-  { tool: 'circle', icon: Circle, label: 'Circle', key: 'C' },
-  { tool: 'rect', icon: Square, label: 'Rectangle', key: 'R' },
-  { tool: 'line', icon: Minus, label: 'Line / Beam', key: 'L' },
   { tool: 'text', icon: Type, label: 'Text', key: 'T' },
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
   { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
+]
+
+/** Crisp inline n-gon icon — lucide has no heptagon. */
+function NgonIcon({ n }: { n: number }) {
+  const pts = Array.from({ length: n }, (_, i) => {
+    const a = -Math.PI / 2 + (i * 2 * Math.PI) / n
+    return `${(12 + 9 * Math.cos(a)).toFixed(2)},${(12 + 9 * Math.sin(a)).toFixed(2)}`
+  }).join(' ')
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+      <polygon points={pts} strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+const OvalIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+    <ellipse cx={12} cy={12} rx={9.5} ry={6} />
+  </svg>
+)
+
+// The Shapes group: everything that used to be a standalone dock tool plus
+// the full regular-polygon family. `id` rides in toolOption ('shape' tool).
+const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [
+  { id: 'line', label: 'Line / Beam', icon: <Minus className="h-4 w-4" /> },
+  { id: 'circle', label: 'Circle', icon: <Circle className="h-4 w-4" /> },
+  { id: 'oval', label: 'Oval', icon: <OvalIcon /> },
+  { id: 'square', label: 'Square', icon: <Square className="h-4 w-4" /> },
+  { id: 'rect', label: 'Rectangle', icon: <Square className="h-4 w-4 scale-x-125" /> },
+  { id: 'triangle', label: 'Triangle', icon: <NgonIcon n={3} /> },
+  { id: 'pentagon', label: 'Pentagon', icon: <NgonIcon n={5} /> },
+  { id: 'hexagon', label: 'Hexagon', icon: <NgonIcon n={6} /> },
+  { id: 'heptagon', label: 'Heptagon', icon: <NgonIcon n={7} /> },
+  { id: 'octagon', label: 'Octagon', icon: <NgonIcon n={8} /> },
 ]
 
 function ToolButton({
@@ -113,6 +144,8 @@ export function Toolbar({
   // Pen-size flyout: opens on hover (mouse) with a grace timer so the cursor
   // can travel to the slider; on touch, tapping the already-active pen toggles it.
   const [showSize, setShowSize] = useState(false)
+  const [showShapes, setShowShapes] = useState(false)
+  const toolOption = useDocStore((s) => s.toolOption)
   const hideTimer = useRef<number | null>(null)
   const openSize = () => {
     if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -163,6 +196,24 @@ export function Toolbar({
         </div>
       )}
 
+      {showShapes && (
+        <div className="glass-strong absolute bottom-full left-1/2 mb-2 grid -translate-x-1/2 grid-cols-5 gap-1 rounded-2xl p-1.5">
+          {SHAPES.map((sh) => (
+            <ToolButton
+              key={sh.id}
+              active={tool === 'shape' && toolOption === sh.id}
+              label={sh.label}
+              onClick={() => {
+                setTool('shape', sh.id)
+                setShowShapes(false)
+              }}
+            >
+              {sh.icon}
+            </ToolButton>
+          ))}
+        </div>
+      )}
+
       {/* Inner pill owns the horizontal scroll so the flyout above never clips. */}
       <div className="glass-strong no-scrollbar flex items-center gap-1 overflow-x-auto rounded-2xl p-1.5">
       {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
@@ -197,6 +248,17 @@ export function Toolbar({
           </ToolButton>
         )
       )}
+
+      <ToolButton
+        active={showShapes || tool === 'shape'}
+        label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
+        onClick={() => {
+          setShowSize(false)
+          setShowShapes((v) => !v)
+        }}
+      >
+        <Shapes className="h-4 w-4" />
+      </ToolButton>
 
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 

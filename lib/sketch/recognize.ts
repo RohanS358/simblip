@@ -1,13 +1,13 @@
-// Sketch recognition: a freehand stroke becomes a circle, rectangle, line or
-// spring (zigzag). Recognition only upgrades GEOMETRY — physical meaning
-// still comes from attaching behaviors, so a wrong guess costs the user
-// nothing (docs/architecture.md: draw → convert → simulate). Polygon output
-// was removed: irregular closed doodles now stay ink (legacy polygon objects
-// still render; nothing new is created as one).
+// Sketch recognition: a freehand stroke becomes a circle, oval, square,
+// rectangle, a regular 3–8-gon (triangle…octagon), a line or a spring
+// (zigzag). Recognition only upgrades GEOMETRY — physical meaning still
+// comes from attaching behaviors, so a wrong guess costs the user nothing
+// (docs/architecture.md: draw → convert → simulate). Irregular closed
+// doodles stay ink; only clean regular polygons snap.
 
 export interface Recognition {
-  kind: 'circle' | 'rect' | 'line' | 'spring' | 'stroke'
-  /** points relative to bbox min (for line/spring/stroke) */
+  kind: 'circle' | 'rect' | 'line' | 'polygon' | 'spring' | 'stroke'
+  /** points relative to bbox min (for polygon/line/spring/stroke) */
   points: number[][]
   w: number
   h: number
@@ -49,79 +49,6 @@ export function simplify(points: number[][], epsilon: number): number[][] {
     return [...left.slice(0, -1), ...right]
   }
   return [points[0], points[points.length - 1]]
-}
-
-// Edges leaning within ~25° of an axis snap fully horizontal/vertical;
-// steeper diagonals stay exactly as drawn (just straight).
-const AXIS_SNAP = Math.tan((25 * Math.PI) / 180)
-
-/** Straighten a corner run: every edge becomes a dead-straight segment,
- *  and near-axis edges route like wires (true horizontal/vertical) — so
- *  rough staircases become perfect steps and ladders while deliberate
- *  diagonals keep their slope. No curves, ever. */
-function straighten(corners: number[][]): number[][] {
-  const out: number[][] = [corners[0]]
-  for (let i = 1; i < corners.length; i++) {
-    const [px, py] = out[i - 1]
-    const dx = corners[i][0] - corners[i - 1][0]
-    const dy = corners[i][1] - corners[i - 1][1]
-    if (Math.abs(dy) <= Math.abs(dx) * AXIS_SNAP) out.push([px + dx, py])
-    else if (Math.abs(dx) <= Math.abs(dy) * AXIS_SNAP) out.push([px, py + dy])
-    else out.push([px + dx, py + dy])
-  }
-  return out
-}
-
-/** RDP that returns the INDICES of the kept vertices, so segments between
- *  corners can be pulled back out of the original point run. */
-function rdpIndices(points: number[][], a: number, b: number, epsilon: number): number[] {
-  if (b - a < 2) return [a, b]
-  const [sx, sy] = points[a]
-  const [ex, ey] = points[b]
-  const dx = ex - sx
-  const dy = ey - sy
-  const len = Math.hypot(dx, dy) || 1
-  let maxDist = 0
-  let index = a
-  for (let i = a + 1; i < b; i++) {
-    const d = Math.abs(dy * points[i][0] - dx * points[i][1] + ex * sy - ey * sx) / len
-    if (d > maxDist) {
-      maxDist = d
-      index = i
-    }
-  }
-  if (maxDist > epsilon) {
-    const left = rdpIndices(points, a, index, epsilon)
-    const right = rdpIndices(points, index, b, epsilon)
-    return [...left.slice(0, -1), ...right]
-  }
-  return [a, b]
-}
-
-/** The Shaper tool: straight lines only, no curve smoothing. The stroke is
- *  reduced to its corners and every edge comes out dead straight — a
- *  three-sided rectangle is three crisp segments, zigzags stay zigzags,
- *  near-axis edges snap fully horizontal/vertical for perfect wire steps.
- *  Circles and rects still snap perfect. Unlike the pen, ALWAYS upgrades. */
-export function beautify(raw: number[][]): Recognition {
-  const rec = recognize(raw)
-  if (rec.kind === 'circle' || rec.kind === 'rect' || rec.kind === 'line' || raw.length < 6)
-    return rec
-  const { minX, minY, w, h } = bbox(raw)
-  const rel = raw.map(([x, y]) => [x - minX, y - minY])
-  const diag = Math.hypot(w, h)
-  const base = { w, h, x: minX, y: minY }
-  const start = rel[0]
-  const end = rel[rel.length - 1]
-  const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.22, 24)
-
-  const pts = closed ? [...rel, [...start]] : rel
-  const idx = rdpIndices(pts, 0, pts.length - 1, diag * 0.04)
-  const corners = straighten(idx.map((i) => pts[i]))
-
-  // Closed or open, the result is a crisp polyline stroke (closed runs keep
-  // the duplicated closing point so the outline visually closes).
-  return { kind: 'stroke', points: corners, ...base }
 }
 
 export function recognize(raw: number[][]): Recognition {
@@ -177,32 +104,88 @@ export function recognize(raw: number[][]): Recognition {
     return fallback
   }
 
-  // Closed shapes — circle: radial distance from centroid is nearly constant.
+  // Closed shapes. Corner analysis runs FIRST: a clean pentagon…octagon has
+  // low radial variance too, so testing circle-ness first would swallow it.
   const cx = rel.reduce((s, p) => s + p[0], 0) / rel.length
   const cy = rel.reduce((s, p) => s + p[1], 0) / rel.length
-  const radii = rel.map(([x, y]) => Math.hypot(x - cx, y - cy))
-  const mean = radii.reduce((s, r) => s + r, 0) / radii.length
-  const variance = radii.reduce((s, r) => s + (r - mean) ** 2, 0) / radii.length
+  const closedPts = [...rel, rel[0]]
+  const simple = simplify(closedPts, diag * 0.04)
+  const corners = simple.length - 1
   const aspect = w / h
-  if (Math.sqrt(variance) / mean < 0.16 && aspect > 0.65 && aspect < 1.55) {
-    return { kind: 'circle', points: [], ...base }
+
+  if (corners >= 3 && corners <= 8 && hasSharpCorners(closedPts, simple, corners)) {
+    if (corners === 4) {
+      // shoelace area vs bbox area: filled bbox = axis-ish rectangle…
+      let area = 0
+      for (let i = 0; i < simple.length - 1; i++) {
+        area += simple[i][0] * simple[i + 1][1] - simple[i + 1][0] * simple[i][1]
+      }
+      if (Math.abs(area) / 2 / (w * h) > 0.75) {
+        if (aspect > 0.82 && aspect < 1.22) {
+          // Near-equal sides → perfect square.
+          const side = (w + h) / 2
+          return { kind: 'rect', points: [], w: side, h: side, x: minX + (w - side) / 2, y: minY + (h - side) / 2 }
+        }
+        return { kind: 'rect', points: [], ...base }
+      }
+      // …otherwise a rotated 4-gon (diamond) falls through to the snap below.
+    }
+    // Regular polygon inscribed in the bbox, phased so the first drawn
+    // corner keeps its direction (triangle, pentagon … octagon; diamonds).
+    const phase = Math.atan2(simple[0][1] - cy, simple[0][0] - cx)
+    return { kind: 'polygon', points: regularPolygonPoints(corners, w, h, phase), ...base }
   }
 
-  // Rect: simplified outline has ~4 corners and fills its bbox.
-  const simple = simplify([...rel, rel[0]], diag * 0.04)
-  const corners = simple.length - 1
-  if (corners >= 3 && corners <= 5) {
-    // shoelace area vs bbox area
-    let area = 0
-    for (let i = 0; i < simple.length - 1; i++) {
-      area += simple[i][0] * simple[i + 1][1] - simple[i + 1][0] * simple[i][1]
+  // Circle/oval: radial distance from the centroid, each axis normalized by
+  // the bbox, is nearly constant for any ellipse.
+  const radii = rel.map(([x, y]) => Math.hypot((x - cx) / w, (y - cy) / h))
+  const mean = radii.reduce((s, r) => s + r, 0) / radii.length
+  const variance = radii.reduce((s, r) => s + (r - mean) ** 2, 0) / radii.length
+  if (Math.sqrt(variance) / mean < 0.14) {
+    if (aspect > 0.82 && aspect < 1.22) {
+      // Near-round → perfect circle (square bbox, averaged diameter).
+      const d = (w + h) / 2
+      return { kind: 'circle', points: [], w: d, h: d, x: minX + (w - d) / 2, y: minY + (h - d) / 2 }
     }
-    area = Math.abs(area) / 2
-    if (corners === 4 && area / (w * h) > 0.75) {
-      return { kind: 'rect', points: [], ...base }
-    }
+    return { kind: 'circle', points: [], ...base } // oval: ellipse in its bbox
   }
 
   // Anything else closed stays exactly the ink that was drawn.
   return fallback
+}
+
+/** True when the outline turns sharply AT the simplified corners — this is
+ *  what separates a real n-gon from a smooth circle that RDP happens to chop
+ *  into n segments (a circle spreads its turning evenly, so the local turn
+ *  at any "corner" is far below a polygon's 2π/n exterior angle). */
+function hasSharpCorners(closedPts: number[][], simple: number[][], k: number): boolean {
+  const n = closedPts.length
+  const win = Math.max(2, Math.round(n * 0.04))
+  let j = 0
+  let total = 0
+  let counted = 0
+  for (let s = 0; s < simple.length - 1; s++) {
+    const c = simple[s]
+    while (j < n && (closedPts[j][0] !== c[0] || closedPts[j][1] !== c[1])) j++
+    if (j >= n) break
+    const a = closedPts[(j - win + n) % n]
+    const b = closedPts[j]
+    const d = closedPts[(j + win) % n]
+    const t0 = Math.atan2(b[1] - a[1], b[0] - a[0])
+    const t1 = Math.atan2(d[1] - b[1], d[0] - b[0])
+    let turn = Math.abs(t1 - t0)
+    if (turn > Math.PI) turn = 2 * Math.PI - turn
+    total += turn
+    counted++
+  }
+  return counted > 0 && total / counted > (0.6 * 2 * Math.PI) / k
+}
+
+/** Vertices of a regular n-gon inscribed in a w×h box (points relative to
+ *  the box origin). `phase` rotates the first vertex; default: apex on top. */
+export function regularPolygonPoints(n: number, w: number, h: number, phase = -Math.PI / 2): number[][] {
+  return Array.from({ length: n }, (_, i) => {
+    const a = phase + (i * 2 * Math.PI) / n
+    return [w / 2 + (w / 2) * Math.cos(a), h / 2 + (h / 2) * Math.sin(a)]
+  })
 }

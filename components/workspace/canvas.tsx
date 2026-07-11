@@ -24,7 +24,8 @@ import { createGeometry, fromRecognition, componentById } from '@/lib/scene/fact
 import { createBehavior } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
-import { beautify, recognize, type Recognition } from '@/lib/sketch/recognize'
+import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
+import { matchCustomSketch } from '@/lib/sketch/custom'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -67,7 +68,9 @@ const CIRCULAR_IDS = new Set([
   'light-source',
   'wave-source',
 ])
-const MIN_PLACE_DRAG = 8 // screen px below which a drag counts as a click
+const MIN_PLACE_DRAG = 8
+// Shapes group: how many sides each regular-polygon shape has.
+const SHAPE_SIDES: Record<string, number> = { triangle: 3, pentagon: 5, hexagon: 6, heptagon: 7, octagon: 8 } // screen px below which a drag counts as a click
 
 // Inside a system boundary, recognized doodle shapes become that domain's
 // components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
@@ -109,6 +112,8 @@ interface Gesture {
   placeComponent?: string
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
   placeTool?: Tool
+  /** Shape id when placing from the Shapes group (square, hexagon…). */
+  placeShape?: string
   /** Shift+pen orthogonal routing: committed 90° corners + current axis. */
   orthoPts?: number[][]
   orthoAxis?: 'h' | 'v'
@@ -625,8 +630,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
-        if (e.shiftKey) {
-          // Shift+pen: orthogonal routing. The stroke runs dead-straight
+        if (e.shiftKey || store.tool === 'shaper') {
+          // Shift+pen (or the Shaper tool): orthogonal routing. The stroke runs dead-straight
           // along one axis; veer far enough perpendicular and it locks a
           // 90° corner under the cursor and continues along the other axis
           // — elbow after elbow, like schematic wire routing.
@@ -825,16 +830,28 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         const def = g.placeComponent ? componentById(g.placeComponent) : undefined
         const obj = def
           ? def.create(g.start)
-          : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
-            ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
-            : null
+          : g.placeShape && SHAPE_SIDES[g.placeShape]
+            ? createGeometry('polygon', g.start)
+            : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
+              ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
+              : null
         if (obj) {
+          if (g.placeShape && SHAPE_SIDES[g.placeShape]) {
+            obj.size = { w: 110, h: 110 }
+            obj.name = obj.name.replace(/^Polygon/, g.placeShape[0].toUpperCase() + g.placeShape.slice(1))
+          }
           if (pv && g.moved && Math.max(pv.w, pv.h) > MIN_PLACE_DRAG) {
             obj.size = { w: Math.max(16, pv.w), h: Math.max(16, pv.h) }
             obj.position = { x: pv.x, y: pv.y }
           } else {
             obj.position = { x: g.start.x - obj.size.w / 2, y: g.start.y - obj.size.h / 2 }
           }
+          if (g.placeShape === 'square') {
+            const side = Math.max(16, Math.max(obj.size.w, obj.size.h))
+            obj.size = { w: side, h: side }
+          }
+          const sides = g.placeShape ? SHAPE_SIDES[g.placeShape] : undefined
+          if (sides) obj.geometry.points = regularPolygonPoints(sides, obj.size.w, obj.size.h)
           store.addObject(pageId, obj)
           store.setSelection([obj.id])
           if (!g.placeComponent) store.setTool('select')
@@ -886,7 +903,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           // Shift-routed orthogonal polylines (≥1 locked corner) commit
           // exactly as drawn — recognition would only smudge deliberate 90°
           // elbows. Endpoints still snap onto terminals and conduct.
-          if (g.orthoPts && g.orthoPts.length >= 2) {
+          if (g.orthoPts && (g.orthoPts.length >= 2 || store.tool === 'shaper')) {
             let minX = Infinity
             let minY = Infinity
             let maxX = -Infinity
@@ -910,29 +927,6 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             if (connectEnds(obj, all)) {
               obj.behaviors.push(createBehavior('wire'))
               obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
-            }
-            store.addObject(pageId, obj)
-            store.setSelection([obj.id])
-            return null
-          }
-
-          // Shaper tool: ALWAYS beautify — straighten polylines, smooth
-          // curves, snap rough triangles/circles/rects into clean shapes.
-          if (store.tool === 'shaper') {
-            const obj = fromRecognition(beautify(points))
-            if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
-            // Wires connect like they're meant to: endpoints snap EXACTLY
-            // onto any terminal in reach (no gap), and a connected run
-            // becomes a live wire.
-            if (
-              (obj.geometry.kind === 'stroke' || obj.geometry.kind === 'line') &&
-              obj.behaviors.length === 0
-            ) {
-              const all = Object.values(store.pages[pageId]?.objects ?? {})
-              if (connectEnds(obj, all)) {
-                obj.behaviors.push(createBehavior('wire'))
-                obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
-              }
             }
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
@@ -1026,6 +1020,22 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }
           }
 
+          // Taught symbols win over generic shapes: match the held doodle
+          // against the user's custom sketch templates (lib/sketch/custom).
+          if (!obj && held) {
+            const m = matchCustomSketch(points)
+            const def = m ? componentById(m.componentId) : undefined
+            if (def) {
+              obj = def.create({ x: cx, y: cy })
+              if (obj.geometry.kind === 'symbol') {
+                const w2 = Math.min(200, Math.max(72, rec.w))
+                obj.size = { w: w2, h: w2 / 2 }
+              } else {
+                obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
+              }
+              obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
+            }
+          }
           if (!obj) {
             // The pen never auto-shapes plain geometry (annoying while
             // writing) — only live components upgrade, and only on
@@ -1034,7 +1044,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             // ink that was drawn; the Shaper tool is the explicit way to
             // get clean shapes.
             const keep: Recognition =
-              rec.kind === 'spring' && held
+              held && rec.kind !== 'stroke'
                 ? rec
                 : {
                     kind: 'stroke',
@@ -1304,6 +1314,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       }
       beginGesture(CIRCULAR_IDS.has(def.id) ? 'placeRadius' : 'placeRect', e, {
         placeComponent: def.id,
+      })
+      return
+    }
+    if (tool === 'shape') {
+      const shape = toolOption ?? 'rect'
+      if (shape === 'line') {
+        setStroke([[point.x, point.y]])
+        beginGesture('placeLine', e, { placeTool: 'line' })
+        return
+      }
+      beginGesture(shape === 'circle' ? 'placeRadius' : 'placeRect', e, {
+        placeShape: shape,
+        placeTool: shape === 'oval' ? 'circle' : shape === 'square' ? 'rect' : SHAPE_SIDES[shape] ? undefined : (shape as Tool),
       })
       return
     }

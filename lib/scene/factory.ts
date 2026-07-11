@@ -67,6 +67,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
     circle: 'circle',
     rect: 'rect',
     line: 'line',
+    polygon: 'polygon',
     spring: 'line',
     stroke: 'stroke',
   }
