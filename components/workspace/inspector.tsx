@@ -5,7 +5,7 @@
 // field accepts an expression against the page's variable scope.
 
 import { useState, useEffect, useRef } from 'react'
-import { Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
+import { Link2, Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
@@ -827,6 +827,15 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   const removeVariable = useDocStore((s) => s.removeVariable)
 
   const unsetSystem = SYSTEM_VARS.filter((sv) => !variables.some((v) => v.name === sv.name))
+  const pageObjects = useDocStore((st) => st.pages[pageId]?.objects) ?? {}
+  // Component-value binding: pick an object + one of its live channels and a
+  // [Name(channel)] token is appended to the expression — no typing needed.
+  const [binding, setBinding] = useState<string | null>(null)
+  const [bindObj, setBindObj] = useState('')
+  const [bindCh, setBindCh] = useState('')
+  const objectList = Object.values(pageObjects).filter((o) => o.metadata.render !== 'system')
+  const channelsFor = (id: string): string[] =>
+    readBuffer(id)?.channelNames ?? ['V', 'I', 'P', 'x', 'y', 'v', 'omega', 'T', 'level']
 
   return (
     <div className="space-y-1.5">
@@ -863,6 +872,23 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             </span>
             <button
               type="button"
+              aria-label={`Bind a component value to ${v.name}`}
+              title="Insert a live component value"
+              className={
+                binding === v.id
+                  ? 'rounded p-0.5 text-[var(--accent-blue)]'
+                  : 'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100'
+              }
+              onClick={() => {
+                setBinding(binding === v.id ? null : v.id)
+                setBindObj('')
+                setBindCh('')
+              }}
+            >
+              <Link2 className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
               aria-label={`Delete variable ${v.name}`}
               className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-[var(--accent-rose)] group-hover:opacity-100"
               onClick={() => removeVariable(pageId, v.id)}
@@ -870,6 +896,60 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               <Trash2 className="h-3 w-3" />
             </button>
           </div>
+          {binding === v.id && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <select
+                aria-label="Component"
+                value={bindObj}
+                onChange={(e) => {
+                  setBindObj(e.target.value)
+                  setBindCh('')
+                }}
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11.5px]"
+              >
+                <option value="">Component…</option>
+                {objectList.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Value channel"
+                value={bindCh}
+                disabled={!bindObj}
+                onChange={(e) => setBindCh(e.target.value)}
+                className="w-24 rounded-md border border-border bg-background px-1.5 py-1 text-[11.5px]"
+              >
+                <option value="">Value…</option>
+                {bindObj && channelsFor(bindObj).map((c) => <option key={c}>{c}</option>)}
+              </select>
+              <button
+                type="button"
+                disabled={!bindObj || !bindCh}
+                className="rounded-md border border-border px-2 py-1 text-[11.5px] font-semibold text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
+                onClick={() => {
+                  const o = pageObjects[bindObj]
+                  if (!o) return
+                  const token = `[${o.name}(${bindCh})]`
+                  const cur = v.expr.trim()
+                  updateVariable(pageId, v.id, {
+                    expr: !cur || cur === '0' ? token : `${cur} * ${token}`,
+                  })
+                  setBinding(null)
+                }}
+              >
+                Insert
+              </button>
+            </div>
+          )}
+          {binding === v.id && (
+            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+              Live value from the simulation — combine several (edit the expression, e.g.{' '}
+              <span className="font-mono">2*[A(V)]/[B(I)]</span>). Play once to list an
+              object&apos;s real channels.
+            </p>
+          )}
           {v.error && <p className="mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{v.error}</p>}
         </div>
       ))}

@@ -1145,6 +1145,113 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     [pageId, onPointerMove, toCanvas]
   )
 
+  // Area-select → Convert: turn a pile of raw ink strokes into a live
+  // circuit. Strokes whose bboxes overlap heavily cluster into one glyph and
+  // run through the trained recognizer (lib/sketch/custom + /train page);
+  // matches become real components. Leftover strokes whose endpoints touch
+  // terminals become wires — so a fully sketched diagram assembles at once.
+  const convertSelectionToCircuit = useCallback(() => {
+    const store = useDocStore.getState()
+    const page = store.pages[pageId]
+    if (!page) return
+    const strokes = store.selection
+      .map((id) => page.objects[id])
+      .filter(
+        (o): o is SceneObject =>
+          !!o && (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
+      )
+    if (strokes.length === 0) {
+      toast('Select the sketched strokes to convert.')
+      return
+    }
+    store.pushHistory(pageId)
+    const absPts = (o: SceneObject) =>
+      (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y])
+    // Cluster multi-stroke glyphs: significant bbox overlap (not mere
+    // touching — wires touch components at endpoints and must stay separate).
+    const par = strokes.map((_, i) => i)
+    const find = (i: number): number => (par[i] === i ? i : (par[i] = find(par[i])))
+    const boxOf = (o: SceneObject) => ({ x0: o.position.x, y0: o.position.y, x1: o.position.x + o.size.w, y1: o.position.y + o.size.h })
+    for (let i = 0; i < strokes.length; i++) {
+      for (let j = i + 1; j < strokes.length; j++) {
+        const a = boxOf(strokes[i])
+        const b = boxOf(strokes[j])
+        const ix = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0))
+        const iy = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0))
+        const minArea = Math.max(1, Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0)))
+        if ((ix * iy) / minArea > 0.3) par[find(i)] = find(j)
+      }
+    }
+    const clusters = new Map<number, SceneObject[]>()
+    strokes.forEach((o, i) => {
+      const r = find(i)
+      clusters.set(r, [...(clusters.get(r) ?? []), o])
+    })
+    const usedIds = new Set<string>()
+    const created: SceneObject[] = []
+    for (const members of clusters.values()) {
+      const merged = members.flatMap(absPts)
+      const m = matchCustomSketch(merged)
+      let obj: SceneObject | null = null
+      if (m) {
+        const def = componentById(m.componentId)
+        if (def) {
+          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+          for (const [x, y] of merged) {
+            x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
+          }
+          obj = def.create({ x: (x0 + x1) / 2, y: (y0 + y1) / 2 })
+          if (obj.geometry.kind === 'symbol') {
+            const w2 = Math.min(200, Math.max(72, x1 - x0))
+            obj.size = { w: w2, h: w2 / 2 }
+          } else {
+            obj.size = { w: Math.max(24, x1 - x0), h: Math.max(24, y1 - y0) }
+          }
+          obj.position = { x: (x0 + x1) / 2 - obj.size.w / 2, y: (y0 + y1) / 2 - obj.size.h / 2 }
+        }
+      } else if (members.length === 1) {
+        const rec = recognize(absPts(members[0]))
+        if (rec.kind === 'spring') obj = fromRecognition(rec)
+      }
+      if (obj) {
+        created.push(obj)
+        for (const o of members) usedIds.add(o.id)
+      }
+    }
+    for (const o of created) store.addObject(pageId, o)
+    if (usedIds.size > 0) store.removeObjects(pageId, [...usedIds])
+    // Remaining strokes conduct when their NODES land on terminals.
+    const allNow = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
+    let wires = 0
+    for (const o of strokes) {
+      if (usedIds.has(o.id)) continue
+      const live = useDocStore.getState().pages[pageId]?.objects[o.id]
+      if (!live) continue
+      const clone = JSON.parse(JSON.stringify(live)) as SceneObject
+      if (connectEnds(clone, allNow)) {
+        clone.behaviors.push(createBehavior('wire'))
+        clone.name = clone.name.replace(/^(Line|Stroke)/, 'Wire')
+        useDocStore.getState().updateObject(pageId, o.id, {
+          geometry: clone.geometry, position: clone.position, size: clone.size,
+          behaviors: clone.behaviors, name: clone.name,
+        })
+        wires++
+      }
+    }
+    toast(
+      created.length > 0
+        ? `Converted ${created.length} component(s), ${wires} wire(s).`
+        : 'No trained component matched — add examples on /train.'
+    )
+    if (created.length > 0) store.setSelection(created.map((c) => c.id))
+  }, [pageId])
+
+  const convertItem = useCallback((): CtxItem[] => {
+    return editing && useDocStore.getState().selection.length > 1
+      ? [['Convert to circuit', convertSelectionToCircuit]]
+      : []
+  }, [editing, convertSelectionToCircuit])
+
   // Aborts an in-flight one-finger gesture — a second finger means pinch,
   // a long-press means menu; either way the started gesture must not commit.
   const cancelGesture = useCallback(() => {
@@ -1811,7 +1918,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           onPointerDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {ctxMenuItems(ctxMenu.objectId, editing, pageId, duplicateObject, restack).map(([label, action, danger]) => (
+          {[...convertItem(), ...ctxMenuItems(ctxMenu.objectId, editing, pageId, duplicateObject, restack)].map(([label, action, danger]) => (
             <button
               key={label}
               type="button"
@@ -1890,7 +1997,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           // slide-in overlay instead of the docked desktop panel, so this
           // icon is what opens it here. Everything else is unchanged, just
           // icons sized for a fingertip instead of a text menu meant for a mouse.
-          const items = ctxMenuItems(obj.id, editing, pageId, duplicateObject, restack)
+          const items = [...convertItem(), ...ctxMenuItems(obj.id, editing, pageId, duplicateObject, restack)]
           const ICONS: Record<string, typeof Copy> = {
             Properties: SlidersHorizontal,
             Copy: Copy,
