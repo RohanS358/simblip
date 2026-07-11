@@ -150,10 +150,11 @@ export function recognize(raw: number[][]): Recognition {
       }
       // …otherwise a rotated 4-gon (diamond) falls through to the snap below.
     }
-    // Regular polygon inscribed in the bbox, phased so the first drawn
-    // corner keeps its direction (triangle, pentagon … octagon; diamonds).
-    const phase = Math.atan2(sharp[0][1] - cy, sharp[0][0] - cx)
-    return { kind: 'polygon', points: regularPolygonPoints(corners, w, h, phase), ...base }
+    // Snap to the polygon the user ACTUALLY drew: keep the detected corners
+    // exactly where they are and just straighten the edges between them — a
+    // ramp-shaped triangle stays that ramp (same place, proportions and
+    // orientation), never an idealized regular n-gon.
+    return { kind: 'polygon', points: sharp.map(([x, y]) => [x, y]), ...base }
   }
 
   // Circle/oval: radial distance from the centroid, each axis normalized by

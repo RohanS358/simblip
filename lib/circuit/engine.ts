@@ -1,7 +1,8 @@
 // Circuit engine — the electrical/electronics/digital solver.
 //
 // Build once per Play: symbol terminals + drawn wires become nets (union-find
-// with a snap radius), then each 120 Hz step runs Modified Nodal Analysis
+// with a snap radius; wires bond at their NODES/endpoints only — overlapping
+// bodies never conduct), then each 120 Hz step runs Modified Nodal Analysis
 // (KCL/KVL, Ohm's law; backward-Euler companion models for C and L; iterated
 // piecewise states for diode/LED/BJT/MOSFET; ideal op-amp as a constrained
 // source) plus a fixpoint digital logic pass (gates, D-FF, MUX, clock).
@@ -594,13 +595,19 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
   const gndItems = termPts.filter((tp) => comps[tp.comp].geometry.symbol === 'gnd').map((tp) => tp.item)
   for (let i = 1; i < gndItems.length; i++) union(gndItems[0], gndItems[i])
 
-  // terminal ↔ wire (anywhere along the wire), wire endpoint ↔ wire.
-  // Same closest-pin rule: a wire ending on one pin of a compact part must
-  // not also grab the neighbouring pins sitting inside the snap radius.
+  // Wires conduct at their NODES (endpoints) only. A wire crossing or
+  // overlapping another wire's body — or sweeping over a component pin —
+  // must NOT bond; that's how real schematics read (no junction = no
+  // connection). Same closest-pin rule as terminals: a wire node landing on
+  // one pin of a compact part must not also grab the neighbouring pins.
   wires.forEach((w, wi) => {
+    const ends = [w.pts[0], w.pts[w.pts.length - 1]]
     const nearest = new Map<number, { item: number; d: number }>() // comp → closest pin
     for (const tp of termPts) {
-      const d = polyDist(tp.x, tp.y, w.pts)
+      const d = Math.min(
+        Math.hypot(tp.x - ends[0][0], tp.y - ends[0][1]),
+        Math.hypot(tp.x - ends[1][0], tp.y - ends[1][1])
+      )
       if (d >= SNAP) continue
       const cur = nearest.get(tp.comp)
       if (!cur || d < cur.d) nearest.set(tp.comp, { item: tp.item, d })
@@ -608,9 +615,11 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
     for (const { item } of nearest.values()) union(item, wireBase + wi)
     wires.forEach((w2, wj) => {
       if (wi === wj) return
-      const ends = [w.pts[0], w.pts[w.pts.length - 1]]
+      const ends2 = [w2.pts[0], w2.pts[w2.pts.length - 1]]
       for (const e of ends) {
-        if (polyDist(e[0], e[1], w2.pts) < SNAP) union(wireBase + wi, wireBase + wj)
+        for (const e2 of ends2) {
+          if (Math.hypot(e[0] - e2[0], e[1] - e2[1]) < SNAP) union(wireBase + wi, wireBase + wj)
+        }
       }
     })
   })

@@ -54,6 +54,21 @@ function NgonIcon({ n }: { n: number }) {
   )
 }
 
+/** Dock icon for the Shapes group — triangle + circle, distinct from the
+ *  lucide `Shapes` icon the Components palette button already uses. */
+const ShapesGroupIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+    <polygon points="8.5,2.5 14.5,12.5 2.5,12.5" strokeLinejoin="round" />
+    <circle cx={16} cy={16.5} r={5} />
+  </svg>
+)
+
+const RectIcon = () => (
+  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+    <rect x={2.5} y={7} width={19} height={10} rx={1.5} />
+  </svg>
+)
+
 const OvalIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
     <ellipse cx={12} cy={12} rx={9.5} ry={6} />
@@ -67,7 +82,7 @@ const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'circle', label: 'Circle', icon: <Circle className="h-4 w-4" /> },
   { id: 'oval', label: 'Oval', icon: <OvalIcon /> },
   { id: 'square', label: 'Square', icon: <Square className="h-4 w-4" /> },
-  { id: 'rect', label: 'Rectangle', icon: <Square className="h-4 w-4 scale-x-125" /> },
+  { id: 'rect', label: 'Rectangle', icon: <RectIcon /> },
   { id: 'triangle', label: 'Triangle', icon: <NgonIcon n={3} /> },
   { id: 'pentagon', label: 'Pentagon', icon: <NgonIcon n={5} /> },
   { id: 'hexagon', label: 'Hexagon', icon: <NgonIcon n={6} /> },
@@ -257,7 +272,7 @@ export function Toolbar({
           setShowShapes((v) => !v)
         }}
       >
-        <Shapes className="h-4 w-4" />
+        <ShapesGroupIcon />
       </ToolButton>
 
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
