@@ -856,8 +856,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               h: rec.h,
             })
             raw.metadata.inkSize = store.penSize
+            // Writing with the pen never selects the ink — selection boxes
+            // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
-            store.setSelection([raw.id])
             return null
           }
 
@@ -934,7 +935,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
           store.addObject(pageId, obj)
-          store.setSelection([obj.id])
+          // Plain ink stays unselected (it's writing); only strokes that
+          // upgraded into live components (spring, wire, domain part) select,
+          // since those are objects you usually tweak right away.
+          if (obj.geometry.kind !== 'stroke' || obj.behaviors.length > 0)
+            store.setSelection([obj.id])
         }
       }
     },
