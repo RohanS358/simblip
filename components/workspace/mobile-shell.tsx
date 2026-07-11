@@ -12,14 +12,23 @@ import {
   BookOpen,
   ChevronRight,
   ClipboardList,
+  Copy,
+  Download,
   FileText,
+  GraduationCap,
+  LibraryBig,
   LogOut,
   Menu,
+  MonitorPlay,
+  MoreVertical,
   Moon,
+  Pencil,
   Plus,
   Settings,
+  Share2,
   SlidersHorizontal,
   Sun,
+  Trash2,
   X,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -37,6 +46,16 @@ import { AiPanel } from './ai-panel'
 import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
+import { TutorialPanel } from './tutorial'
+import { clonePageDoc } from '@/lib/store/import-page'
+import {
+  AssignDialog,
+  PresentDialog,
+  ShareDialog,
+  exportPageJson,
+  type PageRef,
+} from './page-actions'
+import { PublishDialog } from './library-panel'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +81,11 @@ export function MobileShell() {
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [shareFor, setShareFor] = useState<PageRef | null>(null)
+  const [assignFor, setAssignFor] = useState<PageRef | null>(null)
+  const [presentFor, setPresentFor] = useState<PageRef | null>(null)
+  const [publishFor, setPublishFor] = useState<PageRef | null>(null)
 
   const profile = useAuthStore((s) => s.profile)
   const notebooks = useWorkspaceStore((s) => s.notebooks)
@@ -85,6 +109,31 @@ export function MobileShell() {
     setView({ kind: 'editor' })
   }
 
+  const staff = can(profile?.role, 'share-pages')
+
+  const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
+    const newId = store.getState().addPage(nbId, secId, `${page.name} copy`)
+    const content = useDocStore.getState().pages[page.id]
+    if (content)
+      useDocStore.setState((s) => ({ pages: { ...s.pages, [newId]: clonePageDoc(content) } }))
+    useDocStore.getState().ensurePage(newId)
+    store.getState().setActivePage(null)
+  }
+
+  // Everything the desktop right-click menu offers, reachable on a phone.
+  const pageDialogs = (
+    <>
+      <ShareDialog page={shareFor} onOpenChange={(o) => !o && setShareFor(null)} />
+      <AssignDialog page={assignFor} onOpenChange={(o) => !o && setAssignFor(null)} />
+      <PresentDialog page={presentFor} onOpenChange={(o) => !o && setPresentFor(null)} />
+      <PublishDialog
+        open={publishFor !== null}
+        onOpenChange={(o) => !o && setPublishFor(null)}
+        pageId={publishFor?.id ?? null}
+      />
+    </>
+  )
+
   const appMenu = (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -103,6 +152,9 @@ export function MobileShell() {
         )}
         <DropdownMenuItem onClick={() => router.push('/assignments')}>
           <ClipboardList className="h-4 w-4" /> Assignments
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setTutorialOpen(true)}>
+          <GraduationCap className="h-4 w-4" /> Tutorials
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
           {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
@@ -144,6 +196,7 @@ export function MobileShell() {
             paletteOpen={paletteOpen}
             onTogglePalette={() => setPaletteOpen((o) => !o)}
             showAi={aiAllowed}
+            pageId={activePageId}
           />
           <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
           {aiAllowed && <AiPanel pageId={activePageId} />}
@@ -180,6 +233,7 @@ export function MobileShell() {
         )}
 
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
       </div>
     )
   }
@@ -224,16 +278,73 @@ export function MobileShell() {
                   <p className="px-4 py-3 text-[12.5px] text-muted-foreground">No pages yet.</p>
                 )}
                 {sec.pages.map((page) => (
-                  <button
+                  <div
                     key={page.id}
-                    type="button"
-                    className="flex w-full items-center gap-3 border-b border-border/40 bg-card px-4 py-3 text-left last:border-0 active:bg-accent"
-                    onClick={() => openPage(page.id)}
+                    className="flex w-full items-center gap-1 border-b border-border/40 bg-card pr-1 last:border-0"
                   >
-                    <FileText className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
-                    <span className="min-w-0 flex-1 truncate text-[14px]">{page.name}</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                  </button>
+                    <button
+                      type="button"
+                      className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-accent"
+                      onClick={() => openPage(page.id)}
+                    >
+                      <FileText className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
+                      <span className="min-w-0 flex-1 truncate text-[14px]">{page.name}</span>
+                    </button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${page.name}`}
+                          className="rounded-lg p-2 text-muted-foreground active:bg-accent"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem onClick={() => openPage(page.id)}>
+                          <BookOpen className="h-4 w-4" /> Open
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            const name = window.prompt('Rename page', page.name)
+                            if (name?.trim()) store.getState().renamePage(page.id, name.trim())
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => duplicatePage(notebook.id, sec.id, page)}>
+                          <Copy className="h-4 w-4" /> Duplicate
+                        </DropdownMenuItem>
+                        {staff && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => setShareFor(page)}>
+                              <Share2 className="h-4 w-4" /> Share copy…
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setAssignFor(page)}>
+                              <ClipboardList className="h-4 w-4" /> Assign…
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPresentFor(page)}>
+                              <MonitorPlay className="h-4 w-4" /> Present on room board…
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setPublishFor(page)}>
+                              <LibraryBig className="h-4 w-4" /> Add to library…
+                            </DropdownMenuItem>
+                          </>
+                        )}
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => exportPageJson(page)}>
+                          <Download className="h-4 w-4" /> Export JSON
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={() => store.getState().removePage(page.id)}
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete page
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 ))}
               </div>
             </div>
@@ -247,6 +358,8 @@ export function MobileShell() {
           </button>
         </main>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {pageDialogs}
+        {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
       </div>
     )
   }
@@ -312,6 +425,7 @@ export function MobileShell() {
         </div>
       </main>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>
   )
 }

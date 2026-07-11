@@ -1,6 +1,7 @@
 'use client'
 
 import type { ObjectRendererProps } from './types'
+import { FileObject } from './file-view'
 import { RichTextArea } from './text'
 import { cn } from '@/lib/utils'
 
@@ -13,6 +14,8 @@ const FILLS: Record<string, string> = {
 }
 
 export function NoteObject(props: ObjectRendererProps) {
+  // Session document elements ride the note kind (HTML surface on canvas).
+  if (props.object.metadata.render === 'file') return <FileObject {...props} />
   const color = (props.object.metadata.color as string) ?? 'amber'
   return (
     <div

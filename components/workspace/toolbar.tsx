@@ -7,6 +7,8 @@
 import {
   MousePointer2,
   Pen,
+  Eraser,
+  Paperclip,
   Circle,
   Square,
   Minus,
@@ -23,12 +25,14 @@ import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
   { tool: 'pen', icon: Pen, label: 'Pen — sketches become shapes', key: 'P' },
+  { tool: 'eraser', icon: Eraser, label: 'Eraser — drag over ink to remove it', key: 'E' },
   { tool: 'circle', icon: Circle, label: 'Circle', key: 'C' },
   { tool: 'rect', icon: Square, label: 'Rectangle', key: 'R' },
   { tool: 'line', icon: Minus, label: 'Line / Beam', key: 'L' },
@@ -84,11 +88,14 @@ export function Toolbar({
   paletteOpen,
   onTogglePalette,
   showAi = true,
+  pageId,
 }: {
   paletteOpen: boolean
   onTogglePalette: () => void
   /** Students learn by building — the AI shortcut is staff-only. */
   showAi?: boolean
+  /** enables the session-file attach button */
+  pageId?: string
 }) {
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
@@ -219,6 +226,37 @@ export function Toolbar({
       >
         <Shapes className="h-4 w-4" />
       </ToolButton>
+
+      {pageId && (
+        <ToolButton
+          active={false}
+          label="Attach a PDF/image for this session (never saved to the cloud)"
+          onClick={() => {
+            // Drop a session-document element at the viewport center.
+            const doc = useDocStore.getState()
+            const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+            const cx = (window.innerWidth / 2 - v.x) / v.zoom
+            const cy = (window.innerHeight / 2 - v.y) / v.zoom
+            const obj: SceneObject = {
+              id: uid(),
+              name: 'Document',
+              geometry: { kind: 'note' },
+              position: { x: cx - 240, y: cy - 170 },
+              size: { w: 480, h: 340 },
+              rotation: 0,
+              z: 0,
+              behaviors: [],
+              parameters: {},
+              metadata: { render: 'file' },
+            }
+            doc.addObject(pageId, obj)
+            doc.setSelection([obj.id])
+            doc.setTool('select')
+          }}
+        >
+          <Paperclip className="h-4 w-4" />
+        </ToolButton>
+      )}
 
       {showAi && (
         <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>

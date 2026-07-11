@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
+import { GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
@@ -29,6 +29,7 @@ import { CommandPalette } from './command-palette'
 import { NotificationCenter } from './notifications'
 import { ProfileMenu } from './profile-menu'
 import { SettingsDialog } from './settings-dialog'
+import { TutorialPanel } from './tutorial'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { Kbd } from '@/components/ui/kbd'
@@ -92,6 +93,7 @@ export function WorkspaceShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
   const isMobile = useIsMobile()
 
@@ -221,6 +223,17 @@ export function WorkspaceShell() {
         <NotificationCenter />
         <button
           type="button"
+          aria-label="Tutorials"
+          className={cn(
+            'rounded-lg p-1.5 transition-colors hover:bg-accent',
+            tutorialOpen ? 'text-foreground' : 'text-muted-foreground'
+          )}
+          onClick={() => setTutorialOpen((o) => !o)}
+        >
+          <GraduationCap className="h-4 w-4" />
+        </button>
+        <button
+          type="button"
           aria-label="Toggle theme"
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
@@ -253,6 +266,7 @@ export function WorkspaceShell() {
                 paletteOpen={paletteOpen}
                 onTogglePalette={() => setPaletteOpen((o) => !o)}
                 showAi={aiAllowed}
+                pageId={activePageId}
               />
               <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
               {aiAllowed && <AiPanel pageId={activePageId} />}
@@ -288,6 +302,7 @@ export function WorkspaceShell() {
         onOpenSettings={() => setSettingsOpen(true)}
       />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>
   )
 }

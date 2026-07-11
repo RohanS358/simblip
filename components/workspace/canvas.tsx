@@ -757,7 +757,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
-            if (!g.placeComponent) store.setTool('select')
+            // Coarse pointers (phone/tablet) revert to select after placing —
+            // there's no hover cursor to signal "still in placement mode".
+            if (!g.placeComponent || window.matchMedia('(pointer: coarse)').matches)
+              store.setTool('select')
           }
         }
       } else if (g.mode === 'draw') {
@@ -1045,6 +1048,36 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     if (e.button !== 0) return
     const store = useDocStore.getState()
+
+    // Eraser: drag over ink strokes to remove them (bare ink only — bodies
+    // and components are deleted deliberately, not swept away).
+    if (tool === 'eraser') {
+      const eraseAt = (clientX: number, clientY: number) => {
+        const p = toCanvas(clientX, clientY)
+        const page = useDocStore.getState().pages[pageId]
+        if (!page) return
+        const hits = Object.values(page.objects)
+          .filter(
+            (o) =>
+              o.geometry.kind === 'stroke' &&
+              p.x >= o.position.x - 8 &&
+              p.x <= o.position.x + o.size.w + 8 &&
+              p.y >= o.position.y - 8 &&
+              p.y <= o.position.y + o.size.h + 8
+          )
+          .map((o) => o.id)
+        if (hits.length > 0) useDocStore.getState().removeObjects(pageId, hits)
+      }
+      eraseAt(e.clientX, e.clientY)
+      const mv = (ev: PointerEvent) => eraseAt(ev.clientX, ev.clientY)
+      const up = () => {
+        window.removeEventListener('pointermove', mv)
+        window.removeEventListener('pointerup', up)
+      }
+      window.addEventListener('pointermove', mv)
+      window.addEventListener('pointerup', up)
+      return
+    }
 
     if (!editing || tool === 'select') {
       beginGesture('marquee', e)
