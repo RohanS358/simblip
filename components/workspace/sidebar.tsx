@@ -130,14 +130,44 @@ export function Sidebar() {
     useDocStore.getState().ensurePage(newId)
   }
 
+  const [panelW, setPanelW] = useState(() => {
+    if (typeof window === 'undefined') return 288
+    return Number(localStorage.getItem('simblip-sidebar-w')) || 288
+  })
+
   return (
     <motion.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-72 flex-col rounded-2xl"
+      className="glass relative z-30 m-3 flex flex-col rounded-2xl"
+      style={{ width: panelW }}
       aria-label="Notebooks"
     >
+      <div
+        role="separator"
+        aria-label="Resize sidebar"
+        className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
+        onPointerDown={(e) => {
+          e.preventDefault()
+          const startX = e.clientX
+          const startW = panelW
+          const move = (ev: PointerEvent) =>
+            setPanelW(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
+          const up = (ev: PointerEvent) => {
+            window.removeEventListener('pointermove', move)
+            window.removeEventListener('pointerup', up)
+            try {
+              localStorage.setItem(
+                'simblip-sidebar-w',
+                String(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
+              )
+            } catch {}
+          }
+          window.addEventListener('pointermove', move)
+          window.addEventListener('pointerup', up)
+        }}
+      />
       <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
         <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Notebooks

@@ -5,7 +5,7 @@
 // field accepts an expression against the page's variable scope.
 
 import { useState, useEffect, useRef } from 'react'
-import { Link2, Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
+import { Link2, Maximize2, Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
@@ -831,6 +831,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   // Component-value binding: pick an object + one of its live channels and a
   // [Name(channel)] token is appended to the expression — no typing needed.
   const [binding, setBinding] = useState<string | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
   const [bindObj, setBindObj] = useState('')
   const [bindCh, setBindCh] = useState('')
   const objectList = Object.values(pageObjects).filter((o) => o.metadata.render !== 'system')
@@ -872,6 +873,19 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             </span>
             <button
               type="button"
+              aria-label={`Open large editor for ${v.name}`}
+              title="Edit the formula in a larger box"
+              className={
+                expandedId === v.id
+                  ? 'rounded p-0.5 text-[var(--accent-blue)]'
+                  : 'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100'
+              }
+              onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
+            >
+              <Maximize2 className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
               aria-label={`Bind a component value to ${v.name}`}
               title="Insert a live component value"
               className={
@@ -896,6 +910,24 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               <Trash2 className="h-3 w-3" />
             </button>
           </div>
+          {expandedId === v.id && (
+            <textarea
+              autoFocus
+              defaultValue={v.expr}
+              rows={3}
+              spellCheck={false}
+              aria-label={`Large formula editor for ${v.name}`}
+              className="mt-1 w-full resize-y rounded-md border border-input bg-background/80 px-2 py-1.5 font-mono text-[12px] leading-relaxed outline-none focus:border-[var(--ring)]"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur()
+              }}
+              onBlur={(e) => {
+                const expr = e.target.value.trim()
+                if (expr && expr !== v.expr) updateVariable(pageId, v.id, { expr })
+                setExpandedId(null)
+              }}
+            />
+          )}
           {binding === v.id && (
             <div className="mt-1 flex items-center gap-1.5">
               <select
@@ -989,6 +1021,10 @@ function VariablesPanel({ pageId }: { pageId: string }) {
 
 export function Inspector({ pageId }: { pageId: string }) {
   const selection = useDocStore((s) => s.selection)
+  const [panelW, setPanelW] = useState(() => {
+    if (typeof window === 'undefined') return 288
+    return Number(localStorage.getItem('simblip-inspector-w')) || 288
+  })
   const object = useDocStore((s) =>
     selection.length === 1 ? s.pages[pageId]?.objects[selection[0]] : undefined
   )
@@ -998,9 +1034,34 @@ export function Inspector({ pageId }: { pageId: string }) {
       initial={{ x: 16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 32 }}
-      className="glass z-30 m-3 flex w-72 max-w-[calc(100vw-1.5rem)] flex-col rounded-2xl"
+      className="glass relative z-30 m-3 flex max-w-[calc(100vw-1.5rem)] flex-col rounded-2xl"
+      style={{ width: panelW }}
       aria-label="Inspector"
     >
+      <div
+        role="separator"
+        aria-label="Resize inspector"
+        className="absolute -left-1 top-0 z-10 h-full w-2 cursor-col-resize"
+        onPointerDown={(e) => {
+          e.preventDefault()
+          const startX = e.clientX
+          const startW = panelW
+          const move = (ev: PointerEvent) =>
+            setPanelW(Math.min(560, Math.max(230, startW + (startX - ev.clientX))))
+          const up = (ev: PointerEvent) => {
+            window.removeEventListener('pointermove', move)
+            window.removeEventListener('pointerup', up)
+            try {
+              localStorage.setItem(
+                'simblip-inspector-w',
+                String(Math.min(560, Math.max(230, startW + (startX - ev.clientX))))
+              )
+            } catch {}
+          }
+          window.addEventListener('pointermove', move)
+          window.addEventListener('pointerup', up)
+        }}
+      />
       <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
         <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
           <TabsTrigger value="properties" className="text-[12px]">
