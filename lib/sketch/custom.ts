@@ -64,11 +64,34 @@ function resample(pts: number[][], n: number): number[][] {
   return out
 }
 
+/** IMAGE-style cloud: strokes are resampled SEPARATELY (sample budget split
+ *  by arc length) so no phantom bridge points appear between pen lifts. The
+ *  cloud then represents the resulting picture — stroke count, order and
+ *  direction all stop mattering, like recognizing the drawn image itself. */
+function resampleStrokes(strokes: number[][][], n: number): number[][] {
+  const real = strokes.filter((st) => st.length > 0)
+  if (real.length === 0) return []
+  const lens = real.map((st) => {
+    let l = 0
+    for (let i = 1; i < st.length; i++)
+      l += Math.hypot(st[i][0] - st[i - 1][0], st[i][1] - st[i - 1][1])
+    return l
+  })
+  const total = lens.reduce((a, b) => a + b, 0) || 1
+  const out: number[][] = []
+  real.forEach((st, i) => {
+    const quota = Math.max(2, Math.round((n * lens[i]) / total))
+    out.push(...resample(st, quota))
+  })
+  return out
+}
+
 /** Resample → translate centroid to origin → scale to unit extent. */
-export function normalizeCloud(raw: number[][]): number[][] {
-  const pts = resample(raw, N)
-  const cx = pts.reduce((s, p) => s + p[0], 0) / N
-  const cy = pts.reduce((s, p) => s + p[1], 0) / N
+export function normalizeCloud(rawStrokes: number[][][]): number[][] {
+  const pts = resampleStrokes(rawStrokes, N)
+  if (pts.length === 0) return []
+  const cx = pts.reduce((s, p) => s + p[0], 0) / pts.length
+  const cy = pts.reduce((s, p) => s + p[1], 0) / pts.length
   let ext = 0
   for (const [x, y] of pts) ext = Math.max(ext, Math.abs(x - cx), Math.abs(y - cy))
   ext = ext || 1
@@ -145,12 +168,12 @@ export function listCustomTemplates(): CustomSketchTemplate[] {
 /** Save one example as (another) template for a component. Lands in the
  *  shared library so everyone's recognition improves; the local cache is
  *  updated optimistically so it matches immediately. */
-export function addCustomTemplate(name: string, componentId: string, rawPoints: number[][]): void {
+export function addCustomTemplate(name: string, componentId: string, rawStrokes: number[][][]): void {
   const tpl: CustomSketchTemplate = {
     id: db.newId(),
     name,
     componentId,
-    cloud: normalizeCloud(rawPoints),
+    cloud: normalizeCloud(rawStrokes),
   }
   cache = [...cache, tpl]
   void db
@@ -173,12 +196,13 @@ export function removeCustomTemplate(id: string): void {
 
 /** Best template match for a drawn stroke, or null when nothing is close. */
 export function matchCustomSketch(
-  rawPoints: number[][]
+  rawStrokes: number[][][]
 ): { componentId: string; name: string; score: number } | null {
   ensureSync()
   const templates = cache
   if (templates.length === 0) return null
-  const cloud = normalizeCloud(rawPoints)
+  const cloud = normalizeCloud(rawStrokes)
+  if (cloud.length === 0) return null
   let best: CustomSketchTemplate | null = null
   let bestD = Infinity
   for (const t of templates) {

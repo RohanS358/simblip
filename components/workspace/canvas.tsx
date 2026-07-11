@@ -1086,7 +1086,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           // Taught symbols win over generic shapes: match the held doodle
           // against the user's custom sketch templates (lib/sketch/custom).
           if (!obj && held) {
-            const m = matchCustomSketch(points)
+            const m = matchCustomSketch([points])
             const def = m ? componentById(m.componentId) : undefined
             if (def) {
               obj = def.create({ x: cx, y: cy })
@@ -1187,15 +1187,56 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const r = find(i)
       clusters.set(r, [...(clusters.get(r) ?? []), o])
     })
+    // Greedy agglomerative matching: a cluster that doesn't match on its
+    // own retries merged with NEARBY clusters — multi-stroke symbols
+    // (capacitor plates, battery bars) rarely overlap, they just sit close.
+    // /train matches the same merged cloud, so this mirrors its behavior.
+    interface Cand {
+      members: SceneObject[]
+      strokes: number[][][]
+      pts: number[][]
+      box: { x0: number; y0: number; x1: number; y1: number }
+      used: boolean
+    }
+    const cands: Cand[] = [...clusters.values()].map((members) => {
+      const strokesOf = members.map(absPts)
+      const pts = strokesOf.flat()
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+      for (const [x, y] of pts) {
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
+      }
+      return { members, strokes: strokesOf, pts, box: { x0, y0, x1, y1 }, used: false }
+    })
+    const near = (a: Cand, b: Cand, pad = 28) =>
+      a.box.x0 - pad < b.box.x1 && b.box.x0 - pad < a.box.x1 &&
+      a.box.y0 - pad < b.box.y1 && b.box.y0 - pad < a.box.y1
     const usedIds = new Set<string>()
     const created: SceneObject[] = []
-    for (const members of clusters.values()) {
-      const merged = members.flatMap(absPts)
-      const m = matchCustomSketch(merged)
+    for (const c of cands) {
+      if (c.used) continue
+      let chosen: Cand[] = [c]
+      let m = matchCustomSketch(c.strokes)
+      if (!m) {
+        const nbs = cands.filter((o) => o !== c && !o.used && near(c, o))
+        let best: { m: ReturnType<typeof matchCustomSketch> & object; group: Cand[] } | null = null
+        for (const nb of nbs) {
+          const mm = matchCustomSketch([...c.strokes, ...nb.strokes])
+          if (mm && (!best || mm.score > best.m.score)) best = { m: mm, group: [c, nb] }
+        }
+        if (!best && nbs.length > 1) {
+          const mm = matchCustomSketch([...c.strokes, ...nbs.flatMap((n) => n.strokes)])
+          if (mm) best = { m: mm, group: [c, ...nbs] }
+        }
+        if (best) {
+          m = best.m
+          chosen = best.group
+        }
+      }
       let obj: SceneObject | null = null
       if (m) {
         const def = componentById(m.componentId)
         if (def) {
+          const merged = chosen.flatMap((g) => g.pts)
           let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
           for (const [x, y] of merged) {
             x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
@@ -1209,13 +1250,16 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           obj.position = { x: (x0 + x1) / 2 - obj.size.w / 2, y: (y0 + y1) / 2 - obj.size.h / 2 }
         }
-      } else if (members.length === 1) {
-        const rec = recognize(absPts(members[0]))
+      } else if (c.members.length === 1) {
+        const rec = recognize(absPts(c.members[0]))
         if (rec.kind === 'spring') obj = fromRecognition(rec)
       }
       if (obj) {
         created.push(obj)
-        for (const o of members) usedIds.add(o.id)
+        for (const g of chosen) {
+          g.used = true
+          for (const o of g.members) usedIds.add(o.id)
+        }
       }
     }
     for (const o of created) store.addObject(pageId, o)

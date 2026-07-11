@@ -45,8 +45,8 @@ export default function TrainPage() {
 
   // Live feedback: what would the recognizer say about the current stroke?
   const match = useMemo(
-    () => (points.length > 15 ? matchCustomSketch(points) : null),
-    [points]
+    () => (points.length > 15 ? matchCustomSketch(strokes) : null),
+    [points, strokes]
   )
 
   const toLocal = (e: React.PointerEvent) => {
@@ -57,7 +57,7 @@ export default function TrainPage() {
   const save = () => {
     const def = COMPONENTS.find((c) => c.id === componentId)
     if (!def || points.length < 15) return
-    addCustomTemplate(def.label, def.id, points)
+    addCustomTemplate(def.label, def.id, strokes)
     setTemplates(listCustomTemplates())
     setStrokes([])
     setFlash(`Saved as “${def.label}” — ${(counts[def.id] ?? 0) + 1} example(s)`)
