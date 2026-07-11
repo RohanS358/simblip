@@ -7,7 +7,7 @@
 // The teacher's original notebook is only touched if they merge afterwards.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { LibraryBig, Megaphone, MonitorPlay, PenLine, Square, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, LibraryBig, Megaphone, MonitorPlay, PenLine, Square, X } from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
@@ -15,6 +15,7 @@ import { Transport } from '@/components/workspace/transport'
 import { Toolbar } from '@/components/workspace/toolbar'
 import { Palette } from '@/components/workspace/palette'
 import { LibraryPanel } from '@/components/workspace/library-panel'
+import { Inspector } from '@/components/workspace/inspector'
 import { useAuthStore } from '@/lib/auth/store'
 import { useDocStore } from '@/lib/store/document'
 import { play, pause, stop } from '@/lib/physics/world'
@@ -138,6 +139,7 @@ function BoardSurface() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [qrBig, setQrBig] = useState(false)
   const [libOpen, setLibOpen] = useState(false)
+  const [inspectorOpen, setInspectorOpen] = useState(true)
   const [scratch, setScratch] = useState(false) // temporary whiteboard, never saved
   const [clock, setClock] = useState('')
   const pageIdRef = useRef<string | null>(null)
@@ -316,7 +318,8 @@ function BoardSurface() {
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
       {activeBoardPage ? (
-        <>
+        <div className="flex h-full">
+          <div className="relative min-w-0 flex-1">
           <InfiniteCanvas key={activeBoardPage} pageId={activeBoardPage} />
           <Transport pageId={activeBoardPage} />
           <Toolbar
@@ -326,6 +329,16 @@ function BoardSurface() {
             pageId={activeBoardPage}
           />
           <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
+          {/* Mid-edge handle, same affordance as the notebook shell. */}
+          <button
+            type="button"
+            aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
+            className="glass-strong absolute right-0 top-1/2 z-40 -translate-y-1/2 rounded-l-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => setInspectorOpen((o) => !o)}
+          >
+            {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          </button>
 
           <div className="absolute right-4 top-4 z-40 flex items-center gap-2">
             <span className="glass rounded-xl px-3 py-1.5 text-[12.5px] font-semibold">
@@ -358,7 +371,9 @@ function BoardSurface() {
               <LibraryPanel open onClose={() => setLibOpen(false)} pageId={activeBoardPage} />
             </div>
           )}
-        </>
+          </div>
+          {inspectorOpen && <Inspector pageId={activeBoardPage} />}
+        </div>
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
           <p className="text-[13px] uppercase tracking-[0.2em] text-muted-foreground">
