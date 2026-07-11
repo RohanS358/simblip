@@ -9,7 +9,8 @@ import { persist } from 'zustand/middleware'
 import type { SceneObject, Variable, BehaviorType } from '@/lib/scene/types'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
-import { solveScope, evalExpr, type Scope } from '@/lib/formula/engine'
+import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
+import { readBuffer } from '@/lib/physics/bus'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 
 export type Tool =
@@ -51,10 +52,32 @@ const lastPushAt = new Map<string, number>()
 
 const snapshotOf = (c: PageContent): PageContent => JSON.parse(JSON.stringify(c))
 
+/** Resolve every [Object(channel)] token on the page to the object's latest
+ * live sample from the physics bus (0 before the sim produces data). */
+function liveScopeOf(content: PageContent): Scope {
+  const refs: LiveRef[] = []
+  for (const v of content.variables) extractLiveRefs(v.expr, refs)
+  for (const obj of Object.values(content.objects)) {
+    for (const p of Object.values(obj.parameters)) if (p.kind === 'number') extractLiveRefs(p.expr, refs)
+    for (const b of obj.behaviors)
+      for (const p of Object.values(b.params)) if (p.kind === 'number') extractLiveRefs(p.expr, refs)
+  }
+  if (refs.length === 0) return {}
+  const live: Scope = {}
+  const byName = new Map(Object.values(content.objects).map((o) => [o.name, o.id]))
+  for (const r of refs) {
+    const id = byName.get(r.object)
+    const buf = id ? readBuffer(id) : undefined
+    const last = buf?.samples[buf.samples.length - 1]
+    live[r.sym] = last?.channels[r.channel] ?? 0
+  }
+  return live
+}
+
 /** Re-solve variables, then re-evaluate every numeric expression on the page —
  * object content params AND behavior params. One scope, spreadsheet semantics. */
 function reevaluate(content: PageContent): { content: PageContent; scope: Scope } {
-  const { variables, scope } = solveScope(content.variables)
+  const { variables, scope } = solveScope(content.variables, liveScopeOf(content))
   const objects: Record<string, SceneObject> = {}
   for (const [id, obj] of Object.entries(content.objects)) {
     let changed = false
@@ -115,6 +138,9 @@ interface DocState {
     options?: { history?: boolean }
   ) => void
   removeObjects: (pageId: string, ids: string[]) => void
+  /** Re-resolve [Object(channel)] live refs and re-solve the page. Called
+   *  throttled by the runtime while the simulation plays; no history push. */
+  refreshLive: (pageId: string) => void
   setParam: (pageId: string, objectId: string, name: string, expr: string) => void
   setStringParam: (pageId: string, objectId: string, name: string, value: string) => void
 
@@ -253,6 +279,19 @@ export const useDocStore = create<DocState>()(
         set((s) => patchObject(s, pageId, id, (obj) => ({ ...obj, ...patch })))
       },
 
+      refreshLive: (pageId) =>
+        set((s) => {
+          const page = s.pages[pageId]
+          // Cheap gate: only pages that actually use live tokens re-solve.
+          if (!page || !page.variables.some((v) => v.expr.includes('['))) return {}
+          const { content, scope } = reevaluate(page)
+          const changed =
+            content.variables.some(
+              (v, i) => v.value !== page.variables[i]?.value || v.error !== page.variables[i]?.error
+            ) || Object.entries(content.objects).some(([id, o]) => o !== page.objects[id])
+          if (!changed) return {}
+          return { pages: { ...s.pages, [pageId]: content }, scopes: { ...s.scopes, [pageId]: scope } }
+        }),
       removeObjects: (pageId, ids) => {
         if (ids.length === 0) return
         get().pushHistory(pageId)

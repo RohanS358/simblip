@@ -836,7 +836,9 @@ function VariablesPanel({ pageId }: { pageId: string }) {
           <br />
           Try <span className="font-mono">g = 9.81</span>, then use{' '}
           <span className="font-mono">g</span> in any parameter — even while
-          the simulation runs.
+          the simulation runs. Live outputs work too:{' '}
+          <span className="font-mono">k = 2*[Voltmeter 1(V)] / [Capacitor 1(I)]</span>{' '}
+          tracks any object&apos;s graphed channel by name, in every domain.
         </p>
       )}
       {variables.map((v) => (

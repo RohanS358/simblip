@@ -1136,6 +1136,8 @@ function sample(w: World) {
 
 let timeUpdateAt = 0
 
+let lastLiveRefresh = 0
+
 function frame(now: number) {
   if (!world) return
   const w = world
@@ -1165,6 +1167,11 @@ function frame(now: number) {
   }
   if (stepped) {
     syncDom(w)
+    // Live variables: [Object(channel)] refs re-solve at ~5 Hz during Play.
+    if (now - lastLiveRefresh > 200) {
+      lastLiveRefresh = now
+      useDocStore.getState().refreshLive(w.pageId)
+    }
     syncTracers(w, scope, (elapsed / 1000) * ts)
     syncCircuitDom(w)
     sample(w)

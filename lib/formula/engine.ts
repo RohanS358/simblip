@@ -39,6 +39,35 @@ try {
 
 export type Scope = Record<string, number>
 
+// ── Live output references ──────────────────────────────────────────────────
+// [Object name(channel)] inside any expression pulls that object's LIVE
+// simulation output — the same per-frame channels graphs plot (voltmeter V,
+// capacitor I, a body's x/v, wave amplitude…). Tokens are rewritten to plain
+// scope symbols before parsing; the document store resolves them from the
+// physics bus and refreshes while the simulation runs. Works in every domain.
+
+const LIVE_RE = /\[\s*([^\[\]()]+?)\s*\(\s*([^()]+?)\s*\)\s*\]/g
+
+export interface LiveRef {
+  sym: string
+  object: string
+  channel: string
+}
+
+export const liveRefSymbol = (object: string, channel: string) =>
+  `__live_${object}_${channel}`.replace(/[^a-zA-Z0-9_]/g, '_')
+
+/** Rewrite [Name(channel)] tokens to scope symbols, collecting refs. */
+export function extractLiveRefs(expr: string, refs?: LiveRef[]): string {
+  return expr.replace(LIVE_RE, (_m, object: string, channel: string) => {
+    const o = object.trim()
+    const c = channel.trim()
+    const sym = liveRefSymbol(o, c)
+    if (refs && !refs.some((r) => r.sym === sym)) refs.push({ sym, object: o, channel: c })
+    return sym
+  })
+}
+
 function dependenciesOf(node: MathNode): string[] {
   const deps: string[] = []
   node.traverse((n) => {
@@ -170,7 +199,10 @@ function isBuiltin(name: string): boolean {
  * Evaluate all page variables. Returns new variable array (with values/errors)
  * plus the resolved numeric scope for parameter evaluation.
  */
-export function solveScope(variables: Variable[]): { variables: Variable[]; scope: Scope } {
+export function solveScope(
+  variables: Variable[],
+  live: Scope = {} // resolved [Object(channel)] symbols, injected read-only
+): { variables: Variable[]; scope: Scope } {
   const parsed = new Map<
     string,
     { node?: MathNode; ints: IntegralSpec[]; deps: string[]; error?: string }
@@ -179,7 +211,7 @@ export function solveScope(variables: Variable[]): { variables: Variable[]; scop
   for (const v of variables) {
     try {
       const ints: IntegralSpec[] = []
-      const node = rewriteCalculus(parse(v.expr), ints)
+      const node = rewriteCalculus(parse(extractLiveRefs(v.expr)), ints)
       const deps = freeDependencies(node, ints).filter(
         (d) => variables.some((o) => o.name === d) // only user vars form graph edges
       )
@@ -203,7 +235,7 @@ export function solveScope(variables: Variable[]): { variables: Variable[]; scop
     }
   }
 
-  const scope: Scope = {}
+  const scope: Scope = { ...live }
   const out = variables.map((v) => ({ ...v }))
   const byName = new Map(out.map((v) => [v.name, v]))
 
@@ -247,7 +279,7 @@ export function evalExpr(
 ): { value: number; error?: string } {
   try {
     const ints: IntegralSpec[] = []
-    const node = rewriteCalculus(parse(expr), ints)
+    const node = rewriteCalculus(parse(extractLiveRefs(expr)), ints)
     // Reject unknown symbols early so typos surface as errors, not NaN physics.
     for (const dep of freeDependencies(node, ints)) {
       if (!(dep in scope) && !isBuiltin(dep)) {
@@ -273,7 +305,7 @@ export function compileExpr(expr: string, fallback = 0): (scope: Scope) => numbe
   let last = fallback
   try {
     const ints: IntegralSpec[] = []
-    const compiled = rewriteCalculus(parse(expr), ints).compile()
+    const compiled = rewriteCalculus(parse(extractLiveRefs(expr)), ints).compile()
     return (scope: Scope) => {
       try {
         const v = compiled.evaluate(withCalculus(ints, scope))
