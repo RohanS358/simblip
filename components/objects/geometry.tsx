@@ -624,36 +624,75 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   if (render === 'field') {
     const isE = object.metadata.fieldKind !== 'b'
     const c = isE ? 'var(--accent-rose)' : 'var(--accent-violet)'
+    const Ex = opticParam(object, 'efield', 'Ex', 0)
+    const Ey = opticParam(object, 'efield', 'Ey', 100)
+    const Bz = opticParam(object, 'bfield', 'Bz', 1)
+    // SVG y grows downward while the solver treats +Ey as up (world.ts
+    // applies fy += −q·Ey), so the on-screen field vector is (Ex, −Ey).
+    const angle = (Math.atan2(-Ey, Ex) * 180) / Math.PI
+    const hasDir = Ex !== 0 || Ey !== 0
+    const into = Bz < 0
+    const cols = Math.max(2, Math.round(w / 56))
+    const rowsN = Math.max(2, Math.round(h / 48))
+    const cells: { x: number; y: number }[] = []
+    for (let r = 0; r < rowsN; r++)
+      for (let col = 0; col < cols; col++)
+        cells.push({ x: ((col + 0.5) / cols) * w, y: ((r + 0.5) / rowsN) * h })
     return (
       <div
         className="relative h-full w-full overflow-hidden rounded-2xl"
         style={{ border: `1.5px dashed ${c}`, background: `color-mix(in oklch, ${c} 6%, transparent)` }}
         aria-label={object.name}
       >
+        <style>{`@keyframes sb-field-drift{0%{transform:translateX(0);opacity:0}18%{opacity:1}82%{opacity:1}100%{transform:translateX(13px);opacity:0}}@keyframes sb-field-pulse{from{opacity:.3}to{opacity:.75}}`}</style>
         <span
           className="absolute -top-2.5 left-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
           style={{ background: 'var(--background)', color: c, border: `1px solid ${c}` }}
         >
-          {isE ? 'E field' : 'B field (out of page)'}
+          {isE ? 'E field' : `B field (${into ? 'into page' : 'out of page'})`}
         </span>
-        <svg width="100%" height="100%" className="absolute inset-0 opacity-40">
+        <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="absolute inset-0">
           {isE
-            ? Array.from({ length: 4 }, (_, row) =>
-                Array.from({ length: 5 }, (_, col) => (
-                  <path
-                    key={`${row}-${col}`}
-                    d={`M${30 + col * 50} ${40 + row * 40} v20 m-5 -8 l5 8 5 -8`}
-                    stroke={c}
-                    strokeWidth={1.5}
-                    fill="none"
-                  />
-                ))
+            ? cells.map((p, i) =>
+                hasDir ? (
+                  <g key={i} transform={`translate(${p.x} ${p.y}) rotate(${angle})`} opacity={0.55}>
+                    <path
+                      d="M-11 0 H9 M3 -5 L9 0 L3 5"
+                      stroke={c}
+                      strokeWidth={1.6}
+                      fill="none"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      style={{
+                        animation: 'sb-field-drift 1.8s linear infinite',
+                        animationDelay: `${-((p.x + p.y) / (w + h)) * 1.8}s`,
+                      }}
+                    />
+                  </g>
+                ) : (
+                  <circle key={i} cx={p.x} cy={p.y} r={1.8} fill={c} opacity={0.35} />
+                )
               )
-            : Array.from({ length: 4 }, (_, row) =>
-                Array.from({ length: 5 }, (_, col) => (
-                  <circle key={`${row}-${col}`} cx={30 + col * 50} cy={40 + row * 40} r={2.5} fill={c} />
-                ))
-              )}
+            : cells.map((p, i) => (
+                <g
+                  key={i}
+                  style={{
+                    animation: 'sb-field-pulse 1.5s ease-in-out infinite alternate',
+                    animationDelay: `${-((p.x + p.y) / (w + h)) * 1.5}s`,
+                  }}
+                >
+                  <circle cx={p.x} cy={p.y} r={5.5} stroke={c} strokeWidth={1.4} fill="none" />
+                  {into ? (
+                    <path
+                      d={`M${p.x - 2.7} ${p.y - 2.7} l5.4 5.4 m0 -5.4 l-5.4 5.4`}
+                      stroke={c}
+                      strokeWidth={1.4}
+                    />
+                  ) : (
+                    <circle cx={p.x} cy={p.y} r={1.9} fill={c} />
+                  )}
+                </g>
+              ))}
         </svg>
       </div>
     )

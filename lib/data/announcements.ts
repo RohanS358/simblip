@@ -34,4 +34,18 @@ export async function listMyAnnouncements(): Promise<AnnouncementRow[]> {
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
+/** Announcements a room board surfaces on its idle screen: its own room's
+ *  plus institution-wide ones. Boards aren't room members, so this filters
+ *  by the board's room id instead of membership. */
+export async function listBoardAnnouncements(roomId: string | null): Promise<AnnouncementRow[]> {
+  const { profile } = useAuthStore.getState()
+  if (!profile) return []
+  const rows = await db.list<AnnouncementRow>('announcements', {
+    institution_id: profile.institution_id,
+  })
+  return rows
+    .filter((a) => a.room_id === null || (roomId !== null && a.room_id === roomId))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
 export const subscribeAnnouncements = (fn: () => void) => db.subscribe('announcements', fn)

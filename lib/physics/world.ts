@@ -115,6 +115,7 @@ interface TracerEntry {
   forcesOn: (s: Scope) => number
   trailPts: number[][]
   prevV: { x: number; y: number }
+  prevW: number
 }
 
 interface World {
@@ -196,6 +197,7 @@ function restoreSnapshot(w: World, snap: Snapshot) {
     if (!tr) continue
     tr.trailPts.length = Math.min(tr.trailPts.length, tl.len)
     tr.prevV = { x: tr.body.velocity.x, y: tr.body.velocity.y }
+    tr.prevW = tr.body.angularVelocity
   }
   w.t = snap.t
 }
@@ -374,6 +376,7 @@ export function buildWorld(pageId: string): World {
         forcesOn: compiledParam(pageId, obj.id, 'rigidBody', 'showForces', 0),
         trailPts: [],
         prevV: { x: 0, y: 0 },
+        prevW: 0,
       })
     }
     if (kind === 'dynamic' && obj.behaviors.some((b) => b.enabled && b.type === 'charge')) {
@@ -797,6 +800,28 @@ function arrowSvg(x: number, y: number, dx: number, dy: number, color: string, l
   )
 }
 
+/** Curved arrow around a body centre — spin/torque direction indicator. */
+function arcArrowSvg(x: number, y: number, r: number, cw: boolean, color: string, label: string): string {
+  const a0 = -Math.PI * 0.75 // start upper-left, sweep ~210°
+  const a1 = a0 + Math.PI * 1.17 * (cw ? 1 : -1)
+  const sx = x + r * Math.cos(a0)
+  const sy = y + r * Math.sin(a0)
+  const ex = x + r * Math.cos(a1)
+  const ey = y + r * Math.sin(a1)
+  const dir = cw ? 1 : -1
+  const tx = -Math.sin(a1) * dir
+  const ty = Math.cos(a1) * dir
+  const px = -ty
+  const py = tx
+  return (
+    `<path d="M ${sx.toFixed(1)} ${sy.toFixed(1)} A ${r.toFixed(1)} ${r.toFixed(1)} 0 1 ${cw ? 1 : 0} ${ex.toFixed(1)} ${ey.toFixed(1)}" fill="none" stroke="${color}" stroke-width="2" opacity="0.85"/>` +
+    `<path d="M ${(ex + tx * 9).toFixed(1)} ${(ey + ty * 9).toFixed(1)} L ${(ex + px * 4).toFixed(1)} ${(ey + py * 4).toFixed(1)} L ${(ex - px * 4).toFixed(1)} ${(ey - py * 4).toFixed(1)} Z" fill="${color}"/>` +
+    (label
+      ? `<text x="${(x + r * 0.3).toFixed(1)}" y="${(y - r - 7).toFixed(1)}" fill="${color}" font-size="10" font-family="monospace">${label}</text>`
+      : '')
+  )
+}
+
 // Clamp an arrow to a sane on-screen length while keeping direction.
 function scaled(dx: number, dy: number, scale: number, maxLen: number): { x: number; y: number } {
   let x = dx * scale
@@ -831,6 +856,9 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
     const vps = { x: v.x * 60, y: v.y * 60 } // ≈ px/s for display
     const a = dtSeconds > 0 ? { x: (v.x - t.prevV.x) * 60 / dtSeconds, y: (v.y - t.prevV.y) * 60 / dtSeconds } : { x: 0, y: 0 }
     t.prevV = { x: v.x, y: v.y }
+    const omega = t.body.angularVelocity * 60 // ≈ rad/s for display
+    const alpha = dtSeconds > 0 ? ((t.body.angularVelocity - t.prevW) * 60) / dtSeconds : 0
+    t.prevW = t.body.angularVelocity
 
     // (b) path trail
     if (t.trail(frameScope) > 0) {
@@ -918,6 +946,18 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
       if (t.body.frictionAir > 0.001 && speed > 20) {
         const dd = scaled(-vps.x, -vps.y, 0.15, 60)
         html += arrowSvg(x, y, dd.x, dd.y, 'var(--foreground)', 'drag')
+      }
+      // rotational: net torque (τ = I·α) — or bare spin ω when coasting —
+      // drawn as a curved arrow whose sweep matches the turn direction
+      // (Matter's +angle is clockwise on screen).
+      const tau = Number.isFinite(t.body.inertia) ? t.body.inertia * alpha : 0
+      const hasTau = Math.abs(tau) > 0.5
+      if (hasTau || Math.abs(omega) > 0.05) {
+        const bb = t.body.bounds
+        const r = Math.min(64, Math.max(20, 0.42 * Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y)))
+        const cwDir = (hasTau ? tau : omega) > 0
+        const label = hasTau ? `τ ${tau.toFixed(1)}N·m` : `ω ${omega.toFixed(2)}rad/s`
+        html += arcArrowSvg(x, y, r, cwDir, 'var(--accent-amber)', label)
       }
     }
   }

@@ -577,22 +577,35 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
   // Never auto-union two terminals of the SAME component — multi-pin parts
   // (3+ input gates, decoders, mux 4:1…) routinely pack pins closer than
   // SNAP on a compact glyph; those are always logically distinct nets.
+  // And bond each pin only to the CLOSEST in-range pin of any other
+  // component: on compact glyphs several foreign pins can sit inside SNAP,
+  // and grabbing them all shorts logically distinct nets together.
   for (let i = 0; i < termPts.length; i++) {
-    for (let j = i + 1; j < termPts.length; j++) {
-      if (termPts[i].comp === termPts[j].comp) continue
-      if (Math.hypot(termPts[i].x - termPts[j].x, termPts[i].y - termPts[j].y) < SNAP) {
-        union(termPts[i].item, termPts[j].item)
-      }
+    const nearest = new Map<number, { item: number; d: number }>() // other comp → closest pin
+    for (let j = 0; j < termPts.length; j++) {
+      if (j === i || termPts[i].comp === termPts[j].comp) continue
+      const d = Math.hypot(termPts[i].x - termPts[j].x, termPts[i].y - termPts[j].y)
+      if (d >= SNAP) continue
+      const cur = nearest.get(termPts[j].comp)
+      if (!cur || d < cur.d) nearest.set(termPts[j].comp, { item: termPts[j].item, d })
     }
+    for (const { item } of nearest.values()) union(termPts[i].item, item)
   }
   const gndItems = termPts.filter((tp) => comps[tp.comp].geometry.symbol === 'gnd').map((tp) => tp.item)
   for (let i = 1; i < gndItems.length; i++) union(gndItems[0], gndItems[i])
 
-  // terminal ↔ wire (anywhere along the wire), wire endpoint ↔ wire
+  // terminal ↔ wire (anywhere along the wire), wire endpoint ↔ wire.
+  // Same closest-pin rule: a wire ending on one pin of a compact part must
+  // not also grab the neighbouring pins sitting inside the snap radius.
   wires.forEach((w, wi) => {
+    const nearest = new Map<number, { item: number; d: number }>() // comp → closest pin
     for (const tp of termPts) {
-      if (polyDist(tp.x, tp.y, w.pts) < SNAP) union(tp.item, wireBase + wi)
+      const d = polyDist(tp.x, tp.y, w.pts)
+      if (d >= SNAP) continue
+      const cur = nearest.get(tp.comp)
+      if (!cur || d < cur.d) nearest.set(tp.comp, { item: tp.item, d })
     }
+    for (const { item } of nearest.values()) union(item, wireBase + wi)
     wires.forEach((w2, wj) => {
       if (wi === wj) return
       const ends = [w.pts[0], w.pts[w.pts.length - 1]]
@@ -645,7 +658,15 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
       [w.pts[w.pts.length - 1], 1],
     ]
     for (const [ep, end] of ends) {
-      const tp = termPts.find((p) => Math.hypot(p.x - ep[0], p.y - ep[1]) < SNAP)
+      let tp: (typeof termPts)[number] | undefined
+      let bestD = SNAP
+      for (const p of termPts) {
+        const d = Math.hypot(p.x - ep[0], p.y - ep[1])
+        if (d < bestD) {
+          bestD = d
+          tp = p
+        }
+      }
       if (tp) {
         cw.attach = { comp: tp.comp, term: tp.term, end }
         break

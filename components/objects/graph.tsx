@@ -351,6 +351,10 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                     axisLine={false}
                     fontSize={9}
                     width={46}
+                    // Short minis (3+ stacked) cull recharts' default 5 ticks
+                    // down to nothing — 3 ticks with the ends pinned always fit.
+                    tickCount={3}
+                    interval="preserveStartEnd"
                   />
                   <Tooltip {...tooltipProps} />
                   {refYs.map((v, j) => (

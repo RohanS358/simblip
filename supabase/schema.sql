@@ -446,7 +446,8 @@ create policy "submissions teacher" on public.simblip_submissions
     assignment_id in (select id from public.simblip_assignments where teacher_id = auth.uid())
   );
 
--- Announcements: staff post; room members (or everyone, when room is null) read.
+-- Announcements: staff post; room members (or everyone, when room is null)
+-- read; a room's board account reads its own room's feed for the idle screen.
 drop policy if exists "announcements write" on public.simblip_announcements;
 create policy "announcements write" on public.simblip_announcements
   for all using (author_id = auth.uid())
@@ -461,6 +462,8 @@ create policy "announcements read" on public.simblip_announcements
     and (
       room_id is null
       or room_id in (select room_id from public.simblip_room_members
+                     where profile_id = auth.uid())
+      or room_id in (select room_id from public.simblip_boards
                      where profile_id = auth.uid())
     )
   );

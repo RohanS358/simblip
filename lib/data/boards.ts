@@ -89,10 +89,25 @@ export const saveSessionEdits = (sessionId: string, edited: PageDoc) =>
   db.update('board_sessions', sessionId, { edited })
 
 /** Teacher's phone → board remote: transport, slide nav, selection, param
- *  nudges. Demo mode delivers instantly (BroadcastChannel); cloud mode rides
- *  the board's session poll, so expect a few seconds of latency. */
+ *  nudges and component toggles. Demo mode delivers instantly
+ *  (BroadcastChannel); cloud mode is picked up by the board's fast remote
+ *  poll (see pollRemote) within ~a second. */
 export const sendRemote = (sessionId: string, cmd: Omit<RemoteCommand, 'seq'>) =>
   db.update('board_sessions', sessionId, { remote: { ...cmd, seq: Date.now() } })
+
+/** Cheap high-frequency poll for the board: only the remote command + status
+ *  columns, never the page snapshots (those are heavy jsonb). */
+export const pollRemote = async (
+  sessionId: string
+): Promise<{ remote: RemoteCommand | null; status: BoardSessionStatus } | null> => {
+  const rows = await db.list<BoardSessionRow>(
+    'board_sessions',
+    { id: sessionId },
+    'id,status,remote'
+  )
+  const row = rows[0]
+  return row ? { remote: row.remote ?? null, status: row.status } : null
+}
 
 export const endSession = (sessionId: string) =>
   db.update('board_sessions', sessionId, { status: 'ended', ended_at: new Date().toISOString() })

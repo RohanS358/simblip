@@ -17,6 +17,8 @@ import {
   Play,
   RotateCcw,
   Square,
+  ToggleLeft,
+  ToggleRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { RequireAuth } from '@/components/auth/require-auth'
@@ -385,11 +387,53 @@ function PresentController() {
 // object list mirrors the board's own working copy as it syncs back.
 function RemotePanel({ session }: { session: BoardSessionRow }) {
   const [objId, setObjId] = useState('')
+  // Optimistic mirror of toggle states — the session row only syncs back
+  // every few seconds, and a button that answers late feels broken.
+  const [flips, setFlips] = useState<Record<string, boolean>>({})
   const doc = session.edited ?? session.snapshot
   const objects = Object.values(doc?.objects ?? {}) as SceneObject[]
   const files = objects.filter((o) => o.metadata?.render === 'file')
   const chosen = objects.find((o) => o.id === objId) ?? null
   const send = (cmd: Parameters<typeof sendRemote>[1]) => void sendRemote(session.id, cmd)
+
+  // The same components a tap toggles on the board itself: switches and
+  // logic inputs. They get real buttons here — not a number field.
+  const toggables = objects
+    .map((o) => {
+      const sym = o.geometry.kind === 'symbol' ? o.geometry.symbol : undefined
+      const param = sym === 'switch' ? 'closed' : sym === 'input' ? 'value' : undefined
+      if (!param) return null
+      const p = o.parameters[param]
+      const docOn = (p?.kind === 'number' ? p.value : param === 'closed' ? 1 : 0) >= 0.5
+      const key = `${o.id}:${param}`
+      return {
+        id: o.id,
+        param,
+        key,
+        label: o.name || (param === 'closed' ? 'Switch' : 'Input'),
+        on: key in flips ? flips[key] : docOn,
+      }
+    })
+    .filter((t): t is NonNullable<typeof t> => t !== null)
+
+  // Once the synced doc agrees with an optimistic flip, the doc becomes the
+  // source of truth again (also picks up taps made on the board itself).
+  useEffect(() => {
+    setFlips((f) => {
+      let changed = false
+      const next = { ...f }
+      for (const t of toggables) {
+        const p = objects.find((o) => o.id === t.id)?.parameters[t.param]
+        const docOn = (p?.kind === 'number' ? p.value : t.param === 'closed' ? 1 : 0) >= 0.5
+        if (t.key in next && next[t.key] === docOn) {
+          delete next[t.key]
+          changed = true
+        }
+      }
+      return changed ? next : f
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc])
 
   return (
     <div className="glass space-y-4 rounded-2xl p-5">
@@ -411,6 +455,37 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
           </Button>
         </div>
       </div>
+
+      {toggables.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-[12px]">Controls</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {toggables.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                aria-pressed={t.on}
+                onClick={() => {
+                  setFlips((f) => ({ ...f, [t.key]: !t.on }))
+                  send({ kind: 'toggle', objectId: t.id, param: t.param })
+                }}
+                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-semibold transition-colors ${
+                  t.on
+                    ? 'border-[var(--accent-mint)] bg-[color-mix(in_oklch,var(--accent-mint)_14%,transparent)] text-foreground'
+                    : 'border-border/70 bg-background text-muted-foreground'
+                }`}
+              >
+                <span className="min-w-0 truncate">{t.label}</span>
+                {t.on ? (
+                  <ToggleRight className="h-5 w-5 shrink-0 text-[var(--accent-mint)]" />
+                ) : (
+                  <ToggleLeft className="h-5 w-5 shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {files.length > 0 && (
         <div className="space-y-1.5">
@@ -490,8 +565,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
       )}
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Commands reach the board instantly on the same network, or within a few seconds in cloud
-        mode.
+        Commands reach the board instantly in demo mode and within about a second in cloud mode.
       </p>
     </div>
   )

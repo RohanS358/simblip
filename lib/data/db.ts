@@ -95,10 +95,12 @@ export function seedTable(table: string, rows: Row[]) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
-export async function list<T extends Row>(table: string, eq?: Eq): Promise<T[]> {
+export async function list<T extends Row>(table: string, eq?: Eq, cols = '*'): Promise<T[]> {
   if (dbMode === 'cloud') {
     const q = eqQuery(eq)
-    const res = await restFetch(`simblip_${table}?select=*${q ? `&${q}` : ''}`)
+    // `cols` trims heavy jsonb columns off hot paths (e.g. the board's
+    // fast remote poll only needs `remote`, not the page snapshots).
+    const res = await restFetch(`simblip_${table}?select=${cols}${q ? `&${q}` : ''}`)
     return (await res.json()) as T[]
   }
   return readTable(table).filter((r) => matches(r, eq)) as T[]
