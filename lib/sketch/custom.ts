@@ -119,7 +119,10 @@ function cloudDistance(a: number[][], b: number[][]): number {
     }
     return sum / from.length
   }
-  return Math.min(one(a, b), one(b, a))
+  // MAX of the two directions — both clouds must explain each other. With
+  // min(), any sub-shape "matched" any super-shape (a lone capacitor plate
+  // scored as a BJT because the line hides inside the BJT's bar).
+  return Math.max(one(a, b), one(b, a))
 }
 
 let cache: CustomSketchTemplate[] = []

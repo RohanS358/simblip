@@ -1214,22 +1214,23 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     const created: SceneObject[] = []
     for (const c of cands) {
       if (c.used) continue
+      // Score alone AND merged with neighbors — take whichever combination
+      // matches best, so partial shapes never win over the full symbol.
       let chosen: Cand[] = [c]
       let m = matchCustomSketch(c.strokes)
-      if (!m) {
-        const nbs = cands.filter((o) => o !== c && !o.used && near(c, o))
-        let best: { m: ReturnType<typeof matchCustomSketch> & object; group: Cand[] } | null = null
-        for (const nb of nbs) {
-          const mm = matchCustomSketch([...c.strokes, ...nb.strokes])
-          if (mm && (!best || mm.score > best.m.score)) best = { m: mm, group: [c, nb] }
+      const nbs = cands.filter((o) => o !== c && !o.used && near(c, o))
+      for (const nb of nbs) {
+        const mm = matchCustomSketch([...c.strokes, ...nb.strokes])
+        if (mm && (!m || mm.score > m.score)) {
+          m = mm
+          chosen = [c, nb]
         }
-        if (!best && nbs.length > 1) {
-          const mm = matchCustomSketch([...c.strokes, ...nbs.flatMap((n) => n.strokes)])
-          if (mm) best = { m: mm, group: [c, ...nbs] }
-        }
-        if (best) {
-          m = best.m
-          chosen = best.group
+      }
+      if (nbs.length > 1) {
+        const mm = matchCustomSketch([...c.strokes, ...nbs.flatMap((n) => n.strokes)])
+        if (mm && (!m || mm.score > m.score)) {
+          m = mm
+          chosen = [c, ...nbs]
         }
       }
       let obj: SceneObject | null = null
