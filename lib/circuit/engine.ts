@@ -476,6 +476,29 @@ export function nearTerminal(
   return false
 }
 
+/** World position of the closest terminal within snap range, or null —
+ *  lets a drawn wire's endpoint land EXACTLY on the pin, no gap. */
+export function nearestTerminal(
+  objects: Iterable<SceneObject>,
+  p: { x: number; y: number },
+  snap = SNAP
+): { x: number; y: number } | null {
+  let best: { x: number; y: number } | null = null
+  let bestD = snap
+  for (const o of objects) {
+    if (!isElectrical(o)) continue
+    for (const t of terminalsOf(o)) {
+      const w = terminalWorld(o, t)
+      const d = Math.hypot(w.x - p.x, w.y - p.y)
+      if (d < bestD) {
+        bestD = d
+        best = { x: w.x, y: w.y }
+      }
+    }
+  }
+  return best
+}
+
 // ── Circuit structures ──────────────────────────────────────────────────────
 
 export interface CircuitComponent {

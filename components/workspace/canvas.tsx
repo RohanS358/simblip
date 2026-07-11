@@ -19,7 +19,7 @@ import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior } from '@/lib/behaviors/registry'
-import { nearTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
+import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { beautify, recognize, type Recognition } from '@/lib/sketch/recognize'
 import { publishAsset } from '@/lib/data/library'
@@ -135,6 +135,28 @@ function ctxMenuItems(
     ['Send to back', () => restack(objectId, 'back')],
     ['Delete', () => useDocStore.getState().removeObjects(pageId, [objectId]), true],
   ]
+}
+
+// Snap a drawn line/stroke's endpoints onto any circuit terminal within
+// reach (mutates geometry.points in place, pre-insert) and report whether it
+// connected. Hand-drawing always stops a few pixels short of the pin — this
+// closes that gap so wires actually touch what they join.
+function connectEnds(obj: SceneObject, all: SceneObject[]): boolean {
+  const gpts = obj.geometry.points
+  if (!gpts || gpts.length < 2) return false
+  let hit = false
+  for (const i of [0, gpts.length - 1]) {
+    const t = nearestTerminal(all, {
+      x: obj.position.x + gpts[i][0],
+      y: obj.position.y + gpts[i][1],
+    })
+    if (t) {
+      const pressure = gpts[i].length > 2 ? [gpts[i][2]] : []
+      gpts[i] = [t.x - obj.position.x, t.y - obj.position.y, ...pressure]
+      hit = true
+    }
+  }
+  return hit
 }
 
 // Copy/cut/paste the current selection — plain functions (not closures over
@@ -779,20 +801,15 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           if (store.tool === 'shaper') {
             const obj = fromRecognition(beautify(points))
             if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
-            // Wires connect like they're meant to: an orthogonal run whose
-            // end touches a circuit terminal becomes a live wire.
+            // Wires connect like they're meant to: endpoints snap EXACTLY
+            // onto any terminal in reach (no gap), and a connected run
+            // becomes a live wire.
             if (
               (obj.geometry.kind === 'stroke' || obj.geometry.kind === 'line') &&
               obj.behaviors.length === 0
             ) {
               const all = Object.values(store.pages[pageId]?.objects ?? {})
-              const gpts = obj.geometry.points ?? []
-              const ends = [gpts[0], gpts[gpts.length - 1]].filter(Boolean)
-              if (
-                ends.some(([x, y]) =>
-                  nearTerminal(all, { x: obj.position.x + x, y: obj.position.y + y })
-                )
-              ) {
+              if (connectEnds(obj, all)) {
                 obj.behaviors.push(createBehavior('wire'))
                 obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
               }
@@ -872,8 +889,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               }
               obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
             } else if ((rec.kind === 'line' || rec.kind === 'stroke') && domain !== 'mechanics') {
-              // Any free line in a circuit system conducts.
+              // Any free line in a circuit system conducts — flush to pins.
               obj = fromRecognition(rec)
+              connectEnds(obj, all)
               obj.behaviors.push(createBehavior('wire'))
               obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
             } else if (rec.kind === 'line' && domain === 'mechanics') {
@@ -902,18 +920,13 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
                     h: rec.h,
                   }
             obj = fromRecognition(keep)
-            // A doodle whose end touches a circuit terminal IS a wire.
+            // A doodle whose end touches a circuit terminal IS a wire — and
+            // its endpoints snap flush onto the pins, closing the gap.
             if (
               (obj.geometry.kind === 'line' || obj.geometry.kind === 'stroke') &&
               obj.behaviors.length === 0
             ) {
-              const pts = obj.geometry.points ?? []
-              const ends = [pts[0], pts[pts.length - 1]].filter(Boolean)
-              if (
-                ends.some(([x, y]) =>
-                  nearTerminal(all, { x: obj!.position.x + x, y: obj!.position.y + y })
-                )
-              ) {
+              if (connectEnds(obj, all)) {
                 obj.behaviors.push(createBehavior('wire'))
                 obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
               }

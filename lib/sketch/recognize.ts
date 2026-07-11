@@ -49,38 +49,23 @@ export function simplify(points: number[][], epsilon: number): number[][] {
   return [points[0], points[points.length - 1]]
 }
 
-/** Chaikin corner-cutting — each pass replaces every corner with two points
- *  at 1/4 and 3/4 of its edges, turning a jittery polyline silky. */
-function chaikin(points: number[][], iterations: number, closed: boolean): number[][] {
-  let pts = points
-  for (let it = 0; it < iterations; it++) {
-    const out: number[][] = []
-    const n = pts.length
-    if (!closed) out.push(pts[0])
-    const last = closed ? n : n - 1
-    for (let i = 0; i < last; i++) {
-      const a = pts[i]
-      const b = pts[(i + 1) % n]
-      out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25])
-      out.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75])
-    }
-    if (!closed) out.push(pts[n - 1])
-    pts = out
-  }
-  return pts
-}
+// Edges leaning within ~25° of an axis snap fully horizontal/vertical;
+// steeper diagonals stay exactly as drawn (just straight).
+const AXIS_SNAP = Math.tan((25 * Math.PI) / 180)
 
-/** Wire-style orthogonal routing: every segment of the polyline snaps to
- *  horizontal or vertical (whichever it leans toward), keeping its travel
- *  along that axis — rough staircases become perfect steps and ladders,
- *  exactly how wires are meant to run. */
-function snapOrthogonal(corners: number[][]): number[][] {
+/** Straighten a corner run: every edge becomes a dead-straight segment,
+ *  and near-axis edges route like wires (true horizontal/vertical) — so
+ *  rough staircases become perfect steps and ladders while deliberate
+ *  diagonals keep their slope. No curves, ever. */
+function straighten(corners: number[][]): number[][] {
   const out: number[][] = [corners[0]]
   for (let i = 1; i < corners.length; i++) {
     const [px, py] = out[i - 1]
     const dx = corners[i][0] - corners[i - 1][0]
     const dy = corners[i][1] - corners[i - 1][1]
-    out.push(Math.abs(dx) >= Math.abs(dy) ? [px + dx, py] : [px, py + dy])
+    if (Math.abs(dy) <= Math.abs(dx) * AXIS_SNAP) out.push([px + dx, py])
+    else if (Math.abs(dx) <= Math.abs(dy) * AXIS_SNAP) out.push([px, py + dy])
+    else out.push([px + dx, py + dy])
   }
   return out
 }
@@ -111,25 +96,11 @@ function rdpIndices(points: number[][], a: number, b: number, epsilon: number): 
   return [a, b]
 }
 
-/** How far a point run bows away from its chord, relative to chord length. */
-function segmentDeviation(points: number[][]): { dev: number; chord: number } {
-  const [sx, sy] = points[0]
-  const [ex, ey] = points[points.length - 1]
-  const chord = Math.hypot(ex - sx, ey - sy) || 1
-  let dev = 0
-  for (const [x, y] of points) {
-    const d = Math.abs((ey - sy) * x - (ex - sx) * y + ex * sy - ey * sx) / chord
-    if (d > dev) dev = d
-  }
-  return { dev, chord }
-}
-
-/** The Shaper tool: whatever is drawn comes out cleaned up — PER SEGMENT.
- *  Corners split the stroke; each piece that hugs its chord becomes a truly
- *  straight edge, each piece that bows away keeps its curve but loses the
- *  jitter. So a "D" gets one straight side and one smooth arc, a rough
- *  triangle gets three straight edges, a hyperbola just flows. Circles and
- *  rects still snap perfect. Unlike the pen, this ALWAYS upgrades. */
+/** The Shaper tool: straight lines only, no curve smoothing. The stroke is
+ *  reduced to its corners and every edge comes out dead straight — a
+ *  three-sided rectangle is three crisp segments, zigzags stay zigzags,
+ *  near-axis edges snap fully horizontal/vertical for perfect wire steps.
+ *  Circles and rects still snap perfect. Unlike the pen, ALWAYS upgrades. */
 export function beautify(raw: number[][]): Recognition {
   const rec = recognize(raw)
   if (rec.kind === 'circle' || rec.kind === 'rect' || rec.kind === 'line' || raw.length < 6)
@@ -143,33 +114,14 @@ export function beautify(raw: number[][]): Recognition {
   const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.22, 24)
 
   const pts = closed ? [...rel, [...start]] : rel
-  const corners = rdpIndices(pts, 0, pts.length - 1, diag * 0.05)
-
-  let allStraight = true
-  const out: number[][] = [pts[corners[0]]]
-  for (let c = 0; c < corners.length - 1; c++) {
-    const seg = pts.slice(corners[c], corners[c + 1] + 1)
-    const { dev, chord } = segmentDeviation(seg)
-    if (dev < Math.max(chord * 0.05, 4) || seg.length < 4) {
-      // Hugs the chord → a perfectly straight edge.
-      out.push(seg[seg.length - 1])
-    } else {
-      // Bows away → keep the curve, lose the wobble. Chaikin preserves the
-      // segment's endpoints, so straight and curved pieces stay connected.
-      allStraight = false
-      const light = simplify(seg, Math.max(diag * 0.012, 2))
-      out.push(...chaikin(light, 2, false).slice(1))
-    }
-  }
+  const idx = rdpIndices(pts, 0, pts.length - 1, diag * 0.04)
+  const corners = straighten(idx.map((i) => pts[i]))
 
   if (closed) {
     // Drop the duplicated closing point; polygon geometry closes itself.
-    return { kind: 'polygon', points: out.slice(0, -1), ...base }
+    return { kind: 'polygon', points: corners.slice(0, -1), ...base }
   }
-  // A pure polyline routes like a wire: every edge snaps horizontal or
-  // vertical (perfect steps/ladders). Anything containing a curve keeps
-  // its exact corner positions instead.
-  return { kind: 'stroke', points: allStraight ? snapOrthogonal(out) : out, ...base }
+  return { kind: 'stroke', points: corners, ...base }
 }
 
 export function recognize(raw: number[][]): Recognition {
