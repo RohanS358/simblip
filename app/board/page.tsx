@@ -7,7 +7,18 @@
 // The teacher's original notebook is only touched if they merge afterwards.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, LibraryBig, Megaphone, MonitorPlay, PenLine, Square, X } from 'lucide-react'
+import {
+  BookOpen,
+  ChevronLeft,
+  ChevronRight,
+  ClipboardList,
+  LibraryBig,
+  Megaphone,
+  MonitorPlay,
+  PenLine,
+  Square,
+  X,
+} from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
@@ -30,7 +41,8 @@ import {
 } from '@/lib/data/boards'
 import { dbMode } from '@/lib/data/db'
 import { listBoardAnnouncements, subscribeAnnouncements } from '@/lib/data/announcements'
-import type { AnnouncementRow } from '@/lib/data/types'
+import { listRoomShares, subscribeShares } from '@/lib/data/shares'
+import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignments'
 import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { Button } from '@/components/ui/button'
@@ -90,41 +102,74 @@ function timeAgo(iso: string): string {
   return `${Math.round(hrs / 24)}d ago`
 }
 
-// Room + institution announcements as a stacked card pile on the idle
-// screen — the board doubles as the room's notice display between classes.
-function AnnouncementStack({ items }: { items: AnnouncementRow[] }) {
+// Everything the class was sent — announcements, shared notebook pages and
+// assignments — as one stacked card pile on the idle screen. The board
+// doubles as the room's notice display between classes.
+interface BoardNotice {
+  id: string
+  kind: 'announcement' | 'share' | 'assignment'
+  title?: string
+  body?: string
+  author: string
+  scope: 'room' | 'institution'
+  created_at: string
+  due_at?: string | null
+}
+
+const NOTICE_META = {
+  announcement: { label: 'Announcement', color: 'var(--accent-amber)', Icon: Megaphone },
+  share: { label: 'Notebook shared', color: 'var(--accent-blue)', Icon: BookOpen },
+  assignment: { label: 'Assignment', color: 'var(--accent-violet)', Icon: ClipboardList },
+} as const
+
+function NoticeStack({ items }: { items: BoardNotice[] }) {
   if (items.length === 0) return null
   return (
     <div className="absolute right-6 top-1/2 z-30 hidden w-[min(360px,26vw)] -translate-y-1/2 lg:block">
       <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
-        <Megaphone className="h-3.5 w-3.5" /> Announcements
+        <Megaphone className="h-3.5 w-3.5" /> Class notices
       </p>
       <div className="space-y-3">
-        {items.slice(0, 4).map((a, i) => (
-          <div
-            key={a.id}
-            className="glass-strong rounded-2xl p-4 text-left shadow-lg"
-            style={{
-              // stacked-pile look: cards behind the newest tuck in slightly
-              transform: `scale(${1 - i * 0.02})`,
-              opacity: 1 - i * 0.16,
-              transformOrigin: 'top center',
-            }}
-          >
-            <div className="mb-1.5 flex items-baseline justify-between gap-2">
-              <p className="truncate text-[12px] font-bold">{a.author_name}</p>
-              <p className="shrink-0 text-[10.5px] text-muted-foreground">
-                {a.room_id === null ? 'Institution · ' : ''}
-                {timeAgo(a.created_at)}
+        {items.slice(0, 4).map((n, i) => {
+          const meta = NOTICE_META[n.kind]
+          return (
+            <div
+              key={`${n.kind}-${n.id}`}
+              className="glass-strong rounded-2xl p-4 text-left shadow-lg"
+              style={{
+                // stacked-pile look: cards behind the newest tuck in slightly
+                transform: `scale(${1 - i * 0.02})`,
+                opacity: 1 - i * 0.16,
+                transformOrigin: 'top center',
+              }}
+            >
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span
+                  className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                  style={{ color: meta.color }}
+                >
+                  <meta.Icon className="h-3.5 w-3.5 shrink-0" /> {meta.label}
+                </span>
+                <span className="shrink-0 text-[10.5px] text-muted-foreground">
+                  {n.scope === 'institution' ? 'Institution · ' : ''}
+                  {timeAgo(n.created_at)}
+                </span>
+              </div>
+              {n.title && <p className="text-[13.5px] font-bold leading-snug">{n.title}</p>}
+              {n.body && (
+                <p className="line-clamp-3 text-[12.5px] leading-relaxed text-foreground/90">{n.body}</p>
+              )}
+              <p className="mt-1.5 text-[11px] text-muted-foreground">
+                {n.author}
+                {n.due_at
+                  ? ` · due ${new Date(n.due_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}`
+                  : ''}
               </p>
             </div>
-            <p className="line-clamp-4 text-[13px] leading-relaxed text-foreground/90">{a.body}</p>
-          </div>
-        ))}
+          )
+        })}
         {items.length > 4 && (
-          <p className="text-center text-[11px] text-muted-foreground">
-            +{items.length - 4} more
-          </p>
+          <p className="text-center text-[11px] text-muted-foreground">+{items.length - 4} more</p>
         )}
       </div>
     </div>
@@ -157,17 +202,54 @@ function BoardSurface() {
     })
   }, [])
 
-  // Announcement feed for the idle screen (room + institution-wide).
-  const [annos, setAnnos] = useState<AnnouncementRow[]>([])
+  // Idle-screen notice feed: announcements + notebook shares + assignments
+  // addressed to this board's room (or the whole institution).
+  const [notices, setNotices] = useState<BoardNotice[]>([])
   useEffect(() => {
     if (!board) return
-    const load = () => void listBoardAnnouncements(board.room_id).then(setAnnos)
+    const load = () =>
+      void (async () => {
+        const [ann, shares, assigns] = await Promise.all([
+          listBoardAnnouncements(board.room_id),
+          listRoomShares(board.room_id),
+          listRoomAssignments(board.room_id),
+        ])
+        const merged: BoardNotice[] = [
+          ...ann.map((a) => ({
+            id: a.id,
+            kind: 'announcement' as const,
+            body: a.body,
+            author: a.author_name,
+            scope: a.room_id === null ? ('institution' as const) : ('room' as const),
+            created_at: a.created_at,
+          })),
+          ...shares.map((s) => ({
+            id: s.id,
+            kind: 'share' as const,
+            title: s.title,
+            author: s.sender_name,
+            scope: 'room' as const,
+            created_at: s.created_at,
+          })),
+          ...assigns.map((a) => ({
+            id: a.id,
+            kind: 'assignment' as const,
+            title: a.title,
+            body: a.description ?? undefined,
+            author: a.teacher_name,
+            scope: 'room' as const,
+            created_at: a.created_at,
+            due_at: a.due_at,
+          })),
+        ].sort((x, y) => y.created_at.localeCompare(x.created_at))
+        setNotices(merged)
+      })()
     load()
     const t = setInterval(load, 60_000) // cloud poll only runs while subscribed; refresh timestamps too
-    const unsub = subscribeAnnouncements(load)
+    const unsubs = [subscribeAnnouncements(load), subscribeShares(load), subscribeAssignments(load)]
     return () => {
       clearInterval(t)
-      unsub()
+      unsubs.forEach((u) => u())
     }
   }, [board])
 
@@ -387,7 +469,7 @@ function BoardSurface() {
           <Button variant="outline" className="mt-4" onClick={openScratch}>
             <PenLine className="h-4 w-4" /> Open temporary whiteboard
           </Button>
-          <AnnouncementStack items={annos} />
+          <NoticeStack items={notices} />
         </div>
       )}
 

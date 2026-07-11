@@ -361,7 +361,8 @@ drop policy if exists "pages owner" on public.simblip_pages;
 create policy "pages owner" on public.simblip_pages
   for all using (workspace_id = auth.uid()) with check (workspace_id = auth.uid());
 
--- Shares: teachers/admins create; recipients (direct or via room) read.
+-- Shares: teachers/admins create; recipients (direct or via room) read;
+-- a room's board reads its room's shares to surface them on the idle feed.
 drop policy if exists "shares create" on public.simblip_shares;
 create policy "shares create" on public.simblip_shares
   for insert with check (
@@ -377,6 +378,8 @@ create policy "shares read" on public.simblip_shares
       sender_id = auth.uid()
       or target_profile_id = auth.uid()
       or target_room_id in (select room_id from public.simblip_room_members
+                            where profile_id = auth.uid())
+      or target_room_id in (select room_id from public.simblip_boards
                             where profile_id = auth.uid())
     )
   );
@@ -415,7 +418,8 @@ drop policy if exists "favorites own" on public.simblip_library_favorites;
 create policy "favorites own" on public.simblip_library_favorites
   for all using (profile_id = auth.uid()) with check (profile_id = auth.uid());
 
--- Assignments: teachers create/manage their own; targeted students read.
+-- Assignments: teachers create/manage their own; targeted students read;
+-- a room's board reads assignments addressed to its room for the idle feed.
 drop policy if exists "assignments teacher" on public.simblip_assignments;
 create policy "assignments teacher" on public.simblip_assignments
   for all using (teacher_id = auth.uid())
@@ -431,6 +435,8 @@ create policy "assignments student read" on public.simblip_assignments
       auth.uid() = any (profile_ids)
       or exists (select 1 from public.simblip_room_members m
                  where m.profile_id = auth.uid() and m.room_id = any (room_ids))
+      or exists (select 1 from public.simblip_boards b
+                 where b.profile_id = auth.uid() and b.room_id = any (room_ids))
     )
   );
 

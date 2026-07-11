@@ -55,6 +55,21 @@ export async function listMyAssignments(): Promise<AssignmentRow[]> {
   return mine.sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
+/** Assignments addressed to one room — the board's idle feed. Metadata
+ *  only: the starter PageDoc stays out of the classroom display's fetch. */
+export async function listRoomAssignments(roomId: string): Promise<AssignmentRow[]> {
+  const { profile } = useAuthStore.getState()
+  if (!profile) return []
+  const rows = await db.list<AssignmentRow>(
+    'assignments',
+    { institution_id: profile.institution_id },
+    'id,teacher_id,teacher_name,title,description,room_ids,profile_ids,due_at,created_at'
+  )
+  return rows
+    .filter((a) => a.room_ids.includes(roomId))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
 export const removeAssignment = (id: string) => db.removeById('assignments', id)
 
 export const subscribeAssignments = (fn: () => void) => db.subscribe('assignments', fn)

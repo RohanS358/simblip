@@ -51,6 +51,19 @@ export async function listSentShares(): Promise<ShareRow[]> {
   return db.list<ShareRow>('shares', { sender_id: profile.id })
 }
 
+/** Shares addressed to one room — the board's idle feed. Metadata only:
+ *  the PageDoc content never needs to reach the classroom display. */
+export async function listRoomShares(roomId: string): Promise<ShareRow[]> {
+  const { profile } = useAuthStore.getState()
+  if (!profile) return []
+  const rows = await db.list<ShareRow>(
+    'shares',
+    { institution_id: profile.institution_id, target_room_id: roomId },
+    'id,sender_id,sender_name,title,target_room_id,target_profile_id,created_at'
+  )
+  return rows.sort((a, b) => b.created_at.localeCompare(a.created_at))
+}
+
 export const subscribeShares = (fn: () => void) => db.subscribe('shares', fn)
 
 // ── Import bookkeeping (per user, per device) ───────────────────────────────
