@@ -2,7 +2,17 @@
 // normalized point cloud captured from example strokes plus the component id
 // it should spawn; held pen doodles are matched with a $P-style greedy cloud
 // distance (rotation-sensitive on purpose — schematic symbols have an
-// orientation). Templates persist per browser in localStorage.
+// orientation).
+//
+// STORAGE: templates are precious crowd-sourced training data. They ride the
+// platform data layer (lib/data/db) — in cloud mode they live in the GLOBAL
+// simblip_sketch_templates table, so every example anyone saves on /train
+// improves recognition for every user of the app; in demo mode they persist
+// in this browser. Matching stays synchronous via an in-memory cache that
+// syncs in the background (pre-cloud localStorage examples migrate over).
+
+import * as db from '@/lib/data/db'
+import { useAuthStore } from '@/lib/auth/store'
 
 export interface CustomSketchTemplate {
   id: string
@@ -13,7 +23,14 @@ export interface CustomSketchTemplate {
   cloud: number[][]
 }
 
-const KEY = 'simblip-custom-sketches'
+interface TemplateRow extends db.Row {
+  name: string
+  component_id: string
+  cloud: number[][]
+  contributor?: string | null
+}
+
+const KEY = 'simblip-custom-sketches' // legacy per-browser store (migrated)
 const N = 32
 /** Greedy cloud distance below which a match is accepted (empirical). */
 const THRESHOLD = 0.28
@@ -82,36 +99,84 @@ function cloudDistance(a: number[][], b: number[][]): number {
   return Math.min(one(a, b), one(b, a))
 }
 
-export function listCustomTemplates(): CustomSketchTemplate[] {
+let cache: CustomSketchTemplate[] = []
+let syncStarted = false
+
+/** Pull the shared template library into the matcher's cache. Also migrates
+ *  any pre-cloud localStorage examples up into the shared store once. */
+export async function syncCustomTemplates(): Promise<void> {
   try {
-    return JSON.parse(localStorage.getItem(KEY) ?? '[]') as CustomSketchTemplate[]
+    const legacy = JSON.parse(localStorage.getItem(KEY) ?? '[]') as CustomSketchTemplate[]
+    if (legacy.length > 0) {
+      await db.insert(
+        'sketch_templates',
+        legacy.map((t) => ({
+          id: db.newId(),
+          name: t.name,
+          component_id: t.componentId,
+          cloud: t.cloud,
+          contributor: null,
+        }))
+      )
+      localStorage.removeItem(KEY)
+    }
   } catch {
-    return []
+    /* nothing to migrate */
+  }
+  try {
+    const rows = await db.list<TemplateRow>('sketch_templates')
+    cache = rows.map((r) => ({ id: r.id, name: r.name, componentId: r.component_id, cloud: r.cloud }))
+  } catch {
+    /* offline or table missing — keep whatever the cache holds */
   }
 }
 
-/** Save one example stroke as (another) template for a component. More
- *  examples per symbol = better recall; each is stored separately. */
+function ensureSync() {
+  if (syncStarted) return
+  syncStarted = true
+  void syncCustomTemplates()
+}
+
+export function listCustomTemplates(): CustomSketchTemplate[] {
+  ensureSync()
+  return cache
+}
+
+/** Save one example as (another) template for a component. Lands in the
+ *  shared library so everyone's recognition improves; the local cache is
+ *  updated optimistically so it matches immediately. */
 export function addCustomTemplate(name: string, componentId: string, rawPoints: number[][]): void {
-  const all = listCustomTemplates()
-  all.push({
-    id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`,
+  const tpl: CustomSketchTemplate = {
+    id: db.newId(),
     name,
     componentId,
     cloud: normalizeCloud(rawPoints),
-  })
-  localStorage.setItem(KEY, JSON.stringify(all))
+  }
+  cache = [...cache, tpl]
+  void db
+    .insert('sketch_templates', {
+      id: tpl.id,
+      name,
+      component_id: componentId,
+      cloud: tpl.cloud,
+      contributor: useAuthStore.getState().profile?.full_name ?? null,
+    })
+    .catch(() => {
+      /* offline — the optimistic cache still works this session */
+    })
 }
 
 export function removeCustomTemplate(id: string): void {
-  localStorage.setItem(KEY, JSON.stringify(listCustomTemplates().filter((t) => t.id !== id)))
+  cache = cache.filter((t) => t.id !== id)
+  void db.removeById('sketch_templates', id).catch(() => {})
 }
 
 /** Best template match for a drawn stroke, or null when nothing is close. */
 export function matchCustomSketch(
   rawPoints: number[][]
 ): { componentId: string; name: string; score: number } | null {
-  const templates = listCustomTemplates()
+  ensureSync()
+  const templates = cache
   if (templates.length === 0) return null
   const cloud = normalizeCloud(rawPoints)
   let best: CustomSketchTemplate | null = null

@@ -16,6 +16,7 @@ import {
   listCustomTemplates,
   matchCustomSketch,
   removeCustomTemplate,
+  syncCustomTemplates,
   type CustomSketchTemplate,
 } from '@/lib/sketch/custom'
 import { Button } from '@/components/ui/button'
@@ -30,7 +31,9 @@ export default function TrainPage() {
   const [templates, setTemplates] = useState<CustomSketchTemplate[]>([])
   const [flash, setFlash] = useState('')
 
-  useEffect(() => setTemplates(listCustomTemplates()), [])
+  useEffect(() => {
+    void syncCustomTemplates().then(() => setTemplates(listCustomTemplates()))
+  }, [])
 
   const points = useMemo(() => strokes.flat(), [strokes])
 
@@ -75,7 +78,8 @@ export default function TrainPage() {
           and save it. Every example teaches the <b>pen + hold</b> feature; with a few examples
           per symbol it can turn a whole hand-sketched diagram into live components — the wires
           you draw between them already connect on their own. 3–5 varied examples per symbol
-          works best. Examples are stored in this browser.
+          works best. Examples are saved to the shared training library — your work improves
+          recognition for everyone using SIMBLIP (demo mode keeps them in this browser).
         </p>
       </header>
 
