@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
+import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
@@ -258,6 +258,26 @@ export function WorkspaceShell() {
         {sidebarOpen && <Sidebar />}
 
         <main className="relative min-w-0 flex-1">
+          {/* Edge handles — toggle the side panels from mid-screen instead of
+              reaching for the top corners. */}
+          <button
+            type="button"
+            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+            className="glass-strong absolute left-0 top-1/2 z-40 -translate-y-1/2 rounded-r-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
+            onClick={() => togglePanel('sidebar')}
+          >
+            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
+          {activePageId && (
+            <button
+              type="button"
+              aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
+              className="glass-strong absolute right-0 top-1/2 z-40 -translate-y-1/2 rounded-l-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
+              onClick={() => togglePanel('inspector')}
+            >
+              {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+            </button>
+          )}
           {activePageId ? (
             <>
               <InfiniteCanvas key={activePageId} pageId={activePageId} />

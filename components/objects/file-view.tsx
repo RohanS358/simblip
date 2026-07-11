@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Maximize2, Minimize2 } from 'lucide-react'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
+import { cn } from '@/lib/utils'
 import type { ObjectRendererProps } from './types'
 
 // pdf.js is loaded lazily on first use so it never weighs down the notebook.
@@ -140,34 +141,46 @@ export function FileObject({ object }: ObjectRendererProps) {
           </div>
         )}
 
-        {/* In fullscreen the element's outer bar is gone — float the same
-            controls inside (children may re-enable pointer events). */}
+        {/* Page nav sits mid-left / mid-right — where thumbs and presenters
+            actually reach (children may re-enable pointer events). */}
+        {isPdf && numPages > 0 && (
+          <>
+            <button
+              type="button"
+              aria-label="Previous page"
+              disabled={page <= 1}
+              className={cn(
+                'glass-strong pointer-events-auto absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-25',
+                fs ? 'p-3' : 'p-1.5'
+              )}
+              onPointerDown={stop}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              <ChevronLeft className={fs ? 'h-6 w-6' : 'h-4 w-4'} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next page"
+              disabled={page >= numPages}
+              className={cn(
+                'glass-strong pointer-events-auto absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-25',
+                fs ? 'p-3' : 'p-1.5'
+              )}
+              onPointerDown={stop}
+              onClick={() => setPage((p) => Math.min(numPages, p + 1))}
+            >
+              <ChevronRight className={fs ? 'h-6 w-6' : 'h-4 w-4'} />
+            </button>
+          </>
+        )}
+
+        {/* Fullscreen keeps counter + exit at the bottom. */}
         {fs && (
-          <div className="glass-strong pointer-events-auto absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-2 py-1.5">
+          <div className="glass-strong pointer-events-auto absolute bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-2 rounded-xl px-3 py-1.5">
             {isPdf && numPages > 0 && (
-              <>
-                <button
-                  type="button"
-                  aria-label="Previous page"
-                  disabled={page <= 1}
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-                <span className="min-w-14 text-center font-mono text-[12.5px] tabular-nums">
-                  {page} / {numPages}
-                </span>
-                <button
-                  type="button"
-                  aria-label="Next page"
-                  disabled={page >= numPages}
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-                  onClick={() => setPage((p) => Math.min(numPages, p + 1))}
-                >
-                  <ChevronRight className="h-5 w-5" />
-                </button>
-              </>
+              <span className="min-w-14 text-center font-mono text-[12.5px] tabular-nums">
+                {page} / {numPages}
+              </span>
             )}
             <button
               type="button"
@@ -188,29 +201,9 @@ export function FileObject({ object }: ObjectRendererProps) {
         onDoubleClick={stop}
       >
         {isPdf && numPages > 0 && (
-          <>
-            <button
-              type="button"
-              aria-label="Previous page"
-              disabled={page <= 1}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <span className="min-w-12 text-center font-mono text-[11px] tabular-nums">
-              {page} / {numPages}
-            </span>
-            <button
-              type="button"
-              aria-label="Next page"
-              disabled={page >= numPages}
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
-              onClick={() => setPage((p) => Math.min(numPages, p + 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </>
+          <span className="min-w-12 text-center font-mono text-[11px] tabular-nums">
+            {page} / {numPages}
+          </span>
         )}
         <button
           type="button"
