@@ -1,84 +1,154 @@
 'use client'
 
-// Session document element — a PDF (or image) floating on the page with
-// prev/next page + fullscreen controls. The file itself is session-only
-// (lib/store/session-files.ts): nothing is uploaded or saved.
+// Session document element — one full PDF page at a time, rendered by
+// pdf.js onto a high-DPI canvas (crisp at any whiteboard zoom, no browser
+// viewer chrome). The content is pointer-inert: clicking/dragging the body
+// selects and moves the element like any other object; ONLY the floating
+// control bar is interactive. Files are session-only, never saved.
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Maximize2 } from 'lucide-react'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
 import type { ObjectRendererProps } from './types'
 
+// pdf.js is loaded lazily on first use so it never weighs down the notebook.
+type PdfDoc = {
+  numPages: number
+  getPage: (n: number) => Promise<{
+    getViewport: (o: { scale: number }) => { width: number; height: number }
+    render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> }
+  }>
+}
+
+let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null
+const loadPdfjs = () => {
+  pdfjsPromise ??= import('pdfjs-dist').then((mod) => {
+    mod.GlobalWorkerOptions.workerSrc = new URL(
+      'pdfjs-dist/build/pdf.worker.min.mjs',
+      import.meta.url
+    ).toString()
+    return mod
+  })
+  return pdfjsPromise
+}
+
 export function FileObject({ object }: ObjectRendererProps) {
   const [page, setPage] = useState(1)
-  const [, force] = useState(0)
+  const [numPages, setNumPages] = useState(0)
+  const [rev, setRev] = useState(0) // bumps when a file is (re)attached
   const boxRef = useRef<HTMLDivElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const file = getSessionFile(object.id)
+  const docRef = useRef<PdfDoc | null>(null)
 
-  const isPdf = file?.mime === 'application/pdf' || file?.name.toLowerCase().endsWith('.pdf')
-  const isImage = file?.mime.startsWith('image/')
+  const file = getSessionFile(object.id)
+  const isPdf = file?.mime === 'application/pdf' || (file?.name.toLowerCase().endsWith('.pdf') ?? false)
+  const isImage = file?.mime.startsWith('image/') ?? false
+
+  // Open the document.
+  useEffect(() => {
+    if (!file || !isPdf) return
+    let dead = false
+    void loadPdfjs().then(async (pdfjs) => {
+      const doc = (await pdfjs.getDocument({ url: file.url }).promise) as unknown as PdfDoc
+      if (dead) return
+      docRef.current = doc
+      setNumPages(doc.numPages)
+      setPage(1)
+    })
+    return () => {
+      dead = true
+      docRef.current = null
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rev, file?.url, isPdf])
+
+  // Render exactly ONE page, oversampled 2× past devicePixelRatio so it
+  // stays sharp when the whiteboard zooms the element up.
+  useEffect(() => {
+    const doc = docRef.current
+    const canvas = canvasRef.current
+    const box = boxRef.current
+    if (!doc || !canvas || !box || numPages === 0) return
+    let dead = false
+    void (async () => {
+      const p = await doc.getPage(Math.min(page, doc.numPages))
+      if (dead) return
+      const base = p.getViewport({ scale: 1 })
+      const fit = Math.min(box.clientWidth / base.width, box.clientHeight / base.height) || 1
+      const scale = fit * Math.min(3, (window.devicePixelRatio || 1) * 2)
+      const vp = p.getViewport({ scale })
+      canvas.width = vp.width
+      canvas.height = vp.height
+      canvas.style.width = `${base.width * fit}px`
+      canvas.style.height = `${base.height * fit}px`
+      const ctx = canvas.getContext('2d')
+      if (ctx) await p.render({ canvasContext: ctx, viewport: vp }).promise
+    })()
+    return () => {
+      dead = true
+    }
+  }, [page, numPages, rev, object.size.w, object.size.h])
 
   const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation()
 
   return (
-    <div ref={boxRef} className="relative h-full w-full">
-      <div className="glass-strong h-full w-full overflow-hidden rounded-xl">
+    <div className="relative h-full w-full">
+      {/* Body is pointer-inert: clicks fall through to the object wrapper,
+          so the element selects and drags — never the document. */}
+      <div
+        ref={boxRef}
+        className="pointer-events-none flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-neutral-900"
+      >
         {!file ? (
-          <button
-            type="button"
-            className="flex h-full w-full flex-col items-center justify-center gap-2 text-muted-foreground"
-            onPointerDown={stop}
-            onClick={() => inputRef.current?.click()}
-          >
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <FileUp className="h-6 w-6" />
             <span className="px-4 text-center text-[12px] leading-relaxed">
               {object.name || 'Attach a PDF or image'}
               <br />
               <span className="text-[10.5px] opacity-70">
-                Session-only — files are never saved to the cloud. Re-attach after a reload.
-                PowerPoint? Export it as PDF first.
+                Session-only — never saved to the cloud. PowerPoint? Export it as PDF first.
               </span>
             </span>
-          </button>
+          </div>
         ) : isPdf ? (
-          <iframe
-            key={page}
-            title={file.name}
-            src={`${file.url}#page=${page}&toolbar=0&navpanes=0`}
-            className="h-full w-full"
-          />
+          <canvas ref={canvasRef} className="max-h-full max-w-full" />
         ) : isImage ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={file.url} alt={file.name} className="h-full w-full object-contain" />
+          <img src={file.url} alt={file.name} className="h-full w-full select-none object-contain" draggable={false} />
         ) : (
-          <div className="flex h-full items-center justify-center px-4 text-center text-[12px] text-muted-foreground">
+          <div className="px-4 text-center text-[12px] text-muted-foreground">
             {file.name}: this format can't be shown inline — export it as PDF and re-attach.
           </div>
         )}
       </div>
 
-      {/* Floating controls under the element. */}
+      {/* Floating controls — the ONLY interactive part of the element. */}
       <div
         className="glass-strong absolute -bottom-11 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-1.5 py-1"
         onPointerDown={stop}
+        onDoubleClick={stop}
       >
-        {isPdf && (
+        {isPdf && numPages > 0 && (
           <>
             <button
               type="button"
               aria-label="Previous page"
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+              disabled={page <= 1}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
               onClick={() => setPage((p) => Math.max(1, p - 1))}
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="min-w-8 text-center font-mono text-[11px]">{page}</span>
+            <span className="min-w-12 text-center font-mono text-[11px] tabular-nums">
+              {page} / {numPages}
+            </span>
             <button
               type="button"
               aria-label="Next page"
-              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => setPage((p) => p + 1)}
+              disabled={page >= numPages}
+              className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+              onClick={() => setPage((p) => Math.min(numPages, p + 1))}
             >
               <ChevronRight className="h-4 w-4" />
             </button>
@@ -86,7 +156,7 @@ export function FileObject({ object }: ObjectRendererProps) {
         )}
         <button
           type="button"
-          aria-label="Replace file"
+          aria-label="Attach or replace file"
           className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
           onClick={() => inputRef.current?.click()}
         >
@@ -111,8 +181,10 @@ export function FileObject({ object }: ObjectRendererProps) {
           const f = e.target.files?.[0]
           if (f) {
             putSessionFile(object.id, f)
+            docRef.current = null
+            setNumPages(0)
             setPage(1)
-            force((n) => n + 1)
+            setRev((n) => n + 1)
           }
         }}
       />
