@@ -1,11 +1,13 @@
-// Sketch recognition: a freehand stroke becomes a circle, rectangle, line,
-// spring (zigzag) or polygon. Recognition only upgrades GEOMETRY — physical
-// meaning still comes from attaching behaviors, so a wrong guess costs the
-// user nothing (docs/architecture.md: draw → convert → simulate).
+// Sketch recognition: a freehand stroke becomes a circle, rectangle, line or
+// spring (zigzag). Recognition only upgrades GEOMETRY — physical meaning
+// still comes from attaching behaviors, so a wrong guess costs the user
+// nothing (docs/architecture.md: draw → convert → simulate). Polygon output
+// was removed: irregular closed doodles now stay ink (legacy polygon objects
+// still render; nothing new is created as one).
 
 export interface Recognition {
-  kind: 'circle' | 'rect' | 'line' | 'polygon' | 'spring' | 'stroke'
-  /** points relative to bbox min (for polygon/line/spring/stroke) */
+  kind: 'circle' | 'rect' | 'line' | 'spring' | 'stroke'
+  /** points relative to bbox min (for line/spring/stroke) */
   points: number[][]
   w: number
   h: number
@@ -117,10 +119,8 @@ export function beautify(raw: number[][]): Recognition {
   const idx = rdpIndices(pts, 0, pts.length - 1, diag * 0.04)
   const corners = straighten(idx.map((i) => pts[i]))
 
-  if (closed) {
-    // Drop the duplicated closing point; polygon geometry closes itself.
-    return { kind: 'polygon', points: corners.slice(0, -1), ...base }
-  }
+  // Closed or open, the result is a crisp polyline stroke (closed runs keep
+  // the duplicated closing point so the outline visually closes).
   return { kind: 'stroke', points: corners, ...base }
 }
 
@@ -203,10 +203,6 @@ export function recognize(raw: number[][]): Recognition {
     }
   }
 
-  // Anything else closed is a polygon with a real collision mesh.
-  const poly = simplify([...rel, rel[0]], Math.max(diag * 0.02, 3)).slice(0, -1)
-  if (poly.length >= 3) {
-    return { kind: 'polygon', points: poly, ...base }
-  }
+  // Anything else closed stays exactly the ink that was drawn.
   return fallback
 }

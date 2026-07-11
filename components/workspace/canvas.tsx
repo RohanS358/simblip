@@ -4,10 +4,13 @@
 // through a small pointer state machine kept in refs so drags never re-render
 // anything but the objects they move.
 //
-// The pen recognizes sketches on release (circle/rect/line/spring/polygon) —
-// recognition upgrades geometry only; meaning comes from behaviors. During
-// Play the world runtime writes transforms straight to the wrapper elements
-// registered here; edit gestures are locked until Reset.
+// The pen recognizes sketches (circle/rect/line/spring) via draw-and-hold:
+// rest the pen HOLD_MS before lifting and the doodle upgrades into a
+// component; lift quickly and ink stays ink. Recognition upgrades geometry
+// only; meaning comes from behaviors. Shift+pen routes orthogonally — 90°
+// elbows lock in as the cursor changes direction. During Play the world
+// runtime writes transforms straight to the wrapper elements registered
+// here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig } from 'lucide-react'
@@ -70,9 +73,9 @@ const MIN_PLACE_DRAG = 8 // screen px below which a drag counts as a click
 // components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
 const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
   mechanics: { circle: 'mass', rect: 'block' },
-  electrical: { spring: 'resistor', rect: 'battery', circle: 'bulb', polygon: 'capacitor' },
-  electronics: { spring: 'resistor', circle: 'bjt', polygon: 'diode', rect: 'mosfet' },
-  digital: { rect: 'and-gate', circle: 'or-gate', polygon: 'xor-gate', spring: 'clock' },
+  electrical: { spring: 'resistor', rect: 'battery', circle: 'bulb' },
+  electronics: { spring: 'resistor', circle: 'bjt', rect: 'mosfet' },
+  digital: { rect: 'and-gate', circle: 'or-gate', spring: 'clock' },
 }
 
 type GestureMode =
@@ -106,7 +109,20 @@ interface Gesture {
   placeComponent?: string
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
   placeTool?: Tool
+  /** Shift+pen orthogonal routing: committed 90° corners + current axis. */
+  orthoPts?: number[][]
+  orthoAxis?: 'h' | 'v'
+  orthoVel?: { x: number; y: number }
+  orthoPrev?: { x: number; y: number }
+  /** Hold-to-convert: when the pen last really moved (see HOLD_MS). */
+  lastMoveAt?: number
+  holdAnchor?: Vec2
 }
+
+// Draw-and-hold: freehand ink only upgrades into a component (spring,
+// domain part) when the pen rests in place this long before lifting.
+const HOLD_MS = 500
+const HOLD_STILL_PX = 6
 
 type CtxItem = [label: string, action: () => void, danger?: boolean]
 
@@ -328,6 +344,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // setState updaters (StrictMode double-invokes them → duplicate spawns).
   const strokeRef = useRef<number[][] | null>(null)
   strokeRef.current = stroke
+  // Draw-and-hold: true once the pen has rested HOLD_MS in place — the live
+  // ink tints to signal "release now to convert into a component".
+  const [holdReady, setHoldReady] = useState(false)
+  const holdTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Snap assistant: alignment guide lines + terminal connection points,
   // populated during move gestures and cleared on release.
   const [guides, setGuides] = useState<{ v: number[]; h: number[]; pts: Vec2[] } | null>(null)
@@ -606,14 +626,44 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
         if (e.shiftKey) {
-          // Shift+pen: snap to a straight horizontal/vertical stroke instead
-          // of freehand — whichever axis has moved further wins.
-          const dx = point.x - g.start.x
-          const dy = point.y - g.start.y
-          const end = Math.abs(dx) > Math.abs(dy) ? { x: point.x, y: g.start.y } : { x: g.start.x, y: point.y }
+          // Shift+pen: orthogonal routing. The stroke runs dead-straight
+          // along one axis; veer far enough perpendicular and it locks a
+          // 90° corner under the cursor and continues along the other axis
+          // — elbow after elbow, like schematic wire routing.
+          const TURN_PX = 14
+          if (!g.orthoPts) g.orthoPts = [[g.start.x, g.start.y]]
+          const prev = g.orthoPrev ?? point
+          g.orthoVel = {
+            x: (g.orthoVel?.x ?? 0) * 0.7 + (point.x - prev.x) * 0.3,
+            y: (g.orthoVel?.y ?? 0) * 0.7 + (point.y - prev.y) * 0.3,
+          }
+          g.orthoPrev = { x: point.x, y: point.y }
+          let anchor = g.orthoPts[g.orthoPts.length - 1]
+          const dx = point.x - anchor[0]
+          const dy = point.y - anchor[1]
+          if (!g.orthoAxis && (Math.abs(dx) > 3 || Math.abs(dy) > 3))
+            g.orthoAxis = Math.abs(dx) > Math.abs(dy) ? 'h' : 'v'
+          if (g.orthoAxis) {
+            // A turn = clearly off the current run line AND recent motion
+            // dominated by the perpendicular axis (plain hand drift on a
+            // long run doesn't fold the line).
+            const turning =
+              g.orthoAxis === 'h'
+                ? Math.abs(dy) > TURN_PX && Math.abs(g.orthoVel.y) > Math.abs(g.orthoVel.x)
+                : Math.abs(dx) > TURN_PX && Math.abs(g.orthoVel.x) > Math.abs(g.orthoVel.y)
+            if (turning) {
+              g.orthoPts.push(
+                g.orthoAxis === 'h' ? [point.x, anchor[1]] : [anchor[0], point.y]
+              )
+              g.orthoAxis = g.orthoAxis === 'h' ? 'v' : 'h'
+              anchor = g.orthoPts[g.orthoPts.length - 1]
+            }
+          }
+          const end =
+            g.orthoAxis === 'v' ? [anchor[0], point.y] : [point.x, anchor[1]]
           setStroke([
-            [g.start.x, g.start.y, 0.5],
-            [end.x, end.y, 0.5],
+            ...g.orthoPts.map(([x, y]) => [x, y, 0.5]),
+            [end[0], end[1], 0.5],
           ])
         } else {
           // Coalesced pointer events give the full-resolution ink trail;
@@ -632,6 +682,29 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }
             return next
           })
+          // Draw-and-hold tracking: only real movement (beyond pen jitter)
+          // counts; resting in place lets the hold timer mature.
+          const nowMs = performance.now()
+          g.lastMoveAt ??= nowMs
+          let restarted = false
+          for (const p of pts) {
+            if (
+              !g.holdAnchor ||
+              Math.hypot(p.x - g.holdAnchor.x, p.y - g.holdAnchor.y) > HOLD_STILL_PX
+            ) {
+              g.holdAnchor = { x: p.x, y: p.y }
+              g.lastMoveAt = nowMs
+              restarted = true
+            }
+          }
+          if (restarted) setHoldReady(false)
+          if (store.tool === 'pen' && store.inkToShape) {
+            if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
+            holdTimerRef.current = setTimeout(
+              () => setHoldReady(true),
+              Math.max(0, HOLD_MS - (nowMs - g.lastMoveAt))
+            )
+          }
         }
       } else if (g.mode === 'placeLine') {
         // Straight rubber-band preview; Shift snaps the angle to 15° steps.
@@ -705,6 +778,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
       setGuides(null)
+      if (holdTimerRef.current) {
+        clearTimeout(holdTimerRef.current)
+        holdTimerRef.current = null
+      }
+      setHoldReady(false)
       if (!g) return
       const store = useDocStore.getState()
 
@@ -796,6 +874,39 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           setStroke(null)
           if (!points || points.length < 2) return
 
+          // Shift-routed orthogonal polylines (≥1 locked corner) commit
+          // exactly as drawn — recognition would only smudge deliberate 90°
+          // elbows. Endpoints still snap onto terminals and conduct.
+          if (g.orthoPts && g.orthoPts.length >= 2) {
+            let minX = Infinity
+            let minY = Infinity
+            let maxX = -Infinity
+            let maxY = -Infinity
+            for (const [x, y] of points) {
+              if (x < minX) minX = x
+              if (y < minY) minY = y
+              if (x > maxX) maxX = x
+              if (y > maxY) maxY = y
+            }
+            const obj = fromRecognition({
+              kind: 'stroke',
+              points: points.map(([x, y]) => [x - minX, y - minY]),
+              x: minX,
+              y: minY,
+              w: Math.max(maxX - minX, 1),
+              h: Math.max(maxY - minY, 1),
+            })
+            obj.metadata.inkSize = store.penSize
+            const all = Object.values(store.pages[pageId]?.objects ?? {})
+            if (connectEnds(obj, all)) {
+              obj.behaviors.push(createBehavior('wire'))
+              obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+            }
+            store.addObject(pageId, obj)
+            store.setSelection([obj.id])
+            return null
+          }
+
           // Shaper tool: ALWAYS beautify — straighten polylines, smooth
           // curves, snap rough triangles/circles/rects into clean shapes.
           if (store.tool === 'shaper') {
@@ -823,6 +934,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           const all = Object.values(store.pages[pageId]?.objects ?? {})
           const cx = rec.x + rec.w / 2
           const cy = rec.y + rec.h / 2
+          // Draw-and-hold: a doodle only upgrades into a component when the
+          // pen rested in place before lifting — a quick stroke is just ink,
+          // so writing and sketching never get hijacked mid-flow.
+          const held =
+            g.lastMoveAt !== undefined && performance.now() - g.lastMoveAt >= HOLD_MS
 
           // A tiny scribble near a component is an annotation, not a shape:
           // open the mini input (tablet handwriting lands here as text).
@@ -876,7 +992,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           const domain = sys?.metadata.domain as string | undefined
 
           let obj: SceneObject | null = null
-          if (domain) {
+          if (domain && held) {
             const mapped = DOMAIN_SKETCH[domain]?.[rec.kind]
             const def = mapped ? componentById(mapped) : undefined
             if (def) {
@@ -903,12 +1019,13 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
           if (!obj) {
             // The pen never auto-shapes plain geometry (annoying while
-            // writing) — only live components upgrade: a zigzag still lands
-            // as a spring, domain parts matched above. Everything else stays
-            // exactly the ink that was drawn; the Shaper tool is the
-            // explicit way to get clean shapes.
+            // writing) — only live components upgrade, and only on
+            // draw-and-hold: a zigzag held in place lands as a spring,
+            // domain parts matched above. Everything else stays exactly the
+            // ink that was drawn; the Shaper tool is the explicit way to
+            // get clean shapes.
             const keep: Recognition =
-              rec.kind === 'spring'
+              rec.kind === 'spring' && held
                 ? rec
                 : {
                     kind: 'stroke',
@@ -959,6 +1076,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       for (const [id, p] of g.objectStartPositions)
         store.updateObject(pageId, id, { position: { ...p } })
     }
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current)
+      holdTimerRef.current = null
+    }
+    setHoldReady(false)
     setStroke(null)
     setMarquee(null)
     setPlacePreview(null)
@@ -1446,12 +1568,26 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         {stroke && stroke.length > 1 && (
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
             {tool === 'pen' ? (
-              // Live ink matches the committed stroke — same renderer.
-              <path
-                d={inkPath(stroke, { size: penSize, last: false })}
-                fill="var(--foreground)"
-                stroke="none"
-              />
+              // Live ink matches the committed stroke — same renderer. The
+              // amber tint + ring = hold matured: release to convert.
+              <>
+                <path
+                  d={inkPath(stroke, { size: penSize, last: false })}
+                  fill={holdReady ? 'var(--accent-amber)' : 'var(--foreground)'}
+                  stroke="none"
+                />
+                {holdReady && (
+                  <circle
+                    cx={stroke[stroke.length - 1][0]}
+                    cy={stroke[stroke.length - 1][1]}
+                    r={11}
+                    fill="none"
+                    stroke="var(--accent-amber)"
+                    strokeWidth={1.5}
+                    opacity={0.75}
+                  />
+                )}
+              </>
             ) : (
               <path
                 d={pointsToPath(stroke)}
