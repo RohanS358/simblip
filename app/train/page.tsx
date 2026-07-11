@@ -22,13 +22,17 @@ import { Button } from '@/components/ui/button'
 
 export default function TrainPage() {
   const svgRef = useRef<SVGSVGElement | null>(null)
-  const [points, setPoints] = useState<number[][]>([])
+  // Multi-stroke drawing: each pen-down starts another stroke; the symbol is
+  // the combined cloud of all of them (battery bars, capacitor plates…).
+  const [strokes, setStrokes] = useState<number[][][]>([])
   const drawing = useRef(false)
   const [componentId, setComponentId] = useState(COMPONENTS[0]?.id ?? '')
   const [templates, setTemplates] = useState<CustomSketchTemplate[]>([])
   const [flash, setFlash] = useState('')
 
   useEffect(() => setTemplates(listCustomTemplates()), [])
+
+  const points = useMemo(() => strokes.flat(), [strokes])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = {}
@@ -52,7 +56,7 @@ export default function TrainPage() {
     if (!def || points.length < 15) return
     addCustomTemplate(def.label, def.id, points)
     setTemplates(listCustomTemplates())
-    setPoints([])
+    setStrokes([])
     setFlash(`Saved as “${def.label}” — ${(counts[def.id] ?? 0) + 1} example(s)`)
     setTimeout(() => setFlash(''), 2500)
   }
@@ -65,7 +69,9 @@ export default function TrainPage() {
           recognizer
         </h1>
         <p className="text-[13px] leading-relaxed text-muted-foreground">
-          Draw a component symbol the way you naturally would, pick which component it means,
+          Draw a component symbol the way you naturally would — multiple strokes are fine
+          (lift the pen between battery bars or capacitor plates; try to keep the same stroke
+          order you use on the canvas) — pick which component it means,
           and save it. Every example teaches the <b>pen + hold</b> feature; with a few examples
           per symbol it can turn a whole hand-sketched diagram into live components — the wires
           you draw between them already connect on their own. 3–5 varied examples per symbol
@@ -81,27 +87,33 @@ export default function TrainPage() {
             onPointerDown={(e) => {
               drawing.current = true
               e.currentTarget.setPointerCapture(e.pointerId)
-              setPoints([toLocal(e)])
+              setStrokes((prev) => [...prev, [toLocal(e)]])
             }}
             onPointerMove={(e) => {
               if (!drawing.current) return
               const p = toLocal(e)
-              setPoints((prev) => {
-                const last = prev[prev.length - 1]
-                return !last || Math.hypot(p[0] - last[0], p[1] - last[1]) > 1 ? [...prev, p] : prev
+              setStrokes((prev) => {
+                const cur = prev[prev.length - 1]
+                const last = cur?.[cur.length - 1]
+                if (!cur || !last || Math.hypot(p[0] - last[0], p[1] - last[1]) <= 1) return prev
+                return [...prev.slice(0, -1), [...cur, p]]
               })
             }}
             onPointerUp={() => (drawing.current = false)}
           >
-            {points.length > 1 && (
-              <polyline
-                points={points.map(([x, y]) => `${x},${y}`).join(' ')}
-                fill="none"
-                stroke="var(--foreground)"
-                strokeWidth={2.5}
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+            {strokes.map(
+              (st, i) =>
+                st.length > 1 && (
+                  <polyline
+                    key={i}
+                    points={st.map(([x, y]) => `${x},${y}`).join(' ')}
+                    fill="none"
+                    stroke="var(--foreground)"
+                    strokeWidth={2.5}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )
             )}
           </svg>
           <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
@@ -138,7 +150,7 @@ export default function TrainPage() {
             <Button onClick={save} disabled={points.length < 15}>
               <Check className="h-4 w-4" /> Save example
             </Button>
-            <Button variant="outline" onClick={() => setPoints([])}>
+            <Button variant="outline" onClick={() => setStrokes([])}>
               <Eraser className="h-4 w-4" /> Clear
             </Button>
           </div>
