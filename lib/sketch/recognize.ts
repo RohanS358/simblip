@@ -86,10 +86,51 @@ function snapAngles(corners: number[][]): number[][] {
   return out
 }
 
-/** The Shaper tool: whatever is drawn comes out cleaned up. Circles and
- *  rects snap perfect; a few corners become straight-edged polylines or
- *  polygons (rough triangle → true triangle); anything curvier is smoothed
- *  (rough hyperbola → flowing curve). Unlike the pen, this ALWAYS upgrades. */
+/** RDP that returns the INDICES of the kept vertices, so segments between
+ *  corners can be pulled back out of the original point run. */
+function rdpIndices(points: number[][], a: number, b: number, epsilon: number): number[] {
+  if (b - a < 2) return [a, b]
+  const [sx, sy] = points[a]
+  const [ex, ey] = points[b]
+  const dx = ex - sx
+  const dy = ey - sy
+  const len = Math.hypot(dx, dy) || 1
+  let maxDist = 0
+  let index = a
+  for (let i = a + 1; i < b; i++) {
+    const d = Math.abs(dy * points[i][0] - dx * points[i][1] + ex * sy - ey * sx) / len
+    if (d > maxDist) {
+      maxDist = d
+      index = i
+    }
+  }
+  if (maxDist > epsilon) {
+    const left = rdpIndices(points, a, index, epsilon)
+    const right = rdpIndices(points, index, b, epsilon)
+    return [...left.slice(0, -1), ...right]
+  }
+  return [a, b]
+}
+
+/** How far a point run bows away from its chord, relative to chord length. */
+function segmentDeviation(points: number[][]): { dev: number; chord: number } {
+  const [sx, sy] = points[0]
+  const [ex, ey] = points[points.length - 1]
+  const chord = Math.hypot(ex - sx, ey - sy) || 1
+  let dev = 0
+  for (const [x, y] of points) {
+    const d = Math.abs((ey - sy) * x - (ex - sx) * y + ex * sy - ey * sx) / chord
+    if (d > dev) dev = d
+  }
+  return { dev, chord }
+}
+
+/** The Shaper tool: whatever is drawn comes out cleaned up — PER SEGMENT.
+ *  Corners split the stroke; each piece that hugs its chord becomes a truly
+ *  straight edge, each piece that bows away keeps its curve but loses the
+ *  jitter. So a "D" gets one straight side and one smooth arc, a rough
+ *  triangle gets three straight edges, a hyperbola just flows. Circles and
+ *  rects still snap perfect. Unlike the pen, this ALWAYS upgrades. */
 export function beautify(raw: number[][]): Recognition {
   const rec = recognize(raw)
   if (rec.kind === 'circle' || rec.kind === 'rect' || rec.kind === 'line' || raw.length < 6)
@@ -102,25 +143,33 @@ export function beautify(raw: number[][]): Recognition {
   const end = rel[rel.length - 1]
   const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.22, 24)
 
-  if (closed) {
-    const corners = simplify([...rel, rel[0]], diag * 0.045).slice(0, -1)
-    if (corners.length >= 3 && corners.length <= 6) {
-      // Few corners → a clean straight-edged polygon.
-      return { kind: 'polygon', points: corners, ...base }
+  const pts = closed ? [...rel, [...start]] : rel
+  const corners = rdpIndices(pts, 0, pts.length - 1, diag * 0.05)
+
+  let allStraight = true
+  const out: number[][] = [pts[corners[0]]]
+  for (let c = 0; c < corners.length - 1; c++) {
+    const seg = pts.slice(corners[c], corners[c + 1] + 1)
+    const { dev, chord } = segmentDeviation(seg)
+    if (dev < Math.max(chord * 0.05, 4) || seg.length < 4) {
+      // Hugs the chord → a perfectly straight edge.
+      out.push(seg[seg.length - 1])
+    } else {
+      // Bows away → keep the curve, lose the wobble. Chaikin preserves the
+      // segment's endpoints, so straight and curved pieces stay connected.
+      allStraight = false
+      const light = simplify(seg, Math.max(diag * 0.012, 2))
+      out.push(...chaikin(light, 2, false).slice(1))
     }
-    // Curvy outline → smoothed closed shape.
-    const smooth = chaikin(simplify(rel, Math.max(diag * 0.015, 2)), 2, true)
-    return { kind: 'polygon', points: smooth, ...base }
   }
 
-  const corners = simplify(rel, diag * 0.045)
-  if (corners.length <= 6) {
-    // Polyline: straighten every segment and snap angles to 15° steps.
-    return { kind: 'stroke', points: snapAngles(corners), ...base }
+  if (closed) {
+    // Drop the duplicated closing point; polygon geometry closes itself.
+    return { kind: 'polygon', points: out.slice(0, -1), ...base }
   }
-  // Open curve: keep its character, lose the jitter.
-  const smooth = chaikin(simplify(rel, Math.max(diag * 0.012, 2)), 2, false)
-  return { kind: 'stroke', points: smooth, ...base }
+  // A pure polyline additionally snaps its edges to 15° steps (crisp Z's);
+  // anything containing a curve keeps its exact corner positions.
+  return { kind: 'stroke', points: allStraight ? snapAngles(out) : out, ...base }
 }
 
 export function recognize(raw: number[][]): Recognition {
