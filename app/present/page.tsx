@@ -16,11 +16,14 @@ import { useDocStore } from '@/lib/store/document'
 import {
   endSession,
   getSession,
+  liveSessionFor,
   resolvePairing,
   resolveSession,
   startSession,
   subscribeBoardSessions,
 } from '@/lib/data/boards'
+import { followSession } from '@/lib/data/board-follow'
+import { useAuthStore } from '@/lib/auth/store'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
 import { Button } from '@/components/ui/button'
@@ -33,7 +36,17 @@ import {
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
 
-type Phase = 'resolving' | 'invalid' | 'pick' | 'live' | 'decide' | 'done'
+type Phase =
+  | 'resolving'
+  | 'invalid'
+  | 'pick'
+  | 'live'
+  | 'decide'
+  | 'done'
+  // student class-follow phases
+  | 'classIdle'
+  | 'classLive'
+  | 'classEnded'
 
 function PresentController() {
   const params = useSearchParams()
@@ -43,6 +56,7 @@ function PresentController() {
   const [room, setRoom] = useState<RoomRow | null>(null)
   const [session, setSession] = useState<BoardSessionRow | null>(null)
   const [busy, setBusy] = useState(false)
+  const [followPageId, setFollowPageId] = useState<string | null>(null)
 
   const notebooks = useWorkspaceStore((s) => s.notebooks)
   const [nbId, setNbId] = useState('')
@@ -70,6 +84,16 @@ function PresentController() {
         if (!resolved) return setPhase('invalid')
         setBoard(resolved.board)
         setRoom(resolved.room)
+        // Students don't present — scanning during class joins the live
+        // whiteboard: their own copy, mirrored until the teacher ends it.
+        if (useAuthStore.getState().profile?.role === 'student') {
+          const live = await liveSessionFor(resolved.board.id)
+          if (!live) return setPhase('classIdle')
+          setSession(live)
+          setFollowPageId(followSession(live))
+          setPhase('classLive')
+          return
+        }
         setPhase('pick')
         return
       }
@@ -80,7 +104,7 @@ function PresentController() {
   }, [])
 
   // While live, follow the session (the board may end it from its side).
-  const followSession = useCallback(async () => {
+  const followSessionState = useCallback(async () => {
     if (!session) return
     const fresh = await getSession(session.id)
     if (!fresh) return
@@ -91,8 +115,18 @@ function PresentController() {
 
   useEffect(() => {
     if (phase !== 'live' && phase !== 'decide') return
-    return subscribeBoardSessions(() => void followSession())
-  }, [phase, followSession])
+    return subscribeBoardSessions(() => void followSessionState())
+  }, [phase, followSessionState])
+
+  // Student: watch for the class ending (the mirror itself runs globally).
+  useEffect(() => {
+    if (phase !== 'classLive' || !session) return
+    return subscribeBoardSessions(() => {
+      void getSession(session.id).then((fresh) => {
+        if (fresh && fresh.status !== 'live') setPhase('classEnded')
+      })
+    })
+  }, [phase, session])
 
   const present = async () => {
     if (!board || !pageId) return
@@ -258,6 +292,62 @@ function PresentController() {
         </div>
       )}
 
+      {phase === 'classIdle' && (
+        <div className="glass rounded-2xl p-5 text-center">
+          <MonitorPlay className="mx-auto h-6 w-6 text-muted-foreground/60" />
+          <p className="mt-2 text-[14px] font-semibold">{room?.name ?? 'This board'} is idle</p>
+          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+            Nothing is being presented right now. Scan again once your teacher starts the class —
+            you'll get your own live copy of the whiteboard.
+          </p>
+        </div>
+      )}
+
+      {phase === 'classLive' && session && (
+        <div className="glass space-y-4 rounded-2xl p-5 text-center">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-[12px] font-semibold text-[var(--accent-mint)]">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-mint)]" /> Following the class
+          </span>
+          <p className="text-[16px] font-bold">{session.page_name}</p>
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            A live copy is now in your notebook under{' '}
+            <span className="font-medium text-foreground">Shared with me → Whiteboard</span>. It
+            mirrors everything the teacher writes until the presentation ends, then saves itself
+            with the class date and time.
+          </p>
+          <Button
+            className="w-full"
+            onClick={() => {
+              if (followPageId) useWorkspaceStore.getState().setActivePage(followPageId)
+              router.push('/notebook')
+            }}
+          >
+            Open my live copy
+          </Button>
+        </div>
+      )}
+
+      {phase === 'classEnded' && (
+        <div className="glass space-y-3 rounded-2xl p-5 text-center">
+          <CheckCircle2 className="mx-auto h-6 w-6 text-[var(--accent-mint)]" />
+          <p className="text-[14px] font-semibold">Class ended — your copy is saved</p>
+          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+            Find it in Shared with me → Whiteboard, stamped with today's date and time. It's yours
+            to annotate and extend.
+          </p>
+          <Button
+            variant="outline"
+            className="w-full"
+            onClick={() => {
+              if (followPageId) useWorkspaceStore.getState().setActivePage(followPageId)
+              router.push('/notebook')
+            }}
+          >
+            Open it in my notebook
+          </Button>
+        </div>
+      )}
+
       {phase === 'done' && (
         <div className="glass space-y-3 rounded-2xl p-5 text-center">
           <CheckCircle2 className="mx-auto h-6 w-6 text-[var(--accent-mint)]" />
@@ -273,7 +363,7 @@ function PresentController() {
 
 export default function PresentPage() {
   return (
-    <RequireAuth allow={['admin', 'teacher', 'super_admin']}>
+    <RequireAuth allow={['admin', 'teacher', 'student', 'super_admin']}>
       <PageShell title="Present">
         <Suspense
           fallback={

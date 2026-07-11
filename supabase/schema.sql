@@ -332,6 +332,12 @@ create policy "boards self rotate" on public.simblip_boards
 
 -- Board sessions: teacher creates; the board account and the owning teacher
 -- read and update (board writes `edited`, teacher decides merge/discard).
+-- Institution members may READ sessions — students who scan the rotating
+-- pairing QR during class follow the live whiteboard as their own copy
+-- (the content is already on a public display in the room).
+drop policy if exists "board sessions class read" on public.simblip_board_sessions;
+create policy "board sessions class read" on public.simblip_board_sessions
+  for select using (institution_id = public.simblip_current_institution());
 drop policy if exists "board sessions rw" on public.simblip_board_sessions;
 create policy "board sessions rw" on public.simblip_board_sessions
   for all using (
