@@ -17,6 +17,7 @@ import {
   Sigma,
   ChartLine,
   Shapes,
+  Spline,
   Sparkles,
   Wand2,
   ScanText,
@@ -31,7 +32,8 @@ import { cn } from '@/lib/utils'
 
 const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
-  { tool: 'pen', icon: Pen, label: 'Pen — sketches become shapes', key: 'P' },
+  { tool: 'pen', icon: Pen, label: 'Pen — ink stays as drawn', key: 'P' },
+  { tool: 'shaper', icon: Spline, label: 'Shaper — cleans up what you draw', key: 'S' },
   { tool: 'eraser', icon: Eraser, label: 'Eraser — drag over ink to remove it', key: 'E' },
   { tool: 'circle', icon: Circle, label: 'Circle', key: 'C' },
   { tool: 'rect', icon: Square, label: 'Rectangle', key: 'R' },

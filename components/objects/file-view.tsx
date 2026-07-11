@@ -43,7 +43,30 @@ export function FileObject({ object }: ObjectRendererProps) {
   const inputRef = useRef<HTMLInputElement>(null)
   const docRef = useRef<PdfDoc | null>(null)
 
-  const file = getSessionFile(object.id)
+  // Local attachment first; else a copy shared by the presenter (bucket URL
+  // or demo-db data URL stamped into metadata at present-time).
+  const local = getSessionFile(object.id)
+  const [shared, setShared] = useState<{ url: string; name: string; mime: string } | null>(null)
+  const sharedUrl = object.metadata.fileUrl as string | undefined
+  useEffect(() => {
+    if (local || !sharedUrl) return
+    let dead = false
+    void import('@/lib/data/session-upload').then(({ resolveSharedFile }) =>
+      resolveSharedFile(sharedUrl).then((url) => {
+        if (!dead && url)
+          setShared({
+            url,
+            name: (object.metadata.fileName as string) ?? 'Document',
+            mime: (object.metadata.fileMime as string) ?? 'application/pdf',
+          })
+      })
+    )
+    return () => {
+      dead = true
+    }
+  }, [local, sharedUrl, object.metadata.fileName, object.metadata.fileMime])
+
+  const file = local ?? shared
   const isPdf = file?.mime === 'application/pdf' || (file?.name.toLowerCase().endsWith('.pdf') ?? false)
   const isImage = file?.mime.startsWith('image/') ?? false
 
@@ -91,6 +114,18 @@ export function FileObject({ object }: ObjectRendererProps) {
       dead = true
     }
   }, [page, numPages, rev, fs, object.size.w, object.size.h])
+
+  // Teacher's phone remote (board presentations): page the document without
+  // anyone touching the board. No objectId targets every viewer on the page.
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const d = (e as CustomEvent).detail as { dir: number; objectId?: string }
+      if (d.objectId && d.objectId !== object.id) return
+      setPage((p) => Math.max(1, Math.min(numPages || 1, p + d.dir)))
+    }
+    window.addEventListener('simblip-remote-pdf', onRemote)
+    return () => window.removeEventListener('simblip-remote-pdf', onRemote)
+  }, [numPages, object.id])
 
   // Fullscreen presentation: track state, re-render at the bigger size and
   // page with the arrow keys while it's up.

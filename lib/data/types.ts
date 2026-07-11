@@ -58,6 +58,20 @@ export interface BoardRow {
 
 export type BoardSessionStatus = 'live' | 'ended' | 'merged' | 'discarded'
 
+/** One command from the teacher's phone to the presenting board. Stored on
+ *  the session row (last-write-wins); the board applies each new `seq` once. */
+export interface RemoteCommand {
+  seq: number
+  kind: 'play' | 'pause' | 'stop' | 'pdf' | 'select' | 'param'
+  /** pdf: page direction */
+  dir?: 1 | -1
+  objectId?: string
+  behaviorId?: string
+  param?: string
+  /** param: new expression, e.g. "9" or "2*g" */
+  value?: string
+}
+
 export interface BoardSessionRow {
   id: string
   institution_id: string
@@ -70,6 +84,7 @@ export interface BoardSessionRow {
   status: BoardSessionStatus
   started_at: string
   ended_at?: string | null
+  remote?: RemoteCommand | null
   [key: string]: unknown
 }
 

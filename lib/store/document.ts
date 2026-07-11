@@ -15,6 +15,7 @@ import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 export type Tool =
   | 'select'
   | 'pen' // freehand with sketch recognition
+  | 'shaper' // freehand that ALWAYS beautifies: straightens, smooths, snaps shapes
   | 'eraser' // drag over ink to remove it
   | 'circle'
   | 'rect'

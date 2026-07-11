@@ -10,7 +10,8 @@
 // registered here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal } from 'lucide-react'
+import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig } from 'lucide-react'
+import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
@@ -20,7 +21,10 @@ import { createGeometry, fromRecognition, componentById } from '@/lib/scene/fact
 import { createBehavior } from '@/lib/behaviors/registry'
 import { nearTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
-import { recognize } from '@/lib/sketch/recognize'
+import { beautify, recognize, type Recognition } from '@/lib/sketch/recognize'
+import { publishAsset } from '@/lib/data/library'
+import { useAuthStore } from '@/lib/auth/store'
+import { can } from '@/lib/auth/types'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { registerElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
@@ -294,6 +298,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
   const isMobile = useIsMobile()
+  const myRole = useAuthStore((s) => s.profile?.role)
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
   const [stroke, setStroke] = useState<number[][] | null>(null)
@@ -448,7 +453,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       }
       if (mod || locked) return
       const toolKeys: Record<string, Tool> = {
-        v: 'select', p: 'pen', c: 'circle', r: 'rect', l: 'line',
+        v: 'select', p: 'pen', s: 'shaper', c: 'circle', r: 'rect', l: 'line',
         t: 'text', n: 'note', f: 'formula', g: 'graph',
       }
       const t = toolKeys[e.key.toLowerCase()]
@@ -768,6 +773,17 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           const points = strokeRef.current
           setStroke(null)
           if (!points || points.length < 2) return
+
+          // Shaper tool: ALWAYS beautify — straighten polylines, smooth
+          // curves, snap rough triangles/circles/rects into clean shapes.
+          if (store.tool === 'shaper') {
+            const obj = fromRecognition(beautify(points))
+            if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
+            store.addObject(pageId, obj)
+            store.setSelection([obj.id])
+            return null
+          }
+
           const rec = recognize(points)
           const all = Object.values(store.pages[pageId]?.objects ?? {})
           const cx = rec.x + rec.w / 2
@@ -849,8 +865,25 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
 
           if (!obj) {
-            // Sketch → recognized geometry. A zigzag lands as a live spring.
-            obj = fromRecognition(rec)
+            // The pen never auto-shapes plain geometry (annoying while
+            // writing) — only live components upgrade: a zigzag still lands
+            // as a spring, domain parts matched above. Everything else stays
+            // exactly the ink that was drawn; the Shaper tool is the
+            // explicit way to get clean shapes.
+            const keep: Recognition =
+              rec.kind === 'spring'
+                ? rec
+                : {
+                    kind: 'stroke',
+                    points: points.map(([x, y, pr]) =>
+                      pr === undefined ? [x - rec.x, y - rec.y] : [x - rec.x, y - rec.y, pr]
+                    ),
+                    x: rec.x,
+                    y: rec.y,
+                    w: rec.w,
+                    h: rec.h,
+                  }
+            obj = fromRecognition(keep)
             // A doodle whose end touches a circuit terminal IS a wire.
             if (
               (obj.geometry.kind === 'line' || obj.geometry.kind === 'stroke') &&
@@ -1083,7 +1116,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       beginGesture('marquee', e)
       return
     }
-    if (tool === 'pen') {
+    if (tool === 'pen' || tool === 'shaper') {
       const p = toCanvas(e.clientX, e.clientY)
       setStroke([[p.x, p.y, e.pressure]])
       beginGesture('draw', e)
@@ -1227,6 +1260,43 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     store.setSelection([clone.id])
   }
 
+  // Group actions for a multi-selection (the enclosure's floating bar).
+  const duplicateSelection = () => {
+    const store = useDocStore.getState()
+    const ids: string[] = []
+    for (const id of store.selection) {
+      const src = store.pages[pageId]?.objects[id]
+      if (!src) continue
+      const clone: SceneObject = JSON.parse(JSON.stringify(src))
+      clone.id = uid()
+      clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
+      clone.z = Date.now() % 1_000_000
+      clone.behaviors.forEach((b) => (b.id = uid()))
+      store.addObject(pageId, clone)
+      ids.push(clone.id)
+    }
+    store.setSelection(ids)
+  }
+
+  const saveSelectionToLibrary = () => {
+    const store = useDocStore.getState()
+    const objs = store.selection
+      .map((id) => store.pages[pageId]?.objects[id])
+      .filter(Boolean) as SceneObject[]
+    if (objs.length === 0) return
+    const title = window.prompt('Library asset name', `Selection (${objs.length} objects)`)
+    if (!title) return
+    void publishAsset({
+      title,
+      category: 'Selections',
+      tags: [],
+      kind: 'objects',
+      content: JSON.parse(JSON.stringify(objs)) as SceneObject[],
+    })
+      .then(() => toast.success('Saved to the institution library'))
+      .catch((err) => toast.error(err instanceof Error ? err.message : 'Could not save'))
+  }
+
   const restack = (id: string, where: 'front' | 'back') => {
     const store = useDocStore.getState()
     const zs = Object.values(store.pages[pageId]?.objects ?? {}).map((o) => o.z)
@@ -1238,7 +1308,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     )
   }
 
-  const cursor = tool === 'pen' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
+  const cursor = tool === 'pen' || tool === 'shaper' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
 
   return (
     <div
@@ -1413,6 +1483,25 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }}
           />
         )}
+
+        {/* Multi-selection enclosure: one dashed box around everything picked. */}
+        {editing &&
+          selection.length > 1 &&
+          objects &&
+          (() => {
+            const sel = selection.map((id) => objects[id]).filter(Boolean)
+            if (sel.length < 2) return null
+            const x = Math.min(...sel.map((o) => o.position.x)) - 10
+            const y = Math.min(...sel.map((o) => o.position.y)) - 10
+            const r = Math.max(...sel.map((o) => o.position.x + o.size.w)) + 10
+            const b = Math.max(...sel.map((o) => o.position.y + o.size.h)) + 10
+            return (
+              <div
+                className="pointer-events-none absolute rounded-xl border-2 border-dashed border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_4%,transparent)]"
+                style={{ left: x, top: y, width: r - x, height: b - y }}
+              />
+            )
+          })()}
       </div>
 
       {quickLabel && (
@@ -1473,6 +1562,54 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           ))}
         </div>
       )}
+
+      {/* Group action bar above the multi-selection enclosure — the same
+          quick actions the mobile single-select bar offers, plus "save the
+          whole group as a reusable library component". */}
+      {editing &&
+        selection.length > 1 &&
+        objects &&
+        (() => {
+          const sel = selection.map((id) => objects[id]).filter(Boolean)
+          if (sel.length < 2) return null
+          const x = Math.min(...sel.map((o) => o.position.x))
+          const y = Math.min(...sel.map((o) => o.position.y))
+          const r = Math.max(...sel.map((o) => o.position.x + o.size.w))
+          const cx = ((x + r) / 2) * viewport.zoom + viewport.x
+          const top = y * viewport.zoom + viewport.y
+          const actions: [string, typeof Copy, () => void, boolean?][] = [
+            ['Copy', Copy, () => copySelection(pageId)],
+            ['Duplicate', CopyPlus, duplicateSelection],
+            ...(myRole && can(myRole, 'publish-library')
+              ? ([['Save to library', LibraryBig, saveSelectionToLibrary]] as [string, typeof Copy, () => void][])
+              : []),
+            ['Delete', Trash2, () => useDocStore.getState().removeObjects(pageId, selection), true],
+          ]
+          return (
+            <div
+              className="glass-strong absolute z-40 flex items-center gap-0.5 rounded-xl p-1"
+              style={{ left: cx, top: Math.max(8, top - 62), transform: 'translateX(-50%)' }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <span className="px-2 font-mono text-[11px] text-muted-foreground">{sel.length}×</span>
+              {actions.map(([label, Icon, action, danger]) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-label={label}
+                  title={label}
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent',
+                    danger ? 'text-[var(--accent-rose)]' : 'text-foreground'
+                  )}
+                  onClick={action}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
+          )
+        })()}
 
       {isMobile &&
         editing &&

@@ -7,16 +7,17 @@
 // The teacher's original notebook is only touched if they merge afterwards.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { MonitorPlay, Square } from 'lucide-react'
+import { LibraryBig, MonitorPlay, PenLine, Square, X } from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
 import { Transport } from '@/components/workspace/transport'
 import { Toolbar } from '@/components/workspace/toolbar'
 import { Palette } from '@/components/workspace/palette'
+import { LibraryPanel } from '@/components/workspace/library-panel'
 import { useAuthStore } from '@/lib/auth/store'
 import { useDocStore } from '@/lib/store/document'
-import { stop } from '@/lib/physics/world'
+import { play, pause, stop } from '@/lib/physics/world'
 import {
   endSession,
   liveSessionFor,
@@ -25,8 +26,37 @@ import {
   saveSessionEdits,
   subscribeBoardSessions,
 } from '@/lib/data/boards'
-import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
+import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { Button } from '@/components/ui/button'
+
+// The teacher's phone drives the board through commands stamped on the
+// session row — each seq is applied exactly once.
+function applyRemote(cmd: RemoteCommand, pageId: string) {
+  const doc = useDocStore.getState()
+  switch (cmd.kind) {
+    case 'play':
+      play(pageId)
+      break
+    case 'pause':
+      pause()
+      break
+    case 'stop':
+      stop()
+      break
+    case 'pdf':
+      window.dispatchEvent(
+        new CustomEvent('simblip-remote-pdf', { detail: { dir: cmd.dir ?? 1, objectId: cmd.objectId } })
+      )
+      break
+    case 'select':
+      doc.setSelection(cmd.objectId ? [cmd.objectId] : [])
+      break
+    case 'param':
+      if (cmd.objectId && cmd.behaviorId && cmd.param)
+        doc.setBehaviorParam(pageId, cmd.objectId, cmd.behaviorId, cmd.param, cmd.value ?? '0')
+      break
+  }
+}
 
 function BoardSurface() {
   const institution = useAuthStore((s) => s.institution)
@@ -35,8 +65,13 @@ function BoardSurface() {
   const [session, setSession] = useState<BoardSessionRow | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [qrBig, setQrBig] = useState(false)
+  const [libOpen, setLibOpen] = useState(false)
+  const [scratch, setScratch] = useState(false) // temporary whiteboard, never saved
   const [clock, setClock] = useState('')
   const pageIdRef = useRef<string | null>(null)
+  // Remote replay guard: only commands newer than this seq run.
+  const remoteSeqRef = useRef(0)
+  const remoteSessionRef = useRef<string | null>(null)
 
   // Board identity.
   useEffect(() => {
@@ -61,6 +96,16 @@ function BoardSurface() {
   const syncSession = useCallback(async () => {
     if (!board) return
     const live = await liveSessionFor(board.id)
+    if (live) {
+      if (remoteSessionRef.current !== live.id) {
+        // New session: adopt its current seq WITHOUT firing stale commands.
+        remoteSessionRef.current = live.id
+        remoteSeqRef.current = live.remote?.seq ?? 0
+      } else if (live.remote && live.remote.seq > remoteSeqRef.current) {
+        remoteSeqRef.current = live.remote.seq
+        applyRemote(live.remote, `board-${live.id}`)
+      }
+    }
     setSession((prev) => {
       if (live && prev?.id !== live.id) {
         // New presentation: load the temporary copy into a scratch page.
@@ -134,23 +179,71 @@ function BoardSurface() {
     )
   }
 
+  // Session takes over the surface; a scratch whiteboard yields to it.
+  const activeBoardPage = session ? `board-${session.id}` : scratch ? 'board-scratch' : null
+
+  const openScratch = () => {
+    useDocStore.setState((s) => ({
+      pages: { ...s.pages, 'board-scratch': { objects: {}, variables: [] } },
+    }))
+    useDocStore.getState().ensurePage('board-scratch')
+    setScratch(true)
+  }
+  const closeScratch = () => {
+    stop()
+    useDocStore.setState((s) => {
+      const pages = { ...s.pages }
+      delete pages['board-scratch']
+      return { pages }
+    })
+    setScratch(false)
+  }
+
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
-      {session ? (
+      {activeBoardPage ? (
         <>
-          <InfiniteCanvas key={session.id} pageId={`board-${session.id}`} />
-          <Transport pageId={`board-${session.id}`} />
-          <Toolbar paletteOpen={paletteOpen} onTogglePalette={() => setPaletteOpen((o) => !o)} showAi={false} />
+          <InfiniteCanvas key={activeBoardPage} pageId={activeBoardPage} />
+          <Transport pageId={activeBoardPage} />
+          <Toolbar
+            paletteOpen={paletteOpen}
+            onTogglePalette={() => setPaletteOpen((o) => !o)}
+            showAi={false}
+            pageId={activeBoardPage}
+          />
           <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
           <div className="absolute right-4 top-4 z-40 flex items-center gap-2">
             <span className="glass rounded-xl px-3 py-1.5 text-[12.5px] font-semibold">
-              {session.page_name} · presented by {room?.name ?? 'room'}
+              {session
+                ? `${session.page_name} · presented by ${room?.name ?? 'room'}`
+                : 'Temporary whiteboard — nothing is saved'}
             </span>
-            <Button size="sm" variant="outline" className="h-8" onClick={() => void endSession(session.id)}>
-              <Square className="h-3.5 w-3.5" /> End presentation
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              aria-label="Toggle library"
+              onClick={() => setLibOpen((o) => !o)}
+            >
+              <LibraryBig className="h-3.5 w-3.5" /> Library
             </Button>
+            {session ? (
+              <Button size="sm" variant="outline" className="h-8" onClick={() => void endSession(session.id)}>
+                <Square className="h-3.5 w-3.5" /> End presentation
+              </Button>
+            ) : (
+              <Button size="sm" variant="outline" className="h-8" onClick={closeScratch}>
+                <X className="h-3.5 w-3.5" /> Close whiteboard
+              </Button>
+            )}
           </div>
+
+          {libOpen && (
+            <div className="absolute bottom-4 right-4 top-16 z-40 flex">
+              <LibraryPanel open onClose={() => setLibOpen(false)} pageId={activeBoardPage} />
+            </div>
+          )}
         </>
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -162,6 +255,9 @@ function BoardSurface() {
           <p className="mt-6 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
             Scan the QR code with your phone to present a notebook page on this board.
           </p>
+          <Button variant="outline" className="mt-4" onClick={openScratch}>
+            <PenLine className="h-4 w-4" /> Open temporary whiteboard
+          </Button>
         </div>
       )}
 

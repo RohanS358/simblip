@@ -49,6 +49,80 @@ export function simplify(points: number[][], epsilon: number): number[][] {
   return [points[0], points[points.length - 1]]
 }
 
+/** Chaikin corner-cutting — each pass replaces every corner with two points
+ *  at 1/4 and 3/4 of its edges, turning a jittery polyline silky. */
+function chaikin(points: number[][], iterations: number, closed: boolean): number[][] {
+  let pts = points
+  for (let it = 0; it < iterations; it++) {
+    const out: number[][] = []
+    const n = pts.length
+    if (!closed) out.push(pts[0])
+    const last = closed ? n : n - 1
+    for (let i = 0; i < last; i++) {
+      const a = pts[i]
+      const b = pts[(i + 1) % n]
+      out.push([a[0] * 0.75 + b[0] * 0.25, a[1] * 0.75 + b[1] * 0.25])
+      out.push([a[0] * 0.25 + b[0] * 0.75, a[1] * 0.25 + b[1] * 0.75])
+    }
+    if (!closed) out.push(pts[n - 1])
+    pts = out
+  }
+  return pts
+}
+
+/** Snap each segment of an open polyline to the nearest 15° while keeping
+ *  its length — a rough Z becomes crisp, near-axis lines go truly straight. */
+function snapAngles(corners: number[][]): number[][] {
+  const out: number[][] = [corners[0]]
+  for (let i = 1; i < corners.length; i++) {
+    const [px, py] = out[i - 1]
+    const dx = corners[i][0] - corners[i - 1][0]
+    const dy = corners[i][1] - corners[i - 1][1]
+    const len = Math.hypot(dx, dy)
+    const step = Math.PI / 12
+    const ang = Math.round(Math.atan2(dy, dx) / step) * step
+    out.push([px + Math.cos(ang) * len, py + Math.sin(ang) * len])
+  }
+  return out
+}
+
+/** The Shaper tool: whatever is drawn comes out cleaned up. Circles and
+ *  rects snap perfect; a few corners become straight-edged polylines or
+ *  polygons (rough triangle → true triangle); anything curvier is smoothed
+ *  (rough hyperbola → flowing curve). Unlike the pen, this ALWAYS upgrades. */
+export function beautify(raw: number[][]): Recognition {
+  const rec = recognize(raw)
+  if (rec.kind === 'circle' || rec.kind === 'rect' || rec.kind === 'line' || raw.length < 6)
+    return rec
+  const { minX, minY, w, h } = bbox(raw)
+  const rel = raw.map(([x, y]) => [x - minX, y - minY])
+  const diag = Math.hypot(w, h)
+  const base = { w, h, x: minX, y: minY }
+  const start = rel[0]
+  const end = rel[rel.length - 1]
+  const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.22, 24)
+
+  if (closed) {
+    const corners = simplify([...rel, rel[0]], diag * 0.045).slice(0, -1)
+    if (corners.length >= 3 && corners.length <= 6) {
+      // Few corners → a clean straight-edged polygon.
+      return { kind: 'polygon', points: corners, ...base }
+    }
+    // Curvy outline → smoothed closed shape.
+    const smooth = chaikin(simplify(rel, Math.max(diag * 0.015, 2)), 2, true)
+    return { kind: 'polygon', points: smooth, ...base }
+  }
+
+  const corners = simplify(rel, diag * 0.045)
+  if (corners.length <= 6) {
+    // Polyline: straighten every segment and snap angles to 15° steps.
+    return { kind: 'stroke', points: snapAngles(corners), ...base }
+  }
+  // Open curve: keep its character, lose the jitter.
+  const smooth = chaikin(simplify(rel, Math.max(diag * 0.012, 2)), 2, false)
+  return { kind: 'stroke', points: smooth, ...base }
+}
+
 export function recognize(raw: number[][]): Recognition {
   const { minX, minY, w, h } = bbox(raw)
   // Pressure (a third component, when present) survives into the stroke

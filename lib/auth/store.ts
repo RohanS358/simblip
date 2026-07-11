@@ -237,6 +237,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         headers: { apikey: KEY!, Authorization: `Bearer ${session.accessToken}` },
       }).catch(() => {})
     }
+    // Attached documents live only until sign-out.
+    void import('@/lib/store/session-files').then(({ clearSessionFiles }) =>
+      clearSessionFiles(localStorage.getItem(ACTIVE_USER_KEY))
+    )
     saveSession(null)
     localStorage.removeItem(ACTIVE_USER_KEY)
     set({ status: 'anon', profile: null, institution: null, myRoomIds: [] })

@@ -107,8 +107,12 @@ create table if not exists public.simblip_board_sessions (
   status         text not null default 'live'
                  check (status in ('live', 'ended', 'merged', 'discarded')),
   started_at     timestamptz not null default now(),
-  ended_at       timestamptz
+  ended_at       timestamptz,
+  remote         jsonb                       -- last remote-control command from the teacher's phone
 );
+
+-- migration for deployments created before the phone remote existed
+alter table public.simblip_board_sessions add column if not exists remote jsonb;
 
 create index if not exists simblip_board_sessions_board_idx
   on public.simblip_board_sessions (board_id, status);
@@ -484,3 +488,36 @@ create policy "operator room members read" on public.simblip_room_members
 drop policy if exists "operator boards read" on public.simblip_boards;
 create policy "operator boards read" on public.simblip_boards
   for select using (public.simblip_current_role() = 'super_admin');
+
+-- ── Presentation file bucket ────────────────────────────────────────────────
+-- Documents attached to a presented page are uploaded here so the board and
+-- class followers can render them. Ephemeral by design: the teacher's device
+-- deletes them when the presentation resolves, and a 3-hour sweep catches
+-- leftovers. Public read (the notebook data itself never goes here).
+
+insert into storage.buckets (id, name, public)
+values ('simblip-session', 'simblip-session', true)
+on conflict (id) do nothing;
+
+drop policy if exists "session files write" on storage.objects;
+create policy "session files write" on storage.objects
+  for insert to authenticated with check (bucket_id = 'simblip-session');
+drop policy if exists "session files delete" on storage.objects;
+create policy "session files delete" on storage.objects
+  for delete to authenticated using (bucket_id = 'simblip-session');
+drop policy if exists "session files read" on storage.objects;
+create policy "session files read" on storage.objects
+  for select using (bucket_id = 'simblip-session');
+
+-- 3-hour sweep (needs the pg_cron extension; skipped silently if absent).
+do $$ begin
+  perform cron.schedule(
+    'simblip-session-sweep',
+    '*/30 * * * *',
+    $sweep$ delete from storage.objects
+            where bucket_id = 'simblip-session'
+              and created_at < now() - interval '3 hours' $sweep$
+  );
+exception when others then
+  raise notice 'pg_cron unavailable — session files rely on client cleanup only.';
+end $$;

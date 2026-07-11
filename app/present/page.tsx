@@ -7,7 +7,17 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CheckCircle2, Loader2, MonitorPlay, Square } from 'lucide-react'
+import {
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  MonitorPlay,
+  Pause,
+  Play,
+  RotateCcw,
+  Square,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { PageShell } from '@/components/platform/page-shell'
@@ -19,6 +29,7 @@ import {
   liveSessionFor,
   resolvePairing,
   resolveSession,
+  sendRemote,
   startSession,
   subscribeBoardSessions,
 } from '@/lib/data/boards'
@@ -26,6 +37,7 @@ import { followSession } from '@/lib/data/board-follow'
 import { useAuthStore } from '@/lib/auth/store'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
+import type { SceneObject } from '@/lib/scene/types'
 import { Button } from '@/components/ui/button'
 import {
   Select,
@@ -181,6 +193,10 @@ function PresentController() {
         }
       }
       await resolveSession(session.id, decision)
+      // Shared presentation documents are ephemeral — clean them up now
+      // (a 3-hour server sweep catches anything this misses).
+      const { cleanupSessionFiles } = await import('@/lib/data/session-upload')
+      void cleanupSessionFiles(session.id, session.snapshot)
       setPhase('done')
     } finally {
       setBusy(false)
@@ -274,6 +290,8 @@ function PresentController() {
         </div>
       )}
 
+      {phase === 'live' && session && <RemotePanel session={session} />}
+
       {phase === 'decide' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
           <p className="text-[15px] font-bold">Presentation ended</p>
@@ -357,6 +375,124 @@ function PresentController() {
           </Button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Phone remote for the live board: drive the simulation transport, page any
+// presented document, and nudge object properties — all without leaving the
+// lectern... or while walking the aisles. Commands ride the session row; the
+// object list mirrors the board's own working copy as it syncs back.
+function RemotePanel({ session }: { session: BoardSessionRow }) {
+  const [objId, setObjId] = useState('')
+  const doc = session.edited ?? session.snapshot
+  const objects = Object.values(doc?.objects ?? {}) as SceneObject[]
+  const files = objects.filter((o) => o.metadata?.render === 'file')
+  const chosen = objects.find((o) => o.id === objId) ?? null
+  const send = (cmd: Parameters<typeof sendRemote>[1]) => void sendRemote(session.id, cmd)
+
+  return (
+    <div className="glass space-y-4 rounded-2xl p-5">
+      <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        Board remote
+      </p>
+
+      <div className="space-y-1.5">
+        <Label className="text-[12px]">Simulation</Label>
+        <div className="grid grid-cols-3 gap-2">
+          <Button variant="outline" size="sm" onClick={() => send({ kind: 'play' })}>
+            <Play className="h-4 w-4" /> Play
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => send({ kind: 'pause' })}>
+            <Pause className="h-4 w-4" /> Pause
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => send({ kind: 'stop' })}>
+            <RotateCcw className="h-4 w-4" /> Reset
+          </Button>
+        </div>
+      </div>
+
+      {files.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-[12px]">Slides — {files[0].name || 'Document'}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => send({ kind: 'pdf', dir: -1, objectId: files[0].id })}
+            >
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => send({ kind: 'pdf', dir: 1, objectId: files[0].id })}
+            >
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {objects.length > 0 && (
+        <div className="space-y-1.5">
+          <Label className="text-[12px]">Object properties</Label>
+          <Select
+            value={objId}
+            onValueChange={(v) => {
+              setObjId(v)
+              send({ kind: 'select', objectId: v })
+            }}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Pick an object to control…" />
+            </SelectTrigger>
+            <SelectContent>
+              {objects.map((o) => (
+                <SelectItem key={o.id} value={o.id}>
+                  {o.name || o.id.slice(0, 6)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {chosen &&
+            chosen.behaviors.map((b) => {
+              const numeric = Object.entries(b.params).filter(([, p]) => p.kind === 'number')
+              if (numeric.length === 0) return null
+              return (
+                <div key={b.id} className="space-y-1 rounded-xl border border-border/60 p-2.5">
+                  <p className="text-[11px] font-semibold capitalize text-muted-foreground">{b.type}</p>
+                  {numeric.map(([name, p]) => (
+                    <div key={`${b.id}:${name}`} className="flex items-center gap-2">
+                      <span className="w-24 truncate text-[11.5px] text-muted-foreground">{name}</span>
+                      <input
+                        defaultValue={p.kind === 'number' ? p.expr : ''}
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-[12px] outline-none focus:border-[var(--ring)]"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') e.currentTarget.blur()
+                        }}
+                        onBlur={(e) => {
+                          const v = e.target.value.trim()
+                          if (v && (p.kind !== 'number' || v !== p.expr))
+                            send({ kind: 'param', objectId: chosen.id, behaviorId: b.id, param: name, value: v })
+                        }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )
+            })}
+          {chosen && chosen.behaviors.every((b) => Object.values(b.params).every((p) => p.kind !== 'number')) && (
+            <p className="text-[11.5px] text-muted-foreground">This object has no tunable numbers.</p>
+          )}
+        </div>
+      )}
+
+      <p className="text-[11px] leading-relaxed text-muted-foreground">
+        Commands reach the board instantly on the same network, or within a few seconds in cloud
+        mode.
+      </p>
     </div>
   )
 }

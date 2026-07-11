@@ -9,7 +9,7 @@
 import * as db from './db'
 import { useAuthStore } from '@/lib/auth/store'
 import type { PageDoc } from '@/lib/scene/types'
-import type { BoardRow, BoardSessionRow, BoardSessionStatus, RoomRow } from './types'
+import type { BoardRow, BoardSessionRow, BoardSessionStatus, RemoteCommand, RoomRow } from './types'
 
 export const newPairingCode = () => Math.random().toString(36).slice(2, 8).toUpperCase()
 
@@ -57,9 +57,13 @@ export async function startSession(input: {
   await Promise.all(
     live.map((s) => db.update('board_sessions', s.id, { status: 'discarded', ended_at: new Date().toISOString() }))
   )
-  const snapshot = JSON.parse(JSON.stringify(input.snapshot)) as PageDoc
+  const sessionId = db.newId()
+  // Attached session documents get pushed to shareable storage so the board
+  // (and class followers) can render them — see lib/data/session-upload.ts.
+  const { uploadSessionFiles } = await import('./session-upload')
+  const snapshot = await uploadSessionFiles(sessionId, input.snapshot)
   const row: BoardSessionRow = {
-    id: db.newId(),
+    id: sessionId,
     institution_id: profile.institution_id,
     board_id: input.boardId,
     teacher_id: profile.id,
@@ -83,6 +87,12 @@ export const getSession = async (sessionId: string): Promise<BoardSessionRow | n
 /** Board pushes its working copy (debounced by the caller). */
 export const saveSessionEdits = (sessionId: string, edited: PageDoc) =>
   db.update('board_sessions', sessionId, { edited })
+
+/** Teacher's phone → board remote: transport, slide nav, selection, param
+ *  nudges. Demo mode delivers instantly (BroadcastChannel); cloud mode rides
+ *  the board's session poll, so expect a few seconds of latency. */
+export const sendRemote = (sessionId: string, cmd: Omit<RemoteCommand, 'seq'>) =>
+  db.update('board_sessions', sessionId, { remote: { ...cmd, seq: Date.now() } })
 
 export const endSession = (sessionId: string) =>
   db.update('board_sessions', sessionId, { status: 'ended', ended_at: new Date().toISOString() })
