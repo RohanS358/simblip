@@ -441,7 +441,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
         <div className="flex flex-1 items-center justify-center p-4 text-center text-[12px] text-muted-foreground">
           {series.length > 0
             ? 'Run the bound simulation to see live data.'
-            : 'Add a series in the Inspector — or type a formula (e.g. sin(t)) to plot it.'}
+            : 'Add a series in the Inspector — or type a formula (e.g. sin(t), derivative(sin(t), t), integral(sin(u), u, 0, t)) to plot it.'}
         </div>
       )}
     </div>

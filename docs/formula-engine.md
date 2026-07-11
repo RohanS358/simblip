@@ -36,6 +36,31 @@ Units, matrices, complex numbers and symbolic derivatives are on the roadmap (ci
 complex impedance; "show derivation" needs symbolic steps). mathjs covers this trajectory;
 a hand-rolled parser would be rewritten within two modules.
 
+## Calculus
+
+Expressions anywhere (variables, parameters, graph formulas, behaviors) support:
+
+| Syntax | Meaning |
+| --- | --- |
+| `derivative(f, x)` / `diff(f, x)` | symbolic derivative of `f` wrt `x`, evaluated at the current `x` |
+| `derivative(f, x, n)` | n-th derivative |
+| `integral(f, x)` / `integrate(...)` / `antiderivative(...)` | numeric antiderivative ∫₀ˣ `f` |
+| `integral(f, x, a)` | ∫ₐˣ `f` |
+| `integral(f, x, a, b)` | definite ∫ₐᵇ `f` (bounds may be expressions) |
+
+Differentiating or integrating wrt one variable of a multi-variable expression treats the other
+symbols as constants — i.e. **partial** derivatives/antiderivatives come for free
+(`derivative(x^2*y^3, y)`, `integral(x*y, y, 0, 3)`). On a graph with no series bound, use the
+X-axis channel as the sweep variable to plot `f'` or `∫f` as a function.
+
+Implementation: mathjs's `derivative`/`simplify` stay **disabled at eval time** (see Security);
+instead `rewriteCalculus` in `lib/formula/engine.ts` rewrites the parsed tree at compile time.
+Derivatives are substituted symbolically (via the captured pre-sandbox `math.derivative`);
+integrals become generated `__intN` scope closures that run composite Simpson's rule (64
+intervals) with the ambient scope's other variables held fixed. Nested integrals work (cost
+multiplies); a symbolic derivative *of* an integral does not — it fails like a parse error and
+the fallback value applies.
+
 ## Failure behavior
 
 An invalid expression keeps the **last good value** and carries an `error` string. Rationale: a

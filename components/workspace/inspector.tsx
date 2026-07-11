@@ -611,7 +611,10 @@ function GraphOptions({
         <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'sin(t)'])} />
         <p className="text-[10.5px] leading-relaxed text-muted-foreground">
           Plotted as dashed lines. Can use page variables, <span className="font-mono">t</span> and the
-          first series&apos; channels. Without a series, formulas plot over the X range.
+          first series&apos; channels. Without a series, formulas plot over the X range. Calculus works
+          too: <span className="font-mono">derivative(sin(t), t)</span>,{' '}
+          <span className="font-mono">integral(sin(u), u, 0, t)</span> — differentiate or integrate
+          with respect to any variable for partials.
         </p>
       </div>
 
