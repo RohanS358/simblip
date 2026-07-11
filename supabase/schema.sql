@@ -474,6 +474,33 @@ create policy "announcements read" on public.simblip_announcements
     )
   );
 
+-- ── Sketch training templates (crowd-sourced) ───────────────────────────────
+-- /train examples: normalized point clouds that teach sketch recognition.
+-- Deliberately GLOBAL and cross-tenant — anyone's training improves
+-- recognition for every user, and no tenant data is exposed (rows are just
+-- anonymous symbol shapes + a component id).
+
+create table if not exists public.simblip_sketch_templates (
+  id           uuid primary key default gen_random_uuid(),
+  name         text not null,
+  component_id text not null,
+  cloud        jsonb not null,              -- 32-point normalized cloud
+  contributor  text,
+  created_at   timestamptz not null default now()
+);
+
+alter table public.simblip_sketch_templates enable row level security;
+
+drop policy if exists "sketch templates read" on public.simblip_sketch_templates;
+create policy "sketch templates read" on public.simblip_sketch_templates
+  for select using (true);
+drop policy if exists "sketch templates contribute" on public.simblip_sketch_templates;
+create policy "sketch templates contribute" on public.simblip_sketch_templates
+  for insert with check (true);
+drop policy if exists "sketch templates prune" on public.simblip_sketch_templates;
+create policy "sketch templates prune" on public.simblip_sketch_templates
+  for delete to authenticated using (true);
+
 -- ── Platform operator (super_admin) ─────────────────────────────────────────
 -- The operator can VIEW every tenant (the /dev console). Writes still go
 -- through the service-role provisioning API, never the operator's own JWT.
