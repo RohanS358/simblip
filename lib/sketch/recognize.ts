@@ -70,18 +70,17 @@ function chaikin(points: number[][], iterations: number, closed: boolean): numbe
   return pts
 }
 
-/** Snap each segment of an open polyline to the nearest 15° while keeping
- *  its length — a rough Z becomes crisp, near-axis lines go truly straight. */
-function snapAngles(corners: number[][]): number[][] {
+/** Wire-style orthogonal routing: every segment of the polyline snaps to
+ *  horizontal or vertical (whichever it leans toward), keeping its travel
+ *  along that axis — rough staircases become perfect steps and ladders,
+ *  exactly how wires are meant to run. */
+function snapOrthogonal(corners: number[][]): number[][] {
   const out: number[][] = [corners[0]]
   for (let i = 1; i < corners.length; i++) {
     const [px, py] = out[i - 1]
     const dx = corners[i][0] - corners[i - 1][0]
     const dy = corners[i][1] - corners[i - 1][1]
-    const len = Math.hypot(dx, dy)
-    const step = Math.PI / 12
-    const ang = Math.round(Math.atan2(dy, dx) / step) * step
-    out.push([px + Math.cos(ang) * len, py + Math.sin(ang) * len])
+    out.push(Math.abs(dx) >= Math.abs(dy) ? [px + dx, py] : [px, py + dy])
   }
   return out
 }
@@ -167,9 +166,10 @@ export function beautify(raw: number[][]): Recognition {
     // Drop the duplicated closing point; polygon geometry closes itself.
     return { kind: 'polygon', points: out.slice(0, -1), ...base }
   }
-  // A pure polyline additionally snaps its edges to 15° steps (crisp Z's);
-  // anything containing a curve keeps its exact corner positions.
-  return { kind: 'stroke', points: allStraight ? snapAngles(out) : out, ...base }
+  // A pure polyline routes like a wire: every edge snaps horizontal or
+  // vertical (perfect steps/ladders). Anything containing a curve keeps
+  // its exact corner positions instead.
+  return { kind: 'stroke', points: allStraight ? snapOrthogonal(out) : out, ...base }
 }
 
 export function recognize(raw: number[][]): Recognition {

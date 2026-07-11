@@ -779,6 +779,24 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           if (store.tool === 'shaper') {
             const obj = fromRecognition(beautify(points))
             if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
+            // Wires connect like they're meant to: an orthogonal run whose
+            // end touches a circuit terminal becomes a live wire.
+            if (
+              (obj.geometry.kind === 'stroke' || obj.geometry.kind === 'line') &&
+              obj.behaviors.length === 0
+            ) {
+              const all = Object.values(store.pages[pageId]?.objects ?? {})
+              const gpts = obj.geometry.points ?? []
+              const ends = [gpts[0], gpts[gpts.length - 1]].filter(Boolean)
+              if (
+                ends.some(([x, y]) =>
+                  nearTerminal(all, { x: obj.position.x + x, y: obj.position.y + y })
+                )
+              ) {
+                obj.behaviors.push(createBehavior('wire'))
+                obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+              }
+            }
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
             return null
