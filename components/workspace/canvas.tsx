@@ -13,7 +13,7 @@
 // here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
-import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig } from 'lucide-react'
+import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
@@ -1951,9 +1951,18 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           const r = Math.max(...sel.map((o) => o.position.x + o.size.w))
           const cx = ((x + r) / 2) * viewport.zoom + viewport.x
           const top = y * viewport.zoom + viewport.y
+          const hasInk = sel.some(
+            (o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
+          )
           const actions: [string, typeof Copy, () => void, boolean?][] = [
             ['Copy', Copy, () => copySelection(pageId)],
             ['Duplicate', CopyPlus, duplicateSelection],
+            // Multi-stroke recognition: pen+hold is single-stroke, so this is
+            // where sketched symbols made of several strokes become live
+            // components (and leftover strokes become wires).
+            ...(hasInk
+              ? ([['Recognize components', Wand2, convertSelectionToCircuit]] as [string, typeof Copy, () => void][])
+              : []),
             ...(myRole && can(myRole, 'publish-library')
               ? ([['Save to library', LibraryBig, saveSelectionToLibrary]] as [string, typeof Copy, () => void][])
               : []),
