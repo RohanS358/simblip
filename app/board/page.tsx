@@ -34,6 +34,7 @@ function BoardSurface() {
   const [room, setRoom] = useState<RoomRow | null>(null)
   const [session, setSession] = useState<BoardSessionRow | null>(null)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [qrBig, setQrBig] = useState(false)
   const [clock, setClock] = useState('')
   const pageIdRef = useRef<string | null>(null)
 
@@ -164,10 +165,32 @@ function BoardSurface() {
         </div>
       )}
 
+      {/* Tap the QR to blow it up edge-to-edge for the back rows. */}
+      {pairUrl && qrBig && (
+        <button
+          type="button"
+          aria-label="Close large QR"
+          className="fixed inset-0 z-[70] flex cursor-zoom-out flex-col items-center justify-center gap-4 bg-white"
+          onClick={() => setQrBig(false)}
+        >
+          <QrCode value={pairUrl} size={2048} className="h-[min(84vmin,84%)] w-[min(84vmin,84%)]" />
+          <p className="font-mono text-[clamp(20px,4vmin,44px)] font-bold tracking-[0.3em] text-black">
+            {board.pairing_code}
+          </p>
+        </button>
+      )}
+
       {/* The pairing QR is ALWAYS visible, fixed bottom-left. */}
       {pairUrl && (
         <div className="glass-strong absolute bottom-4 left-4 z-50 flex items-center gap-3 rounded-2xl p-3">
-          <QrCode value={pairUrl} size={session ? 72 : 128} className="rounded-lg" />
+          <button
+            type="button"
+            aria-label="Enlarge QR to full screen"
+            className="cursor-zoom-in"
+            onClick={() => setQrBig(true)}
+          >
+            <QrCode value={pairUrl} size={session ? 72 : 128} className="rounded-lg" />
+          </button>
           <div className="pr-1 text-left">
             <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Pair to present
