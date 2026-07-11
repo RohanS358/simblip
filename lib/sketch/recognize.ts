@@ -109,16 +109,36 @@ export function recognize(raw: number[][]): Recognition {
   const cx = rel.reduce((s, p) => s + p[0], 0) / rel.length
   const cy = rel.reduce((s, p) => s + p[1], 0) / rel.length
   const closedPts = [...rel, rel[0]]
-  const simple = simplify(closedPts, diag * 0.04)
-  const corners = simple.length - 1
+  // RDP degenerates on a closed loop (the chord start→end has zero length,
+  // every distance reads 0) — split at the point farthest from the seam and
+  // simplify each half instead.
+  let far = 1
+  let farD = 0
+  for (let i = 1; i < closedPts.length - 1; i++) {
+    const d = Math.hypot(closedPts[i][0] - closedPts[0][0], closedPts[i][1] - closedPts[0][1])
+    if (d > farD) {
+      farD = d
+      far = i
+    }
+  }
+  const simple = [
+    ...simplify(closedPts.slice(0, far + 1), diag * 0.04).slice(0, -1),
+    ...simplify(closedPts.slice(far), diag * 0.04),
+  ]
+  // Keep only vertices where the outline genuinely turns — the stroke seam
+  // and RDP chatter on smooth arcs drop out; a circle keeps none.
+  const sharp = sharpCorners(closedPts, simple)
+  const corners = sharp.length
   const aspect = w / h
 
-  if (corners >= 3 && corners <= 8 && hasSharpCorners(closedPts, simple, corners)) {
+  if (corners >= 3 && corners <= 8) {
     if (corners === 4) {
       // shoelace area vs bbox area: filled bbox = axis-ish rectangle…
       let area = 0
-      for (let i = 0; i < simple.length - 1; i++) {
-        area += simple[i][0] * simple[i + 1][1] - simple[i + 1][0] * simple[i][1]
+      for (let i = 0; i < sharp.length; i++) {
+        const [x0, y0] = sharp[i]
+        const [x1, y1] = sharp[(i + 1) % sharp.length]
+        area += x0 * y1 - x1 * y0
       }
       if (Math.abs(area) / 2 / (w * h) > 0.75) {
         if (aspect > 0.82 && aspect < 1.22) {
@@ -132,7 +152,7 @@ export function recognize(raw: number[][]): Recognition {
     }
     // Regular polygon inscribed in the bbox, phased so the first drawn
     // corner keeps its direction (triangle, pentagon … octagon; diamonds).
-    const phase = Math.atan2(simple[0][1] - cy, simple[0][0] - cx)
+    const phase = Math.atan2(sharp[0][1] - cy, sharp[0][0] - cx)
     return { kind: 'polygon', points: regularPolygonPoints(corners, w, h, phase), ...base }
   }
 
@@ -154,18 +174,17 @@ export function recognize(raw: number[][]): Recognition {
   return fallback
 }
 
-/** True when the outline turns sharply AT the simplified corners — this is
- *  what separates a real n-gon from a smooth circle that RDP happens to chop
- *  into n segments (a circle spreads its turning evenly, so the local turn
- *  at any "corner" is far below a polygon's 2π/n exterior angle). */
-function hasSharpCorners(closedPts: number[][], simple: number[][], k: number): boolean {
+/** The subset of simplified vertices where the drawn outline really turns
+ *  (local direction change over a small window beats ~31°). Separates real
+ *  n-gon corners from a smooth circle RDP happens to chop into segments —
+ *  a circle spreads its turning evenly, so no single spot passes. */
+function sharpCorners(closedPts: number[][], simple: number[][]): number[][] {
   const n = closedPts.length
-  const win = Math.max(2, Math.round(n * 0.04))
+  const win = Math.max(2, Math.round(n * 0.03))
+  const out: number[][] = []
   let j = 0
-  let total = 0
-  let counted = 0
-  for (let s = 0; s < simple.length - 1; s++) {
-    const c = simple[s]
+  for (let i = 0; i < simple.length - 1; i++) {
+    const c = simple[i]
     while (j < n && (closedPts[j][0] !== c[0] || closedPts[j][1] !== c[1])) j++
     if (j >= n) break
     const a = closedPts[(j - win + n) % n]
@@ -175,10 +194,9 @@ function hasSharpCorners(closedPts: number[][], simple: number[][], k: number): 
     const t1 = Math.atan2(d[1] - b[1], d[0] - b[0])
     let turn = Math.abs(t1 - t0)
     if (turn > Math.PI) turn = 2 * Math.PI - turn
-    total += turn
-    counted++
+    if (turn > 0.55) out.push(c)
   }
-  return counted > 0 && total / counted > (0.6 * 2 * Math.PI) / k
+  return out
 }
 
 /** Vertices of a regular n-gon inscribed in a w×h box (points relative to
