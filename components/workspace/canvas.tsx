@@ -661,10 +661,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           const end =
             g.orthoAxis === 'v' ? [anchor[0], point.y] : [point.x, anchor[1]]
-          setStroke([
-            ...g.orthoPts.map(([x, y]) => [x, y, 0.5]),
-            [end[0], end[1], 0.5],
-          ])
+          // Densify each straight run (~8px spacing): the ink renderers
+          // spline through sparse points, which turned crisp elbows into
+          // loops — with dense collinear points the smoothing hugs the line.
+          const poly = [...g.orthoPts, end]
+          const dense: number[][] = [[poly[0][0], poly[0][1], 0.5]]
+          for (let i = 1; i < poly.length; i++) {
+            const [ax, ay] = poly[i - 1]
+            const [bx, by] = poly[i]
+            const n = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay) / 8))
+            for (let k = 1; k <= n; k++)
+              dense.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n, 0.5])
+          }
+          setStroke(dense)
         } else {
           // Coalesced pointer events give the full-resolution ink trail;
           // pressure rides along as a third component for the ink renderer.
