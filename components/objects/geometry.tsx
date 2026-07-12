@@ -21,7 +21,8 @@ import {
   type ScreenPattern,
 } from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
-import { useRuntimeStore } from '@/lib/physics/world'
+import { useRuntimeStore, play, pause, stop, stepFrame } from '@/lib/physics/world'
+import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react'
 import {
   C as cx,
   cAbs,
@@ -599,23 +600,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
       digital: 'var(--accent-blue)',
     }
     const c = tint[domain] ?? 'var(--accent-mint)'
-    return (
-      <div
-        className="h-full w-full rounded-2xl"
-        style={{
-          border: `1.5px dashed ${c}`,
-          background: `color-mix(in oklch, ${c} 4%, transparent)`,
-        }}
-        aria-label={object.name}
-      >
-        <span
-          className="absolute -top-2.5 left-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
-          style={{ background: 'var(--background)', color: c, border: `1px solid ${c}` }}
-        >
-          {domain}
-        </span>
-      </div>
-    )
+    return <SystemBoundary pageId={pageId} object={object} domain={domain} color={c} />
   }
 
   // Field region: a tinted zone any charge inside it feels. Direction hints
@@ -1307,5 +1292,97 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         />
       )}
     </svg>
+  )
+}
+
+/**
+ * A system boundary: a labeled region that OWNS its contents.
+ *
+ * It carries its own transport — Play / Pause / Step / Reset — that simulates
+ * ONLY the objects inside it (lib/physics/world.ts buildWorld's `scopeId`),
+ * so you can run one experiment on a page holding several. And the border is
+ * absolute: the scoped world walls the box in, so nothing inside can ever
+ * leave it, whatever forces are applied.
+ */
+function SystemBoundary({
+  pageId,
+  object,
+  domain,
+  color,
+}: {
+  pageId: string
+  object: SceneObject
+  domain: string
+  color: string
+}) {
+  const mode = useRuntimeStore((s) => s.mode)
+  const scopeId = useRuntimeStore((s) => s.scopeId)
+  const mine = scopeId === object.id
+  const running = mine && mode === 'running'
+  const active = mine && mode !== 'edit'
+  // Another system (or the page) is running — this one can't also run.
+  const blocked = mode !== 'edit' && !mine
+
+  const btn = (
+    label: string,
+    Icon: typeof Play,
+    onClick: () => void,
+    disabled = false,
+    tint?: string
+  ) => (
+    <button
+      key={label}
+      type="button"
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      className="flex h-6 w-6 items-center justify-center rounded-md transition-colors hover:bg-accent disabled:opacity-30"
+      style={{ color: tint ?? 'var(--muted-foreground)' }}
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  )
+
+  return (
+    <div
+      className="h-full w-full rounded-2xl"
+      style={{
+        border: `1.5px ${active ? 'solid' : 'dashed'} ${color}`,
+        background: `color-mix(in oklch, ${color} ${active ? 7 : 4}%, transparent)`,
+        boxShadow: active ? `0 0 0 3px color-mix(in oklch, ${color} 18%, transparent)` : undefined,
+      }}
+      aria-label={object.name}
+    >
+      <span
+        className="absolute -top-2.5 left-4 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.14em]"
+        style={{ background: 'var(--background)', color, border: `1px solid ${color}` }}
+      >
+        {domain}
+      </span>
+
+      {/* Scoped transport — only this system's contents run. */}
+      <div
+        className="glass-strong absolute -top-4 right-4 flex items-center gap-0.5 rounded-lg p-0.5"
+        style={{ border: `1px solid color-mix(in oklch, ${color} 40%, transparent)` }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {running
+          ? btn('Pause this system', Pause, () => pause(), false, color)
+          : btn(
+              blocked ? 'Another simulation is running' : 'Run only this system',
+              Play,
+              () => play(pageId, object.id),
+              blocked,
+              color
+            )}
+        {btn('Step this system forward', SkipForward, () => stepFrame(), !active || running)}
+        {btn('Reset this system', RotateCcw, () => stop(), !active)}
+      </div>
+    </div>
   )
 }

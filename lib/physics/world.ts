@@ -33,15 +33,21 @@ export type PlayMode = 'edit' | 'running' | 'paused'
 interface RuntimeState {
   mode: PlayMode
   time: number // displayed sim time, throttled updates
+  /** The system boundary currently being simulated, or null for the whole
+   *  page. A scoped run only builds the objects inside that boundary. */
+  scopeId: string | null
   setMode: (m: PlayMode) => void
   setTime: (t: number) => void
+  setScope: (id: string | null) => void
 }
 
 export const useRuntimeStore = create<RuntimeState>((set) => ({
   mode: 'edit',
   time: 0,
+  scopeId: null,
   setMode: (mode) => set({ mode }),
   setTime: (time) => set({ time }),
+  setScope: (scopeId) => set({ scopeId }),
 }))
 
 // ── DOM element registry (ObjectViews register their wrapper) ──────────────
@@ -120,6 +126,8 @@ interface TracerEntry {
 
 interface World {
   pageId: string
+  /** system boundary this run is confined to (null = the whole page) */
+  scopeId: string | null
   engine: Matter.Engine
   bodies: BodyEntry[]
   tracers: TracerEntry[]
@@ -328,7 +336,7 @@ function endpointWorld(obj: SceneObject, index: 0 | 1): { x: number; y: number }
 }
 
 /** Build the physics world from the page exactly as drawn. */
-export function buildWorld(pageId: string): World {
+export function buildWorld(pageId: string, scopeId: string | null = null): World {
   const page = useDocStore.getState().pages[pageId]
   const engine = Matter.Engine.create()
   engine.gravity.y = 1 // scaled per-frame from the `g` variable
@@ -340,7 +348,24 @@ export function buildWorld(pageId: string): World {
   const fields: FieldRegion[] = []
   const torsions: TorsionEntry[] = []
   const thermal: ThermalEntry[] = []
-  const objs = Object.values(page?.objects ?? {})
+
+  // A scoped run simulates ONLY what sits inside that system boundary — an
+  // object counts as inside when its centre is within the box. The boundary
+  // object itself is never simulated (it's the container, not content).
+  const scope = scopeId ? page?.objects[scopeId] : undefined
+  const inScope = (o: SceneObject) => {
+    if (!scope) return true
+    if (o.id === scope.id) return false
+    const cx = o.position.x + o.size.w / 2
+    const cy = o.position.y + o.size.h / 2
+    return (
+      cx >= scope.position.x &&
+      cx <= scope.position.x + scope.size.w &&
+      cy >= scope.position.y &&
+      cy <= scope.position.y + scope.size.h
+    )
+  }
+  const objs = Object.values(page?.objects ?? {}).filter(inScope)
 
   for (const obj of objs) {
     const kind = isBody(obj.behaviors)
@@ -487,9 +512,31 @@ export function buildWorld(pageId: string): World {
     }
   }
 
+  // The boundary is ABSOLUTE: four static walls just outside the box mean
+  // nothing inside can ever leave it, whatever the forces.
+  if (scope) {
+    const T = 200 // thick, so a fast body can't tunnel through in one step
+    const { x, y } = scope.position
+    const { w: sw, h: sh } = scope.size
+    const wall = (cx: number, cy: number, ww: number, wh: number) =>
+      Matter.Bodies.rectangle(cx, cy, ww, wh, {
+        isStatic: true,
+        restitution: 0.35,
+        friction: 0.3,
+        label: 'system-wall',
+      })
+    Matter.Composite.add(engine.world, [
+      wall(x + sw / 2, y - T / 2, sw + 2 * T, T), // top
+      wall(x + sw / 2, y + sh + T / 2, sw + 2 * T, T), // bottom
+      wall(x - T / 2, y + sh / 2, T, sh + 2 * T), // left
+      wall(x + sw + T / 2, y + sh / 2, T, sh + 2 * T), // right
+    ])
+  }
+
   const circuit = buildCircuit(objs)
   const w: World = {
     pageId,
+    scopeId,
     engine,
     bodies,
     tracers,
@@ -1185,9 +1232,10 @@ function frame(now: number) {
 
 // ── Transport controls ──────────────────────────────────────────────────────
 
-export function play(pageId: string) {
+export function play(pageId: string, scopeId: string | null = null) {
   const rt = useRuntimeStore.getState()
-  if (rt.mode === 'paused' && world && world.pageId === pageId) {
+  // Resume only if it's the SAME run — switching scope rebuilds the world.
+  if (rt.mode === 'paused' && world && world.pageId === pageId && world.scopeId === scopeId) {
     world.last = performance.now()
     world.acc = 0
     world.raf = requestAnimationFrame(frame)
@@ -1195,7 +1243,8 @@ export function play(pageId: string) {
     return
   }
   stop() // clean previous world if any
-  world = buildWorld(pageId)
+  rt.setScope(scopeId)
+  world = buildWorld(pageId, scopeId)
   for (const b of world.bodies) clearBuffer(b.objectId)
   for (const comp of world.circuit?.comps ?? []) clearBuffer(comp.id)
   world.last = performance.now()
@@ -1277,5 +1326,6 @@ export function stop() {
   }
   resetCircuitDom()
   useRuntimeStore.getState().setMode('edit')
+  useRuntimeStore.getState().setScope(null)
   useRuntimeStore.getState().setTime(0)
 }
