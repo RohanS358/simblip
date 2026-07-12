@@ -39,6 +39,13 @@ export function clearBuffer(objectId: string) {
   notify(objectId)
 }
 
+/** Forget an object's samples entirely — called when its page leaves memory
+ *  (clearBuffer only empties the buffer; this releases it). */
+export function dropBuffer(objectId: string) {
+  buffers.delete(objectId)
+  notify(objectId)
+}
+
 export function readBuffer(objectId: string): Buffer | undefined {
   return buffers.get(objectId)
 }

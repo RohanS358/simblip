@@ -10,6 +10,7 @@ import Image from 'next/image'
 import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can, ROLE_LABEL } from '@/lib/auth/types'
@@ -100,6 +101,8 @@ export function WorkspaceShell() {
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
+  // Only the open page stays in memory — see lib/store/use-active-page.ts
+  useLazyActivePage(activePageId)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)

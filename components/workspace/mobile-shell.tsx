@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -90,6 +91,8 @@ export function MobileShell() {
   const profile = useAuthStore((s) => s.profile)
   const notebooks = useWorkspaceStore((s) => s.notebooks)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
+  // Only the open page stays in memory — see lib/store/use-active-page.ts
+  useLazyActivePage(activePageId)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const store = useWorkspaceStore
 

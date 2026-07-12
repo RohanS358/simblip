@@ -131,7 +131,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           })),
         })),
 
-      removePage: (pageId) =>
+      removePage: (pageId) => {
+        // Deleting a page is the ONE case where content should really go —
+        // forgetPage drops it from memory, from the local archive, and
+        // queues the cloud deletion. (Merely closing a page must never do
+        // this; see lib/store/deleted-pages.ts.)
+        void import('@/lib/store/document').then(({ useDocStore }) =>
+          useDocStore.getState().forgetPage(pageId)
+        )
         set((s) => ({
           notebooks: s.notebooks.map((n) => ({
             ...n,
@@ -141,7 +148,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             })),
           })),
           activePageId: s.activePageId === pageId ? null : s.activePageId,
-        })),
+        }))
+      },
 
       setActivePage: (id) => set({ activePageId: id }),
 

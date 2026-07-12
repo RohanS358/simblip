@@ -12,6 +12,9 @@ import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
 import { readBuffer } from '@/lib/physics/bus'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
+import * as archive from '@/lib/store/page-archive'
+import { dropBuffer } from '@/lib/physics/bus'
+import { markPageDeleted } from '@/lib/store/deleted-pages'
 
 export type Tool =
   | 'select'
@@ -126,6 +129,15 @@ interface DocState {
   scopes: Record<string, Scope>
 
   ensurePage: (pageId: string) => void
+  /** Bring a page into memory from the archive (or create it). Idempotent. */
+  loadPage: (pageId: string) => void
+  /** Flush these pages to the archive and drop them from memory. Never
+   *  deletes anything — see lib/store/page-cache.ts for the policy. */
+  unloadPages: (pageIds: string[]) => void
+  /** Same, for everything except the given pages (used under memory pressure). */
+  unloadPagesExcept: (keepIds: string[]) => void
+  /** Real deletion: forget the content everywhere (memory + archive). */
+  forgetPage: (pageId: string) => void
   pushHistory: (pageId: string) => void
   undo: (pageId: string) => void
   redo: (pageId: string) => void
@@ -209,10 +221,67 @@ export const useDocStore = create<DocState>()(
           }
           return
         }
+        // Not resident — rehydrate it from the archive before assuming it's
+        // new. Getting this wrong would silently blank an existing page.
+        const stored = archive.readPage(pageId)
+        if (stored) {
+          const { content, scope } = reevaluate(stored)
+          set((s) => ({
+            pages: { ...s.pages, [pageId]: content },
+            scopes: { ...s.scopes, [pageId]: scope },
+          }))
+          return
+        }
         set((s) => ({
           pages: { ...s.pages, [pageId]: { objects: {}, variables: [] } },
           scopes: { ...s.scopes, [pageId]: {} },
         }))
+      },
+
+      loadPage: (pageId) => get().ensurePage(pageId),
+
+      unloadPages: (pageIds) => {
+        const { pages } = get()
+        const evict = pageIds.filter((id) => pages[id])
+        if (evict.length === 0) return
+        for (const id of evict) {
+          // Persist BEFORE dropping — the archive is the durable copy now.
+          archive.writePage(id, pages[id])
+          // Graph history belongs to objects that are about to leave memory.
+          for (const objId of Object.keys(pages[id].objects)) dropBuffer(objId)
+        }
+        set((s) => {
+          const nextPages = { ...s.pages }
+          const nextScopes = { ...s.scopes }
+          for (const id of evict) {
+            delete nextPages[id]
+            delete nextScopes[id]
+            histories.delete(id) // undo stacks are the other big memory hog
+            lastPushAt.delete(id)
+          }
+          return { pages: nextPages, scopes: nextScopes }
+        })
+      },
+
+      unloadPagesExcept: (keepIds) => {
+        const keep = new Set(keepIds)
+        get().unloadPages(Object.keys(get().pages).filter((id) => !keep.has(id)))
+      },
+
+      forgetPage: (pageId) => {
+        archive.dropPage(pageId)
+        markPageDeleted(pageId) // the only path that deletes from the cloud
+        set((s) => {
+          const nextPages = { ...s.pages }
+          const nextScopes = { ...s.scopes }
+          const nextViewports = { ...s.viewports }
+          delete nextPages[pageId]
+          delete nextScopes[pageId]
+          delete nextViewports[pageId]
+          histories.delete(pageId)
+          lastPushAt.delete(pageId)
+          return { pages: nextPages, scopes: nextScopes, viewports: nextViewports }
+        })
       },
 
       pushHistory: (pageId) => {
@@ -447,7 +516,25 @@ export const useDocStore = create<DocState>()(
     {
       name: 'simblip-documents-v2', // v2: entity/component scene model
       storage: scopedJSONStorage,
-      partialize: (s) => ({ pages: s.pages, viewports: s.viewports }),
+      // Page CONTENT is no longer persisted here — it lives in the page
+      // archive, one entry per page, so pages can be evicted from memory
+      // without losing (or, worse, deleting) anything. Only the tiny
+      // per-page viewport rides along.
+      partialize: (s) => ({ viewports: s.viewports }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        // One-time migration: older builds persisted every page inside this
+        // blob. Move them into the archive, then start empty — the active
+        // page is loaded on demand from there.
+        const legacy = state.pages as Record<string, PageContent> | undefined
+        if (legacy && Object.keys(legacy).length > 0) {
+          for (const [id, content] of Object.entries(legacy)) {
+            if (!archive.hasPage(id)) archive.writePage(id, content)
+          }
+        }
+        state.pages = {}
+        state.scopes = {}
+      },
     }
   )
 )
@@ -455,4 +542,40 @@ export const useDocStore = create<DocState>()(
 /** Read the live formula scope for a page (used by the physics runtime). */
 export function getScope(pageId: string): Scope {
   return useDocStore.getState().scopes[pageId] ?? {}
+}
+
+
+// ── Durable archiving ───────────────────────────────────────────────────────
+// The doc store no longer persists page content itself (see partialize), so
+// something has to write it down. Every changed page is flushed to the page
+// archive on a short debounce — and immediately when the tab goes away, so a
+// reload can never land between the last edit and the last write.
+
+if (typeof window !== 'undefined') {
+  const dirty = new Set<string>()
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  const flushArchive = () => {
+    timer = null
+    const { pages } = useDocStore.getState()
+    for (const id of dirty) {
+      const content = pages[id]
+      if (content) archive.writePage(id, content) // evicted pages were written on the way out
+    }
+    dirty.clear()
+  }
+
+  useDocStore.subscribe((s, prev) => {
+    if (s.pages === prev.pages) return
+    for (const id of Object.keys(s.pages)) {
+      if (s.pages[id] !== prev.pages[id]) dirty.add(id)
+    }
+    if (dirty.size === 0) return
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(flushArchive, 400)
+  })
+
+  // pagehide covers the mobile/bfcache path that beforeunload misses.
+  window.addEventListener('pagehide', flushArchive)
+  window.addEventListener('beforeunload', flushArchive)
 }

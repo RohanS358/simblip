@@ -19,6 +19,12 @@
 
 import { create } from 'zustand'
 import { useDocStore } from '@/lib/store/document'
+import * as archive from '@/lib/store/page-archive'
+import {
+  drainPageDeletions,
+  onPageDeleted,
+  requeuePageDeletions,
+} from '@/lib/store/deleted-pages'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 
@@ -112,15 +118,23 @@ async function pushPages(ws: string, pageIds: string[]) {
   const { pages, viewports } = useDocStore.getState()
   const institution = useAuthStore.getState().profile?.institution_id
   const rows = pageIds
-    .filter((id) => pages[id])
-    .map((id) => ({
-      id,
-      workspace_id: ws,
-      institution_id: institution,
-      content: pages[id],
-      viewport: viewports[id] ?? null,
-      updated_at: new Date().toISOString(),
-    }))
+    .map((id) => {
+      // A page edited and then closed is no longer in memory — read its
+      // content back from the archive so the last edits still reach the
+      // cloud. Without this, switching pages within the 2 s debounce would
+      // quietly drop the change.
+      const content = pages[id] ?? archive.readPage(id)
+      if (!content) return null
+      return {
+        id,
+        workspace_id: ws,
+        institution_id: institution,
+        content,
+        viewport: viewports[id] ?? null,
+        updated_at: new Date().toISOString(),
+      }
+    })
+    .filter((r): r is NonNullable<typeof r> => r !== null)
   if (rows.length > 0) await upsert('simblip_pages', rows)
 }
 
@@ -155,7 +169,7 @@ export function startSync() {
     flushing = true
     setPhase('syncing')
     const pageBatch = [...dirtyPages]
-    const delBatch = [...deletedPages]
+    const delBatch = [...deletedPages, ...drainPageDeletions()]
     const wsBatch = workspaceDirty
     dirtyPages.clear()
     deletedPages.clear()
@@ -170,7 +184,7 @@ export function startSync() {
     } catch (err) {
       // Re-queue so nothing is lost; next change retries.
       pageBatch.forEach((id) => dirtyPages.add(id))
-      delBatch.forEach((id) => deletedPages.add(id))
+      requeuePageDeletions(delBatch)
       workspaceDirty ||= wsBatch
       setPhase('error', err instanceof Error ? err.message : String(err))
     } finally {
@@ -186,17 +200,18 @@ export function startSync() {
 
   useDocStore.subscribe((s, prev) => {
     if (s.pages === prev.pages) return
+    // ONLY content changes mark a page dirty. A page disappearing from the
+    // map now means "closed to save memory" (lazy loading), NOT "deleted" —
+    // inferring deletion from absence here would wipe the notebook from the
+    // cloud every time the user switched page. Real deletions arrive through
+    // the explicit queue below.
     for (const id of Object.keys(s.pages)) {
       if (s.pages[id] !== prev.pages[id]) dirtyPages.add(id)
     }
-    for (const id of Object.keys(prev.pages)) {
-      if (!s.pages[id]) {
-        dirtyPages.delete(id)
-        deletedPages.add(id)
-      }
-    }
-    schedule()
+    if (dirtyPages.size > 0) schedule()
   })
+
+  onPageDeleted(schedule)
 
   useWorkspaceStore.subscribe((s, prev) => {
     if (s.notebooks === prev.notebooks) return
@@ -213,21 +228,41 @@ export function startSync() {
       const seen = Number(localStorage.getItem(seenKey(ws)) ?? 0)
       if (remote && remote.newest > seen) {
         useWorkspaceStore.setState({ notebooks: remote.notebooks as never })
-        useDocStore.setState((s) => {
-          const pages = { ...s.pages }
-          const viewports = { ...s.viewports }
-          for (const row of remote.pages) {
-            pages[row.id] = row.content as never
-            if (row.viewport) viewports[row.id] = row.viewport as never
-          }
-          return { pages, viewports }
-        })
+        // Land the pulled content in the ARCHIVE, not in memory — pulling a
+        // whole notebook into the store would undo the lazy loading. Only
+        // the page the user opens is hydrated (doc store ensurePage reads
+        // the archive). The one exception is a page that's already open: it
+        // must be refreshed in place, or the canvas would keep showing stale
+        // content until the next switch.
+        const resident = useDocStore.getState().pages
+        const reopen: Record<string, unknown> = {}
+        const viewports: Record<string, unknown> = {}
+        for (const row of remote.pages) {
+          archive.writePage(row.id, row.content as never)
+          if (resident[row.id]) reopen[row.id] = row.content
+          if (row.viewport) viewports[row.id] = row.viewport
+        }
+        useDocStore.setState(
+          (st) =>
+            ({
+              pages: { ...st.pages, ...reopen },
+              viewports: { ...st.viewports, ...viewports },
+            }) as never
+        )
+        for (const id of Object.keys(reopen)) useDocStore.getState().ensurePage(id)
         localStorage.setItem(seenKey(ws), String(remote.newest))
         setPhase('synced')
       } else {
         // First device for this account, or we're ahead: publish everything.
+        // Every page the user HAS — not just the one that happens to be open
+        // — which now means asking the archive, since memory holds only the
+        // active page.
         workspaceDirty = true
-        Object.keys(useDocStore.getState().pages).forEach((id) => dirtyPages.add(id))
+        const all = new Set([
+          ...Object.keys(useDocStore.getState().pages),
+          ...archive.archivedPageIds(),
+        ])
+        all.forEach((id) => dirtyPages.add(id))
         schedule()
         setPhase('synced')
       }
