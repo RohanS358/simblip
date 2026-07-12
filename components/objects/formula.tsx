@@ -8,7 +8,14 @@ import { useMemo, useState } from 'react'
 import katex from 'katex'
 import { X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
-import { parseFormula, derivativeSteps, integralSteps, iteratedIntegralSteps } from '@/lib/formula/steps'
+import {
+  parseFormula,
+  derivativeSteps,
+  integralSteps,
+  iteratedIntegralSteps,
+  laplaceSteps,
+  fourierSteps,
+} from '@/lib/formula/steps'
 import { getString, type ObjectRendererProps } from './types'
 
 const BTN =
@@ -45,7 +52,7 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
 
   const boundedVars = parsed ? parsed.vars.filter((v) => parsed.bounds[v]) : []
 
-  const solve = (kind: 'd' | 'i' | 'ii', v?: string) => {
+  const solve = (kind: 'd' | 'i' | 'ii' | 'L' | 'F', v?: string) => {
     if (!parsed) return
     pushHistory(pageId)
     try {
@@ -54,7 +61,11 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
           ? derivativeSteps(parsed, v!)
           : kind === 'ii'
             ? iteratedIntegralSteps(parsed)
-            : integralSteps(parsed, v!)
+            : kind === 'L'
+              ? laplaceSteps(parsed, v!)
+              : kind === 'F'
+                ? fourierSteps(parsed, v!)
+                : integralSteps(parsed, v!)
       setStringParam(pageId, object.id, 'solution', steps)
     } catch {
       setStringParam(pageId, object.id, 'solution', `\\text{could not solve — check the expression}`)
@@ -95,6 +106,29 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
               {boundedVars.length > 2 ? '∭' : '∬'}
             </button>
           )}
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          {parsed.vars.map((v) => (
+            <button
+              key={`L${v}`}
+              type="button"
+              className={BTN}
+              title={`Laplace transform in ${v} → F(s)`}
+              onClick={() => solve('L', v)}
+            >
+              L{parsed.vars.length > 1 ? `{${v}}` : ''}
+            </button>
+          ))}
+          {parsed.vars.map((v) => (
+            <button
+              key={`F${v}`}
+              type="button"
+              className={BTN}
+              title={`Fourier transform in ${v} → F(ω)`}
+              onClick={() => solve('F', v)}
+            >
+              F{parsed.vars.length > 1 ? `{${v}}` : ''}
+            </button>
+          ))}
           {solution && (
             <button
               type="button"
