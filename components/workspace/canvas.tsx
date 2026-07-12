@@ -12,7 +12,7 @@
 // runtime writes transforms straight to the wrapper elements registered
 // here; edit gestures are locked until Reset.
 
-import React, { memo, useCallback, useEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -1867,17 +1867,6 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             )
           })()}
 
-        {slash && (
-          <SlashMenu
-            screen={slash.screen}
-            onClose={() => setSlash(null)}
-            onPick={(item) => {
-              insertAt(pageId, item, slash.canvas)
-              setSlash(null)
-            }}
-          />
-        )}
-
         {stroke && stroke.length > 1 && (
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
             {tool === 'pen' ? (
@@ -2020,6 +2009,21 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             }}
           />
         </div>
+      )}
+
+      {/* Screen-space overlays — these live OUTSIDE the zoomed/panned layer,
+          so their left/top are plain viewport pixels. Putting them inside it
+          would multiply their coordinates by the zoom and shove them away
+          from the cursor. */}
+      {slash && (
+        <SlashMenu
+          screen={slash.screen}
+          onClose={() => setSlash(null)}
+          onPick={(item) => {
+            insertAt(pageId, item, slash.canvas)
+            setSlash(null)
+          }}
+        />
       )}
 
       {ctxMenu && (
@@ -2178,6 +2182,18 @@ function SlashMenu({
   const [sel, setSel] = useState(0)
   const results = searchInsertables(q, 40)
   const listRef = useRef<HTMLDivElement>(null)
+  const boxRef = useRef<HTMLDivElement>(null)
+  // Flip the menu back inside the canvas when it would open past an edge.
+  const [pos, setPos] = useState(screen)
+  useLayoutEffect(() => {
+    const el = boxRef.current
+    const parent = el?.offsetParent as HTMLElement | null
+    if (!el || !parent) return
+    setPos({
+      x: Math.max(4, Math.min(screen.x, parent.clientWidth - el.offsetWidth - 4)),
+      y: Math.max(4, Math.min(screen.y, parent.clientHeight - el.offsetHeight - 4)),
+    })
+  }, [screen])
 
   useEffect(() => setSel(0), [q])
   useEffect(() => {
@@ -2186,12 +2202,9 @@ function SlashMenu({
 
   return (
     <div
+      ref={boxRef}
       className="glass-strong absolute z-[60] w-64 overflow-hidden rounded-xl p-1 shadow-lg"
-      style={{
-        left: Math.max(4, screen.x),
-        top: Math.max(4, screen.y),
-        maxHeight: 300,
-      }}
+      style={{ left: pos.x, top: pos.y, maxHeight: 300 }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <input

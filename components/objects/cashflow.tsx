@@ -109,8 +109,14 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
           height={H}
           className="absolute inset-0"
           onPointerMove={(e) => {
+            // getBoundingClientRect is in SCREEN pixels — the canvas scales
+            // this object by the viewport zoom — while padL/rail are in the
+            // SVG's own units. Divide out that scale or the marker drifts
+            // further from the cursor the more you zoom.
             const r = e.currentTarget.getBoundingClientRect()
-            const yr = ((e.clientX - r.left - padL) / rail) * N
+            const scale = r.width / W || 1
+            const localX = (e.clientX - r.left) / scale
+            const yr = ((localX - padL) / rail) * N
             setHoverT(yr >= -0.05 && yr <= N + 0.05 ? Math.max(0, Math.min(N, yr)) : null)
           }}
           onPointerLeave={() => setHoverT(null)}

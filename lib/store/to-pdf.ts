@@ -25,9 +25,70 @@ export type ConvertProgress = (done: number, total: number) => void
  *  the document (not display:none) or html2canvas measures everything as 0. */
 function stage(width: number): HTMLDivElement {
   const el = document.createElement('div')
-  el.style.cssText = `position:fixed;left:-10000px;top:0;width:${width}px;background:#fff;z-index:-1;`
+  el.dataset.pdfStage = ''
+  el.style.cssText =
+    `position:fixed;left:-10000px;top:0;width:${width}px;background:#fff;color:#111;` +
+    `z-index:-1;color-scheme:light;`
+  ensureStageReset()
   document.body.appendChild(el)
   return el
+}
+
+/** Inline styles can't reach ::before/::after, and Tailwind's preflight paints
+ *  those too — so neutralize them for the stage subtree with a rule in <head>
+ *  (the renderers wipe the stage's own children, so it can't live inside it).
+ *  The renderers never use pseudo-elements for content, so nothing is lost. */
+function ensureStageReset() {
+  const ID = 'simblip-pdf-stage-reset'
+  if (document.getElementById(ID)) return
+  const reset = document.createElement('style')
+  reset.id = ID
+  reset.textContent =
+    '[data-pdf-stage] *::before, [data-pdf-stage] *::after {' +
+    'border-color: transparent !important;' +
+    'background-image: none !important;' +
+    'box-shadow: none !important;' +
+    'color: #111 !important;' +
+    'outline-color: transparent !important;' +
+    '}'
+  document.head.appendChild(reset)
+}
+
+// html2canvas 1.4 predates the modern CSS color functions — it throws
+// "unsupported color function" the moment it meets lab()/lch()/oklch() or
+// color-mix(). Our design tokens are oklch and Tailwind's preflight paints
+// borders/colors onto EVERY element, so the app's own styles leak into the
+// off-screen stage and poison it. Rewrite only the offending values to safe
+// equivalents (colors from the document itself are plain rgb and untouched).
+const UNSUPPORTED_COLOR = /\b(?:lab|lch|oklab|oklch|color-mix|color)\(/i
+
+const SAFE_FALLBACK: Record<string, string> = {
+  color: '#111111',
+  'background-color': 'transparent',
+  'background-image': 'none',
+  'border-top-color': 'transparent',
+  'border-right-color': 'transparent',
+  'border-bottom-color': 'transparent',
+  'border-left-color': 'transparent',
+  'outline-color': 'transparent',
+  'text-decoration-color': 'currentColor',
+  'column-rule-color': 'transparent',
+  'box-shadow': 'none',
+  fill: '#111111',
+  stroke: 'none',
+}
+
+function sanitizeColors(root: HTMLElement) {
+  const els: HTMLElement[] = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
+  for (const el of els) {
+    const cs = getComputedStyle(el)
+    for (const prop of Object.keys(SAFE_FALLBACK)) {
+      const value = cs.getPropertyValue(prop)
+      if (value && UNSUPPORTED_COLOR.test(value)) {
+        el.style.setProperty(prop, SAFE_FALLBACK[prop], 'important')
+      }
+    }
+  }
 }
 
 async function pagesToPdf(
@@ -48,11 +109,15 @@ async function pagesToPdf(
   })
 
   for (let i = 0; i < pages.length; i++) {
+    sanitizeColors(pages[i])
     const canvas = await html2canvas(pages[i], {
       scale: 2, // 2× so the PDF stays sharp when the whiteboard zooms in
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
+      // html2canvas re-applies the page's stylesheets inside its own clone,
+      // which resurrects the oklch values — sanitize the clone as well.
+      onclone: (_doc, element) => sanitizeColors(element as HTMLElement),
     })
     if (i > 0) pdf.addPage([size.w, size.h], landscape ? 'landscape' : 'portrait')
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, size.w, size.h)

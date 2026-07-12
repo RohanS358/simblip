@@ -23,6 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { num, type SceneObject } from '@/lib/scene/types'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
+import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
  * a single click never enters text edit — only a double-click does. A
@@ -1032,9 +1033,19 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [bindObj, setBindObj] = useState('')
   const [bindCh, setBindCh] = useState('')
-  const objectList = Object.values(pageObjects).filter((o) => o.metadata.render !== 'system')
-  const channelsFor = (id: string): string[] =>
-    readBuffer(id)?.channelNames ?? ['V', 'I', 'P', 'x', 'y', 'v', 'omega', 'T', 'level']
+  // Only objects that actually stream data can be bound — and each one
+  // offers ITS channels (a mass gives x/vx/ke, a resistor gives V/I/P).
+  // Derived from the object, so this works before Play has ever run; a live
+  // buffer, when one exists, is authoritative.
+  const objectList = Object.values(pageObjects).filter(
+    (o) => o.metadata.render !== 'system' && channelsFor(o).length > 0
+  )
+  const channelsOf = (id: string): string[] => {
+    const live = readBuffer(id)?.channelNames
+    if (live && live.length > 0) return live
+    const obj = pageObjects[id]
+    return obj ? channelsFor(obj) : []
+  }
 
   return (
     <div className="space-y-1.5">
@@ -1152,7 +1163,12 @@ function VariablesPanel({ pageId }: { pageId: string }) {
                 className="w-24 rounded-md border border-border bg-background px-1.5 py-1 text-[11.5px]"
               >
                 <option value="">Value…</option>
-                {bindObj && channelsFor(bindObj).map((c) => <option key={c}>{c}</option>)}
+                {bindObj &&
+                  channelsOf(bindObj).map((c) => (
+                    <option key={c} value={c}>
+                      {CHANNEL_LABELS[c] ? `${c} — ${CHANNEL_LABELS[c]}` : c}
+                    </option>
+                  ))}
               </select>
               <button
                 type="button"
@@ -1176,8 +1192,8 @@ function VariablesPanel({ pageId }: { pageId: string }) {
           {binding === v.id && (
             <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
               Live value from the simulation — combine several (edit the expression, e.g.{' '}
-              <span className="font-mono">2*[A(V)]/[B(I)]</span>). Play once to list an
-              object&apos;s real channels.
+              <span className="font-mono">2*[A(V)]/[B(I)]</span>). Only objects that produce
+              data are listed, each with its own outputs.
             </p>
           )}
           {v.error && <p className="mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{v.error}</p>}
