@@ -7,6 +7,7 @@ import type { SceneObject, GeometryKind, Vec2, Behavior } from './types'
 import { num, str, uid } from './types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import type { Recognition } from '@/lib/sketch/recognize'
+import { EMPTY_SPEC } from '@/lib/econ/engine'
 
 let nameCounter = 0
 const autoName = (base: string) => `${base} ${(++nameCounter % 1000)}`
@@ -58,9 +59,8 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.yChannels = str('')
       break
     case 'cashflow':
-      obj.size = { w: 460, h: 260 }
-      obj.parameters.flows = str('0:-1000; 1:300; 2:300; 3:300; 4:300')
-      obj.parameters.rate = num(8)
+      obj.size = { w: 480, h: 300 }
+      obj.parameters.spec = str(JSON.stringify(EMPTY_SPEC))
       break
   }
   return obj
@@ -365,9 +365,8 @@ export const COMPONENTS: ComponentDef[] = [
   // through time; NPV/FV computed live — see components/objects/cashflow). ──
   econ('cashflow', 'Cash Flow', (p) => {
     const o = baseObject('cashflow', p, autoName('Cash Flow'))
-    o.size = { w: 460, h: 260 }
-    o.parameters.flows = str('0:-1000; 1:300; 2:300; 3:300; 4:300')
-    o.parameters.rate = num(8)
+    o.size = { w: 480, h: 300 }
+    o.parameters.spec = str(JSON.stringify(EMPTY_SPEC))
     return o
   }),
 

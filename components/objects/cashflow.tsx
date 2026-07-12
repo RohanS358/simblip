@@ -1,204 +1,198 @@
 'use client'
 
-// Cash-flow timeline (engineering economics). Money is not a static arrow —
-// it's a force acting on a time rail: green arrows push value up (inflows),
-// red arrows pull down (outflows), height ∝ amount. Press Play and a
-// playhead sweeps the horizon; each flow "grows" in as the playhead reaches
-// it, a coin travels the rail compounding through the blue interest field,
-// and NPV / FV update live. Edit `flows` as "period:amount; …".
+// Cash-flow diagram (engineering economics). A time rail with sharp arrows —
+// up = inflow, down = outflow, height ∝ amount — styled like the Graph card
+// (hairline grid, muted axis, mono labels). The spec (discrete investments,
+// annuities, salvage, MARR) is edited in the Inspector, not here. Hovering
+// the timeline drops a dashed marker showing the compounded value at that
+// instant. Worth metrics (PW/FW/AW/IRR/CR/BC) sit above the diagram.
 
 import { useMemo, useState } from 'react'
-import { Coins } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
-import { useRuntimeStore } from '@/lib/physics/world'
-import { parseFlows, npv, fv, balanceAt, irr, horizon, fmtMoney } from '@/lib/econ/engine'
-import { getString, getNumber, type ObjectRendererProps } from './types'
+import {
+  readSpec,
+  expandFlows,
+  metrics,
+  valueAt,
+  horizonOf,
+  fmtMoney,
+  fmtYear,
+} from '@/lib/econ/engine'
+import { getString, type ObjectRendererProps } from './types'
 
-export function CashflowObject({ pageId, object, selected }: ObjectRendererProps) {
-  const setStringParam = useDocStore((s) => s.setStringParam)
-  const setParam = useDocStore((s) => s.setParam)
-  const pushHistory = useDocStore((s) => s.pushHistory)
-  const [editing, setEditing] = useState(false)
+const IN = 'var(--chart-2)' // inflow  (up)
+const OUT = 'var(--chart-5)' // outflow (down)
 
-  const flowsStr = getString(object, 'flows', '')
-  const ratePct = getNumber(object, 'rate', 8)
-  const i = ratePct / 100
-  const flows = useMemo(() => parseFlows(flowsStr), [flowsStr])
-  const N = Math.max(1, horizon(flows))
-
-  // Runtime clock drives the sweep (freezes outside Play, like wave-source).
-  const running = useRuntimeStore((s) => s.mode === 'running')
-  const clock = useRuntimeStore((s) => s.time)
-  const CYCLE = 6 // seconds to sweep the whole horizon
-  const playhead = running ? ((clock % CYCLE) / CYCLE) * N : N // rest at full when stopped
-
-  const stats = useMemo(
-    () => ({ npv: npv(flows, i), fv: fv(flows, i), irr: irr(flows) }),
-    [flows, i]
+function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
+  return (
+    <div className="flex min-w-0 flex-col leading-tight">
+      <span className="truncate text-[8.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {label}
+      </span>
+      <span className="truncate font-mono text-[11px] font-bold" style={tone ? { color: tone } : undefined}>
+        {value}
+      </span>
+    </div>
   )
-  const maxAmt = Math.max(1, ...flows.map((f) => Math.abs(f.amount)))
-  const balNow = balanceAt(flows, i, Math.floor(playhead))
+}
 
-  // Geometry of the drawing area.
-  const w = object.size.w
-  const h = object.size.h
-  const padL = 40
-  const padR = 16
-  const axisY = h * 0.56
-  const railW = w - padL - padR
-  const xOf = (t: number) => padL + (railW * t) / N
-  const maxBar = Math.min(axisY - 24, h - axisY - 30)
-  const coinX = xOf(Math.min(playhead, N))
+export function CashflowObject({ pageId, object }: ObjectRendererProps) {
+  const spec = useMemo(() => readSpec(getString(object, 'spec')), [object])
+  const flows = useMemo(() => expandFlows(spec), [spec])
+  const stats = useMemo(() => metrics(spec), [spec])
+  const i = spec.marr / 100
+  const N = horizonOf(spec)
+  const [hoverT, setHoverT] = useState<number | null>(null)
+  const selected = useDocStore((s) => s.selection.includes(object.id))
+
+  // Diagram geometry (viewBox units; the SVG scales to the card).
+  const W = 100
+  const H = 100
+  const padL = 5
+  const padR = 4
+  const axisY = 56
+  const rail = W - padL - padR
+  const xOf = (t: number) => padL + (rail * t) / N
+  const maxAmt = Math.max(1, ...flows.map((f) => Math.abs(f.amount)))
+  const upRoom = axisY - 14
+  const dnRoom = H - axisY - 16
+  const lenOf = (a: number) => (Math.abs(a) / maxAmt) * (a >= 0 ? upRoom : dnRoom)
+
+  // Integer year ticks; fractional flows get their own light tick.
+  const years = Array.from({ length: Math.floor(N) + 1 }, (_, k) => k)
+  const hoverVal = hoverT === null ? 0 : valueAt(flows, i, hoverT)
+
+  const posTone = stats.pw >= 0 ? IN : OUT
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
-      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
-        <Coins className="h-3.5 w-3.5 text-[var(--accent-mint)]" />
-        <span className="flex-1 truncate text-[11.5px] font-semibold text-muted-foreground">
-          {object.name} · i = {ratePct}% / period
-        </span>
-        <span
-          className="font-mono text-[11px] font-bold"
-          style={{ color: stats.npv >= 0 ? 'var(--accent-mint)' : 'var(--accent-rose)' }}
-          title="Net present value at t=0"
-        >
-          NPV {fmtMoney(stats.npv)}
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
+      {/* header: name + description */}
+      <div className="flex items-baseline gap-2 border-b border-border/60 px-3 py-1.5">
+        <span className="shrink-0 text-[11.5px] font-semibold text-muted-foreground">{object.name}</span>
+        {spec.description && (
+          <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/80">{spec.description}</span>
+        )}
+        <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
+          MARR {spec.marr}%
         </span>
       </div>
 
-      <div className="relative min-h-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
-        <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h - 30}`} preserveAspectRatio="none">
-          <defs>
-            <linearGradient id={`cf-field-${object.id}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--accent-blue)" stopOpacity="0.10" />
-              <stop offset="100%" stopColor="var(--accent-blue)" stopOpacity="0" />
-            </linearGradient>
-          </defs>
+      {/* worth metrics */}
+      <div className="grid grid-cols-6 gap-2 border-b border-border/60 bg-accent/25 px-3 py-1">
+        <Stat label="PW" value={fmtMoney(stats.pw)} tone={posTone} />
+        <Stat label="FW" value={fmtMoney(stats.fw)} tone={posTone} />
+        <Stat label="AW" value={fmtMoney(stats.aw)} tone={posTone} />
+        <Stat label="IRR" value={stats.irr === null ? '—' : `${(stats.irr * 100).toFixed(1)}%`} />
+        <Stat label="Cap. rec." value={fmtMoney(stats.cr)} />
+        <Stat label="B/C" value={stats.bc === null ? '—' : stats.bc.toFixed(2)} />
+      </div>
 
-          {/* interest field — a blue haze that has "passed" so far */}
-          <rect x={padL} y={0} width={Math.max(0, coinX - padL)} height={h - 30} fill={`url(#cf-field-${object.id})`} />
+      {/* the diagram */}
+      <div className="relative min-h-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
+        <svg
+          width="100%"
+          height="100%"
+          viewBox={`0 0 ${W} ${H}`}
+          preserveAspectRatio="none"
+          onPointerMove={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            const t = ((e.clientX - r.left) / r.width) * W
+            const yr = ((t - padL) / rail) * N
+            setHoverT(yr >= -0.02 && yr <= N + 0.02 ? Math.max(0, Math.min(N, yr)) : null)
+          }}
+          onPointerLeave={() => setHoverT(null)}
+        >
+          {/* year gridlines — same hairline language as the Graph card */}
+          {years.map((y) => (
+            <line
+              key={`g${y}`}
+              x1={xOf(y)}
+              y1={6}
+              x2={xOf(y)}
+              y2={H - 10}
+              stroke="var(--border)"
+              strokeOpacity={0.5}
+              strokeWidth={0.3}
+            />
+          ))}
 
           {/* the time rail */}
-          <line x1={padL} y1={axisY} x2={w - padR} y2={axisY} stroke="var(--muted-foreground)" strokeWidth={1.5} />
-          {Array.from({ length: N + 1 }, (_, t) => (
-            <g key={t}>
-              <line x1={xOf(t)} y1={axisY - 3} x2={xOf(t)} y2={axisY + 3} stroke="var(--muted-foreground)" strokeWidth={1} />
-              <text x={xOf(t)} y={axisY + 15} textAnchor="middle" fontSize={8.5} fill="var(--muted-foreground)">
-                {t}
+          <line x1={padL} y1={axisY} x2={W - padR} y2={axisY} stroke="var(--muted-foreground)" strokeWidth={0.5} />
+          {years.map((y) => (
+            <g key={y}>
+              <line x1={xOf(y)} y1={axisY} x2={xOf(y)} y2={axisY + 2} stroke="var(--muted-foreground)" strokeWidth={0.4} />
+              <text
+                x={xOf(y)}
+                y={axisY + 7}
+                textAnchor="middle"
+                fontSize={3.4}
+                fill="var(--muted-foreground)"
+                style={{ fontFamily: 'var(--font-mono, monospace)' }}
+              >
+                {y}
               </text>
             </g>
           ))}
 
-          {/* cash-flow arrows — grow in as the playhead reaches each period */}
-          {flows.map((f, idx) => {
-            const grow = Math.max(0, Math.min(1, playhead - f.t + 1))
-            if (grow <= 0) return null
+          {/* flows — sharp single-weight arrows, filled triangular heads */}
+          {flows.map((f) => {
             const up = f.amount >= 0
-            const full = (Math.abs(f.amount) / maxAmt) * maxBar
-            const len = full * grow
             const x = xOf(f.t)
-            const tipY = up ? axisY - len : axisY + len
-            const color = up ? 'var(--accent-mint)' : 'var(--accent-rose)'
-            const ah = 5
+            const len = lenOf(f.amount)
+            const tip = up ? axisY - len : axisY + len
+            const c = up ? IN : OUT
+            const hw = 1.5 // head half-width
+            const hl = 3 // head length
+            const base = up ? tip + hl : tip - hl
             return (
-              <g key={idx}>
-                <line x1={x} y1={axisY} x2={x} y2={tipY} stroke={color} strokeWidth={2.5} />
-                <path
-                  d={`M ${x - ah} ${tipY + (up ? ah : -ah)} L ${x} ${tipY} L ${x + ah} ${tipY + (up ? ah : -ah)} Z`}
-                  fill={color}
-                />
-                {grow > 0.85 && (
-                  <text
-                    x={x}
-                    y={up ? tipY - 5 : tipY + 12}
-                    textAnchor="middle"
-                    fontSize={8.5}
-                    fontWeight={600}
-                    fill={color}
-                  >
-                    {fmtMoney(f.amount)}
-                  </text>
-                )}
+              <g key={`${f.t}-${f.amount}`}>
+                <line x1={x} y1={axisY} x2={x} y2={base} stroke={c} strokeWidth={0.7} />
+                <path d={`M ${x - hw} ${base} L ${x} ${tip} L ${x + hw} ${base} Z`} fill={c} />
+                <text
+                  x={x}
+                  y={up ? tip - 2 : tip + 4.2}
+                  textAnchor="middle"
+                  fontSize={3.4}
+                  fontWeight={600}
+                  fill={c}
+                  style={{ fontFamily: 'var(--font-mono, monospace)' }}
+                >
+                  {fmtMoney(f.amount)}
+                </text>
               </g>
             )
           })}
 
-          {/* the traveling coin + its compounded balance */}
-          {running && (
+          {/* hover marker: dashed rule + compounded value at that instant */}
+          {hoverT !== null && (
             <g>
-              <circle cx={coinX} cy={axisY} r={6} fill="var(--accent-amber)" stroke="var(--background)" strokeWidth={1.5} />
-              <text x={coinX} y={axisY - 10} textAnchor="middle" fontSize={9} fontWeight={700} fill="var(--accent-amber)">
-                {fmtMoney(balNow)}
-              </text>
+              <line
+                x1={xOf(hoverT)}
+                y1={6}
+                x2={xOf(hoverT)}
+                y2={H - 10}
+                stroke="var(--ring)"
+                strokeWidth={0.4}
+                strokeDasharray="1.5 1.2"
+              />
+              <circle cx={xOf(hoverT)} cy={axisY} r={0.9} fill="var(--ring)" />
             </g>
           )}
         </svg>
 
-        {/* footer stats */}
-        <div className="absolute bottom-1 left-0 right-0 flex items-center justify-center gap-3 font-mono text-[9.5px] text-muted-foreground">
-          <span>FV(n={N}) {fmtMoney(stats.fv)}</span>
-          <span>IRR {stats.irr === null ? '—' : `${(stats.irr * 100).toFixed(1)}%`}</span>
-          <span className={stats.npv >= 0 ? 'text-[var(--accent-mint)]' : 'text-[var(--accent-rose)]'}>
-            {stats.npv >= 0 ? '▲ accept' : '▼ reject'}
-          </span>
-        </div>
+        {/* hover readout (HTML so the text never stretches with the viewBox) */}
+        {hoverT !== null && (
+          <div className="pointer-events-none absolute left-1/2 top-1 -translate-x-1/2 rounded-md border border-border bg-card px-2 py-0.5 text-center font-mono text-[10px] shadow-sm">
+            <span className="text-muted-foreground">t = {fmtYear(hoverT)} yr · </span>
+            <span style={{ color: hoverVal >= 0 ? IN : OUT }}>{fmtMoney(hoverVal)}</span>
+          </div>
+        )}
       </div>
 
-      {/* editor row */}
-      {editing ? (
-        <div className="flex items-center gap-1 border-t border-border/60 p-1.5">
-          <input
-            autoFocus
-            aria-label="Cash flows"
-            className="min-w-0 flex-1 rounded bg-background/60 px-2 py-1 font-mono text-[11px] outline-none"
-            defaultValue={flowsStr}
-            placeholder="0:-1000; 1:300; 2:300"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur()
-              e.stopPropagation()
-            }}
-            onBlur={(e) => {
-              if (e.target.value !== flowsStr) {
-                pushHistory(pageId)
-                setStringParam(pageId, object.id, 'flows', e.target.value)
-              }
-              setEditing(false)
-            }}
-          />
-          <input
-            aria-label="Interest rate percent"
-            type="number"
-            className="w-14 rounded bg-background/60 px-1.5 py-1 font-mono text-[11px] outline-none"
-            defaultValue={ratePct}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') e.currentTarget.blur()
-              e.stopPropagation()
-            }}
-            onBlur={(e) => {
-              const v = Number(e.target.value)
-              if (Number.isFinite(v) && v !== ratePct) {
-                pushHistory(pageId)
-                setParam(pageId, object.id, 'rate', String(v))
-              }
-              setEditing(false)
-            }}
-          />
-          <span className="pr-1 text-[10px] text-muted-foreground">%</span>
-        </div>
-      ) : (
-        selected && (
-          <button
-            type="button"
-            className="border-t border-border/60 py-1 text-center text-[10.5px] text-muted-foreground hover:text-foreground"
-            onClick={() => {
-              pushHistory(pageId)
-              setEditing(true)
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            edit flows &amp; rate — Play to watch money move through time
-          </button>
-        )
+      {selected && (
+        <p className="border-t border-border/60 py-1 text-center text-[10.5px] text-muted-foreground">
+          Edit investments, annuities and MARR in the Inspector
+        </p>
       )}
     </div>
   )

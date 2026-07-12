@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { num, type SceneObject } from '@/lib/scene/types'
+import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
  * a single click never enters text edit — only a double-click does. A
@@ -395,6 +396,201 @@ function AddRowButton({ label, onClick }: { label: string; onClick: () => void }
     >
       <Plus className="h-3 w-3" /> {label}
     </button>
+  )
+}
+
+/** Visual editor for the Cash Flow object. Years accept fractions — "1/2"
+ *  for semiannual, "1/4" for quarterly — everything else is plain money. */
+function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const spec = readSpec(getStr(object, 'spec'))
+  const write = (next: CashflowSpec) =>
+    setStringParam(pageId, object.id, 'spec', JSON.stringify(next))
+
+  const field =
+    'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 font-mono text-[11.5px] outline-none focus:border-[var(--ring)]'
+
+  /** Year cell: keeps the raw text so "1/2" survives while you type. */
+  const YearInput = ({ value, onCommit, label }: { value: number; onCommit: (v: number) => void; label: string }) => (
+    <input
+      aria-label={label}
+      className={field}
+      defaultValue={fmtYear(value)}
+      key={fmtYear(value)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        e.stopPropagation()
+      }}
+      onBlur={(e) => onCommit(parseYear(e.target.value, value))}
+    />
+  )
+  const MoneyInput = ({ value, onCommit, label }: { value: number; onCommit: (v: number) => void; label: string }) => (
+    <input
+      aria-label={label}
+      type="number"
+      className={field}
+      defaultValue={value}
+      key={value}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') e.currentTarget.blur()
+        e.stopPropagation()
+      }}
+      onBlur={(e) => {
+        const v = Number(e.target.value)
+        if (Number.isFinite(v)) onCommit(v)
+      }}
+    />
+  )
+  const Head = ({ children }: { children: React.ReactNode }) => (
+    <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      {children}
+    </div>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <SectionTitle>Description</SectionTitle>
+        <ExprInput
+          ariaLabel="Cash flow description"
+          mono={false}
+          placeholder="e.g. Machine A — 4-year purchase"
+          value={spec.description}
+          onCommit={(v) => write({ ...spec, description: v })}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Discrete investment</SectionTitle>
+        <Head>
+          <span>Year</span>
+          <span>Amount (+ up / − down)</span>
+          <span className="w-4" />
+        </Head>
+        {spec.discrete.map((d, idx) => (
+          <div key={idx} className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5">
+            <YearInput
+              label={`Discrete ${idx + 1} year`}
+              value={d.t}
+              onCommit={(t) => write({ ...spec, discrete: spec.discrete.map((x, k) => (k === idx ? { ...x, t } : x)) })}
+            />
+            <MoneyInput
+              label={`Discrete ${idx + 1} amount`}
+              value={d.amount}
+              onCommit={(amount) =>
+                write({ ...spec, discrete: spec.discrete.map((x, k) => (k === idx ? { ...x, amount } : x)) })
+              }
+            />
+            <button
+              type="button"
+              aria-label={`Remove discrete investment ${idx + 1}`}
+              className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+              onClick={() => write({ ...spec, discrete: spec.discrete.filter((_, k) => k !== idx) })}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+        <AddRowButton
+          label="Add another"
+          onClick={() => write({ ...spec, discrete: [...spec.discrete, { t: 0, amount: -100 }] })}
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Annuity</SectionTitle>
+        {spec.annuities.map((a, idx) => (
+          <div key={idx} className="space-y-1 rounded-xl border border-border/60 p-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                Series {idx + 1}
+              </span>
+              <button
+                type="button"
+                aria-label={`Remove annuity ${idx + 1}`}
+                className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+                onClick={() => write({ ...spec, annuities: spec.annuities.filter((_, k) => k !== idx) })}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">Starting year</span>
+                <YearInput
+                  label={`Annuity ${idx + 1} start`}
+                  value={a.start}
+                  onCommit={(start) =>
+                    write({ ...spec, annuities: spec.annuities.map((x, k) => (k === idx ? { ...x, start } : x)) })
+                  }
+                />
+              </label>
+              <label className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">Time period (yrs)</span>
+                <YearInput
+                  label={`Annuity ${idx + 1} periods`}
+                  value={a.periods}
+                  onCommit={(periods) =>
+                    write({ ...spec, annuities: spec.annuities.map((x, k) => (k === idx ? { ...x, periods } : x)) })
+                  }
+                />
+              </label>
+              <label className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">Every (1, 1/2, 1/4)</span>
+                <YearInput
+                  label={`Annuity ${idx + 1} interval`}
+                  value={a.every}
+                  onCommit={(every) =>
+                    write({
+                      ...spec,
+                      annuities: spec.annuities.map((x, k) => (k === idx ? { ...x, every: every > 0 ? every : 1 } : x)),
+                    })
+                  }
+                />
+              </label>
+              <label className="space-y-0.5">
+                <span className="text-[10px] text-muted-foreground">Amount</span>
+                <MoneyInput
+                  label={`Annuity ${idx + 1} amount`}
+                  value={a.amount}
+                  onCommit={(amount) =>
+                    write({ ...spec, annuities: spec.annuities.map((x, k) => (k === idx ? { ...x, amount } : x)) })
+                  }
+                />
+              </label>
+            </div>
+          </div>
+        ))}
+        <AddRowButton
+          label="Add another"
+          onClick={() =>
+            write({ ...spec, annuities: [...spec.annuities, { start: 0, periods: 5, every: 1, amount: 100 }] })
+          }
+        />
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Salvage value</SectionTitle>
+        <div className="flex items-center gap-2">
+          <span className="w-16 shrink-0 text-[11px] text-muted-foreground">Amount</span>
+          <MoneyInput label="Salvage value" value={spec.salvage} onCommit={(salvage) => write({ ...spec, salvage })} />
+        </div>
+        <p className="text-[10.5px] text-muted-foreground">Received at the end of the analysis horizon.</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>MARR</SectionTitle>
+        <div className="flex items-center gap-2">
+          <span className="w-16 shrink-0 text-[11px] text-muted-foreground">Percentage</span>
+          <MoneyInput label="MARR percent" value={spec.marr} onCommit={(marr) => write({ ...spec, marr })} />
+          <span className="text-[11px] text-muted-foreground">%</span>
+        </div>
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Discount rate for PW / FW / AW. Years accept fractions —{' '}
+          <span className="font-mono">1/2</span> is semiannual, <span className="font-mono">1/4</span> quarterly.
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -780,6 +976,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       {object.geometry.kind === 'graph' && (
         <GraphOptions pageId={pageId} object={object} bodies={bodies} />
       )}
+
+      {object.geometry.kind === 'cashflow' && <CashflowOptions pageId={pageId} object={object} />}
 
       {contentParams.length > 0 && (
         <div className="space-y-1.5">
