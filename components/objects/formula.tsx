@@ -1,15 +1,27 @@
 'use client'
 
+// Formula card. Write `f(x) = x^2 + 3*x, 10<x<20` (bounds optional, several
+// variables → partials) and a floating action bar offers d/dx, ∂/∂x and ∫dx
+// per variable — the worked, step-by-step solution renders inside the card.
+
 import { useMemo, useState } from 'react'
 import katex from 'katex'
+import { X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
+import { parseFormula, derivativeSteps, integralSteps } from '@/lib/formula/steps'
 import { getString, type ObjectRendererProps } from './types'
+
+const BTN =
+  'rounded-lg px-2 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
 
 export function FormulaObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
   const pushHistory = useDocStore((s) => s.pushHistory)
   const [editing, setEditing] = useState(false)
   const latex = getString(object, 'latex')
+  const solution = getString(object, 'solution')
+
+  const parsed = useMemo(() => parseFormula(latex), [latex])
 
   const html = useMemo(() => {
     try {
@@ -19,8 +31,69 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
     }
   }, [latex])
 
+  const solHtml = useMemo(() => {
+    if (!solution) return ''
+    try {
+      return katex.renderToString(`\\begin{gathered}${solution}\\end{gathered}`, {
+        displayMode: true,
+        throwOnError: false,
+      })
+    } catch {
+      return '<span>Could not render the solution</span>'
+    }
+  }, [solution])
+
+  const solve = (kind: 'd' | 'i', v: string) => {
+    if (!parsed) return
+    pushHistory(pageId)
+    try {
+      const steps = kind === 'd' ? derivativeSteps(parsed, v) : integralSteps(parsed, v)
+      setStringParam(pageId, object.id, 'solution', steps)
+    } catch {
+      setStringParam(pageId, object.id, 'solution', `\\text{could not solve — check the expression}`)
+    }
+  }
+
   return (
-    <div className="flex h-full w-full flex-col justify-center rounded-xl bg-card/60 p-3 hairline">
+    <div className="relative flex h-full w-full flex-col justify-center rounded-xl bg-card/60 p-3 hairline">
+      {/* Calculus action bar — shows once the text parses as f(x) = … */}
+      {selected && !editing && parsed && (
+        <div
+          className="glass-strong absolute -top-11 left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-xl p-1"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {parsed.vars.map((v) => (
+            <button key={`d${v}`} type="button" className={BTN} onClick={() => solve('d', v)}>
+              {parsed.vars.length > 1 ? `∂/∂${v}` : `d/d${v}`}
+            </button>
+          ))}
+          {parsed.vars.map((v) => (
+            <button
+              key={`i${v}`}
+              type="button"
+              className={BTN}
+              title={parsed.bounds[v] ? `Definite: ${parsed.bounds[v][0]} to ${parsed.bounds[v][1]}` : 'Indefinite'}
+              onClick={() => solve('i', v)}
+            >
+              ∫d{v}
+            </button>
+          ))}
+          {solution && (
+            <button
+              type="button"
+              aria-label="Clear solution"
+              className="rounded-lg p-1 text-muted-foreground hover:text-[var(--accent-rose)]"
+              onClick={() => {
+                pushHistory(pageId)
+                setStringParam(pageId, object.id, 'solution', '')
+              }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      )}
+
       {editing ? (
         <input
           autoFocus
@@ -47,8 +120,21 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
           dangerouslySetInnerHTML={{ __html: html }}
         />
       )}
+
+      {solution && !editing && (
+        <div
+          className="mt-2 min-h-0 overflow-y-auto border-t border-border/60 pt-2 text-[13px] [&_.katex-display]:my-0"
+          aria-label="Worked solution"
+          dangerouslySetInnerHTML={{ __html: solHtml }}
+        />
+      )}
+
       {selected && !editing && (
-        <p className="mt-1 text-center text-[10.5px] text-muted-foreground">double-click to edit</p>
+        <p className="mt-1 text-center text-[10.5px] text-muted-foreground">
+          {parsed
+            ? 'double-click to edit — use the bar above to solve'
+            : 'double-click to edit — write f(x) = x^2 + 3*x, 10<x<20 to unlock solving'}
+        </p>
       )}
     </div>
   )
