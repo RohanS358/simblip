@@ -444,7 +444,42 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
-    return () => el.removeEventListener('wheel', onWheel)
+    // Trackpad pinch: Chromium/Firefox synthesize ctrl+wheel (handled above),
+    // but Safari fires proprietary gesture* events instead — cover those too.
+    interface SafariGestureEvent extends UIEvent {
+      scale: number
+      clientX: number
+      clientY: number
+    }
+    let pinchStartZoom = 1
+    const onGestureStart = (e: Event) => {
+      e.preventDefault()
+      pinchStartZoom = (useDocStore.getState().viewports[pageId] ?? { zoom: 1 }).zoom
+    }
+    const onGestureChange = (e: Event) => {
+      e.preventDefault()
+      const ge = e as SafariGestureEvent
+      const store = useDocStore.getState()
+      const v = store.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+      const rect = el.getBoundingClientRect()
+      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartZoom * ge.scale))
+      const sx = ge.clientX - rect.left
+      const sy = ge.clientY - rect.top
+      store.setViewport(pageId, {
+        zoom,
+        x: sx - ((sx - v.x) * zoom) / v.zoom,
+        y: sy - ((sy - v.y) * zoom) / v.zoom,
+      })
+    }
+    el.addEventListener('gesturestart', onGestureStart)
+    el.addEventListener('gesturechange', onGestureChange)
+    el.addEventListener('gestureend', onGestureStart)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('gesturestart', onGestureStart)
+      el.removeEventListener('gesturechange', onGestureChange)
+      el.removeEventListener('gestureend', onGestureStart)
+    }
   }, [pageId])
 
   // Global keyboard map. Skipped while typing in inputs/contentEditable.
