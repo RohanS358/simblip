@@ -21,45 +21,46 @@ const DOC_H = 1123
 
 export type ConvertProgress = (done: number, total: number) => void
 
-/** An off-screen host the renderers can lay out into. Must be attached to
- *  the document (not display:none) or html2canvas measures everything as 0. */
-function stage(width: number): HTMLDivElement {
-  const el = document.createElement('div')
-  el.dataset.pdfStage = ''
-  el.style.cssText =
-    `position:fixed;left:-10000px;top:0;width:${width}px;background:#fff;color:#111;` +
-    `z-index:-1;color-scheme:light;`
-  ensureStageReset()
-  document.body.appendChild(el)
-  return el
+interface Stage {
+  /** where the renderer lays the document out */
+  host: HTMLElement
+  /** the iframe's own document — pass its <head> as a style container */
+  doc: Document
+  cleanup: () => void
 }
 
-/** Inline styles can't reach ::before/::after, and Tailwind's preflight paints
- *  those too — so neutralize them for the stage subtree with a rule in <head>
- *  (the renderers wipe the stage's own children, so it can't live inside it).
- *  The renderers never use pseudo-elements for content, so nothing is lost. */
-function ensureStageReset() {
-  const ID = 'simblip-pdf-stage-reset'
-  if (document.getElementById(ID)) return
-  const reset = document.createElement('style')
-  reset.id = ID
-  reset.textContent =
-    '[data-pdf-stage] *::before, [data-pdf-stage] *::after {' +
-    'border-color: transparent !important;' +
-    'background-image: none !important;' +
-    'box-shadow: none !important;' +
-    'color: #111 !important;' +
-    'outline-color: transparent !important;' +
-    '}'
-  document.head.appendChild(reset)
+/**
+ * An off-screen stage inside a BLANK IFRAME.
+ *
+ * This has to be an iframe, not a hidden div. html2canvas 1.4 cannot parse
+ * modern CSS color functions — it throws "unsupported color function lab" the
+ * moment it meets lab()/lch()/oklch()/color-mix() — and it inspects the whole
+ * document, `html` and `body` included. Our design tokens are oklch and
+ * Tailwind's preflight paints `*`, so a div inside our page is poisoned by the
+ * app's own stylesheet no matter what we override on the subtree. An iframe
+ * with its own empty document simply has none of that CSS in it.
+ */
+function stage(width: number): Promise<Stage> {
+  return new Promise((resolve) => {
+    const frame = document.createElement('iframe')
+    frame.setAttribute('aria-hidden', 'true')
+    frame.style.cssText =
+      `position:fixed;left:-10000px;top:0;border:0;visibility:hidden;` +
+      `width:${width}px;height:3000px;`
+    frame.srcdoc =
+      '<!doctype html><html><head><meta charset="utf-8"></head>' +
+      '<body style="margin:0;padding:0;background:#fff;color:#111"></body></html>'
+    frame.onload = () => {
+      const doc = frame.contentDocument!
+      resolve({ host: doc.body, doc, cleanup: () => frame.remove() })
+    }
+    document.body.appendChild(frame)
+  })
 }
 
-// html2canvas 1.4 predates the modern CSS color functions — it throws
-// "unsupported color function" the moment it meets lab()/lch()/oklch() or
-// color-mix(). Our design tokens are oklch and Tailwind's preflight paints
-// borders/colors onto EVERY element, so the app's own styles leak into the
-// off-screen stage and poison it. Rewrite only the offending values to safe
-// equivalents (colors from the document itself are plain rgb and untouched).
+// Belt and braces: a document could itself carry a modern color function.
+// Rewrite only the offending values; anything the file specified as plain rgb
+// is left exactly as it is, so fidelity is unaffected.
 const UNSUPPORTED_COLOR = /\b(?:lab|lch|oklab|oklch|color-mix|color)\(/i
 
 const SAFE_FALLBACK: Record<string, string> = {
@@ -74,14 +75,17 @@ const SAFE_FALLBACK: Record<string, string> = {
   'text-decoration-color': 'currentColor',
   'column-rule-color': 'transparent',
   'box-shadow': 'none',
+  'text-shadow': 'none',
   fill: '#111111',
   stroke: 'none',
 }
 
 function sanitizeColors(root: HTMLElement) {
+  const view = root.ownerDocument.defaultView
+  if (!view) return
   const els: HTMLElement[] = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]
   for (const el of els) {
-    const cs = getComputedStyle(el)
+    const cs = view.getComputedStyle(el)
     for (const prop of Object.keys(SAFE_FALLBACK)) {
       const value = cs.getPropertyValue(prop)
       if (value && UNSUPPORTED_COLOR.test(value)) {
@@ -115,8 +119,12 @@ async function pagesToPdf(
       backgroundColor: '#ffffff',
       logging: false,
       useCORS: true,
-      // html2canvas re-applies the page's stylesheets inside its own clone,
-      // which resurrects the oklch values — sanitize the clone as well.
+      // Pin the capture to the page box — the iframe's viewport must never
+      // clip a slide or a tall page.
+      width: size.w,
+      height: size.h,
+      windowWidth: size.w,
+      windowHeight: size.h,
       onclone: (_doc, element) => sanitizeColors(element as HTMLElement),
     })
     if (i > 0) pdf.addPage([size.w, size.h], landscape ? 'landscape' : 'portrait')
@@ -128,7 +136,7 @@ async function pagesToPdf(
 
 async function pptxToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob> {
   const { init } = await import('pptx-preview')
-  const host = stage(PPT_W)
+  const { host, cleanup } = await stage(PPT_W)
   try {
     // 'list' mode lays every slide out at once (the default paginates to a
     // single visible slide, which would give us a one-page PDF).
@@ -138,15 +146,17 @@ async function pptxToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob
     if (slides.length === 0) throw new Error('No slides found in this presentation.')
     return await pagesToPdf(slides, { w: PPT_W, h: PPT_H }, onProgress)
   } finally {
-    host.remove()
+    cleanup()
   }
 }
 
 async function docxToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob> {
   const docx = await import('docx-preview')
-  const host = stage(DOC_W)
+  const { host, doc, cleanup } = await stage(DOC_W)
   try {
-    await docx.renderAsync(await file.arrayBuffer(), host, undefined, {
+    // Its stylesheet goes into the IFRAME's head — keeping the whole render
+    // inside the clean document.
+    await docx.renderAsync(await file.arrayBuffer(), host, doc.head, {
       className: 'docx',
       inWrapper: false,
       breakPages: true, // gives us one <section> per printed page
@@ -158,7 +168,7 @@ async function docxToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob
     const pages = sections.length > 0 ? sections : [host]
     return await pagesToPdf(pages, { w: DOC_W, h: DOC_H }, onProgress)
   } finally {
-    host.remove()
+    cleanup()
   }
 }
 
@@ -167,11 +177,11 @@ async function textToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob
   const text = await file.text()
   const LINES = 52
   const lines = text.split(/\r?\n/)
-  const host = stage(DOC_W)
+  const { host, doc, cleanup } = await stage(DOC_W)
   try {
     const pages: HTMLElement[] = []
     for (let i = 0; i < lines.length; i += LINES) {
-      const page = document.createElement('div')
+      const page = doc.createElement('div')
       page.style.cssText = `width:${DOC_W}px;height:${DOC_H}px;padding:48px;box-sizing:border-box;background:#fff;color:#111;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;word-break:break-word;`
       page.textContent = lines.slice(i, i + LINES).join('\n')
       host.appendChild(page)
@@ -180,7 +190,7 @@ async function textToPdf(file: File, onProgress?: ConvertProgress): Promise<Blob
     if (pages.length === 0) throw new Error('The file is empty.')
     return await pagesToPdf(pages, { w: DOC_W, h: DOC_H }, onProgress)
   } finally {
-    host.remove()
+    cleanup()
   }
 }
 
