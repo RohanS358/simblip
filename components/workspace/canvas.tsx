@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
+import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
@@ -354,6 +355,9 @@ const ObjectView = memo(function ObjectView({
 
 export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const containerRef = useRef<HTMLDivElement>(null)
+  // "/" quick-insert menu: opens at the pointer on empty canvas.
+  const [slash, setSlash] = useState<{ screen: Vec2; canvas: Vec2 } | null>(null)
+  const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const spaceRef = useRef(false)
   // Touch state: live touch points, the two-finger pinch baseline, and the
@@ -565,6 +569,22 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         }
       }
       if (mod || locked) return
+
+      // "/" on empty canvas opens the quick-insert menu at the pointer —
+      // same registry the Ctrl+K search uses.
+      if (e.key === '/') {
+        e.preventDefault()
+        const rect = containerRef.current?.getBoundingClientRect()
+        const lp = lastPointerRef.current
+        const clientX = lp?.clientX ?? (rect ? rect.left + rect.width / 2 : 0)
+        const clientY = lp?.clientY ?? (rect ? rect.top + rect.height / 2 : 0)
+        setSlash({
+          screen: { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) },
+          canvas: toCanvas(clientX, clientY),
+        })
+        return
+      }
+
       const toolKeys: Record<string, Tool> = {
         v: 'select', p: 'pen', s: 'shaper', c: 'circle', r: 'rect', l: 'line',
         t: 'text', n: 'note', f: 'formula', g: 'graph',
@@ -585,7 +605,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [pageId])
+  }, [pageId, toCanvas])
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
@@ -1761,8 +1781,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       onPointerMoveCapture={handleTouchMoveCapture}
       onPointerUpCapture={handleTouchUpCapture}
       onPointerCancelCapture={handleTouchUpCapture}
+      onPointerMove={(e) => {
+        lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
+      }}
       onPointerDown={(e) => {
         setCtxMenu(null)
+        setSlash(null)
         handleBackgroundPointerDown(e)
       }}
       onContextMenu={handleContextMenu}
@@ -1842,6 +1866,17 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               </svg>
             )
           })()}
+
+        {slash && (
+          <SlashMenu
+            screen={slash.screen}
+            onClose={() => setSlash(null)}
+            onPick={(item) => {
+              insertAt(pageId, item, slash.canvas)
+              setSlash(null)
+            }}
+          />
+        )}
 
         {stroke && stroke.length > 1 && (
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
@@ -2123,6 +2158,89 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
       <div className="glass absolute bottom-[4.5rem] right-3 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
         {Math.round(viewport.zoom * 100)}%
+      </div>
+    </div>
+  )
+}
+
+/** "/" quick-insert menu — type to filter every component and widget, Enter
+ *  or click to drop it where the pointer was. Same registry as Ctrl+K. */
+function SlashMenu({
+  screen,
+  onPick,
+  onClose,
+}: {
+  screen: Vec2
+  onPick: (item: Insertable) => void
+  onClose: () => void
+}) {
+  const [q, setQ] = useState('')
+  const [sel, setSel] = useState(0)
+  const results = searchInsertables(q, 40)
+  const listRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => setSel(0), [q])
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>(`[data-i="${sel}"]`)?.scrollIntoView({ block: 'nearest' })
+  }, [sel])
+
+  return (
+    <div
+      className="glass-strong absolute z-[60] w-64 overflow-hidden rounded-xl p-1 shadow-lg"
+      style={{
+        left: Math.max(4, screen.x),
+        top: Math.max(4, screen.y),
+        maxHeight: 300,
+      }}
+      onPointerDown={(e) => e.stopPropagation()}
+    >
+      <input
+        autoFocus
+        aria-label="Insert a component"
+        placeholder="Insert…"
+        className="w-full rounded-lg bg-transparent px-2 py-1.5 text-[13px] outline-none"
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        onBlur={onClose}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (e.key === 'Escape') onClose()
+          else if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setSel((i) => Math.min(i + 1, results.length - 1))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setSel((i) => Math.max(i - 1, 0))
+          } else if (e.key === 'Enter' && results[sel]) {
+            e.preventDefault()
+            onPick(results[sel])
+          }
+        }}
+      />
+      <div ref={listRef} className="no-scrollbar max-h-[236px] overflow-y-auto border-t border-border/60 pt-1">
+        {results.length === 0 && (
+          <p className="px-2 py-3 text-center text-[12px] text-muted-foreground">Nothing matches.</p>
+        )}
+        {results.map((it, i) => (
+          <button
+            key={it.id}
+            type="button"
+            data-i={i}
+            className={cn(
+              'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors',
+              i === sel ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'
+            )}
+            onPointerEnter={() => setSel(i)}
+            // pointerdown (not click) — the input's onBlur would close us first
+            onPointerDown={(e) => {
+              e.preventDefault()
+              onPick(it)
+            }}
+          >
+            <span className="min-w-0 flex-1 truncate">{it.label}</span>
+            <span className="shrink-0 text-[10.5px] opacity-60">{it.group}</span>
+          </button>
+        ))}
       </div>
     </div>
   )

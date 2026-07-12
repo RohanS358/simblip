@@ -1,7 +1,9 @@
 'use client'
 
-// Global search & command palette (Ctrl/Cmd+K). Searches pages, notebooks
-// and library assets; exposes quick actions and role-aware navigation.
+// Global search & command palette (Ctrl/Cmd+K). Searches pages, notebooks,
+// library assets AND the whole component palette — picking a component drops
+// it straight onto the open page. Also exposes quick actions and role-aware
+// navigation. The canvas "/" menu searches the same registry.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -14,11 +16,13 @@ import {
   NotebookPen,
   Plus,
   Settings,
+  Shapes,
   ShieldCheck,
   Sun,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { searchInsertables, insertAt, viewportCenter } from '@/lib/scene/insertables'
 import { useAuthStore } from '@/lib/auth/store'
 import { listAssets } from '@/lib/data/library'
 import { importPageDoc } from '@/lib/store/import-page'
@@ -50,6 +54,13 @@ export function CommandPalette({
   const notebooks = useWorkspaceStore((s) => s.notebooks)
   const profile = useAuthStore((s) => s.profile)
   const [assets, setAssets] = useState<LibraryAssetRow[]>([])
+  const [query, setQuery] = useState('')
+  const activePageId = useWorkspaceStore((s) => s.activePageId)
+  // Components only make sense with a page open to drop them onto.
+  const components = useMemo(
+    () => (activePageId ? searchInsertables(query, query.trim() ? 8 : 6) : []),
+    [query, activePageId]
+  )
 
   useEffect(() => {
     if (open) void listAssets().then(setAssets).catch(() => setAssets([]))
@@ -77,9 +88,35 @@ export function CommandPalette({
 
   return (
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Command palette" description="Search pages, assets and actions">
-      <CommandInput placeholder="Search pages, library, actions…" />
+      <CommandInput
+        placeholder="Search components, pages, library, actions…"
+        value={query}
+        onValueChange={setQuery}
+      />
       <CommandList>
         <CommandEmpty>No results.</CommandEmpty>
+
+        {components.length > 0 && (
+          <CommandGroup heading="Insert">
+            {components.map((it) => (
+              <CommandItem
+                key={it.id}
+                value={`insert ${it.label} ${it.group} ${it.keywords}`}
+                onSelect={() =>
+                  run(() => {
+                    if (!activePageId) return
+                    insertAt(activePageId, it, viewportCenter(activePageId))
+                    router.push('/notebook')
+                  })
+                }
+              >
+                <Shapes className="h-4 w-4" />
+                <span className="truncate">{it.label}</span>
+                <span className="ml-auto text-[11px] text-muted-foreground">{it.group}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+        )}
 
         {pages.length > 0 && (
           <CommandGroup heading="Pages">

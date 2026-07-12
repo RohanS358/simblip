@@ -1,14 +1,20 @@
 'use client'
 
-// Session document element — one full PDF page at a time, rendered by
-// pdf.js onto a high-DPI canvas (crisp at any whiteboard zoom, no browser
-// viewer chrome). The content is pointer-inert: clicking/dragging the body
-// selects and moves the element like any other object; ONLY the floating
-// control bar is interactive. Files are session-only, never saved.
+// Session document element — a PDF VIEWER AND CONVERTER. One full page at a
+// time, rendered by pdf.js onto a high-DPI canvas (crisp at any whiteboard
+// zoom, no browser viewer chrome). Presentations and documents (pptx, docx,
+// txt…) are converted to PDF IN THE BROWSER (lib/store/to-pdf.ts — no server
+// binary, so it works on Vercel) and then flow through the exact same
+// pipeline, so everything ends up a PDF. The content is pointer-inert:
+// clicking/dragging the body selects and moves the element like any other
+// object; ONLY the floating control bar is interactive. Files are
+// session-only, never saved.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileUp, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2 } from 'lucide-react'
+import { toast } from 'sonner'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
+import { convertToPdf } from '@/lib/store/to-pdf'
 import { cn } from '@/lib/utils'
 import type { ObjectRendererProps } from './types'
 
@@ -38,6 +44,7 @@ export function FileObject({ object }: ObjectRendererProps) {
   const [numPages, setNumPages] = useState(0)
   const [rev, setRev] = useState(0) // bumps when a file is (re)attached
   const [fs, setFs] = useState(false)
+  const [converting, setConverting] = useState<string | null>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -65,6 +72,37 @@ export function FileObject({ object }: ObjectRendererProps) {
       dead = true
     }
   }, [local, sharedUrl, object.metadata.fileName, object.metadata.fileMime])
+
+  /** Attach a file. Anything that isn't already a PDF or an image is
+   *  converted to PDF in the browser first, so the viewer only ever
+   *  renders PDFs (and slide nav / the phone remote keep working). */
+  const attach = async (f: File) => {
+    const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+    const alreadyViewable =
+      f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
+
+    let toStore: File = f
+    if (!alreadyViewable) {
+      setConverting('Converting to PDF…')
+      try {
+        toStore = await convertToPdf(f, (done, total) =>
+          setConverting(`Converting to PDF… ${done}/${total}`)
+        )
+        toast.success(`Converted ${f.name} to PDF`)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not convert this file to PDF.')
+        return
+      } finally {
+        setConverting(null)
+      }
+    }
+
+    putSessionFile(object.id, toStore)
+    docRef.current = null
+    setNumPages(0)
+    setPage(1)
+    setRev((n) => n + 1)
+  }
 
   const file = local ?? shared
   const isPdf = file?.mime === 'application/pdf' || (file?.name.toLowerCase().endsWith('.pdf') ?? false)
@@ -154,14 +192,21 @@ export function FileObject({ object }: ObjectRendererProps) {
         ref={boxRef}
         className="pointer-events-none relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-neutral-900"
       >
-        {!file ? (
+        {converting ? (
+          <div className="flex flex-col items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="text-[12px]">{converting}</span>
+          </div>
+        ) : !file ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <FileUp className="h-6 w-6" />
             <span className="px-4 text-center text-[12px] leading-relaxed">
-              {object.name || 'Attach a PDF or image'}
+              {object.name || 'Attach a document, slide deck or image'}
               <br />
               <span className="text-[10.5px] opacity-70">
-                Session-only — never saved to the cloud. PowerPoint? Export it as PDF first.
+                PDF, PowerPoint (.pptx), Word (.docx), text or image — anything that
+                isn&apos;t a PDF is converted to one right here in your browser.
+                Session-only, never saved to the cloud.
               </span>
             </span>
           </div>
@@ -261,17 +306,12 @@ export function FileObject({ object }: ObjectRendererProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,image/*,.pptx,.ppt"
+        accept=".pdf,image/*,.pptx,.docx,.txt,.md,.csv"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]
-          if (f) {
-            putSessionFile(object.id, f)
-            docRef.current = null
-            setNumPages(0)
-            setPage(1)
-            setRev((n) => n + 1)
-          }
+          e.target.value = '' // let the same file be re-picked after an error
+          if (f) void attach(f)
         }}
       />
     </div>
