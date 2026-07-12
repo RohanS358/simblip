@@ -18,12 +18,15 @@ export interface ParsedFormula {
 }
 
 export function parseFormula(text: string): ParsedFormula | null {
-  const main = text.split(',')[0]
-  const mm = /^\s*([a-zA-Z]\w*)\s*\(\s*([a-zA-Z]\w*(?:\s*,\s*[a-zA-Z]\w*)*)\s*\)\s*=\s*(.+)$/.exec(main)
-  if (!mm) return null
+  // Pull bound clauses out FIRST (they're comma-separated, but so is a
+  // multi-variable signature g(x,y) — splitting on comma would break it).
   const bounds: Record<string, [number, number]> = {}
-  for (const bm of text.matchAll(/(-?\d+(?:\.\d+)?)\s*<\s*([a-zA-Z]\w*)\s*<\s*(-?\d+(?:\.\d+)?)/g))
-    bounds[bm[2]] = [Number(bm[1]), Number(bm[3])]
+  const boundRe = /(-?\d+(?:\.\d+)?)\s*<\s*([a-zA-Z]\w*)\s*<\s*(-?\d+(?:\.\d+)?)/g
+  for (const bm of text.matchAll(boundRe)) bounds[bm[2]] = [Number(bm[1]), Number(bm[3])]
+  // The definition is whatever's left once the bounds (and their commas) go.
+  const main = text.replace(boundRe, '').replace(/,\s*$/g, '').replace(/,\s*,/g, ',').trim().replace(/,\s*$/, '')
+  const mm = /^\s*([a-zA-Z]\w*)\s*\(\s*([a-zA-Z]\w*(?:\s*,\s*[a-zA-Z]\w*)*)\s*\)\s*=\s*(.+?)\s*,?\s*$/.exec(main)
+  if (!mm) return null
   try {
     m.parse(mm[3])
   } catch {
