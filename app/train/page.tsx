@@ -120,16 +120,31 @@ export default function TrainPage() {
                 )
             )}
           </svg>
-          <div className="flex items-center gap-2 text-[12px] text-muted-foreground">
-            {match ? (
-              <span>
-                Recognizer currently reads this as <b>{match.name}</b> (
-                {(match.score * 100).toFixed(0)}%)
-              </span>
-            ) : (
-              <span>{points.length > 15 ? 'No template matches this yet.' : 'Draw a symbol above.'}</span>
+          <div className="space-y-1 text-[12px] text-muted-foreground">
+            <div className="flex items-center gap-2">
+              {match ? (
+                <span>
+                  Recognizer currently reads this as <b>{match.name}</b> (
+                  {(match.score * 100).toFixed(0)}%)
+                </span>
+              ) : (
+                <span>{points.length > 15 ? 'No template matches this yet.' : 'Draw a symbol above.'}</span>
+              )}
+              {flash && <span className="ml-auto font-semibold text-[var(--accent-mint)]">{flash}</span>}
+            </div>
+            {/* The decision tree explains itself — these are the questions it
+                asked to tell this symbol apart from the others. */}
+            {match?.why && match.why.length > 0 && (
+              <p className="flex flex-wrap items-center gap-1 text-[11px]">
+                <span className="text-muted-foreground/70">because</span>
+                {match.why.map((q, k) => (
+                  <span key={k} className="flex items-center gap-1">
+                    {k > 0 && <span className="text-muted-foreground/50">→</span>}
+                    <code className="rounded bg-accent px-1 py-px font-mono text-[10.5px]">{q}</code>
+                  </span>
+                ))}
+              </p>
             )}
-            {flash && <span className="ml-auto font-semibold text-[var(--accent-mint)]">{flash}</span>}
           </div>
         </div>
 

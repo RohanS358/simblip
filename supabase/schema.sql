@@ -485,9 +485,15 @@ create table if not exists public.simblip_sketch_templates (
   name         text not null,
   component_id text not null,
   cloud        jsonb not null,              -- 32-point normalized cloud
+  strokes      jsonb,                       -- normalized raw strokes (see below)
   contributor  text,
   created_at   timestamptz not null default now()
 );
+
+-- Raw strokes are kept so richer descriptors (body-only clouds, the decision
+-- tree's features — lib/sketch/features.ts) can be recomputed as the
+-- recognizer improves, WITHOUT asking anyone to redraw their examples.
+alter table public.simblip_sketch_templates add column if not exists strokes jsonb;
 
 alter table public.simblip_sketch_templates enable row level security;
 

@@ -13,20 +13,36 @@
 
 import * as db from '@/lib/data/db'
 import { useAuthStore } from '@/lib/auth/store'
+import {
+  normalizeStrokes,
+  stripLeads,
+  features,
+  trainTree,
+  classify,
+  type StrokeSet,
+  type TreeNode,
+  type Sample,
+} from './features'
 
 export interface CustomSketchTemplate {
   id: string
   name: string
   /** palette component id this sketch spawns (lib/scene/factory COMPONENTS) */
   componentId: string
-  /** normalized cloud: N points, centroid at origin, unit scale */
+  /** normalized cloud of the FULL symbol (legacy + coarse pre-filter) */
   cloud: number[][]
+  /** normalized strokes — the raw shape, so any future descriptor can be
+   *  recomputed without asking anyone to redraw their examples */
+  strokes?: StrokeSet
+  /** cloud of the BODY only (leads stripped) — what actually discriminates */
+  bodyCloud?: number[][]
 }
 
 interface TemplateRow extends db.Row {
   name: string
   component_id: string
   cloud: number[][]
+  strokes?: StrokeSet | null
   contributor?: string | null
 }
 
@@ -126,7 +142,22 @@ function cloudDistance(a: number[][], b: number[][]): number {
 }
 
 let cache: CustomSketchTemplate[] = []
+let tree: TreeNode | null = null
 let syncStarted = false
+
+/** Fill in the derived descriptors (body cloud) a template is matched on. */
+function hydrate(t: CustomSketchTemplate): CustomSketchTemplate {
+  const strokes: StrokeSet = t.strokes ?? [t.cloud]
+  return { ...t, strokes, bodyCloud: normalizeCloud(stripLeads(strokes)) }
+}
+
+/** Learn the decision tree from every labelled example in the library. */
+function retrain() {
+  const rows: Sample[] = cache
+    .filter((t) => t.strokes && t.strokes.length > 0)
+    .map((t) => ({ x: features(t.strokes as StrokeSet), y: t.componentId }))
+  tree = rows.length >= 4 ? trainTree(rows) : null
+}
 
 /** Pull the shared template library into the matcher's cache. Also migrates
  *  any pre-cloud localStorage examples up into the shared store once. */
@@ -151,7 +182,18 @@ export async function syncCustomTemplates(): Promise<void> {
   }
   try {
     const rows = await db.list<TemplateRow>('sketch_templates')
-    cache = rows.map((r) => ({ id: r.id, name: r.name, componentId: r.component_id, cloud: r.cloud }))
+    cache = rows.map((r) =>
+      hydrate({
+        id: r.id,
+        name: r.name,
+        componentId: r.component_id,
+        cloud: r.cloud,
+        // Templates saved before strokes were stored fall back to treating
+        // the cloud as one stroke — they still work, just a bit coarser.
+        strokes: r.strokes ?? undefined,
+      })
+    )
+    retrain()
   } catch {
     /* offline or table missing — keep whatever the cache holds */
   }
@@ -171,20 +213,24 @@ export function listCustomTemplates(): CustomSketchTemplate[] {
 /** Save one example as (another) template for a component. Lands in the
  *  shared library so everyone's recognition improves; the local cache is
  *  updated optimistically so it matches immediately. */
-export function addCustomTemplate(name: string, componentId: string, rawStrokes: number[][][]): void {
-  const tpl: CustomSketchTemplate = {
+export function addCustomTemplate(name: string, componentId: string, rawStrokes: StrokeSet): void {
+  const strokes = normalizeStrokes(rawStrokes)
+  const tpl = hydrate({
     id: db.newId(),
     name,
     componentId,
     cloud: normalizeCloud(rawStrokes),
-  }
+    strokes,
+  })
   cache = [...cache, tpl]
+  retrain() // the new example teaches the tree immediately
   void db
     .insert('sketch_templates', {
       id: tpl.id,
       name,
       component_id: componentId,
       cloud: tpl.cloud,
+      strokes,
       contributor: useAuthStore.getState().profile?.full_name ?? null,
     })
     .catch(() => {
@@ -194,28 +240,61 @@ export function addCustomTemplate(name: string, componentId: string, rawStrokes:
 
 export function removeCustomTemplate(id: string): void {
   cache = cache.filter((t) => t.id !== id)
+  retrain()
   void db.removeById('sketch_templates', id).catch(() => {})
 }
 
-/** Best template match for a drawn stroke, or null when nothing is close. */
+/**
+ * Recognize a sketch. Two stages, because symbols share most of their shape:
+ *
+ *   1. The decision tree asks discriminating QUESTIONS about the drawing
+ *      (does it reverse direction 4+ times? are there two vertical bars? is
+ *      it circular?) and narrows to a few candidate components.
+ *   2. Among those candidates only, the cloud distance is measured on the
+ *      BODY (leads stripped) — so the unique part decides, not the shared
+ *      leads that used to drown it out.
+ *
+ * With no tree yet (a nearly empty library) it degrades to the plain
+ * whole-shape match, so early training still works.
+ */
 export function matchCustomSketch(
-  rawStrokes: number[][][]
-): { componentId: string; name: string; score: number } | null {
+  rawStrokes: StrokeSet
+): { componentId: string; name: string; score: number; why?: string[] } | null {
   ensureSync()
-  const templates = cache
-  if (templates.length === 0) return null
-  const cloud = normalizeCloud(rawStrokes)
-  if (cloud.length === 0) return null
+  if (cache.length === 0) return null
+  const strokes = normalizeStrokes(rawStrokes)
+  if (strokes.flat().length < 3) return null
+
+  const bodyCloud = normalizeCloud(stripLeads(strokes))
+  const fullCloud = normalizeCloud(strokes)
+  if (bodyCloud.length === 0 || fullCloud.length === 0) return null
+
+  // Stage 1 — the tree narrows the field.
+  let candidates: CustomSketchTemplate[] = cache
+  let why: string[] | undefined
+  if (tree) {
+    const { classes, path } = classify(tree, features(strokes))
+    const narrowed = cache.filter((t) => classes.includes(t.componentId))
+    if (narrowed.length > 0) {
+      candidates = narrowed
+      why = path
+    }
+  }
+
+  // Stage 2 — body-first distance among the candidates. The full-shape
+  // distance still contributes a little so gross mismatches are rejected.
   let best: CustomSketchTemplate | null = null
   let bestD = Infinity
-  for (const t of templates) {
-    const d = cloudDistance(cloud, t.cloud)
+  for (const t of candidates) {
+    const dBody = t.bodyCloud?.length ? cloudDistance(bodyCloud, t.bodyCloud) : 1
+    const dFull = cloudDistance(fullCloud, t.cloud)
+    const d = 0.75 * dBody + 0.25 * dFull
     if (d < bestD) {
       bestD = d
       best = t
     }
   }
   return best && bestD < THRESHOLD
-    ? { componentId: best.componentId, name: best.name, score: 1 - bestD }
+    ? { componentId: best.componentId, name: best.name, score: 1 - bestD, why }
     : null
 }
