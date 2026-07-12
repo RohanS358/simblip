@@ -42,6 +42,7 @@ export type GeometryKind =
   | 'note'
   | 'formula'
   | 'graph'
+  | 'cashflow' // engineering-economics cash-flow timeline
   | 'symbol' // schematic symbol (resistor, gate, hinge…)
 
 export interface Geometry {

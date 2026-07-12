@@ -8,7 +8,7 @@ import { useMemo, useState } from 'react'
 import katex from 'katex'
 import { X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
-import { parseFormula, derivativeSteps, integralSteps } from '@/lib/formula/steps'
+import { parseFormula, derivativeSteps, integralSteps, iteratedIntegralSteps } from '@/lib/formula/steps'
 import { getString, type ObjectRendererProps } from './types'
 
 const BTN =
@@ -43,11 +43,18 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
     }
   }, [solution])
 
-  const solve = (kind: 'd' | 'i', v: string) => {
+  const boundedVars = parsed ? parsed.vars.filter((v) => parsed.bounds[v]) : []
+
+  const solve = (kind: 'd' | 'i' | 'ii', v?: string) => {
     if (!parsed) return
     pushHistory(pageId)
     try {
-      const steps = kind === 'd' ? derivativeSteps(parsed, v) : integralSteps(parsed, v)
+      const steps =
+        kind === 'd'
+          ? derivativeSteps(parsed, v!)
+          : kind === 'ii'
+            ? iteratedIntegralSteps(parsed)
+            : integralSteps(parsed, v!)
       setStringParam(pageId, object.id, 'solution', steps)
     } catch {
       setStringParam(pageId, object.id, 'solution', `\\text{could not solve — check the expression}`)
@@ -78,6 +85,16 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
               ∫d{v}
             </button>
           ))}
+          {boundedVars.length > 1 && (
+            <button
+              type="button"
+              className={BTN}
+              title={`Iterated integral over ${boundedVars.join(', ')}`}
+              onClick={() => solve('ii')}
+            >
+              {boundedVars.length > 2 ? '∭' : '∬'}
+            </button>
+          )}
           {solution && (
             <button
               type="button"

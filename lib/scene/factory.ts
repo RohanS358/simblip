@@ -57,6 +57,11 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.sourceId = str('')
       obj.parameters.yChannels = str('')
       break
+    case 'cashflow':
+      obj.size = { w: 460, h: 260 }
+      obj.parameters.flows = str('0:-1000; 1:300; 2:300; 3:300; 4:300')
+      obj.parameters.rate = num(8)
+      break
   }
   return obj
 }
@@ -87,7 +92,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum'
+  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics'
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -121,6 +126,10 @@ function symbol(domain: ComponentDef['domain'], name: string, label: string, pos
   return obj
 }
 
+const econ = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
+  id, label, domain: 'economics', live: true, create,
+})
+
 const mech = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
   id, label, domain: 'mechanics', live: true, create,
 })
@@ -150,6 +159,7 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   optics: 'Optics',
   waves: 'Waves',
   quantum: 'Quantum',
+  economics: 'Economics',
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -349,6 +359,16 @@ export const COMPONENTS: ComponentDef[] = [
     o.size = { w: 260, h: 140 }
     o.metadata.render = 'tunnel-barrier'
     return withBehaviors(o, createBehavior('tunnelBarrier'))
+  }),
+
+  // ── Economics: engineering-economics cash-flow timeline (money moves
+  // through time; NPV/FV computed live — see components/objects/cashflow). ──
+  econ('cashflow', 'Cash Flow', (p) => {
+    const o = baseObject('cashflow', p, autoName('Cash Flow'))
+    o.size = { w: 460, h: 260 }
+    o.parameters.flows = str('0:-1000; 1:300; 2:300; 3:300; 4:300')
+    o.parameters.rate = num(8)
+    return o
   }),
 
   // ── Electrical / Electronics / Digital: live symbols, MNA + logic solver ──

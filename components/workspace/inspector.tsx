@@ -804,7 +804,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {!['note', 'text', 'formula', 'graph'].includes(object.geometry.kind) &&
+      {!['note', 'text', 'formula', 'graph', 'cashflow'].includes(object.geometry.kind) &&
         object.metadata.render !== 'system' && (
           <BehaviorsSection pageId={pageId} object={object} />
         )}

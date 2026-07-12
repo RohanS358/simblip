@@ -99,6 +99,50 @@ function antideriv(term: MathNode, v: string): MathNode | null {
   return null
 }
 
+/** Free symbols of a body other than the given integration variables and the
+ *  built-in constants — these are the ones a numeric result would still need. */
+function otherFreeVars(node: MathNode, ignore: string[]): string[] {
+  const skip = new Set([...ignore, 'e', 'pi', 'E', 'PI', 'i', 'Infinity'])
+  const found = new Set<string>()
+  node.filter((n) => n.type === 'SymbolNode').forEach((n) => {
+    const name = (n as unknown as { name: string }).name
+    if (!skip.has(name) && typeof (m as unknown as Record<string, unknown>)[name] !== 'function')
+      found.add(name)
+  })
+  return [...found]
+}
+
+/** Evaluate to a real number, taking the real part of complex results (a
+ *  function like sin(x)^x goes complex where sin(x)<0). Returns NaN if the
+ *  value can't be reduced to a finite real. */
+function realAt(compiled: { evaluate: (s: Record<string, number>) => unknown }, scope: Record<string, number>): number {
+  try {
+    const y = compiled.evaluate(scope)
+    if (typeof y === 'number') return Number.isFinite(y) ? y : NaN
+    if (y && typeof y === 'object' && 're' in y) {
+      const re = (y as { re: number }).re
+      return Number.isFinite(re) ? re : NaN
+    }
+    return NaN
+  } catch {
+    return NaN
+  }
+}
+
+/** Composite Simpson (real part), tolerant of a few undefined sample points. */
+function simpson(compiled: { evaluate: (s: Record<string, number>) => unknown }, v: string, a: number, b: number, base: Record<string, number> = {}): number {
+  const S = 128
+  const h = (b - a) / S
+  let sum = 0
+  let bad = 0
+  for (let i = 0; i <= S; i++) {
+    const y = realAt(compiled, { ...base, [v]: a + i * h })
+    const yy = Number.isFinite(y) ? y : (bad++, 0)
+    sum += i === 0 || i === S ? yy : i % 2 ? 4 * yy : 2 * yy
+  }
+  return bad > S / 2 ? NaN : (sum * h) / 3
+}
+
 export function integralSteps(p: ParsedFormula, v: string): string {
   const node = m.parse(p.body)
   const b = p.bounds[v]
@@ -128,31 +172,93 @@ export function integralSteps(p: ParsedFormula, v: string): string {
       const Fa = sub(b[0])
       lines.push(`F(${v}) = ${tex(F)}`)
       lines.push(`= F(${b[1]}) - F(${b[0]}) = ${tex(Fb)} - \\left(${tex(Fa)}\\right)`)
-      try {
-        const val = (Fb.compile().evaluate({}) as number) - (Fa.compile().evaluate({}) as number)
-        if (Number.isFinite(val)) lines.push(`= ${Number(val.toPrecision(6))}`)
-      } catch {
-        /* other symbols remain — symbolic answer above is the result */
-      }
-    }
-  } else if (b) {
-    // No closed form — composite Simpson over the given bounds.
-    try {
-      const c = node.compile()
-      const S = 64
-      const h = (b[1] - b[0]) / S
-      let sum = 0
-      for (let i = 0; i <= S; i++) {
-        const y = c.evaluate({ [v]: b[0] + i * h }) as number
-        if (typeof y !== 'number' || !Number.isFinite(y)) throw new Error('nan')
-        sum += i === 0 || i === S ? y : i % 2 ? 4 * y : 2 * y
-      }
-      lines.push(`\\approx ${Number(((sum * h) / 3).toPrecision(6))}\\;\\text{(numeric)}`)
-    } catch {
-      lines.push(`\\text{numeric evaluation needs values for the other variables}`)
+      const val = realAt(Fb.compile(), {}) - realAt(Fa.compile(), {})
+      if (Number.isFinite(val)) lines.push(`= ${Number(val.toPrecision(6))}`)
     }
   } else {
-    lines.push(`\\text{no closed form found — add bounds (e.g. } 0<${v}<1\\text{) for a numeric result}`)
+    // No closed form. Report the antiderivative symbolically as best we can,
+    // and give a numeric value whenever bounds exist and no OTHER free
+    // variable blocks it.
+    const missing = otherFreeVars(node, [v])
+    lines.push(`\\text{No elementary antiderivative}${missing.length ? '' : '\\text{ — numeric result:}'}`)
+    if (missing.length > 0) {
+      lines.push(
+        `\\text{Define }${missing.join(', ')}\\text{ (as page variables) to evaluate numerically.}`
+      )
+    } else if (b) {
+      const val = simpson(node.compile(), v, b[0], b[1])
+      lines.push(
+        Number.isFinite(val)
+          ? `\\int_{${b[0]}}^{${b[1]}} ${tex(node)}\\, d${v} \\approx ${Number(val.toPrecision(6))}`
+          : `\\text{The function is undefined over much of }[${b[0]},\\,${b[1]}]`
+      )
+    } else {
+      lines.push(`\\text{Add bounds (e.g. } 0<${v}<1\\text{) for a definite numeric value.}`)
+    }
+  }
+  return lines.join(' \\\\[5pt] ')
+}
+
+/** Iterated (double/triple) definite integral over every bounded variable,
+ *  innermost first. Symbolic where each inner integral has a closed form,
+ *  else nested numeric Simpson. Requires ≥2 variables with bounds. */
+export function iteratedIntegralSteps(p: ParsedFormula): string {
+  const vars = p.vars.filter((v) => p.bounds[v])
+  if (vars.length < 2) return `\\text{Give bounds for at least two variables (e.g. }0<x<1,\;0<y<2\\text{).}`
+  const sign = vars.map((v) => `\\int_{${p.bounds[v][0]}}^{${p.bounds[v][1]}}`).join('')
+  const dvs = vars.map((v) => `\\,d${v}`).join('')
+  const node = m.parse(p.body)
+  const lines: string[] = [`${sign} ${tex(node)}${dvs}`]
+
+  // Try fully symbolic, innermost variable first.
+  let cur: MathNode | null = node
+  let symbolic = true
+  for (const v of vars) {
+    if (!cur) break
+    const parts: (MathNode | null)[] = terms(cur).map((t) => antideriv(m.simplify(t), v))
+    if (parts.some((F) => !F)) {
+      symbolic = false
+      break
+    }
+    const Fstr: string = parts.map((F) => `(${(F as MathNode).toString()})`).join(' + ')
+    const sub = (val: number): MathNode =>
+      m.parse(Fstr).transform((n: MathNode) =>
+        n.type === 'SymbolNode' && (n as unknown as { name: string }).name === v
+          ? new m.ConstantNode(val)
+          : n
+      )
+    const [a, bb] = p.bounds[v]
+    cur = m.simplify(m.parse(`(${sub(bb).toString()}) - (${sub(a).toString()})`))
+    lines.push(`\\text{after }d${v}:\; ${tex(cur)}`)
+  }
+
+  if (symbolic && cur) {
+    const val = realAt(cur.compile(), {})
+    lines.push(Number.isFinite(val) ? `= ${Number(val.toPrecision(6))}` : `= ${tex(cur)}`)
+    return lines.join(' \\\\[5pt] ')
+  }
+
+  // Nested numeric Simpson over the bounded variables.
+  const compiled = node.compile()
+  const nest = (idx: number, base: Record<string, number>): number => {
+    const v = vars[idx]
+    const [a, bb] = p.bounds[v]
+    if (idx === vars.length - 1) return simpson(compiled, v, a, bb, base)
+    const S = 40
+    const h = (bb - a) / S
+    let sum = 0
+    for (let i = 0; i <= S; i++) {
+      const inner = nest(idx + 1, { ...base, [v]: a + i * h })
+      sum += i === 0 || i === S ? inner : i % 2 ? 4 * inner : 2 * inner
+    }
+    return (sum * h) / 3
+  }
+  const missing = otherFreeVars(node, vars)
+  if (missing.length > 0) {
+    lines.push(`\\text{Define }${missing.join(', ')}\\text{ to evaluate numerically.}`)
+  } else {
+    const val = nest(0, {})
+    lines.push(Number.isFinite(val) ? `\\approx ${Number(val.toPrecision(6))}\;\\text{(numeric)}` : `\\text{undefined over the region}`)
   }
   return lines.join(' \\\\[5pt] ')
 }
