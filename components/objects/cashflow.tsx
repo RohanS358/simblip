@@ -7,7 +7,7 @@
 // the timeline drops a dashed marker showing the compounded value at that
 // instant. Worth metrics (PW/FW/AW/IRR/CR/BC) sit above the diagram.
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useDocStore } from '@/lib/store/document'
 import {
   readSpec,
@@ -45,17 +45,32 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
   const [hoverT, setHoverT] = useState<number | null>(null)
   const selected = useDocStore((s) => s.selection.includes(object.id))
 
-  // Diagram geometry (viewBox units; the SVG scales to the card).
-  const W = 100
-  const H = 100
-  const padL = 5
-  const padR = 4
-  const axisY = 56
-  const rail = W - padL - padR
+  // The diagram is drawn at TRUE pixel scale — a stretched viewBox
+  // (preserveAspectRatio="none") would scale x and y unevenly and smear the
+  // stroke weights and arrowheads. Measure the box, draw 1:1.
+  const boxRef = useRef<HTMLDivElement | null>(null)
+  const [box, setBox] = useState({ w: 440, h: 170 })
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) => {
+      const { width, height } = e.contentRect
+      if (width > 0 && height > 0) setBox({ w: width, h: height })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const W = box.w
+  const H = box.h
+  const padL = 26
+  const padR = 26
+  const axisY = Math.round(H * 0.56)
+  const rail = Math.max(1, W - padL - padR)
   const xOf = (t: number) => padL + (rail * t) / N
   const maxAmt = Math.max(1, ...flows.map((f) => Math.abs(f.amount)))
-  const upRoom = axisY - 14
-  const dnRoom = H - axisY - 16
+  const upRoom = Math.max(10, axisY - 22)
+  const dnRoom = Math.max(10, H - axisY - 30)
   const lenOf = (a: number) => (Math.abs(a) / maxAmt) * (a >= 0 ? upRoom : dnRoom)
 
   // Integer year ticks; fractional flows get their own light tick.
@@ -88,17 +103,15 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
       </div>
 
       {/* the diagram */}
-      <div className="relative min-h-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
+      <div ref={boxRef} className="relative min-h-0 flex-1" onPointerDown={(e) => e.stopPropagation()}>
         <svg
-          width="100%"
-          height="100%"
-          viewBox={`0 0 ${W} ${H}`}
-          preserveAspectRatio="none"
+          width={W}
+          height={H}
+          className="absolute inset-0"
           onPointerMove={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
-            const t = ((e.clientX - r.left) / r.width) * W
-            const yr = ((t - padL) / rail) * N
-            setHoverT(yr >= -0.02 && yr <= N + 0.02 ? Math.max(0, Math.min(N, yr)) : null)
+            const yr = ((e.clientX - r.left - padL) / rail) * N
+            setHoverT(yr >= -0.05 && yr <= N + 0.05 ? Math.max(0, Math.min(N, yr)) : null)
           }}
           onPointerLeave={() => setHoverT(null)}
         >
@@ -107,55 +120,80 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
             <line
               key={`g${y}`}
               x1={xOf(y)}
-              y1={6}
+              y1={8}
               x2={xOf(y)}
-              y2={H - 10}
+              y2={H - 8}
               stroke="var(--border)"
-              strokeOpacity={0.5}
-              strokeWidth={0.3}
+              strokeOpacity={0.6}
+              strokeWidth={1}
             />
           ))}
 
           {/* the time rail */}
-          <line x1={padL} y1={axisY} x2={W - padR} y2={axisY} stroke="var(--muted-foreground)" strokeWidth={0.5} />
+          <line
+            x1={padL - 10}
+            y1={axisY}
+            x2={W - padR + 10}
+            y2={axisY}
+            stroke="var(--muted-foreground)"
+            strokeWidth={1.25}
+          />
           {years.map((y) => (
             <g key={y}>
-              <line x1={xOf(y)} y1={axisY} x2={xOf(y)} y2={axisY + 2} stroke="var(--muted-foreground)" strokeWidth={0.4} />
+              <line
+                x1={xOf(y)}
+                y1={axisY - 3}
+                x2={xOf(y)}
+                y2={axisY + 3}
+                stroke="var(--muted-foreground)"
+                strokeWidth={1.25}
+              />
               <text
                 x={xOf(y)}
-                y={axisY + 7}
+                y={axisY + 15}
                 textAnchor="middle"
-                fontSize={3.4}
+                fontSize={10}
                 fill="var(--muted-foreground)"
-                style={{ fontFamily: 'var(--font-mono, monospace)' }}
+                fontFamily="var(--font-mono, monospace)"
               >
                 {y}
               </text>
             </g>
           ))}
 
-          {/* flows — sharp single-weight arrows, filled triangular heads */}
+          {/* flows — one clean shaft, one crisp arrowhead */}
           {flows.map((f) => {
             const up = f.amount >= 0
             const x = xOf(f.t)
-            const len = lenOf(f.amount)
-            const tip = up ? axisY - len : axisY + len
+            const tip = up ? axisY - lenOf(f.amount) : axisY + lenOf(f.amount)
             const c = up ? IN : OUT
-            const hw = 1.5 // head half-width
-            const hl = 3 // head length
+            const hw = 4 // head half-width
+            const hl = 9 // head length
             const base = up ? tip + hl : tip - hl
             return (
               <g key={`${f.t}-${f.amount}`}>
-                <line x1={x} y1={axisY} x2={x} y2={base} stroke={c} strokeWidth={0.7} />
-                <path d={`M ${x - hw} ${base} L ${x} ${tip} L ${x + hw} ${base} Z`} fill={c} />
+                <line
+                  x1={x}
+                  y1={axisY}
+                  x2={x}
+                  y2={base}
+                  stroke={c}
+                  strokeWidth={1.75}
+                  shapeRendering="crispEdges"
+                />
+                <path
+                  d={`M ${x - hw} ${base} L ${x} ${tip} L ${x + hw} ${base} Z`}
+                  fill={c}
+                  strokeLinejoin="round"
+                />
                 <text
                   x={x}
-                  y={up ? tip - 2 : tip + 4.2}
+                  y={up ? tip - 6 : tip + 14}
                   textAnchor="middle"
-                  fontSize={3.4}
+                  fontSize={10}
                   fontWeight={600}
                   fill={c}
-                  style={{ fontFamily: 'var(--font-mono, monospace)' }}
+                  fontFamily="var(--font-mono, monospace)"
                 >
                   {fmtMoney(f.amount)}
                 </text>
@@ -168,14 +206,14 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
             <g>
               <line
                 x1={xOf(hoverT)}
-                y1={6}
+                y1={8}
                 x2={xOf(hoverT)}
-                y2={H - 10}
+                y2={H - 8}
                 stroke="var(--ring)"
-                strokeWidth={0.4}
-                strokeDasharray="1.5 1.2"
+                strokeWidth={1}
+                strokeDasharray="4 3"
               />
-              <circle cx={xOf(hoverT)} cy={axisY} r={0.9} fill="var(--ring)" />
+              <circle cx={xOf(hoverT)} cy={axisY} r={2.5} fill="var(--ring)" />
             </g>
           )}
         </svg>
