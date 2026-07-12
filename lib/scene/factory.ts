@@ -66,24 +66,20 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
   return obj
 }
 
-/** Turn a recognized sketch into a scene object (spring gets its behavior). */
+/** Turn a recognized sketch into a scene object. Geometry only — no behavior
+ *  is ever attached here; meaning comes from the Inspector or the palette. */
 export function fromRecognition(rec: Recognition): SceneObject {
   const kindMap: Record<Recognition['kind'], GeometryKind> = {
     circle: 'circle',
     rect: 'rect',
     line: 'line',
     polygon: 'polygon',
-    spring: 'line',
     stroke: 'stroke',
   }
   const obj = baseObject(kindMap[rec.kind], { x: rec.x, y: rec.y })
-  obj.name = autoName(rec.kind === 'spring' ? 'Spring' : obj.geometry.kind.charAt(0).toUpperCase() + obj.geometry.kind.slice(1))
+  obj.name = autoName(obj.geometry.kind.charAt(0).toUpperCase() + obj.geometry.kind.slice(1))
   obj.size = { w: rec.w, h: rec.h }
   if (rec.points.length > 0) obj.geometry.points = rec.points
-  if (rec.kind === 'spring') {
-    obj.behaviors.push(createBehavior('spring'))
-    obj.metadata.render = 'spring'
-  }
   return obj
 }
 

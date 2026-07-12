@@ -1,13 +1,14 @@
 // Sketch recognition: a freehand stroke becomes a circle, oval, square,
-// rectangle, a regular 3–8-gon (triangle…octagon), a line or a spring
-// (zigzag). Recognition only upgrades GEOMETRY — physical meaning still
-// comes from attaching behaviors, so a wrong guess costs the user nothing
-// (docs/architecture.md: draw → convert → simulate). Irregular closed
-// doodles stay ink; only clean regular polygons snap.
+// rectangle, a regular 3–8-gon (triangle…octagon) or a line. Recognition
+// only upgrades GEOMETRY — physical meaning still comes from attaching
+// behaviors, so a wrong guess costs the user nothing (docs/architecture.md:
+// draw → convert → simulate). Irregular closed doodles stay ink; only clean
+// regular polygons snap. Zigzags are NOT force-converted into springs — a
+// spring comes from the palette, or from a behavior you attach yourself.
 
 export interface Recognition {
-  kind: 'circle' | 'rect' | 'line' | 'polygon' | 'spring' | 'stroke'
-  /** points relative to bbox min (for polygon/line/spring/stroke) */
+  kind: 'circle' | 'rect' | 'line' | 'polygon' | 'stroke'
+  /** points relative to bbox min (for polygon/line/stroke) */
   points: number[][]
   w: number
   h: number
@@ -87,20 +88,7 @@ export function recognize(raw: number[][]): Recognition {
       return { kind: 'line', points: [start, end], ...base }
     }
 
-    // Spring: many perpendicular oscillations along the main axis.
-    const ux = (end[0] - start[0]) / chord
-    const uy = (end[1] - start[1]) / chord
-    let reversals = 0
-    let prevSign = 0
-    for (const [x, y] of rel) {
-      const perp = -uy * (x - start[0]) + ux * (y - start[1])
-      const sign = perp > 4 ? 1 : perp < -4 ? -1 : 0
-      if (sign !== 0 && prevSign !== 0 && sign !== prevSign) reversals++
-      if (sign !== 0) prevSign = sign
-    }
-    if (reversals >= 4) {
-      return { kind: 'spring', points: [start, end], ...base }
-    }
+    // An open curve that isn't a straight line stays exactly as drawn.
     return fallback
   }
 

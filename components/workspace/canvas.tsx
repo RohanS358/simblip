@@ -107,9 +107,9 @@ function isScribble(pts: number[][]): boolean {
 // components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
 const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
   mechanics: { circle: 'mass', rect: 'block' },
-  electrical: { spring: 'resistor', rect: 'battery', circle: 'bulb' },
-  electronics: { spring: 'resistor', circle: 'bjt', rect: 'mosfet' },
-  digital: { rect: 'and-gate', circle: 'or-gate', spring: 'clock' },
+  electrical: { rect: 'battery', circle: 'bulb' },
+  electronics: { circle: 'bjt', rect: 'mosfet' },
+  digital: { rect: 'and-gate', circle: 'or-gate' },
 }
 
 type GestureMode =
@@ -1136,11 +1136,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           if (!obj) {
             // The pen never auto-shapes plain geometry (annoying while
-            // writing) — only live components upgrade, and only on
-            // draw-and-hold: a zigzag held in place lands as a spring,
-            // domain parts matched above. Everything else stays exactly the
-            // ink that was drawn; the Shaper tool is the explicit way to
-            // get clean shapes.
+            // writing) — only on draw-and-hold does a doodle upgrade, into a
+            // trained component or a clean shape. Everything else stays
+            // exactly the ink that was drawn; the Shaper tool is the explicit
+            // way to get clean shapes.
             const keep: Recognition =
               held && rec.kind !== 'stroke'
                 ? rec
@@ -1286,9 +1285,6 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
           obj.position = { x: (x0 + x1) / 2 - obj.size.w / 2, y: (y0 + y1) / 2 - obj.size.h / 2 }
         }
-      } else if (c.members.length === 1) {
-        const rec = recognize(absPts(c.members[0]))
-        if (rec.kind === 'spring') obj = fromRecognition(rec)
       }
       if (obj) {
         created.push(obj)
