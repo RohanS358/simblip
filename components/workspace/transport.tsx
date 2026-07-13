@@ -18,17 +18,15 @@ export function Transport({ pageId }: { pageId: string }) {
 
   return (
     <fm.div
-      initial={{ y: dock === 'top' ? 16 : -16, opacity: 0 }}
+      initial={{ y: -16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={motion}
       className={cn(
         'glass-strong absolute z-40 flex items-center gap-1 rounded-2xl p-1.5 transition-shadow',
-        // The transport lives on the opposite edge to the dock, so the two are
-        // never stacked on top of each other. With the dock on a side, both fit
-        // across the top.
-        dock === 'top'
-          ? 'bottom-4 left-1/2 -translate-x-1/2'
-          : 'left-1/2 top-4 -translate-x-1/2',
+        // The dock is centred on its edge, so a TOP dock would sit right on
+        // the transport. Park the transport beside it on the same row instead
+        // of exiling it to the bottom — the two read as one control strip.
+        dock === 'top' ? 'right-4 top-4' : 'left-1/2 top-4 -translate-x-1/2',
         mode !== 'edit' && 'shadow-[0_0_0_1.5px_var(--accent-mint)]'
       )}
       aria-label="Simulation transport"
