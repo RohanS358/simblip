@@ -23,7 +23,8 @@ import {
   ScanText,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion as fm } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -146,6 +147,7 @@ export function Toolbar({
   /** enables the session-file attach button */
   pageId?: string
 }) {
+  const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
   const inkToShape = useDocStore((s) => s.inkToShape)
@@ -178,10 +180,10 @@ export function Toolbar({
   }, [])
 
   return (
-    <motion.div
+    <fm.div
       initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+      transition={motion}
       className={cn(
         'absolute z-40',
         dock === 'bottom' &&
@@ -358,6 +360,6 @@ export function Toolbar({
         </ToolButton>
       )}
       </div>
-    </motion.div>
+    </fm.div>
   )
 }

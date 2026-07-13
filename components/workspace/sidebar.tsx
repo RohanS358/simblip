@@ -18,7 +18,8 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion as fm } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -106,6 +107,7 @@ function InlineName({
 }
 
 export function Sidebar() {
+  const motion = useSpring()
   const notebooks = useWorkspaceStore((s) => s.notebooks)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const role = useAuthStore((s) => s.profile?.role ?? null)
@@ -136,10 +138,10 @@ export function Sidebar() {
   })
 
   return (
-    <motion.aside
+    <fm.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+      transition={motion}
       className="glass relative z-30 m-3 flex flex-col rounded-2xl"
       style={{ width: panelW }}
       aria-label="Notebooks"
@@ -373,6 +375,6 @@ export function Sidebar() {
         onOpenChange={(o) => !o && setPublishFor(null)}
         pageId={publishFor?.id ?? null}
       />
-    </motion.aside>
+    </fm.aside>
   )
 }

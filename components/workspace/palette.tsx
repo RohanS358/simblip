@@ -5,7 +5,8 @@
 // Click a component, then click the canvas to place it (stays armed).
 
 import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as fm, AnimatePresence } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { X } from 'lucide-react'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
@@ -23,6 +24,7 @@ const DOMAINS = [
 ] as const
 
 export function Palette({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const motion = useSpring()
   const [domain, setDomain] = useState<(typeof DOMAINS)[number]['id']>('mechanics')
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
@@ -31,11 +33,11 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
   return (
     <AnimatePresence>
       {open && (
-        <motion.div
+        <fm.div
           initial={{ y: 16, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: 16, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+          transition={motion}
           className="glass-strong absolute bottom-20 left-1/2 z-40 w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-2xl p-3"
           aria-label="Component palette"
         >
@@ -94,7 +96,7 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
               Click the canvas to place · Esc to stop
             </p>
           )}
-        </motion.div>
+        </fm.div>
       )}
     </AnimatePresence>
   )

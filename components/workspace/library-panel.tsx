@@ -5,7 +5,8 @@
 // teachers/admins. Students browse approved assets read-only.
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion as fm } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import {
   BadgeCheck,
   FileText,
@@ -203,6 +204,7 @@ export function LibraryPanel({
   /** Rendered inside the notebook sidebar (no floating chrome of its own). */
   inline?: boolean
 }) {
+  const motion = useSpring()
   const profile = useAuthStore((s) => s.profile)
   const [assets, setAssets] = useState<LibraryAssetRow[]>([])
   const [query, setQuery] = useState('')
@@ -260,10 +262,10 @@ export function LibraryPanel({
   const canApprove = can(profile.role, 'approve-library')
 
   return (
-    <motion.aside
+    <fm.aside
       initial={inline ? false : { x: 16, opacity: 0 }}
       animate={inline ? undefined : { x: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+      transition={motion}
       className={
         inline
           ? 'flex h-full min-h-0 w-full flex-col'
@@ -409,6 +411,6 @@ export function LibraryPanel({
       </div>
 
       <PublishDialog open={publishOpen} onOpenChange={setPublishOpen} pageId={pageId} />
-    </motion.aside>
+    </fm.aside>
   )
 }

@@ -6,7 +6,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Link2, Maximize2, Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion as fm } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
@@ -1363,6 +1364,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
 }
 
 export function Inspector({ pageId }: { pageId: string }) {
+  const motion = useSpring()
   const selection = useDocStore((s) => s.selection)
   const [panelW, setPanelW] = useState(() => {
     if (typeof window === 'undefined') return 288
@@ -1373,10 +1375,10 @@ export function Inspector({ pageId }: { pageId: string }) {
   )
 
   return (
-    <motion.aside
+    <fm.aside
       initial={{ x: 16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+      transition={motion}
       className="glass relative z-30 m-3 flex max-w-[calc(100vw-1.5rem)] flex-col rounded-2xl"
       style={{ width: panelW }}
       aria-label="Inspector"
@@ -1429,6 +1431,6 @@ export function Inspector({ pageId }: { pageId: string }) {
           <VariablesPanel pageId={pageId} />
         </TabsContent>
       </Tabs>
-    </motion.aside>
+    </fm.aside>
   )
 }

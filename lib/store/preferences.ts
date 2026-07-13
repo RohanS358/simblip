@@ -36,6 +36,15 @@ export interface NotebookPrefs {
   dock: DockSide
 }
 
+/** How the whole UI moves. See lib/motion.ts. */
+export type MotionStyle = 'bouncy' | 'smooth' | 'none'
+
+export interface AppearancePrefs {
+  motion: MotionStyle
+}
+
+export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy' }
+
 export type AngleUnit = 'deg' | 'rad'
 export type NumberStyle = 'auto' | 'fixed' | 'sci' | 'eng'
 
@@ -59,9 +68,11 @@ interface PrefsState {
   pen: PenPrefs
   notebook: NotebookPrefs
   math: MathPrefs
+  appearance: AppearancePrefs
   setPen: (p: Partial<PenPrefs>) => void
   setNotebook: (p: Partial<NotebookPrefs>) => void
   setMath: (p: Partial<MathPrefs>) => void
+  setAppearance: (p: Partial<AppearancePrefs>) => void
   reset: () => void
 }
 
@@ -113,14 +124,17 @@ export const usePrefs = create<PrefsState>()(
       pen: { ...DEFAULT_PEN },
       notebook: { ...DEFAULT_NOTEBOOK },
       math: { ...DEFAULT_MATH },
+      appearance: { ...DEFAULT_APPEARANCE },
       setPen: (p) => set((s) => ({ pen: { ...s.pen, ...p } })),
       setNotebook: (p) => set((s) => ({ notebook: { ...s.notebook, ...p } })),
       setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
+      setAppearance: (p) => set((s) => ({ appearance: { ...s.appearance, ...p } })),
       reset: () =>
         set({
           pen: { ...DEFAULT_PEN },
           notebook: { ...DEFAULT_NOTEBOOK },
           math: { ...DEFAULT_MATH },
+          appearance: { ...DEFAULT_APPEARANCE },
         }),
     }),
     { name: 'simblip-preferences' } // device-wide, not per user

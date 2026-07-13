@@ -33,6 +33,7 @@ import {
   type DockSide,
   type AngleUnit,
   type NumberStyle,
+  type MotionStyle,
 } from '@/lib/store/preferences'
 import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
@@ -310,6 +311,27 @@ function NotebookSettings() {
   )
 }
 
+function MotionSetting() {
+  const motion = usePrefs((s) => s.appearance.motion)
+  const setAppearance = usePrefs((s) => s.setAppearance)
+  return (
+    <Field
+      label="Motion"
+      hint="Bouncy springs overshoot slightly and settle — that's what makes an interface feel physical rather than mechanical. Smooth removes the overshoot; Off disables animation entirely (also the right choice if motion makes you queasy)."
+    >
+      <Choice<MotionStyle>
+        value={motion}
+        onChange={(m) => setAppearance({ motion: m })}
+        options={[
+          { id: 'bouncy', label: 'Bouncy' },
+          { id: 'smooth', label: 'Smooth' },
+          { id: 'none', label: 'Off' },
+        ]}
+      />
+    </Field>
+  )
+}
+
 function MathSettings() {
   const math = usePrefs((s) => s.math)
   const setMath = usePrefs((s) => s.setMath)
@@ -481,7 +503,8 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </TabsContent>
 
           <TabsContent value="appearance" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="flex gap-2">
+            <MotionSetting />
+            <div className="mt-3 flex gap-2">
               {(['light', 'dark', 'system'] as const).map((t) => (
                 <Button
                   key={t}

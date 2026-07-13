@@ -4,19 +4,21 @@
 // Nothing is regenerated — the exact drawn scene starts simulating.
 
 import { Play, Pause, StepBack, StepForward, RotateCcw } from 'lucide-react'
-import { motion } from 'framer-motion'
+import { motion as fm } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
 
 export function Transport({ pageId }: { pageId: string }) {
+  const motion = useSpring()
   const mode = useRuntimeStore((s) => s.mode)
   const time = useRuntimeStore((s) => s.time)
 
   return (
-    <motion.div
+    <fm.div
       initial={{ y: -16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+      transition={motion}
       className={cn(
         'glass-strong absolute left-1/2 top-4 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl p-1.5 transition-shadow',
         mode !== 'edit' && 'shadow-[0_0_0_1.5px_var(--accent-mint)]'
@@ -78,6 +80,6 @@ export function Transport({ pageId }: { pageId: string }) {
       >
         {mode === 'edit' ? 'EDIT' : `${time.toFixed(2)}s`}
       </span>
-    </motion.div>
+    </fm.div>
   )
 }

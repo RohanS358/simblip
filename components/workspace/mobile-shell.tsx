@@ -42,6 +42,10 @@ import { Toolbar } from './toolbar'
 import { Transport } from './transport'
 import { Palette } from './palette'
 import { Inspector } from './inspector'
+import { FocusObject } from './focus-object'
+import { motion as fm, AnimatePresence } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
+import { useIsNarrow } from '@/hooks/use-mobile'
 import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { NotificationCenter } from './notifications'
@@ -94,6 +98,13 @@ export function MobileShell() {
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
+  const spring = useSpring('soft')
+  // A phone is narrow; a tablet is a touch device that isn't. They want
+  // different panels — a sheet from the bottom vs. the desktop side panel.
+  const isPhone = useIsNarrow(767)
+  const selection = useDocStore((s) => s.selection)
+  const focusedId = inspectorOpen && selection.length === 1 ? selection[0] : null
+  const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
 
   useShareInbox()
@@ -205,25 +216,36 @@ export function MobileShell() {
           {aiAllowed && <AiPanel pageId={activePageId} />}
         </main>
 
-        {/* Properties/variables as a bottom sheet — no side panels on phones. */}
-        {inspectorOpen && (
-          <div className="fixed inset-0 z-50 flex flex-col justify-end">
-            <button
-              type="button"
-              aria-label="Close properties"
-              className="flex-1 bg-black/40"
-              onClick={() => store.getState().togglePanel('inspector')}
-            />
-            <div className="flex max-h-[62dvh] flex-col rounded-t-2xl border-t border-border bg-background shadow-2xl">
+        {/* Editing on a small screen: lift the object out of the canvas and dim
+            the board, so you can see what your edits are doing to it. The panel
+            then comes in from the bottom (phone) or the side (tablet). */}
+        {activePageId && (
+          <FocusObject pageId={activePageId} objectId={focusedId} onDismiss={closeInspector} />
+        )}
+
+        <AnimatePresence>
+          {inspectorOpen && activePageId && (
+            <fm.div
+              key="inspector"
+              className={
+                isPhone
+                  ? 'fixed inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col rounded-t-2xl border-t border-border bg-background shadow-2xl'
+                  : 'fixed bottom-0 right-0 top-0 z-[60] flex w-[22rem] max-w-[85vw] flex-col border-l border-border bg-background shadow-2xl'
+              }
+              initial={isPhone ? { y: '100%' } : { x: '100%' }}
+              animate={isPhone ? { y: 0 } : { x: 0 }}
+              exit={isPhone ? { y: '100%' } : { x: '100%' }}
+              transition={spring}
+            >
               <div className="flex items-center justify-between px-4 py-2">
                 <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Properties & variables
+                  Properties &amp; variables
                 </span>
                 <button
                   type="button"
                   aria-label="Close"
                   className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
-                  onClick={() => store.getState().togglePanel('inspector')}
+                  onClick={closeInspector}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -231,9 +253,9 @@ export function MobileShell() {
               <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
                 <Inspector pageId={activePageId} />
               </div>
-            </div>
-          </div>
-        )}
+            </fm.div>
+          )}
+        </AnimatePresence>
 
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}

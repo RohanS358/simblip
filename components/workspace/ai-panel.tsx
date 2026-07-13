@@ -6,7 +6,8 @@
 
 import { useRef, useState } from 'react'
 import { Sparkles, Send, X, PlusCircle } from 'lucide-react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion as fm, AnimatePresence } from 'framer-motion'
+import { useSpring } from '@/lib/motion'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { importSimulation } from '@/lib/ai/import'
@@ -20,6 +21,7 @@ interface Message {
 }
 
 export function AiPanel({ pageId }: { pageId: string }) {
+  const motion = useSpring()
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const [messages, setMessages] = useState<Message[]>([])
@@ -79,11 +81,11 @@ export function AiPanel({ pageId }: { pageId: string }) {
   return (
     <AnimatePresence>
       {aiOpen && (
-        <motion.aside
+        <fm.aside
           initial={{ x: 40, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           exit={{ x: 40, opacity: 0 }}
-          transition={{ type: 'spring', stiffness: 380, damping: 32 }}
+          transition={motion}
           className="glass-strong absolute bottom-3 right-3 top-3 z-50 flex w-[min(22rem,calc(100vw-1.5rem))] flex-col rounded-2xl"
           aria-label="AI assistant"
         >
@@ -174,7 +176,7 @@ export function AiPanel({ pageId }: { pageId: string }) {
               </button>
             </div>
           </div>
-        </motion.aside>
+        </fm.aside>
       )}
     </AnimatePresence>
   )
