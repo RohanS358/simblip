@@ -29,10 +29,13 @@ export function FocusObject({
   pageId,
   objectId,
   onDismiss,
+  reserve,
 }: {
   pageId: string
   objectId: string | null
   onDismiss: () => void
+  /** Space the properties panel occupies — the object must not hide under it. */
+  reserve?: { right?: number; bottom?: number }
 }) {
   const object = useDocStore((s) => (objectId ? s.pages[pageId]?.objects[objectId] : undefined))
   const spring = useSpring('soft')
@@ -55,14 +58,20 @@ export function FocusObject({
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
   if (!Renderer) return null
 
-  // Land it in the upper area, scaled to fit — the Inspector takes the rest.
-  const maxW = Math.min(window.innerWidth - 48, 420)
-  const maxH = Math.min(window.innerHeight * 0.34, 320)
-  const scale = Math.min(maxW / Math.max(object.size.w, 1), maxH / Math.max(object.size.h, 1), 2.2)
+  // Fill the free space — everything the properties panel isn't using. The
+  // object is scaled to FIT that box (one uniform factor, so its proportions
+  // are untouched), padded off whichever side runs out first. Scaling up is
+  // allowed: the point of focusing is to see the thing large.
+  const PAD = 28
+  const availW = window.innerWidth - (reserve?.right ?? 0)
+  const availH = window.innerHeight - (reserve?.bottom ?? 0)
+  const boxW = Math.max(80, availW - PAD * 2)
+  const boxH = Math.max(80, availH - PAD * 2)
+  const scale = Math.min(boxW / Math.max(object.size.w, 1), boxH / Math.max(object.size.h, 1))
   const toW = object.size.w * scale
   const toH = object.size.h * scale
-  const toX = (window.innerWidth - toW) / 2
-  const toY = Math.max(24, window.innerHeight * 0.06)
+  const toX = (availW - toW) / 2
+  const toY = (availH - toH) / 2
 
   return (
     <AnimatePresence>
@@ -82,22 +91,19 @@ export function FocusObject({
           exit={{ x: from.x, y: from.y, width: from.w, height: from.h, opacity: 0 }}
           transition={spring}
         >
+          {/* No card, no frame — just the component itself, floating on the
+              dim. It's rendered at its true size and scaled, so its internals
+              (graphs, tables, text) stay crisp and LIVE rather than being
+              blown up as pixels. */}
           <div
-            className="h-full w-full rounded-2xl bg-card shadow-2xl ring-1 ring-border"
-            style={{ padding: 4 }}
+            className="pointer-events-auto origin-top-left"
+            style={{
+              width: object.size.w,
+              height: object.size.h,
+              transform: `scale(${scale})`,
+            }}
           >
-            {/* The object is rendered at its real size and scaled, so its
-                internals (graphs, tables, text) stay crisp and LIVE. */}
-            <div
-              className="pointer-events-auto origin-top-left"
-              style={{
-                width: object.size.w,
-                height: object.size.h,
-                transform: `scale(${scale})`,
-              }}
-            >
-              <Renderer pageId={pageId} object={object} selected={false} />
-            </div>
+            <Renderer pageId={pageId} object={object} selected={false} />
           </div>
         </fm.div>
       </fm.div>

@@ -220,7 +220,18 @@ export function MobileShell() {
             the board, so you can see what your edits are doing to it. The panel
             then comes in from the bottom (phone) or the side (tablet). */}
         {activePageId && (
-          <FocusObject pageId={activePageId} objectId={focusedId} onDismiss={closeInspector} />
+          <FocusObject
+            pageId={activePageId}
+            objectId={focusedId}
+            onDismiss={closeInspector}
+            // The panel's footprint: a sheet along the bottom on a phone, the
+            // desktop-shaped column on the right on a tablet.
+            reserve={
+              isPhone
+                ? { bottom: Math.round(window.innerHeight * 0.62) }
+                : { right: Math.min(352, Math.round(window.innerWidth * 0.85)) }
+            }
+          />
         )}
 
         <AnimatePresence>
