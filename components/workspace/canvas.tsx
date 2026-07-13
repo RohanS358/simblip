@@ -419,36 +419,65 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [box, setBox] = useState({ w: 1600, h: 1000 })
   const layerRef = useRef<HTMLDivElement>(null)
+  const gridRef = useRef<HTMLDivElement>(null)
   const guideRaf = useRef<number | null>(null)
-  const pendingVp = useRef<Viewport | null>(null)
-  const vpRaf = useRef<number | null>(null)
+  const vpRef = useRef<Viewport>({ x: 0, y: 0, zoom: 1 })
+  const commitTimer = useRef<number | null>(null)
 
   /**
-   * Pan/zoom without paying React on every event.
+   * Pan/zoom entirely outside React.
    *
-   * A wheel or pointermove can fire far more often than the screen refreshes,
-   * and each one used to write the viewport straight to the store — one React
-   * render per event, each re-running the culling pass. Instead: move the
-   * layer IMMEDIATELY by writing its transform (so it feels instant), and
-   * commit to the store at most once per frame. The store is still the source
-   * of truth; it just stops being in the input path.
+   * Committing the viewport to the store on every frame re-rendered the whole
+   * canvas — recomputing the culling pass and reconciling every visible object
+   * 60x a second. And the grid animated `background-position`, which is NOT
+   * GPU-composited, so each frame repainted the entire viewport.
+   *
+   * So the gesture now paints directly: the object layer and the grid each get
+   * a `transform`, which the compositor handles on the GPU with no layout, no
+   * paint and no React. The store is written only when the gesture SETTLES
+   * (and on a slow tick during long pans, so culling can catch up) — it stays
+   * the source of truth, it's just no longer in the 60 Hz path.
    */
+  const paintViewport = useCallback((vp: Viewport) => {
+    if (layerRef.current) {
+      layerRef.current.style.transform = `translate3d(${vp.x}px, ${vp.y}px, 0) scale(${vp.zoom})`
+    }
+    if (gridRef.current) {
+      const cell = GRID * vp.zoom
+      // The pattern repeats every cell, so only the remainder matters.
+      const ox = ((vp.x % cell) + cell) % cell
+      const oy = ((vp.y % cell) + cell) % cell
+      gridRef.current.style.backgroundSize = `${cell}px ${cell}px`
+      gridRef.current.style.transform = `translate3d(${ox}px, ${oy}px, 0)`
+    }
+  }, [])
+
   const applyViewport = useCallback(
     (vp: Viewport) => {
-      pendingVp.current = vp
-      if (layerRef.current) {
-        layerRef.current.style.transform = `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`
-      }
-      if (vpRaf.current === null) {
-        vpRaf.current = requestAnimationFrame(() => {
-          vpRaf.current = null
-          const v = pendingVp.current
-          if (v) useDocStore.getState().setViewport(pageId, v)
-        })
+      vpRef.current = vp // authoritative while the gesture runs
+      paintViewport(vp)
+
+      // Culling needs the store to move eventually, but not every frame. A
+      // slow tick keeps off-screen objects mounting during a long pan; the
+      // generous cull margin covers the gap in between.
+      if (commitTimer.current === null) {
+        commitTimer.current = window.setTimeout(() => {
+          commitTimer.current = null
+          useDocStore.getState().setViewport(pageId, vpRef.current)
+        }, 180)
       }
     },
-    [pageId]
+    [pageId, paintViewport]
   )
+
+  /** Flush the viewport to the store — called when a gesture ends. */
+  const commitViewport = useCallback(() => {
+    if (commitTimer.current !== null) {
+      clearTimeout(commitTimer.current)
+      commitTimer.current = null
+    }
+    useDocStore.getState().setViewport(pageId, vpRef.current)
+  }, [pageId])
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -1908,17 +1937,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       ref={containerRef}
       // select-none: mouse drags must marquee/move, never highlight text —
       // editing text re-enables selection locally via select-text.
-      className={cn(
-        'relative h-full w-full touch-none select-none overflow-hidden bg-background',
-        nbPrefs.grid === 'dots' && 'canvas-dots',
-        nbPrefs.grid === 'lines' && 'canvas-lines',
-        nbPrefs.grid === 'graph' && 'canvas-graph'
-      )}
-      style={{
-        cursor: editing ? cursor : 'default',
-        backgroundSize: `${GRID * viewport.zoom}px ${GRID * viewport.zoom}px`,
-        backgroundPosition: `${viewport.x}px ${viewport.y}px`,
-      }}
+      className="relative h-full w-full touch-none select-none overflow-hidden bg-background"
+      style={{ cursor: editing ? cursor : 'default' }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}
       onPointerUpCapture={handleTouchUpCapture}
@@ -1935,6 +1955,32 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       role="application"
       aria-label="Infinite canvas"
     >
+      {/* The grid is its own layer, moved with a TRANSFORM rather than by
+          animating background-position. background-position is not
+          GPU-composited: changing it every frame repaints the whole viewport,
+          which is most of what made panning feel heavy. The pattern repeats,
+          so translating by one grid cell (modulo) is visually identical and
+          costs nothing. */}
+      {nbPrefs.grid !== 'none' && (
+        <div
+          ref={gridRef}
+          aria-hidden
+          className={cn(
+            'pointer-events-none absolute',
+            nbPrefs.grid === 'dots' && 'canvas-dots',
+            nbPrefs.grid === 'lines' && 'canvas-lines',
+            nbPrefs.grid === 'graph' && 'canvas-graph'
+          )}
+          style={{
+            left: -GRID * 2,
+            top: -GRID * 2,
+            right: -GRID * 2,
+            bottom: -GRID * 2,
+            willChange: 'transform',
+          }}
+        />
+      )}
+
       <div
         ref={layerRef}
         // While a drawing/placement tool is armed, objects must not swallow

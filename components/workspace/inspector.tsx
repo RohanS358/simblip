@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { num, type SceneObject } from '@/lib/scene/types'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
 import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
+import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
@@ -962,6 +963,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       isBody(o.behaviors) === 'dynamic' ||
       o.behaviors.some((b) => b.enabled && b.type === 'electricalNode')
   )
+  /** A plain number field (rotation, and anything unitless). */
   const numField = (label: string, value: number, commit: (n: number) => void) => (
     <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
       {label}
@@ -973,6 +975,23 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           if (Number.isFinite(n)) commit(n)
         }}
       />
+    </label>
+  )
+
+  /** A LENGTH field. The page's unit is the centimetre (10 px = 1 cm), so the
+   *  user reads and types cm while geometry stays in pixels internally. */
+  const cmField = (label: string, px: number, commitPx: (px: number) => void) => (
+    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      {label}
+      <ExprInput
+        ariaLabel={`${label} (cm)`}
+        value={String(pxToCmRounded(px))}
+        onCommit={(v) => {
+          const n = Number(v)
+          if (Number.isFinite(n)) commitPx(cmToPx(n))
+        }}
+      />
+      <span className="shrink-0 text-[10px] opacity-60">cm</span>
     </label>
   )
 
@@ -994,16 +1013,16 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       <div>
         <SectionTitle>Transform</SectionTitle>
         <div className="grid grid-cols-2 gap-1.5">
-          {numField('X', object.position.x, (n) =>
+          {cmField('X', object.position.x, (n) =>
             updateObject(pageId, object.id, { position: { ...object.position, x: n } }, { history: true })
           )}
-          {numField('Y', object.position.y, (n) =>
+          {cmField('Y', object.position.y, (n) =>
             updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
           )}
-          {numField('W', object.size.w, (n) =>
+          {cmField('W', object.size.w, (n) =>
             n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
           )}
-          {numField('H', object.size.h, (n) =>
+          {cmField('H', object.size.h, (n) =>
             n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
           )}
           {numField('Rot°', object.rotation, (n) =>

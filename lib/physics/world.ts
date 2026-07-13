@@ -17,6 +17,7 @@ import Matter from 'matter-js'
 import decomp from 'poly-decomp'
 import { create } from 'zustand'
 import type { SceneObject } from '@/lib/scene/types'
+import { PX_PER_CM, PX_PER_M } from '@/lib/scene/units'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { compileExpr, type Scope } from '@/lib/formula/engine'
 import { useDocStore } from '@/lib/store/document'
@@ -26,7 +27,11 @@ import { buildCircuit, stepCircuit, type Circuit } from '@/lib/circuit/engine'
 
 Matter.Common.setDecomp(decomp)
 
-export const PPM = 100 // pixels per meter — graphs report SI units
+// The page is measured in centimetres (10 px = 1 cm, lib/scene/units.ts), so
+// a metre is 1000 px. Positions and speeds are reported in cm/cm·s⁻¹ to match
+// what the Inspector shows; energy stays in joules, which needs metres.
+export const PPM = PX_PER_M // pixels per metre — 1000
+export { PX_PER_CM }
 
 export type PlayMode = 'edit' | 'running' | 'paused'
 
@@ -933,12 +938,26 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
       const speed = Math.hypot(vps.x, vps.y)
       if (speed > 2) {
         const dv = scaled(vps.x, vps.y, 0.35, 110)
-        html += arrowSvg(x, y, dv.x, dv.y, 'var(--accent-mint)', `v ${speed.toFixed(0)}px/s`)
+        html += arrowSvg(
+          x,
+          y,
+          dv.x,
+          dv.y,
+          'var(--accent-mint)',
+          `v ${(speed / PX_PER_CM).toFixed(1)}cm/s`
+        )
       }
       const amag = Math.hypot(a.x, a.y)
       if (amag > 5) {
         const da = scaled(a.x, a.y, 0.04, 90)
-        html += arrowSvg(x, y, da.x, da.y, 'var(--accent-violet)', `a ${amag.toFixed(0)}px/s²`)
+        html += arrowSvg(
+          x,
+          y,
+          da.x,
+          da.y,
+          'var(--accent-violet)',
+          `a ${(amag / PX_PER_CM).toFixed(1)}cm/s²`
+        )
       }
     }
 
@@ -1163,13 +1182,15 @@ function sample(w: World) {
     if (b.body.isStatic) continue
     const v = b.body.velocity // px per 60Hz frame
     const channels: Record<string, number> = {
-      x: b.body.position.x / PPM,
-      y: -b.body.position.y / PPM,
-      vx: (v.x * 60) / PPM,
-      vy: (-v.y * 60) / PPM,
-      speed: (Math.hypot(v.x, v.y) * 60) / PPM,
+      // Lengths in centimetres — the page's unit.
+      x: b.body.position.x / PX_PER_CM,
+      y: -b.body.position.y / PX_PER_CM,
+      vx: (v.x * 60) / PX_PER_CM,
+      vy: (-v.y * 60) / PX_PER_CM,
+      speed: (Math.hypot(v.x, v.y) * 60) / PX_PER_CM,
       angle: b.body.angle,
       omega: b.body.angularVelocity * 60,
+      // Energy is a joule, which is defined in metres — not cm.
       ke: 0.5 * b.body.mass * ((Math.hypot(v.x, v.y) * 60) / PPM) ** 2,
     }
     const th = thermalByObj.get(b.objectId)

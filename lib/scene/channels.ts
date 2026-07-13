@@ -72,11 +72,11 @@ export function channelsFor(obj: SceneObject): string[] {
 
 /** Human-readable unit hint for a channel — used in pickers. */
 export const CHANNEL_LABELS: Record<string, string> = {
-  x: 'x position (m)',
-  y: 'y position (m)',
-  vx: 'x velocity (m/s)',
-  vy: 'y velocity (m/s)',
-  speed: 'speed (m/s)',
+  x: 'x position (cm)',
+  y: 'y position (cm)',
+  vx: 'x velocity (cm/s)',
+  vy: 'y velocity (cm/s)',
+  speed: 'speed (cm/s)',
   angle: 'angle (rad)',
   omega: 'angular velocity (rad/s)',
   ke: 'kinetic energy (J)',
