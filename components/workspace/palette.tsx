@@ -10,6 +10,7 @@ import { useSpring } from '@/lib/motion'
 import { X } from 'lucide-react'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
+import { usePrefs } from '@/lib/store/preferences'
 import { cn } from '@/lib/utils'
 
 const DOMAINS = [
@@ -29,16 +30,39 @@ export function Palette({ open, onClose }: { open: boolean; onClose: () => void 
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const setTool = useDocStore((s) => s.setTool)
+  const dock = usePrefs((s) => s.notebook.dock)
+  const vertical = dock === 'left' || dock === 'right'
+  // Grow out of the dock rather than up from the floor.
+  const slideFrom =
+    dock === 'left'
+      ? { x: -16, y: 0 }
+      : dock === 'right'
+        ? { x: 16, y: 0 }
+        : dock === 'top'
+          ? { x: 0, y: -16 }
+          : { x: 0, y: 16 }
 
   return (
     <AnimatePresence>
       {open && (
         <fm.div
-          initial={{ y: 16, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: 16, opacity: 0 }}
+          initial={{ ...slideFrom, opacity: 0, scale: 0.96 }}
+          animate={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+          exit={{ ...slideFrom, opacity: 0, scale: 0.96 }}
           transition={motion}
-          className="glass-strong absolute bottom-20 left-1/2 z-40 w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2 rounded-2xl p-3"
+          className={cn(
+            'glass-strong absolute z-40 rounded-2xl p-3',
+            // The palette belongs NEXT TO the button that opened it — so it
+            // follows the dock to whichever edge it's on, instead of always
+            // flying up from the bottom.
+            vertical
+              ? 'top-1/2 max-h-[calc(100dvh-2rem)] w-[min(22rem,calc(100vw-6rem))] -translate-y-1/2 overflow-y-auto'
+              : 'left-1/2 w-[min(26rem,calc(100vw-1rem))] -translate-x-1/2',
+            dock === 'bottom' && 'bottom-20',
+            dock === 'top' && 'top-20',
+            dock === 'left' && 'left-20',
+            dock === 'right' && 'right-20'
+          )}
           aria-label="Component palette"
         >
           <div className="mb-2 flex items-center gap-1">

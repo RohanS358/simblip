@@ -8,19 +8,27 @@ import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
+import { usePrefs } from '@/lib/store/preferences'
 
 export function Transport({ pageId }: { pageId: string }) {
   const motion = useSpring()
   const mode = useRuntimeStore((s) => s.mode)
+  const dock = usePrefs((s) => s.notebook.dock)
   const time = useRuntimeStore((s) => s.time)
 
   return (
     <fm.div
-      initial={{ y: -16, opacity: 0 }}
+      initial={{ y: dock === 'top' ? 16 : -16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={motion}
       className={cn(
-        'glass-strong absolute left-1/2 top-4 z-40 flex -translate-x-1/2 items-center gap-1 rounded-2xl p-1.5 transition-shadow',
+        'glass-strong absolute z-40 flex items-center gap-1 rounded-2xl p-1.5 transition-shadow',
+        // The transport lives on the opposite edge to the dock, so the two are
+        // never stacked on top of each other. With the dock on a side, both fit
+        // across the top.
+        dock === 'top'
+          ? 'bottom-4 left-1/2 -translate-x-1/2'
+          : 'left-1/2 top-4 -translate-x-1/2',
         mode !== 'edit' && 'shadow-[0_0_0_1.5px_var(--accent-mint)]'
       )}
       aria-label="Simulation transport"
