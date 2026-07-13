@@ -203,7 +203,7 @@ export const useDocStore = create<DocState>()(
       tool: 'select',
       toolOption: null,
       inkToShape: true,
-      inkAnnotate: true,
+      inkAnnotate: false, // opt-in: a stray scribble shouldn't retitle a part
       penSize: 5,
       selection: [],
       viewports: {},
