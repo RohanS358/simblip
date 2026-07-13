@@ -9,7 +9,7 @@
 // doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Layers, Activity } from 'lucide-react'
+import { Layers, Activity, TrendingUp, Sigma } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -20,9 +20,11 @@ import {
   Legend,
   Tooltip,
   ReferenceLine,
+  Customized,
 } from 'recharts'
 import { subscribe, readBuffer, decimate } from '@/lib/physics/bus'
 import { compileExpr, evalExpr, type Scope } from '@/lib/formula/engine'
+import { derivativeExpr } from '@/lib/formula/steps'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
 
@@ -113,11 +115,155 @@ function fmtMeas(v: number): string {
   return v.toPrecision(3)
 }
 
+// ── Calculus overlay ────────────────────────────────────────────────────────
+// Plotting f' or ∫f as extra LINES wastes the chart — you get a curve with no
+// stated meaning. Instead the derivative draws the TANGENT at the point you
+// hover (with its slope) and the integral SHADES the region it measures (with
+// its value). Both read the plotted rows, so they work for live channels and
+// formulas alike.
+
+/** Central-difference slope of one series at x, from the plotted samples. */
+function slopeAt(rows: Record<string, number>[], key: string, xKey: string, x: number): number {
+  const pts = rows
+    .map((r) => ({ x: r[xKey], y: r[key] }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+  if (pts.length < 2) return NaN
+  let i = 0
+  for (let k = 1; k < pts.length; k++) if (Math.abs(pts[k].x - x) < Math.abs(pts[i].x - x)) i = k
+  const a = pts[Math.max(0, i - 1)]
+  const b = pts[Math.min(pts.length - 1, i + 1)]
+  return b.x === a.x ? NaN : (b.y - a.y) / (b.x - a.x)
+}
+
+/** Value of a series at x (nearest sample). */
+function valueAt(rows: Record<string, number>[], key: string, xKey: string, x: number): number {
+  let best = NaN
+  let bd = Infinity
+  for (const r of rows) {
+    const d = Math.abs(r[xKey] - x)
+    if (Number.isFinite(r[key]) && d < bd) {
+      bd = d
+      best = r[key]
+    }
+  }
+  return best
+}
+
+/** Trapezoidal ∫ over [a,b]. axis 'x' → ∫y dx (area to the x-axis);
+ *  axis 'y' → ∫x dy (area to the y-axis). */
+function integrate(
+  rows: Record<string, number>[],
+  key: string,
+  xKey: string,
+  a: number,
+  b: number,
+  axis: 'x' | 'y'
+): number {
+  const pts = rows
+    .map((r) => ({ x: r[xKey], y: r[key] }))
+    .filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= a && p.x <= b)
+    .sort((p, q) => p.x - q.x)
+  let sum = 0
+  for (let i = 1; i < pts.length; i++) {
+    const p = pts[i - 1]
+    const q = pts[i]
+    sum +=
+      axis === 'x'
+        ? ((p.y + q.y) / 2) * (q.x - p.x) // ∫ y dx
+        : ((p.x + q.x) / 2) * (q.y - p.y) // ∫ x dy
+  }
+  return sum
+}
+
+interface OverlayProps {
+  rows: Record<string, number>[]
+  panels: { key: string; name: string; color: string }[]
+  xKey: string
+  deriv: boolean
+  integ: boolean
+  axis: 'x' | 'y'
+  a: number
+  b: number
+  hoverX: number | null
+  // injected by recharts
+  xAxisMap?: Record<string, { scale: (v: number) => number }>
+  yAxisMap?: Record<string, { scale: (v: number) => number }>
+}
+
+/** One SVG layer for both features — recharts hands us the axis scales, so we
+ *  can draw in data space (a tangent is a line segment, not a series). */
+function CalculusLayer(props: OverlayProps) {
+  const { rows, panels, xKey, deriv, integ, axis, a, b, hoverX, xAxisMap, yAxisMap } = props
+  const xs = xAxisMap ? Object.values(xAxisMap)[0]?.scale : undefined
+  const ys = yAxisMap ? Object.values(yAxisMap)[0]?.scale : undefined
+  if (!xs || !ys) return null
+
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {integ &&
+        panels.map((p) => {
+          const band = rows
+            .filter((r) => r[xKey] >= a && r[xKey] <= b && Number.isFinite(r[p.key]))
+            .sort((m1, m2) => m1[xKey] - m2[xKey])
+          if (band.length < 2) return null
+          // Fill to the chosen axis: down to y=0, or across to x=0.
+          const curve = band.map((r) => `${xs(r[xKey])},${ys(r[p.key])}`)
+          const back =
+            axis === 'x'
+              ? [`${xs(band[band.length - 1][xKey])},${ys(0)}`, `${xs(band[0][xKey])},${ys(0)}`]
+              : [`${xs(0)},${ys(band[band.length - 1][p.key])}`, `${xs(0)},${ys(band[0][p.key])}`]
+          return (
+            <polygon
+              key={`i-${p.key}`}
+              points={[...curve, ...back].join(' ')}
+              fill={p.color}
+              fillOpacity={0.16}
+              stroke={p.color}
+              strokeOpacity={0.4}
+              strokeWidth={1}
+            />
+          )
+        })}
+
+      {deriv &&
+        hoverX !== null &&
+        panels.map((p) => {
+          const y = valueAt(rows, p.key, xKey, hoverX)
+          const mSlope = slopeAt(rows, p.key, xKey, hoverX)
+          if (!Number.isFinite(y) || !Number.isFinite(mSlope)) return null
+          // A tangent drawn over a fixed span of the x-domain reads clearly at
+          // any zoom, unlike one drawn over a fixed pixel length.
+          const span = (b - a) * 0.14 || 1
+          const x1 = hoverX - span
+          const x2 = hoverX + span
+          return (
+            <g key={`d-${p.key}`}>
+              <line
+                x1={xs(x1)}
+                y1={ys(y - mSlope * span)}
+                x2={xs(x2)}
+                y2={ys(y + mSlope * span)}
+                stroke={p.color}
+                strokeWidth={1.5}
+                strokeDasharray="5 3"
+              />
+              <circle cx={xs(hoverX)} cy={ys(y)} r={3} fill={p.color} />
+            </g>
+          )
+        })}
+    </g>
+  )
+}
+
 export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const xChannel = getString(object, 'xChannel', 't') || 't'
   const formulasStr = getString(object, 'formulas')
   const stacked = getString(object, 'stacked') === '1'
   const measuring = getString(object, 'measure') === '1'
+  const deriv = getString(object, 'deriv') === '1'
+  const integ = getString(object, 'integ') === '1'
+  const integAxis: 'x' | 'y' = getString(object, 'integAxis') === 'y' ? 'y' : 'x'
+  const [hoverX, setHoverX] = useState<number | null>(null)
   const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
   const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -245,6 +391,42 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
     [measuring, rows, panels, xChannel]
   )
 
+  // Integration bounds default to the plotted window, so it works out of the
+  // box; integA/integB override either end.
+  const dataMinX = rows.length ? Math.min(...rows.map((r) => r[xChannel])) : 0
+  const dataMaxX = rows.length ? Math.max(...rows.map((r) => r[xChannel])) : 1
+  const intA = bound(getString(object, 'integA'), scope) ?? xMin ?? dataMinX
+  const intB = bound(getString(object, 'integB'), scope) ?? xMax ?? dataMaxX
+
+  const integrals = useMemo(
+    () =>
+      integ && hasPlot
+        ? panels.map((p) => ({
+            ...p,
+            value: integrate(rows, p.key, xChannel, intA, intB, integAxis),
+          }))
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [integ, hasPlot, rows, panels.map((p) => p.key).join(','), xChannel, intA, intB, integAxis]
+  )
+
+  // Slopes at the hovered x, plus the SYMBOLIC derivative for formula series.
+  const slopes = useMemo(
+    () =>
+      deriv && hoverX !== null && hasPlot
+        ? panels.map((p, i) => {
+            const f = formulas[i - series.length]
+            return {
+              ...p,
+              slope: slopeAt(rows, p.key, xChannel, hoverX),
+              expr: f ? derivativeExpr(f.expr, xChannel) : null,
+            }
+          })
+        : [],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [deriv, hoverX, hasPlot, rows, panels.map((p) => p.key).join(','), xChannel]
+  )
+
   const tooltipProps = {
     isAnimationActive: false,
     cursor: { stroke: 'var(--ring)', strokeWidth: 1, strokeDasharray: '3 3' },
@@ -285,6 +467,54 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
             <Activity className="h-3.5 w-3.5" />
           </button>
         )}
+        {panels.length > 0 && (
+          <button
+            type="button"
+            aria-label={deriv ? 'Hide tangent' : 'Show tangent on hover (derivative)'}
+            aria-pressed={deriv}
+            title={deriv ? 'Derivative: off' : 'Derivative — hover to see the tangent and its slope'}
+            className={
+              deriv
+                ? 'rounded p-0.5 text-[var(--accent-mint)]'
+                : 'rounded p-0.5 text-muted-foreground hover:text-foreground'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setStringParam(pageId, object.id, 'deriv', deriv ? '' : '1')}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {panels.length > 0 && (
+          <button
+            type="button"
+            aria-label={integ ? 'Hide area' : 'Shade the area under the curve (integral)'}
+            aria-pressed={integ}
+            title={integ ? 'Integral: off' : 'Integral — shade the region and show its value'}
+            className={
+              integ
+                ? 'rounded p-0.5 text-[var(--accent-violet)]'
+                : 'rounded p-0.5 text-muted-foreground hover:text-foreground'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setStringParam(pageId, object.id, 'integ', integ ? '' : '1')}
+          >
+            <Sigma className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {integ && (
+          <button
+            type="button"
+            aria-label={`Integrate to the ${integAxis}-axis`}
+            title={`Integrating to the ${integAxis}-axis — click to swap`}
+            className="rounded px-1 font-mono text-[10px] text-[var(--accent-violet)]"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() =>
+              setStringParam(pageId, object.id, 'integAxis', integAxis === 'x' ? 'y' : 'x')
+            }
+          >
+            d{integAxis}
+          </button>
+        )}
         {panels.length > 1 && (
           <button
             type="button"
@@ -313,6 +543,32 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           <span>Pk-Pk {fmtMeas(stats.pp)}</span>
           <span>Freq {fmtMeas(stats.freq)}</span>
           <span>T {fmtMeas(stats.period)}</span>
+        </div>
+      )}
+      {deriv && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
+          {hoverX === null ? (
+            <span className="text-muted-foreground">Hover the chart to place the tangent…</span>
+          ) : (
+            slopes.map((sl) => (
+              <span key={sl.key} style={{ color: sl.color }}>
+                d{sl.name}/d{xChannel} = {fmtMeas(sl.slope)}
+                {sl.expr ? <span className="opacity-70"> · {sl.expr}</span> : null}
+              </span>
+            ))
+          )}
+        </div>
+      )}
+      {integ && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
+          <span className="text-muted-foreground">
+            ∫ over {fmtMeas(intA)}…{fmtMeas(intB)} d{integAxis}
+          </span>
+          {integrals.map((it) => (
+            <span key={it.key} style={{ color: it.color }}>
+              {it.name} = {fmtMeas(it.value)}
+            </span>
+          ))}
         </div>
       )}
       {hasPlot && useStacked ? (
@@ -380,9 +636,18 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           ))}
         </div>
       ) : hasPlot ? (
-        <div className="min-h-0 flex-1 p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="relative min-h-0 flex-1 p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={rows} margin={{ top: 8, right: 12, bottom: 0, left: -14 }}>
+            <LineChart
+              data={rows}
+              margin={{ top: 8, right: 12, bottom: 0, left: -14 }}
+              onMouseMove={(st: { activeLabel?: string | number }) => {
+                if (!deriv) return
+                const v = Number(st?.activeLabel)
+                setHoverX(Number.isFinite(v) ? v : null)
+              }}
+              onMouseLeave={() => setHoverX(null)}
+            >
               <CartesianGrid stroke="var(--border)" strokeOpacity={0.5} vertical={false} />
               <XAxis
                 dataKey={xChannel}
@@ -438,8 +703,40 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                   connectNulls
                 />
               ))}
+              {(deriv || integ) && (
+                <Customized
+                  component={(cp: object) => (
+                    <CalculusLayer
+                      {...(cp as OverlayProps)}
+                      rows={rows}
+                      panels={panels}
+                      xKey={xChannel}
+                      deriv={deriv}
+                      integ={integ}
+                      axis={integAxis}
+                      a={intA}
+                      b={intB}
+                      hoverX={hoverX}
+                    />
+                  )}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
+          {/* The total sits in the middle of the shaded region, where it reads. */}
+          {integ && integrals.length > 0 && (
+            <div className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5">
+              {integrals.map((it) => (
+                <span
+                  key={it.key}
+                  className="rounded-md border border-border bg-card/90 px-1.5 py-0.5 font-mono text-[11px] font-bold shadow-sm"
+                  style={{ color: it.color }}
+                >
+                  ∫ {it.name} = {fmtMeas(it.value)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       ) : (
         <div className="flex flex-1 items-center justify-center p-4 text-center text-[12px] text-muted-foreground">

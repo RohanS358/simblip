@@ -555,3 +555,12 @@ export function fourierSteps(p: ParsedFormula, v: string): string {
   lines.push(`F(\\omega) = ${parts.map((x) => x.T).join(' + ')}`)
   return lines.join(' \\\\[5pt] ')
 }
+
+/** Plain-text symbolic derivative (for the graph's derivative readout). */
+export function derivativeExpr(expr: string, v: string): string | null {
+  try {
+    return m.simplify(m.derivative(m.parse(expr), v)).toString()
+  } catch {
+    return null
+  }
+}
