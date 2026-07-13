@@ -26,6 +26,9 @@ export interface PenPrefs {
   size: number
   color: string
   style: PenStyle
+  /** Scribble-to-erase: 0 = must scribble hard and long before anything is
+   *  deleted, 1 = a light scratch is enough. Higher is easier to trigger. */
+  scribbleSensitivity: number
 }
 
 export interface NotebookPrefs {
@@ -41,9 +44,12 @@ export type MotionStyle = 'bouncy' | 'smooth' | 'none'
 
 export interface AppearancePrefs {
   motion: MotionStyle
+  /** Touch devices: lift the selected object out of the canvas while its
+   *  properties are open, so you can see what your edits do to it. */
+  focusOnEdit: boolean
 }
 
-export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy' }
+export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy', focusOnEdit: true }
 
 export type AngleUnit = 'deg' | 'rad'
 export type NumberStyle = 'auto' | 'fixed' | 'sci' | 'eng'
@@ -92,6 +98,7 @@ export const DEFAULT_PEN: PenPrefs = {
   size: 5,
   color: 'var(--foreground)',
   style: 'ink',
+  scribbleSensitivity: 0.5,
 }
 
 export const DEFAULT_NOTEBOOK: NotebookPrefs = {

@@ -46,6 +46,7 @@ import { FocusObject } from './focus-object'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useIsNarrow } from '@/hooks/use-mobile'
+import { usePrefs } from '@/lib/store/preferences'
 import { InfiniteCanvas } from './canvas'
 import { AiPanel } from './ai-panel'
 import { NotificationCenter } from './notifications'
@@ -103,7 +104,8 @@ export function MobileShell() {
   // different panels — a sheet from the bottom vs. the desktop side panel.
   const isPhone = useIsNarrow(767)
   const selection = useDocStore((s) => s.selection)
-  const focusedId = inspectorOpen && selection.length === 1 ? selection[0] : null
+  const focusOnEdit = usePrefs((s) => s.appearance.focusOnEdit)
+  const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
 

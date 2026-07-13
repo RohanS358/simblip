@@ -18,7 +18,7 @@ import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
-import { usePrefs, PEN_STYLES } from '@/lib/store/preferences'
+import { usePrefs, penPrefs, PEN_STYLES } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -77,7 +77,16 @@ const SHAPE_SIDES: Record<string, number> = { triangle: 3, pentagon: 5, hexagon:
 /** A furious cover-it-up scribble: long dense path that keeps folding back
  *  on itself. Way more total turning and ink than any writing or shape. */
 function isScribble(pts: number[][]): boolean {
-  if (pts.length < 40) return false
+  // How hard you must scribble before anything is deleted. Every threshold
+  // moves together with the setting: at 0 you have to scratch long and
+  // furiously; at 1 a quick zigzag is enough. The defaults sit in the middle.
+  const k = Math.min(1, Math.max(0, penPrefs().scribbleSensitivity))
+  const lerp = (a: number, b: number) => a + (b - a) * k
+  const minPts = lerp(60, 24) // how much ink before we even look
+  const minFold = lerp(8, 3) // path length vs. its own size — how doubled-back
+  const minTurn = lerp(10, 3) * Math.PI // total turning — how many reversals
+
+  if (pts.length < minPts) return false
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
   let len = 0
   let totalTurn = 0
@@ -102,7 +111,7 @@ function isScribble(pts: number[][]): boolean {
     }
   }
   const diag = Math.hypot(maxX - minX, maxY - minY)
-  return diag > 40 && len / diag > 5 && totalTurn > 6 * Math.PI
+  return diag > 40 && len / diag > minFold && totalTurn > minTurn
 } // screen px below which a drag counts as a click
 
 // Inside a system boundary, recognized doodle shapes become that domain's

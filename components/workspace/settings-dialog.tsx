@@ -220,6 +220,24 @@ function PenSettings() {
         </div>
       </Field>
 
+      <Field
+        label="Scribble to erase"
+        value={
+          pen.scribbleSensitivity === 0
+            ? 'off-ish'
+            : `${Math.round(pen.scribbleSensitivity * 100)}%`
+        }
+        hint="Scratching over your work deletes what's under it. Low means you must scribble hard and long before anything goes — safer while you're writing. High means a quick zigzag is enough."
+      >
+        <Slider
+          value={[pen.scribbleSensitivity]}
+          min={0}
+          max={1}
+          step={0.05}
+          onValueChange={([v]) => setPen({ scribbleSensitivity: v })}
+        />
+      </Field>
+
       <Field label="Style">
         <Choice<PenStyle>
           value={pen.style}
@@ -313,8 +331,16 @@ function NotebookSettings() {
 
 function MotionSetting() {
   const motion = usePrefs((s) => s.appearance.motion)
+  const focusOnEdit = usePrefs((s) => s.appearance.focusOnEdit)
   const setAppearance = usePrefs((s) => s.setAppearance)
   return (
+    <>
+    <PrefRow
+      label="Focus the object while editing"
+      detail="On phones and tablets, lift the selected object out of the canvas and dim the board while its properties are open. Off keeps the board as it is."
+      checked={focusOnEdit}
+      onChange={() => setAppearance({ focusOnEdit: !focusOnEdit })}
+    />
     <Field
       label="Motion"
       hint="Bouncy springs overshoot slightly and settle — that's what makes an interface feel physical rather than mechanical. Smooth removes the overshoot; Off disables animation entirely (also the right choice if motion makes you queasy)."
@@ -329,6 +355,7 @@ function MotionSetting() {
         ]}
       />
     </Field>
+    </>
   )
 }
 
