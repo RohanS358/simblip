@@ -315,23 +315,25 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="flex max-h-[85dvh] max-w-xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Your preferences on this device.</DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="profile">
-          <TabsList className="w-full">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
-            <TabsTrigger value="pen">Pen</TabsTrigger>
-            <TabsTrigger value="notebook">Notebook</TabsTrigger>
-            <TabsTrigger value="workspace">Workspace</TabsTrigger>
-            <TabsTrigger value="shortcuts">Shortcuts</TabsTrigger>
-            <TabsTrigger value="about">About</TabsTrigger>
+        <Tabs defaultValue="profile" className="flex min-h-0 flex-1 flex-col">
+          {/* Seven tabs no longer fit a fixed strip — let it scroll rather
+              than squeeze the labels out of the dialog. */}
+          <TabsList className="no-scrollbar w-full justify-start overflow-x-auto">
+            <TabsTrigger value="profile" className="shrink-0">Profile</TabsTrigger>
+            <TabsTrigger value="appearance" className="shrink-0">Appearance</TabsTrigger>
+            <TabsTrigger value="pen" className="shrink-0">Pen</TabsTrigger>
+            <TabsTrigger value="notebook" className="shrink-0">Notebook</TabsTrigger>
+            <TabsTrigger value="workspace" className="shrink-0">Workspace</TabsTrigger>
+            <TabsTrigger value="shortcuts" className="shrink-0">Shortcuts</TabsTrigger>
+            <TabsTrigger value="about" className="shrink-0">About</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="profile" className="space-y-2 pt-3">
+          <TabsContent value="profile" className="space-y-2 pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             {profile && (
               <>
                 <div className="grid grid-cols-[110px_1fr] gap-y-2 text-[13px]">
@@ -360,15 +362,15 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             )}
           </TabsContent>
 
-          <TabsContent value="pen" className="pt-3">
+          <TabsContent value="pen" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <PenSettings />
           </TabsContent>
 
-          <TabsContent value="notebook" className="pt-3">
+          <TabsContent value="notebook" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <NotebookSettings />
           </TabsContent>
 
-          <TabsContent value="appearance" className="pt-3">
+          <TabsContent value="appearance" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="flex gap-2">
               {(['light', 'dark', 'system'] as const).map((t) => (
                 <Button
@@ -387,7 +389,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </p>
           </TabsContent>
 
-          <TabsContent value="workspace" className="divide-y divide-border/60 pt-1">
+          <TabsContent value="workspace" className="divide-y divide-border/60 pt-1 min-h-0 flex-1 overflow-y-auto pr-1">
             <PrefRow
               label="Ink to shape"
               detail="Recognize pen strokes into circles, rectangles and components."
@@ -402,7 +404,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             />
           </TabsContent>
 
-          <TabsContent value="shortcuts" className="pt-3">
+          <TabsContent value="shortcuts" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="space-y-1.5">
               {SHORTCUTS.map(([keys, what]) => (
                 <div key={keys} className="flex items-center justify-between text-[12.5px]">
@@ -413,7 +415,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             </div>
           </TabsContent>
 
-          <TabsContent value="about" className="pt-3 text-[12.5px] leading-relaxed text-muted-foreground">
+          <TabsContent value="about" className="pt-3 text-[12.5px] leading-relaxed text-muted-foreground min-h-0 flex-1 overflow-y-auto pr-1">
             <p>
               <span className="font-semibold text-foreground">SIMBLIP</span> — the engineering notebook
               that simulates. Enterprise education platform for engineering institutions.
