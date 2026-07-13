@@ -32,7 +32,7 @@ import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
-import { registerElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
+import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
@@ -147,6 +147,10 @@ interface Gesture {
   placeTool?: Tool
   /** Shape id when placing from the Shapes group (square, hexagon…). */
   placeShape?: string
+  /** Live drag offset, applied to the DOM and committed to the store on release. */
+  liveDrag?: { dx: number; dy: number }
+  /** Snap targets, gathered once at drag start (they can't move mid-drag). */
+  snapStatics?: SceneObject[]
   /** Shift+pen orthogonal routing: committed 90° corners + current axis. */
   orthoPts?: number[][]
   orthoAxis?: 'h' | 'v'
@@ -415,6 +419,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [box, setBox] = useState({ w: 1600, h: 1000 })
   const layerRef = useRef<HTMLDivElement>(null)
+  const guideRaf = useRef<number | null>(null)
   const pendingVp = useRef<Viewport | null>(null)
   const vpRaf = useRef<number | null>(null)
 
@@ -687,8 +692,15 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         if (!e.altKey && page && g.objectStartPositions.size > 0) {
           const zoom = g.startViewport.zoom
           const th = 6 / zoom
-          const movingIds = new Set(g.objectStartPositions.keys())
-          const statics = Object.values(page.objects).filter((o) => !movingIds.has(o.id))
+          // The snap candidates can't change mid-drag, so gather them ONCE.
+          // Rebuilding this list on every pointer event was another O(n) pass
+          // per frame — and on a big page it also re-walked every symbol's
+          // terminals. Cached on the gesture, it costs nothing per frame.
+          if (!g.snapStatics) {
+            const movingIds = new Set(g.objectStartPositions.keys())
+            g.snapStatics = Object.values(page.objects).filter((o) => !movingIds.has(o.id))
+          }
+          const statics = g.snapStatics
 
           // 1) Electrical terminals click together exactly — a solid
           // connection beats mere alignment, so it wins outright.
@@ -759,10 +771,24 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           }
         }
 
-        for (const [id, startPos] of g.objectStartPositions) {
-          store.updateObject(pageId, id, { position: { x: startPos.x + dx, y: startPos.y + dy } })
+        // Move the DOM directly. Writing every intermediate position to the
+        // store meant a React render per pointer event — and on a big page
+        // that's an O(n) reconcile 60x a second, which is the jitter. The
+        // store is updated once, on release (see onPointerUp).
+        g.liveDrag = { dx, dy }
+        for (const [id] of g.objectStartPositions) {
+          const el = getElement(id)
+          if (el) el.style.transform = `translate(${dx}px, ${dy}px)`
         }
-        setGuides(newGuides.v.length + newGuides.h.length + newGuides.pts.length > 0 ? newGuides : null)
+        // Guides repaint at most once a frame — they're React state.
+        if (guideRaf.current === null) {
+          guideRaf.current = requestAnimationFrame(() => {
+            guideRaf.current = null
+            setGuides(
+              newGuides.v.length + newGuides.h.length + newGuides.pts.length > 0 ? newGuides : null
+            )
+          })
+        }
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
@@ -933,8 +959,31 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         holdTimerRef.current = null
       }
       setHoldReady(false)
+      if (guideRaf.current !== null) {
+        cancelAnimationFrame(guideRaf.current)
+        guideRaf.current = null
+      }
       if (!g) return
       const store = useDocStore.getState()
+
+      // Commit a live drag: the elements have been moved by transform only, so
+      // now write the real positions ONCE and drop the inline transforms. The
+      // re-render that follows puts them at their new left/top, so there's no
+      // visual jump.
+      if (g.mode === 'move' && g.liveDrag) {
+        const { dx, dy } = g.liveDrag
+        for (const [id] of g.objectStartPositions) {
+          const el = getElement(id)
+          if (el) el.style.transform = ''
+        }
+        if (dx !== 0 || dy !== 0) {
+          for (const [id, startPos] of g.objectStartPositions) {
+            store.updateObject(pageId, id, {
+              position: { x: startPos.x + dx, y: startPos.y + dy },
+            })
+          }
+        }
+      }
 
       if (g.mode === 'marquee') {
         const point = toCanvas(e.clientX, e.clientY)

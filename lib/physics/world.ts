@@ -54,6 +54,13 @@ export const useRuntimeStore = create<RuntimeState>((set) => ({
 
 const elements = new Map<string, HTMLElement>()
 
+/** The wrapper element for an object, if it's currently mounted. Lets the
+ *  canvas move things by writing transforms directly, exactly like the physics
+ *  loop does — React is far too expensive to sit in a 60 Hz drag. */
+export function getElement(objectId: string): HTMLElement | undefined {
+  return elements.get(objectId)
+}
+
 export function registerElement(objectId: string, el: HTMLElement | null) {
   if (el) elements.set(objectId, el)
   else elements.delete(objectId)
