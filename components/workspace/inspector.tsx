@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils'
 import { num, type SceneObject } from '@/lib/scene/types'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
 import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
+import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
  * a single click never enters text edit — only a double-click does. A
@@ -397,6 +398,91 @@ function AddRowButton({ label, onClick }: { label: string; onClick: () => void }
     >
       <Plus className="h-3 w-3" /> {label}
     </button>
+  )
+}
+
+/** Column picker for the Truth Table — which of the circuit's inputs and
+ *  outputs to tabulate. The table itself is produced by simulating every
+ *  combination (lib/circuit/truth-table.ts). */
+function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const pageObjects = useDocStore((s) => s.pages[pageId]?.objects) ?? {}
+  const { sources, sinks } = truthCandidates(Object.values(pageObjects))
+
+  const picked = (param: 'inputs' | 'outputs') => splitList(getStr(object, param))
+  const toggle = (param: 'inputs' | 'outputs', id: string) => {
+    const cur = picked(param)
+    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
+    setStringParam(pageId, object.id, param, next.join('; '))
+  }
+
+  const list = (
+    param: 'inputs' | 'outputs',
+    items: SceneObject[],
+    empty: string,
+    color: string
+  ) => {
+    const chosen = picked(param)
+    return items.length === 0 ? (
+      <p className="text-[11.5px] text-muted-foreground">{empty}</p>
+    ) : (
+      <div className="space-y-1">
+        {items.map((o) => {
+          const on = chosen.includes(o.id)
+          return (
+            <button
+              key={o.id}
+              type="button"
+              role="switch"
+              aria-checked={on}
+              className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-[12px] transition-colors"
+              style={{
+                borderColor: on ? color : 'var(--border)',
+                color: on ? 'var(--foreground)' : 'var(--muted-foreground)',
+                background: on ? `color-mix(in oklch, ${color} 10%, transparent)` : 'transparent',
+              }}
+              onClick={() => toggle(param, o.id)}
+            >
+              <span
+                className="h-2 w-2 shrink-0 rounded-full"
+                style={{ background: on ? color : 'var(--border)' }}
+              />
+              <span className="min-w-0 flex-1 truncate">{o.name}</span>
+              <span className="shrink-0 font-mono text-[10px] opacity-60">
+                {o.geometry.symbol}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    )
+  }
+
+  const nIn = picked('inputs').length
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <SectionTitle>Inputs</SectionTitle>
+        {list('inputs', sources, 'Add a logic Input or Switch to the circuit.', 'var(--chart-1)')}
+        {nIn > MAX_INPUTS && (
+          <p className="text-[10.5px] text-[var(--accent-rose)]">
+            Too many inputs — {MAX_INPUTS} max ({1 << MAX_INPUTS} rows).
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Outputs</SectionTitle>
+        {list('outputs', sinks, 'Add an Output, logic probe, LED or bulb.', 'var(--chart-2)')}
+      </div>
+
+      <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        Every combination of the chosen inputs is simulated on the real circuit
+        {nIn > 0 && nIn <= MAX_INPUTS ? ` — ${1 << nIn} rows` : ''}. Rewire a gate and the table
+        updates itself.
+      </p>
+    </div>
   )
 }
 
@@ -980,6 +1066,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
 
       {object.geometry.kind === 'cashflow' && <CashflowOptions pageId={pageId} object={object} />}
 
+      {object.geometry.kind === 'truthtable' && (
+        <TruthTableOptions pageId={pageId} object={object} />
+      )}
+
       {contentParams.length > 0 && (
         <div className="space-y-1.5">
           <SectionTitle>Parameters</SectionTitle>
@@ -1003,7 +1093,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {!['note', 'text', 'formula', 'graph', 'cashflow'].includes(object.geometry.kind) &&
+      {!['note', 'text', 'formula', 'graph', 'cashflow', 'truthtable'].includes(object.geometry.kind) &&
         object.metadata.render !== 'system' && (
           <BehaviorsSection pageId={pageId} object={object} />
         )}

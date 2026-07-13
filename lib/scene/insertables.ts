@@ -36,6 +36,7 @@ const WIDGETS: Insertable[] = [
   widget('formula', 'Formula', 'latex equation derivative integral laplace fourier'),
   widget('graph', 'Graph', 'plot chart series oscilloscope'),
   widget('cashflow', 'Cash Flow', 'economics npv irr annuity salvage marr'),
+  widget('truthtable', 'Truth Table', 'digital logic gate boolean inputs outputs'),
   widget('circle', 'Circle', 'shape ellipse'),
   widget('rect', 'Rectangle', 'shape box square'),
   widget('line', 'Line', 'shape beam segment'),

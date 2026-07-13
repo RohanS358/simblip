@@ -62,6 +62,11 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.size = { w: 480, h: 300 }
       obj.parameters.spec = str(JSON.stringify(EMPTY_SPEC))
       break
+    case 'truthtable':
+      obj.size = { w: 320, h: 260 }
+      obj.parameters.inputs = str('')
+      obj.parameters.outputs = str('')
+      break
   }
   return obj
 }
@@ -365,6 +370,21 @@ export const COMPONENTS: ComponentDef[] = [
     o.parameters.spec = str(JSON.stringify(EMPTY_SPEC))
     return o
   }),
+
+  // ── Digital analysis: reads the circuit rather than being part of it. ──
+  {
+    id: 'truth-table',
+    label: 'Truth Table',
+    domain: 'digital' as const,
+    live: true,
+    create: (p: Vec2) => {
+      const o = baseObject('truthtable', p, autoName('Truth Table'))
+      o.size = { w: 320, h: 260 }
+      o.parameters.inputs = str('')
+      o.parameters.outputs = str('')
+      return o
+    },
+  },
 
   // ── Electrical / Electronics / Digital: live symbols, MNA + logic solver ──
   ...(
