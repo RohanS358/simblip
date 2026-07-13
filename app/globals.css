@@ -192,6 +192,31 @@
   .canvas-dots {
     background-image: radial-gradient(var(--canvas-dot) 1px, transparent 1px);
   }
+
+  /* Ruled paper — horizontal lines only. */
+  .canvas-lines {
+    background-image: linear-gradient(
+      to bottom,
+      color-mix(in oklch, var(--muted-foreground) 22%, transparent) 1px,
+      transparent 1px
+    );
+  }
+
+  /* Graph paper — full squared grid. */
+  .canvas-graph {
+    background-image:
+      linear-gradient(
+        to right,
+        color-mix(in oklch, var(--muted-foreground) 16%, transparent) 1px,
+        transparent 1px
+      ),
+      linear-gradient(
+        to bottom,
+        color-mix(in oklch, var(--muted-foreground) 16%, transparent) 1px,
+        transparent 1px
+      );
+  }
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }

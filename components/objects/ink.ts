@@ -7,18 +7,25 @@
 // code all read only [0]/[1], so the third element rides along untouched.
 
 import { getStroke } from 'perfect-freehand'
+import { penPrefs, PEN_STYLES } from '@/lib/store/preferences'
 
 export function inkPath(points: number[][], opts: { size?: number; last?: boolean } = {}): string {
   if (points.length === 0) return ''
   const first = points[0][2] ?? 0.5
   const hasRealPressure = points.some((p) => Math.abs((p[2] ?? 0.5) - first) > 0.04)
+  // Feel comes from the user's pen settings. `streamline` is the one that
+  // makes writing feel laggy when it's high — it averages the input, so the
+  // ink trails the hand. Smoothing only rounds the finished outline.
+  const pen = penPrefs()
+  const style = PEN_STYLES[pen.style]
   const outline = getStroke(points, {
-    size: opts.size ?? 5,
-    thinning: 0.55,
-    smoothing: 0.55,
-    streamline: 0.5,
+    size: opts.size ?? pen.size,
+    thinning: pen.sensitivity,
+    smoothing: pen.smoothing,
+    streamline: pen.streamline,
     simulatePressure: !hasRealPressure,
     last: opts.last ?? true,
+    ...(style.taper ? {} : { start: { taper: 0 }, end: { taper: 0 } }),
   })
   if (outline.length < 3) return ''
   // Closed midpoint-quadratic loop around the outline.

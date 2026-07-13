@@ -22,6 +22,7 @@ import {
 } from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
 import { useRuntimeStore, play, pause, stop, stepFrame } from '@/lib/physics/world'
+import { PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react'
 import {
   C as cx,
@@ -582,6 +583,10 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   const bareInk =
     kind === 'stroke' && !isBody(object.behaviors) && !object.behaviors.some((b) => b.enabled && b.type === 'wire')
   const inkSize = typeof object.metadata.inkSize === 'number' ? object.metadata.inkSize : 5
+  // Committed ink keeps the colour/style it was drawn with — changing your pen
+  // settings later must not repaint everything you've already written.
+  const inkColor = (object.metadata.inkColor as string) ?? 'var(--foreground)'
+  const inkOpacity = PEN_STYLES[(object.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1
   const inkD = useMemo(
     () => (bareInk && points ? inkPath(points, { size: inkSize }) : ''),
     [bareInk, points, inkSize]
@@ -1078,7 +1083,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           // Ink body plus an invisible centerline: the circuit runtime still
           // finds a data-wire path to recolor if this doodle conducts.
           <>
-            <path d={inkD} fill={stroke} stroke="none" />
+            <path d={inkD} fill={inkColor} fillOpacity={inkOpacity} stroke="none" />
             <path
               data-wire=""
               d={strokePath}

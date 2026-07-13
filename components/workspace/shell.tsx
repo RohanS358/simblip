@@ -11,6 +11,7 @@ import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search
 import { useTheme } from 'next-themes'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
+import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can, ROLE_LABEL } from '@/lib/auth/types'
@@ -103,6 +104,16 @@ export function WorkspaceShell() {
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
+  // UI scale rides on the root font size: everything is sized in rem-derived
+  // Tailwind units, so panels, docks and the inspector all follow — while the
+  // CANVAS keeps its own zoom, which is what you want.
+  const uiScale = usePrefs((s) => s.notebook.uiScale)
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${uiScale * 100}%`
+    return () => {
+      document.documentElement.style.fontSize = ''
+    }
+  }, [uiScale])
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)

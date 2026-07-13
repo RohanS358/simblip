@@ -18,6 +18,7 @@ import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
+import { usePrefs, PEN_STYLES } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -372,6 +373,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const penSize = useDocStore((s) => s.penSize)
+  const pen = usePrefs((s) => s.pen)
+  const nbPrefs = usePrefs((s) => s.notebook)
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
@@ -444,7 +447,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           y: sy - ((sy - v.y) * zoom) / v.zoom,
         })
       } else {
-        store.setViewport(pageId, { ...v, x: v.x - e.deltaX, y: v.y - e.deltaY })
+        // Scroll axis: locking to one direction keeps long notes from
+        // drifting sideways as you read down them.
+        const axis = usePrefs.getState().notebook.scrollAxis
+        const dx = axis === 'vertical' ? 0 : e.deltaX
+        const dy = axis === 'horizontal' ? 0 : e.deltaY
+        store.setViewport(pageId, { ...v, x: v.x - dx, y: v.y - dy })
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
@@ -1041,6 +1049,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               h: Math.max(maxY - minY, 1),
             })
             obj.metadata.inkSize = store.penSize
+            obj.metadata.inkColor = usePrefs.getState().pen.color
+            obj.metadata.inkStyle = usePrefs.getState().pen.style
             const all = Object.values(store.pages[pageId]?.objects ?? {})
             if (connectEnds(obj, all)) {
               obj.behaviors.push(createBehavior('wire'))
@@ -1093,6 +1103,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               h: rec.h,
             })
             raw.metadata.inkSize = store.penSize
+            raw.metadata.inkColor = usePrefs.getState().pen.color
+            raw.metadata.inkStyle = usePrefs.getState().pen.style
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
@@ -1186,7 +1198,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               }
             }
           }
-          if (obj.geometry.kind === 'stroke') obj.metadata.inkSize = store.penSize
+          if (obj.geometry.kind === 'stroke') {
+            obj.metadata.inkSize = store.penSize
+            obj.metadata.inkColor = usePrefs.getState().pen.color
+            obj.metadata.inkStyle = usePrefs.getState().pen.style
+          }
           store.addObject(pageId, obj)
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
@@ -1771,7 +1787,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       ref={containerRef}
       // select-none: mouse drags must marquee/move, never highlight text —
       // editing text re-enables selection locally via select-text.
-      className="canvas-dots relative h-full w-full touch-none select-none overflow-hidden bg-background"
+      className={cn(
+        'relative h-full w-full touch-none select-none overflow-hidden bg-background',
+        nbPrefs.grid === 'dots' && 'canvas-dots',
+        nbPrefs.grid === 'lines' && 'canvas-lines',
+        nbPrefs.grid === 'graph' && 'canvas-graph'
+      )}
       style={{
         cursor: editing ? cursor : 'default',
         backgroundSize: `${GRID * viewport.zoom}px ${GRID * viewport.zoom}px`,
@@ -1875,7 +1896,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               <>
                 <path
                   d={inkPath(stroke, { size: penSize, last: false })}
-                  fill={holdReady ? 'var(--accent-amber)' : 'var(--foreground)'}
+                  fill={holdReady ? 'var(--accent-amber)' : pen.color}
+                  fillOpacity={PEN_STYLES[pen.style].opacity}
                   stroke="none"
                 />
                 {holdReady && (

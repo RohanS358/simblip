@@ -25,6 +25,7 @@ import {
 import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
+import { usePrefs } from '@/lib/store/preferences'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -160,6 +161,8 @@ export function Toolbar({
   // can travel to the slider; on touch, tapping the already-active pen toggles it.
   const [showSize, setShowSize] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
+  const dock = usePrefs((s) => s.notebook.dock)
+  const vertical = dock === 'left' || dock === 'right'
   const toolOption = useDocStore((s) => s.toolOption)
   const hideTimer = useRef<number | null>(null)
   const openSize = () => {
@@ -179,7 +182,14 @@ export function Toolbar({
       initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-      className="absolute bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 z-40 max-w-[calc(100vw-1rem)] -translate-x-1/2"
+      className={cn(
+        'absolute z-40',
+        dock === 'bottom' &&
+          'bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 max-w-[calc(100vw-1rem)] -translate-x-1/2',
+        dock === 'top' && 'left-1/2 top-5 max-w-[calc(100vw-1rem)] -translate-x-1/2',
+        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2',
+        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2'
+      )}
     >
       {showSize && (
         <div
@@ -230,7 +240,12 @@ export function Toolbar({
       )}
 
       {/* Inner pill owns the horizontal scroll so the flyout above never clips. */}
-      <div className="glass-strong no-scrollbar flex items-center gap-1 overflow-x-auto rounded-2xl p-1.5">
+      <div
+        className={cn(
+          'glass-strong no-scrollbar flex gap-1 rounded-2xl p-1.5',
+          vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto'
+        )}
+      >
       {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
         t === 'pen' ? (
           <span

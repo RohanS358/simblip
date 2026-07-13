@@ -51,12 +51,15 @@ function ExprInput({
   placeholder?: string
 }) {
   const [draft, setDraft] = useState(value)
-  const [editing, setEditing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
   useEffect(() => setDraft(value), [value])
 
-  const scrubbable = !editing && draft.trim() !== '' && Number.isFinite(Number(draft))
+  // The field is ALWAYS a real text input — one click puts the caret in and
+  // you type. Scrubbing still works: a press that MOVES horizontally becomes
+  // a drag (and blurs, so the caret doesn't fight the drag), while a press
+  // that doesn't move is just a click. Numeric values only.
+  const scrubbable = draft.trim() !== '' && Number.isFinite(Number(draft))
 
   return (
     <input
@@ -64,47 +67,64 @@ function ExprInput({
       aria-label={ariaLabel}
       aria-invalid={Boolean(error)}
       placeholder={placeholder}
-      readOnly={!editing}
       className={cn(
         'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)]',
         mono && 'font-mono',
         error ? 'border-[var(--accent-rose)]' : 'border-input',
-        scrubbable && 'cursor-ew-resize select-none'
+        scrubbable && 'cursor-ew-resize'
       )}
       value={draft}
-      onChange={(e) => editing && setDraft(e.target.value)}
+      onChange={(e) => setDraft(e.target.value)}
       onPointerDown={(e) => {
         if (!scrubbable || e.button !== 0) return
-        e.currentTarget.setPointerCapture(e.pointerId)
+        // Don't capture yet — capturing would steal the click that focuses
+        // the field. We only take over once the pointer actually moves.
         dragRef.current = { startX: e.clientX, startVal: Number(draft), dragged: false }
       }}
       onPointerMove={(e) => {
         const drag = dragRef.current
         if (!drag) return
         const dx = e.clientX - drag.startX
-        if (Math.abs(dx) > 3) drag.dragged = true
-        if (!drag.dragged) return
+        if (!drag.dragged) {
+          if (Math.abs(dx) < 4) return // still just a click
+          drag.dragged = true
+          e.currentTarget.setPointerCapture(e.pointerId)
+          e.currentTarget.blur() // hand the gesture to the scrubber
+        }
         const sensitivity = e.shiftKey ? 5 : e.altKey ? 0.05 : 0.5
         const next = String(Math.round((drag.startVal + dx * sensitivity) * 1000) / 1000)
         setDraft(next)
         onCommit(next)
       }}
-      onPointerUp={() => {
+      onPointerUp={(e) => {
+        const drag = dragRef.current
         dragRef.current = null
-      }}
-      onDoubleClick={() => {
-        setEditing(true)
-        requestAnimationFrame(() => inputRef.current?.select())
+        if (drag?.dragged) {
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        } else {
+          // A plain click: select everything so typing replaces the value,
+          // which is what you want on a numeric field.
+          requestAnimationFrame(() => inputRef.current?.select())
+        }
       }}
       onBlur={() => {
         if (draft !== value) onCommit(draft)
-        setEditing(false)
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
         if (e.key === 'Escape') {
           setDraft(value)
           e.currentTarget.blur()
+        }
+        // Arrow keys nudge a numeric value, like every other design tool.
+        if (scrubbable && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+          e.preventDefault()
+          const step = e.shiftKey ? 10 : e.altKey ? 0.01 : 1
+          const next = String(
+            Math.round((Number(draft) + (e.key === 'ArrowUp' ? step : -step)) * 1000) / 1000
+          )
+          setDraft(next)
+          onCommit(next)
         }
         e.stopPropagation()
       }}
