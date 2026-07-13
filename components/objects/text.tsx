@@ -482,12 +482,21 @@ export function RichTextArea({
 
   // Grow-only autosize: the width is the writing width; overflowing lines
   // wrap, and the box gets taller so nothing is ever clipped vertically.
+  //
+  // Grow by the actual OVERFLOW, never by scrollHeight. The element is
+  // h-full, so scrollHeight is always >= the box height — measuring
+  // `scrollHeight + padY` therefore always exceeded the current height, grew
+  // the box, re-rendered, and exceeded it again: an unbounded loop that React
+  // kills with "Maximum update depth exceeded" (error #185). Overflow, by
+  // contrast, goes to zero once the content fits, so this converges.
   const fit = () => {
     const el = editing ? editorRef.current : viewRef.current
     if (!el) return
-    const needed = Math.ceil(el.scrollHeight + padY)
-    if (needed > object.size.h + 1) {
-      updateObject(pageId, object.id, { size: { w: object.size.w, h: needed } })
+    const overflow = el.scrollHeight - el.clientHeight
+    if (overflow > 1) {
+      updateObject(pageId, object.id, {
+        size: { w: object.size.w, h: Math.ceil(object.size.h + overflow + padY) },
+      })
     }
   }
   useLayoutEffect(fit) // content, editing mode, width and zoom changes all re-measure
