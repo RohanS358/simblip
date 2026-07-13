@@ -12,7 +12,7 @@
 // runtime writes transforms straight to the wrapper elements registered
 // here; edit gestures are locked until Reset.
 
-import React, { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -413,6 +413,37 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // one already selected shows the displacement between their centers.
   const [altHeld, setAltHeld] = useState(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [box, setBox] = useState({ w: 1600, h: 1000 })
+  const layerRef = useRef<HTMLDivElement>(null)
+  const pendingVp = useRef<Viewport | null>(null)
+  const vpRaf = useRef<number | null>(null)
+
+  /**
+   * Pan/zoom without paying React on every event.
+   *
+   * A wheel or pointermove can fire far more often than the screen refreshes,
+   * and each one used to write the viewport straight to the store — one React
+   * render per event, each re-running the culling pass. Instead: move the
+   * layer IMMEDIATELY by writing its transform (so it feels instant), and
+   * commit to the store at most once per frame. The store is still the source
+   * of truth; it just stops being in the input path.
+   */
+  const applyViewport = useCallback(
+    (vp: Viewport) => {
+      pendingVp.current = vp
+      if (layerRef.current) {
+        layerRef.current.style.transform = `translate(${vp.x}px, ${vp.y}px) scale(${vp.zoom})`
+      }
+      if (vpRaf.current === null) {
+        vpRaf.current = requestAnimationFrame(() => {
+          vpRaf.current = null
+          const v = pendingVp.current
+          if (v) useDocStore.getState().setViewport(pageId, v)
+        })
+      }
+    },
+    [pageId]
+  )
 
   const ensurePage = useDocStore((s) => s.ensurePage)
   useEffect(() => {
@@ -428,6 +459,17 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     [pageId]
   )
 
+  // Container size feeds the viewport-culling rect.
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([e]) =>
+      setBox({ w: e.contentRect.width, h: e.contentRect.height })
+    )
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   // Wheel must be a non-passive native listener to preventDefault browser zoom.
   useEffect(() => {
     const el = containerRef.current
@@ -441,7 +483,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * Math.exp(-e.deltaY * 0.0022)))
         const sx = e.clientX - rect.left
         const sy = e.clientY - rect.top
-        store.setViewport(pageId, {
+        applyViewport({
           zoom,
           x: sx - ((sx - v.x) * zoom) / v.zoom,
           y: sy - ((sy - v.y) * zoom) / v.zoom,
@@ -452,7 +494,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         const axis = usePrefs.getState().notebook.scrollAxis
         const dx = axis === 'vertical' ? 0 : e.deltaX
         const dy = axis === 'horizontal' ? 0 : e.deltaY
-        store.setViewport(pageId, { ...v, x: v.x - dx, y: v.y - dy })
+        applyViewport({ ...v, x: v.x - dx, y: v.y - dy })
       }
     }
     el.addEventListener('wheel', onWheel, { passive: false })
@@ -477,7 +519,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartZoom * ge.scale))
       const sx = ge.clientX - rect.left
       const sy = ge.clientY - rect.top
-      store.setViewport(pageId, {
+      applyViewport({
         zoom,
         x: sx - ((sx - v.x) * zoom) / v.zoom,
         y: sy - ((sy - v.y) * zoom) / v.zoom,
@@ -625,7 +667,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       if (Math.abs(dxScreen) + Math.abs(dyScreen) > 3) g.moved = true
 
       if (g.mode === 'pan') {
-        store.setViewport(pageId, {
+        applyViewport({
           ...g.startViewport,
           x: g.startViewport.x + dxScreen,
           y: g.startViewport.y + dyScreen,
@@ -1411,7 +1453,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const rect = containerRef.current!.getBoundingClientRect()
       const cx = (a.x + b.x) / 2 - rect.left
       const cy = (a.y + b.y) / 2 - rect.top
-      useDocStore.getState().setViewport(pageId, {
+      applyViewport({
         zoom,
         x: cx - ((p.center.x - rect.left - p.viewport.x) * zoom) / p.viewport.zoom,
         y: cy - ((p.center.y - rect.top - p.viewport.y) * zoom) / p.viewport.zoom,
@@ -1620,7 +1662,11 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     beginGesture(tool === 'circle' ? 'placeRadius' : 'placeRect', e, { placeTool: tool })
   }
 
-  const handleObjectPointerDown = (e: React.PointerEvent, id: string) => {
+  // These are props of a memo()'d ObjectView. As plain functions they were a
+  // NEW reference on every render, so memo could never skip: dragging one
+  // object, or panning, re-rendered every object on the page, 60x a second.
+  // Stable identities are what make the memo actually work.
+  const handleObjectPointerDown = useCallback((e: React.PointerEvent, id: string) => {
     setCtxMenu(null)
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if ((tool !== 'select' && editing) || e.button !== 0) return
@@ -1670,9 +1716,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     store.pushHistory(pageId)
     beginGesture('move', e)
-  }
+  }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
-  const handleResizeStart = (e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => {
+  const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => {
     if (!editing) return
     e.stopPropagation()
     const store = useDocStore.getState()
@@ -1685,9 +1731,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       resizeOrigin: { ...obj.position },
       resizeCorner: corner,
     })
-  }
+  }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
-  const handleRotateStart = (e: React.PointerEvent, id: string) => {
+  const handleRotateStart = useCallback((e: React.PointerEvent, id: string) => {
     if (!editing) return
     e.stopPropagation()
     const store = useDocStore.getState()
@@ -1705,7 +1751,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       rotateStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
       rotateStartRotation: obj.rotation,
     })
-  }
+  }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
   // ── Custom right-click menu ───────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -1782,6 +1828,32 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
   const cursor = tool === 'pen' || tool === 'shaper' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
 
+  // O(1) lookups — `selection.includes(id)` inside the object map was O(n)
+  // per object, i.e. O(n^2) for the page.
+  const selectedSet = useMemo(() => new Set(selection), [selection])
+
+  // Viewport culling: only mount what's actually on screen (plus a margin, so
+  // scrolling doesn't pop). A page with hundreds of objects only ever pays for
+  // the handful you can see. Selected objects are always kept so their handles
+  // never vanish mid-drag.
+  const visible = useMemo(() => {
+    const all = objects ? Object.values(objects) : []
+    if (all.length < 60) return all // small pages: culling costs more than it saves
+    const m = 400 / viewport.zoom // margin in page units
+    const x0 = -viewport.x / viewport.zoom - m
+    const y0 = -viewport.y / viewport.zoom - m
+    const x1 = x0 + box.w / viewport.zoom + 2 * m
+    const y1 = y0 + box.h / viewport.zoom + 2 * m
+    return all.filter(
+      (o) =>
+        selectedSet.has(o.id) ||
+        (o.position.x < x1 &&
+          o.position.x + o.size.w > x0 &&
+          o.position.y < y1 &&
+          o.position.y + o.size.h > y0)
+    )
+  }, [objects, viewport.x, viewport.y, viewport.zoom, box.w, box.h, selectedSet])
+
   return (
     <div
       ref={containerRef}
@@ -1815,6 +1887,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       aria-label="Infinite canvas"
     >
       <div
+        ref={layerRef}
         // While a drawing/placement tool is armed, objects must not swallow
         // the pointer (graphs/notes stop propagation) — ink goes through.
         className={cn('absolute left-0 top-0', editing && tool !== 'select' && 'pointer-events-none')}
@@ -1823,19 +1896,18 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           transformOrigin: '0 0',
         }}
       >
-        {objects &&
-          Object.values(objects).map((obj) => (
-            <ObjectView
-              key={obj.id}
-              pageId={pageId}
-              object={obj}
-              selected={selection.includes(obj.id)}
-              onPointerDown={handleObjectPointerDown}
-              onResizeStart={handleResizeStart}
-              onRotateStart={handleRotateStart}
-              onHover={setHoveredId}
-            />
-          ))}
+        {visible.map((obj) => (
+          <ObjectView
+            key={obj.id}
+            pageId={pageId}
+            object={obj}
+            selected={selectedSet.has(obj.id)}
+            onPointerDown={handleObjectPointerDown}
+            onResizeStart={handleResizeStart}
+            onRotateStart={handleRotateStart}
+            onHover={setHoveredId}
+          />
+        ))}
 
         {altHeld &&
           selection.length === 1 &&

@@ -6,7 +6,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { SceneObject, Variable, BehaviorType } from '@/lib/scene/types'
+import type { SceneObject, Variable, BehaviorType, NumericParam } from '@/lib/scene/types'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
@@ -53,7 +53,17 @@ const histories = new Map<string, { past: PageContent[]; future: PageContent[] }
 const COALESCE_MS = 400
 const lastPushAt = new Map<string, number>()
 
-const snapshotOf = (c: PageContent): PageContent => JSON.parse(JSON.stringify(c))
+/**
+ * Undo snapshot. Objects are treated as IMMUTABLE everywhere (every mutation
+ * builds a new object via {...obj, ...patch}), so a snapshot only has to copy
+ * the maps — the untouched objects can be shared by reference. The old
+ * `JSON.parse(JSON.stringify(page))` serialized the entire page on every
+ * gesture, which on a big page is the hitch you feel when you start dragging.
+ */
+const snapshotOf = (c: PageContent): PageContent => ({
+  objects: { ...c.objects },
+  variables: c.variables.map((v) => ({ ...v })),
+})
 
 /** Resolve every [Object(channel)] token on the page to the object's latest
  * live sample from the physics bus (0 before the sim produces data). */
@@ -77,6 +87,28 @@ function liveScopeOf(content: PageContent): Scope {
   return live
 }
 
+/**
+ * A param whose expression is a bare number can't depend on the scope, so it
+ * never needs re-solving. Most params on a page are literals ("5", "0.3"), and
+ * every one of them was being handed to the mathjs parser on every single
+ * edit. Skipping them is the difference between parsing thousands of
+ * expressions per keystroke and parsing the handful that actually reference a
+ * variable.
+ */
+const LITERAL = /^\s*-?\d+(\.\d+)?\s*$/
+
+function solveParam(
+  param: NumericParam,
+  scope: Scope
+): { value: number; error?: string } | null {
+  if (LITERAL.test(param.expr)) {
+    const v = Number(param.expr)
+    return v === param.value && param.error === undefined ? null : { value: v }
+  }
+  const { value, error } = evalExpr(param.expr, scope, param.value)
+  return value === param.value && error === param.error ? null : { value, error }
+}
+
 /** Re-solve variables, then re-evaluate every numeric expression on the page —
  * object content params AND behavior params. One scope, spreadsheet semantics. */
 function reevaluate(content: PageContent): { content: PageContent; scope: Scope } {
@@ -87,9 +119,9 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
     const parameters = { ...obj.parameters }
     for (const [name, param] of Object.entries(parameters)) {
       if (param.kind === 'number') {
-        const { value, error } = evalExpr(param.expr, scope, param.value)
-        if (value !== param.value || error !== param.error) {
-          parameters[name] = { ...param, value, error }
+        const next = solveParam(param, scope)
+        if (next) {
+          parameters[name] = { ...param, ...next, error: next.error }
           changed = true
         }
       }
@@ -99,9 +131,9 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
       const params = { ...b.params }
       for (const [name, param] of Object.entries(params)) {
         if (param.kind === 'number') {
-          const { value, error } = evalExpr(param.expr, scope, param.value)
-          if (value !== param.value || error !== param.error) {
-            params[name] = { ...param, value, error }
+          const next = solveParam(param, scope)
+          if (next) {
+            params[name] = { ...param, ...next, error: next.error }
             bChanged = true
           }
         }
