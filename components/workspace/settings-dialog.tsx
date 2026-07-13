@@ -26,11 +26,15 @@ import {
   PEN_STYLES,
   DEFAULT_PEN,
   DEFAULT_NOTEBOOK,
+  DEFAULT_MATH,
   type PenStyle,
   type GridType,
   type ScrollAxis,
   type DockSide,
+  type AngleUnit,
+  type NumberStyle,
 } from '@/lib/store/preferences'
+import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 
@@ -306,6 +310,107 @@ function NotebookSettings() {
   )
 }
 
+function MathSettings() {
+  const math = usePrefs((s) => s.math)
+  const setMath = usePrefs((s) => s.setMath)
+
+  // Live sample: real values a simulation actually produces — a clean number,
+  // a long decimal, something huge, something tiny, and floating-point dust.
+  const samples = [1234.56789, 0.000123456, 9.80665, 6.02e14, 1.7e-17]
+
+  return (
+    <div className="space-y-1">
+      <div className="rounded-xl border border-border bg-card/60 p-2.5">
+        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          Preview
+        </p>
+        <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12px]">
+          {samples.map((v) => (
+            <span key={v}>{fmtNum(v)}</span>
+          ))}
+        </div>
+      </div>
+
+      <Field
+        label="Decimal precision"
+        value={`${math.precision} dp`}
+        hint="Digits after the point in every readout — graphs, measurements, variables."
+      >
+        <Slider
+          value={[math.precision]}
+          min={0}
+          max={8}
+          step={1}
+          onValueChange={([v]) => setMath({ precision: v })}
+        />
+      </Field>
+
+      <Field
+        label="Notation"
+        hint="Auto switches to exponents only for very large or very small values. Engineering locks the exponent to multiples of 3 (kilo, milli, micro…)."
+      >
+        <Choice<NumberStyle>
+          value={math.numberStyle}
+          onChange={(numberStyle) => setMath({ numberStyle })}
+          options={[
+            { id: 'auto', label: 'Auto' },
+            { id: 'fixed', label: 'Plain' },
+            { id: 'sci', label: 'Scientific' },
+            { id: 'eng', label: 'Engineering' },
+          ]}
+        />
+      </Field>
+
+      <Field label="Angles" hint="How angles are displayed. The solver always works in radians.">
+        <Choice<AngleUnit>
+          value={math.angleUnit}
+          onChange={(angleUnit) => setMath({ angleUnit })}
+          options={[
+            { id: 'deg', label: 'Degrees' },
+            { id: 'rad', label: 'Radians' },
+          ]}
+        />
+      </Field>
+
+      <PrefRow
+        label="Show units"
+        detail="Append cm, cm/s, N·m… to values instead of showing bare numbers."
+        checked={math.showUnits}
+        onChange={() => setMath({ showUnits: !math.showUnits })}
+      />
+
+      <PrefRow
+        label="Thousands separators"
+        detail="1,234.5 instead of 1234.5. Useful for money, noisy for physics."
+        checked={math.groupDigits}
+        onChange={() => setMath({ groupDigits: !math.groupDigits })}
+      />
+
+      <Field
+        label="Treat as zero below"
+        value={math.zeroThreshold.toExponential(0)}
+        hint="Floating-point error leaves values like 1e-17 lying around. Anything smaller than this reads as exactly 0, so noise doesn't look like signal."
+      >
+        <Slider
+          value={[Math.log10(math.zeroThreshold)]}
+          min={-15}
+          max={-3}
+          step={1}
+          onValueChange={([v]) => setMath({ zeroThreshold: 10 ** v })}
+        />
+      </Field>
+
+      <button
+        type="button"
+        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+        onClick={() => setMath({ ...DEFAULT_MATH })}
+      >
+        Reset math to defaults
+      </button>
+    </div>
+  )
+}
+
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { theme, setTheme } = useTheme()
   const profile = useAuthStore((s) => s.profile)
@@ -328,6 +433,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <TabsTrigger value="appearance" className="shrink-0">Appearance</TabsTrigger>
             <TabsTrigger value="pen" className="shrink-0">Pen</TabsTrigger>
             <TabsTrigger value="notebook" className="shrink-0">Notebook</TabsTrigger>
+            <TabsTrigger value="math" className="shrink-0">Math</TabsTrigger>
             <TabsTrigger value="workspace" className="shrink-0">Workspace</TabsTrigger>
             <TabsTrigger value="shortcuts" className="shrink-0">Shortcuts</TabsTrigger>
             <TabsTrigger value="about" className="shrink-0">About</TabsTrigger>
@@ -368,6 +474,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
           <TabsContent value="notebook" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <NotebookSettings />
+          </TabsContent>
+
+          <TabsContent value="math" className="min-h-0 flex-1 overflow-y-auto pr-1 pt-3">
+            <MathSettings />
           </TabsContent>
 
           <TabsContent value="appearance" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">

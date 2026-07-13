@@ -608,6 +608,25 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     return <SystemBoundary pageId={pageId} object={object} domain={domain} color={c} />
   }
 
+  // Reference point: a crosshair target that sticks to the body under it and
+  // reports where that material point travels. Deliberately small and open in
+  // the middle, so it reads as a MARKER on the mechanism rather than a part of
+  // it — you must still see what it's pinned to.
+  if (render === 'reference-point') {
+    return (
+      <svg width="100%" height="100%" viewBox="0 0 20 20" aria-label={object.name} className="overflow-visible">
+        <circle cx={10} cy={10} r={8} fill="none" stroke="var(--accent-rose)" strokeWidth={1.5} />
+        <circle cx={10} cy={10} r={1.8} fill="var(--accent-rose)" />
+        <path
+          d="M10 0 V4 M10 16 V20 M0 10 H4 M16 10 H20"
+          stroke="var(--accent-rose)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+        />
+      </svg>
+    )
+  }
+
   // Field region: a tinted zone any charge inside it feels. Direction hints
   // (arrows for E, dots for B-out-of-page) are decorative, not simulated —
   // the actual force comes from lib/physics/world.ts's live Ex/Ey/Bz params.

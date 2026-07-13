@@ -36,12 +36,42 @@ export interface NotebookPrefs {
   dock: DockSide
 }
 
+export type AngleUnit = 'deg' | 'rad'
+export type NumberStyle = 'auto' | 'fixed' | 'sci' | 'eng'
+
+export interface MathPrefs {
+  /** Digits after the decimal point in every readout. */
+  precision: number
+  /** auto = switch to exponent for very large/small; fixed = never; sci/eng = always. */
+  numberStyle: NumberStyle
+  /** Angles shown in degrees or radians (channels stay SI internally). */
+  angleUnit: AngleUnit
+  /** Show the unit next to every value (12.4 cm/s vs 12.4). */
+  showUnits: boolean
+  /** Thousands separators — nice for money, noisy for physics. */
+  groupDigits: boolean
+  /** Anything closer to zero than this reads as exactly 0, so a value that is
+   *  really 1e-17 from floating-point error doesn't look like a signal. */
+  zeroThreshold: number
+}
+
 interface PrefsState {
   pen: PenPrefs
   notebook: NotebookPrefs
+  math: MathPrefs
   setPen: (p: Partial<PenPrefs>) => void
   setNotebook: (p: Partial<NotebookPrefs>) => void
+  setMath: (p: Partial<MathPrefs>) => void
   reset: () => void
+}
+
+export const DEFAULT_MATH: MathPrefs = {
+  precision: 3,
+  numberStyle: 'auto',
+  angleUnit: 'deg',
+  showUnits: true,
+  groupDigits: false,
+  zeroThreshold: 1e-9,
 }
 
 export const DEFAULT_PEN: PenPrefs = {
@@ -82,13 +112,21 @@ export const usePrefs = create<PrefsState>()(
     (set) => ({
       pen: { ...DEFAULT_PEN },
       notebook: { ...DEFAULT_NOTEBOOK },
+      math: { ...DEFAULT_MATH },
       setPen: (p) => set((s) => ({ pen: { ...s.pen, ...p } })),
       setNotebook: (p) => set((s) => ({ notebook: { ...s.notebook, ...p } })),
-      reset: () => set({ pen: { ...DEFAULT_PEN }, notebook: { ...DEFAULT_NOTEBOOK } }),
+      setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
+      reset: () =>
+        set({
+          pen: { ...DEFAULT_PEN },
+          notebook: { ...DEFAULT_NOTEBOOK },
+          math: { ...DEFAULT_MATH },
+        }),
     }),
     { name: 'simblip-preferences' } // device-wide, not per user
   )
 )
 
-/** Non-reactive read for hot paths (the ink renderer runs per pointer event). */
+/** Non-reactive reads for hot paths (these run per pointer event / per frame). */
 export const penPrefs = (): PenPrefs => usePrefs.getState().pen
+export const mathPrefs = (): MathPrefs => usePrefs.getState().math

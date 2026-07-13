@@ -210,6 +210,15 @@ export const COMPONENTS: ComponentDef[] = [
     rb.params.friction = num('0.9')
     return withBehaviors(o, rb)
   }),
+  mech('reference-point', 'Reference Point', (p) => {
+    const o = baseObject('circle', p, autoName('Ref Point'))
+    o.size = { w: 20, h: 20 }
+    o.metadata.render = 'reference-point'
+    const rb = createBehavior('rigidBody')
+    rb.params.mass = num('0.001') // massless observer — never perturbs the host
+    rb.params.showTrail = num('1') // the point of the thing is to see where it goes
+    return withBehaviors(o, rb)
+  }),
   mech('ground', 'Ground', (p) => {
     const o = baseObject('rect', p, autoName('Ground'))
     o.size = { w: 480, h: 26 }

@@ -247,6 +247,15 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
     restitution: p('restitution', 0.4),
   }
 
+  // A reference point is an OBSERVER: it rides along on the body under it and
+  // reports where that material point goes. It must not collide with anything
+  // or weigh the host down, or it would change the very motion it's measuring.
+  if (obj.metadata.render === 'reference-point') {
+    options.isSensor = true
+    options.collisionFilter = { group: -1, category: 0, mask: 0 }
+    options.frictionAir = 0
+  }
+
   let body: Matter.Body | null = null
   if (g.kind === 'circle') {
     body = Matter.Bodies.circle(c.x, c.y, Math.max(obj.size.w, obj.size.h) / 2, options)
@@ -492,6 +501,30 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
         rest0,
         isRope: conn.type === 'rope',
       })
+    }
+
+    // A Reference Point sticks to whatever body is under it, at that exact
+    // point, and is then free to spin — a hinge, in other words. Because it is
+    // itself a (massless, non-colliding) body, it streams x/y/vx/vy like any
+    // other, so you can graph it or trail it and watch one material point of a
+    // multi-body linkage move.
+    if (obj.metadata.render === 'reference-point') {
+      const self = bodies.find((b) => b.objectId === obj.id)?.body
+      const c = bodyCenter(obj)
+      const host = Matter.Query.point(allBodies, c).find((b) => b !== self)
+      if (self && host) {
+        const constraint = Matter.Constraint.create({
+          bodyA: host,
+          bodyB: self,
+          pointA: { x: c.x - host.position.x, y: c.y - host.position.y },
+          pointB: { x: 0, y: 0 },
+          length: 0,
+          stiffness: 1,
+        })
+        Matter.Composite.add(engine.world, constraint)
+        connectors.push({ objectId: obj.id, constraint, rest0: 0 })
+      }
+      continue // never also act as a hinge
     }
 
     // Hinges pin the bodies under them (or one body to the world).

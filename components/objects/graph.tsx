@@ -25,6 +25,8 @@ import {
 import { subscribe, readBuffer, decimate } from '@/lib/physics/bus'
 import { compileExpr, evalExpr, type Scope } from '@/lib/formula/engine'
 import { derivativeExpr } from '@/lib/formula/steps'
+import { fmtNum } from '@/lib/scene/format'
+import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
 
@@ -108,12 +110,9 @@ export function computeStats(rows: Record<string, number>[], key: string, xChann
   return { mean, rms, peak, pp, freq, period: freq > 0 ? 1 / freq : 0 }
 }
 
-function fmtMeas(v: number): string {
-  if (!Number.isFinite(v)) return '—'
-  const a = Math.abs(v)
-  if (a !== 0 && (a >= 1e4 || a < 1e-3)) return v.toExponential(2)
-  return v.toPrecision(3)
-}
+/** Every readout on the card honours the Math settings (precision, notation,
+ *  degrees vs radians) — one dial for the whole app. */
+const fmtMeas = (v: number): string => fmtNum(v)
 
 // ── Calculus overlay ────────────────────────────────────────────────────────
 // Plotting f' or ∫f as extra LINES wastes the chart — you get a curve with no
@@ -264,6 +263,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const integ = getString(object, 'integ') === '1'
   const integAxis: 'x' | 'y' = getString(object, 'integAxis') === 'y' ? 'y' : 'x'
   const [hoverX, setHoverX] = useState<number | null>(null)
+  usePrefs((s) => s.math) // re-render when precision/notation changes
   const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
   const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
   const setStringParam = useDocStore((s) => s.setStringParam)

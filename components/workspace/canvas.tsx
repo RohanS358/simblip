@@ -484,14 +484,24 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     ensurePage(pageId)
   }, [pageId, ensurePage])
 
-  const toCanvas = useCallback(
-    (clientX: number, clientY: number): Vec2 => {
-      const rect = containerRef.current!.getBoundingClientRect()
-      const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-      return { x: (clientX - rect.left - v.x) / v.zoom, y: (clientY - rect.top - v.y) / v.zoom }
-    },
-    [pageId]
-  )
+  const toCanvas = useCallback((clientX: number, clientY: number): Vec2 => {
+    const rect = containerRef.current!.getBoundingClientRect()
+    // vpRef, not the store — the store intentionally lags behind a live pan.
+    const v = vpRef.current
+    return { x: (clientX - rect.left - v.x) / v.zoom, y: (clientY - rect.top - v.y) / v.zoom }
+  }, [])
+
+  // Mirror the store viewport into the ref and repaint. Runs when the store
+  // changes from OUTSIDE a gesture (zoom buttons, Reset view, page switch);
+  // during a gesture the ref is already ahead, so this is a no-op.
+  useEffect(() => {
+    vpRef.current = viewport
+    paintViewport(viewport)
+  }, [viewport, paintViewport])
+
+  useEffect(() => () => {
+    if (commitTimer.current !== null) clearTimeout(commitTimer.current)
+  }, [])
 
   // Container size feeds the viewport-culling rect.
   useEffect(() => {
@@ -508,10 +518,13 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
+    let wheelIdle: number | null = null
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
-      const store = useDocStore.getState()
-      const v = store.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+      // Flush once the wheel goes quiet, so culling and persistence catch up.
+      if (wheelIdle !== null) clearTimeout(wheelIdle)
+      wheelIdle = window.setTimeout(commitViewport, 120)
+      const v = vpRef.current
       const rect = el.getBoundingClientRect()
       if (e.ctrlKey || e.metaKey) {
         const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * Math.exp(-e.deltaY * 0.0022)))
@@ -542,13 +555,16 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     let pinchStartZoom = 1
     const onGestureStart = (e: Event) => {
       e.preventDefault()
-      pinchStartZoom = (useDocStore.getState().viewports[pageId] ?? { zoom: 1 }).zoom
+      pinchStartZoom = vpRef.current.zoom
+    }
+    const onGestureEnd = (e: Event) => {
+      e.preventDefault()
+      commitViewport()
     }
     const onGestureChange = (e: Event) => {
       e.preventDefault()
       const ge = e as SafariGestureEvent
-      const store = useDocStore.getState()
-      const v = store.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+      const v = vpRef.current
       const rect = el.getBoundingClientRect()
       const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartZoom * ge.scale))
       const sx = ge.clientX - rect.left
@@ -561,14 +577,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     el.addEventListener('gesturestart', onGestureStart)
     el.addEventListener('gesturechange', onGestureChange)
-    el.addEventListener('gestureend', onGestureStart)
+    el.addEventListener('gestureend', onGestureEnd)
     return () => {
       el.removeEventListener('wheel', onWheel)
       el.removeEventListener('gesturestart', onGestureStart)
       el.removeEventListener('gesturechange', onGestureChange)
-      el.removeEventListener('gestureend', onGestureStart)
+      el.removeEventListener('gestureend', onGestureEnd)
     }
-  }, [pageId])
+  }, [pageId, applyViewport, commitViewport])
 
   // Global keyboard map. Skipped while typing in inputs/contentEditable.
   useEffect(() => {
@@ -992,6 +1008,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         cancelAnimationFrame(guideRaf.current)
         guideRaf.current = null
       }
+      if (g?.mode === 'pan') commitViewport() // the store has been lagging on purpose
       if (!g) return
       const store = useDocStore.getState()
 
@@ -1634,7 +1651,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       mode,
       start: toCanvas(e.clientX, e.clientY),
       startScreen: { x: e.clientX, y: e.clientY },
-      startViewport: store.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 },
+      startViewport: vpRef.current, // live — the store deliberately lags a pan
       moved: false,
       objectStartPositions: new Map(
         store.selection
@@ -1917,7 +1934,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const visible = useMemo(() => {
     const all = objects ? Object.values(objects) : []
     if (all.length < 60) return all // small pages: culling costs more than it saves
-    const m = 400 / viewport.zoom // margin in page units
+    // A wide margin (in page units) matters more now: the store viewport lags
+    // a live pan by up to ~180 ms, so objects must already be mounted before
+    // they scroll into view or they'd pop in late.
+    const m = 1200 / viewport.zoom
     const x0 = -viewport.x / viewport.zoom - m
     const y0 = -viewport.y / viewport.zoom - m
     const x1 = x0 + box.w / viewport.zoom + 2 * m
@@ -1987,7 +2007,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         // the pointer (graphs/notes stop propagation) — ink goes through.
         className={cn('absolute left-0 top-0', editing && tool !== 'select' && 'pointer-events-none')}
         style={{
-          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+          transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.zoom})`,
+          willChange: 'transform',
           transformOrigin: '0 0',
         }}
       >
