@@ -34,6 +34,7 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useIsTouchDevice } from '@/hooks/use-mobile'
 
 const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
@@ -169,6 +170,13 @@ export function Toolbar({
   const setPenSize = useDocStore((s) => s.setPenSize)
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+  const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
+  const touchFreeMove = useWorkspaceStore((s) => s.touchFreeMove)
+  const touchMeasureMode = useWorkspaceStore((s) => s.touchMeasureMode)
+  const toggleTouchOrthoPen = useWorkspaceStore((s) => s.toggleTouchOrthoPen)
+  const toggleTouchFreeMove = useWorkspaceStore((s) => s.toggleTouchFreeMove)
+  const toggleTouchMeasureMode = useWorkspaceStore((s) => s.toggleTouchMeasureMode)
+  const isTouchDevice = useIsTouchDevice()
 
   // Pen-size flyout: opens on hover (mouse) with a grace timer so the cursor
   // can travel to the slider; on touch, tapping the already-active pen toggles it.
@@ -177,6 +185,14 @@ export function Toolbar({
   const [showShapes, setShowShapes] = useState(false)
   const dock = usePrefs((s) => s.notebook.dock)
   const vertical = dock === 'left' || dock === 'right'
+  const penFlyoutClass =
+    dock === 'bottom'
+      ? 'bottom-full left-1/2 mb-2 -translate-x-1/2'
+      : dock === 'top'
+        ? 'left-1/2 top-full mt-2 -translate-x-1/2'
+        : dock === 'left'
+          ? 'left-full top-1/2 ml-2 -translate-y-1/2'
+          : 'right-full top-1/2 mr-2 -translate-y-1/2'
   const toolOption = useDocStore((s) => s.toolOption)
   const hideTimer = useRef<number | null>(null)
   const openSize = () => {
@@ -244,7 +260,7 @@ export function Toolbar({
             className="fixed inset-0 z-40 cursor-default"
             onClick={() => setShowPen(false)}
           />
-          <div className="glass-strong absolute bottom-full left-1/2 z-50 mb-2 max-h-[70dvh] w-80 -translate-x-1/2 overflow-y-auto rounded-2xl p-3">
+          <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Pen
@@ -355,6 +371,36 @@ export function Toolbar({
       >
         <ScanText className="h-4 w-4" />
       </ToolButton>
+
+      {isTouchDevice && (
+        <>
+          <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+          <ToolButton
+            active={touchOrthoPen}
+            label="Touch orthogonal pen — the tablet substitute for Shift+pen"
+            accent="var(--accent-blue)"
+            onClick={toggleTouchOrthoPen}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Ortho</span>
+          </ToolButton>
+          <ToolButton
+            active={touchFreeMove}
+            label="Touch free move — move without snap, like holding Alt"
+            accent="var(--accent-blue)"
+            onClick={toggleTouchFreeMove}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Free</span>
+          </ToolButton>
+          <ToolButton
+            active={touchMeasureMode}
+            label="Touch measure — tap a second object to compare distance"
+            accent="var(--accent-blue)"
+            onClick={toggleTouchMeasureMode}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Measure</span>
+          </ToolButton>
+        </>
+      )}
 
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
 

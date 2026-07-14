@@ -392,6 +392,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const penSize = useDocStore((s) => s.penSize)
   const pen = usePrefs((s) => s.pen)
   const nbPrefs = usePrefs((s) => s.notebook)
+  const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
+  const touchFreeMove = useWorkspaceStore((s) => s.touchFreeMove)
+  const touchMeasureMode = useWorkspaceStore((s) => s.touchMeasureMode)
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
@@ -430,6 +433,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // one already selected shows the displacement between their centers.
   const [altHeld, setAltHeld] = useState(false)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [touchMeasureTargetId, setTouchMeasureTargetId] = useState<string | null>(null)
   const [box, setBox] = useState({ w: 1600, h: 1000 })
   const layerRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -776,8 +780,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         const page = store.pages[pageId]
         const newGuides: { v: number[]; h: number[]; pts: Vec2[] } = { v: [], h: [], pts: [] }
 
-        // Snap assistant (hold Alt to move freely).
-        if (!e.altKey && page && g.objectStartPositions.size > 0) {
+        // Snap assistant (Alt on desktop, explicit free-move toggle on touch).
+        if (!(e.altKey || (e.pointerType === 'touch' && touchFreeMove)) && page && g.objectStartPositions.size > 0) {
           const zoom = g.startViewport.zoom
           const th = 6 / zoom
           // The snap candidates can't change mid-drag, so gather them ONCE.
@@ -880,7 +884,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       } else if (g.mode === 'marquee') {
         setMarquee({ a: g.start, b: point })
       } else if (g.mode === 'draw') {
-        if (e.shiftKey || store.tool === 'shaper') {
+        if (e.shiftKey || store.tool === 'shaper' || (e.pointerType === 'touch' && touchOrthoPen)) {
           // Shift+pen (or the Shaper tool): orthogonal routing. The stroke runs dead-straight
           // along one axis; veer far enough perpendicular and it locks a
           // 90° corner under the cursor and continues along the other axis
@@ -1575,6 +1579,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!touchMeasureMode) setTouchMeasureTargetId(null)
+  }, [touchMeasureMode])
+
   // Two-finger pan/zoom, tldraw-style: the canvas point under the initial
   // touch midpoint stays under the current midpoint, so moving both fingers
   // pans and spreading them zooms — one formula covers both.
@@ -1768,6 +1776,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       return
     }
 
+    if (e.pointerType === 'touch' && editing && tool === 'select') {
+      beginGesture('pan', e)
+      return
+    }
     if (!editing || tool === 'select') {
       beginGesture('marquee', e)
       return
@@ -1827,6 +1839,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     if ((tool !== 'select' && editing) || e.button !== 0) return
     e.stopPropagation()
     const store = useDocStore.getState()
+    if (e.pointerType === 'touch' && touchMeasureMode && selection.length === 1 && selection[0] !== id) {
+      setTouchMeasureTargetId(id)
+      return
+    }
     // System boundaries only grab their border/label — clicks in the middle
     // fall through to marquee so the contents stay selectable.
     const hit = store.pages[pageId]?.objects[id]
@@ -1871,7 +1887,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     store.pushHistory(pageId)
     beginGesture('move', e)
-  }, [pageId, tool, editing, beginGesture, setCtxMenu])
+  }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
 
   const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => {
     if (!editing) return
@@ -2085,14 +2101,16 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           />
         ))}
 
-        {altHeld &&
+        {(altHeld || touchMeasureTargetId) &&
           selection.length === 1 &&
-          hoveredId &&
-          hoveredId !== selection[0] &&
+          (touchMeasureTargetId ?? hoveredId) &&
+          (touchMeasureTargetId ?? hoveredId) !== selection[0] &&
           objects &&
           (() => {
             const a = objects[selection[0]]
-            const b = objects[hoveredId]
+            const targetId = touchMeasureTargetId ?? hoveredId
+            if (!targetId) return null
+            const b = objects[targetId]
             if (!a || !b) return null
             const ac = { x: a.position.x + a.size.w / 2, y: a.position.y + a.size.h / 2 }
             const bc = { x: b.position.x + b.size.w / 2, y: b.position.y + b.size.h / 2 }

@@ -53,6 +53,7 @@ import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
 import { TutorialPanel } from './tutorial'
+import { UndoRedo } from './undo-redo'
 import { clonePageDoc } from '@/lib/store/import-page'
 import {
   AssignDialog,
@@ -87,6 +88,7 @@ export function MobileShell() {
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [calcOpen, setCalcOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
@@ -202,6 +204,7 @@ export function MobileShell() {
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{pageName}</span>
           <SyncStatus />
           <NotificationCenter />
+          <UndoRedo pageId={activePageId} />
           {appMenu}
         </header>
 
@@ -209,6 +212,8 @@ export function MobileShell() {
           <InfiniteCanvas key={activePageId} pageId={activePageId} />
           <Transport pageId={activePageId} />
           <Toolbar
+            calcOpen={calcOpen}
+            onToggleCalc={() => setCalcOpen((o) => !o)}
             paletteOpen={paletteOpen}
             onTogglePalette={() => setPaletteOpen((o) => !o)}
             showAi={aiAllowed}

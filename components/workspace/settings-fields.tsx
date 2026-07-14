@@ -5,6 +5,7 @@
 // wherever it appears.
 
 import { cn } from '@/lib/utils'
+import { InfoPopover } from './info-popover'
 
 export function Field({
   label,
@@ -20,11 +21,13 @@ export function Field({
   return (
     <div className="space-y-1.5 py-2">
       <div className="flex items-baseline justify-between gap-3">
-        <p className="text-[13px] font-medium">{label}</p>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <p className="text-[13px] font-medium">{label}</p>
+          {hint && <InfoPopover description={hint} />}
+        </div>
         {value && <span className="font-mono text-[11px] text-muted-foreground">{value}</span>}
       </div>
       {children}
-      {hint && <p className="text-[11px] leading-relaxed text-muted-foreground">{hint}</p>}
     </div>
   )
 }

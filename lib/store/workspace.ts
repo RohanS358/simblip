@@ -15,6 +15,9 @@ interface WorkspaceState {
   sidebarOpen: boolean
   inspectorOpen: boolean
   aiOpen: boolean
+  touchOrthoPen: boolean
+  touchFreeMove: boolean
+  touchMeasureMode: boolean
 
   addNotebook: (name?: string) => string
   renameNotebook: (id: string, name: string) => void
@@ -27,6 +30,9 @@ interface WorkspaceState {
   removePage: (pageId: string) => void
   setActivePage: (id: string | null) => void
   togglePanel: (panel: 'sidebar' | 'inspector' | 'ai') => void
+  toggleTouchOrthoPen: () => void
+  toggleTouchFreeMove: () => void
+  toggleTouchMeasureMode: () => void
 }
 
 const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
@@ -39,6 +45,9 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       sidebarOpen: true,
       inspectorOpen: true,
       aiOpen: false,
+      touchOrthoPen: false,
+      touchFreeMove: false,
+      touchMeasureMode: false,
 
       addNotebook: (name = 'Untitled Notebook') => {
         const id = uid()
@@ -161,6 +170,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
               ? { inspectorOpen: !s.inspectorOpen }
               : { aiOpen: !s.aiOpen }
         ),
+
+      toggleTouchOrthoPen: () => set((s) => ({ touchOrthoPen: !s.touchOrthoPen })),
+      toggleTouchFreeMove: () => set((s) => ({ touchFreeMove: !s.touchFreeMove })),
+      toggleTouchMeasureMode: () => set((s) => ({ touchMeasureMode: !s.touchMeasureMode })),
     }),
     { name: 'simblip-workspace', storage: scopedJSONStorage }
   )

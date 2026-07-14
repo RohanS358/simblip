@@ -6,8 +6,9 @@
 
 import { useMemo, useState } from 'react'
 import katex from 'katex'
-import { X } from 'lucide-react'
+import { Info, X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   parseFormula,
   derivativeSteps,
@@ -20,6 +21,45 @@ import { getString, type ObjectRendererProps } from './types'
 
 const BTN =
   'rounded-lg px-2 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+
+function ToolInfo({ description }: { description: string }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label="Tool info"
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <Info className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="center" side="top" className="w-56 text-xs leading-relaxed">
+        {description}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+function ToolAction({
+  children,
+  description,
+  onClick,
+}: {
+  children: React.ReactNode
+  description: string
+  onClick: () => void
+}) {
+  return (
+    <span className="flex items-center gap-0.5">
+      <button type="button" className={BTN} onClick={onClick}>
+        {children}
+      </button>
+      <ToolInfo description={description} />
+    </span>
+  )
+}
 
 export function FormulaObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -81,53 +121,53 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
           onPointerDown={(e) => e.stopPropagation()}
         >
           {parsed.vars.map((v) => (
-            <button key={`d${v}`} type="button" className={BTN} onClick={() => solve('d', v)}>
+            <ToolAction
+              key={`d${v}`}
+              description={`Differentiate the expression with respect to ${v}.`}
+              onClick={() => solve('d', v)}
+            >
               {parsed.vars.length > 1 ? `∂/∂${v}` : `d/d${v}`}
-            </button>
+            </ToolAction>
           ))}
           {parsed.vars.map((v) => (
-            <button
+            <ToolAction
               key={`i${v}`}
-              type="button"
-              className={BTN}
-              title={parsed.bounds[v] ? `Definite: ${parsed.bounds[v][0]} to ${parsed.bounds[v][1]}` : 'Indefinite'}
+              description={
+                parsed.bounds[v]
+                  ? `Compute a definite integral from ${parsed.bounds[v][0]} to ${parsed.bounds[v][1]} with respect to ${v}.`
+                  : `Compute an indefinite integral with respect to ${v}.`
+              }
               onClick={() => solve('i', v)}
             >
               ∫d{v}
-            </button>
+            </ToolAction>
           ))}
           {boundedVars.length > 1 && (
-            <button
-              type="button"
-              className={BTN}
-              title={`Iterated integral over ${boundedVars.join(', ')}`}
+            <ToolAction
+              description={`Compute an iterated integral over ${boundedVars.join(', ')}.`}
               onClick={() => solve('ii')}
             >
               {boundedVars.length > 2 ? '∭' : '∬'}
-            </button>
+            </ToolAction>
           )}
           <span className="mx-0.5 h-4 w-px bg-border" />
           {parsed.vars.map((v) => (
-            <button
+            <ToolAction
               key={`L${v}`}
-              type="button"
-              className={BTN}
-              title={`Laplace transform in ${v} → F(s)`}
+              description={`Compute the Laplace transform in ${v} to rewrite the expression in the frequency domain.`}
               onClick={() => solve('L', v)}
             >
               L{parsed.vars.length > 1 ? `{${v}}` : ''}
-            </button>
+            </ToolAction>
           ))}
           {parsed.vars.map((v) => (
-            <button
+            <ToolAction
               key={`F${v}`}
-              type="button"
-              className={BTN}
-              title={`Fourier transform in ${v} → F(ω)`}
+              description={`Compute the Fourier transform in ${v} to analyze the expression by frequency.`}
               onClick={() => solve('F', v)}
             >
               F{parsed.vars.length > 1 ? `{${v}}` : ''}
-            </button>
+            </ToolAction>
           ))}
           {solution && (
             <button

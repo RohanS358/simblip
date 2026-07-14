@@ -39,6 +39,7 @@ import {
 import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
+import { InfoPopover } from './info-popover'
 
 const SHORTCUTS: Array<[string, string]> = [
   ['Ctrl/⌘ K', 'Command palette & global search'],
@@ -63,9 +64,9 @@ function PrefRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
-      <div>
+      <div className="flex items-center gap-1.5">
         <p className="text-[13px] font-medium">{label}</p>
-        <p className="text-[11.5px] text-muted-foreground">{detail}</p>
+        <InfoPopover description={detail} />
       </div>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>
