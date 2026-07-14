@@ -21,11 +21,14 @@ import {
   Sparkles,
   Wand2,
   ScanText,
+  X,
+  Calculator,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
+import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { uid, type SceneObject } from '@/lib/scene/types'
@@ -98,6 +101,7 @@ function ToolButton({
   shortcut,
   accent,
   onClick,
+  onDoubleClick,
   children,
 }: {
   active: boolean
@@ -105,6 +109,7 @@ function ToolButton({
   shortcut?: string
   accent?: string
   onClick?: () => void
+  onDoubleClick?: () => void
   children: React.ReactNode
 }) {
   return (
@@ -115,6 +120,7 @@ function ToolButton({
           aria-label={label}
           aria-pressed={active}
           onClick={onClick}
+          onDoubleClick={onDoubleClick}
           className={cn(
             'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all',
             active
@@ -137,11 +143,16 @@ function ToolButton({
 export function Toolbar({
   paletteOpen,
   onTogglePalette,
+  calcOpen,
+  onToggleCalc,
   showAi = true,
   pageId,
 }: {
   paletteOpen: boolean
   onTogglePalette: () => void
+  /** The sticky calculator — lives above the canvas, not on it. */
+  calcOpen?: boolean
+  onToggleCalc?: () => void
   /** Students learn by building — the AI shortcut is staff-only. */
   showAi?: boolean
   /** enables the session-file attach button */
@@ -162,6 +173,7 @@ export function Toolbar({
   // Pen-size flyout: opens on hover (mouse) with a grace timer so the cursor
   // can travel to the slider; on touch, tapping the already-active pen toggles it.
   const [showSize, setShowSize] = useState(false)
+  const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
   const dock = usePrefs((s) => s.notebook.dock)
   const vertical = dock === 'left' || dock === 'right'
@@ -209,9 +221,9 @@ export function Toolbar({
           </span>
           <input
             type="range"
-            min={1.5}
-            max={12}
-            step={0.5}
+            min={0.5}
+            max={16}
+            step={0.25}
             value={penSize}
             aria-label="Pen thickness"
             className="w-28 accent-[var(--accent-blue)]"
@@ -221,6 +233,34 @@ export function Toolbar({
             {penSize}px
           </span>
         </div>
+      )}
+
+      {showPen && (
+        <>
+          {/* Click-away closes it, like the component palette. */}
+          <button
+            type="button"
+            aria-label="Close pen settings"
+            className="fixed inset-0 z-40 cursor-default"
+            onClick={() => setShowPen(false)}
+          />
+          <div className="glass-strong absolute bottom-full left-1/2 z-50 mb-2 max-h-[70dvh] w-80 -translate-x-1/2 overflow-y-auto rounded-2xl p-3">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                Pen
+              </span>
+              <button
+                type="button"
+                aria-label="Close"
+                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                onClick={() => setShowPen(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <PenSettings />
+          </div>
+        </>
       )}
 
       {showShapes && (
@@ -261,6 +301,10 @@ export function Toolbar({
               label={`${label} — hover for thickness`}
               shortcut={key}
               onClick={() => (tool === 'pen' ? setShowSize((v) => !v) : setTool('pen'))}
+              onDoubleClick={() => {
+                setShowSize(false)
+                setShowPen(true)
+              }}
             >
               <Icon className="h-4 w-4" />
             </ToolButton>
@@ -313,6 +357,17 @@ export function Toolbar({
       </ToolButton>
 
       <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+
+      {onToggleCalc && (
+        <ToolButton
+          active={!!calcOpen}
+          label="Calculator — basic and scientific"
+          accent="var(--accent-violet)"
+          onClick={onToggleCalc}
+        >
+          <Calculator className="h-4 w-4" />
+        </ToolButton>
+      )}
 
       <ToolButton
         active={paletteOpen || tool === 'place'}

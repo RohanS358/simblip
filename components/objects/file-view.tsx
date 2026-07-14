@@ -11,7 +11,7 @@
 // session-only, never saved.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
@@ -45,6 +45,11 @@ export function FileObject({ object }: ObjectRendererProps) {
   const [rev, setRev] = useState(0) // bumps when a file is (re)attached
   const [fs, setFs] = useState(false)
   const [converting, setConverting] = useState<string | null>(null)
+  const [dragOver, setDragOver] = useState(false)
+  /** Expanded: every page laid out top-to-bottom and scrollable, instead of
+   *  one page at a time. Reading a whole handout beats clicking through it. */
+  const [expanded, setExpanded] = useState(false)
+  const stripRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -126,13 +131,51 @@ export function FileObject({ object }: ObjectRendererProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rev, file?.url, isPdf])
 
+  // Expanded view: render every page into its own canvas, stacked vertically.
+  // Done once per document (not per frame), so scrolling stays cheap.
+  useEffect(() => {
+    const doc = docRef.current
+    const strip = stripRef.current
+    if (!expanded || !doc || !strip || numPages === 0) return
+    let dead = false
+    void (async () => {
+      strip.innerHTML = ''
+      const width = strip.clientWidth || 600
+      for (let n = 1; n <= doc.numPages; n++) {
+        if (dead) return
+        const p = await doc.getPage(n)
+        const base = p.getViewport({ scale: 1 })
+        const fit = width / base.width
+        const scale = fit * Math.min(3, (window.devicePixelRatio || 1) * 2)
+        const vp = p.getViewport({ scale })
+        const c = document.createElement('canvas')
+        c.width = vp.width
+        c.height = vp.height
+        c.style.width = '100%'
+        c.style.height = 'auto'
+        c.style.display = 'block'
+        c.style.marginBottom = '10px'
+        c.style.borderRadius = '4px'
+        c.style.boxShadow = '0 1px 6px rgba(0,0,0,.14)'
+        const ctx = c.getContext('2d')
+        if (!ctx) continue
+        await p.render({ canvasContext: ctx, viewport: vp }).promise
+        if (dead) return
+        strip.appendChild(c)
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [expanded, numPages, rev])
+
   // Render exactly ONE page, oversampled 2× past devicePixelRatio so it
   // stays sharp when the whiteboard zooms the element up.
   useEffect(() => {
     const doc = docRef.current
     const canvas = canvasRef.current
     const box = boxRef.current
-    if (!doc || !canvas || !box || numPages === 0) return
+    if (!doc || !canvas || !box || numPages === 0 || expanded) return
     let dead = false
     void (async () => {
       const p = await doc.getPage(Math.min(page, doc.numPages))
@@ -190,8 +233,40 @@ export function FileObject({ object }: ObjectRendererProps) {
           so the element selects and drags — never the document. */}
       <div
         ref={boxRef}
-        className="pointer-events-none relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border border-border/60 bg-white shadow-sm dark:bg-neutral-900"
+        // NOT pointer-inert any more: drag-and-drop events don't fire on
+        // elements with pointer-events:none. Pointer events still BUBBLE to the
+        // object wrapper, so clicking or dragging the body selects and moves
+        // the element exactly as before — nothing here stops propagation.
+        className={cn(
+          'relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm transition-colors dark:bg-neutral-900',
+          dragOver ? 'border-2 border-dashed border-[var(--accent-blue)]' : 'border-border/60'
+        )}
+        // Drop a file straight onto the window — the same pipeline as the
+        // attach button, so a .pptx dropped here is converted just the same.
+        onDragOver={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(true)
+        }}
+        onDragLeave={(e) => {
+          e.preventDefault()
+          setDragOver(false)
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          setDragOver(false)
+          const f = e.dataTransfer.files?.[0]
+          if (f) void attach(f)
+        }}
       >
+        {dragOver && (
+          <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)]">
+            <span className="rounded-lg bg-card px-3 py-1.5 text-[12px] font-semibold shadow">
+              Drop to open
+            </span>
+          </div>
+        )}
         {converting ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <Loader2 className="h-6 w-6 animate-spin" />
@@ -210,6 +285,15 @@ export function FileObject({ object }: ObjectRendererProps) {
               </span>
             </span>
           </div>
+        ) : isPdf && expanded ? (
+          <div
+            ref={stripRef}
+            className="pointer-events-auto h-full w-full overflow-y-auto p-2"
+            // The strip scrolls, so it must swallow the wheel — otherwise the
+            // whiteboard would zoom underneath it.
+            onWheel={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+          />
         ) : isPdf ? (
           <canvas ref={canvasRef} className="max-h-full max-w-full" />
         ) : isImage ? (
@@ -223,7 +307,7 @@ export function FileObject({ object }: ObjectRendererProps) {
 
         {/* Page nav sits mid-left / mid-right — where thumbs and presenters
             actually reach (children may re-enable pointer events). */}
-        {isPdf && numPages > 0 && (
+        {isPdf && numPages > 0 && !expanded && (
           <>
             <button
               type="button"
@@ -293,6 +377,21 @@ export function FileObject({ object }: ObjectRendererProps) {
         >
           <FileUp className="h-4 w-4" />
         </button>
+        {isPdf && numPages > 0 && (
+          <button
+            type="button"
+            aria-label={expanded ? 'Show one page at a time' : 'Expand — show every page'}
+            title={expanded ? 'Single page' : 'Expand all pages'}
+            aria-pressed={expanded}
+            className={cn(
+              'rounded-lg p-1.5 hover:bg-accent',
+              expanded ? 'text-[var(--accent-blue)]' : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? <Square className="h-4 w-4" /> : <Rows3 className="h-4 w-4" />}
+          </button>
+        )}
         <button
           type="button"
           aria-label="Fullscreen"

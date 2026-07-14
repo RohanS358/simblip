@@ -28,6 +28,8 @@ import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
 import { MobileShell } from './mobile-shell'
 import { CommandPalette } from './command-palette'
+import { Calculator } from './calculator'
+import { UndoRedo } from './undo-redo'
 import { NotificationCenter } from './notifications'
 import { ProfileMenu } from './profile-menu'
 import { SettingsDialog } from './settings-dialog'
@@ -94,6 +96,7 @@ export function WorkspaceShell() {
   const [ready, setReady] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
+  const [calcOpen, setCalcOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
@@ -233,6 +236,7 @@ export function WorkspaceShell() {
         >
           <Search className="h-4 w-4" />
         </button>
+        {activePageId && <UndoRedo pageId={activePageId} />}
         <SyncStatus />
         <NotificationCenter />
         <button
@@ -297,12 +301,15 @@ export function WorkspaceShell() {
               <InfiniteCanvas key={activePageId} pageId={activePageId} />
               <Transport pageId={activePageId} />
               <Toolbar
+                calcOpen={calcOpen}
+                onToggleCalc={() => setCalcOpen((v) => !v)}
                 paletteOpen={paletteOpen}
                 onTogglePalette={() => setPaletteOpen((o) => !o)}
                 showAi={aiAllowed}
                 pageId={activePageId}
               />
               <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+              {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
               {aiAllowed && <AiPanel pageId={activePageId} />}
             </>
           ) : (

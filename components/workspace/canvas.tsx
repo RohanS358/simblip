@@ -39,8 +39,12 @@ import { inkPath } from '@/components/objects/ink'
 import { cn } from '@/lib/utils'
 
 const GRID = 24
-const MIN_ZOOM = 0.2
-const MAX_ZOOM = 4
+/** The grid layer is inset by this much so translating it never exposes an
+ *  edge. The offset must be folded into the modulo below or the dots drift
+ *  against the objects at any zoom ≠ 1 — that was the "parallax". */
+const GRID_PAD = GRID * 2
+const MIN_ZOOM = 0.05
+const MAX_ZOOM = 16
 
 // Universal placement gestures: click spawns the default; dragging sizes
 // the object while placing it. Line-likes go point→point, circle-likes grow
@@ -453,11 +457,13 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     if (gridRef.current) {
       const cell = GRID * vp.zoom
-      // The pattern repeats every cell, so only the remainder matters.
-      const ox = ((vp.x % cell) + cell) % cell
-      const oy = ((vp.y % cell) + cell) % cell
+      // The pattern repeats every cell, so only the remainder matters — but it
+      // must be measured from the CONTAINER's origin, not the grid div's,
+      // which sits GRID_PAD to the left/up. Leaving that out made the dots
+      // slide against the objects as you zoomed (the parallax).
+      const mod = (n: number) => ((n % cell) + cell) % cell
       gridRef.current.style.backgroundSize = `${cell}px ${cell}px`
-      gridRef.current.style.transform = `translate3d(${ox}px, ${oy}px, 0)`
+      gridRef.current.style.transform = `translate3d(${mod(vp.x + GRID_PAD)}px, ${mod(vp.y + GRID_PAD)}px, 0)`
     }
   }, [])
 
@@ -475,6 +481,34 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           useDocStore.getState().setViewport(pageId, vpRef.current)
         }, 180)
       }
+    },
+    [pageId, paintViewport]
+  )
+
+  /**
+   * Double-tap / double-click empty canvas to zoom in on that spot, again to
+   * zoom back out. Anchored at the tap, so the thing you tapped stays put —
+   * zooming to the centre instead would throw your target off screen.
+   */
+  const lastTapRef = useRef<{ t: number; x: number; y: number } | null>(null)
+  const doubleTapZoom = useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = containerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      const v = vpRef.current
+      const ZOOMED = 2.5
+      // Already zoomed in → this tap means "back out".
+      const zoom = v.zoom >= ZOOMED - 0.01 ? 1 : ZOOMED
+      const sx = clientX - rect.left
+      const sy = clientY - rect.top
+      const next = {
+        zoom,
+        x: sx - ((sx - v.x) * zoom) / v.zoom,
+        y: sy - ((sy - v.y) * zoom) / v.zoom,
+      }
+      vpRef.current = next
+      paintViewport(next)
+      useDocStore.getState().setViewport(pageId, next)
     },
     [pageId, paintViewport]
   )
@@ -1675,6 +1709,23 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   }
 
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
+    // Double-tap zoom — only on the bare canvas with the select tool, so it
+    // never fights double-click-to-edit on a text box or a formula.
+    if (e.button === 0 && tool === 'select' && editing) {
+      const now = Date.now()
+      const last = lastTapRef.current
+      if (
+        last &&
+        now - last.t < 300 &&
+        Math.hypot(e.clientX - last.x, e.clientY - last.y) < 24
+      ) {
+        lastTapRef.current = null
+        doubleTapZoom(e.clientX, e.clientY)
+        return
+      }
+      lastTapRef.current = { t: now, x: e.clientX, y: e.clientY }
+    }
+
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     // Palm rejection: once a stylus has been seen recently, a resting palm
     // (single touch) must not ink or marquee — two fingers still pan/zoom.
@@ -2001,10 +2052,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             nbPrefs.grid === 'graph' && 'canvas-graph'
           )}
           style={{
-            left: -GRID * 2,
-            top: -GRID * 2,
-            right: -GRID * 2,
-            bottom: -GRID * 2,
+            left: -GRID_PAD,
+            top: -GRID_PAD,
+            right: -GRID_PAD,
+            bottom: -GRID_PAD,
             willChange: 'transform',
           }}
         />

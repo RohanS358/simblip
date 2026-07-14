@@ -95,7 +95,7 @@ export const DEFAULT_PEN: PenPrefs = {
   smoothing: 0.35, // was 0.55 — noticeably less mushy
   streamline: 0.28, // was 0.5 — the ink now keeps up with the hand
   sensitivity: 0.55,
-  size: 5,
+  size: 2.5, // a pen, not a marker
   color: 'var(--foreground)',
   style: 'ink',
   scribbleSensitivity: 0.5,
