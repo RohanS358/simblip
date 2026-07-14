@@ -8,10 +8,12 @@ import {
   MousePointer2,
   Pen,
   Eraser,
+  Move,
   Paperclip,
   Circle,
   Square,
   Minus,
+  Ruler,
   Type,
   StickyNote,
   Sigma,
@@ -381,7 +383,7 @@ export function Toolbar({
             accent="var(--accent-blue)"
             onClick={toggleTouchOrthoPen}
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Ortho</span>
+            <Spline className="h-4 w-4" />
           </ToolButton>
           <ToolButton
             active={touchFreeMove}
@@ -389,7 +391,7 @@ export function Toolbar({
             accent="var(--accent-blue)"
             onClick={toggleTouchFreeMove}
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Free</span>
+            <Move className="h-4 w-4" />
           </ToolButton>
           <ToolButton
             active={touchMeasureMode}
@@ -397,7 +399,7 @@ export function Toolbar({
             accent="var(--accent-blue)"
             onClick={toggleTouchMeasureMode}
           >
-            <span className="text-[10px] font-bold uppercase tracking-[0.08em]">Measure</span>
+            <Ruler className="h-4 w-4" />
           </ToolButton>
         </>
       )}
