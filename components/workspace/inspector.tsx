@@ -42,28 +42,29 @@ function ExprInput({
   value,
   onCommit,
   error,
-      <div className="flex flex-1 items-center gap-0.5">
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={`Tracer: ${label}`}
-          onClick={onClick}
-          className={cn(
-            'flex flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors',
-            on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
-          )}
-          style={
-            on
-              ? { background: `color-mix(in oklch, ${color} 22%, transparent)`, color, borderColor: color }
-              : undefined
-          }
-        >
-          <Icon className="h-3.5 w-3.5" />
-          {label}
-        </button>
-        <InfoPopover description={hint} />
-      </div>
+  ariaLabel,
+  placeholder,
+  mono = true,
+  scrubbable = true,
+}: {
+  value: string
+  onCommit: (value: string) => void
+  error?: string
+  ariaLabel: string
+  placeholder?: string
+  mono?: boolean
+  scrubbable?: boolean
+}) {
+  const [draft, setDraft] = useState(value)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
+
+  useEffect(() => {
+    setDraft(value)
+  }, [value])
+
+  return (
+    <input
       ref={inputRef}
       aria-label={ariaLabel}
       aria-invalid={Boolean(error)}
