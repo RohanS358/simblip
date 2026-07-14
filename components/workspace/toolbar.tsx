@@ -219,8 +219,8 @@ export function Toolbar({
         dock === 'bottom' &&
           'bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 max-w-[calc(100vw-1rem)] -translate-x-1/2',
         dock === 'top' && 'left-1/2 top-5 max-w-[calc(100vw-1rem)] -translate-x-1/2',
-        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2',
-        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2'
+        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2 overflow-hidden',
+        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2 overflow-hidden'
       )}
     >
       {showSize && (
@@ -354,7 +354,7 @@ export function Toolbar({
         <ShapesGroupIcon />
       </ToolButton>
 
-      <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+      <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
 
       <ToolButton
         active={inkToShape}
@@ -376,7 +376,7 @@ export function Toolbar({
 
       {isTouchDevice && (
         <>
-          <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+          <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
           <ToolButton
             active={touchOrthoPen}
             label="Touch orthogonal pen — the tablet substitute for Shift+pen"
@@ -404,7 +404,7 @@ export function Toolbar({
         </>
       )}
 
-      <div className="mx-1 h-6 w-px shrink-0 bg-border" />
+      <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
 
       {onToggleCalc && (
         <ToolButton

@@ -523,6 +523,7 @@ export function RichTextArea({
               'select-text cursor-text',
               className
             )}
+            style={{ touchAction: 'auto' }}
             onFocus={() => {
               if (!focusedRef.current) {
                 focusedRef.current = true

@@ -129,6 +129,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         ref={inputRef}
         aria-label="Expression"
         className="w-full rounded-lg bg-background/70 px-2 py-1.5 text-right font-mono text-[14px] outline-none"
+        style={{ touchAction: 'auto' }}
         value={expr}
         placeholder="0"
         onChange={(e) => setExpr(e.target.value)}

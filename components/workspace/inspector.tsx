@@ -1221,7 +1221,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               className={
                 expandedId === v.id
                   ? 'rounded p-0.5 text-[var(--accent-blue)]'
-                  : 'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100'
+                  : 'rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100'
               }
               onClick={() => setExpandedId(expandedId === v.id ? null : v.id)}
             >
@@ -1234,7 +1234,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               className={
                 binding === v.id
                   ? 'rounded p-0.5 text-[var(--accent-blue)]'
-                  : 'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100'
+                  : 'rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100'
               }
               onClick={() => {
                 setBinding(binding === v.id ? null : v.id)
@@ -1247,7 +1247,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             <button
               type="button"
               aria-label={`Delete variable ${v.name}`}
-              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-[var(--accent-rose)] group-hover:opacity-100"
+              className="rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-[var(--accent-rose)] hover:opacity-100"
               onClick={() => removeVariable(pageId, v.id)}
             >
               <Trash2 className="h-3 w-3" />
