@@ -54,6 +54,7 @@ import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
 import { TutorialPanel } from './tutorial'
 import { UndoRedo } from './undo-redo'
+import { Calculator } from './calculator'
 import { clonePageDoc } from '@/lib/store/import-page'
 import {
   AssignDialog,
@@ -220,6 +221,7 @@ export function MobileShell() {
             pageId={activePageId}
           />
           <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
           {aiAllowed && <AiPanel pageId={activePageId} />}
         </main>
 
