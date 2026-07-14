@@ -13,7 +13,7 @@
 // here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2 } from 'lucide-react'
+import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2, Lock, LockOpen } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
@@ -38,7 +38,7 @@ import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
 import { cn } from '@/lib/utils'
 
-const GRID = 24
+const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
 /** The grid layer is inset by this much so translating it never exposes an
  *  edge. The offset must be folded into the modulo below or the dots drift
  *  against the objects at any zoom ≠ 1 — that was the "parallax". */
@@ -460,14 +460,18 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       layerRef.current.style.transform = `translate3d(${vp.x}px, ${vp.y}px, 0) scale(${vp.zoom})`
     }
     if (gridRef.current) {
-      const cell = GRID * vp.zoom
+      // Use the user-set grid size (from prefs), with a minimum-size pad that
+      // is always large enough even at the largest grid setting.
+      const gridSize = usePrefs.getState().notebook.gridSize
+      const pad = gridSize * 2
+      const cell = gridSize * vp.zoom
       // The pattern repeats every cell, so only the remainder matters — but it
       // must be measured from the CONTAINER's origin, not the grid div's,
       // which sits GRID_PAD to the left/up. Leaving that out made the dots
       // slide against the objects as you zoomed (the parallax).
       const mod = (n: number) => ((n % cell) + cell) % cell
       gridRef.current.style.backgroundSize = `${cell}px ${cell}px`
-      gridRef.current.style.transform = `translate3d(${mod(vp.x + GRID_PAD)}px, ${mod(vp.y + GRID_PAD)}px, 0)`
+      gridRef.current.style.transform = `translate3d(${mod(vp.x + pad)}px, ${mod(vp.y + pad)}px, 0)`
     }
   }, [])
 
@@ -574,6 +578,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const v = vpRef.current
       const rect = el.getBoundingClientRect()
       if (e.ctrlKey || e.metaKey) {
+        // Zoom is locked — swallow the event but don't change the viewport.
+        if (usePrefs.getState().notebook.lockZoom) return
         const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * Math.exp(-e.deltaY * 0.0022)))
         const sx = e.clientX - rect.left
         const sy = e.clientY - rect.top
@@ -610,6 +616,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     const onGestureChange = (e: Event) => {
       e.preventDefault()
+      if (usePrefs.getState().notebook.lockZoom) return
       const ge = e as SafariGestureEvent
       const v = vpRef.current
       const rect = el.getBoundingClientRect()
@@ -1593,6 +1600,21 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const p = pinchRef.current
       if (!p || touches.size < 2) return
+      // Zoom is locked — two-finger pan is still allowed (no zoom change).
+      if (usePrefs.getState().notebook.lockZoom) {
+        const [a, b] = [...touches.values()]
+        const cx = (a.x + b.x) / 2
+        const cy = (a.y + b.y) / 2
+        const prevCx = (p.center.x)
+        const prevCy = (p.center.y)
+        const dx = cx - prevCx
+        const dy = cy - prevCy
+        const v = vpRef.current
+        applyViewport({ ...v, x: v.x + dx, y: v.y + dy })
+        // Re-anchor so next move delta is correct.
+        pinchRef.current = { ...p, center: { x: cx, y: cy } }
+        return
+      }
       const [a, b] = [...touches.values()]
       const dist = Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1)
       const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, p.viewport.zoom * (dist / p.dist)))
@@ -1719,7 +1741,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
     // Double-tap zoom — only on the bare canvas with the select tool, so it
     // never fights double-click-to-edit on a text box or a formula.
-    if (e.button === 0 && tool === 'select' && editing) {
+    if (e.button === 0 && tool === 'select' && editing &&
+        !usePrefs.getState().notebook.disableDoubleTapZoom &&
+        !usePrefs.getState().notebook.lockZoom) {
       const now = Date.now()
       const last = lastTapRef.current
       if (
@@ -2068,10 +2092,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             nbPrefs.grid === 'graph' && 'canvas-graph'
           )}
           style={{
-            left: -GRID_PAD,
-            top: -GRID_PAD,
-            right: -GRID_PAD,
-            bottom: -GRID_PAD,
+            left: -(nbPrefs.gridSize * 2),
+            top: -(nbPrefs.gridSize * 2),
+            right: -(nbPrefs.gridSize * 2),
+            bottom: -(nbPrefs.gridSize * 2),
             willChange: 'transform',
           }}
         />
@@ -2282,6 +2306,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             placeholder="100k · 9V · name"
             className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-[12px] shadow-md outline-none placeholder:text-muted-foreground/50"
             style={{ left: quickLabel.x, top: quickLabel.y }}
+            inputMode="text"
             onPointerDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
@@ -2448,9 +2473,32 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           )
         })()}
 
-      <div className="glass absolute bottom-[4.5rem] right-3 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
-        {Math.round(viewport.zoom * 100)}%
-      </div>
+      {/* Zoom level pill with a lock-zoom toggle button. */}
+      {(() => {
+        const locked = nbPrefs.lockZoom
+        const LockIcon = locked ? Lock : LockOpen
+        return (
+          <div className="glass absolute bottom-[4.5rem] right-3 flex items-center gap-0.5 rounded-full pl-3 pr-1 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
+            <span className={cn(locked && 'text-foreground font-semibold')}>
+              {Math.round(viewport.zoom * 100)}%
+            </span>
+            <button
+              type="button"
+              aria-label={locked ? 'Unlock zoom' : 'Lock zoom'}
+              title={locked ? 'Unlock zoom' : 'Lock zoom — pinch and scroll will pan only'}
+              className={cn(
+                'ml-1 rounded-full p-1 transition-colors',
+                locked
+                  ? 'text-[var(--accent-amber)] hover:text-[var(--accent-amber)]/70'
+                  : 'text-muted-foreground/60 hover:text-muted-foreground'
+              )}
+              onClick={() => usePrefs.getState().setNotebook({ lockZoom: !locked })}
+            >
+              <LockIcon className="h-3 w-3" />
+            </button>
+          </div>
+        )
+      })()}
     </div>
   )
 }

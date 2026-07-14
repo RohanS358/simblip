@@ -124,18 +124,26 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         </button>
       </div>
 
-      {/* Typing works too — the keypad is a convenience, not the only way in. */}
+      {/* Typing works on desktop — the keypad is a convenience, not the only way in.
+           On touch devices we suppress the virtual keyboard (inputMode=none)
+           so the keypad is the input method; the field is still selectable
+           for copy. */}
       <input
         ref={inputRef}
         aria-label="Expression"
-        className="w-full rounded-lg bg-background/70 px-2 py-1.5 text-right font-mono text-[14px] outline-none"
-        style={{ touchAction: 'auto' }}
+        className="w-full rounded-lg bg-background/70 px-2 py-1.5 text-right font-mono text-[14px] outline-none select-all"
+        style={{ touchAction: 'auto', caretColor: 'transparent' }}
         value={expr}
         placeholder="0"
+        readOnly
+        inputMode="none"
         onChange={(e) => setExpr(e.target.value)}
         onKeyDown={(e) => {
           e.stopPropagation() // the canvas has single-key tool shortcuts
           if (e.key === 'Enter') commit()
+          else if (e.key === 'Backspace') setExpr((s) => s.slice(0, -1))
+          else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey)
+            setExpr((s) => s + e.key)
         }}
       />
       <div className="flex h-5 items-center justify-end gap-1 px-2">

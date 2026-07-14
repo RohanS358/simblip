@@ -37,6 +37,12 @@ export interface NotebookPrefs {
   /** Whole-UI scale: panels, docks, inspector. 1 = default. */
   uiScale: number
   dock: DockSide
+  /** Grid cell size in canvas pixels. Default 40. Range 16–80. */
+  gridSize: number
+  /** Disable double-tap-to-zoom on the canvas. */
+  disableDoubleTapZoom: boolean
+  /** Freeze the canvas zoom level so pinch/scroll cannot change it. */
+  lockZoom: boolean
 }
 
 /** How the whole UI moves. See lib/motion.ts. */
@@ -106,6 +112,9 @@ export const DEFAULT_NOTEBOOK: NotebookPrefs = {
   grid: 'dots',
   uiScale: 1,
   dock: 'bottom',
+  gridSize: 40,
+  disableDoubleTapZoom: false,
+  lockZoom: false,
 }
 
 /** Per-style overrides applied on top of the sliders. */

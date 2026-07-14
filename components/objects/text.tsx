@@ -518,6 +518,9 @@ export function RichTextArea({
             aria-multiline="true"
             aria-label={placeholder || 'Text'}
             data-placeholder={placeholder}
+            // inputMode=text signals the OS that this field accepts text input,
+            // which enables Google Handwriting Input and similar stylus IMEs.
+            inputMode="text"
             className={cn(
               'md-editor h-full w-full whitespace-pre-wrap break-words leading-relaxed outline-none',
               'select-text cursor-text',

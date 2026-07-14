@@ -105,6 +105,20 @@ function NotebookSettings() {
       </Field>
 
       <Field
+        label="Grid size"
+        value={`${nb.gridSize}px`}
+        hint="Controls how large each grid cell is. Smaller values give a finer grid; larger values give a coarser one."
+      >
+        <Slider
+          value={[nb.gridSize]}
+          min={16}
+          max={80}
+          step={4}
+          onValueChange={([v]) => setNb({ gridSize: v })}
+        />
+      </Field>
+
+      <Field
         label="UI scale"
         value={`${Math.round(nb.uiScale * 100)}%`}
         hint="Scales panels, docks and the inspector — the canvas keeps its own zoom."
@@ -130,6 +144,13 @@ function NotebookSettings() {
           ]}
         />
       </Field>
+
+      <PrefRow
+        label="Disable double-tap zoom"
+        detail="When on, double-tapping the canvas no longer zooms in or out — useful if you prefer pinch-to-zoom only."
+        checked={nb.disableDoubleTapZoom}
+        onChange={() => setNb({ disableDoubleTapZoom: !nb.disableDoubleTapZoom })}
+      />
 
       <button
         type="button"

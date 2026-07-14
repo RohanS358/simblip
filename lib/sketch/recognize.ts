@@ -71,7 +71,9 @@ export function recognize(raw: number[][]): Recognition {
 
   const start = rel[0]
   const end = rel[rel.length - 1]
-  const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.22, 24)
+  // Tablets draw wider arcs when lifting — be a little more generous about
+  // what counts as "closed" so a loop that ends 26% away still recognises.
+  const closed = Math.hypot(end[0] - start[0], end[1] - start[1]) < Math.max(diag * 0.26, 28)
 
   if (!closed) {
     // Line: low deviation from the chord.
@@ -110,8 +112,8 @@ export function recognize(raw: number[][]): Recognition {
     }
   }
   const simple = [
-    ...simplify(closedPts.slice(0, far + 1), diag * 0.04).slice(0, -1),
-    ...simplify(closedPts.slice(far), diag * 0.04),
+    ...simplify(closedPts.slice(0, far + 1), diag * 0.035).slice(0, -1),
+    ...simplify(closedPts.slice(far), diag * 0.035),
   ]
   // Keep only vertices where the outline genuinely turns — the stroke seam
   // and RDP chatter on smooth arcs drop out; a circle keeps none.
@@ -183,7 +185,9 @@ function sharpCorners(closedPts: number[][], simple: number[][]): number[][] {
     const t1 = Math.atan2(d[1] - b[1], d[0] - b[0])
     let turn = Math.abs(t1 - t0)
     if (turn > Math.PI) turn = 2 * Math.PI - turn
-    if (turn > 0.55) out.push(c)
+    // Tablet/touch strokes have more rounding at corners than stylus strokes;
+    // lowering the threshold from 0.55 to 0.45 rad catches those shallower turns.
+    if (turn > 0.45) out.push(c)
   }
   return out
 }
