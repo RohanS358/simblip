@@ -17,6 +17,7 @@ export function inkPath(
     smoothing?: number
     streamline?: number
     last?: boolean
+    dotSize?: number
   } = {}
 ): string {
   if (points.length === 0) return ''
@@ -41,7 +42,7 @@ export function inkPath(
   if (outline.length < 3) {
     if (points.length > 0) {
       const [x, y] = points[0]
-      const r = size / 2
+      const r = (size * (opts.dotSize ?? pen.dotSize ?? 1)) / 2
       // Draw a perfect circle for a dot
       return `M ${x - r} ${y} A ${r} ${r} 0 1 0 ${x + r} ${y} A ${r} ${r} 0 1 0 ${x - r} ${y} Z`
     }

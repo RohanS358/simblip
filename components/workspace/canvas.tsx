@@ -1245,6 +1245,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             obj.metadata.smoothing = usePrefs.getState().pen.smoothing
             obj.metadata.streamline = usePrefs.getState().pen.streamline
             obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
+            obj.metadata.dotSize = usePrefs.getState().pen.dotSize
             const all = Object.values(store.pages[pageId]?.objects ?? {})
             if (connectEnds(obj, all)) {
               obj.behaviors.push(createBehavior('wire'))
@@ -1302,6 +1303,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             raw.metadata.smoothing = usePrefs.getState().pen.smoothing
             raw.metadata.streamline = usePrefs.getState().pen.streamline
             raw.metadata.sensitivity = usePrefs.getState().pen.sensitivity
+            raw.metadata.dotSize = usePrefs.getState().pen.dotSize
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
@@ -1402,6 +1404,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             obj.metadata.smoothing = usePrefs.getState().pen.smoothing
             obj.metadata.streamline = usePrefs.getState().pen.streamline
             obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
+            obj.metadata.dotSize = usePrefs.getState().pen.dotSize
           }
           store.addObject(pageId, obj)
           // Plain ink stays unselected (it's writing); only strokes that
@@ -2150,6 +2153,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               d={obj.geometry.points ? inkPath(obj.geometry.points, { 
                 size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5,
                 thinning: typeof obj.metadata.sensitivity === 'number' ? obj.metadata.sensitivity : undefined,
+                dotSize: typeof obj.metadata.dotSize === 'number' ? obj.metadata.dotSize : undefined,
                 smoothing: typeof obj.metadata.smoothing === 'number' ? obj.metadata.smoothing : undefined,
                 streamline: typeof obj.metadata.streamline === 'number' ? obj.metadata.streamline : undefined,
               }) : ''}

@@ -591,10 +591,11 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     () => (bareInk && points ? inkPath(points, { 
       size: inkSize,
       thinning: typeof object.metadata.sensitivity === 'number' ? object.metadata.sensitivity : undefined,
+      dotSize: typeof object.metadata.dotSize === 'number' ? object.metadata.dotSize : undefined,
       smoothing: typeof object.metadata.smoothing === 'number' ? object.metadata.smoothing : undefined,
       streamline: typeof object.metadata.streamline === 'number' ? object.metadata.streamline : undefined,
     }) : ''),
-    [bareInk, points, inkSize, object.metadata.sensitivity, object.metadata.smoothing, object.metadata.streamline]
+    [bareInk, points, inkSize, object.metadata.sensitivity, object.metadata.dotSize, object.metadata.smoothing, object.metadata.streamline]
   )
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />

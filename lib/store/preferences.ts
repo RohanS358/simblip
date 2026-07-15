@@ -29,6 +29,8 @@ export interface PenPrefs {
   /** Scribble-to-erase: 0 = must scribble hard and long before anything is
    *  deleted, 1 = a light scratch is enough. Higher is easier to trigger. */
   scribbleSensitivity: number
+  /** Multiplier for dot size when drawing a single point (outline.length < 3) */
+  dotSize: number
 }
 
 export interface NotebookPrefs {
@@ -105,6 +107,7 @@ export const DEFAULT_PEN: PenPrefs = {
   color: 'var(--foreground)',
   style: 'ink',
   scribbleSensitivity: 0.5,
+  dotSize: 2.0,
 }
 
 export const DEFAULT_NOTEBOOK: NotebookPrefs = {

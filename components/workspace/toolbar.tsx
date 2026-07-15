@@ -471,6 +471,7 @@ export function Toolbar({
         </ToolButton>
       )}
       </div>
+      </div>
     </fm.div>
   )
 }

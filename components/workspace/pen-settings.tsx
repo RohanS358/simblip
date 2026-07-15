@@ -91,6 +91,16 @@ export function PenSettings() {
         />
       </Field>
 
+      <Field label="Dot size" value={`${pen.dotSize}x`} hint="Multiplier for single-tap dots (like the dot on an 'i').">
+        <Slider
+          value={[pen.dotSize]}
+          min={0.5}
+          max={5}
+          step={0.1}
+          onValueChange={([v]) => setPen({ dotSize: v })}
+        />
+      </Field>
+
       <Field label="Colour">
         <div className="flex gap-1.5">
           {PEN_COLORS.map((c) => (
