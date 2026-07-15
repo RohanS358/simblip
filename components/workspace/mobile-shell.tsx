@@ -297,9 +297,16 @@ export function MobileShell() {
           {appMenu}
         </header>
 
-        <main className="relative min-h-0 flex-1 flex flex-col">
+        <main className={cn('relative min-h-0 flex-1 flex', isPhone ? 'flex-col' : 'flex-row')}>
           {splitScreenObject && (
-            <div className="flex w-full h-1/2 flex-col border-b border-border bg-muted/30 p-2 relative z-10">
+            <div
+              className={cn(
+                'flex bg-muted/30 p-2 relative z-10',
+                isPhone
+                  ? 'w-full h-1/2 flex-col border-b border-border'
+                  : 'h-full w-1/2 flex-col border-r border-border'
+              )}
+            >
               <FileObject object={splitScreenObject} pageId={activePageId!} />
             </div>
           )}
