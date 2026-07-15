@@ -240,7 +240,7 @@ export function executeSimScript(
   )
 
   // ── Execute ────────────────────────────────────────────────────────────────
-  const fn = new Function('sandbox', `"use strict"; with(sandbox) { ${transpiled} }`)
+  const fn = new Function('sandbox', `with(sandbox) { ${transpiled} }`)
   fn(sandbox)
 
   // ── Sync declared variables to the page variables sidebar ──────────────────
