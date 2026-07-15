@@ -116,7 +116,11 @@ export function MobileShell() {
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
-  const splitScreenObject = useDocStore((s) => activePageId && splitScreenDocumentId ? s.pages[activePageId]?.[splitScreenDocumentId] : null)
+  const splitScreenObject = useDocStore((s) =>
+    activePageId && splitScreenDocumentId
+      ? s.pages[activePageId]?.objects?.[splitScreenDocumentId] ?? null
+      : null
+  )
 
   useShareInbox()
 
@@ -159,6 +163,8 @@ export function MobileShell() {
     </>
   )
 
+  // The drawer is declared here so it can be embedded in EVERY view.
+  // (It must be inside AnimatePresence and mounted wherever the header is.)
   const appMenu = (
     <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent" onClick={() => setDrawerOpen(true)}>
       <Menu className="h-5 w-5" />
@@ -169,6 +175,7 @@ export function MobileShell() {
   if (view.kind === 'editor' && activePageId) {
     return (
       <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+        {drawer}
         <header className="z-40 flex h-12 shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2">
           <button
             type="button"
@@ -284,6 +291,7 @@ export function MobileShell() {
   if (view.kind === 'notebook' && notebook) {
     return (
       <div className="flex h-dvh flex-col bg-background">
+        {drawer}
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/40 px-2">
           <button
             type="button"
