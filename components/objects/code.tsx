@@ -16,8 +16,14 @@ export function CodeObject({ pageId, object, selected }: ObjectRendererProps) {
   const runCode = () => {
     pushHistory(pageId)
     setError(null)
+    // Pass the IDE's own canvas position+size so the engine can offset
+    // spawned objects to appear to the right of the code block.
+    const ideOrigin = {
+      x: object.position.x + object.size.w + 40, // 40px gap to the right
+      y: object.position.y,
+    }
     try {
-      executeSimScript(pageId, source)
+      executeSimScript(pageId, source, ideOrigin)
     } catch (e: any) {
       setError(e.message || String(e))
     }

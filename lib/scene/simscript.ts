@@ -1,105 +1,155 @@
 import { useDocStore } from '@/lib/store/document'
-import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str, bool } from './types'
+import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
+
+// Always read fresh state — Zustand creates new state objects on every set(),
+// so any snapshot captured before an addObject call is immediately stale.
+const store = () => useDocStore.getState()
 
 class ScriptObject {
   id: string
   pageId: string
-  
+
   constructor(id: string, pageId: string) {
     this.id = id
     this.pageId = pageId
   }
 
-  // Anchors for connections
-  get centre() { return { objectId: this.id, anchor: 'centre' } }
-  get edge() { return { objectId: this.id, anchor: 'edge' } }
-  get input1() { return { objectId: this.id, anchor: 'input1' } }
-  get input2() { return { objectId: this.id, anchor: 'input2' } }
-  get output() { return { objectId: this.id, anchor: 'output' } }
-  get positive() { return { objectId: this.id, anchor: 'positive' } }
-  get negative() { return { objectId: this.id, anchor: 'negative' } }
-  get emitter() { return { objectId: this.id, anchor: 'emitter' } }
-  get base() { return { objectId: this.id, anchor: 'base' } }
+  // Electrical / digital anchors
+  get centre()    { return { objectId: this.id, anchor: 'centre' } }
+  get edge()      { return { objectId: this.id, anchor: 'edge' } }
+  get input1()    { return { objectId: this.id, anchor: 'input1' } }
+  get input2()    { return { objectId: this.id, anchor: 'input2' } }
+  get output()    { return { objectId: this.id, anchor: 'output' } }
+  get positive()  { return { objectId: this.id, anchor: 'positive' } }
+  get negative()  { return { objectId: this.id, anchor: 'negative' } }
+  get emitter()   { return { objectId: this.id, anchor: 'emitter' } }
+  get base()      { return { objectId: this.id, anchor: 'base' } }
   get collector() { return { objectId: this.id, anchor: 'collector' } }
-  get V() { return { objectId: this.id, property: 'V' } }
+
+  // Dynamic property accessors
+  get V()  { return { objectId: this.id, property: 'V' } }
   get vx() { return { objectId: this.id, property: 'vx' } }
+  get vy() { return { objectId: this.id, property: 'vy' } }
+  get ax() { return { objectId: this.id, property: 'ax' } }
+  get ay() { return { objectId: this.id, property: 'ay' } }
 
   set(props: Record<string, any>) {
-    const doc = useDocStore.getState()
-    const obj = doc.pages[this.pageId]?.objects?.[this.id]
-    if (!obj) return this
-    
-    // Apply props
-    const next = { ...obj }
-    if (props.x !== undefined || props.y !== undefined) {
-      next.position = { x: props.x ?? obj.position.x, y: props.y ?? obj.position.y }
+    // Fresh read every time — state may have changed since this object was created
+    const current = store().pages[this.pageId]?.objects?.[this.id]
+    if (!current) return this
+
+    const next = {
+      ...current,
+      position: {
+        x: props.x ?? current.position.x,
+        y: props.y ?? current.position.y,
+      },
+      size: {
+        w: props.width  ?? current.size.w,
+        h: props.height ?? current.size.h,
+      },
+      behaviors: current.behaviors.map(b => {
+        if (b.type === 'rigidBody' && props.mass !== undefined) {
+          return { ...b, params: { ...b.params, mass: num(props.mass) } }
+        }
+        return b
+      }),
     }
-    if (props.width !== undefined || props.height !== undefined) {
-      next.size = { w: props.width ?? obj.size.w, h: props.height ?? obj.size.h }
-    }
-    if (props.mass !== undefined) {
-      const rb = next.behaviors.find(b => b.type === 'rigidBody')
-      if (rb) rb.params.mass = num(props.mass)
-    }
-    doc.addObject(this.pageId, next, { history: false })
+    store().addObject(this.pageId, next, { history: false })
     return this
   }
 }
 
-export function executeSimScript(pageId: string, source: string) {
-  const doc = useDocStore.getState()
+export function executeSimScript(
+  pageId: string,
+  source: string,
+  origin: { x: number; y: number } = { x: 200, y: 100 }
+) {
 
-  // 1. Preprocess: Very naive transpilation to allow Python-like kwargs.
-  // We'll just run it as standard JS, so we'll provide wrappers.
-  
-  // create(kind, props)
-  const create = (kind: GeometryKind | string, props: Record<string, any> = {}) => {
+  // ── API functions ──────────────────────────────────────────────────────────
+
+  const create = (kind: GeometryKind | string, props: Record<string, any> = {}): ScriptObject => {
     const id = uid()
+
+    const geometryKind = (
+      kind === 'symbol' ? 'symbol' :
+      kind === 'rect'   ? 'rect'   :
+      kind === 'circle' ? 'circle' :
+      kind === 'line'   ? 'line'   :
+      kind === 'polygon'? 'polygon':
+      kind === 'text'   ? 'text'   :
+      kind === 'note'   ? 'note'   :
+      kind === 'graph'  ? 'graph'  :
+      'rect'
+    ) as GeometryKind
+
     const obj: SceneObject = {
       id,
-      name: kind,
-      geometry: { kind: (kind === 'symbol' ? 'symbol' : kind) as GeometryKind, symbol: kind === 'symbol' ? props.symbol : undefined },
-      position: { x: props.x ?? 100, y: props.y ?? 100 },
-      size: { w: props.width ?? 50, h: props.height ?? 50 },
-      rotation: props.rotation ?? 0,
-      z: Date.now(),
+      name: props.name ?? kind,
+      geometry: {
+        kind: geometryKind,
+        symbol: geometryKind === 'symbol' ? (props.symbol ?? kind) : undefined,
+      },
+      // x/y in script are relative to origin — if not provided, default to 0,0 relative
+      position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+      size:     { w: props.width ?? 60, h: props.height ?? 60 },
+      rotation:  props.rotation ?? 0,
+      z:         Date.now(),
       behaviors: [],
       parameters: {},
-      metadata: {}
+      metadata: {},
     }
-    doc.addObject(pageId, obj, { history: false })
-    const scriptObj = new ScriptObject(id, pageId)
-    if (Object.keys(props).length > 0) {
-      scriptObj.set(props)
-    }
-    return scriptObj
+
+    // Write to store immediately
+    store().addObject(pageId, obj, { history: false })
+    return new ScriptObject(id, pageId)
   }
 
   const addproperty = (obj: ScriptObject, behaviorType: BehaviorType | string) => {
-    const sceneObj = doc.pages[pageId]?.objects?.[obj.id]
-    if (!sceneObj) return
+    // Fresh read — object must already be in state from a prior create()
+    const current = store().pages[pageId]?.objects?.[obj.id]
+    if (!current) {
+      console.warn('[SimScript] addproperty: object not found', obj.id)
+      return
+    }
     const b: any = {
       id: uid(),
       type: behaviorType,
       enabled: true,
       params: {}
     }
-    // Set default params based on type
     if (behaviorType === 'rigidBody') b.params.mass = num(1)
-    const next = { ...sceneObj, behaviors: [...sceneObj.behaviors, b] }
-    doc.addObject(pageId, next, { history: false })
+    const next = { ...current, behaviors: [...current.behaviors, b] }
+    store().addObject(pageId, next, { history: false })
   }
 
   const connect = (a: any, b: any, type: string = 'wire') => {
-    if (!a?.objectId || !b?.objectId) return
+    if (!a?.objectId || !b?.objectId) {
+      console.warn('[SimScript] connect: invalid anchor', a, b)
+      return
+    }
+
+    // Resolve real positions from the objects already in the store
+    const objA = store().pages[pageId]?.objects?.[a.objectId]
+    const objB = store().pages[pageId]?.objects?.[b.objectId]
+
+    // Use bounding-box centres to route the wire
+    const ax = objA ? objA.position.x + objA.size.w / 2 : 0
+    const ay = objA ? objA.position.y + objA.size.h / 2 : 0
+    const bx = objB ? objB.position.x + objB.size.w / 2 : 200
+    const by = objB ? objB.position.y + objB.size.h / 2 : 200
+
     const id = uid()
-    // A wire or rope is a line geometry with a behavior
     const line: SceneObject = {
       id,
       name: type,
       geometry: { kind: 'line' },
-      position: { x: 0, y: 0 },
-      size: { w: 100, h: 100 },
+      // Position is top-left of the bounding box of the two endpoints
+      position: { x: Math.min(ax, bx), y: Math.min(ay, by) },
+      size: {
+        w: Math.abs(bx - ax) || 4,
+        h: Math.abs(by - ay) || 4,
+      },
       rotation: 0,
       z: Date.now(),
       behaviors: [{
@@ -107,121 +157,122 @@ export function executeSimScript(pageId: string, source: string) {
         type: type as BehaviorType,
         enabled: true,
         params: {
-          targetA: str(a.objectId),
-          anchorA: str(a.anchor),
-          targetB: str(b.objectId),
-          anchorB: str(b.anchor),
-        }
+          targetA:  str(a.objectId),
+          anchorA:  str(a.anchor),
+          targetB:  str(b.objectId),
+          anchorB:  str(b.anchor),
+        },
       }],
       parameters: {},
-      metadata: { render: type }
+      metadata: { render: type },
     }
-    doc.addObject(pageId, line, { history: false })
+    store().addObject(pageId, line, { history: false })
     return new ScriptObject(id, pageId)
   }
 
   const graph = {
-    plot: (yVar: any, xVar: any, style: string = 'line', options: any = {}) => {
-      // Find or create a graph object on the page
-      let graphObj = Object.values(doc.pages[pageId]?.objects ?? {}).find(o => o.geometry.kind === 'graph')
-      if (!graphObj) {
-        graphObj = {
-          id: uid(),
-          name: 'Graph',
-          geometry: { kind: 'graph' },
-          position: { x: 400, y: 100 },
-          size: { w: 300, h: 200 },
-          rotation: 0,
-          z: Date.now(),
-          behaviors: [],
-          parameters: {},
-          metadata: {}
-        }
-      }
-      
-      const yProp = yVar?.property ?? yVar
-      const xProp = xVar?.property ?? xVar
-      const targetId = yVar?.objectId
-      
-      const newGraph = { ...graphObj }
-      // Configure plot bindings in parameters
+    plot: (yVar: any, xVar: any, style: string = 'line') => {
+      // Look for an existing graph on the page (fresh read)
+      let graphObj = Object.values(store().pages[pageId]?.objects ?? {})
+        .find(o => o.geometry.kind === 'graph')
+
+      const newGraph: SceneObject = graphObj
+        ? { ...graphObj }
+        : {
+            id: uid(),
+            name: 'Graph',
+            geometry: { kind: 'graph' },
+            // Place graph 500px to the right of the origin (simulation area)
+            position: { x: origin.x + 500, y: origin.y },
+            size: { w: 320, h: 220 },
+            rotation: 0,
+            z: Date.now(),
+            behaviors: [],
+            parameters: {},
+            metadata: {},
+          }
+
+      const yProp = yVar?.property ?? String(yVar)
+      const xProp = xVar?.property ?? String(xVar)
+      const yId   = yVar?.objectId  ?? ''
+      const xId   = xVar?.objectId  ?? ''
+
       newGraph.parameters = {
         ...newGraph.parameters,
-        [`plot_${uid()}`]: str(`${targetId ? targetId + '.' : ''}${yProp} vs ${xProp}`)
+        [`plot_y_${uid()}`]: str(yId ? `${yId}.${yProp}` : yProp),
+        [`plot_x_${uid()}`]: str(xId ? `${xId}.${xProp}` : xProp),
+        plot_style:           str(style),
       }
-      doc.addObject(pageId, newGraph, { history: false })
-    }
+      store().addObject(pageId, newGraph, { history: false })
+    },
   }
 
-  // Expose variables globally to the sandbox
-  const builtins = {
+  // ── Sandbox setup ──────────────────────────────────────────────────────────
+
+  const builtins: Record<string, any> = {
     create,
     addproperty,
     connect,
     graph,
     console,
-    Math
+    Math,
   }
 
   const sandboxVars: Record<string, any> = {}
-  
+
   const sandbox = new Proxy(builtins, {
-    has(target, key) {
-      return true // Trap all variables
-    },
+    has() { return true },
     get(target, key: string) {
-      if (key === Symbol.unscopables) return undefined
-      if (key in target) return (target as any)[key]
+      if (key === Symbol.unscopables as any) return undefined
+      if (key in target) return target[key]
       return sandboxVars[key]
     },
-    set(target, key: string, value) {
+    set(_target, key: string, value) {
       sandboxVars[key] = value
       return true
-    }
+    },
   })
 
-  // Strip 'var ', 'let ', 'const ' declarations to force assignments onto the Proxy
-  const transpiled = source
-    .replace(/\b(?:var|let|const)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)/g, '$1')
+  // Strip var/let/const so that variable declarations land on the Proxy
+  const transpiled = source.replace(
+    /\b(var|let|const)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)/g,
+    '$2'
+  )
 
-  // Execute
-  try {
-    const fn = new Function('sandbox', `with(sandbox) { ${transpiled} }`)
-    fn(sandbox)
-  } catch (err) {
-    console.error(err)
-    throw err
-  }
+  // ── Execute ────────────────────────────────────────────────────────────────
+  const fn = new Function('sandbox', `"use strict"; with(sandbox) { ${transpiled} }`)
+  fn(sandbox)
 
-  // After execution, sync sandboxVars to page variables
-  const currentVars = doc.pages[pageId]?.variables || []
+  // ── Sync declared variables to the page variables sidebar ──────────────────
+  const currentVars = store().pages[pageId]?.variables ?? []
   const newVars = [...currentVars]
-  
+
   for (const [k, v] of Object.entries(sandboxVars)) {
+    if (v instanceof ScriptObject) continue  // component handles, not values
+
     if (typeof v === 'number' || typeof v === 'string') {
       const existing = newVars.find(x => x.name === k)
       if (existing) {
         existing.value = Number(v)
+        existing.expr  = String(v)
       } else {
         newVars.push({ id: uid(), name: k, expr: String(v), value: Number(v) })
       }
-    } else if (v instanceof ScriptObject) {
-       // Ignore component references
     } else if (v?.property) {
-       // Bind dynamic property
-       const existing = newVars.find(x => x.name === k)
-       const expr = `${v.objectId}.${v.property}`
-       if (existing) {
-         existing.expr = expr
-       } else {
-         newVars.push({ id: uid(), name: k, expr, value: 0 })
-       }
+      // Dynamic binding — e.g. x = block.vx
+      const expr = `${v.objectId}.${v.property}`
+      const existing = newVars.find(x => x.name === k)
+      if (existing) {
+        existing.expr = expr
+      } else {
+        newVars.push({ id: uid(), name: k, expr, value: 0 })
+      }
     }
   }
-  
+
   useDocStore.setState(s => {
     const p = s.pages[pageId]
-    if (p) p.variables = newVars
-    return s
+    if (!p) return s
+    return { ...s, pages: { ...s.pages, [pageId]: { ...p, variables: newVars } } }
   })
 }
