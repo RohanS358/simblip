@@ -171,6 +171,97 @@ export function MobileShell() {
     </button>
   )
 
+  const drawer = (
+    <AnimatePresence>
+      {drawerOpen && (
+        <>
+          <fm.div
+            className="fixed inset-0 z-[70] bg-black/40"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setDrawerOpen(false)}
+          />
+          <fm.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-y-0 left-0 z-[80] w-[80vw] max-w-[320px] flex flex-col border-r border-border bg-card shadow-2xl"
+          >
+            <div className="flex items-center gap-3 border-b border-border/40 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
+                {profile?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[14px] font-bold text-foreground">{profile?.full_name || 'User'}</span>
+                <span className="truncate text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
+              </div>
+              <button
+                type="button"
+                className="rounded-full p-2 text-muted-foreground hover:bg-accent"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
+              <button
+                className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
+              >
+                <BookOpen className="h-4 w-4" /> My Notebooks
+              </button>
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                <Share2 className="h-4 w-4" /> Shared with me
+              </button>
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
+              >
+                <ClipboardList className="h-4 w-4" /> Assignments
+              </button>
+              {staff && (
+                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                  <GraduationCap className="h-4 w-4" /> Review
+                </button>
+              )}
+
+              <div className="mt-6 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => { setTutorialOpen(true); setDrawerOpen(false) }}
+              >
+                <MonitorPlay className="h-4 w-4" /> Tutorials
+              </button>
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              >
+                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
+              </button>
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => { setSettingsOpen(true); setDrawerOpen(false) }}
+              >
+                <Settings className="h-4 w-4" /> Settings
+              </button>
+            </div>
+            <div className="border-t border-border/40 p-4">
+              <button
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+                onClick={() => useAuthStore.getState().logout()}
+              >
+                <LogOut className="h-4 w-4" /> Sign out
+              </button>
+            </div>
+          </fm.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+
   // ── Editor ────────────────────────────────────────────────────────────────
   if (view.kind === 'editor' && activePageId) {
     return (
@@ -441,98 +532,6 @@ export function MobileShell() {
       </div>
     )
   }
-
-  // ── Drawer ────────────────────────────────────────────────────────────────
-  const drawer = (
-    <AnimatePresence>
-      {drawerOpen && (
-        <>
-          <fm.div
-            className="fixed inset-0 z-[70] bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setDrawerOpen(false)}
-          />
-          <fm.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-y-0 left-0 z-[80] w-[80vw] max-w-[320px] flex flex-col border-r border-border bg-card shadow-2xl"
-          >
-            <div className="flex items-center gap-3 border-b border-border/40 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
-                {profile?.full_name?.charAt(0) || 'U'}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[14px] font-bold text-foreground">{profile?.full_name || 'User'}</span>
-                <span className="truncate text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
-              </div>
-              <button
-                type="button"
-                className="rounded-full p-2 text-muted-foreground hover:bg-accent"
-                onClick={() => setDrawerOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
-              <button 
-                className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
-                onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
-              >
-                <BookOpen className="h-4 w-4" /> My Notebooks
-              </button>
-              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                <Share2 className="h-4 w-4" /> Shared with me
-              </button>
-              <button 
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
-                onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
-              >
-                <ClipboardList className="h-4 w-4" /> Assignments
-              </button>
-              {staff && (
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
-                  <GraduationCap className="h-4 w-4" /> Review
-                </button>
-              )}
-              
-              <div className="mt-6 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
-              <button 
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
-                onClick={() => { setTutorialOpen(true); setDrawerOpen(false) }}
-              >
-                <MonitorPlay className="h-4 w-4" /> Tutorials
-              </button>
-              <button 
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
-                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
-              >
-                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
-              </button>
-              <button 
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
-                onClick={() => { setSettingsOpen(true); setDrawerOpen(false) }}
-              >
-                <Settings className="h-4 w-4" /> Settings
-              </button>
-            </div>
-            <div className="border-t border-border/40 p-4">
-              <button 
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-destructive transition-colors hover:bg-destructive/10" 
-                onClick={() => useAuthStore.getState().logout()}
-              >
-                <LogOut className="h-4 w-4" /> Sign out
-              </button>
-            </div>
-          </fm.div>
-        </>
-      )}
-    </AnimatePresence>
-  )
 
   // ── Home ──────────────────────────────────────────────────────────────────
   return (
