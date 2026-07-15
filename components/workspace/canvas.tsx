@@ -18,12 +18,12 @@ import { toast } from 'sonner'
 import { useIsMobile } from '@/hooks/use-mobile'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
-import { usePrefs, penPrefs, PEN_STYLES } from '@/lib/store/preferences'
+import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
-import { createBehavior } from '@/lib/behaviors/registry'
+import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
@@ -2052,6 +2052,26 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     )
   }, [objects, viewport.x, viewport.y, viewport.zoom, box.w, box.h, selectedSet])
 
+  const { inkStrokes, interactiveObjects } = useMemo(() => {
+    const isBareInk = (obj: SceneObject) =>
+      obj.geometry.kind === 'stroke' &&
+      !isBody(obj.behaviors) &&
+      !obj.behaviors.some((b) => b.enabled && b.type === 'wire')
+
+    return visible.reduce(
+      (acc, obj) => {
+        // Keep selected ink interactive so handles still appear
+        if (isBareInk(obj) && !selectedSet.has(obj.id)) {
+          acc.inkStrokes.push(obj)
+        } else {
+          acc.interactiveObjects.push(obj)
+        }
+        return acc
+      },
+      { inkStrokes: [] as SceneObject[], interactiveObjects: [] as SceneObject[] }
+    )
+  }, [visible, selectedSet])
+
   return (
     <div
       ref={containerRef}
@@ -2112,7 +2132,20 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           transformOrigin: '0 0',
         }}
       >
-        {visible.map((obj) => (
+        <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+          {inkStrokes.map((obj) => (
+            <path
+              key={obj.id}
+              d={obj.geometry.points ? inkPath(obj.geometry.points, { size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5 }) : ''}
+              fill={(obj.metadata.inkColor as string) ?? 'var(--foreground)'}
+              fillOpacity={PEN_STYLES[(obj.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1}
+              stroke="none"
+              style={{ transform: `translate(${obj.position.x}px, ${obj.position.y}px)` }}
+            />
+          ))}
+        </svg>
+
+        {interactiveObjects.map((obj) => (
           <ObjectView
             key={obj.id}
             pageId={pageId}
