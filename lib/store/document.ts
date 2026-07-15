@@ -28,6 +28,7 @@ export type Tool =
   | 'text'
   | 'note'
   | 'formula'
+  | 'code'
   | 'graph'
   | 'place' // placing a palette component (toolOption = component id)
 

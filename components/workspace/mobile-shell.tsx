@@ -6,6 +6,7 @@
 // bottom sheet, the top-right actions collapsed into one menu).
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -56,6 +57,7 @@ import { TutorialPanel } from './tutorial'
 import { UndoRedo } from './undo-redo'
 import { Calculator } from './calculator'
 import { clonePageDoc } from '@/lib/store/import-page'
+import { FileObject } from '../objects/file-view'
 import {
   AssignDialog,
   PresentDialog,
@@ -98,6 +100,7 @@ export function MobileShell() {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   const profile = useAuthStore((s) => s.profile)
+  const institution = useAuthStore((s) => s.institution)
   const notebooks = useWorkspaceStore((s) => s.notebooks)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   // Only the open page stays in memory — see lib/store/use-active-page.ts
@@ -112,6 +115,8 @@ export function MobileShell() {
   const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
+  const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const splitScreenObject = useDocStore((s) => activePageId && splitScreenDocumentId ? s.pages[activePageId]?.[splitScreenDocumentId] : null)
 
   useShareInbox()
 
@@ -173,6 +178,20 @@ export function MobileShell() {
           >
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
+          {institution?.logo_url ? (
+            <Image
+              src={String(institution.logo_url)}
+              alt={institution.name}
+              width={20}
+              height={20}
+              unoptimized
+              className="h-5 w-5 rounded object-contain"
+            />
+          ) : null}
+          <span className="text-[14px] font-extrabold tracking-tight">
+            SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+          </span>
+          <span className="hidden text-muted-foreground/50 sm:inline">/</span>
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{pageName}</span>
           <SyncStatus />
           <NotificationCenter />
@@ -180,8 +199,15 @@ export function MobileShell() {
           {appMenu}
         </header>
 
-        <main className="relative min-h-0 flex-1">
-          <InfiniteCanvas key={activePageId} pageId={activePageId} />
+        <main className="relative min-h-0 flex-1 flex flex-col">
+          {splitScreenObject && (
+            <div className="flex w-full h-1/2 flex-col border-b border-border bg-muted/30 p-2 relative z-10">
+              <FileObject object={splitScreenObject} pageId={activePageId!} />
+            </div>
+          )}
+          <div className="relative flex-1 min-h-0">
+            <InfiniteCanvas key={activePageId} pageId={activePageId} />
+          </div>
           <Transport pageId={activePageId} />
           <Toolbar
             calcOpen={calcOpen}
@@ -228,7 +254,7 @@ export function MobileShell() {
               exit={isPhone ? { y: '100%' } : { x: '100%' }}
               transition={spring}
             >
-              <div className="flex items-center justify-between px-4 py-2">
+              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
                 <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Properties &amp; variables
                 </span>
@@ -414,10 +440,10 @@ export function MobileShell() {
       {drawerOpen && (
         <>
           <fm.div
+            className="fixed inset-0 z-[70] bg-black/40"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] bg-background/80 backdrop-blur-sm"
             onClick={() => setDrawerOpen(false)}
           />
           <fm.div

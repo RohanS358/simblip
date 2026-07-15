@@ -13,6 +13,7 @@ import { FormulaObject } from './formula'
 import { GraphObject } from './graph'
 import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
+import { CodeObject } from './code'
 
 export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRendererProps>> = {
   circle: GeometryObject,
@@ -27,4 +28,5 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   graph: GraphObject,
   cashflow: CashflowObject,
   truthtable: TruthTableObject,
+  code: CodeObject,
 }

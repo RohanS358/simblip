@@ -51,5 +51,10 @@ export function connectorPath(
     return `M ${x1} ${y1} Q ${x1 + dx / 2 + px * sag} ${y1 + dy / 2 + py * sag} ${x2} ${y2}`
   }
 
+  if (render === 'wire') {
+    // Manhattan routing (L-shape): Horizontal first, then vertical
+    return `M ${x1} ${y1} L ${x2} ${y1} L ${x2} ${y2}`
+  }
+
   return `M ${x1} ${y1} L ${x2} ${y2}`
 }
