@@ -15,7 +15,6 @@ import {
   ClipboardList,
   Copy,
   Download,
-  FileText,
   GraduationCap,
   LibraryBig,
   LogOut,
@@ -58,6 +57,7 @@ import { UndoRedo } from './undo-redo'
 import { Calculator } from './calculator'
 import { clonePageDoc } from '@/lib/store/import-page'
 import { FileObject } from '../objects/file-view'
+import { PageThumbnail } from './page-thumbnail'
 import {
   AssignDialog,
   PresentDialog,
@@ -442,83 +442,86 @@ export function MobileShell() {
                   No pages yet.
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                   {sec.pages.map((page) => (
                     <fm.div
                       key={page.id}
                       whileTap={{ scale: 0.95 }}
-                      className="group relative flex aspect-[4/5] flex-col justify-between rounded-3xl border border-border/40 bg-card p-4 shadow-sm"
+                      className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 shadow-sm"
                       onClick={() => openPage(page.id)}
                     >
-                      <div className="flex w-full items-start justify-between">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]">
-                          <FileText className="h-5 w-5" />
-                        </div>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                            <button
-                              type="button"
-                              aria-label={`Actions for ${page.name}`}
-                              className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                            >
-                              <MoreVertical className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                            <DropdownMenuItem onClick={() => openPage(page.id)}>
-                              <BookOpen className="h-4 w-4" /> Open
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={(e) => {
+                      {/* Thumbnail takes the bulk of the card so the user can
+                          preview the page without opening it. */}
+                      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-muted/40">
+                        <PageThumbnail pageId={page.id} className="absolute inset-0 p-1.5" />
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${page.name}`}
+                          onClick={(e) => e.stopPropagation()}
+                          className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
+                        >
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <span className="flex h-6 w-6 items-center justify-center">
+                                <MoreVertical className="h-3.5 w-3.5" />
+                              </span>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                              <DropdownMenuItem onClick={() => openPage(page.id)}>
+                                <BookOpen className="h-4 w-4" /> Open
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const name = window.prompt('Rename page', page.name)
+                                  if (name?.trim()) store.getState().renamePage(page.id, name.trim())
+                                }}
+                              >
+                                <Pencil className="h-4 w-4" /> Rename
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => {
                                 e.stopPropagation()
-                                const name = window.prompt('Rename page', page.name)
-                                if (name?.trim()) store.getState().renamePage(page.id, name.trim())
-                              }}
-                            >
-                              <Pencil className="h-4 w-4" /> Rename
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={(e) => {
-                              e.stopPropagation()
-                              duplicatePage(notebook.id, sec.id, page)
-                            }}>
-                              <Copy className="h-4 w-4" /> Duplicate
-                            </DropdownMenuItem>
-                            {staff && (
-                              <>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareFor(page) }}>
-                                  <Share2 className="h-4 w-4" /> Share copy…
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setAssignFor(page) }}>
-                                  <ClipboardList className="h-4 w-4" /> Assign…
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPresentFor(page) }}>
-                                  <MonitorPlay className="h-4 w-4" /> Present on room board…
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPublishFor(page) }}>
-                                  <LibraryBig className="h-4 w-4" /> Add to library…
-                                </DropdownMenuItem>
-                              </>
-                            )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
-                              <Download className="h-4 w-4" /> Export JSON
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              variant="destructive"
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                if (window.confirm(`Delete page "${page.name}"?`)) {
-                                  store.getState().removePage(page.id)
-                                }
-                              }}
-                            >
-                              <Trash2 className="h-4 w-4" /> Delete page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                                duplicatePage(notebook.id, sec.id, page)
+                              }}>
+                                <Copy className="h-4 w-4" /> Duplicate
+                              </DropdownMenuItem>
+                              {staff && (
+                                <>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareFor(page) }}>
+                                    <Share2 className="h-4 w-4" /> Share copy…
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setAssignFor(page) }}>
+                                    <ClipboardList className="h-4 w-4" /> Assign…
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPresentFor(page) }}>
+                                    <MonitorPlay className="h-4 w-4" /> Present on room board…
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPublishFor(page) }}>
+                                    <LibraryBig className="h-4 w-4" /> Add to library…
+                                  </DropdownMenuItem>
+                                </>
+                              )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
+                                <Download className="h-4 w-4" /> Export JSON
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant="destructive"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  if (window.confirm(`Delete page "${page.name}"?`)) {
+                                    store.getState().removePage(page.id)
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" /> Delete page
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </button>
                       </div>
-                      <span className="mt-4 line-clamp-3 text-[14px] font-bold leading-tight tracking-tight">{page.name}</span>
+                      <span className="mt-2 line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{page.name}</span>
                     </fm.div>
                   ))}
                 </div>
