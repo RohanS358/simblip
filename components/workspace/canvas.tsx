@@ -462,7 +462,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     if (gridRef.current) {
       // Use the user-set grid size (from prefs), with a minimum-size pad that
       // is always large enough even at the largest grid setting.
-      const gridSize = usePrefs.getState().notebook.gridSize
+      const gridSize = usePrefs.getState().notebook.gridSize ?? 40
       const pad = gridSize * 2
       const cell = gridSize * vp.zoom
       // The pattern repeats every cell, so only the remainder matters — but it
@@ -2126,10 +2126,10 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             nbPrefs.grid === 'graph' && 'canvas-graph'
           )}
           style={{
-            left: -(nbPrefs.gridSize * 2),
-            top: -(nbPrefs.gridSize * 2),
-            right: -(nbPrefs.gridSize * 2),
-            bottom: -(nbPrefs.gridSize * 2),
+            left: -((nbPrefs.gridSize ?? 40) * 2),
+            top: -((nbPrefs.gridSize ?? 40) * 2),
+            right: -((nbPrefs.gridSize ?? 40) * 2),
+            bottom: -((nbPrefs.gridSize ?? 40) * 2),
             willChange: 'transform',
           }}
         />

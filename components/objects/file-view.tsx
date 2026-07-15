@@ -383,7 +383,10 @@ export function FileObject({ object }: ObjectRendererProps) {
 
       {/* Floating controls — the ONLY interactive part of the element. */}
       <div
-        className="glass-strong absolute -bottom-11 left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-1.5 py-1"
+        className={cn(
+          "glass-strong absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-1.5 py-1 pointer-events-auto",
+          isSplitScreen ? "bottom-4" : "-bottom-11"
+        )}
         onPointerDown={stop}
         onDoubleClick={stop}
       >
