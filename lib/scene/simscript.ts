@@ -26,7 +26,7 @@ class ScriptObject {
 
   set(props: Record<string, any>) {
     const doc = useDocStore.getState()
-    const obj = doc.pages[this.pageId]?.[this.id]
+    const obj = doc.pages[this.pageId]?.objects?.[this.id]
     if (!obj) return this
     
     // Apply props
@@ -76,7 +76,7 @@ export function executeSimScript(pageId: string, source: string) {
   }
 
   const addproperty = (obj: ScriptObject, behaviorType: BehaviorType | string) => {
-    const sceneObj = doc.pages[pageId]?.[obj.id]
+    const sceneObj = doc.pages[pageId]?.objects?.[obj.id]
     if (!sceneObj) return
     const b: any = {
       id: uid(),
@@ -123,7 +123,7 @@ export function executeSimScript(pageId: string, source: string) {
   const graph = {
     plot: (yVar: any, xVar: any, style: string = 'line', options: any = {}) => {
       // Find or create a graph object on the page
-      let graphObj = Object.values(doc.pages[pageId] ?? {}).find(o => o.geometry.kind === 'graph')
+      let graphObj = Object.values(doc.pages[pageId]?.objects ?? {}).find(o => o.geometry.kind === 'graph')
       if (!graphObj) {
         graphObj = {
           id: uid(),
