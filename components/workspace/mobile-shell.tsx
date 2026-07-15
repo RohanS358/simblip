@@ -458,7 +458,7 @@ export function MobileShell() {
                           type="button"
                           aria-label={`Actions for ${page.name}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
+                          className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-100 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
                         >
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
