@@ -38,6 +38,7 @@ import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
+import { FileObject } from '@/components/objects/file-view'
 
 function seedFirstRun() {
   const ws = useWorkspaceStore.getState()
@@ -120,6 +121,24 @@ export function WorkspaceShell() {
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+  const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const syncScroll = useWorkspaceStore((s) => s.syncScroll)
+
+  const activePageObjects = useDocStore((s) => activePageId ? s.pages[activePageId]?.objects : null)
+  const splitScreenObject = splitScreenDocumentId && activePageObjects ? activePageObjects[splitScreenDocumentId] : null
+
+  useEffect(() => {
+    if (!syncScroll || !activePageId) return
+    const onPdfScroll = (e: Event) => {
+      const { pct } = (e as CustomEvent).detail
+      const s = useDocStore.getState()
+      const box = s.viewports[activePageId] || { x: 0, y: 0, zoom: 1 }
+      const canvasHeight = 10000
+      s.setViewport(activePageId, { ...box, y: -pct * canvasHeight * box.zoom })
+    }
+    window.addEventListener('simblip-pdf-scroll', onPdfScroll)
+    return () => window.removeEventListener('simblip-pdf-scroll', onPdfScroll)
+  }, [syncScroll, activePageId])
   const pageName = useWorkspaceStore((s) => {
     for (const nb of s.notebooks)
       for (const sec of nb.sections)
@@ -274,6 +293,12 @@ export function WorkspaceShell() {
 
       <div className="relative flex min-h-0 flex-1">
         {sidebarOpen && <Sidebar />}
+
+        {splitScreenObject && (
+          <div className="flex w-1/2 flex-col border-r border-border bg-muted/30 p-2">
+            <FileObject object={splitScreenObject} pageId={activePageId!} />
+          </div>
+        )}
 
         <main className="relative min-w-0 flex-1">
           {/* Edge handles — toggle the side panels from mid-screen instead of

@@ -588,8 +588,13 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   const inkColor = (object.metadata.inkColor as string) ?? 'var(--foreground)'
   const inkOpacity = PEN_STYLES[(object.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1
   const inkD = useMemo(
-    () => (bareInk && points ? inkPath(points, { size: inkSize }) : ''),
-    [bareInk, points, inkSize]
+    () => (bareInk && points ? inkPath(points, { 
+      size: inkSize,
+      thinning: typeof object.metadata.sensitivity === 'number' ? object.metadata.sensitivity : undefined,
+      smoothing: typeof object.metadata.smoothing === 'number' ? object.metadata.smoothing : undefined,
+      streamline: typeof object.metadata.streamline === 'number' ? object.metadata.streamline : undefined,
+    }) : ''),
+    [bareInk, points, inkSize, object.metadata.sensitivity, object.metadata.smoothing, object.metadata.streamline]
   )
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />

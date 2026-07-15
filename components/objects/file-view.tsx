@@ -11,10 +11,12 @@
 // session-only, never saved.
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square } from 'lucide-react'
+import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square, PanelRightClose, PanelRightOpen, Link, Link2Off } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
+import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useDocStore } from '@/lib/store/document'
 import { cn } from '@/lib/utils'
 import type { ObjectRendererProps } from './types'
 
@@ -54,6 +56,12 @@ export function FileObject({ object }: ObjectRendererProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const docRef = useRef<PdfDoc | null>(null)
+
+  const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const setSplitScreenDocumentId = useWorkspaceStore((s) => s.setSplitScreenDocumentId)
+  const syncScroll = useWorkspaceStore((s) => s.syncScroll)
+  const setSyncScroll = useWorkspaceStore((s) => s.setSyncScroll)
+  const isSplitScreen = splitScreenDocumentId === object.id
 
   // Local attachment first; else a copy shared by the presenter (bucket URL
   // or demo-db data URL stamped into metadata at present-time).
@@ -291,7 +299,22 @@ export function FileObject({ object }: ObjectRendererProps) {
             className="pointer-events-auto h-full w-full overflow-y-auto p-2"
             // The strip scrolls, so it must swallow the wheel — otherwise the
             // whiteboard would zoom underneath it.
-            onWheel={(e) => e.stopPropagation()}
+            onWheel={(e) => {
+              if (!syncScroll || !isSplitScreen) {
+                e.stopPropagation()
+              }
+            }}
+            onScroll={(e) => {
+              if (syncScroll && isSplitScreen) {
+                const target = e.currentTarget
+                const pct = target.scrollTop / Math.max(1, target.scrollHeight - target.clientHeight)
+                // When we scroll the PDF, we might want to tell the canvas to scroll.
+                // However, InfiniteCanvas relies on the `useDocStore.getState().viewports`.
+                // A simpler way: we'll handle this in shell.tsx or a separate effect.
+                // For now, let's just trigger a custom event or let shell.tsx read the scroll.
+                window.dispatchEvent(new CustomEvent('simblip-pdf-scroll', { detail: { pct, scrollTop: target.scrollTop } }))
+              }
+            }}
             onPointerDown={(e) => e.stopPropagation()}
           />
         ) : isPdf ? (
@@ -390,6 +413,37 @@ export function FileObject({ object }: ObjectRendererProps) {
             onClick={() => setExpanded((v) => !v)}
           >
             {expanded ? <Square className="h-4 w-4" /> : <Rows3 className="h-4 w-4" />}
+          </button>
+        )}
+        <button
+          type="button"
+          aria-label={isSplitScreen ? 'Close Split Screen' : 'Open in Split Screen'}
+          title={isSplitScreen ? 'Close Split Screen' : 'Open in Split Screen'}
+          aria-pressed={isSplitScreen}
+          className={cn(
+            'rounded-lg p-1.5 hover:bg-accent',
+            isSplitScreen ? 'text-[var(--accent-blue)]' : 'text-muted-foreground hover:text-foreground'
+          )}
+          onClick={() => {
+            setSplitScreenDocumentId(isSplitScreen ? null : object.id)
+            if (!isSplitScreen) setExpanded(true) // Split screen looks best expanded
+          }}
+        >
+          {isSplitScreen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+        </button>
+        {isSplitScreen && (
+          <button
+            type="button"
+            aria-label={syncScroll ? 'Disable Sync Scroll' : 'Enable Sync Scroll'}
+            title={syncScroll ? 'Disable Sync Scroll' : 'Enable Sync Scroll'}
+            aria-pressed={syncScroll}
+            className={cn(
+              'rounded-lg p-1.5 hover:bg-accent',
+              syncScroll ? 'text-[var(--accent-blue)]' : 'text-muted-foreground hover:text-foreground'
+            )}
+            onClick={() => setSyncScroll(!syncScroll)}
+          >
+            {syncScroll ? <Link className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
           </button>
         )}
         <button

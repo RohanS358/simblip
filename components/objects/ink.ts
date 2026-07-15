@@ -9,7 +9,16 @@
 import { getStroke } from 'perfect-freehand'
 import { penPrefs, PEN_STYLES } from '@/lib/store/preferences'
 
-export function inkPath(points: number[][], opts: { size?: number; last?: boolean } = {}): string {
+export function inkPath(
+  points: number[][],
+  opts: {
+    size?: number
+    thinning?: number
+    smoothing?: number
+    streamline?: number
+    last?: boolean
+  } = {}
+): string {
   if (points.length === 0) return ''
   const first = points[0][2] ?? 0.5
   const hasRealPressure = points.some((p) => Math.abs((p[2] ?? 0.5) - first) > 0.04)
@@ -18,16 +27,27 @@ export function inkPath(points: number[][], opts: { size?: number; last?: boolea
   // ink trails the hand. Smoothing only rounds the finished outline.
   const pen = penPrefs()
   const style = PEN_STYLES[pen.style]
+  const size = opts.size ?? pen.size
   const outline = getStroke(points, {
-    size: opts.size ?? pen.size,
-    thinning: pen.sensitivity,
-    smoothing: pen.smoothing,
-    streamline: pen.streamline,
+    size: size,
+    thinning: opts.thinning ?? pen.sensitivity,
+    smoothing: opts.smoothing ?? pen.smoothing,
+    streamline: opts.streamline ?? pen.streamline,
     simulatePressure: !hasRealPressure,
     last: opts.last ?? true,
     ...(style.taper ? {} : { start: { taper: 0 }, end: { taper: 0 } }),
   })
-  if (outline.length < 3) return ''
+  
+  if (outline.length < 3) {
+    if (points.length > 0) {
+      const [x, y] = points[0]
+      const r = size / 2
+      // Draw a perfect circle for a dot
+      return `M ${x - r} ${y} A ${r} ${r} 0 1 0 ${x + r} ${y} A ${r} ${r} 0 1 0 ${x - r} ${y} Z`
+    }
+    return ''
+  }
+  
   // Closed midpoint-quadratic loop around the outline.
   let d = `M ${outline[0][0].toFixed(2)} ${outline[0][1].toFixed(2)} Q`
   for (let i = 0; i < outline.length; i++) {

@@ -209,6 +209,20 @@ export function Toolbar({
     if (hideTimer.current) clearTimeout(hideTimer.current)
   }, [])
 
+  const toolbarRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const handleClickOutside = (e: PointerEvent) => {
+      if (showPen && toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+        setShowPen(false)
+      }
+    }
+    if (showPen) {
+      window.addEventListener('pointerdown', handleClickOutside)
+    }
+    return () => window.removeEventListener('pointerdown', handleClickOutside)
+  }, [showPen])
+
+
   return (
     <fm.div
       initial={{ y: 24, opacity: 0 }}
@@ -223,6 +237,7 @@ export function Toolbar({
         dock === 'right' && 'right-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2 overflow-hidden'
       )}
     >
+      <div ref={toolbarRef} className="relative">
       {showSize && (
         <div
           className="glass-strong absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-2.5 rounded-xl px-3 py-2"
@@ -255,13 +270,6 @@ export function Toolbar({
 
       {showPen && (
         <>
-          {/* Click-away closes it, like the component palette. */}
-          <button
-            type="button"
-            aria-label="Close pen settings"
-            className="fixed inset-0 z-40 cursor-default"
-            onClick={() => setShowPen(false)}
-          />
           <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
             <div className="mb-1 flex items-center justify-between">
               <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -282,7 +290,7 @@ export function Toolbar({
       )}
 
       {showShapes && (
-        <div className="glass-strong absolute bottom-full left-1/2 mb-2 grid -translate-x-1/2 grid-cols-5 gap-1 rounded-2xl p-1.5">
+        <div className={cn("glass-strong absolute z-50 grid grid-cols-5 gap-1 rounded-2xl p-1.5", penFlyoutClass)}>
           {SHAPES.map((sh) => (
             <ToolButton
               key={sh.id}

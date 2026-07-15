@@ -18,6 +18,8 @@ interface WorkspaceState {
   touchOrthoPen: boolean
   touchFreeMove: boolean
   touchMeasureMode: boolean
+  splitScreenDocumentId: string | null
+  syncScroll: boolean
 
   addNotebook: (name?: string) => string
   renameNotebook: (id: string, name: string) => void
@@ -33,6 +35,8 @@ interface WorkspaceState {
   toggleTouchOrthoPen: () => void
   toggleTouchFreeMove: () => void
   toggleTouchMeasureMode: () => void
+  setSplitScreenDocumentId: (id: string | null) => void
+  setSyncScroll: (sync: boolean) => void
 }
 
 const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
@@ -48,6 +52,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       touchOrthoPen: false,
       touchFreeMove: false,
       touchMeasureMode: false,
+      splitScreenDocumentId: null,
+      syncScroll: false,
 
       addNotebook: (name = 'Untitled Notebook') => {
         const id = uid()
@@ -174,6 +180,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       toggleTouchOrthoPen: () => set((s) => ({ touchOrthoPen: !s.touchOrthoPen })),
       toggleTouchFreeMove: () => set((s) => ({ touchFreeMove: !s.touchFreeMove })),
       toggleTouchMeasureMode: () => set((s) => ({ touchMeasureMode: !s.touchMeasureMode })),
+      setSplitScreenDocumentId: (id) => set({ splitScreenDocumentId: id }),
+      setSyncScroll: (syncScroll) => set({ syncScroll }),
     }),
     { name: 'simblip-workspace', storage: scopedJSONStorage }
   )

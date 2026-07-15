@@ -95,6 +95,7 @@ export function MobileShell() {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   const profile = useAuthStore((s) => s.profile)
   const notebooks = useWorkspaceStore((s) => s.notebooks)
@@ -154,39 +155,9 @@ export function MobileShell() {
   )
 
   const appMenu = (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent">
-          <Menu className="h-4.5 w-4.5" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
-        {view.kind === 'editor' && (
-          <>
-            <DropdownMenuItem onClick={() => store.getState().togglePanel('inspector')}>
-              <SlidersHorizontal className="h-4 w-4" /> Properties & variables
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-          </>
-        )}
-        <DropdownMenuItem onClick={() => router.push('/assignments')}>
-          <ClipboardList className="h-4 w-4" /> Assignments
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTutorialOpen(true)}>
-          <GraduationCap className="h-4 w-4" /> Tutorials
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}>
-          {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setSettingsOpen(true)}>
-          <Settings className="h-4 w-4" /> Settings
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => useAuthStore.getState().logout()}>
-          <LogOut className="h-4 w-4" /> Sign out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent" onClick={() => setDrawerOpen(true)}>
+      <Menu className="h-5 w-5" />
+    </button>
   )
 
   // ── Editor ────────────────────────────────────────────────────────────────
@@ -301,105 +272,133 @@ export function MobileShell() {
           </span>
           {appMenu}
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-3">
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4">
           {notebook.sections.map((sec) => (
-            <div key={sec.id} className="mb-4">
-              <div className="mb-1 flex items-center gap-2 px-1">
-                <span className={cn('h-2 w-2 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
-                <span className="flex-1 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-                  {sec.name}
-                </span>
-                <button
-                  type="button"
-                  aria-label={`New page in ${sec.name}`}
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
-                  onClick={() => openPage(store.getState().addPage(notebook.id, sec.id))}
-                >
-                  <Plus className="h-4 w-4" />
-                </button>
-              </div>
-              <div className="overflow-hidden rounded-2xl border border-border/60">
-                {sec.pages.length === 0 && (
-                  <p className="px-4 py-3 text-[12.5px] text-muted-foreground">No pages yet.</p>
-                )}
-                {sec.pages.map((page) => (
-                  <div
-                    key={page.id}
-                    className="flex w-full items-center gap-1 border-b border-border/40 bg-card pr-1 last:border-0"
+            <div key={sec.id} className="mb-6">
+              <div className="mb-3 flex items-center justify-between px-1">
+                <div className="flex items-center gap-2">
+                  <span className={cn('h-2.5 w-2.5 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
+                  <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+                    {sec.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    aria-label={`Rename ${sec.name}`}
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                    onClick={() => {
+                      const name = window.prompt('Rename section', sec.name)
+                      if (name?.trim()) store.getState().renameSection(notebook.id, sec.id, name.trim())
+                    }}
                   >
-                    <button
-                      type="button"
-                      className="flex min-w-0 flex-1 items-center gap-3 px-4 py-3 text-left active:bg-accent"
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label={`New page in ${sec.name}`}
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                    onClick={() => openPage(store.getState().addPage(notebook.id, sec.id))}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+              
+              {sec.pages.length === 0 ? (
+                <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[12px] text-muted-foreground">
+                  No pages yet.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-4">
+                  {sec.pages.map((page) => (
+                    <fm.div
+                      key={page.id}
+                      whileTap={{ scale: 0.95 }}
+                      className="group relative flex aspect-[4/5] flex-col justify-between rounded-3xl border border-border/40 bg-card p-4 shadow-sm"
                       onClick={() => openPage(page.id)}
                     >
-                      <FileText className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
-                      <span className="min-w-0 flex-1 truncate text-[14px]">{page.name}</span>
-                    </button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${page.name}`}
-                          className="rounded-lg p-2 text-muted-foreground active:bg-accent"
-                        >
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52">
-                        <DropdownMenuItem onClick={() => openPage(page.id)}>
-                          <BookOpen className="h-4 w-4" /> Open
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            const name = window.prompt('Rename page', page.name)
-                            if (name?.trim()) store.getState().renamePage(page.id, name.trim())
-                          }}
-                        >
-                          <Pencil className="h-4 w-4" /> Rename
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => duplicatePage(notebook.id, sec.id, page)}>
-                          <Copy className="h-4 w-4" /> Duplicate
-                        </DropdownMenuItem>
-                        {staff && (
-                          <>
+                      <div className="flex w-full items-start justify-between">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]">
+                          <FileText className="h-5 w-5" />
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                            <button
+                              type="button"
+                              aria-label={`Actions for ${page.name}`}
+                              className="rounded-full p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                            >
+                              <MoreVertical className="h-4 w-4" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                            <DropdownMenuItem onClick={() => openPage(page.id)}>
+                              <BookOpen className="h-4 w-4" /> Open
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const name = window.prompt('Rename page', page.name)
+                                if (name?.trim()) store.getState().renamePage(page.id, name.trim())
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" /> Rename
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={(e) => {
+                              e.stopPropagation()
+                              duplicatePage(notebook.id, sec.id, page)
+                            }}>
+                              <Copy className="h-4 w-4" /> Duplicate
+                            </DropdownMenuItem>
+                            {staff && (
+                              <>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareFor(page) }}>
+                                  <Share2 className="h-4 w-4" /> Share copy…
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setAssignFor(page) }}>
+                                  <ClipboardList className="h-4 w-4" /> Assign…
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPresentFor(page) }}>
+                                  <MonitorPlay className="h-4 w-4" /> Present on room board…
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPublishFor(page) }}>
+                                  <LibraryBig className="h-4 w-4" /> Add to library…
+                                </DropdownMenuItem>
+                              </>
+                            )}
                             <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={() => setShareFor(page)}>
-                              <Share2 className="h-4 w-4" /> Share copy…
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
+                              <Download className="h-4 w-4" /> Export JSON
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setAssignFor(page)}>
-                              <ClipboardList className="h-4 w-4" /> Assign…
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                if (window.confirm(`Delete page "${page.name}"?`)) {
+                                  store.getState().removePage(page.id)
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" /> Delete page
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setPresentFor(page)}>
-                              <MonitorPlay className="h-4 w-4" /> Present on room board…
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setPublishFor(page)}>
-                              <LibraryBig className="h-4 w-4" /> Add to library…
-                            </DropdownMenuItem>
-                          </>
-                        )}
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => exportPageJson(page)}>
-                          <Download className="h-4 w-4" /> Export JSON
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          variant="destructive"
-                          onClick={() => store.getState().removePage(page.id)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete page
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                ))}
-              </div>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                      <span className="mt-4 line-clamp-3 text-[14px] font-bold leading-tight tracking-tight">{page.name}</span>
+                    </fm.div>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
           <button
             type="button"
-            className="w-full rounded-2xl border border-dashed border-border px-4 py-3 text-[13px] font-medium text-muted-foreground active:bg-accent"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/60 bg-muted/20 px-4 py-4 text-[13px] font-bold text-muted-foreground active:bg-accent"
             onClick={() => store.getState().addSection(notebook.id)}
           >
-            <Plus className="mr-1 inline h-4 w-4" /> New section
+            <Plus className="h-4 w-4" /> New section
           </button>
         </main>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
@@ -409,53 +408,173 @@ export function MobileShell() {
     )
   }
 
+  // ── Drawer ────────────────────────────────────────────────────────────────
+  const drawer = (
+    <AnimatePresence>
+      {drawerOpen && (
+        <>
+          <fm.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] bg-background/80 backdrop-blur-sm"
+            onClick={() => setDrawerOpen(false)}
+          />
+          <fm.div
+            initial={{ x: '-100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '-100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="fixed inset-y-0 left-0 z-[80] w-[80vw] max-w-[320px] flex flex-col border-r border-border bg-card shadow-2xl"
+          >
+            <div className="flex items-center gap-3 border-b border-border/40 p-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
+                {profile?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[14px] font-bold text-foreground">{profile?.full_name || 'User'}</span>
+                <span className="truncate text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
+              </div>
+              <button
+                type="button"
+                className="rounded-full p-2 text-muted-foreground hover:bg-accent"
+                onClick={() => setDrawerOpen(false)}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
+              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
+              <button 
+                className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
+              >
+                <BookOpen className="h-4 w-4" /> My Notebooks
+              </button>
+              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                <Share2 className="h-4 w-4" /> Shared with me
+              </button>
+              <button 
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
+                onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
+              >
+                <ClipboardList className="h-4 w-4" /> Assignments
+              </button>
+              {staff && (
+                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                  <GraduationCap className="h-4 w-4" /> Review
+                </button>
+              )}
+              
+              <div className="mt-6 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
+              <button 
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
+                onClick={() => { setTutorialOpen(true); setDrawerOpen(false) }}
+              >
+                <MonitorPlay className="h-4 w-4" /> Tutorials
+              </button>
+              <button 
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
+                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+              >
+                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
+              </button>
+              <button 
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground" 
+                onClick={() => { setSettingsOpen(true); setDrawerOpen(false) }}
+              >
+                <Settings className="h-4 w-4" /> Settings
+              </button>
+            </div>
+            <div className="border-t border-border/40 p-4">
+              <button 
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-destructive transition-colors hover:bg-destructive/10" 
+                onClick={() => useAuthStore.getState().logout()}
+              >
+                <LogOut className="h-4 w-4" /> Sign out
+              </button>
+            </div>
+          </fm.div>
+        </>
+      )}
+    </AnimatePresence>
+  )
+
   // ── Home ──────────────────────────────────────────────────────────────────
   return (
     <div className="flex h-dvh flex-col bg-background">
+      {drawer}
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
-        <span className="flex-1 text-[15px] font-extrabold tracking-tight">
+        {appMenu}
+        <div className="flex-1" />
+        <span className="text-[15px] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
-        <SyncStatus />
-        <NotificationCenter />
-        {appMenu}
+        <div className="flex-1 flex justify-end">
+          <SyncStatus />
+          <NotificationCenter />
+        </div>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
         {profile && (
-          <p className="pb-3 pt-1 text-[13px] text-muted-foreground">
-            Hi {profile.full_name.split(' ')[0]} — pick a notebook.
-          </p>
+          <div className="pb-6 pt-2">
+            <h1 className="text-[28px] font-black tracking-tight leading-none text-foreground drop-shadow-sm">
+              Hello, {profile.full_name.split(' ')[0]}
+            </h1>
+            <p className="mt-1.5 text-[14px] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
+          </div>
         )}
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            className="glass flex flex-col items-start gap-2 rounded-2xl p-4 text-left active:bg-accent"
-            onClick={() => router.push('/assignments')}
-          >
-            <ClipboardList className="h-5 w-5 text-[var(--accent-violet)]" />
-            <span className="text-[13.5px] font-bold">Assignments</span>
-            <span className="text-[11px] text-muted-foreground">Work due & submissions</span>
-          </button>
+        <div className="grid grid-cols-2 gap-4">
           {notebooks.map((nb) => {
             const pages = nb.sections.reduce((n, s) => n + s.pages.length, 0)
             return (
-              <button
+              <fm.div
                 key={nb.id}
-                type="button"
-                className="glass flex flex-col items-start gap-2 rounded-2xl p-4 text-left active:bg-accent"
+                whileTap={{ scale: 0.95 }}
+                className="relative flex flex-col items-start gap-3 rounded-[24px] rounded-tl-lg border border-border/60 bg-gradient-to-br from-card to-card/50 p-4 shadow-sm"
                 onClick={() => setView({ kind: 'notebook', id: nb.id })}
               >
-                <span className="text-[20px] leading-none">{nb.emoji || <BookOpen className="h-5 w-5" />}</span>
-                <span className="line-clamp-2 text-[13.5px] font-bold">{nb.name}</span>
-                <span className="text-[11px] text-muted-foreground">
-                  {pages} page{pages === 1 ? '' : 's'}
-                </span>
-              </button>
+                <div className="absolute -top-[11px] left-0 h-4 w-1/3 rounded-t-lg border-x border-t border-border/60 bg-card" />
+                <div className="flex w-full items-center justify-between z-10">
+                  <span className="text-[28px] leading-none drop-shadow-md">{nb.emoji || <BookOpen className="h-6 w-6" />}</span>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <button type="button" className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+                        <MoreVertical className="h-5 w-5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                      <DropdownMenuItem onClick={(e) => {
+                        e.stopPropagation()
+                        const name = window.prompt('Rename notebook', nb.name)
+                        if (name?.trim()) store.getState().renameNotebook(nb.id, name.trim())
+                      }}>
+                        <Pencil className="h-4 w-4" /> Rename
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem variant="destructive" onClick={(e) => {
+                        e.stopPropagation()
+                        if (window.confirm(`Delete notebook "${nb.name}"?`)) {
+                          store.getState().removeNotebook(nb.id)
+                        }
+                      }}>
+                        <Trash2 className="h-4 w-4" /> Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+                <div className="mt-1 flex flex-col z-10">
+                  <span className="line-clamp-2 text-[15px] font-bold tracking-tight">{nb.name}</span>
+                  <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                    {pages} page{pages === 1 ? '' : 's'}
+                  </span>
+                </div>
+              </fm.div>
             )
           })}
-          <button
-            type="button"
-            className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border p-4 text-muted-foreground active:bg-accent"
+          <fm.div
+            whileTap={{ scale: 0.95 }}
+            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-border/60 bg-muted/20 p-4 text-muted-foreground"
             onClick={() => {
               const id = store.getState().addNotebook()
               const sec = store.getState().addSection(id, 'Section 1')
@@ -464,9 +583,11 @@ export function MobileShell() {
               setView({ kind: 'notebook', id })
             }}
           >
-            <Plus className="h-5 w-5" />
-            <span className="text-[12px] font-medium">New notebook</span>
-          </button>
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-foreground">
+              <Plus className="h-5 w-5" />
+            </div>
+            <span className="text-[13px] font-bold">New notebook</span>
+          </fm.div>
         </div>
       </main>
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />

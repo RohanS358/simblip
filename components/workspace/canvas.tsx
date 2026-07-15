@@ -1242,6 +1242,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             obj.metadata.inkSize = store.penSize
             obj.metadata.inkColor = usePrefs.getState().pen.color
             obj.metadata.inkStyle = usePrefs.getState().pen.style
+            obj.metadata.smoothing = usePrefs.getState().pen.smoothing
+            obj.metadata.streamline = usePrefs.getState().pen.streamline
+            obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
             const all = Object.values(store.pages[pageId]?.objects ?? {})
             if (connectEnds(obj, all)) {
               obj.behaviors.push(createBehavior('wire'))
@@ -1296,6 +1299,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             raw.metadata.inkSize = store.penSize
             raw.metadata.inkColor = usePrefs.getState().pen.color
             raw.metadata.inkStyle = usePrefs.getState().pen.style
+            raw.metadata.smoothing = usePrefs.getState().pen.smoothing
+            raw.metadata.streamline = usePrefs.getState().pen.streamline
+            raw.metadata.sensitivity = usePrefs.getState().pen.sensitivity
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
@@ -1393,6 +1399,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             obj.metadata.inkSize = store.penSize
             obj.metadata.inkColor = usePrefs.getState().pen.color
             obj.metadata.inkStyle = usePrefs.getState().pen.style
+            obj.metadata.smoothing = usePrefs.getState().pen.smoothing
+            obj.metadata.streamline = usePrefs.getState().pen.streamline
+            obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
           }
           store.addObject(pageId, obj)
           // Plain ink stays unselected (it's writing); only strokes that
@@ -2027,12 +2036,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   // per object, i.e. O(n^2) for the page.
   const selectedSet = useMemo(() => new Set(selection), [selection])
 
+  const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+
   // Viewport culling: only mount what's actually on screen (plus a margin, so
   // scrolling doesn't pop). A page with hundreds of objects only ever pays for
   // the handful you can see. Selected objects are always kept so their handles
   // never vanish mid-drag.
   const visible = useMemo(() => {
-    const all = objects ? Object.values(objects) : []
+    const all = objects ? Object.values(objects).filter(o => o.id !== splitScreenDocumentId) : []
     if (all.length < 60) return all // small pages: culling costs more than it saves
     // A wide margin (in page units) matters more now: the store viewport lags
     // a live pan by up to ~180 ms, so objects must already be mounted before
@@ -2050,7 +2061,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           o.position.y < y1 &&
           o.position.y + o.size.h > y0)
     )
-  }, [objects, viewport.x, viewport.y, viewport.zoom, box.w, box.h, selectedSet])
+  }, [objects, viewport.x, viewport.y, viewport.zoom, box.w, box.h, selectedSet, splitScreenDocumentId])
 
   const { inkStrokes, interactiveObjects } = useMemo(() => {
     const isBareInk = (obj: SceneObject) =>
@@ -2136,7 +2147,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           {inkStrokes.map((obj) => (
             <path
               key={obj.id}
-              d={obj.geometry.points ? inkPath(obj.geometry.points, { size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5 }) : ''}
+              d={obj.geometry.points ? inkPath(obj.geometry.points, { 
+                size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5,
+                thinning: typeof obj.metadata.sensitivity === 'number' ? obj.metadata.sensitivity : undefined,
+                smoothing: typeof obj.metadata.smoothing === 'number' ? obj.metadata.smoothing : undefined,
+                streamline: typeof obj.metadata.streamline === 'number' ? obj.metadata.streamline : undefined,
+              }) : ''}
               fill={(obj.metadata.inkColor as string) ?? 'var(--foreground)'}
               fillOpacity={PEN_STYLES[(obj.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1}
               stroke="none"
