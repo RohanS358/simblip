@@ -480,21 +480,24 @@ export function executeSimScript(
       if (terminals.length === 0) return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
 
       // 1. Look up in per-symbol anchor index
+      // Normalize 'input' to 'in' and 'output' to 'out' to allow user-friendly names
+      const normAnchor = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
+      
       const sym = obj.geometry.symbol ?? ''
       const symMap = ANCHOR_INDEX[sym] ?? {}
-      const idx = symMap[anchor] ?? ANCHOR_INDEX._t2[anchor] ?? -1
+      const idx = symMap[normAnchor] ?? ANCHOR_INDEX._t2[normAnchor] ?? -1
 
       // 2. Numeric fallback: 'pin0', 'pin1', ...
       let termIdx = idx
       if (termIdx < 0) {
-        const numMatch = anchor.match(/^(?:pin|t|terminal)?(\d+)$/)
+        const numMatch = normAnchor.match(/^(?:pin|t|terminal)?(\d+)$/i)
         if (numMatch) termIdx = parseInt(numMatch[1])
       }
       // 3. Named fallback by position convention
       if (termIdx < 0) {
-        if (anchor === 'centre') return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
+        if (normAnchor === 'centre') return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
         // First terminal = 'in' / last terminal = 'out'
-        termIdx = (anchor === 'in' || anchor === 'input' || anchor === 'positive' || anchor === 'anode') ? 0 : terminals.length - 1
+        termIdx = (normAnchor === 'in' || normAnchor === 'positive' || normAnchor === 'anode') ? 0 : terminals.length - 1
       }
 
       termIdx = Math.max(0, Math.min(terminals.length - 1, termIdx))
@@ -629,24 +632,40 @@ export function executeSimScript(
 
       const col = new Map<string, number>()
       const visited = new Set<string>()
-      const queue: { id: string; c: number }[] = [{ id: startId, c: 0 }]
-      col.set(startId, 0); visited.add(startId)
-      while (queue.length) {
-        const { id, c } = queue.shift()!
-        for (const nbr of (adj.get(id) ?? [])) {
-          if (!visited.has(nbr)) {
-            visited.add(nbr)
-            col.set(nbr, c + 1)
-            queue.push({ id: nbr, c: c + 1 })
+      for (const start of sources) {
+        if (visited.has(start)) continue
+        visited.add(start)
+        col.set(start, 0)
+        const queue = [{ id: start, c: 0 }]
+        while (queue.length) {
+          const { id, c } = queue.shift()!
+          for (const nbr of (adj.get(id) ?? [])) {
+            if (!visited.has(nbr)) {
+              visited.add(nbr)
+              col.set(nbr, c + 1)
+              queue.push({ id: nbr, c: c + 1 })
+            } else {
+              col.set(nbr, Math.max(col.get(nbr)!, c + 1))
+            }
           }
         }
-        // Also visit via undirected edges for nodes not reached directionally
-        for (const e of circuitEdges) {
-          const nbr = e.fromId === id ? e.toId : e.toId === id ? e.fromId : null
-          if (nbr && !visited.has(nbr) && layoutIds.includes(nbr)) {
-            visited.add(nbr)
-            col.set(nbr, c + 1)
-            queue.push({ id: nbr, c: c + 1 })
+      }
+
+      // Pick up any disconnected subgraphs or components only reached via backward edges
+      for (const start of layoutIds) {
+        if (visited.has(start)) continue
+        visited.add(start)
+        col.set(start, 0)
+        const queue = [{ id: start, c: 0 }]
+        while (queue.length) {
+          const { id, c } = queue.shift()!
+          for (const e of circuitEdges) {
+            const nbr = e.fromId === id ? e.toId : e.toId === id ? e.fromId : null
+            if (nbr && !visited.has(nbr) && layoutIds.includes(nbr)) {
+              visited.add(nbr)
+              col.set(nbr, c + 1)
+              queue.push({ id: nbr, c: c + 1 })
+            }
           }
         }
       }
