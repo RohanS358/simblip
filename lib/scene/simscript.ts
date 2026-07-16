@@ -734,7 +734,6 @@ export function executeSimScript(
           const minX = Math.min(a.x, b.x) - 1, maxX = Math.max(a.x, b.x) + 1
           const minY = Math.min(a.y, b.y) - 1, maxY = Math.max(a.y, b.y) + 1
           return boundsList.some(box => 
-            box.id !== e.fromId && box.id !== e.toId && 
             maxX > box.x1 && minX < box.x2 && maxY > box.y1 && minY < box.y2
           )
         }
