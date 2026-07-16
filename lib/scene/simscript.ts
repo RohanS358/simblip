@@ -283,7 +283,9 @@ export function executeSimScript(
   // ── create() ────────────────────────────────────────────────────────────────
   const create = (kind: string, props: Record<string, any> = {}): ScriptObject => {
     const id = uid()
-    const hasExplicitPos = props.x !== undefined || props.y !== undefined
+    // Only treat as explicitly positioned if the user passed a non-zero coordinate.
+    // x:0, y:0 is the default fallback — don't skip auto-layout for it.
+    const hasExplicitPos = (props.x !== undefined && props.x !== 0) || (props.y !== undefined && props.y !== 0)
     const normalKind = kind.toLowerCase()
 
     let obj: SceneObject
@@ -531,6 +533,18 @@ export function executeSimScript(
     return wrapProxy(new ScriptObject(id, pageId))
   }
 
+  // ── addproperty() ─────────────────────────────────────────────────────────────
+  // Attach any behavior to an existing object created with create().
+  const addproperty = (obj: any, behaviorType: string) => {
+    const objId = obj?.id ?? obj?.objectId
+    if (!objId) { console.warn('[SimScript] addproperty: invalid object', obj); return }
+    const current = store().pages[pageId]?.objects?.[objId]
+    if (!current) { console.warn('[SimScript] addproperty: object not found', objId); return }
+    const b: any = { id: uid(), type: behaviorType as BehaviorType, enabled: true, params: {} }
+    if (behaviorType === 'rigidBody') b.params.mass = num('1')
+    store().updateObject(pageId, objId, { behaviors: [...current.behaviors, b] }, { history: false })
+  }
+
   // ── graph object ─────────────────────────────────────────────────────────────
   // graph.plot(obj.property)                → plot vs time (default)
   // graph.plot(obj.vy, obj.vx)              → y vs x
@@ -571,7 +585,7 @@ export function executeSimScript(
   }
 
   // ── Sandbox ───────────────────────────────────────────────────────────────────
-  const builtins: Record<string, any> = { create, connect, graph, console, Math }
+  const builtins: Record<string, any> = { create, connect, addproperty, graph, console, Math }
   const sandboxVars: Record<string, any> = {}
   const sandbox = new Proxy(builtins, {
     has() { return true },
