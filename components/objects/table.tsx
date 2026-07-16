@@ -58,7 +58,7 @@ function serializeHeaders(cols: Col[]): string {
 
 function parseData(s: string, cols: number): string[][] {
   if (!s.trim()) return []
-  return splitList(s).map((row) => {
+  return s.split('\n').map((row) => {
     const cells = row.split(';').map((c) => c.trim())
     // Pad/trim to column count so a half-typed row still renders in the grid.
     if (cells.length >= cols) return cells.slice(0, cols)
@@ -67,7 +67,7 @@ function parseData(s: string, cols: number): string[][] {
 }
 
 function serializeData(rows: string[][]): string {
-  return rows.map((r) => r.map((c) => c.replace(/;/g, ',')).join(';')).join(';')
+  return rows.map((r) => r.map((c) => c.replace(/;/g, ',').replace(/\n/g, ' ')).join(';')).join('\n')
 }
 
 export function TableObject({ pageId, object, selected }: ObjectRendererProps) {

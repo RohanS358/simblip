@@ -94,11 +94,11 @@ export function executeSimScript(
       // x/y in script are relative to origin — if not provided, default to 0,0 relative
       position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
       size:     { w: props.width ?? 60, h: props.height ?? 60 },
-      rotation:  props.rotation ?? 0,
+      rotation: props.rotation ?? (props.dir === 'up' ? -90 : props.dir === 'down' ? 90 : props.dir === 'left' ? 180 : props.dir === 'right' ? 0 : 0),
       z:         Date.now(),
       behaviors: [],
       parameters: {},
-      metadata: {},
+      metadata: { nameExplicit: !!props.name },
     }
 
     // Write to store immediately
@@ -221,9 +221,13 @@ export function executeSimScript(
       const xProp = xVar?.property ?? String(xVar)
       const yId   = yVar?.objectId  ?? ''
       const xId   = xVar?.objectId  ?? ''
+      const seriesStr = yId ? `${yId}:${yProp}` : ''
+      const oldSeries = (newGraph.parameters.series?.kind === 'string') ? newGraph.parameters.series.value : ''
 
       newGraph.parameters = {
         ...newGraph.parameters,
+        series: str(seriesStr ? (oldSeries ? `${oldSeries};${seriesStr}` : seriesStr) : oldSeries),
+        xChannel: str(xProp),
         [`plot_y_${uid()}`]: str(yId ? `${yId}.${yProp}` : yProp),
         [`plot_x_${uid()}`]: str(xId ? `${xId}.${xProp}` : xProp),
         plot_style:           str(style),
@@ -273,7 +277,13 @@ export function executeSimScript(
   const newVars = [...currentVars]
 
   for (const [k, v] of Object.entries(sandboxVars)) {
-    if (v instanceof ScriptObject) continue  // component handles, not values
+    if (v instanceof ScriptObject) {
+      const current = store().pages[pageId]?.objects?.[v.id]
+      if (current && !current.metadata.nameExplicit && current.name !== k) {
+        store().updateObject(pageId, v.id, { name: k }, { history: false })
+      }
+      continue  // component handles, not values
+    }
 
     if (typeof v === 'number' || typeof v === 'string') {
       const existing = newVars.find(x => x.name === k)
