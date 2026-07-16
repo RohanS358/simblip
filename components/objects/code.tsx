@@ -37,10 +37,10 @@ export function CodeObject({ pageId, object, selected }: ObjectRendererProps) {
       }}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-border/40 bg-muted/20 px-3 py-1.5">
-        <span className="text-[11px] font-medium tracking-wide text-muted-foreground uppercase">SimScript IDE</span>
+        <span className="text-[18px] font-medium tracking-wide text-muted-foreground uppercase">SimScript IDE</span>
         <button
           type="button"
-          className="flex items-center gap-1.5 rounded bg-[var(--accent-blue)] px-2 py-1 text-[11px] font-semibold text-white transition-colors hover:bg-blue-600"
+          className="flex items-center gap-1.5 rounded bg-[var(--accent-blue)] px-2 py-1 text-[18px] font-semibold text-white transition-colors hover:bg-blue-600"
           onClick={runCode}
           onPointerDown={(e) => e.stopPropagation()}
         >
@@ -51,7 +51,7 @@ export function CodeObject({ pageId, object, selected }: ObjectRendererProps) {
 
       <div className="relative min-h-0 flex-1">
         <textarea
-          className="h-full w-full resize-none bg-transparent p-3 font-mono text-[13px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
+          className="h-full w-full resize-none bg-transparent p-3 font-mono text-[20px] leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
           value={source}
           placeholder="// Write your code here"
           spellCheck={false}
@@ -77,7 +77,7 @@ export function CodeObject({ pageId, object, selected }: ObjectRendererProps) {
       </div>
 
       {error && (
-        <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-3 py-2 text-[11.5px] font-mono text-red-600 dark:text-red-400">
+        <div className="shrink-0 border-t border-red-500/20 bg-red-500/10 px-3 py-2 text-[19px] font-mono text-red-600 dark:text-red-400">
           {error}
         </div>
       )}

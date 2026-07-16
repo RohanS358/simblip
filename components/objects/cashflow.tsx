@@ -26,10 +26,10 @@ const OUT = 'var(--chart-5)' // outflow (down)
 function Stat({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
     <div className="flex min-w-0 flex-col leading-tight">
-      <span className="truncate text-[8.5px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <span className="truncate text-[17px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
         {label}
       </span>
-      <span className="truncate font-mono text-[11px] font-bold" style={tone ? { color: tone } : undefined}>
+      <span className="truncate font-mono text-[19px] font-bold" style={tone ? { color: tone } : undefined}>
         {value}
       </span>
     </div>
@@ -83,11 +83,11 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
       {/* header: name + description */}
       <div className="flex items-baseline gap-2 border-b border-border/60 px-3 py-1.5">
-        <span className="shrink-0 text-[11.5px] font-semibold text-muted-foreground">{object.name}</span>
+        <span className="shrink-0 text-[17px] font-semibold text-muted-foreground">{object.name}</span>
         {spec.description && (
-          <span className="min-w-0 flex-1 truncate text-[11px] text-foreground/80">{spec.description}</span>
+          <span className="min-w-0 flex-1 truncate text-[19px] text-foreground/80">{spec.description}</span>
         )}
-        <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">
+        <span className="ml-auto shrink-0 font-mono text-[18px] text-muted-foreground">
           MARR {spec.marr}%
         </span>
       </div>
@@ -234,7 +234,7 @@ export function CashflowObject({ pageId, object }: ObjectRendererProps) {
       </div>
 
       {selected && (
-        <p className="border-t border-border/60 py-1 text-center text-[10.5px] text-muted-foreground">
+        <p className="border-t border-border/60 py-1 text-center text-[19px] text-muted-foreground">
           Edit investments, annuities and MARR in the Inspector
         </p>
       )}

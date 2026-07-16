@@ -20,7 +20,7 @@ import {
 import { getString, type ObjectRendererProps } from './types'
 
 const BTN =
-  'rounded-lg px-2 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
+  'rounded-lg px-2 py-1 font-mono text-[19px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground'
 
 function ToolInfo({ description }: { description: string }) {
   return (
@@ -189,7 +189,7 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
         <input
           autoFocus
           aria-label="LaTeX expression"
-          className="w-full bg-transparent font-mono text-[13px] outline-none"
+          className="w-full bg-transparent font-mono text-[20px] outline-none"
           value={latex}
           onChange={(e) => setStringParam(pageId, object.id, 'latex', e.target.value)}
           onBlur={() => setEditing(false)}
@@ -214,14 +214,14 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
 
       {solution && !editing && (
         <div
-          className="mt-2 min-h-0 overflow-y-auto border-t border-border/60 pt-2 text-[13px] [&_.katex-display]:my-0"
+          className="mt-2 min-h-0 overflow-y-auto border-t border-border/60 pt-2 text-[20px] [&_.katex-display]:my-0"
           aria-label="Worked solution"
           dangerouslySetInnerHTML={{ __html: solHtml }}
         />
       )}
 
       {selected && !editing && (
-        <p className="mt-1 text-center text-[10.5px] text-muted-foreground">
+        <p className="mt-1 text-center text-[18px] text-muted-foreground">
           {parsed
             ? 'double-click to edit — use the bar above to solve'
             : 'double-click to edit — write f(x) = x^2 + 3*x, 10<x<20 to unlock solving'}

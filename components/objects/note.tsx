@@ -28,7 +28,7 @@ export function NoteObject(props: ObjectRendererProps) {
         {...props}
         placeholder="Write a note…"
         padY={24 /* p-3 top + bottom, so the box grows before clipping */}
-        className="text-[13.5px]"
+        className="text-[19px]"
       />
     </div>
   )
