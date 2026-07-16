@@ -29,6 +29,7 @@ import { LibraryPanel } from '@/components/workspace/library-panel'
 import { Inspector } from '@/components/workspace/inspector'
 import { useAuthStore } from '@/lib/auth/store'
 import { useDocStore } from '@/lib/store/document'
+import { useWorkspaceStore } from '@/lib/store/workspace'
 import { play, pause, stop } from '@/lib/physics/world'
 import {
   endSession,
@@ -46,6 +47,7 @@ import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignment
 import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { Button } from '@/components/ui/button'
+import { FileObject } from '@/components/objects/file-view'
 
 // The teacher's phone drives the board through commands stamped on the
 // session row — each seq is applied exactly once.
@@ -380,6 +382,31 @@ function BoardSurface() {
   // Session takes over the surface; a scratch whiteboard yields to it.
   const activeBoardPage = session ? `board-${session.id}` : scratch ? 'board-scratch' : null
 
+  // Split-screen document: same store as the notebook shell, so a teacher
+  // can present a handout side-by-side with the canvas on the board.
+  const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const syncScroll = useWorkspaceStore((s) => s.syncScroll)
+  const splitScreenObject = useDocStore((s) =>
+    activeBoardPage && splitScreenDocumentId
+      ? s.pages[activeBoardPage]?.objects?.[splitScreenDocumentId] ?? null
+      : null
+  )
+
+  // Drive the board's canvas viewport from the PDF's scroll position when
+  // sync-scroll is on — mirrors the workspace shell so the two stay aligned.
+  useEffect(() => {
+    if (!syncScroll || !activeBoardPage) return
+    const onPdfScroll = (e: Event) => {
+      const { pct } = (e as CustomEvent).detail
+      const s = useDocStore.getState()
+      const box = s.viewports[activeBoardPage] || { x: 0, y: 0, zoom: 1 }
+      const canvasHeight = 10000
+      s.setViewport(activeBoardPage, { ...box, y: -pct * canvasHeight * box.zoom })
+    }
+    window.addEventListener('simblip-pdf-scroll', onPdfScroll)
+    return () => window.removeEventListener('simblip-pdf-scroll', onPdfScroll)
+  }, [syncScroll, activeBoardPage])
+
   const openScratch = () => {
     useDocStore.setState((s) => ({
       pages: { ...s.pages, 'board-scratch': { objects: {}, variables: [] } },
@@ -401,6 +428,11 @@ function BoardSurface() {
     <div className="relative h-dvh overflow-hidden bg-background">
       {activeBoardPage ? (
         <div className="flex h-full">
+          {splitScreenObject && (
+            <div className="flex w-1/2 flex-col border-r border-border bg-muted/30 p-2">
+              <FileObject object={splitScreenObject} pageId={activeBoardPage} />
+            </div>
+          )}
           <div className="relative min-w-0 flex-1">
           <InfiniteCanvas key={activeBoardPage} pageId={activeBoardPage} />
           <Transport pageId={activeBoardPage} />

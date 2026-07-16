@@ -3,7 +3,8 @@ import type { SceneObject } from '@/lib/scene/types'
 export interface ObjectRendererProps {
   pageId: string
   object: SceneObject
-  selected: boolean
+  /** Selection state — only some renderers (e.g. text) consume it. */
+  selected?: boolean
 }
 
 export function getString(obj: SceneObject, name: string, fallback = ''): string {
