@@ -612,177 +612,333 @@ export function executeSimScript(
     const layoutIds = [...allIds].filter(id => !explicitPos.has(id))
 
     if (layoutIds.length > 0) {
-      // Build directed adjacency from edge order (fromId → toId)
-      const adj = new Map<string, string[]>()
-      for (const id of layoutIds) adj.set(id, [])
+      const getObj = (id: string) => store().pages[pageId]?.objects?.[id]
+      const getSym = (id: string) => getObj(id)?.geometry?.symbol ?? ''
+
+      // ── Classify each node by its electrical role ──────────────────────────
+      const SUPPLY_SYMS  = new Set(['battery','ac-source','current-source','vcvs','vccs','ccvs','cccs','three-phase-source'])
+      const GND_SYMS     = new Set(['gnd'])
+      const ACTIVE_SYMS  = new Set(['bjt','bjt-pnp','mosfet','mosfet-pmos','opamp'])
+      const PASSIVE_SYMS = new Set(['resistor','capacitor','inductor','potentiometer','fuse','bulb'])
+      const PROBE_SYMS   = new Set(['voltmeter','ammeter','wattmeter','probe','logic-probe'])
+      const SINK_SYMS    = new Set(['output'])
+
+      const isSupply  = (id: string) => SUPPLY_SYMS.has(getSym(id))
+      const isGnd     = (id: string) => GND_SYMS.has(getSym(id))
+      const isActive  = (id: string) => ACTIVE_SYMS.has(getSym(id))
+      const isPassive = (id: string) => PASSIVE_SYMS.has(getSym(id))
+      const isProbe   = (id: string) => PROBE_SYMS.has(getSym(id))
+      const isSink    = (id: string) => SINK_SYMS.has(getSym(id))
+
+      // Build undirected neighbour map for topology analysis
+      const nbrs = new Map<string, Set<string>>()
+      for (const id of layoutIds) nbrs.set(id, new Set())
       for (const e of circuitEdges) {
-        if (!explicitPos.has(e.fromId) && !explicitPos.has(e.toId)) {
-          adj.get(e.fromId)?.push(e.toId)
+        if (layoutIds.includes(e.fromId) && layoutIds.includes(e.toId)) {
+          nbrs.get(e.fromId)?.add(e.toId)
+          nbrs.get(e.toId)?.add(e.fromId)
         }
       }
 
-      // BFS from the node with no incoming edges (most source-like) — leftmost in layout
-      const inDegree = new Map<string, number>()
-      for (const id of layoutIds) inDegree.set(id, 0)
-      for (const e of circuitEdges) {
-        if (!explicitPos.has(e.toId)) inDegree.set(e.toId, (inDegree.get(e.toId) ?? 0) + 1)
-      }
-      const sources = layoutIds.filter(id => (inDegree.get(id) ?? 0) === 0)
-      const startId = sources.length > 0 ? sources[0] : layoutIds[0]
-
-      const col = new Map<string, number>()
-      const visited = new Set<string>()
-      for (const start of sources) {
-        if (visited.has(start)) continue
-        visited.add(start)
-        col.set(start, 0)
-        const queue = [{ id: start, c: 0 }]
-        while (queue.length) {
-          const { id, c } = queue.shift()!
-          for (const nbr of (adj.get(id) ?? [])) {
-            if (!visited.has(nbr)) {
-              visited.add(nbr)
-              col.set(nbr, c + 1)
-              queue.push({ id: nbr, c: c + 1 })
-            } else {
-              col.set(nbr, Math.max(col.get(nbr)!, c + 1))
-            }
-          }
-        }
-      }
-
-      // Pick up any disconnected subgraphs or components only reached via backward edges
-      for (const start of layoutIds) {
-        if (visited.has(start)) continue
-        visited.add(start)
-        col.set(start, 0)
-        const queue = [{ id: start, c: 0 }]
-        while (queue.length) {
-          const { id, c } = queue.shift()!
-          for (const e of circuitEdges) {
-            const nbr = e.fromId === id ? e.toId : e.toId === id ? e.fromId : null
-            if (nbr && !visited.has(nbr) && layoutIds.includes(nbr)) {
-              visited.add(nbr)
-              col.set(nbr, c + 1)
-              queue.push({ id: nbr, c: c + 1 })
-            }
-          }
-        }
-      }
-
-      // Group by column, assign rows
-      const colGroups = new Map<number, string[]>()
-      for (const id of layoutIds) {
-        const c = col.get(id) ?? 0
-        if (!colGroups.has(c)) colGroups.set(c, [])
-        colGroups.get(c)!.push(id)
-      }
-
-      const GAP_X = 40, GAP_Y = 24
-      const colX = new Map<number, number>()
-      const maxCols = Math.max(...[...col.values()]) + 1
-      let cx = origin.x
-      for (let c = 0; c < maxCols; c++) {
-        colX.set(c, cx)
-        const ids = colGroups.get(c) ?? []
-        const maxW = Math.max(...ids.map(id => store().pages[pageId]?.objects?.[id]?.size.w ?? 96), 96)
-        cx += maxW + GAP_X
-      }
+      // ── Detect analog vs digital domain ───────────────────────────────────
+      const hasActive  = layoutIds.some(isActive)
+      const hasSupply  = layoutIds.some(isSupply)
+      const hasGnd     = layoutIds.some(isGnd)
+      const isAnalog   = hasActive || (hasSupply && hasGnd && layoutIds.some(isPassive))
+      const hasDigital = layoutIds.some(id => {
+        const s = getSym(id); return s === 'input' || s === 'clock' || s === 'output' ||
+          s.endsWith('-gate') || s.includes('-ff') || s.includes('-latch') ||
+          s.includes('adder') || s.includes('decoder') || s.includes('encoder')
+      })
 
       const positions = new Map<string, { x: number; y: number }>()
-      for (const [c, ids] of colGroups) {
-        let cy = origin.y
-        for (const id of ids) {
-          positions.set(id, { x: colX.get(c) ?? origin.x, y: cy })
-          cy += (store().pages[pageId]?.objects?.[id]?.size.h ?? 48) + GAP_Y
+      const rotations = new Map<string, number>()
+
+      if (isAnalog && !hasDigital) {
+        // ──────────────────────────────────────────────────────────────────────
+        // ANALOG CIRCUIT TOPOLOGY-AWARE LAYOUT
+        // ──────────────────────────────────────────────────────────────────────
+        const GRID = 80
+        const activeId = layoutIds.find(isActive) ?? layoutIds[0]
+        const activeObj = getObj(activeId)
+        const activeW = activeObj?.size?.w ?? 60
+        const activeH = activeObj?.size?.h ?? 72
+        const centreX = origin.x + 240
+        const centreY = origin.y + 200
+
+        positions.set(activeId, { x: centreX, y: centreY })
+
+        const sym = getSym(activeId)
+        const isBJT   = sym === 'bjt' || sym === 'bjt-pnp'
+        const isMOSFET= sym === 'mosfet' || sym === 'mosfet-pmos'
+        const isOpAmp = sym === 'opamp'
+
+        const getConnectedToAnchor = (activeId: string, anchorNames: string[]) => {
+          const normNames = anchorNames.map(a => a.replace(/^input/i,'in').replace(/^output/i,'out'))
+          return circuitEdges.filter(e => {
+            if (e.fromId === activeId) {
+              const norm = e.fromAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
+              return normNames.includes(norm)
+            }
+            if (e.toId === activeId) {
+              const norm = e.toAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
+              return normNames.includes(norm)
+            }
+            return false
+          }).map(e => e.fromId === activeId ? e.toId : e.fromId)
+        }
+
+        const walkChain = (startId: string, excludeId: string): string[] => {
+          const chain: string[] = []
+          const visited = new Set([excludeId])
+          let cur = startId
+          while (cur && !visited.has(cur)) {
+            visited.add(cur)
+            chain.push(cur)
+            if (isSupply(cur) || isGnd(cur)) break
+            const next = [...(nbrs.get(cur) ?? [])].find(n =>
+              !visited.has(n) && (isPassive(n) || isSupply(n) || isGnd(n))
+            )
+            if (!next) break
+            cur = next
+          }
+          return chain
+        }
+
+        const collectorAnchors = isBJT ? ['collector','c'] : isMOSFET ? ['drain','d'] : isOpAmp ? ['out'] : ['out']
+        const collectorNeighbours = getConnectedToAnchor(activeId, collectorAnchors)
+        const collectorChain = collectorNeighbours.flatMap(n => walkChain(n, activeId)).filter(id => id !== activeId)
+
+        const emitterAnchors = isBJT ? ['emitter','e'] : isMOSFET ? ['source','s'] : isOpAmp ? ['vs-','vee'] : ['vs-']
+        const emitterNeighbours = getConnectedToAnchor(activeId, emitterAnchors)
+        const emitterChain = emitterNeighbours.flatMap(n => walkChain(n, activeId)).filter(id => id !== activeId)
+
+        const baseAnchors = isBJT ? ['base','b'] : isMOSFET ? ['gate','g'] : isOpAmp ? ['in+','inp','in-','inn'] : ['base']
+        const baseNeighbours = getConnectedToAnchor(activeId, baseAnchors)
+        const supplyIds = layoutIds.filter(isSupply)
+        const gndIds    = layoutIds.filter(isGnd)
+
+        const supplyY = centreY - (collectorChain.length + 1) * GRID - 40
+        for (const sid of supplyIds) positions.set(sid, { x: centreX + activeW / 2 - 20, y: supplyY })
+
+        const collectorX = centreX + activeW / 2 - 20
+        let colY = supplyY + 50
+        for (const id of collectorChain) {
+          if (positions.has(id)) continue
+          const obj = getObj(id)
+          const h = obj?.size?.h ?? 48
+          const w = obj?.size?.w ?? 60
+          if (isGnd(id)) positions.set(id, { x: collectorX - 10, y: colY + h + 20 })
+          else {
+            if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: collectorX - h / 2, y: colY }); colY += h + 20 }
+            else { positions.set(id, { x: collectorX - w / 2, y: colY }); colY += h + 20 }
+          }
+        }
+
+        const emitterX = centreX + activeW / 2 - 20
+        let emY = centreY + activeH + 10
+        for (const id of emitterChain) {
+          if (positions.has(id)) continue
+          const obj = getObj(id)
+          const h = obj?.size?.h ?? 48
+          if (isGnd(id)) positions.set(id, { x: emitterX - 10, y: emY + 10 })
+          else if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: emitterX - h / 2, y: emY }); emY += h + 20 }
+          else { positions.set(id, { x: emitterX - (getObj(id)?.size?.w ?? 60) / 2, y: emY }); emY += h + 20 }
+        }
+
+        const biasX = centreX - GRID * 2
+        const processedIds = new Set([activeId, ...collectorChain, ...emitterChain, ...supplyIds, ...gndIds])
+        const biasNodes: string[] = []
+        for (const bn of baseNeighbours) if (!processedIds.has(bn)) biasNodes.push(...walkChain(bn, activeId).filter(id => !processedIds.has(id)))
+
+        let biasY = supplyY + 20
+        for (const id of biasNodes) {
+          if (positions.has(id)) continue
+          const obj = getObj(id)
+          const h = obj?.size?.h ?? 48
+          if (isGnd(id)) positions.set(id, { x: biasX, y: biasY + 10 })
+          else if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: biasX - h / 2, y: biasY }); biasY += h + 20 }
+          else if (isSupply(id)) positions.set(id, { x: biasX - 20, y: supplyY })
+          else { positions.set(id, { x: biasX - (obj?.size?.w ?? 60) / 2, y: biasY }); biasY += h + 20 }
+          processedIds.add(id)
+        }
+
+        const baseY = centreY + activeH / 2 - 20
+        let baseX = biasX - GRID
+        for (const bn of baseNeighbours) {
+          const chain = [bn, ...walkChain(bn, activeId)].filter(id => !processedIds.has(id) && !positions.has(id))
+          for (let i = chain.length - 1; i >= 0; i--) {
+            const id = chain[i]
+            if (positions.has(id)) continue
+            const obj = getObj(id)
+            positions.set(id, { x: baseX - (obj?.size?.w ?? 60), y: baseY - (obj?.size?.h ?? 48) / 2 })
+            baseX -= (obj?.size?.w ?? 60) + 30
+            processedIds.add(id)
+          }
+        }
+
+        let outX = collectorX + activeW / 2 + 30
+        for (const id of layoutIds.filter(id => !positions.has(id))) {
+          if (isProbe(id) || isSink(id)) {
+            const obj = getObj(id)
+            positions.set(id, { x: outX, y: colY - GRID })
+            outX += (obj?.size?.w ?? 48) + 30
+          }
+        }
+
+        let fallX = outX, fallY = origin.y
+        for (const id of layoutIds) {
+          if (positions.has(id)) continue
+          const obj = getObj(id)
+          positions.set(id, { x: fallX, y: fallY })
+          fallY += (obj?.size?.h ?? 48) + 24
+        }
+      } else {
+        // ── Digital / Generic Layout ──────────────────────────────────────────
+        const adj = new Map<string, string[]>()
+        for (const id of layoutIds) adj.set(id, [])
+        for (const e of circuitEdges) if (!explicitPos.has(e.fromId) && !explicitPos.has(e.toId)) adj.get(e.fromId)?.push(e.toId)
+
+        const inDegree = new Map<string, number>()
+        for (const id of layoutIds) inDegree.set(id, 0)
+        for (const e of circuitEdges) if (!explicitPos.has(e.toId)) inDegree.set(e.toId, (inDegree.get(e.toId) ?? 0) + 1)
+        const sources = layoutIds.filter(id => (inDegree.get(id) ?? 0) === 0)
+
+        const col = new Map<string, number>()
+        const visited = new Set<string>()
+        for (const start of (sources.length > 0 ? sources : [layoutIds[0]])) {
+          if (visited.has(start)) continue
+          visited.add(start); col.set(start, 0)
+          const queue = [{ id: start, c: 0 }]
+          while (queue.length) {
+            const { id, c } = queue.shift()!
+            for (const nbr of (adj.get(id) ?? [])) {
+              if (!visited.has(nbr)) { visited.add(nbr); col.set(nbr, c + 1); queue.push({ id: nbr, c: c + 1 }) }
+              else col.set(nbr, Math.max(col.get(nbr)!, c + 1))
+            }
+          }
+        }
+        for (const start of layoutIds) {
+          if (visited.has(start)) continue
+          visited.add(start); col.set(start, 0)
+          const queue = [{ id: start, c: 0 }]
+          while (queue.length) {
+            const { id, c } = queue.shift()!
+            for (const e of circuitEdges) {
+              const nbr = e.fromId === id ? e.toId : e.toId === id ? e.fromId : null
+              if (nbr && !visited.has(nbr) && layoutIds.includes(nbr)) { visited.add(nbr); col.set(nbr, c + 1); queue.push({ id: nbr, c: c + 1 }) }
+            }
+          }
+        }
+
+        const colGroups = new Map<number, string[]>()
+        for (const id of layoutIds) {
+          const c = col.get(id) ?? 0
+          if (!colGroups.has(c)) colGroups.set(c, [])
+          colGroups.get(c)!.push(id)
+        }
+
+        const GAP_X = 40, GAP_Y = 24
+        const colX = new Map<number, number>()
+        const maxCols = Math.max(...[...col.values()]) + 1
+        let cx = origin.x
+        for (let c = 0; c < maxCols; c++) {
+          colX.set(c, cx)
+          const ids = colGroups.get(c) ?? []
+          cx += Math.max(...ids.map(id => getObj(id)?.size.w ?? 96), 96) + GAP_X
+        }
+
+        for (const [c, ids] of colGroups) {
+          let cy = origin.y
+          for (const id of ids) { positions.set(id, { x: colX.get(c) ?? origin.x, y: cy }); cy += (getObj(id)?.size.h ?? 48) + GAP_Y }
         }
       }
 
-      // Apply positions
       for (const [id, pos] of positions) {
-        store().updateObject(pageId, id, { position: pos }, { history: false })
+        const rot = rotations.get(id) ?? 0
+        const obj = getObj(id)
+        if (!obj) continue
+        if (rot !== 0 && rot !== obj.rotation) store().updateObject(pageId, id, { position: pos, rotation: rot }, { history: false })
+        else store().updateObject(pageId, id, { position: pos }, { history: false })
       }
 
-      // Collect component bounds for intersection testing (exclude wires and canvas widgets)
       const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
       const boundsList = Object.values(store().pages[pageId]?.objects ?? {})
         .filter(o => !excludeKinds.has(o.geometry.kind))
-        .map(o => ({ x1: o.position.x - 5, y1: o.position.y - 5, x2: o.position.x + o.size.w + 5, y2: o.position.y + o.size.h + 5, id: o.id }))
+        .map(o => {
+          const cx2 = o.position.x + o.size.w / 2, cy2 = o.position.y + o.size.h / 2
+          const hw = (o.rotation === 90 || o.rotation === 270) ? o.size.h / 2 : o.size.w / 2
+          const hh = (o.rotation === 90 || o.rotation === 270) ? o.size.w / 2 : o.size.h / 2
+          const PAD = 12
+          return { x1: cx2 - hw - PAD, y1: cy2 - hh - PAD, x2: cx2 + hw + PAD, y2: cy2 + hh + PAD, id: o.id }
+        })
 
-      // Re-route wires to actual terminal world positions, using orthogonal paths that avoid components
       for (const e of circuitEdges) {
         const wireObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o =>
           o.geometry.kind === 'line' &&
-          o.behaviors.some(b =>
-            b.params.targetA?.kind === 'string' && b.params.targetA.value === e.fromId &&
-            b.params.targetB?.kind === 'string' && b.params.targetB.value === e.toId
-          )
+          o.behaviors.some(b => b.params.targetA?.kind === 'string' && b.params.targetA.value === e.fromId && b.params.targetB?.kind === 'string' && b.params.targetB.value === e.toId)
         )
         if (!wireObj) continue
-
-        const objA = store().pages[pageId]?.objects?.[e.fromId]
-        const objB = store().pages[pageId]?.objects?.[e.toId]
+        const objA = store().pages[pageId]?.objects?.[e.fromId], objB = store().pages[pageId]?.objects?.[e.toId]
         if (!objA || !objB) continue
-
-        const terminalsA = terminalsOf(objA)
-        const terminalsB = terminalsOf(objB)
-
-        const symA = objA.geometry.symbol ?? ''
-        const symB = objB.geometry.symbol ?? ''
-        const mapA = ANCHOR_INDEX[symA] ?? {}
-        const mapB = ANCHOR_INDEX[symB] ?? {}
-        const idxA = mapA[e.fromAnchor] ?? ANCHOR_INDEX._t2[e.fromAnchor] ?? (terminalsA.length - 1)
-        const idxB = mapB[e.toAnchor]   ?? ANCHOR_INDEX._t2[e.toAnchor]   ?? 0
-
+        const terminalsA = terminalsOf(objA), terminalsB = terminalsOf(objB)
+        const symA = objA.geometry.symbol ?? '', symB = objB.geometry.symbol ?? ''
+        const mapA = ANCHOR_INDEX[symA] ?? {}, mapB = ANCHOR_INDEX[symB] ?? {}
+        const normA = e.fromAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
+        const normB = e.toAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
+        const idxA = mapA[normA] ?? mapA[e.fromAnchor] ?? ANCHOR_INDEX._t2[normA] ?? (terminalsA.length - 1)
+        const idxB = mapB[normB] ?? mapB[e.toAnchor]   ?? ANCHOR_INDEX._t2[normB] ?? 0
         const tA = terminalsA[Math.min(Math.max(0, idxA), terminalsA.length - 1)] ?? { x: 1, y: 0.5 }
         const tB = terminalsB[Math.min(Math.max(0, idxB), terminalsB.length - 1)] ?? { x: 0, y: 0.5 }
 
         const wA = terminalWorld(objA, tA)
         const wB = terminalWorld(objB, tB)
 
-        // Generate orthogonal path
-        const dAx = tA.x > 0.5 ? 1 : tA.x < 0.5 ? -1 : 0
-        const dAy = tA.y > 0.5 ? 1 : tA.y < 0.5 ? -1 : 0
-        const dBx = tB.x > 0.5 ? 1 : tB.x < 0.5 ? -1 : 0
-        const dBy = tB.y > 0.5 ? 1 : tB.y < 0.5 ? -1 : 0
+        const pinDir = (t: { x: number; y: number }) => {
+          if (t.x <= 0.05) return { dx: -1, dy: 0 }
+          if (t.x >= 0.95) return { dx:  1, dy: 0 }
+          if (t.y <= 0.05) return { dx:  0, dy: -1 }
+          if (t.y >= 0.95) return { dx:  0, dy:  1 }
+          return { dx: 1, dy: 0 }
+        }
+        const dA = pinDir(tA), dB = pinDir(tB)
+        const routePad = 18
+        const p1 = { x: wA.x + dA.dx * routePad, y: wA.y + dA.dy * routePad }
+        const p2 = { x: wB.x + dB.dx * routePad, y: wB.y + dB.dy * routePad }
 
-        const pad = 15
-        const p1 = { x: wA.x + dAx * pad, y: wA.y + dAy * pad }
-        const p2 = { x: wB.x + dBx * pad, y: wB.y + dBy * pad }
-
-        const intersects = (a: {x:number, y:number}, b: {x:number, y:number}) => {
-          const minX = Math.min(a.x, b.x) - 1, maxX = Math.max(a.x, b.x) + 1
-          const minY = Math.min(a.y, b.y) - 1, maxY = Math.max(a.y, b.y) + 1
-          return boundsList.some(box => 
-            maxX > box.x1 && minX < box.x2 && maxY > box.y1 && minY < box.y2
+        const segHitsBox = (a: {x:number,y:number}, b: {x:number,y:number}) => {
+          const x1 = Math.min(a.x, b.x) - 2, x2 = Math.max(a.x, b.x) + 2
+          const y1 = Math.min(a.y, b.y) - 2, y2 = Math.max(a.y, b.y) + 2
+          return boundsList.some(box =>
+            x2 > box.x1 && x1 < box.x2 && y2 > box.y1 && y1 < box.y2 &&
+            box.id !== e.fromId && box.id !== e.toId
           )
         }
 
-        let midX = (p1.x + p2.x) / 2
-        let midY = (p1.y + p2.y) / 2
+        const midX = (p1.x + p2.x) / 2
+        const midY = (p1.y + p2.y) / 2
 
         const tryHVH = (mx: number) => {
           const m1 = { x: mx, y: p1.y }, m2 = { x: mx, y: p2.y }
-          if (!intersects(p1, m1) && !intersects(m1, m2) && !intersects(m2, p2)) return [wA, p1, m1, m2, p2, wB]
+          if (!segHitsBox(p1, m1) && !segHitsBox(m1, m2) && !segHitsBox(m2, p2)) return [wA, p1, m1, m2, p2, wB]
           return null
         }
         const tryVHV = (my: number) => {
           const m1 = { x: p1.x, y: my }, m2 = { x: p2.x, y: my }
-          if (!intersects(p1, m1) && !intersects(m1, m2) && !intersects(m2, p2)) return [wA, p1, m1, m2, p2, wB]
+          if (!segHitsBox(p1, m1) && !segHitsBox(m1, m2) && !segHitsBox(m2, p2)) return [wA, p1, m1, m2, p2, wB]
           return null
         }
 
         let path = tryHVH(midX) || tryVHV(midY)
         if (!path) {
-          for (let offset = 20; offset <= 600; offset += 20) {
+          for (let offset = 20; offset <= 800; offset += 20) {
             path = tryHVH(midX + offset) || tryHVH(midX - offset) || tryVHV(midY + offset) || tryVHV(midY - offset)
             if (path) break
           }
         }
-        if (!path) path = [wA, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, wB]
+        if (!path) path = [wA, p1, { x: p1.x, y: p2.y }, p2, wB]
 
-        // Deduplicate adjacent identical points to avoid zero-length segments
-        path = path.filter((pt, i, arr) => i === 0 || Math.abs(pt.x - arr[i - 1].x) > 0.1 || Math.abs(pt.y - arr[i - 1].y) > 0.1)
+        path = path.filter((pt, i, arr) => i === 0 || Math.abs(pt.x - arr[i-1].x) > 0.5 || Math.abs(pt.y - arr[i-1].y) > 0.5)
 
         const minPathX = Math.min(...path.map(p => p.x))
         const minPathY = Math.min(...path.map(p => p.y))
