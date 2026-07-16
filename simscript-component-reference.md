@@ -1,0 +1,207 @@
+# SimScript Component Reference
+
+Full reference for every `create()` kind, its defaults, and its anchors. Code + description only.
+
+---
+
+## `create(kind, props)` — universal rules
+
+```javascript
+var obj = create("resistor", { R: 330, x: 0, y: 0 });
+```
+
+- `kind` is case-insensitive.
+- `x`/`y` are relative to script origin. **Only non-zero `x` or `y` counts as "explicit position"** — `{x:0,y:0}` or omitted still lets the auto-layout engine reposition the object once it's wired via `connect()`.
+- `rotation` (degrees) or `dir: "up"|"down"|"left"` (→ -90/90/180; anything else/omitted = 0). **Optics, waves, and quantum kinds ignore rotation/dir entirely — always 0.**
+- Any prop other than `x, y, width, height, rotation, dir, name` becomes a **live parameter** on circuit-symbol kinds (electrical values like `R`, `V`, `beta`...).
+- Returns a Proxy-wrapped handle: **any property you access on it that isn't a reserved name (`id`, `pageId`, `set`, `vx`,`vy`,`ax`,`ay`,`V`,`I`,`P`,`omega`,`angle`,`x`,`y`,`ke`,`pe`,`speed`) becomes an anchor descriptor**, e.g. `q1.base`, `myThing.whateverName`.
+
+```javascript
+obj.set({ R: 470 });          // updates a circuit parameter — works
+obj.set({ x: 300, y: 150 });  // repositions
+obj.set({ mass: 20 });        // does NOT reach a rigidBody behavior — see Mechanics section
+```
+
+```javascript
+addproperty(obj, "rigidBody"); // attach a behavior to any object; mass defaults to 1
+```
+
+```javascript
+connect(a.anchorName, b.anchorName, "wire"); // wire/rope/rod/spring/damper/custom
+```
+
+- **Anchor-name gotcha**: before layout runs, `connect()` normalizes any anchor starting with `input`→`in` and `output`→`out` (e.g. `"input1"`→`"in1"`). This is harmless for kinds whose anchor maps already contain `in1`/`in2`/`out` as synonyms (gates, `tristate`, `not-gate`, `demux`, `output`), but **breaks on `resistor`/`bulb`**, whose maps have `input1`/`input2` but no `in1`/`in2` — so the wire initially lands on the wrong terminal. It self-corrects once auto-layout re-routes (that pass uses the raw anchor name, unnormalized). **Safest bet for `resistor`/`bulb`: use `a`/`b` or `in`/`out`, not `input1`/`input2`.**
+- Auto-layout only triggers on components left at (0,0)-relative position; it lays them out left-to-right by BFS depth from source nodes, routes wires orthogonally around other components, and (when re-routing) respects whichever anchor name you actually passed.
+
+```javascript
+graph.plot(yVar, xVarOrStyle, style); // one graph per page; calls after the first add series
+// graph.plot(block.vy)                     -> vy vs time, line
+// graph.plot(block.vy, "bar")              -> vy vs time, bar
+// graph.plot(block.vy, block.vx)           -> vy vs vx, line
+// graph.plot(resistor.V, resistor.I, "scatter")
+```
+Do not `create("graph", ...)` directly for charting — it uses an incompatible parameter schema (`sourceId`/`yChannels`) vs. what `graph.plot()` writes (`series`/`xChannel`/`plot_style`).
+
+---
+
+## Circuit symbols
+
+All get an `electricalNode` behavior automatically. Default size `96 × 48` unless noted. Create by kind name directly — **not** `create("symbol", {symbol:"..."})`.
+
+### Electrical
+
+| kind | description | default params | anchors |
+|---|---|---|---|
+| `battery` | DC voltage source | `V:9` | `positive`/`plus`, `negative`/`minus` |
+| `ac-source` | AC voltage source | `V:12, f:1, wave:0` | `positive`, `negative` |
+| `current-source` | Ideal current source | `I:0.01` | `positive`, `negative` |
+| `resistor` | Resistor | `R:100` | `input1`/`a`/`in` (0), `input2`/`b`/`out` (1) |
+| `bulb` | Resistive lamp load | `R:20` | `input1`/`a` (0), `input2`/`b` (1) |
+| `capacitor` | Capacitor | `C:0.001` | `positive`/`a` (0), `negative`/`b` (1) |
+| `inductor` | Inductor | `L:0.1` | `a` (0), `b` (1) |
+| `potentiometer` | 3-terminal pot | `R:1000, ratio:0.5` | `top` (0), `wiper`/`w` (1), `bottom` (2) |
+| `switch` | On/off switch | `closed:1` | `a` (0), `b` (1) |
+| `fuse` | Overcurrent fuse | `Imax:1` | `a` (0), `b` (1) |
+| `gnd` | Ground reference | — | `terminal`/`a` (single pin) |
+| `voltmeter` | Voltage probe/meter | — | `a` (0), `b` (1) |
+| `ammeter` | Current probe/meter | — | `a` (0), `b` (1) |
+| `wattmeter` | Power meter, 4-terminal | — | `current+`/`ip` (0), `current-` (1), `voltage+`/`vp` (2), `voltage-`/`vn` (3); default h `80` |
+| `probe` | Generic single-pin probe | — | `terminal`/`a` |
+| `vcvs` | Voltage-controlled voltage source | `gain:2` | `ctrl+`/`ctrlp` (0), `ctrl-`/`ctrln` (1), `out` (2), `out-` (3) |
+| `vccs` | Voltage-controlled current source | `gm:0.01` | same layout as `vcvs` |
+| `ccvs` | Current-controlled voltage source | `r:100` | same layout as `vcvs` |
+| `cccs` | Current-controlled current source | `beta:2` | same layout as `vcvs` |
+| `transformer` | 2-winding transformer | `n:2` | `primary+`/`p1` (0), `primary-`/`p2` (1), `secondary+`/`s1` (2), `secondary-`/`s2` (3); default h `80` |
+| `transformer-ct` | Center-tapped transformer | `n:2` | `p1` (0), `p2` (1), `s1` (2), `ct` (3), `s2` (4); default h `90` |
+| `three-phase-source` | 3-phase supply | `V:220, f:50` | `a`(0), `b`(1), `c`(2), `n`/`neutral`(3); default h `80` |
+| `dc-machine` | DC motor/generator | `Ra:2, k:0.5, J:0.02, load:0, friction:0.001` | `positive`, `negative` |
+| `electric-motor` | Alias family of `dc-machine` | same as `dc-machine` | generic `_t2` anchors |
+| `pressure-plate` | Mechanical-electrical trigger | — | `a` (0), `b` (1) |
+
+### Electronics
+
+| kind | description | default params | anchors | default h |
+|---|---|---|---|---|
+| `diode` | Rectifier diode | `Vf:0.7` | `anode`/`a` (0), `cathode`/`k` (1) | 48 |
+| `led` | Light-emitting diode | `Vf:2` | `anode`/`a` (0), `cathode`/`k` (1) | 48 |
+| `zener` | Zener diode | `Vf:0.7, Vz:5.1` | `anode` (0), `cathode` (1) | 48 |
+| `bjt` | NPN transistor | `beta:100` | `base`/`b` (0), `collector`/`c` (1), `emitter`/`e` (2) | 72 |
+| `bjt-pnp` | PNP transistor | `beta:100` | same as `bjt` | 72 |
+| `mosfet` | NMOS transistor | `Vt:2` | `gate`/`g` (0), `drain`/`d` (1), `source`/`s` (2) | 72 |
+| `mosfet-pmos` | PMOS transistor | `Vt:2` | same as `mosfet` | 72 |
+| `opamp` | Operational amplifier | `gain:100000` | `in+`/`inp`/`positive` (0), `in-`/`inn`/`negative` (1), `out`/`output` (2) | 72 |
+
+### Digital
+
+| kind | description | default params | anchors | default h |
+|---|---|---|---|---|
+| `input` | Logic input source | `value:0` | `output`/`out`/`q` (single pin) | 48 |
+| `clock` | Clock pulse source | `f:1` | `output`/`out`/`q` | 48 |
+| `output` | Logic output indicator | — | `input`/`in`/`d` | 48 |
+| `logic-probe` | Digital state probe | — | `terminal`/`a` | 48 |
+| `and-gate`/`or-gate`/`xor-gate`/`nand-gate`/`nor-gate` | 2-input logic gate | — | `input1`/`in1`/`a` (0), `input2`/`in2`/`b` (1), `output`/`out` (2) | 48 |
+| `not-gate` | Inverter | — | `input`/`in` (0), `output`/`out` (1) | 48 |
+| `d-ff` | D flip-flop | — | `d` (0), `clk`/`clock` (1), `q`/`output` (2) | 48 |
+| `t-ff` | T flip-flop | — | `t` (0), `clk`/`clock` (1), `q`/`output` (2) | 48 |
+| `jk-ff` | JK flip-flop | — | `j` (0), `clk`/`clock` (1), `k` (2), `q`/`output` (3) | 80 |
+| `sr-latch` | SR latch | — | `s` (0), `r` (1), `q`/`output` (2) | 48 |
+| `tristate` | Tri-state buffer | — | `input`/`in` (0), `enable`/`en` (1), `output`/`out` (2) | 48 |
+| `mux` | 2:1 multiplexer | — | `in0` (0), `in1` (1), `sel` (2), `output`/`out` (3) | 80 |
+| `demux` | 1:2 demultiplexer | — | `input`/`in` (0), `sel` (1), `out0` (2), `out1` (3) | 80 |
+| `encoder` | Priority encoder | — | `in0`-`in3` (0-3), `out0` (4), `out1` (5) | 96 |
+| `half-adder` | Half adder | — | `a` (0), `b` (1), `sum`/`s` (2), `carry`/`cout` (3) | 72 |
+| `full-adder` | Full adder | — | `a` (0), `b` (1), `cin` (2), `sum`/`s` (3), `carry`/`cout` (4) | 80 |
+| `decoder` | 2:4 decoder | — | `a` (0), `b` (1), `y0`-`y3` (2-5) | 96 |
+| `comparator` | Magnitude comparator | — | `a` (0), `b` (1), `lt` (2), `eq` (3), `gt` (4) | 80 |
+| `seven-seg` | 7-segment display | — | `a`-`g` (0-6) | 150 |
+| `bcd-7seg` | BCD-to-7seg driver | — | `a`-`d` (0-3), `qa`-`qg` (4-10) | 150 |
+| `counter4` | 4-bit counter | `mod:16, dir:0` | `clk`/`clock` (0), `q0`-`q3` (1-4) | 90 |
+| `register4` | 4-bit shift register | — | `sin` (0), `clk`/`clock` (1), `sout` (2) | 100 |
+| `induction-motor` | AC induction motor | `R2:5, X:8, poles:4, f:50, J:0.05, load:0, friction:0.001` | `a`(0),`b`(1),`c`(2),`n`/`neutral`(3) | 80 |
+
+---
+
+## Mechanics components
+
+Physics behaviors already attached — **no `addproperty()` needed**. Anchors resolve via `.centre` (or terminals if the shape has any, which most mechanics kinds don't — use `.centre`).
+
+```javascript
+var block = create("block", { x: 0, y: 0, mass: 20 }); // mass MUST be set here, not later
+```
+
+| kind | shape | size | behavior(s) |
+|---|---|---|---|
+| `mass` | circle | 70×70 | `rigidBody` |
+| `block` | rect | 110×80 | `rigidBody` |
+| `beam` | rect | 260×16 | `rigidBody` |
+| `wheel` | circle | 100×100 | `rigidBody` |
+| `ground` | rect | 480×26 | `staticBody` |
+| `spring` | line | 150×2 | `spring` |
+| `rope` | line | 150×2 | `rope` |
+| `rod` | line | 150×2 | `rod` |
+| `damper` | line | 120×2 | `damper` |
+| `hinge` | circle | 22×22 | `hinge` |
+| `motor` | circle | 80×80 | `rigidBody` + `motor` |
+| `charge` | circle | 46×46 | `rigidBody` + `charge` |
+| `efield` | rect | 260×180 | `efield` |
+| `bfield` | rect | 260×180 | `bfield` |
+| `heatblock` / `heat-block` | rect | 100×100 | `staticBody` + `heatSource` |
+| `torsionpendulum` / `torsion-pendulum` | circle | 22×22 | `hinge` + `torsionSpring` |
+| `reference-point` | circle | 20×20 | `rigidBody` |
+
+**Important**: `.set({ mass: N })` on any of these writes to the object's generic `parameters` bag, NOT the `rigidBody` behavior's `params.mass` that the physics engine actually reads. If you need a different mass after creation, recreate the object with the right `mass` prop instead of trying to `.set()` it.
+
+Readable properties for `graph.plot()`: `.vx .vy .ax .ay .x .y .ke .pe .speed .omega .angle`.
+
+---
+
+## Optics components
+
+Rotation/dir ignored (always 0). Rendered as vertical/point elements you position along an optical axis.
+
+| kind | shape | size | behavior |
+|---|---|---|---|
+| `light-source` / `lightsource` | circle | 24×24 | `lightSource` |
+| `thin-lens` / `lens` | vertical line | 2×120 | `thinLens` |
+| `mirror` / `optical-mirror` | vertical line | 2×120 | `opticalMirror` |
+| `screen` / `optical-screen` | vertical line | 2×160 | `opticalScreen` |
+| `slit` | vertical line | 2×200 | `slit` |
+
+## Waves components
+
+| kind | shape | size | behavior |
+|---|---|---|---|
+| `wave-source` / `wavesource` | circle | 24×24 | `waveSource` |
+| `wave-boundary` / `waveboundary` | vertical line | 2×120 | `waveBoundary` |
+| `transmission-line` / `transmissionline` | horizontal line | 220×2 | `transmissionLine` |
+
+## Quantum components
+
+| kind | shape | size | behavior |
+|---|---|---|---|
+| `quantum-well` / `quantumwell` | rect | 260×160 | `quantumWell` |
+| `tunnel-barrier` / `tunnelbarrier` | rect | 260×140 | `tunnelBarrier` |
+
+---
+
+## Canvas / data objects
+
+```javascript
+var t = create("table", { data: "" });                              // 380x260
+var n = create("note", { text: "reminder", color: "amber" });        // 220x180, color default "amber"
+var cf = create("cashflow", {});                                     // 480x300, empty spec pre-filled
+var tt = create("truthtable", { inputs: "A,B", outputs: "Q" });      // 320x260
+```
+
+Do **not** `create("graph", {...})` for a chart — use `graph.plot(...)` (see top of doc).
+
+---
+
+## Generic shapes (fallback)
+
+`rect`, `circle`, `line`, `polygon` — anything unrecognized also falls here. Default size `80×60`. No behaviors attached; use `addproperty()` to give them physics.
+
+```javascript
+var shape = create("rect", { x: 0, y: 0, width: 40, height: 40 });
+addproperty(shape, "rigidBody");
+```

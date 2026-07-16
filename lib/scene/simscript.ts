@@ -523,7 +523,9 @@ export function executeSimScript(
       rotation: 0,
       z: Date.now(),
       behaviors: [{
-        id: uid(), type: 'wire' as BehaviorType, enabled: true,
+        id: uid(),
+        type: type as BehaviorType,   // <-- was hardcoded 'wire' as BehaviorType; now respects the caller's type
+        enabled: true,
         params: {
           targetA: str(a.objectId), anchorA: str(a.anchor),
           targetB: str(b.objectId), anchorB: str(b.anchor),
