@@ -684,9 +684,10 @@ export function executeSimScript(
         store().updateObject(pageId, id, { position: pos }, { history: false })
       }
 
-      // Collect component bounds for intersection testing
+      // Collect component bounds for intersection testing (exclude wires and canvas widgets)
+      const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
       const boundsList = Object.values(store().pages[pageId]?.objects ?? {})
-        .filter(o => o.geometry.kind !== 'line')
+        .filter(o => !excludeKinds.has(o.geometry.kind))
         .map(o => ({ x1: o.position.x - 5, y1: o.position.y - 5, x2: o.position.x + o.size.w + 5, y2: o.position.y + o.size.h + 5, id: o.id }))
 
       // Re-route wires to actual terminal world positions, using orthogonal paths that avoid components

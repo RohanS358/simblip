@@ -219,7 +219,6 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   return (
     <div
       className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline"
-      onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
         <TableProperties className="h-3.5 w-3.5 text-muted-foreground" />
@@ -231,7 +230,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
         </span>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto" onPointerDown={(e) => e.stopPropagation()}>
         <table className="w-full border-collapse font-mono text-[11px]">
           <thead className="sticky top-0 z-10 bg-card">
             <tr>
