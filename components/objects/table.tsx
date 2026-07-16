@@ -91,7 +91,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   const computed: { row: number; col: number; value: number; error?: string }[][] = useMemo(() => {
     return visibleRows.map((row, r) =>
       cols.map((c, ci) => {
-        if (!c.expr) {
+        if (c.expr === null) {
           const n = Number(row[ci])
           return [{ row: r, col: ci, value: Number.isFinite(n) ? n : NaN }]
         }
@@ -101,7 +101,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
         const rowScope: Scope = { ...scope }
         for (let k = 0; k < ci; k++) {
           const prev = cols[k]
-          if (prev.expr) {
+          if (prev.expr !== null) {
             const { value, error } = evalExpr(prev.expr, { ...scope, ...rowScope }, NaN)
             if (error) {
               return [{ row: r, col: ci, value: NaN, error }]
@@ -287,7 +287,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
                 </td>
                 {row.map((cell, c) => {
                   const meta = computedMap[`${r}:${c}`]
-                  const isFormula = !!cols[c]?.expr
+                  const isFormula = cols[c]?.expr !== null
                   return (
                     <td key={c} className="border-r border-border/40 p-0">
                       {isFormula ? (

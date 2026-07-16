@@ -684,7 +684,12 @@ export function executeSimScript(
         store().updateObject(pageId, id, { position: pos }, { history: false })
       }
 
-      // Re-route wires to actual terminal world positions
+      // Collect component bounds for intersection testing
+      const boundsList = Object.values(store().pages[pageId]?.objects ?? {})
+        .filter(o => o.geometry.kind !== 'line')
+        .map(o => ({ x1: o.position.x - 5, y1: o.position.y - 5, x2: o.position.x + o.size.w + 5, y2: o.position.y + o.size.h + 5, id: o.id }))
+
+      // Re-route wires to actual terminal world positions, using orthogonal paths that avoid components
       for (const e of circuitEdges) {
         const wireObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o =>
           o.geometry.kind === 'line' &&
@@ -715,15 +720,62 @@ export function executeSimScript(
         const wA = terminalWorld(objA, tA)
         const wB = terminalWorld(objB, tB)
 
+        // Generate orthogonal path
+        const dAx = tA.x > 0.5 ? 1 : tA.x < 0.5 ? -1 : 0
+        const dAy = tA.y > 0.5 ? 1 : tA.y < 0.5 ? -1 : 0
+        const dBx = tB.x > 0.5 ? 1 : tB.x < 0.5 ? -1 : 0
+        const dBy = tB.y > 0.5 ? 1 : tB.y < 0.5 ? -1 : 0
+
+        const pad = 15
+        const p1 = { x: wA.x + dAx * pad, y: wA.y + dAy * pad }
+        const p2 = { x: wB.x + dBx * pad, y: wB.y + dBy * pad }
+
+        const intersects = (a: {x:number, y:number}, b: {x:number, y:number}) => {
+          const minX = Math.min(a.x, b.x) - 1, maxX = Math.max(a.x, b.x) + 1
+          const minY = Math.min(a.y, b.y) - 1, maxY = Math.max(a.y, b.y) + 1
+          return boundsList.some(box => 
+            box.id !== e.fromId && box.id !== e.toId && 
+            maxX > box.x1 && minX < box.x2 && maxY > box.y1 && minY < box.y2
+          )
+        }
+
+        let midX = (p1.x + p2.x) / 2
+        let midY = (p1.y + p2.y) / 2
+
+        const tryHVH = (mx: number) => {
+          const m1 = { x: mx, y: p1.y }, m2 = { x: mx, y: p2.y }
+          if (!intersects(p1, m1) && !intersects(m1, m2) && !intersects(m2, p2)) return [wA, p1, m1, m2, p2, wB]
+          return null
+        }
+        const tryVHV = (my: number) => {
+          const m1 = { x: p1.x, y: my }, m2 = { x: p2.x, y: my }
+          if (!intersects(p1, m1) && !intersects(m1, m2) && !intersects(m2, p2)) return [wA, p1, m1, m2, p2, wB]
+          return null
+        }
+
+        let path = tryHVH(midX) || tryVHV(midY)
+        if (!path) {
+          for (let offset = 20; offset <= 600; offset += 20) {
+            path = tryHVH(midX + offset) || tryHVH(midX - offset) || tryVHV(midY + offset) || tryVHV(midY - offset)
+            if (path) break
+          }
+        }
+        if (!path) path = [wA, p1, { x: midX, y: p1.y }, { x: midX, y: p2.y }, p2, wB]
+
+        // Deduplicate adjacent identical points to avoid zero-length segments
+        path = path.filter((pt, i, arr) => i === 0 || Math.abs(pt.x - arr[i - 1].x) > 0.1 || Math.abs(pt.y - arr[i - 1].y) > 0.1)
+
+        const minPathX = Math.min(...path.map(p => p.x))
+        const minPathY = Math.min(...path.map(p => p.y))
+        const maxPathX = Math.max(...path.map(p => p.x))
+        const maxPathY = Math.max(...path.map(p => p.y))
+
         store().updateObject(pageId, wireObj.id, {
-          position: { x: Math.min(wA.x, wB.x), y: Math.min(wA.y, wB.y) },
-          size: { w: Math.abs(wB.x - wA.x) || 4, h: Math.abs(wB.y - wA.y) || 4 },
+          position: { x: minPathX, y: minPathY },
+          size: { w: Math.abs(maxPathX - minPathX) || 4, h: Math.abs(maxPathY - minPathY) || 4 },
           geometry: {
             ...wireObj.geometry,
-            points: [
-              [wA.x - Math.min(wA.x, wB.x), wA.y - Math.min(wA.y, wB.y)],
-              [wB.x - Math.min(wA.x, wB.x), wB.y - Math.min(wA.y, wB.y)],
-            ],
+            points: path.map(p => [p.x - minPathX, p.y - minPathY]),
           },
         }, { history: false })
       }
