@@ -140,6 +140,7 @@ connect(inA.output, gate.input1, "wire");
 connect(inB.output, gate.input2, "wire");
 connect(gate.output, out.input, "wire");
 
+
 // 5. Later, tweak a circuit parameter without recreating the component
 resistor.set({ R: 470 });
 ```
