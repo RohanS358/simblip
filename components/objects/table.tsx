@@ -19,7 +19,7 @@ import { evalExpr, type Scope } from '@/lib/formula/engine'
 import { fmtNum } from '@/lib/scene/format'
 import { getString, type ObjectRendererProps } from './types'
 
-type Col = { name: string; expr: string } // expr = '' for plain data
+type Col = { name: string; expr: string | null } // expr = null for plain data
 type Summary = 'Sum' | 'Avg' | 'Min' | 'Max' | 'Count' | 'Stddev' | 'Stderr' | 'First' | 'Last' | 'Range' | 'None'
 
 const SUMMARY_OPTIONS: Summary[] = [
@@ -46,14 +46,14 @@ const splitList = (s: string) =>
 function parseHeaders(s: string): Col[] {
   return splitList(s).map((h) => {
     const i = h.indexOf('=')
-    if (i <= 0) return { name: h, expr: '' }
+    if (i <= 0) return { name: h, expr: null }
     return { name: h.slice(0, i).trim(), expr: h.slice(i + 1).trim() }
   })
 }
 
 /** Reverse of parseHeaders; used when the user renames or types a formula. */
 function serializeHeaders(cols: Col[]): string {
-  return cols.map((c) => (c.expr ? `${c.name}=${c.expr}` : c.name)).join(';')
+  return cols.map((c) => (c.expr !== null ? `${c.name}=${c.expr}` : c.name)).join(';')
 }
 
 function parseData(s: string, cols: number): string[][] {
@@ -178,7 +178,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   const writeData = (next: string[][]) => setStringParam(pageId, object.id, 'data', serializeData(next))
 
   const addColumn = () => {
-    const next: Col[] = [...cols, { name: `c${cols.length + 1}`, expr: '' }]
+    const next: Col[] = [...cols, { name: `c${cols.length + 1}`, expr: null }]
     writeHeaders(next)
     writeData(visibleRows.map((r) => [...r, '']))
   }
@@ -208,8 +208,8 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
       if (i !== c) return col
       // Split into name=expr on the first `=`; keep both sides trimmed.
       const i2 = raw.indexOf('=')
-      if (i2 <= 0) return { name: raw.trim() || col.name, expr: '' }
-      return { name: raw.slice(0, i2).trim() || col.name, expr: raw.slice(i2 + 1).trim() }
+      if (i2 <= 0) return { name: raw.trim() || col.name, expr: null }
+      return { name: raw.slice(0, i2).trim() || col.name, expr: raw.slice(i2 + 1).trimStart() }
     })
     writeHeaders(next)
   }
@@ -247,12 +247,12 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
                     <input
                       type="text"
                       spellCheck={false}
-                      value={c.expr ? `${c.name}=${c.expr}` : c.name}
+                      value={c.expr !== null ? `${c.name}=${c.expr}` : c.name}
                       onChange={(e) => updateHeader(i, e.target.value)}
                       aria-label={`Column ${i + 1} header`}
                       className="w-full bg-transparent text-foreground outline-none placeholder:text-muted-foreground/60"
                       placeholder="name=expr"
-                      style={c.expr ? { color: 'var(--accent-mint)' } : undefined}
+                      style={c.expr !== null ? { color: 'var(--accent-mint)' } : undefined}
                     />
                     {cols.length > 1 && (
                       <button
