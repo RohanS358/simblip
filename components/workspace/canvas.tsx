@@ -741,7 +741,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
 
       const toolKeys: Record<string, Tool> = {
         v: 'select', p: 'pen', s: 'shaper', c: 'circle', r: 'rect', l: 'line',
-        t: 'text', n: 'note', f: 'formula', g: 'graph', k: 'code',
+        t: 'text', n: 'note', f: 'formula', g: 'graph', k: 'code', b: 'table',
       }
       const t = toolKeys[e.key.toLowerCase()]
       if (t) store.setTool(t)

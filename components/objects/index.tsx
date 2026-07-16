@@ -11,6 +11,7 @@ import { NoteObject } from './note'
 import { TextObject } from './text'
 import { FormulaObject } from './formula'
 import { GraphObject } from './graph'
+import { TableObject } from './table'
 import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
 import { CodeObject } from './code'
@@ -26,6 +27,7 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   text: TextObject,
   formula: FormulaObject,
   graph: GraphObject,
+  table: TableObject,
   cashflow: CashflowObject,
   truthtable: TruthTableObject,
   code: CodeObject,

@@ -1,4 +1,5 @@
 import { useDocStore } from '@/lib/store/document'
+import { terminalsOf } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 
 // Always read fresh state — Zustand creates new state objects on every set(),
@@ -133,11 +134,35 @@ export function executeSimScript(
     const objA = store().pages[pageId]?.objects?.[a.objectId]
     const objB = store().pages[pageId]?.objects?.[b.objectId]
 
-    // Use bounding-box centres to route the wire
-    const ax = objA ? objA.position.x + objA.size.w / 2 : 0
-    const ay = objA ? objA.position.y + objA.size.h / 2 : 0
-    const bx = objB ? objB.position.x + objB.size.w / 2 : 200
-    const by = objB ? objB.position.y + objB.size.h / 2 : 200
+    const getAnchorCoords = (obj: SceneObject | undefined, anchorName: string, defaultX: number, defaultY: number) => {
+      if (!obj) return { x: defaultX, y: defaultY }
+      if (anchorName === 'centre') {
+        return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
+      }
+      const terminals = terminalsOf(obj)
+      if (terminals.length === 0) {
+        return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
+      }
+      let index = 0
+      if (anchorName === 'positive' || anchorName === 'input1' || anchorName === 'emitter' || anchorName === 'base') index = 0
+      else if (anchorName === 'negative' || anchorName === 'input2' || anchorName === 'collector') index = 1
+      else if (anchorName === 'output') index = terminals.length > 2 ? 2 : terminals.length - 1
+      
+      if (index >= terminals.length) index = terminals.length - 1
+      const t = terminals[index]
+      return {
+        x: obj.position.x + t.x * obj.size.w,
+        y: obj.position.y + t.y * obj.size.h
+      }
+    }
+
+    const posA = getAnchorCoords(objA, a.anchor, 0, 0)
+    const posB = getAnchorCoords(objB, b.anchor, 200, 200)
+
+    const ax = posA.x
+    const ay = posA.y
+    const bx = posB.x
+    const by = posB.y
 
     const id = uid()
     const line: SceneObject = {

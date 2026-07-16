@@ -24,6 +24,7 @@ import {
   Sparkles,
   Wand2,
   ScanText,
+  TableProperties,
   X,
   Calculator,
 } from 'lucide-react'
@@ -48,6 +49,7 @@ const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
   { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
+  { tool: 'table', icon: TableProperties, label: 'Table', key: 'B' },
   { tool: 'code', icon: Terminal, label: 'Code', key: 'K' },
 ]
 

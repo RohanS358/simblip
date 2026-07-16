@@ -58,6 +58,10 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.sourceId = str('')
       obj.parameters.yChannels = str('')
       break
+    case 'table':
+      obj.size = { w: 380, h: 260 }
+      obj.parameters.data = str('')
+      break
     case 'cashflow':
       obj.size = { w: 480, h: 300 }
       obj.parameters.spec = str(JSON.stringify(EMPTY_SPEC))

@@ -30,6 +30,7 @@ export type Tool =
   | 'formula'
   | 'code'
   | 'graph'
+  | 'table'
   | 'place' // placing a palette component (toolOption = component id)
 
 export interface Viewport {

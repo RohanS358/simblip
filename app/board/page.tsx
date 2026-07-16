@@ -367,18 +367,6 @@ function BoardSurface() {
       ? `${window.location.origin}/present?board=${board.id}&code=${board.pairing_code}`
       : null
 
-  if (!board) {
-    return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-2 bg-background text-center">
-        <MonitorPlay className="h-6 w-6 text-muted-foreground/60" />
-        <p className="text-[14px] font-semibold">No board configured for this account</p>
-        <p className="max-w-72 text-[12.5px] text-muted-foreground">
-          Ask your institution admin to create a room board and sign in with its credentials.
-        </p>
-      </div>
-    )
-  }
-
   // Session takes over the surface; a scratch whiteboard yields to it.
   const activeBoardPage = session ? `board-${session.id}` : scratch ? 'board-scratch' : null
 
@@ -406,6 +394,19 @@ function BoardSurface() {
     window.addEventListener('simblip-pdf-scroll', onPdfScroll)
     return () => window.removeEventListener('simblip-pdf-scroll', onPdfScroll)
   }, [syncScroll, activeBoardPage])
+
+  if (!board) {
+
+    return (
+      <div className="flex h-dvh flex-col items-center justify-center gap-2 bg-background text-center">
+        <MonitorPlay className="h-6 w-6 text-muted-foreground/60" />
+        <p className="text-[14px] font-semibold">No board configured for this account</p>
+        <p className="max-w-72 text-[12.5px] text-muted-foreground">
+          Ask your institution admin to create a room board and sign in with its credentials.
+        </p>
+      </div>
+    )
+  }
 
   const openScratch = () => {
     useDocStore.setState((s) => ({
