@@ -93,7 +93,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
       cols.map((c, ci) => {
         if (c.expr === null) {
           const n = Number(row[ci])
-          return [{ row: r, col: ci, value: Number.isFinite(n) ? n : NaN }]
+          return { row: r, col: ci, value: Number.isFinite(n) ? n : NaN }
         }
         // Build the per-row scope: every prior formula column's value
         // is exposed under its own name, so k=z^2 sees z computed
@@ -104,7 +104,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
           if (prev.expr !== null) {
             const { value, error } = evalExpr(prev.expr, { ...scope, ...rowScope }, NaN)
             if (error) {
-              return [{ row: r, col: ci, value: NaN, error }]
+              return { row: r, col: ci, value: NaN, error }
             }
             rowScope[prev.name] = value
           } else {
@@ -113,7 +113,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
           }
         }
         const { value, error } = evalExpr(c.expr, { ...scope, ...rowScope }, NaN)
-        return [{ row: r, col: ci, value, error }]
+        return { row: r, col: ci, value, error }
       })
     )
   }, [visibleRows, cols, scope])

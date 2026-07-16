@@ -915,7 +915,12 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const pts = points ?? [[0, 0], [w, 0]]
     const a = pts[0]
     const b = pts[pts.length - 1]
-    const d = connectorPath(render, a[0], a[1], b[0], b[1])
+    // If it's a simple line or has a special render mode (like spring, damper), use connectorPath.
+    // Otherwise, draw the exact multipoint path.
+    const isSpecial = render && ['spring', 'damper', 'rope', 'wire'].includes(render)
+    const d = (pts.length > 2 && !isSpecial) 
+      ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')
+      : connectorPath(render, a[0], a[1], b[0], b[1])
     const OPTICS_STYLE: Record<string, { color: string; width: number }> = {
       lens: { color: 'var(--accent-violet)', width: 3 },
       mirror: { color: 'var(--accent-blue)', width: 4 },
