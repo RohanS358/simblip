@@ -9,11 +9,15 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { cn } from '@/lib/utils'
 import { fmtAddr, type SnapBlock, type SnapCell, type TraceStep } from '@/lib/dsa/trace'
 
+type Side = 'l' | 'r' | 't' | 'b'
+
 interface Arrow {
   x1: number
   y1: number
   x2: number
   y2: number
+  s1: Side
+  s2: Side
   dangling: boolean
 }
 
@@ -144,18 +148,26 @@ export function DsaMemoryView({ step }: { step: TraceStep | null }) {
         if (!from) continue
         const fr = toLocal(from.getBoundingClientRect())
         if (!to) {
-          next.push({ x1: fr.x + fr.w / 2, y1: fr.y + fr.h / 2, x2: fr.x + fr.w / 2 + 34, y2: fr.y + fr.h / 2 - 20, dangling: true })
+          next.push({ x1: fr.x + fr.w, y1: fr.y + fr.h / 2, x2: fr.x + fr.w + 26, y2: fr.y + fr.h / 2 - 16, s1: 'r', s2: 'l', dangling: true })
           continue
         }
         const tr = toLocal(to.getBoundingClientRect())
-        const fromRight = tr.x >= fr.x + fr.w
-        next.push({
-          x1: fr.x + fr.w / 2,
-          y1: fr.y + fr.h / 2,
-          x2: fromRight ? tr.x + 2 : tr.x + tr.w / 2,
-          y2: fromRight ? tr.y + tr.h / 2 : c.ptrTo && tr.y > fr.y ? tr.y + 2 : tr.y + tr.h - 2,
-          dangling: false,
-        })
+        // exit/enter on the edges that face each other, so the curve leaves
+        // the source cell cleanly and the arrowhead lands flush on the target
+        const fcx = fr.x + fr.w / 2
+        const fcy = fr.y + fr.h / 2
+        const tcx = tr.x + tr.w / 2
+        const tcy = tr.y + tr.h / 2
+        const dx = tcx - fcx
+        const dy = tcy - fcy
+        const horizontal = Math.abs(dx) >= Math.abs(dy)
+        const s1: Side = horizontal ? (dx >= 0 ? 'r' : 'l') : dy >= 0 ? 'b' : 't'
+        const s2: Side = horizontal ? (dx >= 0 ? 'l' : 'r') : dy >= 0 ? 't' : 'b'
+        const p1 =
+          s1 === 'r' ? { x: fr.x + fr.w, y: fcy } : s1 === 'l' ? { x: fr.x, y: fcy } : s1 === 'b' ? { x: fcx, y: fr.y + fr.h } : { x: fcx, y: fr.y }
+        const p2 =
+          s2 === 'l' ? { x: tr.x - 1, y: tcy } : s2 === 'r' ? { x: tr.x + tr.w + 1, y: tcy } : s2 === 't' ? { x: tcx, y: tr.y - 1 } : { x: tcx, y: tr.y + tr.h + 1 }
+        next.push({ x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, s1, s2, dangling: false })
       }
     }
     setArrows(next)
@@ -192,7 +204,7 @@ export function DsaMemoryView({ step }: { step: TraceStep | null }) {
   const contentH = Math.max(0, ...arrows.map((a) => Math.max(a.y1, a.y2))) + 40
 
   return (
-    <div ref={containerRef} className="relative h-full overflow-auto p-3">
+    <div ref={containerRef} className="relative h-full overflow-auto p-3" onWheelCapture={(e) => e.stopPropagation()}>
       <div className="relative flex min-w-max items-start gap-4">
         {/* stack — one card per live frame, innermost last */}
         <div className="flex min-w-56 flex-col gap-2.5">
@@ -258,10 +270,12 @@ export function DsaMemoryView({ step }: { step: TraceStep | null }) {
           </marker>
         </defs>
         {arrows.map((a, i) => {
-          const dx = a.x2 - a.x1
-          const dy = a.y2 - a.y1
-          const bend = Math.min(46, Math.max(14, Math.hypot(dx, dy) * 0.3))
-          const d = `M ${a.x1} ${a.y1} C ${a.x1 + bend} ${a.y1 - bend}, ${a.x2 - bend} ${a.y2 - bend}, ${a.x2} ${a.y2}`
+          // control points push outward from each anchor's own edge, so the
+          // curve direction (and the arrowhead tangent) matches the geometry
+          const k = Math.min(56, Math.max(16, Math.hypot(a.x2 - a.x1, a.y2 - a.y1) * 0.35))
+          const out = (s: Side, x: number, y: number) =>
+            s === 'r' ? `${x + k} ${y}` : s === 'l' ? `${x - k} ${y}` : s === 't' ? `${x} ${y - k}` : `${x} ${y + k}`
+          const d = `M ${a.x1} ${a.y1} C ${out(a.s1, a.x1, a.y1)}, ${out(a.s2, a.x2, a.y2)}, ${a.x2} ${a.y2}`
           return (
             <path
               key={i}
@@ -269,9 +283,10 @@ export function DsaMemoryView({ step }: { step: TraceStep | null }) {
               fill="none"
               stroke={a.dangling ? 'var(--accent-rose)' : 'var(--accent-blue)'}
               strokeWidth={1.5}
+              strokeLinecap="round"
               strokeDasharray="4 3"
               markerEnd={a.dangling ? 'url(#dsa-arrow-bad)' : 'url(#dsa-arrow)'}
-              opacity={0.85}
+              opacity={0.9}
             />
           )
         })}
