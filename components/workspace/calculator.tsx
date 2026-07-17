@@ -73,13 +73,18 @@ export function Calculator({ onClose }: { onClose: () => void }) {
     inputRef.current?.focus()
   }
 
+  const OPS = new Set(['÷', '×', '−', '+', '^'])
   const key = (k: string) => (
     <button
       key={k}
       type="button"
       className={cn(
-        'rounded-lg py-2 text-[13px] font-semibold transition-colors',
-        k === '=' ? 'bg-[var(--accent-blue)] text-white' : 'bg-accent/60 hover:bg-accent'
+        'rounded-xl py-2.5 text-[13.5px] font-semibold transition-[transform,background-color] duration-100 active:scale-95',
+        k === '='
+          ? 'bg-[var(--accent-blue)] text-white shadow-[0_2px_10px_-2px_var(--accent-blue)]'
+          : OPS.has(k)
+            ? 'bg-[var(--accent-blue)]/12 text-[var(--accent-blue)] hover:bg-[var(--accent-blue)]/20'
+            : 'bg-background/55 hover:bg-accent'
       )}
       onClick={() => press(k)}
     >
@@ -94,7 +99,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={spring}
-      className="glass-strong absolute bottom-24 right-6 z-50 w-60 select-none rounded-2xl p-2 shadow-xl"
+      className="liquid-glass absolute bottom-24 right-6 z-50 w-64 select-none rounded-[1.4rem] p-2.5"
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="mb-1 flex cursor-grab items-center gap-1 active:cursor-grabbing">
@@ -131,7 +136,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       <input
         ref={inputRef}
         aria-label="Expression"
-        className="w-full rounded-lg bg-background/70 px-2 py-1.5 text-right font-mono text-[14px] outline-none select-all"
+        className="w-full rounded-lg bg-transparent px-2 pt-1 text-right font-mono text-[13px] text-muted-foreground outline-none select-all"
         style={{ touchAction: 'auto', caretColor: 'transparent' }}
         value={expr}
         placeholder="0"
@@ -146,8 +151,10 @@ export function Calculator({ onClose }: { onClose: () => void }) {
             setExpr((s) => s + e.key)
         }}
       />
-      <div className="flex h-5 items-center justify-end gap-1 px-2">
-        <span className="truncate font-mono text-[12px] text-[var(--accent-mint)]">{result}</span>
+      <div className="mb-1.5 flex min-h-8 items-center justify-end gap-1.5 px-2">
+        <span className="truncate font-mono text-[22px] font-semibold tracking-tight">
+          {result || (expr ? '' : '0')}
+        </span>
         {expr && (
           <button
             type="button"
@@ -161,11 +168,11 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       </div>
 
       {sci && (
-        <div className="mb-1 grid grid-cols-4 gap-1">
+        <div className="mb-1 grid grid-cols-4 gap-1.5">
           {SCI.flat().map(key)}
         </div>
       )}
-      <div className="grid grid-cols-4 gap-1">{BASIC.flat().map(key)}</div>
+      <div className="grid grid-cols-4 gap-1.5">{BASIC.flat().map(key)}</div>
 
       <button
         type="button"

@@ -218,9 +218,9 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline"
+      className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-card/85 hairline shadow-[0_10px_28px_-18px_rgb(0_0_0/0.35)]"
     >
-      <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
+      <div className="flex items-center gap-2 border-b border-border/50 bg-accent/25 px-3 py-1.5">
         <TableProperties className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
           {object.name}
@@ -233,14 +233,14 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
       <div className="min-h-0 flex-1 overflow-auto" onPointerDown={(e) => e.stopPropagation()}>
         <table className="w-full border-collapse font-mono text-[11.5px]">
           <thead className="sticky top-0 z-10 bg-card">
-            <tr>
-              <th className="w-7 border-b border-r border-border px-1 py-1 text-center text-[10px] font-semibold text-muted-foreground">
+            <tr className="bg-[var(--accent-blue)]/8">
+              <th className="w-7 border-b border-r border-border/50 px-1 py-1.5 text-center text-[10px] font-semibold text-muted-foreground">
                 #
               </th>
               {cols.map((c, i) => (
                 <th
                   key={i}
-                  className="min-w-[64px] border-b border-r border-border px-1 py-1 text-left text-[11.5px] font-semibold"
+                  className="min-w-[64px] border-b border-r border-border/50 px-1 py-1.5 text-left text-[11.5px] font-semibold"
                 >
                   <div className="flex items-center gap-1">
                     <input
@@ -280,8 +280,8 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
           </thead>
           <tbody>
             {visibleRows.map((row, r) => (
-              <tr key={r} className={r % 2 ? 'bg-accent/25' : undefined}>
-                <td className="border-r border-border/60 px-1 py-0.5 text-center text-[10px] text-muted-foreground tabular-nums">
+              <tr key={r} className={r % 2 ? 'bg-accent/20' : undefined}>
+                <td className="border-r border-border/40 px-1 py-0.5 text-center text-[10px] text-muted-foreground tabular-nums">
                   {r + 1}
                 </td>
                 {row.map((cell, c) => {
@@ -307,7 +307,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
                           value={cell}
                           onChange={(e) => updateCell(r, c, e.target.value)}
                           aria-label={`Row ${r + 1} column ${cols[c]?.name ?? c + 1}`}
-                          className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums"
+                          className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums transition-colors focus:bg-[var(--accent-blue)]/10"
                           placeholder="0"
                         />
                       )}
@@ -329,7 +329,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
             ))}
           </tbody>
           <tfoot>
-            <tr className="border-t-2 border-border/80 bg-accent/35">
+            <tr className="border-t border-border/70 bg-[var(--accent-blue)]/8">
               <td className="border-r border-border/60 px-1 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <select
                   aria-label="Summary function"
