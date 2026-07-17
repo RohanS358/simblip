@@ -36,8 +36,14 @@ export interface PenPrefs {
 export interface NotebookPrefs {
   scrollAxis: ScrollAxis
   grid: GridType
-  /** Whole-UI scale: panels, docks, inspector. 1 = default. */
+  /** Interface UI scale: panels, docks, inspector chrome. 1 = default. */
   uiScale: number
+  /**
+   * Components UI scale: text and chrome inside canvas objects (tables,
+   * formulas, graphs, notes, labs, …) and the floating calculator. 1 = default.
+   * Independent of canvas zoom and of Interface UI.
+   */
+  componentScale: number
   dock: DockSide
   /** Grid cell size in canvas pixels. Default 40. Range 16–80. */
   gridSize: number
@@ -123,6 +129,7 @@ export const DEFAULT_NOTEBOOK: NotebookPrefs = {
   scrollAxis: 'free',
   grid: 'dots',
   uiScale: 1,
+  componentScale: 1,
   dock: 'bottom',
   gridSize: 40,
   disableDoubleTapZoom: false,

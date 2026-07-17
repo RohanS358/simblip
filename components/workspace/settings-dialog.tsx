@@ -120,9 +120,9 @@ function NotebookSettings() {
       </Field>
 
       <Field
-        label="UI scale"
+        label="Interface UI"
         value={`${Math.round(nb.uiScale * 100)}%`}
-        hint="Scales panels, docks and the inspector — the canvas keeps its own zoom."
+        hint="Scales panels, docks and the inspector chrome — the canvas and its components keep their own sizes."
       >
         <Slider
           value={[nb.uiScale]}
@@ -134,9 +134,23 @@ function NotebookSettings() {
       </Field>
 
       <Field
+        label="Components UI"
+        value={`${Math.round((nb.componentScale ?? 1) * 100)}%`}
+        hint="Scales text and chrome inside canvas components — tables, formulas, graphs, notes, labs — and the calculator. Canvas zoom and Interface UI stay untouched."
+      >
+        <Slider
+          value={[nb.componentScale ?? 1]}
+          min={0.8}
+          max={1.6}
+          step={0.05}
+          onValueChange={([v]) => setNb({ componentScale: v })}
+        />
+      </Field>
+
+      <Field
         label="Panel text size"
         value={`${Math.round((nb.panelFontScale ?? 1) * 100)}%`}
-        hint="Text size inside the docked panels only — UI scale and canvas zoom stay untouched."
+        hint="Text size inside the docked panels only — Interface UI and canvas zoom stay untouched."
       >
         <Slider
           value={[nb.panelFontScale ?? 1]}

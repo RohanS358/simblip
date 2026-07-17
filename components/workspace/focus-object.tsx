@@ -14,6 +14,7 @@
 import { useEffect, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useDocStore } from '@/lib/store/document'
+import { usePrefs } from '@/lib/store/preferences'
 import { getElement } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { useSpring } from '@/lib/motion'
@@ -38,6 +39,7 @@ export function FocusObject({
   reserve?: { right?: number; bottom?: number }
 }) {
   const object = useDocStore((s) => (objectId ? s.pages[pageId]?.objects[objectId] : undefined))
+  const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const spring = useSpring('soft')
   // Where the object currently sits on screen — the animation starts there, so
   // it reads as the SAME object rising up, not a copy appearing.
@@ -101,6 +103,9 @@ export function FocusObject({
               width: object.size.w,
               height: object.size.h,
               transform: `scale(${scale})`,
+              // Match canvas Components UI scale so focus view is not denser
+              // than the board the object just left.
+              zoom: componentScale !== 1 ? componentScale : undefined,
             }}
           >
             <Renderer pageId={pageId} object={object} selected={false} />

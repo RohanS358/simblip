@@ -110,9 +110,10 @@ export function WorkspaceShell() {
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
-  // UI scale rides on the root font size: everything is sized in rem-derived
-  // Tailwind units, so panels, docks and the inspector all follow — while the
-  // CANVAS keeps its own zoom, which is what you want.
+  // Interface UI scale rides on the root font size: everything is sized in
+  // rem-derived Tailwind units, so panels, docks and the inspector all follow
+  // — while the CANVAS keeps its own zoom, and Components UI scales objects
+  // separately (see ObjectView / Calculator).
   const uiScale = usePrefs((s) => s.notebook.uiScale)
   useEffect(() => {
     document.documentElement.style.fontSize = `${uiScale * 100}%`

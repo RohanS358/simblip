@@ -8,16 +8,24 @@
 // valid in a formula is valid here: sqrt(2), sin(pi/4), 3^4, log(100, 10),
 // and page variables are NOT in scope on purpose — this is scratch arithmetic,
 // not part of the document.
+//
+// Size follows notebook Components UI scale, and the frame itself is
+// resizable from the bottom-right corner.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { motion as fm } from 'framer-motion'
 import { X, Delete, GripHorizontal } from 'lucide-react'
 import { create, all } from 'mathjs'
 import { useSpring } from '@/lib/motion'
 import { fmtNum } from '@/lib/scene/format'
+import { usePrefs } from '@/lib/store/preferences'
 import { cn } from '@/lib/utils'
 
 const math = create(all, {})
+
+const MIN_W = 200
+const MAX_W = 420
+const DEFAULT_W = 256 // w-64
 
 /** Scientific keys — a second row set, hidden until you ask for them. */
 const SCI = [
@@ -39,11 +47,14 @@ const toExpr = (s: string) =>
 
 export function Calculator({ onClose }: { onClose: () => void }) {
   const spring = useSpring('snap')
+  const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const [expr, setExpr] = useState('')
   const [result, setResult] = useState('')
   const [sci, setSci] = useState(false)
   const [history, setHistory] = useState<{ expr: string; value: string }[]>([])
+  const [width, setWidth] = useState(DEFAULT_W)
   const inputRef = useRef<HTMLInputElement>(null)
+  const resizeRef = useRef<{ startX: number; startW: number } | null>(null)
 
   // Live preview of the answer as you type — you see the result before you
   // commit, which catches a mistyped bracket immediately.
@@ -73,6 +84,26 @@ export function Calculator({ onClose }: { onClose: () => void }) {
     inputRef.current?.focus()
   }
 
+  const onResizePointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    e.preventDefault()
+    resizeRef.current = { startX: e.clientX, startW: width }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+
+  const onResizePointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const r = resizeRef.current
+    if (!r) return
+    // Divide by Components UI zoom so the drag distance matches the visual edge.
+    const scale = componentScale || 1
+    const next = Math.min(MAX_W, Math.max(MIN_W, r.startW + (e.clientX - r.startX) / scale))
+    setWidth(next)
+  }
+
+  const onResizePointerUp = () => {
+    resizeRef.current = null
+  }
+
   const OPS = new Set(['÷', '×', '−', '+', '^'])
   const key = (k: string) => (
     <button
@@ -99,7 +130,12 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       initial={{ opacity: 0, scale: 0.94 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={spring}
-      className="liquid-glass absolute bottom-24 right-6 z-50 w-64 select-none rounded-[1.4rem] p-2.5"
+      className="liquid-glass absolute bottom-24 right-6 z-50 select-none rounded-[1.4rem] p-2.5"
+      style={{
+        width,
+        // Components UI scale — same as canvas objects (tables, formulas…).
+        zoom: componentScale !== 1 ? componentScale : undefined,
+      }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="mb-1 flex cursor-grab items-center gap-1 active:cursor-grabbing">
@@ -201,6 +237,22 @@ export function Calculator({ onClose }: { onClose: () => void }) {
           ))}
         </div>
       )}
+
+      {/* Resize handle — bottom-right corner; drag to widen the keypad. */}
+      <div
+        role="separator"
+        aria-label="Resize calculator"
+        aria-orientation="horizontal"
+        className="absolute bottom-1 right-1 h-3.5 w-3.5 cursor-se-resize touch-none rounded-sm"
+        style={{
+          background:
+            'linear-gradient(135deg, transparent 50%, color-mix(in oklch, var(--muted-foreground) 45%, transparent) 50%)',
+        }}
+        onPointerDown={onResizePointerDown}
+        onPointerMove={onResizePointerMove}
+        onPointerUp={onResizePointerUp}
+        onPointerCancel={onResizePointerUp}
+      />
     </fm.div>
   )
 }

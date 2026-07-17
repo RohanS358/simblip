@@ -288,6 +288,23 @@ function pasteClipboard(pageId: string) {
   store.setSelection(clones.map((c) => c.id))
 }
 
+/** Kinds whose on-canvas chrome (text, buttons, tables…) should follow
+ *  Components UI scale. Pure ink / connectors keep canvas zoom only. */
+const COMPONENT_UI_KINDS = new Set([
+  'note',
+  'text',
+  'formula',
+  'graph',
+  'table',
+  'cashflow',
+  'truthtable',
+  'code',
+  'dsa',
+  'circle',
+  'rect',
+  'symbol',
+])
+
 const ObjectView = memo(function ObjectView({
   pageId,
   object,
@@ -305,9 +322,17 @@ const ObjectView = memo(function ObjectView({
   onRotateStart: (e: React.PointerEvent, id: string) => void
   onHover: (id: string | null) => void
 }) {
+  // Components UI scale — same CSS zoom trick as panel text size. Scales
+  // KaTeX, table cells, graph labels, lab chrome, etc. without fighting
+  // canvas viewport zoom.
+  const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
   if (!Renderer) return null
   const resizable = !['line', 'stroke', 'polygon'].includes(object.geometry.kind)
+  const uiScale =
+    COMPONENT_UI_KINDS.has(object.geometry.kind) && componentScale !== 1
+      ? componentScale
+      : undefined
   return (
     // Outer wrapper: registered with the physics runtime, which drives its
     // transform during Play. Edit-time rotation lives on the inner div so the
@@ -333,7 +358,11 @@ const ObjectView = memo(function ObjectView({
           'h-full w-full rounded-xl',
           selected && 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent'
         )}
-        style={{ transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined }}
+        style={{
+          transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined,
+          // CSS zoom scales fonts, padding, SVG labels and KaTeX together.
+          zoom: uiScale,
+        }}
       >
         <Renderer pageId={pageId} object={object} selected={selected} />
       </div>
