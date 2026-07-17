@@ -43,11 +43,23 @@ const TABLES: Record<string, TableSpec> = {
   sketch_templates: { pk: ['id'], anon: ['GET', 'POST'] },
 }
 
-// Tables where rows carry institution_id and must stay inside the caller's
-// tenant (everything except the global sketch pool and institutions itself).
-const TENANT_SCOPED = new Set(
-  Object.keys(TABLES).filter((t) => !['institutions', 'sketch_templates'].includes(t))
+// Tables that carry institution_id on the row and must stay inside the
+// caller's tenant. Join tables (room_members, library_favorites) have no
+// institution_id column — they are scoped via parent rows instead.
+const TENANT_COLUMN = new Set(
+  Object.keys(TABLES).filter(
+    (t) => !['institutions', 'sketch_templates', 'room_members', 'library_favorites'].includes(t)
+  )
 )
+
+// Still tenant-isolated, but isolation is applied via a parent-table subquery
+// (see buildWhere). Membership is optional: zero rows is a valid result.
+const JOIN_TABLE_SCOPE: Record<string, (paramIndex: number) => string> = {
+  room_members: (i) =>
+    `room_id in (select id from simblip_rooms where institution_id = $${i})`,
+  library_favorites: (i) =>
+    `asset_id in (select id from simblip_library_assets where institution_id = $${i})`,
+}
 
 interface Ctx {
   table: string
@@ -88,9 +100,13 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
     if (table === 'institutions') {
       params.push(claims.inst)
       parts.push(`id = $${params.length}`)
-    } else if (TENANT_SCOPED.has(table)) {
+    } else if (TENANT_COLUMN.has(table)) {
       params.push(claims.inst)
       parts.push(`institution_id = $${params.length}`)
+    } else if (JOIN_TABLE_SCOPE[table]) {
+      // Parent-table tenant scope. Empty result set is fine (e.g. user not in any room).
+      params.push(claims.inst)
+      parts.push(JOIN_TABLE_SCOPE[table](params.length))
     }
     if (spec.owner && claims.role !== 'board') {
       params.push(claims.sub)
@@ -127,6 +143,27 @@ export async function GET(req: Request, { params }: Params) {
   }
 }
 
+/** Reject inserts that would attach a join-table row to another tenant. */
+async function assertJoinParentInTenant(
+  table: string,
+  row: Record<string, unknown>,
+  claims: Claims
+): Promise<void> {
+  if (table === 'room_members') {
+    const ok = await q<{ id: string }>(
+      'select id from simblip_rooms where id = $1 and institution_id = $2',
+      [row.room_id, claims.inst]
+    )
+    if (!ok[0]) throw new Error('Room is outside your institution')
+  } else if (table === 'library_favorites') {
+    const ok = await q<{ id: string }>(
+      'select id from simblip_library_assets where id = $1 and institution_id = $2',
+      [row.asset_id, claims.inst]
+    )
+    if (!ok[0]) throw new Error('Asset is outside your institution')
+  }
+}
+
 export async function POST(req: Request, { params }: Params) {
   const ctx = resolve(req, (await params).table, 'POST')
   if (ctx instanceof NextResponse) return ctx
@@ -136,9 +173,14 @@ export async function POST(req: Request, { params }: Params) {
     const { table, spec, claims } = ctx
     for (const row of rows) {
       delete row.password_hash
+      // Join tables never accept a client-supplied institution_id.
+      if (JOIN_TABLE_SCOPE[table]) delete row.institution_id
       if (claims && !isOperator(claims)) {
-        if (TENANT_SCOPED.has(table)) row.institution_id = claims.inst
+        // Only stamp institution_id on tables that actually have the column.
+        // Join tables are isolated via parent-room / parent-asset checks.
+        if (TENANT_COLUMN.has(table)) row.institution_id = claims.inst
         if (spec.owner && claims.role !== 'board') row[spec.owner] = claims.sub
+        if (JOIN_TABLE_SCOPE[table]) await assertJoinParentInTenant(table, row, claims)
       }
       const cols = Object.keys(row).map(ident)
       const values = cols.map((c) => encodeValue(table, c, row[c]))
