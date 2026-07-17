@@ -1,6 +1,7 @@
 import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
+import { behaviorSpec } from '@/lib/behaviors/registry'
 import { EMPTY_SPEC } from '@/lib/econ/engine'
 import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
 
@@ -233,20 +234,34 @@ class ScriptObject {
   get pe()  { return { objectId: this.id, property: 'pe'  } }
   get speed(){ return { objectId: this.id, property: 'speed' } }
 
-  /** Update params / position / size on this object. */
+  /** Update params / position / size on this object. Keys that belong to an
+   *  attached behavior (mass, friction, stiffness, q, f…) are routed into
+   *  that behavior's params — the ones the solvers actually read — so
+   *  `block.set({ mass: 20 })` genuinely changes the physics. */
   set(props: Record<string, any>) {
     const current = store().pages[this.pageId]?.objects?.[this.id]
     if (!current) return this
     const paramUpdates: Record<string, any> = {}
+    let behaviors = current.behaviors
     for (const [k, v] of Object.entries(props)) {
       if (k === 'x' || k === 'y' || k === 'width' || k === 'height' || k === 'rotation') continue
-      paramUpdates[k] = typeof v === 'number' ? num(String(v)) : str(String(v))
+      const wrapped = typeof v === 'number' ? num(String(v)) : str(String(v))
+      // Behavior param? (already present on a behavior, or declared by its spec)
+      const bi = behaviors.findIndex(
+        (b) => k in b.params || behaviorSpec(b.type)?.params.some((p) => p.name === k)
+      )
+      if (bi >= 0) {
+        behaviors = behaviors.map((b, i) => (i === bi ? { ...b, params: { ...b.params, [k]: wrapped } } : b))
+        continue
+      }
+      paramUpdates[k] = wrapped
     }
     const next = {
       ...current,
       position: { x: props.x ?? current.position.x, y: props.y ?? current.position.y },
       size: { w: props.width ?? current.size.w, h: props.height ?? current.size.h },
       rotation: props.rotation ?? current.rotation,
+      behaviors,
       parameters: { ...current.parameters, ...paramUpdates },
     }
     store().addObject(this.pageId, next, { history: false })
@@ -321,8 +336,20 @@ export function executeSimScript(
     // ── Mechanics component ───────────────────────────────────────────────────
     } else if (normalKind in MECHANICS_COMPONENTS) {
       const def = MECHANICS_COMPONENTS[normalKind]
-      const behaviors: any[] = [{ id: uid(), type: def.behavior, enabled: true, params: def.behavior === 'rigidBody' ? { mass: num(String(props.mass ?? 1)) } : {} }]
-      if (def.extraBehaviors) for (const bt of def.extraBehaviors) behaviors.push({ id: uid(), type: bt, enabled: true, params: {} })
+      // Any prop the behavior's spec declares (mass, friction, stiffness, q,
+      // Ex, Bz, speed…) lands in the behavior params the solver reads.
+      const fromProps = (bt: BehaviorType): Record<string, any> => {
+        const out: Record<string, any> = {}
+        for (const p of behaviorSpec(bt)?.params ?? []) {
+          if (props[p.name] !== undefined) out[p.name] = num(String(props[p.name]))
+        }
+        return out
+      }
+      const behaviors: any[] = [{
+        id: uid(), type: def.behavior, enabled: true,
+        params: { ...(def.behavior === 'rigidBody' ? { mass: num(String(props.mass ?? 1)) } : {}), ...fromProps(def.behavior) },
+      }]
+      if (def.extraBehaviors) for (const bt of def.extraBehaviors) behaviors.push({ id: uid(), type: bt, enabled: true, params: fromProps(bt) })
       obj = {
         id,
         name: props.name ?? normalKind,
@@ -337,49 +364,22 @@ export function executeSimScript(
       }
 
     // ── Optics component ──────────────────────────────────────────────────────
-    } else if (normalKind in OPTICS_COMPONENTS) {
-      const def = OPTICS_COMPONENTS[normalKind]
-      obj = {
-        id,
-        name: props.name ?? normalKind,
-        geometry: { kind: def.kind, points: def.points },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? def.w, h: props.height ?? def.h },
-        rotation: props.rotation ?? 0,
-        z: Date.now(),
-        behaviors: [{ id: uid(), type: def.behavior, enabled: true, params: {} }],
-        parameters: {},
-        metadata: { render: def.render, nameExplicit: !!props.name },
+    } else if (normalKind in OPTICS_COMPONENTS || normalKind in WAVES_COMPONENTS || normalKind in QUANTUM_COMPONENTS) {
+      const def = OPTICS_COMPONENTS[normalKind] ?? WAVES_COMPONENTS[normalKind] ?? QUANTUM_COMPONENTS[normalKind]
+      const params: Record<string, any> = {}
+      for (const p of behaviorSpec(def.behavior)?.params ?? []) {
+        if (props[p.name] !== undefined) params[p.name] = num(String(props[p.name]))
       }
-
-    // ── Waves component ───────────────────────────────────────────────────────
-    } else if (normalKind in WAVES_COMPONENTS) {
-      const def = WAVES_COMPONENTS[normalKind]
+      const isQuantum = normalKind in QUANTUM_COMPONENTS
       obj = {
         id,
         name: props.name ?? normalKind,
-        geometry: { kind: def.kind, points: def.points },
+        geometry: { kind: def.kind, points: 'points' in def ? def.points : undefined },
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? def.w, h: props.height ?? def.h },
-        rotation: props.rotation ?? 0,
+        rotation: isQuantum ? 0 : props.rotation ?? 0,
         z: Date.now(),
-        behaviors: [{ id: uid(), type: def.behavior, enabled: true, params: {} }],
-        parameters: {},
-        metadata: { render: def.render, nameExplicit: !!props.name },
-      }
-
-    // ── Quantum component ─────────────────────────────────────────────────────
-    } else if (normalKind in QUANTUM_COMPONENTS) {
-      const def = QUANTUM_COMPONENTS[normalKind]
-      obj = {
-        id,
-        name: props.name ?? normalKind,
-        geometry: { kind: def.kind },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? def.w, h: props.height ?? def.h },
-        rotation: 0,
-        z: Date.now(),
-        behaviors: [{ id: uid(), type: def.behavior, enabled: true, params: {} }],
+        behaviors: [{ id: uid(), type: def.behavior, enabled: true, params }],
         parameters: {},
         metadata: { render: def.render, nameExplicit: !!props.name },
       }
@@ -397,6 +397,12 @@ export function executeSimScript(
         metadata: { nameExplicit: !!props.name },
       }
     } else if (normalKind === 'table') {
+      // headers: "SN;x;y;z=x+y" or ["SN","x","y","z=x+y"] — "name=expr" makes
+      // a live formula column. data: "1;2;3\n4;5;6" or [[1,2,3],[4,5,6]].
+      const headers = Array.isArray(props.headers) ? props.headers.join(';') : String(props.headers ?? 'SN;x;y;z=x+y')
+      const data = Array.isArray(props.data)
+        ? props.data.map((r: any) => (Array.isArray(r) ? r.join(';') : String(r))).join('\n')
+        : String(props.data ?? '')
       obj = {
         id,
         name: props.name ?? 'Table',
@@ -404,7 +410,51 @@ export function executeSimScript(
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? 380, h: props.height ?? 260 },
         rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { data: str('') },
+        parameters: { headers: str(headers), data: str(data), summary: str(String(props.summary ?? 'Sum')) },
+        metadata: { nameExplicit: !!props.name },
+      }
+    } else if (normalKind === 'text') {
+      obj = {
+        id,
+        name: props.name ?? 'Text',
+        geometry: { kind: 'text' },
+        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+        size: { w: props.width ?? 320, h: props.height ?? 48 },
+        rotation: 0, z: Date.now(), behaviors: [],
+        parameters: { text: str(String(props.text ?? '')) },
+        metadata: { nameExplicit: !!props.name },
+      }
+    } else if (normalKind === 'formula') {
+      obj = {
+        id,
+        name: props.name ?? 'Formula',
+        geometry: { kind: 'formula' },
+        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+        size: { w: props.width ?? 300, h: props.height ?? 96 },
+        rotation: 0, z: Date.now(), behaviors: [],
+        parameters: { latex: str(String(props.latex ?? props.text ?? 'F = m \\cdot g')) },
+        metadata: { nameExplicit: !!props.name },
+      }
+    } else if (normalKind === 'system') {
+      obj = {
+        id,
+        name: props.name ?? `${String(props.domain ?? 'mechanics')} system`,
+        geometry: { kind: 'rect' },
+        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+        size: { w: props.width ?? 460, h: props.height ?? 320 },
+        rotation: 0, z: 1, behaviors: [],
+        parameters: {},
+        metadata: { render: 'system', domain: String(props.domain ?? 'mechanics'), nameExplicit: !!props.name },
+      }
+    } else if (normalKind === 'code' || normalKind === 'ide' || normalKind === 'simscript') {
+      obj = {
+        id,
+        name: props.name ?? 'SimScript IDE',
+        geometry: { kind: 'code' },
+        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+        size: { w: props.width ?? 420, h: props.height ?? 300 },
+        rotation: 0, z: Date.now(), behaviors: [],
+        parameters: { source: str(String(props.source ?? '// Write SimScript here...\n')) },
         metadata: { nameExplicit: !!props.name },
       }
     } else if (normalKind === 'note') {
@@ -554,13 +604,17 @@ export function executeSimScript(
 
   // ── addproperty() ─────────────────────────────────────────────────────────────
   // Attach any behavior to an existing object created with create().
-  const addproperty = (obj: any, behaviorType: string) => {
+  const addproperty = (obj: any, behaviorType: string, params: Record<string, any> = {}) => {
     const objId = obj?.id ?? obj?.objectId
     if (!objId) { console.warn('[SimScript] addproperty: invalid object', obj); return }
     const current = store().pages[pageId]?.objects?.[objId]
     if (!current) { console.warn('[SimScript] addproperty: object not found', objId); return }
     const b: any = { id: uid(), type: behaviorType as BehaviorType, enabled: true, params: {} }
     if (behaviorType === 'rigidBody') b.params.mass = num('1')
+    // optional third argument: addproperty(shape, "rigidBody", { mass: 5 })
+    for (const [k, v] of Object.entries(params)) {
+      b.params[k] = typeof v === 'number' ? num(String(v)) : str(String(v))
+    }
     store().updateObject(pageId, objId, { behaviors: [...current.behaviors, b] }, { history: false })
   }
 
@@ -636,15 +690,11 @@ export function executeSimScript(
       const GND_SYMS     = new Set(['gnd'])
       const ACTIVE_SYMS  = new Set(['bjt','bjt-pnp','mosfet','mosfet-pmos','opamp'])
       const PASSIVE_SYMS = new Set(['resistor','capacitor','inductor','potentiometer','fuse','bulb'])
-      const PROBE_SYMS   = new Set(['voltmeter','ammeter','wattmeter','probe','logic-probe'])
-      const SINK_SYMS    = new Set(['output'])
 
       const isSupply  = (id: string) => SUPPLY_SYMS.has(getSym(id))
       const isGnd     = (id: string) => GND_SYMS.has(getSym(id))
       const isActive  = (id: string) => ACTIVE_SYMS.has(getSym(id))
       const isPassive = (id: string) => PASSIVE_SYMS.has(getSym(id))
-      const isProbe   = (id: string) => PROBE_SYMS.has(getSym(id))
-      const isSink    = (id: string) => SINK_SYMS.has(getSym(id))
 
       // Build undirected neighbour map for topology analysis
       const nbrs = new Map<string, Set<string>>()
@@ -790,144 +840,267 @@ export function executeSimScript(
 
       if (textbookDone) {
         // placed above — skip the transistor/digital layouts
-      } else if (isAnalog && !hasDigital) {
+      } else if (isAnalog && !hasDigital && layoutIds.filter(isActive).length === 1) {
         // ──────────────────────────────────────────────────────────────────────
-        // ANALOG CIRCUIT TOPOLOGY-AWARE LAYOUT
+        // NET-AWARE AMPLIFIER LAYOUT (exactly one transistor / op-amp)
+        //
+        // Terminals are grouped into electrical NETS (union-find over the
+        // connect() edges). The active device names its nets — base/collector/
+        // emitter (gate/drain/source, in−/out/in+) — the rails name theirs
+        // (VCC/GND/signal), and every passive is then slotted where a textbook
+        // draws it: load above the collector, emitter network below, bias
+        // divider left of the base, coupling caps walking in from the signal
+        // source, output coupling walking out to the right.
         // ──────────────────────────────────────────────────────────────────────
-        const GRID = 80
-        const activeId = layoutIds.find(isActive) ?? layoutIds[0]
-        const activeObj = getObj(activeId)
-        const activeW = activeObj?.size?.w ?? 60
-        const activeH = activeObj?.size?.h ?? 72
-        const centreX = origin.x + 240
-        const centreY = origin.y + 200
+        const activeId = layoutIds.find(isActive)!
+        const aObj = getObj(activeId)
+        const aSym = getSym(activeId)
 
-        positions.set(activeId, { x: centreX, y: centreY })
+        // Terminal-index resolution — the same rules the wire re-router uses.
+        const idxFor = (objId: string, anchor: string): number => {
+          const obj = getObj(objId)
+          const sym = obj?.geometry.symbol ?? ''
+          const map = ANCHOR_INDEX[sym] ?? {}
+          const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
+          let idx = map[anchor] ?? map[norm] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[norm]
+          if (idx === undefined) {
+            const m = norm.match(/^(?:pin|t|terminal)?(\d+)$/i)
+            if (m) idx = parseInt(m[1])
+          }
+          if (idx === undefined) {
+            const count = obj ? terminalsOf(obj).length : 1
+            idx = norm === 'in' || norm === 'positive' || norm === 'anode' ? 0 : Math.max(0, count - 1)
+          }
+          return idx
+        }
 
-        const sym = getSym(activeId)
-        const isBJT   = sym === 'bjt' || sym === 'bjt-pnp'
-        const isMOSFET= sym === 'mosfet' || sym === 'mosfet-pmos'
-        const isOpAmp = sym === 'opamp'
+        // Union-find nets over `${id}:${terminalIndex}` keys.
+        const parent = new Map<string, string>()
+        const find = (k: string): string => {
+          let r = k
+          while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r)!
+          parent.set(k, r)
+          return r
+        }
+        const union = (a: string, b: string) => {
+          const ra = find(a)
+          const rb = find(b)
+          if (ra !== rb) parent.set(ra, rb)
+        }
+        for (const e of circuitEdges) {
+          union(`${e.fromId}:${idxFor(e.fromId, e.fromAnchor)}`, `${e.toId}:${idxFor(e.toId, e.toAnchor)}`)
+        }
+        const net = (id: string, idx: number) => find(`${id}:${idx}`)
 
-        const getConnectedToAnchor = (activeId: string, anchorNames: string[]) => {
-          const normNames = anchorNames.map(a => a.replace(/^input/i,'in').replace(/^output/i,'out'))
-          return circuitEdges.filter(e => {
-            if (e.fromId === activeId) {
-              const norm = e.fromAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
-              return normNames.includes(norm)
+        const METERS = new Set(['voltmeter', 'wattmeter'])
+        const PROBE1 = new Set(['probe', 'logic-probe'])
+
+        // Which terminals sit on each net (meters excluded — they observe,
+        // they must not break series-chain detection).
+        const netTerms = new Map<string, { id: string; idx: number }[]>()
+        for (const e of circuitEdges) {
+          for (const t of [
+            { id: e.fromId, idx: idxFor(e.fromId, e.fromAnchor) },
+            { id: e.toId, idx: idxFor(e.toId, e.toAnchor) },
+          ]) {
+            if (METERS.has(getSym(t.id))) continue
+            const r = net(t.id, t.idx)
+            const l = netTerms.get(r) ?? []
+            if (!l.some((x) => x.id === t.id && x.idx === t.idx)) l.push(t)
+            netTerms.set(r, l)
+          }
+        }
+
+        // Name the important nets.
+        const isOpAmpDev = aSym === 'opamp'
+        const baseIdx = isOpAmpDev ? 1 : 0 // in− for the op-amp
+        const colIdx = isOpAmpDev ? 2 : 1 // out for the op-amp
+        const emiIdx = isOpAmpDev ? 0 : 2 // in+ for the op-amp
+        const label = new Map<string, string>()
+        const setLabel = (n: string, l: string) => {
+          if (!label.has(n)) label.set(n, l)
+        }
+        setLabel(net(activeId, baseIdx), 'base')
+        setLabel(net(activeId, colIdx), 'col')
+        setLabel(net(activeId, emiIdx), 'emi')
+        for (const id of layoutIds) if (isGnd(id)) setLabel(net(id, 0), 'gnd')
+        const batteries = layoutIds.filter((id) => getSym(id) === 'battery')
+        for (const b of batteries) {
+          setLabel(net(b, 0), 'vcc')
+          setLabel(net(b, 1), 'gnd')
+        }
+        const sigSources = layoutIds.filter((id) => isSupply(id) && getSym(id) !== 'battery')
+        for (const s of sigSources) setLabel(net(s, 0), 'sig')
+
+        // No explicit battery? The rail is the unlabeled net that the most
+        // RESISTORS share (R1 and the collector load both tie to VCC).
+        if (![...label.values()].includes('vcc')) {
+          const counts = new Map<string, number>()
+          for (const id of layoutIds) {
+            if (getSym(id) !== 'resistor') continue
+            for (const idx of [0, 1]) {
+              const r = net(id, idx)
+              if (!label.has(r)) counts.set(r, (counts.get(r) ?? 0) + 1)
             }
-            if (e.toId === activeId) {
-              const norm = e.toAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
-              return normNames.includes(norm)
+          }
+          let best: string | null = null
+          for (const [r, cnt] of counts) if (cnt >= 2 && (!best || cnt > (counts.get(best) ?? 0))) best = r
+          if (best) label.set(best, 'vcc')
+        }
+
+        // Classify every 2-terminal passive (or the series chain it starts)
+        // by the pair of named nets it bridges.
+        type SlotName = 'rc' | 're' | 'r1' | 'r2' | 'cin' | 'out' | 'fb' | 'rail' | 'misc'
+        const slots = new Map<SlotName, string[][]>()
+        const addChain = (s: SlotName, chain: string[]) => {
+          const l = slots.get(s) ?? []
+          l.push(chain)
+          slots.set(s, l)
+        }
+        const chained = new Set<string>()
+        const isPassive2 = (id: string) => {
+          const o = getObj(id)
+          return (
+            !!o &&
+            o.geometry.kind === 'symbol' &&
+            terminalsOf(o).length === 2 &&
+            !isSupply(id) &&
+            !isGnd(id) &&
+            !METERS.has(getSym(id)) &&
+            !PROBE1.has(getSym(id)) &&
+            id !== activeId
+          )
+        }
+        const slotFor = (a: string | undefined, b: string | undefined): SlotName | null => {
+          const pair = new Set([a, b])
+          const has = (x: string) => pair.has(x)
+          if (has('col') && has('vcc')) return 'rc'
+          if (has('emi') && has('gnd')) return 're'
+          if (has('base') && has('vcc')) return 'r1'
+          if (has('base') && has('gnd')) return 'r2'
+          if (has('base') && has('col')) return 'fb'
+          if (has('base')) return 'cin'
+          if (has('col')) return 'out'
+          if (has('vcc') && has('gnd')) return 'rail'
+          if (has('emi')) return 're'
+          return null
+        }
+
+        for (const id of layoutIds) {
+          if (!isPassive2(id) || chained.has(id)) continue
+          let la = label.get(net(id, 0))
+          let lb = label.get(net(id, 1))
+          const chain = [id]
+          if ((la === undefined) !== (lb === undefined)) {
+            // Walk the series chain from the unnamed side until a named net.
+            let curId = id
+            let curNet = la === undefined ? net(id, 0) : net(id, 1)
+            for (let guard = 0; guard < 8; guard++) {
+              const others = (netTerms.get(curNet) ?? []).filter((t) => t.id !== curId)
+              if (others.length !== 1) break
+              const nxt = others[0]
+              if (!isPassive2(nxt.id) || chained.has(nxt.id) || chain.includes(nxt.id)) break
+              chain.push(nxt.id)
+              curId = nxt.id
+              curNet = net(nxt.id, nxt.idx === 0 ? 1 : 0)
+              const l = label.get(curNet)
+              if (l !== undefined) {
+                if (la === undefined) la = l
+                else lb = l
+                break
+              }
             }
-            return false
-          }).map(e => e.fromId === activeId ? e.toId : e.fromId)
-        }
-
-        const walkChain = (startId: string, excludeId: string): string[] => {
-          const chain: string[] = []
-          const visited = new Set([excludeId])
-          let cur = startId
-          while (cur && !visited.has(cur)) {
-            visited.add(cur)
-            chain.push(cur)
-            if (isSupply(cur) || isGnd(cur)) break
-            const next = [...(nbrs.get(cur) ?? [])].find(n =>
-              !visited.has(n) && (isPassive(n) || isSupply(n) || isGnd(n))
-            )
-            if (!next) break
-            cur = next
           }
-          return chain
+          for (const cid of chain) chained.add(cid)
+          addChain(slotFor(la, lb) ?? 'misc', chain)
         }
 
-        const collectorAnchors = isBJT ? ['collector','c'] : isMOSFET ? ['drain','d'] : isOpAmp ? ['out'] : ['out']
-        const collectorNeighbours = getConnectedToAnchor(activeId, collectorAnchors)
-        const collectorChain = collectorNeighbours.flatMap(n => walkChain(n, activeId)).filter(id => id !== activeId)
+        // ── Placement ────────────────────────────────────────────────────────
+        const QX = origin.x + 560
+        const QY = origin.y + 300
+        const aW = aObj?.size?.w ?? 96
+        const aH = aObj?.size?.h ?? 72
+        positions.set(activeId, { x: QX, y: QY })
+        const colX = QX + aW * 0.72 // collector/emitter pin column
+        const baseY = QY + aH / 2 // base pin height
+        const RAIL_TOP = QY - 250
+        const RAIL_BOT = QY + 260
+        const STEP = 120
 
-        const emitterAnchors = isBJT ? ['emitter','e'] : isMOSFET ? ['source','s'] : isOpAmp ? ['vs-','vee'] : ['vs-']
-        const emitterNeighbours = getConnectedToAnchor(activeId, emitterAnchors)
-        const emitterChain = emitterNeighbours.flatMap(n => walkChain(n, activeId)).filter(id => id !== activeId)
+        const putV = (id: string, cx: number, cy: number) => {
+          const o = getObj(id)
+          rotations.set(id, 90)
+          positions.set(id, { x: cx - (o?.size?.w ?? 96) / 2, y: cy - (o?.size?.h ?? 48) / 2 })
+        }
+        const putH = (id: string, cx: number, cy: number) => {
+          const o = getObj(id)
+          positions.set(id, { x: cx - (o?.size?.w ?? 96) / 2, y: cy - (o?.size?.h ?? 48) / 2 })
+        }
 
-        const baseAnchors = isBJT ? ['base','b'] : isMOSFET ? ['gate','g'] : isOpAmp ? ['in+','inp','in-','inn'] : ['base']
-        const baseNeighbours = getConnectedToAnchor(activeId, baseAnchors)
-        const supplyIds = layoutIds.filter(isSupply)
-        const gndIds    = layoutIds.filter(isGnd)
-
-        const supplyY = centreY - (collectorChain.length + 1) * GRID - 40
-        for (const sid of supplyIds) positions.set(sid, { x: centreX + activeW / 2 - 20, y: supplyY })
-
-        const collectorX = centreX + activeW / 2 - 20
-        let colY = supplyY + 50
-        for (const id of collectorChain) {
-          if (positions.has(id)) continue
-          const obj = getObj(id)
-          const h = obj?.size?.h ?? 48
-          const w = obj?.size?.w ?? 60
-          if (isGnd(id)) positions.set(id, { x: collectorX - 10, y: colY + h + 20 })
-          else {
-            if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: collectorX - h / 2, y: colY }); colY += h + 20 }
-            else { positions.set(id, { x: collectorX - w / 2, y: colY }); colY += h + 20 }
+        // collector load(s): stacked upward toward the VCC rail
+        for (const [ci, chain] of (slots.get('rc') ?? []).entries())
+          chain.forEach((id, i) => putV(id, colX + ci * 130, QY - 90 - i * STEP))
+        // emitter network: stacked downward; parallel chains side by side (Re ∥ Ce)
+        for (const [ci, chain] of (slots.get('re') ?? []).entries())
+          chain.forEach((id, i) => putV(id, colX + ci * 130, QY + aH + 60 + i * STEP))
+        // bias divider column, left of the base
+        const biasX = QX - 130
+        for (const [ci, chain] of (slots.get('r1') ?? []).entries())
+          chain.forEach((id, i) => putV(id, biasX - ci * 120, QY - 90 - i * STEP))
+        for (const [ci, chain] of (slots.get('r2') ?? []).entries())
+          chain.forEach((id, i) => putV(id, biasX - ci * 120, QY + aH + 60 + i * STEP))
+        // input coupling, walking left from the base toward the signal source
+        for (const [ci, chain] of (slots.get('cin') ?? []).entries())
+          chain.forEach((id, i) => putH(id, QX - 260 - i * 140, baseY + ci * 90))
+        // output coupling, walking right from the collector
+        const outY = QY - 40
+        let outEndX = colX + 120
+        for (const chain of slots.get('out') ?? [])
+          chain.forEach((id, i) => {
+            const cx = colX + 190 + i * 140
+            putH(id, cx, outY)
+            outEndX = Math.max(outEndX, cx + 90)
+          })
+        // feedback (base↔collector): horizontal, above the device
+        for (const [ci, chain] of (slots.get('fb') ?? []).entries())
+          chain.forEach((id, i) => putH(id, QX - 30 + i * 140, QY - 180 - ci * 90))
+        // rail-to-rail parts (decoupling), then the supply, at the far left
+        for (const [ci, chain] of (slots.get('rail') ?? []).entries())
+          chain.forEach((id, i) =>
+            putV(id, origin.x + 320 - ci * 110, (RAIL_TOP + RAIL_BOT) / 2 + (i - (chain.length - 1) / 2) * STEP)
+          )
+        for (const [bi, b] of batteries.entries()) putV(b, origin.x + 50 + bi * 110, (RAIL_TOP + RAIL_BOT) / 2)
+        for (const [si, s] of sigSources.entries()) putV(s, origin.x + 170, baseY + 40 + si * 130)
+        // anything unclassified parks in a column right of the output
+        let miscY = QY - 140
+        for (const chain of slots.get('misc') ?? [])
+          for (const id of chain) {
+            putV(id, outEndX + 140, miscY)
+            miscY += 140
           }
-        }
-
-        const emitterX = centreX + activeW / 2 - 20
-        let emY = centreY + activeH + 10
-        for (const id of emitterChain) {
-          if (positions.has(id)) continue
-          const obj = getObj(id)
-          const h = obj?.size?.h ?? 48
-          if (isGnd(id)) positions.set(id, { x: emitterX - 10, y: emY + 10 })
-          else if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: emitterX - h / 2, y: emY }); emY += h + 20 }
-          else { positions.set(id, { x: emitterX - (getObj(id)?.size?.w ?? 60) / 2, y: emY }); emY += h + 20 }
-        }
-
-        const biasX = centreX - GRID * 2
-        const processedIds = new Set([activeId, ...collectorChain, ...emitterChain, ...supplyIds, ...gndIds])
-        const biasNodes: string[] = []
-        for (const bn of baseNeighbours) if (!processedIds.has(bn)) biasNodes.push(...walkChain(bn, activeId).filter(id => !processedIds.has(id)))
-
-        let biasY = supplyY + 20
-        for (const id of biasNodes) {
-          if (positions.has(id)) continue
-          const obj = getObj(id)
-          const h = obj?.size?.h ?? 48
-          if (isGnd(id)) positions.set(id, { x: biasX, y: biasY + 10 })
-          else if (isPassive(id)) { rotations.set(id, 90); positions.set(id, { x: biasX - h / 2, y: biasY }); biasY += h + 20 }
-          else if (isSupply(id)) positions.set(id, { x: biasX - 20, y: supplyY })
-          else { positions.set(id, { x: biasX - (obj?.size?.w ?? 60) / 2, y: biasY }); biasY += h + 20 }
-          processedIds.add(id)
-        }
-
-        const baseY = centreY + activeH / 2 - 20
-        let baseX = biasX - GRID
-        for (const bn of baseNeighbours) {
-          const chain = [bn, ...walkChain(bn, activeId)].filter(id => !processedIds.has(id) && !positions.has(id))
-          for (let i = chain.length - 1; i >= 0; i--) {
-            const id = chain[i]
-            if (positions.has(id)) continue
-            const obj = getObj(id)
-            positions.set(id, { x: baseX - (obj?.size?.w ?? 60), y: baseY - (obj?.size?.h ?? 48) / 2 })
-            baseX -= (obj?.size?.w ?? 60) + 30
-            processedIds.add(id)
+        // meters and single-pin probes float near the output
+        let probeX = outEndX + 40
+        for (const id of layoutIds) {
+          if (positions.has(id) || isGnd(id)) continue
+          const sym = getSym(id)
+          if (METERS.has(sym) || PROBE1.has(sym) || sym === 'ammeter') {
+            positions.set(id, { x: probeX, y: outY - 140 })
+            probeX += 130
           }
         }
-
-        let outX = collectorX + activeW / 2 + 30
-        for (const id of layoutIds.filter(id => !positions.has(id))) {
-          if (isProbe(id) || isSink(id)) {
-            const obj = getObj(id)
-            positions.set(id, { x: outX, y: colY - GRID })
-            outX += (obj?.size?.w ?? 48) + 30
-          }
+        // gnd symbols hang under whatever they're wired to
+        for (const id of layoutIds) {
+          if (!isGnd(id) || positions.has(id)) continue
+          const peers = (netTerms.get(net(id, 0)) ?? []).filter((t) => t.id !== id && positions.has(t.id))
+          const px = peers.length > 0 ? Math.max(...peers.map((t) => positions.get(t.id)!.x)) : QX
+          positions.set(id, { x: px + 20, y: RAIL_BOT + 40 })
         }
-
-        let fallX = outX, fallY = origin.y
+        // absolute fallback — never leave anything unplaced
+        let fx = origin.x
         for (const id of layoutIds) {
           if (positions.has(id)) continue
-          const obj = getObj(id)
-          positions.set(id, { x: fallX, y: fallY })
-          fallY += (obj?.size?.h ?? 48) + 24
+          positions.set(id, { x: fx, y: RAIL_BOT + 130 })
+          fx += 140
         }
       } else {
         // ── Digital / Generic Layout ──────────────────────────────────────────

@@ -9,7 +9,7 @@
 // connect via node snapping. Templates live in this browser's localStorage.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Check, Eraser, GraduationCap, Trash2 } from 'lucide-react'
+import { Bot, Check, Download, Eraser, GraduationCap, Trash2 } from 'lucide-react'
 import { COMPONENTS } from '@/lib/scene/factory'
 import {
   addCustomTemplate,
@@ -205,6 +205,51 @@ export default function TrainPage() {
           </div>
         </div>
       </div>
+
+      {/* ── SimScript → local LLM pipeline ── */}
+      <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
+        <h2 className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight">
+          <Bot className="h-4 w-4 text-[var(--accent-violet)]" /> Train a local LLM to write SimScript
+        </h2>
+        <p className="text-[13px] leading-relaxed text-muted-foreground">
+          Everything the notebook can do — circuits, mechanics, optics, waves, quantum, tables,
+          formulas, graphs, the DSA Lab — is captured as a lint-checked instruction→SimScript
+          dataset. Fastest path: bake the language card into a model with Ollama. Better results:
+          fine-tune on the dataset (unsloth, LLaMA-Factory, mlx), then point the AI panel at your
+          model. Every sample is validated by the SimScript linter before export, so the model
+          only ever sees code the runtime accepts.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild size="sm">
+            <a href="/api/train/simscript" download>
+              <Download className="h-3.5 w-3.5" /> Dataset (JSONL)
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href="/api/train/simscript?format=modelfile" download>
+              <Download className="h-3.5 w-3.5" /> Ollama Modelfile
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href="/api/train/simscript?format=prompt" target="_blank" rel="noreferrer">
+              System prompt
+            </a>
+          </Button>
+          <Button asChild size="sm" variant="outline">
+            <a href="/api/train/simscript?format=check" target="_blank" rel="noreferrer">
+              Corpus lint report
+            </a>
+          </Button>
+        </div>
+        <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 font-mono text-[11.5px] leading-relaxed text-foreground">
+{`# prompt-baked model (no training needed)
+curl -o Modelfile "http://localhost:3000/api/train/simscript?format=modelfile"
+ollama create simblip-simscript -f Modelfile
+
+# or fine-tune on the dataset
+curl -o simscript.jsonl http://localhost:3000/api/train/simscript`}
+        </pre>
+      </section>
     </div>
   )
 }

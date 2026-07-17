@@ -17,13 +17,17 @@ var obj = create("resistor", { R: 330, x: 0, y: 0 });
 - Returns a Proxy-wrapped handle: **any property you access on it that isn't a reserved name (`id`, `pageId`, `set`, `vx`,`vy`,`ax`,`ay`,`V`,`I`,`P`,`omega`,`angle`,`x`,`y`,`ke`,`pe`,`speed`) becomes an anchor descriptor**, e.g. `q1.base`, `myThing.whateverName`.
 
 ```javascript
-obj.set({ R: 470 });          // updates a circuit parameter — works
+obj.set({ R: 470 });          // updates a circuit parameter
 obj.set({ x: 300, y: 150 });  // repositions
-obj.set({ mass: 20 });        // does NOT reach a rigidBody behavior — see Mechanics section
+obj.set({ mass: 20 });        // behavior params route automatically: any key an attached
+                              // behavior declares (mass, friction, restitution, vx, vy,
+                              // stiffness, q, f, Ex, Bz…) is written into THAT behavior,
+                              // the one the solver actually reads.
 ```
 
 ```javascript
-addproperty(obj, "rigidBody"); // attach a behavior to any object; mass defaults to 1
+addproperty(obj, "rigidBody");                 // attach a behavior; mass defaults to 1
+addproperty(obj, "rigidBody", { mass: 5 });    // optional third arg sets behavior params
 ```
 
 ```javascript
@@ -34,6 +38,7 @@ connect(a.anchorName, b.anchorName, "wire"); // wire/rope/rod/spring/damper/cust
 - Auto-layout only triggers on components left at (0,0)-relative position. Layout strategy is picked from the topology:
   - **Series loop/chain of supply + passives** (battery→resistor→bulb→battery, ammeters count as series elements): textbook rectangle — supply vertical on the left, components across the top row then back along the bottom row; wires route orthogonally around the loop.
   - **Parallel bank** (one supply, every component wired straight across it): supply on the left, each branch vertical, side by side between the two rails.
+  - **Single-transistor / op-amp circuits** (net-aware): terminals are grouped into electrical nets; the collector load stacks above the device toward VCC, the emitter network below toward GND, the bias divider sits left of the base, input coupling walks in from the signal source on the left, output coupling walks out to the right, decoupling parts and the supply sit at the far left. Works for BJT, MOSFET and op-amp (in−/out/in+ take the base/collector/emitter roles).
   - `voltmeter`/`probe`/`wattmeter` float above the component they measure; `gnd` hangs below its neighbour. Neither breaks loop detection.
   - **Transistor/op-amp circuits**: collector/drain chain above, emitter/source chain below, bias network to the left.
   - **Digital**: left-to-right by BFS depth from source nodes.
@@ -155,7 +160,7 @@ var block = create("block", { x: 0, y: 0, mass: 20 }); // mass MUST be set here,
 | `torsionpendulum` / `torsion-pendulum` | circle | 22×22 | `hinge` + `torsionSpring` |
 | `reference-point` | circle | 20×20 | `rigidBody` |
 
-**Important**: `.set({ mass: N })` on any of these writes to the object's generic `parameters` bag, NOT the `rigidBody` behavior's `params.mass` that the physics engine actually reads. If you need a different mass after creation, recreate the object with the right `mass` prop instead of trying to `.set()` it.
+Behavior params can be passed straight in `create()` props (any name the behavior's spec declares): `create("block", { x: 0, y: 0, mass: 20, friction: 0.3, vx: 8 })`, `create("charge", { q: 2, vx: 10, showTrail: 1 })`, `create("bfield", { Bz: 2 })`, `create("thin-lens", { f: 150 })`. `.set({ mass: N })` also reaches the behavior now.
 
 Readable properties for `graph.plot()`: `.vx .vy .ax .ay .x .y .ke .pe .speed .omega .angle`.
 
@@ -193,11 +198,19 @@ Rotation/dir ignored (always 0). Rendered as vertical/point elements you positio
 ## Canvas / data objects
 
 ```javascript
-var t = create("table", { data: "" });                              // 380x260
+var t = create("table", {                                            // 380x260
+  headers: "SN;t;d;v=d/t",           // or array; "name=expr" = live formula column
+  data: [[1, 1, 4.9], [2, 2, 19.6]], // or "1;1;4.9\n2;2;19.6"
+  summary: "Avg",                    // Sum|Avg|Min|Max|Count|Stddev|Stderr|First|Last|Range|None
+});
 var n = create("note", { text: "reminder", color: "amber" });        // 220x180, color default "amber"
+var tx = create("text", { text: "Heading" });                        // 320x48 markdown text block
+var f = create("formula", { latex: "s = ut + \\frac{1}{2}at^2" });  // 300x96 KaTeX + solver
 var cf = create("cashflow", {});                                     // 480x300, empty spec pre-filled
 var tt = create("truthtable", { inputs: "A,B", outputs: "Q" });      // 320x260
 var lab = create("dsa", { source: "int main() { ... }" });           // 980x620 DSA Lab (aliases: "dsa-lab")
+var sys = create("system", { domain: "mechanics" });                 // 460x320 dashed system boundary
+var ide = create("code", { source: "// SimScript…" });               // 420x300 nested SimScript IDE
 ```
 
 `dsa` is the **DSA Lab**: a C++ IDE that interprets the `source` prop line by line and animates memory blocks, pointer arrows, the recursion tree, and measured Big-O analysis. Pass complete C++ (a `main()`, or loose top-level statements) in `source`; it re-runs automatically on every edit.
@@ -212,5 +225,18 @@ Do **not** `create("graph", {...})` for a chart — use `graph.plot(...)` (see t
 
 ```javascript
 var shape = create("rect", { x: 0, y: 0, width: 40, height: 40 });
-addproperty(shape, "rigidBody");
+addproperty(shape, "rigidBody", { mass: 2 });
 ```
+
+---
+
+## Training a local LLM on SimScript
+
+The whole language ships as a training pipeline (`/api/train/simscript`, UI on `/train`):
+
+- `GET /api/train/simscript` — instruction→SimScript dataset as chat JSONL, one sample per component kind plus full scenarios, **lint-gated** (every sample passes `lib/ai/simscript-lint.ts` before export).
+- `?format=modelfile` — Ollama Modelfile with the condensed language card baked in: `ollama create simblip-simscript -f Modelfile`.
+- `?format=prompt` — the bare system prompt (`SIMSCRIPT_SYSTEM_PROMPT` in `lib/ai/simscript-corpus.ts`).
+- `?format=check` — lint report over the corpus.
+
+Keep `lib/ai/simscript-corpus.ts` (KIND_CATALOG + scenarios) in sync with this document when kinds change.
