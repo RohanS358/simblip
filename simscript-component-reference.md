@@ -30,8 +30,14 @@ addproperty(obj, "rigidBody"); // attach a behavior to any object; mass defaults
 connect(a.anchorName, b.anchorName, "wire"); // wire/rope/rod/spring/damper/custom
 ```
 
-- **Anchor-name gotcha**: before layout runs, `connect()` normalizes any anchor starting with `input`→`in` and `output`→`out` (e.g. `"input1"`→`"in1"`). This is harmless for kinds whose anchor maps already contain `in1`/`in2`/`out` as synonyms (gates, `tristate`, `not-gate`, `demux`, `output`), but **breaks on `resistor`/`bulb`**, whose maps have `input1`/`input2` but no `in1`/`in2` — so the wire initially lands on the wrong terminal. It self-corrects once auto-layout re-routes (that pass uses the raw anchor name, unnormalized). **Safest bet for `resistor`/`bulb`: use `a`/`b` or `in`/`out`, not `input1`/`input2`.**
-- Auto-layout only triggers on components left at (0,0)-relative position; it lays them out left-to-right by BFS depth from source nodes, routes wires orthogonally around other components, and (when re-routing) respects whichever anchor name you actually passed.
+- Anchor resolution checks the **raw anchor name first**, then an `input`→`in` / `output`→`out` normalized form — so `input1`, `in1`, `a` all land on the same terminal for `resistor`/`bulb`/gates. Any of the documented synonyms is safe.
+- Auto-layout only triggers on components left at (0,0)-relative position. Layout strategy is picked from the topology:
+  - **Series loop/chain of supply + passives** (battery→resistor→bulb→battery, ammeters count as series elements): textbook rectangle — supply vertical on the left, components across the top row then back along the bottom row; wires route orthogonally around the loop.
+  - **Parallel bank** (one supply, every component wired straight across it): supply on the left, each branch vertical, side by side between the two rails.
+  - `voltmeter`/`probe`/`wattmeter` float above the component they measure; `gnd` hangs below its neighbour. Neither breaks loop detection.
+  - **Transistor/op-amp circuits**: collector/drain chain above, emitter/source chain below, bias network to the left.
+  - **Digital**: left-to-right by BFS depth from source nodes.
+  - Anything else (series-parallel meshes) falls back to the BFS grid, so prefer giving explicit `x`/`y` for complex meshes.
 
 ```javascript
 graph.plot(yVar, xVarOrStyle, style); // one graph per page; calls after the first add series
@@ -191,7 +197,10 @@ var t = create("table", { data: "" });                              // 380x260
 var n = create("note", { text: "reminder", color: "amber" });        // 220x180, color default "amber"
 var cf = create("cashflow", {});                                     // 480x300, empty spec pre-filled
 var tt = create("truthtable", { inputs: "A,B", outputs: "Q" });      // 320x260
+var lab = create("dsa", { source: "int main() { ... }" });           // 980x620 DSA Lab (aliases: "dsa-lab")
 ```
+
+`dsa` is the **DSA Lab**: a C++ IDE that interprets the `source` prop line by line and animates memory blocks, pointer arrows, the recursion tree, and measured Big-O analysis. Pass complete C++ (a `main()`, or loose top-level statements) in `source`; it re-runs automatically on every edit.
 
 Do **not** `create("graph", {...})` for a chart — use `graph.plot(...)` (see top of doc).
 

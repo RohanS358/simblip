@@ -2,6 +2,7 @@ import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { EMPTY_SPEC } from '@/lib/econ/engine'
+import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
 
 // Always read fresh state — Zustand creates new state objects on every set(),
 // so any snapshot captured before an addObject call is immediately stale.
@@ -135,8 +136,8 @@ const ANCHOR_INDEX: Record<string, Record<string, number>> = {
   battery:          { positive: 0, negative: 1, plus: 0, minus: 1 },
   'ac-source':      { positive: 0, negative: 1 },
   'current-source': { positive: 0, negative: 1 },
-  resistor:         { input1: 0, input2: 1, a: 0, b: 1, in: 0, out: 1 },
-  bulb:             { input1: 0, input2: 1, a: 0, b: 1 },
+  resistor:         { input1: 0, input2: 1, in1: 0, in2: 1, a: 0, b: 1, in: 0, out: 1 },
+  bulb:             { input1: 0, input2: 1, in1: 0, in2: 1, a: 0, b: 1 },
   capacitor:        { positive: 0, negative: 1, a: 0, b: 1 },
   inductor:         { a: 0, b: 1 },
   switch:           { a: 0, b: 1 },
@@ -428,6 +429,17 @@ export function executeSimScript(
         parameters: { spec: str(JSON.stringify(EMPTY_SPEC)) },
         metadata: { nameExplicit: !!props.name },
       }
+    } else if (normalKind === 'dsa' || normalKind === 'dsa-lab' || normalKind === 'dsalab') {
+      obj = {
+        id,
+        name: props.name ?? 'DSA Lab',
+        geometry: { kind: 'dsa' },
+        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
+        size: { w: props.width ?? 980, h: props.height ?? 620 },
+        rotation: 0, z: Date.now(), behaviors: [],
+        parameters: { source: str(props.source ?? DEFAULT_DSA_SOURCE) },
+        metadata: { nameExplicit: !!props.name },
+      }
     } else if (normalKind === 'truthtable' || normalKind === 'truth-table') {
       obj = {
         id,
@@ -479,13 +491,15 @@ export function executeSimScript(
       const terminals = terminalsOf(obj)
       if (terminals.length === 0) return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
 
-      // 1. Look up in per-symbol anchor index
-      // Normalize 'input' to 'in' and 'output' to 'out' to allow user-friendly names
+      // 1. Look up in per-symbol anchor index — RAW name first, then the
+      // 'input'→'in' / 'output'→'out' normalized form. (Raw-first matters:
+      // normalizing 'input1'→'in1' used to miss symbols whose map only had
+      // 'input1', landing the wire on the wrong terminal.)
       const normAnchor = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
-      
+
       const sym = obj.geometry.symbol ?? ''
       const symMap = ANCHOR_INDEX[sym] ?? {}
-      const idx = symMap[normAnchor] ?? ANCHOR_INDEX._t2[normAnchor] ?? -1
+      const idx = symMap[anchor] ?? symMap[normAnchor] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[normAnchor] ?? -1
 
       // 2. Numeric fallback: 'pin0', 'pin1', ...
       let termIdx = idx
@@ -656,7 +670,127 @@ export function executeSimScript(
       const positions = new Map<string, { x: number; y: number }>()
       const rotations = new Map<string, number>()
 
-      if (isAnalog && !hasDigital) {
+      // ──────────────────────────────────────────────────────────────────────
+      // TEXTBOOK LAYOUT for simple supply + passive circuits (no transistors,
+      // no gates): a series loop becomes a clean rectangle — supply vertical
+      // on the left, components across the top and back along the bottom —
+      // and a parallel bank becomes vertical branches between two rails.
+      // Voltmeters/probes float above what they measure; gnd hangs below.
+      // ──────────────────────────────────────────────────────────────────────
+      const PARALLEL_PROBES = new Set(['voltmeter', 'probe', 'logic-probe', 'wattmeter'])
+      const probeIds = layoutIds.filter(id => PARALLEL_PROBES.has(getSym(id)))
+      const coreIds = layoutIds.filter(id => !PARALLEL_PROBES.has(getSym(id)))
+      const ringIds = coreIds.filter(id => !isGnd(id))
+      const ringNbrs = new Map<string, Set<string>>()
+      for (const id of ringIds) ringNbrs.set(id, new Set())
+      for (const e of circuitEdges) {
+        if (e.fromId !== e.toId && ringNbrs.has(e.fromId) && ringNbrs.has(e.toId)) {
+          ringNbrs.get(e.fromId)!.add(e.toId)
+          ringNbrs.get(e.toId)!.add(e.fromId)
+        }
+      }
+
+      let textbookDone = false
+      if (hasSupply && !hasActive && !hasDigital && ringIds.length >= 2) {
+        const supplies = ringIds.filter(isSupply)
+        const supplyId = supplies[0]
+        const TOP_Y = origin.y + 40
+        const BOT_Y = TOP_Y + 240
+        const MID_Y = (TOP_Y + BOT_Y) / 2
+        const GRID_X = 160
+        const X0 = origin.x + 40
+
+        const placeVertical = (id: string, xMid: number, yMid: number) => {
+          const o = getObj(id)
+          const w = o?.size?.w ?? 96
+          const h = o?.size?.h ?? 48
+          rotations.set(id, 90)
+          positions.set(id, { x: xMid - w / 2, y: yMid - h / 2 })
+        }
+        const placeHorizontal = (id: string, xMid: number, yMid: number) => {
+          const o = getObj(id)
+          const w = o?.size?.w ?? 96
+          const h = o?.size?.h ?? 48
+          positions.set(id, { x: xMid - w / 2, y: yMid - h / 2 })
+        }
+
+        // (a) parallel bank — one supply, every other component hangs directly off it
+        const isBank =
+          supplies.length === 1 &&
+          ringIds.length >= 3 &&
+          ringIds.every(id => {
+            if (id === supplyId) return true
+            const nb = ringNbrs.get(id)!
+            return nb.size >= 1 && [...nb].every(n => n === supplyId)
+          })
+
+        if (isBank) {
+          placeVertical(supplyId, X0, MID_Y)
+          let bx = X0 + GRID_X
+          for (const id of ringIds) {
+            if (id === supplyId) continue
+            placeVertical(id, bx, MID_Y)
+            bx += 130
+          }
+          textbookDone = true
+        } else if (supplyId && ringIds.every(id => (ringNbrs.get(id)?.size ?? 0) <= 2)) {
+          // (b) series loop/chain — walk the circuit starting at the supply
+          const chain: string[] = [supplyId]
+          const seen = new Set([supplyId])
+          let cur = supplyId
+          for (;;) {
+            const nxt = [...(ringNbrs.get(cur) ?? [])].find(n => !seen.has(n))
+            if (!nxt) break
+            chain.push(nxt)
+            seen.add(nxt)
+            cur = nxt
+          }
+          if (chain.length === ringIds.length) {
+            const rest = chain.slice(1)
+            const topCount = Math.ceil(rest.length / 2)
+            placeVertical(chain[0], X0, MID_Y)
+            // clockwise: across the top row, then back right-to-left along the bottom
+            for (let i = 0; i < topCount; i++) placeHorizontal(rest[i], X0 + GRID_X * (i + 1), TOP_Y)
+            const rightX = X0 + GRID_X * Math.max(1, topCount)
+            const bottom = rest.slice(topCount)
+            for (let i = 0; i < bottom.length; i++) placeHorizontal(bottom[i], rightX - GRID_X * i, BOT_Y)
+            textbookDone = true
+          }
+        }
+
+        if (textbookDone) {
+          // gnd symbols hang below their neighbour
+          for (const gid of coreIds.filter(isGnd)) {
+            const nbr = [...(nbrs.get(gid) ?? [])].find(n => positions.has(n))
+            const gw = getObj(gid)?.size?.w ?? 96
+            if (nbr) {
+              const p = positions.get(nbr)!
+              const nw = getObj(nbr)?.size?.w ?? 96
+              positions.set(gid, { x: p.x + nw / 2 - gw / 2, y: BOT_Y + 70 })
+            } else {
+              positions.set(gid, { x: X0 - gw / 2, y: BOT_Y + 70 })
+            }
+          }
+          // parallel probes float above whatever they measure
+          let freeX = X0
+          for (const pid of probeIds) {
+            const pw = getObj(pid)?.size?.w ?? 96
+            const nbr = [...(nbrs.get(pid) ?? [])].find(n => positions.has(n))
+            if (nbr) {
+              const p = positions.get(nbr)!
+              const nw = getObj(nbr)?.size?.w ?? 96
+              positions.set(pid, { x: p.x + nw / 2 - pw / 2, y: TOP_Y - 120 })
+            } else {
+              positions.set(pid, { x: freeX, y: TOP_Y - 120 })
+              freeX += 130
+            }
+          }
+        }
+      }
+
+      if (textbookDone) {
+        // placed above — skip the transistor/digital layouts
+      } else if (isAnalog && !hasDigital) {
         // ──────────────────────────────────────────────────────────────────────
         // ANALOG CIRCUIT TOPOLOGY-AWARE LAYOUT
         // ──────────────────────────────────────────────────────────────────────

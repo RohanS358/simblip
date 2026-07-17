@@ -15,6 +15,7 @@ import { TableObject } from './table'
 import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
 import { CodeObject } from './code'
+import { DsaObject } from './dsa'
 
 export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRendererProps>> = {
   circle: GeometryObject,
@@ -31,4 +32,5 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   cashflow: CashflowObject,
   truthtable: TruthTableObject,
   code: CodeObject,
+  dsa: DsaObject,
 }

@@ -37,12 +37,13 @@ const WIDGETS: Insertable[] = [
   widget('graph', 'Graph', 'plot chart series oscilloscope'),
   widget('cashflow', 'Cash Flow', 'economics npv irr annuity salvage marr'),
   widget('truthtable', 'Truth Table', 'digital logic gate boolean inputs outputs'),
+  widget('dsa', 'DSA Lab', 'c++ cpp code algorithm sort search recursion pointer array visualize interpreter complexity big-o'),
   widget('circle', 'Circle', 'shape ellipse'),
   widget('rect', 'Rectangle', 'shape box square'),
   widget('line', 'Line', 'shape beam segment'),
 ]
 
-const title = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+const title = (s: string) => (s === 'dsa' ? 'DSA' : s.charAt(0).toUpperCase() + s.slice(1))
 
 export const INSERTABLES: Insertable[] = [
   ...WIDGETS,

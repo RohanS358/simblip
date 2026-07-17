@@ -35,6 +35,8 @@ const KIND_FILL: Record<GeometryKind, string> = {
   truthtable: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
   symbol: 'fill-[var(--accent-blue)]/30 stroke-[var(--accent-blue)]',
   code: 'fill-foreground/10 stroke-foreground/30',
+  table: 'fill-[var(--accent-blue)]/15 stroke-[var(--accent-blue)]',
+  dsa: 'fill-[var(--accent-violet)]/15 stroke-[var(--accent-violet)]',
 }
 
 function ShapeForObj({ obj }: { obj: SceneObject }) {

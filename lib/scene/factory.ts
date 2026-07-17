@@ -8,6 +8,7 @@ import { num, str, uid } from './types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import type { Recognition } from '@/lib/sketch/recognize'
 import { EMPTY_SPEC } from '@/lib/econ/engine'
+import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
 
 let nameCounter = 0
 const autoName = (base: string) => `${base} ${(++nameCounter % 1000)}`
@@ -71,6 +72,11 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.inputs = str('')
       obj.parameters.outputs = str('')
       break
+    case 'dsa':
+      obj.name = autoName('DSA Lab')
+      obj.size = { w: 980, h: 620 }
+      obj.parameters.source = str(DEFAULT_DSA_SOURCE)
+      break
   }
   return obj
 }
@@ -97,7 +103,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics'
+  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics' | 'dsa'
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -165,6 +171,7 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   waves: 'Waves',
   quantum: 'Quantum',
   economics: 'Economics',
+  dsa: 'DSA',
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -374,6 +381,16 @@ export const COMPONENTS: ComponentDef[] = [
     o.metadata.render = 'tunnel-barrier'
     return withBehaviors(o, createBehavior('tunnelBarrier'))
   }),
+
+  // ── DSA: C++ IDE + line-by-line algorithm visualizer (memory blocks,
+  // pointer arrows, recursion tree, measured complexity — lib/dsa). ──
+  {
+    id: 'dsa-lab',
+    label: 'DSA Lab',
+    domain: 'dsa' as const,
+    live: true,
+    create: (p: Vec2) => createGeometry('dsa', p),
+  },
 
   // ── Economics: engineering-economics cash-flow timeline (money moves
   // through time; NPV/FV computed live — see components/objects/cashflow). ──

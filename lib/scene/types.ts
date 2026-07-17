@@ -47,6 +47,7 @@ export type GeometryKind =
   | 'table'      // excel-like table component
   | 'symbol' // schematic symbol (resistor, gate, hinge…)
   | 'code' // code editor / IDE for SimScript
+  | 'dsa' // DSA Lab — C++ IDE + line-by-line algorithm visualizer
 
 export interface Geometry {
   kind: GeometryKind

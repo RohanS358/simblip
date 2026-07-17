@@ -4,7 +4,7 @@ export interface ObjectRendererProps {
   pageId: string
   object: SceneObject
   /** Selection state — only some renderers (e.g. text) consume it. */
-  selected: boolean
+  selected?: boolean
 }
 
 export function getString(obj: SceneObject, name: string, fallback = ''): string {
