@@ -37,14 +37,11 @@ create table if not exists simblip_institutions (
 -- cross to a client). `board` is a special role: a dedicated account for one
 -- physical classroom display, never a person.
 
-do $$ begin
-  create type simblip_role as enum ('super_admin', 'admin', 'teacher', 'student', 'board');
-exception when duplicate_object then null; end $$;
-
 create table if not exists simblip_profiles (
   id             uuid primary key default gen_random_uuid(),
   institution_id uuid not null references simblip_institutions (id) on delete cascade,
-  role           simblip_role not null default 'student',
+  role           text not null default 'student'
+                 check (role in ('super_admin', 'admin', 'teacher', 'student', 'board')),
   full_name      text not null,
   email          text not null unique,
   password_hash  text,
