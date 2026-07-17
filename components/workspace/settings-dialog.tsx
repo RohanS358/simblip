@@ -35,6 +35,7 @@ import {
   type AngleUnit,
   type NumberStyle,
   type MotionStyle,
+  type AccentName,
 } from '@/lib/store/preferences'
 import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
@@ -194,9 +195,36 @@ function NotebookSettings() {
 function MotionSetting() {
   const motion = usePrefs((s) => s.appearance.motion)
   const focusOnEdit = usePrefs((s) => s.appearance.focusOnEdit)
+  const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
   const setAppearance = usePrefs((s) => s.setAppearance)
+  const ACCENTS: { id: AccentName; label: string }[] = [
+    { id: 'blue', label: 'Blue' },
+    { id: 'violet', label: 'Violet' },
+    { id: 'mint', label: 'Mint' },
+    { id: 'amber', label: 'Amber' },
+    { id: 'rose', label: 'Rose' },
+  ]
   return (
     <>
+    <Field label="Tint" hint="The interface accent — selection, buttons, active states.">
+      <div className="flex items-center gap-2">
+        {ACCENTS.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            aria-label={`${a.label} tint`}
+            aria-pressed={accent === a.id}
+            className="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-90"
+            style={{
+              background: `var(--accent-${a.id})`,
+              boxShadow: accent === a.id ? '0 0 0 2px var(--background), 0 0 0 4px currentColor' : undefined,
+              color: `var(--accent-${a.id})`,
+            }}
+            onClick={() => setAppearance({ accent: a.id })}
+          />
+        ))}
+      </div>
+    </Field>
     <PrefRow
       label="Focus the object while editing"
       detail="On phones and tablets, lift the selected object out of the canvas and dim the board while its properties are open. Off keeps the board as it is."

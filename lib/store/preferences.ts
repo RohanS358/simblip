@@ -54,14 +54,19 @@ export interface NotebookPrefs {
 /** How the whole UI moves. See lib/motion.ts. */
 export type MotionStyle = 'bouncy' | 'smooth' | 'none'
 
+/** UI tint — resolves to the matching --accent-* variable per theme. */
+export type AccentName = 'blue' | 'violet' | 'mint' | 'amber' | 'rose'
+
 export interface AppearancePrefs {
   motion: MotionStyle
   /** Touch devices: lift the selected object out of the canvas while its
    *  properties are open, so you can see what your edits do to it. */
   focusOnEdit: boolean
+  /** The interface tint: selection, buttons, active states. */
+  accent: AccentName
 }
 
-export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy', focusOnEdit: true }
+export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy', focusOnEdit: true, accent: 'blue' }
 
 export type AngleUnit = 'deg' | 'rad'
 export type NumberStyle = 'auto' | 'fixed' | 'sci' | 'eng'

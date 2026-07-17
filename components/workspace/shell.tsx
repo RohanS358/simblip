@@ -120,6 +120,16 @@ export function WorkspaceShell() {
       document.documentElement.style.fontSize = ''
     }
   }, [uiScale])
+  // The chosen tint overrides --accent-blue globally; every "blue" surface
+  // (selection, buttons, active states) follows, per theme, with no re-render.
+  const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
+  useEffect(() => {
+    if (accent === 'blue') document.documentElement.style.removeProperty('--accent-blue')
+    else document.documentElement.style.setProperty('--accent-blue', `var(--accent-${accent})`)
+    return () => {
+      document.documentElement.style.removeProperty('--accent-blue')
+    }
+  }, [accent])
   const panelSides = useLayout((s) => s.sides)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
