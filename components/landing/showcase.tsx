@@ -182,49 +182,90 @@ export function Landing() {
         @keyframes sb-bob { from { transform: translateY(-16px) } to { transform: translateY(16px) } }
       `}</style>
 
-      <header className="glass sticky top-0 z-50 flex items-center justify-between px-6 py-3">
-        <span className="text-[15px] font-bold tracking-tight">
-          SIM<span className="text-[var(--accent-blue)]">BLIP</span>
-        </span>
-        <Link
-          href="/login"
-          className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-        >
-          Sign in
-        </Link>
-      </header>
-
-      <section className="canvas-dots relative overflow-hidden px-6 pb-16 pt-20 text-center [background-size:24px_24px]">
-        <SimBackdrop />
-        <div data-fx="hero" className="relative">
-        <h1 className="mx-auto max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-          The notebook where your <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
-          <span className="text-[var(--accent-mint)]">experiments</span>
-        </h1>
-        <p className="mx-auto mt-4 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground">
-          Sketch mechanics, wire circuits, build logic, fire photons at a double slit — then press
-          Play. One canvas, real physics, real Kirchhoff, real interference. Everything editable
-          while it runs.
-        </p>
-        <div className="mt-8 flex items-center justify-center gap-3">
+      {/* Floating liquid-glass nav — chrome as a material, content flows under */}
+      <header className="fixed inset-x-0 top-0 z-50">
+        <div className="progressive-blur-top !h-16" />
+        <div className="relative flex items-center justify-between px-4 py-3 sm:px-8">
+          <span className="liquid-glass rounded-full px-4 py-1.5 text-[15px] font-bold tracking-tight">
+            SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+          </span>
+          <nav className="liquid-glass hidden items-center gap-1 rounded-full p-1 md:flex">
+            {[
+              ['#demos', 'Demos'],
+              ['#light', 'Physics'],
+              ['#classroom', 'Classroom'],
+              ['#pricing', 'Licensing'],
+            ].map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className="rounded-full px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+              >
+                {label}
+              </a>
+            ))}
+          </nav>
           <Link
             href="/login"
-            className="rounded-full bg-[var(--accent-blue)] px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
+            className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
           >
-            Sign in to your institution
+            Sign in
           </Link>
-          <a
-            href="#demos"
-            className="rounded-full border border-border px-6 py-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            See it in action
-          </a>
         </div>
+      </header>
+
+      {/* Hero — full-bleed, left-anchored editorial type with a live demo rail */}
+      <section className="canvas-dots relative min-h-[92svh] overflow-hidden [background-size:24px_24px]">
+        <SimBackdrop />
+        <div className="relative grid min-h-[92svh] items-end gap-10 px-4 pb-14 pt-28 sm:px-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:pb-20">
+          <div data-fx="hero">
+            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[var(--accent-blue)]">
+              The engineering notebook that runs
+            </p>
+            <h1 className="mt-4 max-w-[13ch] text-[clamp(2.6rem,7.5vw,6rem)] font-bold leading-[0.98] tracking-[-0.03em]">
+              Your <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
+              <span className="text-[var(--accent-mint)]">experiments</span>
+            </h1>
+            <p className="mt-6 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">
+              Sketch mechanics, wire circuits, build logic, fire photons at a double slit — then
+              press Play. One canvas, real physics, real Kirchhoff, real interference. Everything
+              editable while it runs.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-3">
+              <Link
+                href="/login"
+                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-[14.5px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
+              >
+                Sign in to your institution
+              </Link>
+              <a
+                href="#demos"
+                className="liquid-glass rounded-full px-7 py-3 text-[14.5px] font-medium text-foreground transition-transform active:scale-[0.97]"
+              >
+                See it in action
+              </a>
+            </div>
+          </div>
+          <div data-fx="rise" className="hidden gap-3 lg:grid">
+            <div className="liquid-glass canvas-dots grid place-items-center rounded-3xl p-4 [background-size:20px_20px]">
+              <PendulumDemo />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="liquid-glass canvas-dots grid place-items-center overflow-hidden rounded-3xl p-2 [background-size:20px_20px]">
+                <CircuitDemo />
+              </div>
+              <div className="liquid-glass canvas-dots grid place-items-center overflow-hidden rounded-3xl p-2 [background-size:20px_20px]">
+                <GraphDemo />
+              </div>
+            </div>
+          </div>
         </div>
+        <div className="progressive-blur-bottom !h-20" />
       </section>
 
-      <section className="mx-auto max-w-5xl px-6 pb-8 pt-4">
-        <div data-fx="domino" className="grid gap-3 sm:grid-cols-5 [perspective:900px]">
+      {/* Discipline strip — edge to edge */}
+      <section className="border-y border-border/50 px-4 py-6 sm:px-8">
+        <div data-fx="domino" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 [perspective:900px]">
           {[
             ['Mechanics', 'Rigid bodies, springs, hinges, motors — drawn, then simulated.'],
             ['Circuits', 'Kirchhoff-solved R/L/C, diodes, op-amps at 120 Hz.'],
@@ -240,7 +281,17 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="demos" data-fx="domino" className="mx-auto grid max-w-5xl gap-4 px-6 pb-20 [perspective:1100px] sm:grid-cols-2 lg:grid-cols-3">
+      <section id="demos" className="px-4 py-16 sm:px-8">
+        <div data-fx="rise" className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <h2 className="max-w-[16ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">
+            Six things your paper notebook can&apos;t do
+          </h2>
+          <p className="max-w-sm text-[13.5px] leading-relaxed text-muted-foreground">
+            Every card below is the real engine rendered small — the same solver, the same ink,
+            the same math you get on the canvas.
+          </p>
+        </div>
+        <div data-fx="domino" className="grid gap-4 [perspective:1100px] sm:grid-cols-2 xl:grid-cols-3">
         <DemoCard title="Mechanics that obey you" caption="Pendulums, springs, collisions — gravity and air drag are just variables you edit, even mid-swing.">
           <PendulumDemo />
         </DemoCard>
@@ -259,16 +310,17 @@ export function Landing() {
         <DemoCard title="Graphs that do algebra" caption="Plot channels, your own formulas, phase portraits — with custom axes, scales and reference lines.">
           <GraphDemo />
         </DemoCard>
+        </div>
       </section>
 
       {/* Wave & quantum nature of light — the physics is computed, not drawn. */}
-      <section className="border-t border-border/60 px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <div data-fx="rise" className="max-w-2xl">
-            <h2 className="text-balance text-3xl font-bold tracking-tight">
+      <section id="light" className="border-t border-border/60 px-4 py-16 sm:px-8 lg:py-24">
+        <div className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)]">
+          <div data-fx="rise">
+            <h2 className="max-w-[14ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em]">
               Light that behaves like <span className="text-[var(--accent-violet)]">light</span>
             </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
+            <p className="mt-4 text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
               Build a double-slit experiment on the canvas — a coherent source, a slit mask, a
               screen — and SIMBLIP performs a Huygens–Fresnel phasor sum over the open apertures
               at real dimensions (1 px = 1 µm). The single-slit diffraction envelope and the
@@ -278,15 +330,15 @@ export function Landing() {
               reproduced faithfully in your notebook.
             </p>
           </div>
-          <div data-fx="domino" className="mt-8 grid gap-3 sm:grid-cols-3 [perspective:900px]">
+          <div data-fx="domino" className="grid content-center gap-3 sm:grid-cols-3 lg:grid-cols-1 [perspective:900px]">
             {[
               ['Huygens–Fresnel', 'Every open slit is summed as secondary wavelets — Σ e^{ikr}/√r. Change λ, gap or spacing and the fringes respond exactly as theory predicts.'],
               ['Born rule photons', 'In Play mode single photons accumulate stochastically from |A|². Watch randomness become the interference pattern.'],
               ['Wells & barriers', 'Particle-in-a-box eigenstates and tunneling transmission, solved from the Schrödinger picture with live parameters.'],
             ].map(([t, b]) => (
-              <div key={t} className="glass rounded-2xl p-4">
+              <div key={t} className="liquid-glass rounded-2xl p-5">
                 <p className="text-[13px] font-bold text-[var(--accent-violet)]">{t}</p>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{b}</p>
+                <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
               </div>
             ))}
           </div>
@@ -294,37 +346,35 @@ export function Landing() {
       </section>
 
       {/* Classroom platform */}
-      <section className="border-t border-border/60 bg-card/40 px-6 py-16">
-        <div className="mx-auto max-w-5xl">
-          <div data-fx="rise" className="max-w-2xl">
-            <h2 className="text-balance text-3xl font-bold tracking-tight">
-              A whole <span className="text-[var(--accent-blue)]">classroom</span> operating system
-            </h2>
-            <p className="mt-3 text-[14px] leading-relaxed text-muted-foreground">
-              SIMBLIP is not a lone notebook — it is the environment an engineering institution
-              runs on. Teachers teach from it, boards present it, students submit through it.
-            </p>
-          </div>
-          <div data-fx="domino" className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [perspective:900px]">
-            {[
-              ['1 · Scan', 'Every classroom display shows a rotating QR. A teacher scans it with their phone and picks any notebook page.'],
-              ['2 · Present', 'The board loads a temporary copy — annotate, simulate, rewind. The original teaching material is never touched.'],
-              ['3 · Assign', 'Any page becomes an assignment. Each student gets their own working copy and submits from their notebook.'],
-              ['4 · Review', 'A live dashboard tracks opened → in progress → submitted → reviewed, with feedback flowing back instantly.'],
-            ].map(([t, b]) => (
-              <div key={t} className="glass rounded-2xl p-4">
-                <p className="text-[13px] font-bold">{t}</p>
-                <p className="mt-1.5 text-[12px] leading-relaxed text-muted-foreground">{b}</p>
-              </div>
-            ))}
-          </div>
+      <section id="classroom" className="border-t border-border/60 bg-card/40 px-4 py-16 sm:px-8 lg:py-24">
+        <div data-fx="rise" className="flex flex-wrap items-end justify-between gap-4">
+          <h2 className="max-w-[18ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em]">
+            A whole <span className="text-[var(--accent-blue)]">classroom</span> operating system
+          </h2>
+          <p className="max-w-md text-[14px] leading-relaxed text-muted-foreground">
+            SIMBLIP is not a lone notebook — it is the environment an engineering institution
+            runs on. Teachers teach from it, boards present it, students submit through it.
+          </p>
+        </div>
+        <div data-fx="domino" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [perspective:900px]">
+          {[
+            ['1 · Scan', 'Every classroom display shows a rotating QR. A teacher scans it with their phone and picks any notebook page.'],
+            ['2 · Present', 'The board loads a temporary copy — annotate, simulate, rewind. The original teaching material is never touched.'],
+            ['3 · Assign', 'Any page becomes an assignment. Each student gets their own working copy and submits from their notebook.'],
+            ['4 · Review', 'A live dashboard tracks opened → in progress → submitted → reviewed, with feedback flowing back instantly.'],
+          ].map(([t, b], i) => (
+            <div key={t} className={cnStep(i)}>
+              <p className="text-[13px] font-bold">{t}</p>
+              <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      <section className="border-t border-border/60 px-6 py-16">
-        <div data-fx="domino" className="mx-auto grid max-w-5xl gap-x-10 gap-y-8 [perspective:900px] sm:grid-cols-2 lg:grid-cols-3">
+      <section className="border-t border-border/60 px-4 py-16 sm:px-8">
+        <div data-fx="domino" className="grid gap-x-10 gap-y-8 [perspective:900px] sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(([title, body]) => (
-            <div key={title}>
+            <div key={title} className="border-l-2 border-[color-mix(in_oklch,var(--accent-blue)_35%,transparent)] pl-4">
               <h3 className="text-[14px] font-semibold">{title}</h3>
               <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{body}</p>
             </div>
@@ -332,33 +382,39 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="pricing" data-fx="rise" className="border-t border-border/60 px-6 py-16 text-center">
-        <h2 className="mx-auto max-w-2xl text-balance text-3xl font-bold tracking-tight">
-          Built for <span className="text-[var(--accent-blue)]">institutions</span>, not accounts
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-pretty text-[14px] leading-relaxed text-muted-foreground">
-          SIMBLIP is licensed to universities, colleges and schools as a complete engineering
-          education platform — role-based workspaces for admins, teachers and students, QR-paired
-          classroom boards, an institution library, and a live assignment workflow. There is no
-          public sign-up: your institution is provisioned for you, branded as yours.
-        </p>
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <a
-            href="mailto:licensing@simblip.app?subject=SIMBLIP%20institution%20licensing"
-            className="rounded-full bg-[var(--accent-blue)] px-6 py-2.5 text-[14px] font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-          >
-            Contact us for licensing
-          </a>
-          <Link
-            href="/login"
-            className="rounded-full border border-border px-6 py-2.5 text-[14px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Already licensed? Sign in
-          </Link>
+      <section id="pricing" data-fx="rise" className="relative overflow-hidden border-t border-border/60 px-4 py-20 sm:px-8 lg:py-28">
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(60%_80%_at_30%_20%,color-mix(in_oklch,var(--accent-blue)_10%,transparent),transparent)]" />
+        <div className="relative grid gap-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center">
+          <div>
+            <h2 className="max-w-[16ch] text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.02] tracking-[-0.025em]">
+              Built for <span className="text-[var(--accent-blue)]">institutions</span>, not accounts
+            </h2>
+            <p className="mt-4 max-w-2xl text-pretty text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
+              SIMBLIP is licensed to universities, colleges and schools as a complete engineering
+              education platform — role-based workspaces for admins, teachers and students,
+              QR-paired classroom boards, an institution library, and a live assignment workflow.
+              There is no public sign-up: your institution is provisioned for you, branded as
+              yours.
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-3 lg:items-end">
+            <a
+              href="mailto:licensing@simblip.app?subject=SIMBLIP%20institution%20licensing"
+              className="rounded-full bg-[var(--accent-blue)] px-8 py-3.5 text-[15px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
+            >
+              Contact us for licensing
+            </a>
+            <Link
+              href="/login"
+              className="liquid-glass rounded-full px-8 py-3.5 text-[15px] font-medium text-foreground transition-transform active:scale-[0.97]"
+            >
+              Already licensed? Sign in
+            </Link>
+          </div>
         </div>
       </section>
 
-      <footer className="flex items-center justify-between px-6 py-8 text-[12px] text-muted-foreground">
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-4 py-8 text-[12px] text-muted-foreground sm:px-8">
         <span>
           © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
         </span>
@@ -370,3 +426,7 @@ export function Landing() {
     </ScrollFx>
   )
 }
+
+/** Step cards alternate glass weights so the row reads as a path, not a grid. */
+const cnStep = (i: number) =>
+  i % 2 === 0 ? 'liquid-glass rounded-2xl p-5' : 'glass rounded-2xl p-5'

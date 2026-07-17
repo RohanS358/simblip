@@ -50,22 +50,44 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-dvh items-center justify-center overflow-hidden bg-background px-4">
-      <SimBackdrop />
+    <div className="relative grid min-h-dvh overflow-hidden bg-background lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
+      {/* Brand panel — full-height statement, not a centered logo */}
+      <div className="canvas-dots relative hidden flex-col justify-between overflow-hidden p-10 [background-size:24px_24px] lg:flex">
+        <SimBackdrop />
+        <span className="relative text-[18px] font-extrabold tracking-tight">
+          SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+        </span>
+        <div className="relative">
+          <h1 className="max-w-[14ch] text-[clamp(2rem,4vw,3.4rem)] font-bold leading-[1.02] tracking-[-0.025em]">
+            Where <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
+            <span className="text-[var(--accent-mint)]">experiments</span>
+          </h1>
+          <p className="mt-4 max-w-md text-[14px] leading-relaxed text-muted-foreground">
+            The engineering education platform for institutions — mechanics, circuits, logic,
+            optics and quantum on one living canvas.
+          </p>
+        </div>
+        <p className="relative text-[11px] text-muted-foreground">
+          © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
+        </p>
+        <div className="progressive-blur-bottom !h-16" />
+      </div>
+
+      {/* Form panel */}
+      <div className="relative flex items-center justify-center px-4 py-10 lg:border-l lg:border-border/50">
+      <div className="lg:hidden"><SimBackdrop /></div>
       <div className="relative w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <span className="text-[22px] font-extrabold tracking-tight">
+        <div className="mb-8 text-center lg:text-left">
+          <span className="text-[22px] font-extrabold tracking-tight lg:hidden">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
-            The engineering education platform for institutions.
-            <br />
             Sign in with the account your institution issued you.
           </p>
         </div>
 
         <form
-          className="glass space-y-4 rounded-2xl p-5"
+          className="liquid-glass space-y-4 rounded-2xl p-5"
           onSubmit={(e) => {
             e.preventDefault()
             void signIn(email, password)
@@ -152,6 +174,7 @@ export default function LoginPage() {
           </Link>
           {' · '}Built by Rohan Singh
         </p>
+      </div>
       </div>
     </div>
   )
