@@ -1,0 +1,6 @@
+{
+  "enabledPlugins": {
+    "liquid-glass@liquid-glass-skills": true,
+    "hyperframes@claude-plugins-official": true
+  }
+}

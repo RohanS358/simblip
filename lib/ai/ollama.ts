@@ -16,7 +16,7 @@
 import { ALL_TOOLS, createDraft, runTool, checkCircuitCompleteness, type DraftState } from './tools'
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'qwen2.5:7b'
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
 const MAX_STEPS = 24
 const REQUEST_TIMEOUT_MS = 180_000
 
