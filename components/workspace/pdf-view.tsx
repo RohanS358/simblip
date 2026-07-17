@@ -54,6 +54,9 @@ const loadPdfjs = () => {
 type Mode = 'read' | 'pen' | 'hl' | 'eraser'
 const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b']
 const SIZES = [0.002, 0.004, 0.008] // in page-width units
+/** Stable empty result for the annotations selector — a fresh [] per call
+ *  makes React's getSnapshot caching warning fire on unannotated pages. */
+const EMPTY_STROKES: PdfStroke[] = []
 
 /** One rendered PDF page + its annotation overlay. */
 function PdfPage({
@@ -71,7 +74,7 @@ function PdfPage({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [near, setNear] = useState(n <= 2)
   const [aspect, setAspect] = useState(1.414)
-  const strokes = usePdfAnnotations((s) => s.strokes[pageId]?.[n] ?? [])
+  const strokes = usePdfAnnotations((s) => s.strokes[pageId]?.[n] ?? EMPTY_STROKES)
   const drawing = useRef<number[] | null>(null)
   const [live, setLive] = useState<number[] | null>(null)
 
