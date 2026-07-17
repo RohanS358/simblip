@@ -267,12 +267,12 @@ export default function DevPage() {
                   <CardDescription>Create a tenant and its first admin in one step.</CardDescription>
                 </CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5 md:col-span-2"><Label>Institution name</Label><Input value={institutionName} onChange={(e) => setInstitutionName(e.target.value)} placeholder="Demo Institution" /></div>
-                  <div className="space-y-1.5"><Label>Slug</Label><Input value={institutionSlug} onChange={(e) => setInstitutionSlug(e.target.value)} placeholder="demo-institution" /></div>
+                  <div className="space-y-1.5 md:col-span-2"><Label>Institution name</Label><Input value={institutionName} onChange={(e) => setInstitutionName(e.target.value)} placeholder="Institution name" /></div>
+                  <div className="space-y-1.5"><Label>Slug</Label><Input value={institutionSlug} onChange={(e) => setInstitutionSlug(e.target.value)} placeholder="institution-slug" /></div>
                   <div className="space-y-1.5"><Label>Accent color</Label><Input type="color" value={institutionAccent} onChange={(e) => setInstitutionAccent(e.target.value)} /></div>
                   <div className="space-y-1.5 md:col-span-2"><Label>Logo URL</Label><Input value={institutionLogo} onChange={(e) => setInstitutionLogo(e.target.value)} placeholder="https://…/logo.svg" /></div>
                   <div className="space-y-1.5"><Label>Admin name</Label><Input value={adminName} onChange={(e) => setAdminName(e.target.value)} placeholder="Prof. Ada Sharma" /></div>
-                  <div className="space-y-1.5"><Label>Admin email</Label><Input value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@demo.edu" /></div>
+                  <div className="space-y-1.5"><Label>Admin email</Label><Input value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} placeholder="admin@simblip.local" /></div>
                   <div className="space-y-1.5"><Label>Admin password</Label><Input type="text" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} placeholder="admin" /></div>
                   <div className="space-y-1.5"><Label>Admin department</Label><Input value={adminDepartment} onChange={(e) => setAdminDepartment(e.target.value)} placeholder="Physics" /></div>
                   <div className="md:col-span-2"><Button onClick={() => void createEnrollment()} disabled={busy || !institutionName.trim() || !adminName.trim() || !adminEmail.trim() || !adminPassword}><Plus className="h-4 w-4" /> Create institution + admin</Button></div>
@@ -297,7 +297,7 @@ export default function DevPage() {
                   <div className="space-y-1.5"><Label>Role</Label><Select value={role} onValueChange={(value) => setRole(value as 'admin' | 'teacher' | 'student')}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="admin">Admin</SelectItem><SelectItem value="teacher">Teacher</SelectItem><SelectItem value="student">Student</SelectItem></SelectContent></Select></div>
                   <div className="space-y-1.5"><Label>Department</Label><Input value={accountDepartment} onChange={(e) => setAccountDepartment(e.target.value)} placeholder="Physics" /></div>
                   <div className="space-y-1.5"><Label>Full name</Label><Input value={accountName} onChange={(e) => setAccountName(e.target.value)} placeholder="Dr. Elena Vasquez" /></div>
-                  <div className="space-y-1.5"><Label>Email</Label><Input value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="teacher@demo.edu" /></div>
+                  <div className="space-y-1.5"><Label>Email</Label><Input value={accountEmail} onChange={(e) => setAccountEmail(e.target.value)} placeholder="teacher@simblip.local" /></div>
                   <div className="space-y-1.5"><Label>Password</Label><Input type="text" value={accountPassword} onChange={(e) => setAccountPassword(e.target.value)} placeholder="teacher" /></div>
                   <div className="md:col-span-2"><Button onClick={() => void createAccountForSelected()} disabled={busy || !selectedInstitutionId || !accountName.trim() || !accountEmail.trim() || !accountPassword}><Plus className="h-4 w-4" /> Create account</Button></div>
                 </CardContent>

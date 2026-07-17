@@ -22,7 +22,7 @@ export function SyncStatus() {
   }, [])
 
   const view = !syncConfigured
-    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local demo mode — notebooks live in this browser. Configure the cloud database to sync.' }
+    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local mode — notebooks live in this browser. Configure the cloud database to sync.' }
     : !signedIn || phase === 'offline'
       ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — notebooks stay in this browser until your session is active.' }
       : phase === 'syncing'

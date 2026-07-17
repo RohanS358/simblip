@@ -170,7 +170,7 @@ export const listBoards = () => db.list<BoardRow>('boards')
 export async function createBoard(roomId: string, roomName: string, password: string): Promise<{ board: BoardRow; email: string }> {
   const admin = requireAdmin()
   const slug = roomName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-  const email = `board-${slug}@${(admin.email.split('@')[1] ?? 'demo.edu')}`
+  const email = `board-${slug}@${(admin.email.split('@')[1] ?? 'simblip.local')}`
   if (db.dbMode === 'cloud') {
     return adminProvision<{ board: BoardRow; email: string }>('createBoard', {
       room_id: roomId,

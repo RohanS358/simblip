@@ -192,7 +192,7 @@ export async function createBoard(input: {
 }): Promise<{ profile: ProfileRow; board: BoardRow }> {
   requirePlatformAdmin()
   if (db.getDbMode() === 'cloud') {
-    const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@demo.edu`
+    const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@simblip.local`
     const profile: ProfileRow = {
       id: db.newId(),
       institution_id: input.institutionId,
@@ -212,7 +212,7 @@ export async function createBoard(input: {
     }
     return cloudProvision('createBoard', { profile, board })
   }
-  const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@demo.edu`
+  const email = input.email?.trim().toLowerCase() || `board-${normalizeSlug(input.roomName)}@simblip.local`
   const profile: ProfileRow = {
     id: db.newId(),
     institution_id: input.institutionId,

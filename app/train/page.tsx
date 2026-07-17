@@ -79,7 +79,7 @@ export default function TrainPage() {
           per symbol it can turn a whole hand-sketched diagram into live components — the wires
           you draw between them already connect on their own. 3–5 varied examples per symbol
           works best. Examples are saved to the shared training library — your work improves
-          recognition for everyone using SIMBLIP (demo mode keeps them in this browser).
+          recognition for everyone using SIMBLIP (local mode keeps them in this browser).
         </p>
       </header>
 

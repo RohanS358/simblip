@@ -1,28 +1,19 @@
 'use client'
 
 // Sign in. There is deliberately no sign-up path: SIMBLIP is licensed to
-// institutions, and accounts are provisioned by the institution admin.
-// In local demo mode the seeded tenant's accounts are offered as one-click
-// chips so every role can be explored instantly.
+// institutions, and accounts are provisioned by the institution admin
+// (in local mode, by the platform operator via the /dev console).
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { GraduationCap, Loader2, Lock, Mail, MonitorPlay, ShieldCheck, UserRound } from 'lucide-react'
+import { Loader2, Lock, Mail } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth/store'
 import { homeFor } from '@/lib/auth/types'
 import { cloudConfigured } from '@/lib/data/db'
-import { DEMO_INSTITUTION } from '@/lib/auth/demo'
 import { Button } from '@/components/ui/button'
 import { SimBackdrop } from '@/components/landing/sim-backdrop'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-
-const DEMO_CHIPS = [
-  { email: 'admin@demo.edu', password: 'admin', label: 'Admin', icon: ShieldCheck },
-  { email: 'teacher@demo.edu', password: 'teacher', label: 'Teacher', icon: GraduationCap },
-  { email: 'student@demo.edu', password: 'student', label: 'Student', icon: UserRound },
-  { email: 'board-201@demo.edu', password: 'board201', label: 'Room 201 Board', icon: MonitorPlay },
-]
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -146,25 +137,10 @@ export default function LoginPage() {
         </form>
 
         {!cloudConfigured && (
-          <div className="mt-6">
-            <p className="mb-2 text-center text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-              Demo tenant — {DEMO_INSTITUTION.name}
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_CHIPS.map((chip) => (
-                <button
-                  key={chip.email}
-                  type="button"
-                  disabled={busy}
-                  className="glass flex items-center gap-2 rounded-xl px-3 py-2 text-left text-[12px] font-medium transition-colors hover:bg-accent"
-                  onClick={() => void signIn(chip.email, chip.password)}
-                >
-                  <chip.icon className="h-3.5 w-3.5 shrink-0 text-[var(--accent-blue)]" />
-                  {chip.label}
-                </button>
-              ))}
-            </div>
-          </div>
+          <p className="mt-6 text-center text-[11.5px] leading-relaxed text-muted-foreground">
+            Local mode — accounts live in this browser. Sign in as the platform
+            operator to provision your institution from the dev console.
+          </p>
         )}
 
         <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground">

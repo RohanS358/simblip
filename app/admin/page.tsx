@@ -221,7 +221,7 @@ function Overview({
           <p className="font-semibold text-foreground">Provisioning</p>
           {dbMode === 'local' ? (
             <p>
-              Local demo tenant — accounts you create below work immediately on this device. The
+              Local mode — accounts you create below work immediately on this device. The
               institution itself is provisioned by the SIMBLIP operator (enterprise licensing, no
               self-service sign-up).
             </p>

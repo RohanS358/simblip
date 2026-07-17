@@ -565,7 +565,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
       )}
 
       <p className="text-[11px] leading-relaxed text-muted-foreground">
-        Commands reach the board instantly in demo mode and within about a second in cloud mode.
+        Commands reach the board instantly in local mode and within about a second in cloud mode.
       </p>
     </div>
   )

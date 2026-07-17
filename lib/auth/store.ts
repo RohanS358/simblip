@@ -6,9 +6,9 @@
 //           by Postgres). Sessions persist in localStorage and refresh
 //           before expiry; the access token is fed to the data layer so the
 //           gateway sees the real user.
-//   local — demo mode (NEXT_PUBLIC_CLOUD unset): accounts live in the local
-//           demo database, seeded from lib/auth/demo.ts. Admin-created users
-//           work exactly like seeded ones.
+//   local — NEXT_PUBLIC_CLOUD unset: accounts live in the in-browser
+//           database, bootstrapped from lib/auth/bootstrap.ts. Admin-created
+//           users work exactly like the seeded operator.
 //
 // On login we record the user id under ACTIVE_USER_KEY *before* navigating;
 // the notebook stores key their localStorage persistence off it, giving each
@@ -17,7 +17,7 @@
 import { create } from 'zustand'
 import * as db from '@/lib/data/db'
 import type { ProfileRow, InstitutionRow, RoomMemberRow, RoomRow, BoardRow } from '@/lib/data/types'
-import { DEMO_ACCOUNTS, DEMO_BOARDS, DEMO_INSTITUTION, DEMO_MEMBERS, DEMO_ROOMS } from './demo'
+import { OPERATOR_ACCOUNT, PLATFORM_TENANT } from './bootstrap'
 import { homeFor, type Role } from './types'
 
 export const ACTIVE_USER_KEY = 'simblip-active-user'
@@ -109,36 +109,25 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
   }
 }
 
-// ── Demo seeding ────────────────────────────────────────────────────────────
+// ── Local bootstrap ─────────────────────────────────────────────────────────
 
-export function seedDemoTenant() {
-  db.seedTable('institutions', [DEMO_INSTITUTION].map((i) => ({
-    id: i.id, name: i.name, slug: i.slug, logo_url: i.logoUrl ?? null,
-    accent_color: i.accentColor ?? null, active: true,
-  })))
-  const accountRows = DEMO_ACCOUNTS.map((a) => ({
+/** Local mode only: seed the platform pseudo-tenant + operator so /dev can
+ *  provision real institutions. Never clobbers rows that already exist. */
+export function seedLocalOperator() {
+  db.seedTable('institutions', [{
+    id: PLATFORM_TENANT.id, name: PLATFORM_TENANT.name, slug: PLATFORM_TENANT.slug,
+    logo_url: null, accent_color: PLATFORM_TENANT.accentColor, active: true,
+  }])
+  const a = OPERATOR_ACCOUNT
+  const operatorRow = {
     id: a.id, institution_id: a.institutionId, role: a.role, full_name: a.fullName,
-    email: a.email, department: a.department ?? null, active: a.active, password: a.password,
-  }))
-  db.seedTable('profiles', accountRows)
-  // Backfill seeded accounts added in newer versions (e.g. the operator)
-  // into browsers whose demo db predates them — never clobber edits.
+    email: a.email, department: null, active: a.active, password: a.password,
+  }
+  db.seedTable('profiles', [operatorRow])
+  // Backfill into browsers whose local db predates the operator account.
   void db.list<ProfileRow>('profiles').then((existing) => {
-    const known = new Set(existing.map((p) => p.id))
-    const missing = accountRows.filter((a) => !known.has(a.id))
-    if (missing.length > 0) void db.insert('profiles', missing)
+    if (!existing.some((p) => p.id === operatorRow.id)) void db.insert('profiles', [operatorRow])
   })
-  db.seedTable('rooms', DEMO_ROOMS.map((r) => ({
-    id: r.id, institution_id: r.institutionId, name: r.name, department: r.department ?? null,
-  })))
-  db.seedTable('room_members', DEMO_MEMBERS.map((m) => ({
-    id: `${m.roomId}:${m.profileId}`, room_id: m.roomId, profile_id: m.profileId, member_role: m.memberRole,
-  })))
-  db.seedTable('boards', DEMO_BOARDS.map((b) => ({
-    id: b.id, institution_id: b.institutionId, room_id: b.roomId, profile_id: b.profileId,
-    pairing_code: Math.random().toString(36).slice(2, 8).toUpperCase(),
-    pairing_rotated_at: new Date().toISOString(),
-  })))
 }
 
 // ── Store ───────────────────────────────────────────────────────────────────
@@ -171,7 +160,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   init: async () => {
     if (typeof window === 'undefined') return
-    if (!db.cloudConfigured) seedDemoTenant()
+    if (!db.cloudConfigured) seedLocalOperator()
     let session = loadSession()
     if (session) session = await refreshIfNeeded(session)
     if (!session) {
@@ -200,10 +189,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (db.cloudConfigured) {
         session = adoptTokens(await tokenGrant({ grant: 'password', email, password }))
       } else {
-        seedDemoTenant()
+        seedLocalOperator()
         const needle = email.trim().toLowerCase()
         const rows = await db.list<ProfileRow>('profiles')
-        // Demo nicety: a bare username matches its email's local part.
+        // Local nicety: a bare username matches its email's local part.
         const account = rows.find(
           (p) => p.email === needle || (!needle.includes('@') && p.email.split('@')[0] === needle)
         )
