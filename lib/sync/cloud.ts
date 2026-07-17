@@ -1,11 +1,11 @@
 'use client'
 
-// Notebook cloud sync: Supabase PostgREST over fetch (zero client deps).
+// Notebook cloud sync: the app's own Postgres gateway (/api/pg) over fetch.
 //
-// Offline-first. Without NEXT_PUBLIC_SUPABASE_URL/ANON_KEY the module is
-// dormant and SIMBLIP persists to localStorage only (local demo mode). With
-// credentials, the model is per-USER and driven by the platform auth store
-// (lib/auth/store.ts — GoTrue password sessions, not supabase-js):
+// Offline-first. Without NEXT_PUBLIC_CLOUD=1 the module is dormant and
+// SIMBLIP persists to localStorage only (local demo mode). With a cloud
+// deployment, the model is per-USER and driven by the platform auth store
+// (lib/auth/store.ts — JWT password sessions against /api/auth):
 //
 //   sign-in → pull that user's workspace; if the cloud copy is newer than
 //             anything this browser has synced for that user, adopt it;
@@ -14,8 +14,8 @@
 //   delete  → pages removed locally are removed remotely.
 //   signed out → nothing syncs; the app is plain offline/local.
 //
-// Row security: workspace id IS the auth user id, enforced by RLS
-// (supabase/schema.sql). Conflicts are last-write-wins per row.
+// Row security: workspace id IS the auth user id, enforced by the gateway
+// (app/api/pg, db/schema.sql). Conflicts are last-write-wins per row.
 
 import { create } from 'zustand'
 import { useDocStore } from '@/lib/store/document'
@@ -27,11 +27,9 @@ import {
 } from '@/lib/store/deleted-pages'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
+import { cloudConfigured } from '@/lib/data/db'
 
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-export const syncConfigured = Boolean(URL_ && KEY)
+export const syncConfigured = cloudConfigured
 
 export type SyncPhase = 'offline' | 'syncing' | 'synced' | 'error'
 
@@ -63,17 +61,17 @@ export function workspaceId(): string | null {
 // ── REST helpers ────────────────────────────────────────────────────────────
 
 async function rest(path: string, init: RequestInit = {}): Promise<Response> {
-  const res = await fetch(`${URL_}/rest/v1/${path}`, {
+  const token = getAccessToken()
+  const res = await fetch(`/api/pg/${path}`, {
     ...init,
     headers: {
-      apikey: KEY!,
-      // The user's JWT, so RLS scopes every row to the signed-in profile.
-      Authorization: `Bearer ${getAccessToken() ?? KEY}`,
+      // The user's JWT, so the gateway scopes every row to the signed-in profile.
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json',
       ...init.headers,
     },
   })
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new Error(`Sync ${res.status}: ${await res.text()}`)
   return res
 }
 

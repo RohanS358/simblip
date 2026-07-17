@@ -1,5 +1,5 @@
 // Row shapes for the platform collections. Keys are snake_case to match
-// supabase/schema.sql exactly — the same objects flow through PostgREST and
+// db/schema.sql exactly — the same objects flow through the /api/pg gateway and
 // the local demo database without mapping.
 
 import type { PageDoc, SceneObject } from '@/lib/scene/types'

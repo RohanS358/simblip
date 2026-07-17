@@ -4,10 +4,9 @@
 // library, assignments, board sessions…) goes through this one API so the
 // whole app is backend-agnostic:
 //
-//   cloud — Supabase PostgREST over fetch (zero dependencies), rows guarded
-//           by the RLS policies in supabase/schema.sql. Requests carry the
-//           signed-in user's JWT so institution scoping is enforced
-//           server-side, not just in the client.
+//   cloud — the app's own Postgres gateway (/api/pg, db/schema.sql) over
+//           fetch. Requests carry the signed-in user's JWT so institution
+//           scoping is enforced server-side, not just in the client.
 //   local — a localStorage database (one JSON array per table) with
 //           BroadcastChannel change events. This is demo/dev mode: the whole
 //           enterprise feature set works in a single browser with zero infra.
@@ -15,10 +14,7 @@
 // Rows use snake_case keys in BOTH modes so shapes match the SQL schema
 // exactly and no mapping layer is needed.
 
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-export const cloudConfigured = Boolean(URL_ && KEY)
+export const cloudConfigured = process.env.NEXT_PUBLIC_CLOUD === '1'
 export const dbMode: 'cloud' | 'local' = cloudConfigured ? 'cloud' : 'local'
 export const getDbMode = (): 'cloud' | 'local' => dbMode
 
@@ -36,20 +32,19 @@ export function registerTokenSource(fn: () => string | null) {
   getToken = fn
 }
 
-// ── Cloud backend (PostgREST) ───────────────────────────────────────────────
+// ── Cloud backend (/api/pg gateway → Postgres) ──────────────────────────────
 
 async function restFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getToken()
-  const res = await fetch(`${URL_}/rest/v1/${path}`, {
+  const res = await fetch(`/api/pg/${path}`, {
     ...init,
     headers: {
-      apikey: KEY!,
-      Authorization: `Bearer ${token ?? KEY}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json',
       ...init.headers,
     },
   })
-  if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`)
+  if (!res.ok) throw new Error(`Cloud db ${res.status}: ${await res.text()}`)
   return res
 }
 

@@ -1,4 +1,4 @@
-// Local demo tenant. Without Supabase credentials SIMBLIP stays fully
+// Local demo tenant. Without a cloud database configured SIMBLIP stays fully
 // offline (that IS the dev/demo mode): one seeded institution lives in this
 // browser so every enterprise flow — RBAC, boards, sharing, assignments,
 // admin — works end to end without infrastructure. With credentials present

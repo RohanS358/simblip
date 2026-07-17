@@ -2,12 +2,13 @@
 
 // Authentication is mandatory: no workspace is reachable anonymously.
 //
-//   cloud — Supabase GoTrue (password grant over fetch, zero dependencies).
-//           Sessions persist in localStorage and refresh before expiry; the
-//           access token is fed to the data layer so RLS sees the real user.
-//   local — demo mode (no Supabase keys): accounts live in the local demo
-//           database, seeded from lib/auth/demo.ts. Admin-created users work
-//           exactly like seeded ones.
+//   cloud — the app's own /api/auth token endpoint (JWT over fetch, backed
+//           by Postgres). Sessions persist in localStorage and refresh
+//           before expiry; the access token is fed to the data layer so the
+//           gateway sees the real user.
+//   local — demo mode (NEXT_PUBLIC_CLOUD unset): accounts live in the local
+//           demo database, seeded from lib/auth/demo.ts. Admin-created users
+//           work exactly like seeded ones.
 //
 // On login we record the user id under ACTIVE_USER_KEY *before* navigating;
 // the notebook stores key their localStorage persistence off it, giving each
@@ -18,9 +19,6 @@ import * as db from '@/lib/data/db'
 import type { ProfileRow, InstitutionRow, RoomMemberRow, RoomRow, BoardRow } from '@/lib/data/types'
 import { DEMO_ACCOUNTS, DEMO_BOARDS, DEMO_INSTITUTION, DEMO_MEMBERS, DEMO_ROOMS } from './demo'
 import { homeFor, type Role } from './types'
-
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
 export const ACTIVE_USER_KEY = 'simblip-active-user'
 const SESSION_KEY = 'simblip-session'
@@ -69,7 +67,7 @@ db.registerTokenSource(() => loadSession()?.accessToken ?? null)
 /** Current access token (cloud mode) — used by the notebook sync engine. */
 export const getAccessToken = (): string | null => loadSession()?.accessToken ?? null
 
-// ── GoTrue (cloud only) ─────────────────────────────────────────────────────
+// ── Token endpoint (cloud only) ─────────────────────────────────────────────
 
 interface TokenResponse {
   access_token: string
@@ -78,15 +76,15 @@ interface TokenResponse {
   user: { id: string }
 }
 
-async function gotrue(path: string, body: unknown): Promise<TokenResponse> {
-  const res = await fetch(`${URL_}/auth/v1/${path}`, {
+async function tokenGrant(body: unknown): Promise<TokenResponse> {
+  const res = await fetch('/api/auth', {
     method: 'POST',
-    headers: { apikey: KEY!, 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const detail = (await res.json().catch(() => null)) as { error_description?: string; msg?: string } | null
-    throw new Error(detail?.error_description ?? detail?.msg ?? `Sign-in failed (${res.status})`)
+    const detail = (await res.json().catch(() => null)) as { msg?: string } | null
+    throw new Error(detail?.msg ?? `Sign-in failed (${res.status})`)
   }
   return (await res.json()) as TokenResponse
 }
@@ -103,7 +101,7 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
   if (session.expiresAt && session.expiresAt - Date.now() / 1000 > 60) return session
   if (!session.refreshToken) return null
   try {
-    const next = adoptTokens(await gotrue('token?grant_type=refresh_token', { refresh_token: session.refreshToken }))
+    const next = adoptTokens(await tokenGrant({ grant: 'refresh', refresh_token: session.refreshToken }))
     saveSession(next)
     return next
   } catch {
@@ -200,7 +198,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       let session: StoredSession
       if (db.cloudConfigured) {
-        session = adoptTokens(await gotrue('token?grant_type=password', { email, password }))
+        session = adoptTokens(await tokenGrant({ grant: 'password', email, password }))
       } else {
         seedDemoTenant()
         const needle = email.trim().toLowerCase()
@@ -230,13 +228,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   logout: () => {
-    const session = loadSession()
-    if (db.cloudConfigured && session?.accessToken) {
-      void fetch(`${URL_}/auth/v1/logout`, {
-        method: 'POST',
-        headers: { apikey: KEY!, Authorization: `Bearer ${session.accessToken}` },
-      }).catch(() => {})
-    }
+    // Tokens are stateless JWTs — signing out is dropping them client-side.
     // Attached documents live only until sign-out.
     void import('@/lib/store/session-files').then(({ clearSessionFiles }) =>
       clearSessionFiles(localStorage.getItem(ACTIVE_USER_KEY))

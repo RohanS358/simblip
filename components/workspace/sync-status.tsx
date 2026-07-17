@@ -5,7 +5,7 @@
 
 import { useEffect } from 'react'
 import { Cloud, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
-import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/supabase'
+import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/cloud'
 import { useAuthStore } from '@/lib/auth/store'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -22,7 +22,7 @@ export function SyncStatus() {
   }, [])
 
   const view = !syncConfigured
-    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local demo mode — notebooks live in this browser. Add Supabase keys to sync.' }
+    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local demo mode — notebooks live in this browser. Configure the cloud database to sync.' }
     : !signedIn || phase === 'offline'
       ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — notebooks stay in this browser until your session is active.' }
       : phase === 'syncing'

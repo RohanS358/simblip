@@ -4,10 +4,9 @@
 // session documents, the files are pushed somewhere the board (and class
 // followers) can reach:
 //
-//   cloud — the public `simblip-session` Storage bucket under
+//   cloud — the /api/files route (Postgres-backed) under
 //           <sessionId>/<objectId>. Deleted when the teacher resolves the
-//           presentation, with a 3-hour pg_cron sweep as the safety net
-//           (supabase/schema.sql).
+//           presentation, with a 3-hour server sweep as the safety net.
 //   local — a demo-db table of data URLs (same-browser tabs).
 //
 // The snapshot's file elements get metadata.fileUrl/fileName/fileMime so
@@ -17,10 +16,6 @@ import * as db from './db'
 import { getAccessToken } from '@/lib/auth/store'
 import { getSessionBlob, getSessionFile } from '@/lib/store/session-files'
 import type { PageDoc } from '@/lib/scene/types'
-
-const URL_ = process.env.NEXT_PUBLIC_SUPABASE_URL
-const KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const BUCKET = 'simblip-session'
 
 const blobToDataUrl = (blob: Blob) =>
   new Promise<string>((resolve, reject) => {
@@ -42,18 +37,16 @@ export async function uploadSessionFiles(sessionId: string, snapshot: PageDoc): 
     try {
       if (db.dbMode === 'cloud') {
         const path = `${sessionId}/${obj.id}`
-        const res = await fetch(`${URL_}/storage/v1/object/${BUCKET}/${path}`, {
+        const res = await fetch(`/api/files/${path}`, {
           method: 'POST',
           headers: {
-            apikey: KEY!,
-            Authorization: `Bearer ${getAccessToken() ?? KEY}`,
+            Authorization: `Bearer ${getAccessToken() ?? ''}`,
             'Content-Type': local.mime || 'application/octet-stream',
-            'x-upsert': 'true',
           },
           body: blob,
         })
         if (!res.ok) throw new Error(await res.text())
-        obj.metadata.fileUrl = `${URL_}/storage/v1/object/public/${BUCKET}/${path}`
+        obj.metadata.fileUrl = `/api/files/${path}`
       } else {
         const data = await blobToDataUrl(blob)
         await db.insert('session_files', { id: `${sessionId}/${obj.id}`, data })
@@ -87,9 +80,9 @@ export async function cleanupSessionFiles(sessionId: string, snapshot: PageDoc):
       if (url.startsWith('local:')) {
         await db.removeById('session_files', url.slice('local:'.length))
       } else if (db.dbMode === 'cloud') {
-        await fetch(`${URL_}/storage/v1/object/${BUCKET}/${sessionId}/${obj.id}`, {
+        await fetch(`/api/files/${sessionId}/${obj.id}`, {
           method: 'DELETE',
-          headers: { apikey: KEY!, Authorization: `Bearer ${getAccessToken() ?? KEY}` },
+          headers: { Authorization: `Bearer ${getAccessToken() ?? ''}` },
         })
       }
     } catch {
