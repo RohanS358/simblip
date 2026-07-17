@@ -1834,6 +1834,29 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       return
     }
     if (!editing || tool === 'select') {
+      // Clicking empty space inside a multi-selection's bounds drags the
+      // whole selection; only clicks outside it start a fresh marquee.
+      if (editing && store.selection.length > 1) {
+        const page = store.pages[pageId]
+        const p = toCanvas(e.clientX, e.clientY)
+        let minX = Infinity
+        let minY = Infinity
+        let maxX = -Infinity
+        let maxY = -Infinity
+        for (const sid of store.selection) {
+          const o = page?.objects[sid]
+          if (!o) continue
+          minX = Math.min(minX, o.position.x)
+          minY = Math.min(minY, o.position.y)
+          maxX = Math.max(maxX, o.position.x + o.size.w)
+          maxY = Math.max(maxY, o.position.y + o.size.h)
+        }
+        if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
+          store.pushHistory(pageId)
+          beginGesture('move', e)
+          return
+        }
+      }
       beginGesture('marquee', e)
       return
     }
