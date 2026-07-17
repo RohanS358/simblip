@@ -36,7 +36,7 @@ const BASE_COLORS: Record<string, string> = {
   rose: 'var(--accent-rose)',
   violet: 'var(--accent-violet)',
 }
-const BASE_SIZES: Record<string, number> = { s: 20, m: 25, l: 25, xl: 30 }
+const BASE_SIZES: Record<string, number> = { s: 12, m: 15, l: 20, xl: 28 }
 const BASE_HIGHLIGHTS: Record<string, string> = {
   yellow: 'color-mix(in oklch, var(--accent-amber) 32%, transparent)',
   mint: 'color-mix(in oklch, var(--accent-mint) 30%, transparent)',

@@ -222,25 +222,25 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
     >
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
         <TableProperties className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-[18px] font-semibold tracking-wide text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
           {object.name}
         </span>
-        <span className="shrink-0 font-mono text-[18px] text-muted-foreground">
+        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
           {cols.length} cols · {visibleRows.length} rows
         </span>
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto" onPointerDown={(e) => e.stopPropagation()}>
-        <table className="w-full border-collapse font-mono text-[18px]">
+        <table className="w-full border-collapse font-mono text-[11.5px]">
           <thead className="sticky top-0 z-10 bg-card">
             <tr>
-              <th className="w-7 border-b border-r border-border px-1 py-1 text-center text-[18px] font-semibold text-muted-foreground">
+              <th className="w-7 border-b border-r border-border px-1 py-1 text-center text-[10px] font-semibold text-muted-foreground">
                 #
               </th>
               {cols.map((c, i) => (
                 <th
                   key={i}
-                  className="min-w-[64px] border-b border-r border-border px-1 py-1 text-left text-[19px] font-semibold"
+                  className="min-w-[64px] border-b border-r border-border px-1 py-1 text-left text-[11.5px] font-semibold"
                 >
                   <div className="flex items-center gap-1">
                     <input
@@ -281,7 +281,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
           <tbody>
             {visibleRows.map((row, r) => (
               <tr key={r} className={r % 2 ? 'bg-accent/25' : undefined}>
-                <td className="border-r border-border/60 px-1 py-0.5 text-center text-[18px] text-muted-foreground tabular-nums">
+                <td className="border-r border-border/60 px-1 py-0.5 text-center text-[10px] text-muted-foreground tabular-nums">
                   {r + 1}
                 </td>
                 {row.map((cell, c) => {
@@ -330,12 +330,12 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
           </tbody>
           <tfoot>
             <tr className="border-t-2 border-border/80 bg-accent/35">
-              <td className="border-r border-border/60 px-1 py-1 text-center text-[18px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <td className="border-r border-border/60 px-1 py-1 text-center text-[9px] font-semibold uppercase tracking-wider text-muted-foreground">
                 <select
                   aria-label="Summary function"
                   value={SUMMARY_OPTIONS.includes(summary) ? summary : 'Sum'}
                   onChange={(e) => onSummary(e.target.value as Summary)}
-                  className="rounded border border-border bg-card px-1 py-0.5 text-[18px] font-semibold uppercase text-foreground outline-none"
+                  className="rounded border border-border bg-card px-1 py-0.5 text-[9px] font-semibold uppercase text-foreground outline-none"
                 >
                   {SUMMARY_OPTIONS.map((s) => (
                     <option key={s} value={s}>
@@ -350,7 +350,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
                 return (
                   <td
                     key={i}
-                    className="border-r border-border/40 px-1.5 py-1 text-right text-[18px] font-bold tabular-nums"
+                    className="border-r border-border/40 px-1.5 py-1 text-right text-[11.5px] font-bold tabular-nums"
                     style={{
                       color:
                         v === null

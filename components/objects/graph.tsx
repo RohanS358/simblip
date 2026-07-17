@@ -446,7 +446,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
-        <span className="min-w-0 flex-1 truncate text-[19px] font-semibold tracking-wide text-muted-foreground">
+        <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
           {panels.map((p) => p.name).join(', ') || 'Graph'}
           {hasPlot ? ` vs ${xChannel}` : ''}
         </span>
@@ -506,7 +506,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
             type="button"
             aria-label={`Integrate to the ${integAxis}-axis`}
             title={`Integrating to the ${integAxis}-axis — click to swap`}
-            className="rounded px-1 font-mono text-[18px] text-[var(--accent-violet)]"
+            className="rounded px-1 font-mono text-[10px] text-[var(--accent-violet)]"
             onPointerDown={(e) => e.stopPropagation()}
             onClick={() =>
               setStringParam(pageId, object.id, 'integAxis', integAxis === 'x' ? 'y' : 'x')
@@ -535,7 +535,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
       </div>
       {stats && (
         <div
-          className="grid grid-cols-5 gap-1 border-b border-border/60 bg-accent/30 px-2 py-1 font-mono text-[17px] text-muted-foreground"
+          className="grid grid-cols-5 gap-1 border-b border-border/60 bg-accent/30 px-2 py-1 font-mono text-[9.5px] text-muted-foreground"
           aria-label="Channel measurements"
         >
           <span>RMS {fmtMeas(stats.rms)}</span>
@@ -546,7 +546,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
         </div>
       )}
       {deriv && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[18px]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
           {hoverX === null ? (
             <span className="text-muted-foreground">Hover the chart to place the tangent…</span>
           ) : (
@@ -560,7 +560,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
         </div>
       )}
       {integ && (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[18px]">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
           <span className="text-muted-foreground">
             ∫ over {fmtMeas(intA)}…{fmtMeas(intB)} d{integAxis}
           </span>
@@ -574,11 +574,11 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
       {hasPlot && useStacked ? (
         // Small multiples: one mini chart per series, shared X domain and a
         // synced tooltip cursor so values line up vertically for comparison.
-        <div className="flex min-h-0 flex-1 flex-col p-1 text-[18px]" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="flex min-h-0 flex-1 flex-col p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
           {panels.map((p, i) => (
             <div key={p.key} className="relative min-h-0 flex-1">
               <span
-                className="absolute right-2 top-0 z-10 font-mono text-[18px] font-semibold"
+                className="absolute right-2 top-0 z-10 font-mono text-[9.5px] font-semibold"
                 style={{ color: p.color }}
               >
                 {p.name}
@@ -636,7 +636,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           ))}
         </div>
       ) : hasPlot ? (
-        <div className="relative min-h-0 flex-1 p-1 text-[18px]" onPointerDown={(e) => e.stopPropagation()}>
+        <div className="relative min-h-0 flex-1 p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={rows}
@@ -729,7 +729,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
               {integrals.map((it) => (
                 <span
                   key={it.key}
-                  className="rounded-md border border-border bg-card/90 px-1.5 py-0.5 font-mono text-[18px] font-bold shadow-sm"
+                  className="rounded-md border border-border bg-card/90 px-1.5 py-0.5 font-mono text-[11px] font-bold shadow-sm"
                   style={{ color: it.color }}
                 >
                   ∫ {it.name} = {fmtMeas(it.value)}

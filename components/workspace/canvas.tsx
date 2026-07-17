@@ -455,9 +455,22 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
    * (and on a slow tick during long pans, so culling can catch up) — it stays
    * the source of truth, it's just no longer in the 60 Hz path.
    */
-  const paintViewport = useCallback((vp: Viewport) => {
+  const paintViewport = useCallback((vp: Viewport, settled = true) => {
+    // Two transform modes on purpose. While the gesture runs, translate3d +
+    // will-change keeps the layer composited on the GPU (no paint per frame).
+    // But a will-change/3D layer is rasterized ONCE and the bitmap is
+    // stretched as you zoom — everything goes blurry and stays blurry. So the
+    // moment the gesture settles we drop back to a plain 2D transform with
+    // will-change released (and pixel-snapped offsets), which makes the
+    // browser re-rasterize text and strokes at the real scale — sharp again.
+    const x = settled ? Math.round(vp.x) : vp.x
+    const y = settled ? Math.round(vp.y) : vp.y
     if (layerRef.current) {
-      layerRef.current.style.transform = `translate3d(${vp.x}px, ${vp.y}px, 0) scale(${vp.zoom})`
+      const s = layerRef.current.style
+      s.willChange = settled ? 'auto' : 'transform'
+      s.transform = settled
+        ? `translate(${x}px, ${y}px) scale(${vp.zoom})`
+        : `translate3d(${x}px, ${y}px, 0) scale(${vp.zoom})`
     }
     if (gridRef.current) {
       // Use the user-set grid size (from prefs), with a minimum-size pad that
@@ -470,15 +483,19 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       // which sits GRID_PAD to the left/up. Leaving that out made the dots
       // slide against the objects as you zoomed (the parallax).
       const mod = (n: number) => ((n % cell) + cell) % cell
-      gridRef.current.style.backgroundSize = `${cell}px ${cell}px`
-      gridRef.current.style.transform = `translate3d(${mod(vp.x + pad)}px, ${mod(vp.y + pad)}px, 0)`
+      const s = gridRef.current.style
+      s.willChange = settled ? 'auto' : 'transform'
+      s.backgroundSize = `${cell}px ${cell}px`
+      s.transform = settled
+        ? `translate(${mod(x + pad)}px, ${mod(y + pad)}px)`
+        : `translate3d(${mod(x + pad)}px, ${mod(y + pad)}px, 0)`
     }
   }, [])
 
   const applyViewport = useCallback(
     (vp: Viewport) => {
       vpRef.current = vp // authoritative while the gesture runs
-      paintViewport(vp)
+      paintViewport(vp, false)
 
       // Culling needs the store to move eventually, but not every frame. A
       // slow tick keeps off-screen objects mounting during a long pan; the
@@ -2130,7 +2147,6 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             top: -((nbPrefs.gridSize ?? 40) * 2),
             right: -((nbPrefs.gridSize ?? 40) * 2),
             bottom: -((nbPrefs.gridSize ?? 40) * 2),
-            willChange: 'transform',
           }}
         />
       )}
@@ -2141,8 +2157,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         // the pointer (graphs/notes stop propagation) — ink goes through.
         className={cn('absolute left-0 top-0', editing && tool !== 'select' && 'pointer-events-none')}
         style={{
-          transform: `translate3d(${viewport.x}px, ${viewport.y}px, 0) scale(${viewport.zoom})`,
-          willChange: 'transform',
+          // settled (sharp) form — paintViewport switches to the GPU form
+          // only while a pan/zoom gesture is actually running
+          transform: `translate(${Math.round(viewport.x)}px, ${Math.round(viewport.y)}px) scale(${viewport.zoom})`,
           transformOrigin: '0 0',
         }}
       >
