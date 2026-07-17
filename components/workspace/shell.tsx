@@ -19,6 +19,8 @@ import { useShareInbox } from '@/hooks/use-share-inbox'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
+import { Dock } from './dock'
+import { useLayout, type PanelId, type Side } from '@/lib/store/layout'
 import { Toolbar } from './toolbar'
 import { Transport } from './transport'
 import { Palette } from './palette'
@@ -118,6 +120,7 @@ export function WorkspaceShell() {
       document.documentElement.style.fontSize = ''
     }
   }, [uiScale])
+  const panelSides = useLayout((s) => s.sides)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
@@ -195,6 +198,20 @@ export function WorkspaceShell() {
   if (isMobile) return <MobileShell />
 
   const aiAllowed = can(profile?.role, 'use-ai')
+
+  // Docked panels: open panels grouped by their assigned side. Panels can be
+  // moved, merged into tabs, or split — see components/workspace/dock.tsx.
+  const openPanels: PanelId[] = [
+    ...(sidebarOpen ? (['pages'] as const) : []),
+    ...(inspectorOpen && activePageId ? (['inspector'] as const) : []),
+  ]
+  const dockFor = (side: Side) => (
+    <Dock
+      side={side}
+      panels={openPanels.filter((id) => panelSides[id] === side)}
+      render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={activePageId!} />)}
+    />
+  )
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
@@ -292,7 +309,7 @@ export function WorkspaceShell() {
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {sidebarOpen && <Sidebar />}
+        {dockFor('left')}
 
         {splitScreenObject && (
           <div className="flex w-1/2 flex-col border-r border-border bg-muted/30 p-2">
@@ -347,7 +364,7 @@ export function WorkspaceShell() {
           )}
         </main>
 
-        {inspectorOpen && activePageId && <Inspector pageId={activePageId} />}
+        {dockFor('right')}
       </div>
 
       <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">

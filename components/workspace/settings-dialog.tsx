@@ -132,6 +132,34 @@ function NotebookSettings() {
         />
       </Field>
 
+      <Field
+        label="Panel text size"
+        value={`${Math.round((nb.panelFontScale ?? 1) * 100)}%`}
+        hint="Text size inside the docked panels only — UI scale and canvas zoom stay untouched."
+      >
+        <Slider
+          value={[nb.panelFontScale ?? 1]}
+          min={0.85}
+          max={1.3}
+          step={0.05}
+          onValueChange={([v]) => setNb({ panelFontScale: v })}
+        />
+      </Field>
+
+      <Field
+        label="Panel text spacing"
+        value={`${Math.round((nb.panelSpacing ?? 1) * 100)}%`}
+        hint="Letter spacing in the docked panels — denser or airier text."
+      >
+        <Slider
+          value={[nb.panelSpacing ?? 1]}
+          min={0.9}
+          max={1.25}
+          step={0.05}
+          onValueChange={([v]) => setNb({ panelSpacing: v })}
+        />
+      </Field>
+
       <Field label="Dock position" hint="Where the tool dock sits on the canvas.">
         <Choice<DockSide>
           value={nb.dock}

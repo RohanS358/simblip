@@ -45,6 +45,10 @@ export interface NotebookPrefs {
   disableDoubleTapZoom: boolean
   /** Freeze the canvas zoom level so pinch/scroll cannot change it. */
   lockZoom: boolean
+  /** Panel text size (docked panels only — the canvas keeps its own zoom). */
+  panelFontScale: number
+  /** Panel text spacing/airiness. 1 = default. */
+  panelSpacing: number
 }
 
 /** How the whole UI moves. See lib/motion.ts. */
@@ -118,6 +122,8 @@ export const DEFAULT_NOTEBOOK: NotebookPrefs = {
   gridSize: 40,
   disableDoubleTapZoom: false,
   lockZoom: false,
+  panelFontScale: 1,
+  panelSpacing: 1,
 }
 
 /** Per-style overrides applied on top of the sliders. */
