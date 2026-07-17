@@ -4,7 +4,7 @@
 
 import Link from 'next/link'
 import { ScrollFx } from './scroll-fx'
-import { SimBackdrop } from './sim-backdrop'
+import { HeroBallpit } from './hero-ballpit'
 
 function DemoCard({
   title,
@@ -164,6 +164,9 @@ const FEATURES = [
   ['Digital logic', 'Gates, adders, flip-flops, decoders — every pin shows its 0/1 live; click inputs while it runs.'],
   ['Formulas everywhere', 'Every field takes an expression. Define g, k, R once — sweep them mid-simulation.'],
   ['Probes & meters', 'Voltmeter, ammeter, probes and graphs with custom formulas, axes and reference lines.'],
+  ['DSA Lab', 'Write real C++ in the notebook — an in-browser interpreter steps arrays, trees, graphs and sorts as live visualizations.'],
+  ['AI that builds pages', 'Describe an experiment and the local AI agent assembles it from real components — private, on your own machine.'],
+  ['Docs, boards & PDFs', 'Infinite whiteboards, paged documents that export to PDF, and annotatable PDF/PPT readers — side by side in tabs.'],
 ] as const
 
 export function Landing() {
@@ -191,6 +194,7 @@ export function Landing() {
           </span>
           <nav className="liquid-glass hidden items-center gap-1 rounded-full p-1 md:flex">
             {[
+              ['#new', "What's new"],
               ['#demos', 'Demos'],
               ['#light', 'Physics'],
               ['#classroom', 'Classroom'],
@@ -216,7 +220,7 @@ export function Landing() {
 
       {/* Hero — full-bleed, left-anchored editorial type with a live demo rail */}
       <section className="canvas-dots relative min-h-[92svh] overflow-hidden [background-size:24px_24px]">
-        <SimBackdrop />
+        <HeroBallpit />
         <div className="relative grid min-h-[92svh] items-end gap-10 px-4 pb-14 pt-28 sm:px-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:pb-20">
           <div data-fx="hero">
             <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[var(--accent-blue)]">
@@ -265,13 +269,14 @@ export function Landing() {
 
       {/* Discipline strip — edge to edge */}
       <section className="border-y border-border/50 px-4 py-6 sm:px-8">
-        <div data-fx="domino" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 [perspective:900px]">
+        <div data-fx="domino" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 [perspective:900px]">
           {[
             ['Mechanics', 'Rigid bodies, springs, hinges, motors — drawn, then simulated.'],
             ['Circuits', 'Kirchhoff-solved R/L/C, diodes, op-amps at 120 Hz.'],
             ['Digital logic', 'Gates to flip-flops, every pin live.'],
-            ['Optics & waves', 'Ray tracing, lenses, mirrors — and real diffraction.'],
+            ['Electromagnetics', 'Waves, fields and photons at real dimensions.'],
             ['Quantum', 'Double-slit photons, wells, tunneling barriers.'],
+            ['Algorithms', 'C++ runs in the page — data structures animate live.'],
           ].map(([t, b]) => (
             <div key={t} className="glass rounded-2xl p-4 text-left">
               <p className="text-[13px] font-bold">{t}</p>
@@ -281,7 +286,30 @@ export function Landing() {
         </div>
       </section>
 
-      <section id="demos" className="px-4 py-16 sm:px-8">
+      {/* What's new — the platform's latest capabilities, front and center. */}
+      <section id="new" className="px-4 py-16 sm:px-8">
+        <div data-fx="rise" className="mb-8">
+          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[var(--accent-mint)]">New in SIMBLIP</p>
+          <h2 className="mt-3 max-w-[18ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">
+            More than a whiteboard now
+          </h2>
+        </div>
+        <div data-fx="domino" className="grid gap-4 [perspective:1100px] sm:grid-cols-2 xl:grid-cols-4">
+          {[
+            ['DSA Lab', 'A C++ interpreter lives inside the notebook. Step through your own code and watch arrays, stacks, trees and graph traversals animate as textbook-quality visualizations.', 'var(--accent-violet)'],
+            ['Local AI agent', 'Ask for “a projectile hitting a spring on an incline” and the on-device AI assembles it from real simulation components. Nothing leaves your machine.', 'var(--accent-blue)'],
+            ['Docs & PDF notebooks', 'Pages now come in three kinds — infinite Board, paged Doc that exports to high-quality PDF, and uploaded PDF/PPT you annotate with the pen.', 'var(--accent-amber)'],
+            ['Tabs & split screen', 'Open several boards, docs and PDFs at once in header tabs, drop any two side by side in a resizable split, and take linked per-page notes.', 'var(--accent-mint)'],
+          ].map(([t, b, c]) => (
+            <div key={t} className="liquid-glass rounded-2xl p-5">
+              <p className="text-[13px] font-bold" style={{ color: c }}>{t}</p>
+              <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section id="demos" className="border-t border-border/60 px-4 py-16 sm:px-8">
         <div data-fx="rise" className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <h2 className="max-w-[16ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">
             Six things your paper notebook can&apos;t do

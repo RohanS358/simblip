@@ -11,7 +11,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { homeFor } from '@/lib/auth/types'
 import { cloudConfigured } from '@/lib/data/db'
 import { Button } from '@/components/ui/button'
-import { SimBackdrop } from '@/components/landing/sim-backdrop'
+import { HeroBallpit } from '@/components/landing/hero-ballpit'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -44,7 +44,7 @@ export default function LoginPage() {
     <div className="relative grid min-h-dvh overflow-hidden bg-background lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)]">
       {/* Brand panel — full-height statement, not a centered logo */}
       <div className="canvas-dots relative hidden flex-col justify-between overflow-hidden p-10 [background-size:24px_24px] lg:flex">
-        <SimBackdrop />
+        <HeroBallpit />
         <span className="relative text-[18px] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
@@ -66,7 +66,7 @@ export default function LoginPage() {
 
       {/* Form panel */}
       <div className="relative flex items-center justify-center px-4 py-10 lg:border-l lg:border-border/50">
-      <div className="lg:hidden"><SimBackdrop /></div>
+      <div className="pointer-events-none absolute inset-0 opacity-40 lg:hidden"><HeroBallpit className="absolute inset-0" /></div>
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center lg:text-left">
           <span className="text-[22px] font-extrabold tracking-tight lg:hidden">
