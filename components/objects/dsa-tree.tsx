@@ -5,7 +5,7 @@
 // grows into a tree. Nodes appear at the step where the call happened and
 // show their return value once they finish.
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { CallNode, TraceResult } from '@/lib/dsa/trace'
 
@@ -50,6 +50,7 @@ function layoutTree(nodes: Record<string, CallNode>, roots: string[]): { placed:
 }
 
 export function DsaTreeView({ trace, stepIdx }: { trace: TraceResult | null; stepIdx: number }) {
+  const [fit, setFit] = useState(true)
   const layout = useMemo(
     () => (trace ? layoutTree(trace.callNodes, trace.rootCalls) : null),
     [trace]
@@ -80,8 +81,25 @@ export function DsaTreeView({ trace, stepIdx }: { trace: TraceResult | null; ste
   const visible = layout.placed.filter((p) => p.node.startStep <= stepIdx)
 
   return (
-    <div className="h-full overflow-auto">
-      <svg width={layout.w} height={layout.h} className="min-h-full min-w-full">
+    <div
+      className={cn('relative h-full', fit ? 'overflow-hidden' : 'overflow-auto')}
+      onWheelCapture={(e) => {
+        // keep in-pane scrolling from panning the workspace canvas underneath
+        if (!fit) e.stopPropagation()
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setFit((f) => !f)}
+        className="absolute right-2 top-2 z-10 rounded-md border border-border/60 bg-[var(--card)]/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground"
+      >
+        {fit ? '1:1' : 'Fit'}
+      </button>
+      <svg
+        {...(fit
+          ? { viewBox: `0 0 ${layout.w} ${layout.h}`, preserveAspectRatio: 'xMidYMin meet', width: '100%', height: '100%' }
+          : { width: layout.w, height: layout.h, className: 'min-h-full min-w-full' })}
+      >
         {/* branches first, so nodes draw on top */}
         {visible.map((p) => {
           if (!p.node.parent) return null
