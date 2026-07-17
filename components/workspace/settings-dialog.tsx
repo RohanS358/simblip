@@ -414,9 +414,16 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 <p className="pt-1 text-[11.5px] text-muted-foreground">
                   Profile details are managed by your institution admin.
                 </p>
-                <Button variant="outline" size="sm" onClick={() => useAuthStore.getState().logout()}>
-                  Sign out on this device
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                  {profile.role === 'super_admin' && (
+                    <Button variant="outline" size="sm" onClick={() => { window.location.href = '/dev' }}>
+                      ← Return to dev console
+                    </Button>
+                  )}
+                  <Button variant="outline" size="sm" onClick={() => useAuthStore.getState().logout()}>
+                    Sign out on this device
+                  </Button>
+                </div>
               </>
             )}
           </TabsContent>

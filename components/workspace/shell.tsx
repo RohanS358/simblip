@@ -20,7 +20,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
-import { useLayout, type PanelId, type Side } from '@/lib/store/layout'
+import type { PanelId, Side } from '@/lib/store/layout'
 import { Toolbar } from './toolbar'
 import { Transport } from './transport'
 import { Palette } from './palette'
@@ -131,7 +131,6 @@ export function WorkspaceShell() {
       document.documentElement.style.removeProperty('--accent-blue')
     }
   }, [accent])
-  const panelSides = useLayout((s) => s.sides)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
@@ -210,19 +209,20 @@ export function WorkspaceShell() {
 
   const aiAllowed = can(profile?.role, 'use-ai')
 
-  // Docked panels: open panels grouped by their assigned side. Panels can be
-  // moved, merged into tabs, or split — see components/workspace/dock.tsx.
-  const openPanels: PanelId[] = [
-    ...(sidebarOpen ? (['pages'] as const) : []),
-    ...(inspectorOpen && activePageId ? (['inspector'] as const) : []),
-  ]
-  const dockFor = (side: Side) => (
-    <Dock
-      side={side}
-      panels={openPanels.filter((id) => panelSides[id] === side)}
-      render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={activePageId!} />)}
-    />
-  )
+  // Docked panels: Pages on the left, Inspector on the right — fixed homes.
+  const dockFor = (side: Side) => {
+    const panels: PanelId[] =
+      side === 'left'
+        ? sidebarOpen ? ['pages'] : []
+        : inspectorOpen && activePageId ? ['inspector'] : []
+    return (
+      <Dock
+        side={side}
+        panels={panels}
+        render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={activePageId!} />)}
+      />
+    )
+  }
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
