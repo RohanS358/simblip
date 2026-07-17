@@ -35,6 +35,9 @@ const LONGTASK_BUDGET_MS = 2_500
 /** pageId → when it stopped being the open page. */
 const closedAt = new Map<string, number>()
 let activeId: string | null = null
+/** Everything currently ON SCREEN beyond the active page: the split pane,
+ *  a doc's sheets, a PDF's linked note sheets. Never eviction candidates. */
+let liveIds = new Set<string>()
 
 // ── Pressure sensing ────────────────────────────────────────────────────────
 
@@ -76,7 +79,17 @@ function underPressure(): boolean {
 // ── Policy ──────────────────────────────────────────────────────────────────
 
 const cachedPages = (): string[] =>
-  Object.keys(useDocStore.getState().pages).filter((id) => id !== activeId)
+  Object.keys(useDocStore.getState().pages).filter((id) => id !== activeId && !liveIds.has(id))
+
+/** Declare the set of pages that are visible right now (split panes, doc
+ *  sheets, note sheets). Pages leaving the set start their grace clock. */
+export function setLivePages(ids: string[]): void {
+  const next = new Set(ids)
+  const now = Date.now()
+  for (const id of liveIds) if (!next.has(id) && id !== activeId) closedAt.set(id, now)
+  for (const id of next) closedAt.delete(id)
+  liveIds = next
+}
 
 function evict(ids: string[]) {
   if (ids.length === 0) return

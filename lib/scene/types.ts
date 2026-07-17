@@ -127,10 +127,25 @@ export interface PageDoc {
   variables: Variable[]
 }
 
+/** What a notebook page IS: an infinite board, a paged document, or an
+ *  uploaded PDF/PPT you read and annotate. Older pages have no kind → board. */
+export type PageKind = 'board' | 'doc' | 'pdf'
+
 /** Tree metadata only — page content lives in the document store, keyed by id. */
 export interface PageMeta {
   id: string
   name: string
+  kind?: PageKind
+  /** doc: ordered content-page ids, one per sheet. */
+  docPages?: string[]
+  /** pdf: content-page ids for linked per-PDF-page notes (index = pdf page − 1). */
+  notesPages?: string[]
+  /** pdf: id of the free-form notes doc opened beside the reader. */
+  notesDocId?: string
+  /** pdf: shareable copy of the uploaded document (cloud/local db). */
+  fileUrl?: string
+  fileName?: string
+  fileMime?: string
 }
 
 export interface Section {

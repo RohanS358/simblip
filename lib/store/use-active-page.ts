@@ -13,7 +13,8 @@
 import { useEffect } from 'react'
 import { useDocStore } from '@/lib/store/document'
 import { useRuntimeStore, stop } from '@/lib/physics/world'
-import { setActivePage, stopPageCache } from '@/lib/store/page-cache'
+import { setActivePage, setLivePages, stopPageCache } from '@/lib/store/page-cache'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 
 export function useLazyActivePage(activePageId: string | null) {
   useEffect(() => {
@@ -27,6 +28,25 @@ export function useLazyActivePage(activePageId: string | null) {
     useDocStore.getState().loadPage(activePageId) // from the archive, or fresh
     setActivePage(activePageId) // starts the previous page's grace clock
   }, [activePageId])
+
+  // Everything visible beyond the active page — the split pane, a doc's
+  // sheets, PDF note sheets — must be immune to cache eviction while shown.
+  useEffect(() => {
+    const compute = () => {
+      const s = useWorkspaceStore.getState()
+      const ids = new Set<string>()
+      for (const pageId of [s.activePageId, s.primaryPageId, s.splitPageId]) {
+        if (!pageId) continue
+        ids.add(pageId)
+        const meta = findPageMeta(s.notebooks, pageId)
+        for (const sheet of meta?.docPages ?? []) ids.add(sheet)
+        for (const note of meta?.notesPages ?? []) if (note) ids.add(note)
+      }
+      setLivePages([...ids])
+    }
+    compute()
+    return useWorkspaceStore.subscribe(compute)
+  }, [])
 
   // Leaving the workspace entirely: stop sweeping.
   useEffect(() => stopPageCache, [])

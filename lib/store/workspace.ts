@@ -6,12 +6,22 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { uid, type Notebook } from '@/lib/scene/types'
+import { uid, type Notebook, type PageKind, type PageMeta } from '@/lib/scene/types'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 
 interface WorkspaceState {
   notebooks: Notebook[]
   activePageId: string | null
+  /** Session tabs — every page currently open in the header tab strip. */
+  openTabs: string[]
+  /** Left pane while split (falls back to activePageId when not split). */
+  primaryPageId: string | null
+  /** Second split-screen pane (a page id), or null for single view. */
+  splitPageId: string | null
+  /** Width fraction of the FIRST pane when split. */
+  splitRatio: number
+  /** Doc pages: the sheet (content page) the tools currently target. */
+  activeSheetId: string | null
   sidebarOpen: boolean
   inspectorOpen: boolean
   aiOpen: boolean
@@ -27,10 +37,20 @@ interface WorkspaceState {
   addSection: (notebookId: string, name?: string) => string
   renameSection: (notebookId: string, id: string, name: string) => void
   removeSection: (notebookId: string, id: string) => void
-  addPage: (notebookId: string, sectionId: string, name?: string) => string
+  addPage: (notebookId: string, sectionId: string, name?: string, kind?: PageKind) => string
   renamePage: (pageId: string, name: string) => void
   removePage: (pageId: string) => void
+  updatePageMeta: (pageId: string, patch: Partial<Omit<PageMeta, 'id'>>) => void
+  /** Append a fresh sheet to a doc page; returns its content-page id. */
+  addDocSheet: (pageId: string) => string
+  /** Content page for the notes linked to one PDF page (created on demand). */
+  ensureNotesPage: (pageId: string, pdfPage: number) => string
   setActivePage: (id: string | null) => void
+  closeTab: (id: string) => void
+  openSplit: (id: string) => void
+  closeSplit: (keep?: 'primary' | 'split') => void
+  setSplitRatio: (f: number) => void
+  setActiveSheet: (id: string | null) => void
   togglePanel: (panel: 'sidebar' | 'inspector' | 'ai') => void
   toggleTouchOrthoPen: () => void
   toggleTouchFreeMove: () => void
@@ -39,6 +59,24 @@ interface WorkspaceState {
   setSyncScroll: (sync: boolean) => void
 }
 
+/** Find a page's metadata anywhere in the tree. */
+export function findPageMeta(notebooks: Notebook[], pageId: string | null): PageMeta | null {
+  if (!pageId) return null
+  for (const nb of notebooks)
+    for (const sec of nb.sections)
+      for (const p of sec.pages) if (p.id === pageId) return p
+  return null
+}
+
+const patchPage = (notebooks: Notebook[], pageId: string, patch: Partial<PageMeta>): Notebook[] =>
+  notebooks.map((n) => ({
+    ...n,
+    sections: n.sections.map((sec) => ({
+      ...sec,
+      pages: sec.pages.map((p) => (p.id === pageId ? { ...p, ...patch } : p)),
+    })),
+  }))
+
 const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -46,6 +84,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     (set, get) => ({
       notebooks: [],
       activePageId: null,
+      openTabs: [],
+      primaryPageId: null,
+      splitPageId: null,
+      splitRatio: 0.5,
+      activeSheetId: null,
       sidebarOpen: true,
       inspectorOpen: true,
       aiOpen: false,
@@ -117,20 +160,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }
         }),
 
-      addPage: (notebookId, sectionId, name = 'Untitled Page') => {
+      addPage: (notebookId, sectionId, name = 'Untitled Page', kind = 'board') => {
         const id = uid()
+        // A doc starts with one sheet; a board/pdf carries its own content.
+        const meta: PageMeta = { id, name, kind, ...(kind === 'doc' ? { docPages: [uid()] } : {}) }
         set((s) => ({
           notebooks: s.notebooks.map((n) =>
             n.id === notebookId
               ? {
                   ...n,
                   sections: n.sections.map((sec) =>
-                    sec.id === sectionId ? { ...sec, pages: [...sec.pages, { id, name }] } : sec
+                    sec.id === sectionId ? { ...sec, pages: [...sec.pages, meta] } : sec
                   ),
                 }
               : n
           ),
           activePageId: id,
+          openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
         }))
         return id
       },
@@ -150,9 +196,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         // Deleting a page is the ONE case where content should really go —
         // forgetPage drops it from memory, from the local archive, and
         // queues the cloud deletion. (Merely closing a page must never do
-        // this; see lib/store/deleted-pages.ts.)
+        // this; see lib/store/deleted-pages.ts.) Docs/PDFs also own their
+        // sheets and per-page notes — those go with them.
+        const meta = findPageMeta(get().notebooks, pageId)
+        const contentIds = [pageId, ...(meta?.docPages ?? []), ...(meta?.notesPages ?? []).filter(Boolean)]
         void import('@/lib/store/document').then(({ useDocStore }) =>
-          useDocStore.getState().forgetPage(pageId)
+          contentIds.forEach((id) => useDocStore.getState().forgetPage(id))
         )
         set((s) => ({
           notebooks: s.notebooks.map((n) => ({
@@ -163,10 +212,93 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             })),
           })),
           activePageId: s.activePageId === pageId ? null : s.activePageId,
+          openTabs: s.openTabs.filter((t) => t !== pageId),
+          splitPageId: s.splitPageId === pageId ? null : s.splitPageId,
+          primaryPageId: s.primaryPageId === pageId ? null : s.primaryPageId,
         }))
       },
 
-      setActivePage: (id) => set({ activePageId: id }),
+      updatePageMeta: (pageId, patch) =>
+        set((s) => ({ notebooks: patchPage(s.notebooks, pageId, patch) })),
+
+      addDocSheet: (pageId) => {
+        const sheetId = uid()
+        set((s) => {
+          const meta = findPageMeta(s.notebooks, pageId)
+          return {
+            notebooks: patchPage(s.notebooks, pageId, {
+              docPages: [...(meta?.docPages ?? []), sheetId],
+            }),
+          }
+        })
+        return sheetId
+      },
+
+      ensureNotesPage: (pageId, pdfPage) => {
+        const meta = findPageMeta(get().notebooks, pageId)
+        const existing = meta?.notesPages?.[pdfPage - 1]
+        if (existing) return existing
+        const noteId = uid()
+        set((s) => {
+          const m = findPageMeta(s.notebooks, pageId)
+          const notes = [...(m?.notesPages ?? [])]
+          while (notes.length < pdfPage) notes.push('')
+          notes[pdfPage - 1] = noteId
+          return { notebooks: patchPage(s.notebooks, pageId, { notesPages: notes }) }
+        })
+        return noteId
+      },
+
+      setActivePage: (id) =>
+        set((s) => {
+          const openTabs = id && !s.openTabs.includes(id) ? [...s.openTabs, id] : s.openTabs
+          // Split open and a page picked that isn't in either pane: it replaces
+          // whichever pane currently has focus, so the split survives browsing.
+          if (s.splitPageId && id && id !== s.splitPageId && id !== s.primaryPageId) {
+            if (s.activePageId === s.splitPageId)
+              return { activePageId: id, splitPageId: id, openTabs }
+            return { activePageId: id, primaryPageId: id, openTabs }
+          }
+          return { activePageId: id, ...(s.splitPageId ? {} : { primaryPageId: id }), openTabs }
+        }),
+
+      closeTab: (id) =>
+        set((s) => {
+          const openTabs = s.openTabs.filter((t) => t !== id)
+          const fallback = openTabs[openTabs.length - 1] ?? null
+          return {
+            openTabs,
+            splitPageId: s.splitPageId === id ? null : s.splitPageId,
+            primaryPageId: s.primaryPageId === id ? fallback : s.primaryPageId,
+            activePageId: s.activePageId === id ? fallback : s.activePageId,
+          }
+        }),
+
+      openSplit: (id) =>
+        set((s) => {
+          // Left pane keeps what you were on; the new page opens on the right.
+          const primary =
+            s.activePageId && s.activePageId !== id
+              ? s.activePageId
+              : (s.openTabs.find((t) => t !== id) ?? null)
+          if (!primary) return { activePageId: id, primaryPageId: id, openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id] }
+          return {
+            splitPageId: id,
+            primaryPageId: primary,
+            activePageId: id,
+            openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
+          }
+        }),
+
+      closeSplit: (keep?: 'primary' | 'split') =>
+        set((s) => {
+          const id = keep === 'split' ? s.splitPageId : (s.primaryPageId ?? s.activePageId)
+          return { splitPageId: null, primaryPageId: id, activePageId: id }
+        }),
+
+      setSplitRatio: (f) => set({ splitRatio: Math.min(0.8, Math.max(0.2, f)) }),
+
+      setActiveSheet: (id) => set({ activeSheetId: id }),
 
       togglePanel: (panel) =>
         set((s) =>

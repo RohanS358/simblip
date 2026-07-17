@@ -32,7 +32,7 @@ import {
   X,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -47,7 +47,7 @@ import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
-import { InfiniteCanvas } from './canvas'
+import { PageView } from './page-view'
 import { AiPanel } from './ai-panel'
 import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
@@ -116,9 +116,15 @@ export function MobileShell() {
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const activeKind = useWorkspaceStore(
+    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+  )
+  // Docs: the tools act on the focused sheet; boards act on themselves.
+  const contentPageId = activeKind === 'doc' ? (activeSheetId ?? activePageId) : activePageId
   const splitScreenObject = useDocStore((s) =>
-    activePageId && splitScreenDocumentId
-      ? s.pages[activePageId]?.objects?.[splitScreenDocumentId] ?? null
+    contentPageId && splitScreenDocumentId
+      ? s.pages[contentPageId]?.objects?.[splitScreenDocumentId] ?? null
       : null
   )
 
@@ -293,7 +299,7 @@ export function MobileShell() {
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{pageName}</span>
           <SyncStatus />
           <NotificationCenter />
-          <UndoRedo pageId={activePageId} />
+          <UndoRedo pageId={contentPageId ?? activePageId} />
           {appMenu}
         </header>
 
@@ -307,24 +313,28 @@ export function MobileShell() {
                   : 'h-full w-1/2 flex-col border-r border-border'
               )}
             >
-              <FileObject object={splitScreenObject} pageId={activePageId!} />
+              <FileObject object={splitScreenObject} pageId={contentPageId!} />
             </div>
           )}
           <div className="relative flex-1 min-h-0">
-            <InfiniteCanvas key={activePageId} pageId={activePageId} />
+            <PageView pageId={activePageId} />
           </div>
-          <Transport pageId={activePageId} />
-          <Toolbar
-            calcOpen={calcOpen}
-            onToggleCalc={() => setCalcOpen((o) => !o)}
-            paletteOpen={paletteOpen}
-            onTogglePalette={() => setPaletteOpen((o) => !o)}
-            showAi={aiAllowed}
-            pageId={activePageId}
-          />
-          <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          {activeKind !== 'pdf' && contentPageId && (
+            <>
+              <Transport pageId={contentPageId} />
+              <Toolbar
+                calcOpen={calcOpen}
+                onToggleCalc={() => setCalcOpen((o) => !o)}
+                paletteOpen={paletteOpen}
+                onTogglePalette={() => setPaletteOpen((o) => !o)}
+                showAi={aiAllowed}
+                pageId={contentPageId}
+              />
+              <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+            </>
+          )}
           {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
-          {aiAllowed && <AiPanel pageId={activePageId} />}
+          {aiAllowed && contentPageId && <AiPanel pageId={contentPageId} />}
         </main>
 
         {/* Editing on a small screen: lift the object out of the canvas and dim
@@ -332,7 +342,7 @@ export function MobileShell() {
             then comes in from the bottom (phone) or the side (tablet). */}
         {activePageId && (
           <FocusObject
-            pageId={activePageId}
+            pageId={contentPageId ?? activePageId}
             objectId={focusedId}
             onDismiss={closeInspector}
             // The panel's footprint: a sheet along the bottom on a phone, the
@@ -351,8 +361,8 @@ export function MobileShell() {
               key="inspector"
               className={
                 isPhone
-                  ? 'fixed inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col rounded-t-2xl border-t border-border bg-background shadow-2xl'
-                  : 'fixed bottom-0 right-0 top-0 z-[60] flex w-[22rem] max-w-[85vw] flex-col border-l border-border bg-background shadow-2xl'
+                  ? 'fixed inset-x-0 bottom-0 z-[60] flex max-h-[62dvh] flex-col rounded-t-2xl border-t border-border/30 bg-background'
+                  : 'fixed bottom-0 right-0 top-0 z-[60] flex w-[22rem] max-w-[85vw] flex-col border-l border-border/30 bg-background'
               }
               initial={isPhone ? { y: '100%' } : { x: '100%' }}
               animate={isPhone ? { y: 0 } : { x: 0 }}
@@ -373,7 +383,7 @@ export function MobileShell() {
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
-                <Inspector pageId={activePageId} />
+                <Inspector pageId={contentPageId ?? activePageId} />
               </div>
             </fm.div>
           )}

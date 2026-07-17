@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
@@ -25,7 +25,8 @@ import { Toolbar } from './toolbar'
 import { Transport } from './transport'
 import { Palette } from './palette'
 import { Inspector } from './inspector'
-import { InfiniteCanvas } from './canvas'
+import { PageView } from './page-view'
+import { TabsBar } from './tabs-bar'
 import { AiPanel } from './ai-panel'
 import { SyncStatus } from './sync-status'
 import { MobileShell } from './mobile-shell'
@@ -136,30 +137,45 @@ export function WorkspaceShell() {
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const syncScroll = useWorkspaceStore((s) => s.syncScroll)
+  const splitPageId = useWorkspaceStore((s) => s.splitPageId)
+  const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
+  const splitRatio = useWorkspaceStore((s) => s.splitRatio)
+  const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const activeKind = useWorkspaceStore(
+    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+  )
+  // What the toolbar/transport/inspector actually operate on: boards act on
+  // themselves, docs act on the focused SHEET, PDF readers keep their own dock.
+  const contentPageId =
+    activeKind === 'doc' ? (activeSheetId ?? activePageId) : activePageId
+  // Width of the legacy in-board document split pane (item: resizable).
+  const [docSplitW, setDocSplitW] = useState(0.5)
 
-  const activePageObjects = useDocStore((s) => activePageId ? s.pages[activePageId]?.objects : null)
+  const activePageObjects = useDocStore((s) => contentPageId ? s.pages[contentPageId]?.objects : null)
   const splitScreenObject = splitScreenDocumentId && activePageObjects ? activePageObjects[splitScreenDocumentId] : null
 
   useEffect(() => {
-    if (!syncScroll || !activePageId) return
+    if (!syncScroll || !contentPageId) return
+    // 1:1 linked scrolling: a pixel of PDF scroll moves the canvas a pixel on
+    // screen, whatever the zoom — the two columns track each other exactly.
+    let lastTop: number | null = null
     const onPdfScroll = (e: Event) => {
-      const { pct } = (e as CustomEvent).detail
+      const { scrollTop } = (e as CustomEvent).detail as { scrollTop: number }
+      if (lastTop === null) {
+        lastTop = scrollTop
+        return
+      }
+      const dy = scrollTop - lastTop
+      lastTop = scrollTop
       const s = useDocStore.getState()
-      const box = s.viewports[activePageId] || { x: 0, y: 0, zoom: 1 }
-      const canvasHeight = 10000
-      s.setViewport(activePageId, { ...box, y: -pct * canvasHeight * box.zoom })
+      const box = s.viewports[contentPageId] || { x: 0, y: 0, zoom: 1 }
+      s.setViewport(contentPageId, { ...box, y: box.y - dy })
     }
     window.addEventListener('simblip-pdf-scroll', onPdfScroll)
     return () => window.removeEventListener('simblip-pdf-scroll', onPdfScroll)
-  }, [syncScroll, activePageId])
-  const pageName = useWorkspaceStore((s) => {
-    for (const nb of s.notebooks)
-      for (const sec of nb.sections)
-        for (const p of sec.pages) if (p.id === s.activePageId) return p.name
-    return null
-  })
+  }, [syncScroll, contentPageId])
   const objectCount = useDocStore((s) =>
-    activePageId ? Object.keys(s.pages[activePageId]?.objects ?? {}).length : 0
+    contentPageId ? Object.keys(s.pages[contentPageId]?.objects ?? {}).length : 0
   )
 
   // Incoming shared pages auto-deliver into "Shared with me".
@@ -219,7 +235,7 @@ export function WorkspaceShell() {
       <Dock
         side={side}
         panels={panels}
-        render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={activePageId!} />)}
+        render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={contentPageId ?? activePageId!} />)}
       />
     )
   }
@@ -256,15 +272,9 @@ export function WorkspaceShell() {
             · {institution.name}
           </span>
         )}
-        {pageName && (
-          <>
-            <span className="hidden text-muted-foreground/50 sm:inline">/</span>
-            <span className="hidden min-w-0 truncate text-[13px] text-muted-foreground sm:inline">
-              {pageName}
-            </span>
-          </>
-        )}
-        <div className="flex-1" />
+        <span className="hidden text-muted-foreground/50 sm:inline">/</span>
+        {/* open pages ride in the header as tabs — boards, docs and PDFs side by side */}
+        <TabsBar />
         <button
           type="button"
           aria-label="Search (Ctrl+K)"
@@ -283,7 +293,7 @@ export function WorkspaceShell() {
         >
           <Search className="h-4 w-4" />
         </button>
-        {activePageId && <UndoRedo pageId={activePageId} />}
+        {contentPageId && <UndoRedo pageId={contentPageId} />}
         <SyncStatus />
         <NotificationCenter />
         <button
@@ -323,9 +333,32 @@ export function WorkspaceShell() {
         {dockFor('left')}
 
         {splitScreenObject && (
-          <div className="flex w-1/2 flex-col border-r border-border bg-muted/30 p-2">
-            <FileObject object={splitScreenObject} pageId={activePageId!} />
-          </div>
+          <>
+            <div
+              className="flex min-w-0 flex-col bg-muted/30 p-2"
+              style={{ width: `${docSplitW * 100}%` }}
+            >
+              <FileObject object={splitScreenObject} pageId={contentPageId!} />
+            </div>
+            {/* resizable seam for the in-board document split */}
+            <div
+              role="separator"
+              aria-label="Resize document pane"
+              className="w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50"
+              onPointerDown={(e) => {
+                e.preventDefault()
+                const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
+                const move = (ev: PointerEvent) =>
+                  setDocSplitW(Math.min(0.75, Math.max(0.25, (ev.clientX - host.left) / host.width)))
+                const up = () => {
+                  window.removeEventListener('pointermove', move)
+                  window.removeEventListener('pointerup', up)
+                }
+                window.addEventListener('pointermove', move)
+                window.addEventListener('pointerup', up)
+              }}
+            />
+          </>
         )}
 
         <main className="relative min-w-0 flex-1">
@@ -351,19 +384,68 @@ export function WorkspaceShell() {
           )}
           {activePageId ? (
             <>
-              <InfiniteCanvas key={activePageId} pageId={activePageId} />
-              <Transport pageId={activePageId} />
-              <Toolbar
-                calcOpen={calcOpen}
-                onToggleCalc={() => setCalcOpen((v) => !v)}
-                paletteOpen={paletteOpen}
-                onTogglePalette={() => setPaletteOpen((o) => !o)}
-                showAi={aiAllowed}
-                pageId={activePageId}
-              />
-              <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+              {(() => {
+                const leftId = splitPageId ? (primaryPageId ?? activePageId) : activePageId
+                const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
+                const setActive = useWorkspaceStore.getState().setActivePage
+                if (!rightId) return <PageView pageId={leftId} />
+                return (
+                  <div className="flex h-full w-full">
+                    <div
+                      className={cn(
+                        'relative min-w-0',
+                        activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25'
+                      )}
+                      style={{ width: `${splitRatio * 100}%` }}
+                      onPointerDownCapture={() => activePageId !== leftId && setActive(leftId)}
+                    >
+                      <PageView pageId={leftId} />
+                    </div>
+                    <div
+                      role="separator"
+                      aria-label="Resize split"
+                      className="w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50"
+                      onPointerDown={(e) => {
+                        e.preventDefault()
+                        const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
+                        const move = (ev: PointerEvent) =>
+                          useWorkspaceStore.getState().setSplitRatio((ev.clientX - host.left) / host.width)
+                        const up = () => {
+                          window.removeEventListener('pointermove', move)
+                          window.removeEventListener('pointerup', up)
+                        }
+                        window.addEventListener('pointermove', move)
+                        window.addEventListener('pointerup', up)
+                      }}
+                    />
+                    <div
+                      className={cn(
+                        'relative min-w-0 flex-1',
+                        activePageId === rightId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25'
+                      )}
+                      onPointerDownCapture={() => activePageId !== rightId && setActive(rightId)}
+                    >
+                      <PageView pageId={rightId} />
+                    </div>
+                  </div>
+                )
+              })()}
+              {activeKind !== 'pdf' && contentPageId && (
+                <>
+                  <Transport pageId={contentPageId} />
+                  <Toolbar
+                    calcOpen={calcOpen}
+                    onToggleCalc={() => setCalcOpen((v) => !v)}
+                    paletteOpen={paletteOpen}
+                    onTogglePalette={() => setPaletteOpen((o) => !o)}
+                    showAi={aiAllowed}
+                    pageId={contentPageId}
+                  />
+                  <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+                </>
+              )}
               {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
-              {aiAllowed && <AiPanel pageId={activePageId} />}
+              {aiAllowed && contentPageId && <AiPanel pageId={contentPageId} />}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">

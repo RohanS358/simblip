@@ -1,0 +1,82 @@
+'use client'
+
+// Header tab strip — every open board/doc/PDF is a tab, browser-style.
+// Click focuses, × closes, the split icon opens a tab beside the current one.
+// Scrolls horizontally when crowded, so it degrades gracefully on tablets.
+
+import { Columns2, FileText, Layout, BookOpen, X } from 'lucide-react'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import type { PageKind } from '@/lib/scene/types'
+import { cn } from '@/lib/utils'
+
+const KIND_ICON: Record<PageKind, typeof Layout> = {
+  board: Layout,
+  doc: FileText,
+  pdf: BookOpen,
+}
+
+export function TabsBar() {
+  const openTabs = useWorkspaceStore((s) => s.openTabs)
+  const activePageId = useWorkspaceStore((s) => s.activePageId)
+  const splitPageId = useWorkspaceStore((s) => s.splitPageId)
+  const notebooks = useWorkspaceStore((s) => s.notebooks)
+  const setActivePage = useWorkspaceStore((s) => s.setActivePage)
+  const closeTab = useWorkspaceStore((s) => s.closeTab)
+  const openSplit = useWorkspaceStore((s) => s.openSplit)
+  const closeSplit = useWorkspaceStore((s) => s.closeSplit)
+
+  if (openTabs.length === 0) return <div className="min-w-0 flex-1" />
+
+  return (
+    <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
+      {openTabs.map((id) => {
+        const meta = findPageMeta(notebooks, id)
+        if (!meta) return null
+        const Icon = KIND_ICON[meta.kind ?? 'board']
+        const active = id === activePageId
+        const inSplit = id === splitPageId
+        return (
+          <div
+            key={id}
+            className={cn(
+              'group flex max-w-44 shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] transition-colors',
+              active
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            )}
+          >
+            <button
+              type="button"
+              className="flex min-w-0 items-center gap-1.5"
+              title={meta.name}
+              onClick={() => setActivePage(id)}
+            >
+              <Icon className={cn('h-3.5 w-3.5 shrink-0', inSplit && 'text-[var(--accent-blue)]')} />
+              <span className="truncate">{meta.name}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={inSplit ? 'Close split' : 'Open in split screen'}
+              title={inSplit ? 'Close split' : 'Open in split screen'}
+              className={cn(
+                'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:block',
+                inSplit ? 'block text-[var(--accent-blue)]' : 'text-muted-foreground'
+              )}
+              onClick={() => (inSplit ? closeSplit('primary') : openSplit(id))}
+            >
+              <Columns2 className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              aria-label="Close tab"
+              className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-background/60 hover:text-foreground group-hover:opacity-100"
+              onClick={() => closeTab(id)}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

@@ -248,7 +248,36 @@ export function Sidebar() {
                 <div key={sec.id} className="ml-4 mt-0.5">
                   <ContextMenu>
                     <ContextMenuTrigger asChild>
-                      <div className="group flex items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] font-medium text-muted-foreground hover:bg-accent/50">
+                      <div
+                        className="group flex items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] font-medium text-muted-foreground hover:bg-accent/50"
+                        // Drop a PDF/PPT straight onto a section — it becomes a
+                        // reader page (converted to PDF in the browser if needed).
+                        onDragOver={(e) => {
+                          if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+                        }}
+                        onDrop={(e) => {
+                          const f = e.dataTransfer.files?.[0]
+                          if (!f) return
+                          e.preventDefault()
+                          void (async () => {
+                            const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
+                            let file = f
+                            if (!isPdf) {
+                              const { convertToPdf } = await import('@/lib/store/to-pdf')
+                              try {
+                                file = await convertToPdf(f)
+                              } catch {
+                                return
+                              }
+                            }
+                            const pageId = store
+                              .getState()
+                              .addPage(nb.id, sec.id, f.name.replace(/\.[^.]+$/, ''), 'pdf')
+                            const { putSessionFile } = await import('@/lib/store/session-files')
+                            putSessionFile(pageId, file)
+                          })()
+                        }}
+                      >
                         <span className={cn('h-2 w-2 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
                         <InlineName
                           name={sec.name}
@@ -269,7 +298,13 @@ export function Sidebar() {
                     </ContextMenuTrigger>
                     <ContextMenuContent>
                       <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
-                        <Plus className="h-4 w-4" /> New page
+                        <Plus className="h-4 w-4" /> New board
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
+                        <Plus className="h-4 w-4" /> New document
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
+                        <Plus className="h-4 w-4" /> New PDF / PPT page
                       </ContextMenuItem>
                       <ContextMenuItem onClick={() => setRenaming(sec.id)}>
                         <Pencil className="h-4 w-4" /> Rename
