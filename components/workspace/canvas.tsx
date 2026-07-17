@@ -46,6 +46,16 @@ const GRID_PAD = GRID * 2
 const MIN_ZOOM = 0.05
 const MAX_ZOOM = 16
 
+/** Notebook scroll-axis lock: zero the free axis of a screen-space pan delta.
+ *  Used by wheel, pointer pan (space / middle-button), and two-finger pan —
+ *  locking only the wheel path left desktop users free to drift sideways. */
+function axisLockDelta(dx: number, dy: number): { dx: number; dy: number } {
+  const axis = usePrefs.getState().notebook.scrollAxis
+  if (axis === 'vertical') return { dx: 0, dy }
+  if (axis === 'horizontal') return { dx, dy: 0 }
+  return { dx, dy }
+}
+
 // Universal placement gestures: click spawns the default; dragging sizes
 // the object while placing it. Line-likes go point→point, circle-likes grow
 // by radius from the press point (their center), everything else stretches
@@ -607,10 +617,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         })
       } else {
         // Scroll axis: locking to one direction keeps long notes from
-        // drifting sideways as you read down them.
-        const axis = usePrefs.getState().notebook.scrollAxis
-        const dx = axis === 'vertical' ? 0 : e.deltaX
-        const dy = axis === 'horizontal' ? 0 : e.deltaY
+        // drifting sideways as you read down them. Applies to trackpad
+        // two-finger scroll and mouse wheel the same way.
+        const { dx, dy } = axisLockDelta(e.deltaX, e.deltaY)
         applyViewport({ ...v, x: v.x - dx, y: v.y - dy })
       }
     }
@@ -788,10 +797,12 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       if (Math.abs(dxScreen) + Math.abs(dyScreen) > 3) g.moved = true
 
       if (g.mode === 'pan') {
+        // Space / middle-button / touch-select pan — same axis lock as wheel.
+        const { dx, dy } = axisLockDelta(dxScreen, dyScreen)
         applyViewport({
           ...g.startViewport,
-          x: g.startViewport.x + dxScreen,
-          y: g.startViewport.y + dyScreen,
+          x: g.startViewport.x + dx,
+          y: g.startViewport.y + dy,
         })
         return
       }
@@ -1634,10 +1645,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
         const [a, b] = [...touches.values()]
         const cx = (a.x + b.x) / 2
         const cy = (a.y + b.y) / 2
-        const prevCx = (p.center.x)
-        const prevCy = (p.center.y)
-        const dx = cx - prevCx
-        const dy = cy - prevCy
+        const prevCx = p.center.x
+        const prevCy = p.center.y
+        const { dx, dy } = axisLockDelta(cx - prevCx, cy - prevCy)
         const v = vpRef.current
         applyViewport({ ...v, x: v.x + dx, y: v.y + dy })
         // Re-anchor so next move delta is correct.
@@ -1650,13 +1660,26 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       const rect = containerRef.current!.getBoundingClientRect()
       const cx = (a.x + b.x) / 2 - rect.left
       const cy = (a.y + b.y) / 2 - rect.top
-      applyViewport({
+      // Zoom under the live midpoint, then freeze the locked scroll axis so a
+      // diagonal pinch can't drag the page sideways while zooming.
+      const next: Viewport = {
         zoom,
         x: cx - ((p.center.x - rect.left - p.viewport.x) * zoom) / p.viewport.zoom,
         y: cy - ((p.center.y - rect.top - p.viewport.y) * zoom) / p.viewport.zoom,
-      })
+      }
+      const axis = usePrefs.getState().notebook.scrollAxis
+      if (axis === 'vertical' || axis === 'horizontal') {
+        const startCx = p.center.x - rect.left
+        const startCy = p.center.y - rect.top
+        if (axis === 'vertical') {
+          next.x = startCx - ((startCx - p.viewport.x) * zoom) / p.viewport.zoom
+        } else {
+          next.y = startCy - ((startCy - p.viewport.y) * zoom) / p.viewport.zoom
+        }
+      }
+      applyViewport(next)
     },
-    [pageId]
+    [pageId, applyViewport]
   )
 
   const pinchBaseline = useCallback(() => {
