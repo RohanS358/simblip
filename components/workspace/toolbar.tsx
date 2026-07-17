@@ -244,7 +244,10 @@ export function Toolbar({
       <div ref={toolbarRef} className="relative">
       {showSize && (
         <div
-          className="glass-strong absolute bottom-full left-1/2 mb-2 flex -translate-x-1/2 items-center gap-2.5 rounded-xl px-3 py-2"
+          className={cn(
+            'glass-strong absolute flex items-center gap-2.5 rounded-xl px-3 py-2',
+            penFlyoutClass // always opens toward the screen centre, wherever the dock is
+          )}
           // Mouse-gated: on touch, pointerleave fires after every slider drag
           // and would dismiss the flyout mid-adjustment.
           onPointerEnter={(e) => e.pointerType === 'mouse' && openSize()}

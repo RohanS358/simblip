@@ -81,15 +81,7 @@ export function PenSettings() {
         />
       </Field>
 
-      <Field label="Thickness" value={`${pen.size}px`}>
-        <Slider
-          value={[pen.size]}
-          min={0.5}
-          max={16}
-          step={0.25}
-          onValueChange={([v]) => setPen({ size: v })}
-        />
-      </Field>
+      {/* Thickness lives on the dock's hover flyout — one place, not two. */}
 
       <Field label="Dot size" value={`${pen.dotSize}x`} hint="Multiplier for single-tap dots (like the dot on an 'i').">
         <Slider

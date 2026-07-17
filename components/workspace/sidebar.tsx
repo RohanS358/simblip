@@ -40,6 +40,12 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 const SECTION_DOT: Record<string, string> = {
@@ -286,14 +292,31 @@ export function Sidebar() {
                           onEditDone={() => setRenaming(null)}
                           onRename={(name) => store.getState().renameSection(nb.id, sec.id, name)}
                         />
-                        <button
-                          type="button"
-                          aria-label="Add page"
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-                          onClick={() => store.getState().addPage(nb.id, sec.id)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
+                        {/* Every page kind, one click away — not hidden behind
+                            the right-click menu. */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Add page"
+                              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 data-[state=open]:opacity-100"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" className="w-44">
+                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
+                              <Plus className="h-4 w-4" /> New board
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
+                              <Plus className="h-4 w-4" /> New document
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
+                              <Plus className="h-4 w-4" /> New PDF / PPT page
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>

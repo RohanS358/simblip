@@ -38,8 +38,16 @@ export function TabsBar() {
         return (
           <div
             key={id}
+            // Obsidian-style snap assist: drag a tab over the canvas and drop
+            // it on the left or right half to split. The shell renders the
+            // drop zones (it owns the canvas area).
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('application/x-simblip-tab', id)
+              e.dataTransfer.effectAllowed = 'move'
+            }}
             className={cn(
-              'group flex max-w-44 shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] transition-colors',
+              'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-[12px] transition-colors',
               active
                 ? 'bg-accent text-foreground'
                 : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -59,7 +67,7 @@ export function TabsBar() {
               aria-label={inSplit ? 'Close split' : 'Open in split screen'}
               title={inSplit ? 'Close split' : 'Open in split screen'}
               className={cn(
-                'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:block',
+                'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:block [@media(pointer:coarse)]:block',
                 inSplit ? 'block text-[var(--accent-blue)]' : 'text-muted-foreground'
               )}
               onClick={() => (inSplit ? closeSplit('primary') : openSplit(id))}

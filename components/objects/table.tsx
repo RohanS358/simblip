@@ -74,7 +74,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
   const scope: Scope = useDocStore((s) => s.scopes[pageId]) ?? {}
 
-  const headerStr = getString(object, 'headers', 'SN;x;y;z=x+y')
+  const headerStr = getString(object, 'headers', 'A;B;C')
   const dataStr = getString(object, 'data', '')
   const summary = (getString(object, 'summary', 'Sum') as Summary) || 'Sum'
 

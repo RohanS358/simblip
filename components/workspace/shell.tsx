@@ -150,6 +150,7 @@ export function WorkspaceShell() {
     activeKind === 'doc' ? (activeSheetId ?? activePageId) : activePageId
   // Width of the legacy in-board document split pane (item: resizable).
   const [docSplitW, setDocSplitW] = useState(0.5)
+  const [tabDropSide, setTabDropSide] = useState<'left' | 'right' | null>(null)
 
   const activePageObjects = useDocStore((s) => contentPageId ? s.pages[contentPageId]?.objects : null)
   const splitScreenObject = splitScreenDocumentId && activePageObjects ? activePageObjects[splitScreenDocumentId] : null
@@ -361,7 +362,37 @@ export function WorkspaceShell() {
           </>
         )}
 
-        <main className="relative min-w-0 flex-1">
+        <main
+          className="relative min-w-0 flex-1"
+          // Snap assist: while a tab is dragged over the canvas, glow the half
+          // it would land in; dropping splits (right) or fills the left pane.
+          onDragOver={(e) => {
+            if (!e.dataTransfer.types.includes('application/x-simblip-tab')) return
+            e.preventDefault()
+            e.dataTransfer.dropEffect = 'move'
+            const r = e.currentTarget.getBoundingClientRect()
+            setTabDropSide(e.clientX < r.left + r.width / 2 ? 'left' : 'right')
+          }}
+          onDragLeave={(e) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node)) setTabDropSide(null)
+          }}
+          onDrop={(e) => {
+            const id = e.dataTransfer.getData('application/x-simblip-tab')
+            setTabDropSide(null)
+            if (!id) return
+            e.preventDefault()
+            const r = e.currentTarget.getBoundingClientRect()
+            useWorkspaceStore.getState().dropTab(id, e.clientX < r.left + r.width / 2 ? 'left' : 'right')
+          }}
+        >
+          {tabDropSide && (
+            <div
+              className={cn(
+                'pointer-events-none absolute inset-y-2 z-50 w-1/2 rounded-2xl border-2 border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/10 transition-all',
+                tabDropSide === 'left' ? 'left-2' : 'right-2'
+              )}
+            />
+          )}
           {/* Edge handles — toggle the side panels from mid-screen instead of
               reaching for the top corners. */}
           <button

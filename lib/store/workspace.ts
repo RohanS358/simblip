@@ -33,6 +33,7 @@ interface WorkspaceState {
 
   addNotebook: (name?: string) => string
   renameNotebook: (id: string, name: string) => void
+  setNotebookCover: (id: string, cover: string | undefined) => void
   removeNotebook: (id: string) => void
   addSection: (notebookId: string, name?: string) => string
   renameSection: (notebookId: string, id: string, name: string) => void
@@ -48,6 +49,8 @@ interface WorkspaceState {
   setActivePage: (id: string | null) => void
   closeTab: (id: string) => void
   openSplit: (id: string) => void
+  /** Snap-assist: a tab dragged onto the left or right half of the canvas. */
+  dropTab: (id: string, side: 'left' | 'right') => void
   closeSplit: (keep?: 'primary' | 'split') => void
   setSplitRatio: (f: number) => void
   setActiveSheet: (id: string | null) => void
@@ -109,6 +112,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       renameNotebook: (id, name) =>
         set((s) => ({
           notebooks: s.notebooks.map((n) => (n.id === id ? { ...n, name } : n)),
+        })),
+
+      setNotebookCover: (id, cover) =>
+        set((s) => ({
+          notebooks: s.notebooks.map((n) => (n.id === id ? { ...n, cover } : n)),
         })),
 
       removeNotebook: (id) =>
@@ -288,6 +296,30 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             activePageId: id,
             openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
           }
+        }),
+
+      dropTab: (id, side) =>
+        set((s) => {
+          const openTabs = s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id]
+          const left = s.primaryPageId ?? s.activePageId
+          if (side === 'right') {
+            if (s.splitPageId === id) return { openTabs, activePageId: id } // already there
+            if (left === id) {
+              // The current page dragged right: whatever sat in the split (or
+              // the next tab) becomes the left pane.
+              const other = s.splitPageId ?? openTabs.find((t) => t !== id) ?? null
+              if (!other) return { openTabs }
+              return { openTabs, primaryPageId: other, splitPageId: id, activePageId: id }
+            }
+            return { openTabs, primaryPageId: left, splitPageId: id, activePageId: id }
+          }
+          // side === 'left'
+          if (s.splitPageId === id) {
+            // Right pane dragged left → the panes swap.
+            return { openTabs, primaryPageId: id, splitPageId: left, activePageId: id }
+          }
+          if (!s.splitPageId) return { openTabs, activePageId: id, primaryPageId: id }
+          return { openTabs, primaryPageId: id, activePageId: id }
         }),
 
       closeSplit: (keep?: 'primary' | 'split') =>

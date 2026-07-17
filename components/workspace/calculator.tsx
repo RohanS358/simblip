@@ -85,6 +85,9 @@ export function Calculator({ onClose }: { onClose: () => void }) {
   }, [width, componentScale])
 
   const onDragPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // The fx / close buttons live inside the grip row — capturing their
+    // pointer here would eat their clicks entirely.
+    if ((e.target as HTMLElement).closest('button')) return
     e.preventDefault()
     dragRef.current = { startX: e.clientX, startY: e.clientY, x: pos.x, y: pos.y }
     e.currentTarget.setPointerCapture(e.pointerId)

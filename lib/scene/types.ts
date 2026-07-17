@@ -159,6 +159,8 @@ export interface Notebook {
   id: string
   name: string
   emoji: string
+  /** Cover image path (from /public/cover) shown on notebook cards. */
+  cover?: string
   sections: Section[]
 }
 

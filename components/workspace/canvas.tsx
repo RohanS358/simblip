@@ -441,11 +441,29 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const myRole = useAuthStore((s) => s.profile?.role)
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
-  const [stroke, setStroke] = useState<number[][] | null>(null)
-  // Mirror refs: gesture-commit handlers must NOT create objects inside
-  // setState updaters (StrictMode double-invokes them → duplicate spawns).
+  // Live ink is imperative. Points live in a ref and the SVG path's `d` is
+  // written directly on pointermove — re-rendering the whole canvas per
+  // pointer event is exactly the pen latency users feel. React re-renders
+  // only when a stroke starts or ends (overlay mount/unmount).
+  const [stroke, setStrokeState] = useState<number[][] | null>(null)
   const strokeRef = useRef<number[][] | null>(null)
-  strokeRef.current = stroke
+  const strokePathRef = useRef<SVGPathElement | null>(null)
+  const setStroke = (v: number[][] | null) => {
+    strokeRef.current = v
+    setStrokeState(v)
+  }
+  /** Per-move update: bypasses React entirely. */
+  const updateStroke = (v: number[][]) => {
+    strokeRef.current = v
+    const el = strokePathRef.current
+    if (!el || v.length < 2) return
+    el.setAttribute(
+      'd',
+      useDocStore.getState().tool === 'pen'
+        ? inkPath(v, { size: penSize, last: false })
+        : pointsToPath(v)
+    )
+  }
   // Draw-and-hold: true once the pen has rested HOLD_MS in place — the live
   // ink tints to signal "release now to convert into a component".
   const [holdReady, setHoldReady] = useState(false)
@@ -996,7 +1014,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             for (let k = 1; k <= n; k++)
               dense.push([ax + ((bx - ax) * k) / n, ay + ((by - ay) * k) / n, 0.5])
           }
-          setStroke(dense)
+          updateStroke(dense)
         } else {
           // Coalesced pointer events give the full-resolution ink trail;
           // pressure rides along as a third component for the ink renderer.
@@ -1005,15 +1023,13 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               ? e.getCoalescedEvents()
               : [e]
           const pts = raw.map((ev) => ({ ...toCanvas(ev.clientX, ev.clientY), p: ev.pressure }))
-          setStroke((prev) => {
-            const next = prev ? [...prev] : []
-            for (const p of pts) {
-              const last = next[next.length - 1]
-              if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
-                next.push([p.x, p.y, p.p])
-            }
-            return next
-          })
+          const next = strokeRef.current ?? []
+          for (const p of pts) {
+            const last = next[next.length - 1]
+            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
+              next.push([p.x, p.y, p.p])
+          }
+          updateStroke(next)
           // Draw-and-hold tracking: only real movement (beyond pen jitter)
           // counts; resting in place lets the hold timer mature.
           const nowMs = performance.now()
@@ -1047,7 +1063,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
           const len = Math.hypot(point.x - g.start.x, point.y - g.start.y)
           end = { x: g.start.x + len * Math.cos(snap), y: g.start.y + len * Math.sin(snap) }
         }
-        setStroke([
+        updateStroke([
           [g.start.x, g.start.y],
           [end.x, end.y],
         ])
@@ -1881,10 +1897,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       return
     }
 
-    if (e.pointerType === 'touch' && editing && tool === 'select') {
-      beginGesture('pan', e)
-      return
-    }
+    // A single finger (or pen) dragging in select mode behaves exactly like
+    // left-click + drag: a selection marquee. Two fingers still pan/zoom.
     if (!editing || tool === 'select') {
       // Clicking empty space inside a multi-selection's bounds drags the
       // whole selection; only clicks outside it start a fresh marquee.
@@ -2323,22 +2337,30 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
             )
           })()}
 
-        {stroke && stroke.length > 1 && (
+        {stroke && (
+          // Mounted from the FIRST point: pointermove then writes the path's
+          // `d` attribute imperatively (updateStroke) — zero React work per
+          // event, which is what keeps ink glued to the pen tip.
           <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
             {tool === 'pen' ? (
               // Live ink matches the committed stroke — same renderer. The
               // amber tint + ring = hold matured: release to convert.
               <>
                 <path
-                  d={inkPath(stroke, { size: penSize, last: false })}
+                  ref={strokePathRef}
+                  d={
+                    (strokeRef.current?.length ?? 0) > 1
+                      ? inkPath(strokeRef.current!, { size: penSize, last: false })
+                      : ''
+                  }
                   fill={holdReady ? 'var(--accent-amber)' : pen.color}
                   fillOpacity={PEN_STYLES[pen.style].opacity}
                   stroke="none"
                 />
-                {holdReady && (
+                {holdReady && strokeRef.current && strokeRef.current.length > 0 && (
                   <circle
-                    cx={stroke[stroke.length - 1][0]}
-                    cy={stroke[stroke.length - 1][1]}
+                    cx={strokeRef.current[strokeRef.current.length - 1][0]}
+                    cy={strokeRef.current[strokeRef.current.length - 1][1]}
                     r={11}
                     fill="none"
                     stroke="var(--accent-amber)"
@@ -2349,7 +2371,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
               </>
             ) : (
               <path
-                d={pointsToPath(stroke)}
+                ref={strokePathRef}
+                d={(strokeRef.current?.length ?? 0) > 1 ? pointsToPath(strokeRef.current!) : ''}
                 fill="none"
                 stroke="var(--foreground)"
                 strokeWidth={2}

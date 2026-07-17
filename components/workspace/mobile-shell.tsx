@@ -48,6 +48,7 @@ import { useSpring } from '@/lib/motion'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
 import { PageView } from './page-view'
+import { TabsBar } from './tabs-bar'
 import { AiPanel } from './ai-panel'
 import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
@@ -85,6 +86,13 @@ const SECTION_DOT: Record<string, string> = {
   rose: 'bg-[var(--accent-rose)]',
 }
 
+/** The cover set that ships in /public/cover — pick one per notebook. */
+const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
+  (c) => `/cover/cover-${c}.svg`
+)
+
+const SHARED_NB = 'Shared with me'
+
 export function MobileShell() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
@@ -98,6 +106,8 @@ export function MobileShell() {
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [coverFor, setCoverFor] = useState<string | null>(null)
+  const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({})
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -115,6 +125,9 @@ export function MobileShell() {
   const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
+  const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
+  const splitPageId = useWorkspaceStore((s) => s.splitPageId)
+  const splitRatio = useWorkspaceStore((s) => s.splitRatio)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const activeKind = useWorkspaceStore(
@@ -213,13 +226,63 @@ export function MobileShell() {
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
+              <div className="flex w-full items-center gap-1">
+                <button
+                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                  onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
+                >
+                  <BookOpen className="h-4 w-4" /> My Notebooks
+                </button>
+                <button
+                  type="button"
+                  aria-label={navExpanded.__root ? 'Collapse notebooks' : 'Expand notebooks'}
+                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+                  onClick={() => setNavExpanded((x) => ({ ...x, __root: !x.__root }))}
+                >
+                  <ChevronRight className={cn('h-4 w-4 transition-transform', navExpanded.__root && 'rotate-90')} />
+                </button>
+              </div>
+              {/* The same notebook → section → page tree the desktop sidebar has. */}
+              {navExpanded.__root && notebooks.filter((n) => n.name !== SHARED_NB).map((nb) => (
+                <div key={nb.id} className="ml-2">
+                  <button
+                    className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+                    onClick={() => setNavExpanded((x) => ({ ...x, [nb.id]: !x[nb.id] }))}
+                  >
+                    <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', navExpanded[nb.id] && 'rotate-90')} />
+                    <span className="truncate">{nb.name}</span>
+                  </button>
+                  {navExpanded[nb.id] &&
+                    nb.sections.map((sec) => (
+                      <div key={sec.id} className="ml-5">
+                        <div className="flex items-center gap-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
+                          <span className={cn('h-1.5 w-1.5 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
+                          {sec.name}
+                        </div>
+                        {sec.pages.map((p) => (
+                          <button
+                            key={p.id}
+                            className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px]', activePageId === p.id ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                            onClick={() => { openPage(p.id); setDrawerOpen(false) }}
+                          >
+                            <span className="truncate">{p.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                </div>
+              ))}
               <button
-                className={cn('flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
-                onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => {
+                  // Open (or create) the notebook where shared copies land.
+                  const ws = store.getState()
+                  const nb = ws.notebooks.find((n) => n.name === SHARED_NB)
+                  const id = nb?.id ?? ws.addNotebook(SHARED_NB)
+                  setView({ kind: 'notebook', id })
+                  setDrawerOpen(false)
+                }}
               >
-                <BookOpen className="h-4 w-4" /> My Notebooks
-              </button>
-              <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
                 <Share2 className="h-4 w-4" /> Shared with me
               </button>
               <button
@@ -229,7 +292,10 @@ export function MobileShell() {
                 <ClipboardList className="h-4 w-4" /> Assignments
               </button>
               {staff && (
-                <button className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+                <button
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
+                >
                   <GraduationCap className="h-4 w-4" /> Review
                 </button>
               )}
@@ -303,6 +369,11 @@ export function MobileShell() {
           {appMenu}
         </header>
 
+        {/* Same tab strip as desktop — open pages, ×, split toggle. */}
+        <div className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background px-1">
+          <TabsBar />
+        </div>
+
         <main className={cn('relative min-h-0 flex-1 flex', isPhone ? 'flex-col' : 'flex-row')}>
           {splitScreenObject && (
             <div
@@ -316,9 +387,58 @@ export function MobileShell() {
               <FileObject object={splitScreenObject} pageId={contentPageId!} />
             </div>
           )}
-          <div className="relative flex-1 min-h-0">
-            <PageView pageId={activePageId} />
-          </div>
+          {(() => {
+            // Split screen, exactly like desktop: primary pane stays put,
+            // the split pane sits beside it (tablet) or below it (phone).
+            const leftId = splitPageId ? (primaryPageId ?? activePageId) : activePageId
+            const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
+            if (!rightId) {
+              return (
+                <div className="relative flex-1 min-h-0">
+                  <PageView pageId={leftId} />
+                </div>
+              )
+            }
+            return (
+              <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
+                <div
+                  className={cn('relative min-h-0 min-w-0', activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
+                  style={isPhone ? { height: `${splitRatio * 100}%` } : { width: `${splitRatio * 100}%` }}
+                  onPointerDownCapture={() => activePageId !== leftId && store.getState().setActivePage(leftId)}
+                >
+                  <PageView pageId={leftId} />
+                </div>
+                <div
+                  role="separator"
+                  aria-label="Resize split"
+                  className={cn('shrink-0 touch-none bg-border/60', isPhone ? 'h-1.5 w-full cursor-row-resize' : 'w-1.5 cursor-col-resize')}
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    const el = e.currentTarget.parentElement!
+                    const rect = el.getBoundingClientRect()
+                    const move = (ev: PointerEvent) => {
+                      const r = isPhone
+                        ? (ev.clientY - rect.top) / rect.height
+                        : (ev.clientX - rect.left) / rect.width
+                      store.getState().setSplitRatio(r)
+                    }
+                    const up = () => {
+                      window.removeEventListener('pointermove', move)
+                      window.removeEventListener('pointerup', up)
+                    }
+                    window.addEventListener('pointermove', move)
+                    window.addEventListener('pointerup', up)
+                  }}
+                />
+                <div
+                  className={cn('relative min-h-0 min-w-0 flex-1', activePageId === rightId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
+                  onPointerDownCapture={() => activePageId !== rightId && store.getState().setActivePage(rightId)}
+                >
+                  <PageView pageId={rightId} />
+                </div>
+              </div>
+            )
+          })()}
           {activeKind !== 'pdf' && contentPageId && (
             <>
               <Transport pageId={contentPageId} />
@@ -436,14 +556,28 @@ export function MobileShell() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <button
-                    type="button"
-                    aria-label={`New page in ${sec.name}`}
-                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
-                    onClick={() => openPage(store.getState().addPage(notebook.id, sec.id))}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`New page in ${sec.name}`}
+                        className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id))}>
+                        <Plus className="h-4 w-4" /> New board
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id, 'Untitled Doc', 'doc'))}>
+                        <Plus className="h-4 w-4" /> New document
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id, 'Untitled PDF', 'pdf'))}>
+                        <Plus className="h-4 w-4" /> New PDF / PPT page
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
               
@@ -578,45 +712,57 @@ export function MobileShell() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">
-          {notebooks.map((nb) => {
+          {notebooks.filter((nb) => nb.name !== SHARED_NB).map((nb) => {
             const pages = nb.sections.reduce((n, s) => n + s.pages.length, 0)
             return (
               <fm.div
                 key={nb.id}
                 whileTap={{ scale: 0.95 }}
-                className="relative flex flex-col items-start gap-3 rounded-[24px] rounded-tl-lg border border-border/60 bg-gradient-to-br from-card to-card/50 p-4 shadow-sm"
+                className="relative flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card shadow-sm"
                 onClick={() => setView({ kind: 'notebook', id: nb.id })}
               >
-                <div className="absolute -top-[11px] left-0 h-4 w-1/3 rounded-t-lg border-x border-t border-border/60 bg-card" />
-                <div className="flex w-full items-center justify-between z-10">
-                  <span className="text-[28px] leading-none drop-shadow-md">{nb.emoji || <BookOpen className="h-6 w-6" />}</span>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <button type="button" className="rounded-full p-2 text-muted-foreground hover:bg-accent hover:text-foreground">
-                        <MoreVertical className="h-5 w-5" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                      <DropdownMenuItem onClick={(e) => {
-                        e.stopPropagation()
-                        const name = window.prompt('Rename notebook', nb.name)
-                        if (name?.trim()) store.getState().renameNotebook(nb.id, name.trim())
-                      }}>
-                        <Pencil className="h-4 w-4" /> Rename
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem variant="destructive" onClick={(e) => {
-                        e.stopPropagation()
-                        if (window.confirm(`Delete notebook "${nb.name}"?`)) {
-                          store.getState().removeNotebook(nb.id)
-                        }
-                      }}>
-                        <Trash2 className="h-4 w-4" /> Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                {/* Cover image instead of an icon — pick one from /cover. */}
+                <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
+                  {nb.cover ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={nb.cover} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] to-transparent">
+                      <BookOpen className="h-7 w-7 text-muted-foreground/50" />
+                    </div>
+                  )}
+                  <div className="absolute right-1.5 top-1.5">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <button type="button" className="rounded-full bg-background/70 p-1.5 text-muted-foreground backdrop-blur-sm hover:bg-background hover:text-foreground">
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation()
+                          const name = window.prompt('Rename notebook', nb.name)
+                          if (name?.trim()) store.getState().renameNotebook(nb.id, name.trim())
+                        }}>
+                          <Pencil className="h-4 w-4" /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setCoverFor(nb.id) }}>
+                          <BookOpen className="h-4 w-4" /> Choose cover…
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem variant="destructive" onClick={(e) => {
+                          e.stopPropagation()
+                          if (window.confirm(`Delete notebook "${nb.name}"?`)) {
+                            store.getState().removeNotebook(nb.id)
+                          }
+                        }}>
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-                <div className="mt-1 flex flex-col z-10">
+                <div className="flex flex-col p-3">
                   <span className="line-clamp-2 text-[15px] font-bold tracking-tight">{nb.name}</span>
                   <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     {pages} page{pages === 1 ? '' : 's'}
@@ -643,6 +789,69 @@ export function MobileShell() {
           </fm.div>
         </div>
       </main>
+
+      {/* Cover picker — the /public/cover set, one tap to apply. */}
+      <AnimatePresence>
+        {coverFor && (
+          <>
+            <fm.div
+              className="fixed inset-0 z-[70] bg-black/40"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCoverFor(null)}
+            />
+            <fm.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={spring}
+              className="fixed inset-x-0 bottom-0 z-[80] rounded-t-2xl border-t border-border/40 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+            >
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Choose a cover
+                </span>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
+                  onClick={() => setCoverFor(null)}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                {COVERS.map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    className="overflow-hidden rounded-xl border border-border/60 transition-transform active:scale-95"
+                    onClick={() => {
+                      store.getState().setNotebookCover(coverFor, c)
+                      setCoverFor(null)
+                    }}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={c} alt="" className="aspect-[3/2] w-full object-cover" />
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="mt-3 w-full rounded-xl border border-dashed border-border/60 py-2 text-[13px] font-medium text-muted-foreground active:bg-accent"
+                onClick={() => {
+                  store.getState().setNotebookCover(coverFor, undefined)
+                  setCoverFor(null)
+                }}
+              >
+                No cover
+              </button>
+            </fm.div>
+          </>
+        )}
+      </AnimatePresence>
+
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>

@@ -239,8 +239,12 @@ class Parser {
     const t = this.peek(o)
     if (t.k === 'kw' && (BUILTIN_TYPES.has(t.v) || t.v === 'const' || t.v === 'struct' || t.v === 'class')) return true
     if (t.k === 'id' && this.typeNames.has(t.v)) return true
-    // std::vector<…>, std::string
-    if (t.k === 'id' && t.v === 'std' && this.peek(o + 1).v === '::') return true
+    // std::vector<…>, std::string — but NOT std::cout / std::endl, which are
+    // expressions: only a type name after the '::' makes this a declaration.
+    if (t.k === 'id' && t.v === 'std' && this.peek(o + 1).v === '::') {
+      const n = this.peek(o + 2)
+      return BUILTIN_TYPES.has(n.v) || this.typeNames.has(n.v)
+    }
     return false
   }
 

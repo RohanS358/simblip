@@ -735,11 +735,27 @@ const Ballpit = ({ className = '', followCursor = true, ...props }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    spheresInstanceRef.current = createBallpit(canvas, { followCursor, ...props });
+    // Deferred one frame: React StrictMode mounts, unmounts and remounts —
+    // dispose() force-loses the canvas's WebGL context, so creating the
+    // renderer synchronously would leave the second mount with a dead canvas.
+    // No WebGL at all (blocked GPU, old driver) degrades to an empty backdrop.
+    let disposed = false;
+    const raf = requestAnimationFrame(() => {
+      if (disposed) return;
+      try {
+        spheresInstanceRef.current = createBallpit(canvas, { followCursor, ...props });
+      } catch (err) {
+        console.warn('Ballpit disabled: WebGL unavailable', err);
+        spheresInstanceRef.current = null;
+      }
+    });
 
     return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
       if (spheresInstanceRef.current) {
         spheresInstanceRef.current.dispose();
+        spheresInstanceRef.current = null;
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
