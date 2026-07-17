@@ -13,10 +13,8 @@
 // resizable from the bottom-right corner.
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { motion as fm } from 'framer-motion'
 import { X, Delete, GripHorizontal } from 'lucide-react'
 import { create, all } from 'mathjs'
-import { useSpring } from '@/lib/motion'
 import { fmtNum } from '@/lib/scene/format'
 import { usePrefs } from '@/lib/store/preferences'
 import { cn } from '@/lib/utils'
@@ -26,6 +24,17 @@ const math = create(all, {})
 const MIN_W = 200
 const MAX_W = 420
 const DEFAULT_W = 256 // w-64
+
+// Where the calculator sits, remembered across open/close and page switches
+// so it reopens exactly where you left it — never at a surprise position.
+let savedPos: { x: number; y: number } | null = null
+let savedWidth = DEFAULT_W
+
+/** Keep the frame on screen no matter what resized underneath it. */
+const clampPos = (x: number, y: number, w: number, scale: number) => ({
+  x: Math.min(Math.max(8, window.innerWidth - w * scale - 8), Math.max(8, x)),
+  y: Math.min(window.innerHeight - 120, Math.max(8, y)),
+})
 
 /** Scientific keys — a second row set, hidden until you ask for them. */
 const SCI = [
@@ -46,15 +55,48 @@ const toExpr = (s: string) =>
   s.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g, '-').replace(/π/g, 'pi').replace(/√/g, 'sqrt')
 
 export function Calculator({ onClose }: { onClose: () => void }) {
-  const spring = useSpring('snap')
   const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const [expr, setExpr] = useState('')
   const [result, setResult] = useState('')
   const [sci, setSci] = useState(false)
   const [history, setHistory] = useState<{ expr: string; value: string }[]>([])
-  const [width, setWidth] = useState(DEFAULT_W)
+  const [width, setWidth] = useState(savedWidth)
+  // Positioned from the top-left in plain screen px — the draggable outer
+  // frame is NOT zoomed (only the inner body is), so drag math is exact.
+  const [pos, setPos] = useState(() =>
+    savedPos ??
+    (typeof window === 'undefined'
+      ? { x: 24, y: 120 }
+      : clampPos(window.innerWidth - savedWidth * componentScale - 24, window.innerHeight - 480, savedWidth, componentScale))
+  )
   const inputRef = useRef<HTMLInputElement>(null)
   const resizeRef = useRef<{ startX: number; startW: number } | null>(null)
+  const dragRef = useRef<{ startX: number; startY: number; x: number; y: number } | null>(null)
+
+  // Remember placement, and never let a window resize strand it off screen.
+  useEffect(() => {
+    savedPos = pos
+    savedWidth = width
+  }, [pos, width])
+  useEffect(() => {
+    const onResize = () => setPos((p) => clampPos(p.x, p.y, width, componentScale))
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [width, componentScale])
+
+  const onDragPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.preventDefault()
+    dragRef.current = { startX: e.clientX, startY: e.clientY, x: pos.x, y: pos.y }
+    e.currentTarget.setPointerCapture(e.pointerId)
+  }
+  const onDragPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const d = dragRef.current
+    if (!d) return
+    setPos(clampPos(d.x + e.clientX - d.startX, d.y + e.clientY - d.startY, width, componentScale))
+  }
+  const onDragPointerUp = () => {
+    dragRef.current = null
+  }
 
   // Live preview of the answer as you type — you see the result before you
   // commit, which catches a mistyped bracket immediately.
@@ -124,21 +166,26 @@ export function Calculator({ onClose }: { onClose: () => void }) {
   )
 
   return (
-    <fm.div
-      drag
-      dragMomentum={false}
-      initial={{ opacity: 0, scale: 0.94 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={spring}
-      className="liquid-glass absolute bottom-24 right-6 z-50 select-none rounded-[1.4rem] p-2.5"
-      style={{
-        width,
-        // Components UI scale — same as canvas objects (tables, formulas…).
-        zoom: componentScale !== 1 ? componentScale : undefined,
-      }}
+    // Two layers on purpose: the OUTER frame owns position in plain screen px
+    // (drag math stays 1:1 with the pointer), the INNER body owns width and
+    // the Components UI zoom — same scale as canvas objects.
+    <div
+      className="fixed z-50 select-none"
+      style={{ left: pos.x, top: pos.y, animation: 'calc-in 160ms ease-out' }}
       onPointerDown={(e) => e.stopPropagation()}
     >
-      <div className="mb-1 flex cursor-grab items-center gap-1 active:cursor-grabbing">
+    <div
+      className="liquid-glass relative rounded-[1.4rem] p-2.5"
+      style={{ width, zoom: componentScale !== 1 ? componentScale : undefined }}
+    >
+      <style>{`@keyframes calc-in { from { opacity: 0; transform: scale(.96) } }`}</style>
+      <div
+        className="mb-1 flex cursor-grab touch-none items-center gap-1 active:cursor-grabbing"
+        onPointerDown={onDragPointerDown}
+        onPointerMove={onDragPointerMove}
+        onPointerUp={onDragPointerUp}
+        onPointerCancel={onDragPointerUp}
+      >
         <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="flex-1 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Calculator
@@ -253,6 +300,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         onPointerUp={onResizePointerUp}
         onPointerCancel={onResizePointerUp}
       />
-    </fm.div>
+    </div>
+    </div>
   )
 }
