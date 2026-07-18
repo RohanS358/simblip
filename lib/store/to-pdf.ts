@@ -80,7 +80,10 @@ const SAFE_FALLBACK: Record<string, string> = {
   stroke: 'none',
 }
 
-function sanitizeColors(root: HTMLElement) {
+/** Exported so callers rasterizing LIVE app DOM (not a throwaway iframe) can
+ *  run this against html2canvas's `onclone` document only — never the real
+ *  element, since this mutates inline styles permanently. */
+export function sanitizeColors(root: HTMLElement) {
   const view = root.ownerDocument.defaultView
   if (!view) return
   const els: HTMLElement[] = [root, ...Array.from(root.querySelectorAll<HTMLElement>('*'))]

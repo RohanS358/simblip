@@ -58,6 +58,7 @@ import { Calculator } from './calculator'
 import { clonePageDoc } from '@/lib/store/import-page'
 import { FileObject } from '../objects/file-view'
 import { PageThumbnail } from './page-thumbnail'
+import { KIND_ICON } from './tabs-bar'
 import {
   AssignDialog,
   PresentDialog,
@@ -129,11 +130,15 @@ export function MobileShell() {
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const pdfNotesActive = useWorkspaceStore((s) => s.pdfNotesActive)
   const activeKind = useWorkspaceStore(
     (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
   )
-  // Docs: the tools act on the focused sheet; boards act on themselves.
-  const contentPageId = activeKind === 'doc' ? (activeSheetId ?? activePageId) : activePageId
+  // Docs: the tools act on the focused sheet; boards act on themselves; a PDF
+  // with its notes pane open hands the sheet over too, same as a doc.
+  const pdfWithNotes = activeKind === 'pdf' && pdfNotesActive
+  const contentPageId =
+    activeKind === 'doc' || pdfWithNotes ? (activeSheetId ?? activePageId) : activePageId
   const splitScreenObject = useDocStore((s) =>
     contentPageId && splitScreenDocumentId
       ? s.pages[contentPageId]?.objects?.[splitScreenDocumentId] ?? null
@@ -438,7 +443,7 @@ export function MobileShell() {
               </div>
             )
           })()}
-          {activeKind !== 'pdf' && contentPageId && (
+          {(activeKind !== 'pdf' || pdfWithNotes) && contentPageId && (
             <>
               <Transport pageId={contentPageId} />
               <Toolbar
@@ -597,6 +602,14 @@ export function MobileShell() {
                           preview the page without opening it. */}
                       <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-muted/40">
                         <PageThumbnail pageId={page.id} className="absolute inset-0 p-1.5" />
+                        {(() => {
+                          const KindIcon = KIND_ICON[page.kind ?? 'board']
+                          return (
+                            <span className="absolute left-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground backdrop-blur-sm">
+                              <KindIcon className="h-3 w-3" />
+                            </span>
+                          )
+                        })()}
                         <button
                           type="button"
                           aria-label={`Actions for ${page.name}`}

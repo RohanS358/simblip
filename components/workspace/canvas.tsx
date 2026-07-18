@@ -410,7 +410,7 @@ const ObjectView = memo(function ObjectView({
   )
 })
 
-export function InfiniteCanvas({ pageId }: { pageId: string }) {
+export function InfiniteCanvas({ pageId, locked }: { pageId: string; locked?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
   const [slash, setSlash] = useState<{ screen: Vec2; canvas: Vec2 } | null>(null)
@@ -624,6 +624,14 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     paintViewport(viewport)
   }, [viewport, paintViewport])
 
+  // Doc-page sheets are static: pan/zoom gestures are disabled below, but a
+  // sheet may still carry a stale viewport from before this mode existed
+  // (or from a board that was converted). Snap it back to identity once.
+  useEffect(() => {
+    if (locked) useDocStore.getState().setViewport(pageId, { x: 0, y: 0, zoom: 1 })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked, pageId])
+
   useEffect(() => () => {
     if (commitTimer.current !== null) clearTimeout(commitTimer.current)
   }, [])
@@ -645,6 +653,9 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     if (!el) return
     let wheelIdle: number | null = null
     const onWheel = (e: WheelEvent) => {
+      // Static doc sheets don't pan/zoom on wheel — let it bubble so the
+      // page list scrolls normally (and the doc view's own zoom can use it).
+      if (locked) return
       e.preventDefault()
       // Flush once the wheel goes quiet, so culling and persistence catch up.
       if (wheelIdle !== null) clearTimeout(wheelIdle)
@@ -680,14 +691,17 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     }
     let pinchStartZoom = 1
     const onGestureStart = (e: Event) => {
+      if (locked) return
       e.preventDefault()
       pinchStartZoom = vpRef.current.zoom
     }
     const onGestureEnd = (e: Event) => {
+      if (locked) return
       e.preventDefault()
       commitViewport()
     }
     const onGestureChange = (e: Event) => {
+      if (locked) return
       e.preventDefault()
       if (usePrefs.getState().notebook.lockZoom) return
       const ge = e as SafariGestureEvent
@@ -711,7 +725,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       el.removeEventListener('gesturechange', onGestureChange)
       el.removeEventListener('gestureend', onGestureEnd)
     }
-  }, [pageId, applyViewport, commitViewport])
+  }, [pageId, applyViewport, commitViewport, locked])
 
   // Global keyboard map. Skipped while typing in inputs/contentEditable.
   useEffect(() => {
@@ -1685,6 +1699,8 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const p = pinchRef.current
       if (!p || touches.size < 2) return
+      // Static doc sheets: two-finger pinch does nothing at all.
+      if (locked) return
       // Zoom is locked — two-finger pan is still allowed (no zoom change).
       if (usePrefs.getState().notebook.lockZoom) {
         const [a, b] = [...touches.values()]
@@ -1724,7 +1740,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
       }
       applyViewport(next)
     },
-    [pageId, applyViewport]
+    [pageId, applyViewport, locked]
   )
 
   const pinchBaseline = useCallback(() => {
@@ -1838,7 +1854,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
     // Double-tap zoom — only on the bare canvas with the select tool, so it
     // never fights double-click-to-edit on a text box or a formula.
-    if (e.button === 0 && tool === 'select' && editing &&
+    if (e.button === 0 && tool === 'select' && editing && !locked &&
         !usePrefs.getState().notebook.disableDoubleTapZoom &&
         !usePrefs.getState().notebook.lockZoom) {
       const now = Date.now()
@@ -1860,7 +1876,7 @@ export function InfiniteCanvas({ pageId }: { pageId: string }) {
     // (single touch) must not ink or marquee — two fingers still pan/zoom.
     if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < 20000)
       return
-    if (e.button === 1 || spaceRef.current) {
+    if (!locked && (e.button === 1 || spaceRef.current)) {
       beginGesture('pan', e)
       return
     }

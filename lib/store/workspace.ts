@@ -22,6 +22,10 @@ interface WorkspaceState {
   splitRatio: number
   /** Doc pages: the sheet (content page) the tools currently target. */
   activeSheetId: string | null
+  /** PDF reader: true while its notes pane is open — the shell keeps the
+   *  board dock (Toolbar/Transport) mounted, targeting activeSheetId, so the
+   *  notes canvas is actually usable instead of being tool-less. */
+  pdfNotesActive: boolean
   sidebarOpen: boolean
   inspectorOpen: boolean
   aiOpen: boolean
@@ -92,6 +96,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       splitPageId: null,
       splitRatio: 0.5,
       activeSheetId: null,
+      pdfNotesActive: false,
       sidebarOpen: true,
       inspectorOpen: true,
       aiOpen: false,

@@ -4,42 +4,61 @@
 // infinite-canvas surface — same objects, behaviors, simulations and tools as
 // a board, but paginated like a document and exportable to PDF.
 //
+// Unlike a board, a sheet is STATIC: it doesn't pan or zoom internally (wheel/
+// pinch on the canvas do nothing) — a page is a fixed piece of paper, not an
+// infinite plane. Viewing zoom lives one level up, uniform across every sheet,
+// via ctrl/⌘+wheel, pinch, or the slider bottom-right. Each sheet's own size
+// can be dragged from its bottom-right corner and is saved per sheet.
+//
 // Resource notes: only sheets near the viewport mount a live canvas (the rest
 // are light placeholders), and export force-mounts everything just long
 // enough to rasterize.
 
 import { useEffect, useRef, useState } from 'react'
-import { FileDown, Loader2, Plus, Trash2 } from 'lucide-react'
+import { FileDown, Loader2, Plus, Trash2, ZoomIn, ZoomOut, GripHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
+import { usePrefs } from '@/lib/store/preferences'
+import { sanitizeColors } from '@/lib/store/to-pdf'
+import { Slider } from '@/components/ui/slider'
 import { InfiniteCanvas } from './canvas'
 import { cn } from '@/lib/utils'
 
-/** A4 at ~96 dpi. Sheets keep this ratio at any pane width. */
+/** A4 at ~96 dpi. Sheets keep this ratio at any pane width unless resized. */
 export const SHEET_W = 794
 export const SHEET_H = 1123
+const MIN_SHEET = 320
+const MAX_SHEET = 2400
+const MIN_ZOOM = 0.25
+const MAX_ZOOM = 3
 
 function Sheet({
   sheetId,
   index,
+  size,
   active,
   mounted,
   onVisible,
   onFocus,
   onRemove,
+  onResize,
   removable,
 }: {
   sheetId: string
   index: number
+  size: { w: number; h: number }
   active: boolean
   mounted: boolean
   onVisible: (i: number, v: boolean) => void
   onFocus: () => void
   onRemove: () => void
+  onResize: (w: number, h: number) => void
   removable: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const [live, setLive] = useState<{ w: number; h: number } | null>(null)
+  const dims = live ?? size
 
   useEffect(() => {
     const el = ref.current
@@ -52,6 +71,31 @@ function Sheet({
     return () => io.disconnect()
   }, [index, onVisible])
 
+  const onResizeStart = (e: React.PointerEvent) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const rect = ref.current!.getBoundingClientRect()
+    const startX = e.clientX
+    const startY = e.clientY
+    const startW = size.w
+    const startH = size.h
+    const move = (ev: PointerEvent) => {
+      const w = Math.min(MAX_SHEET, Math.max(MIN_SHEET, startW + ((ev.clientX - startX) / rect.width) * startW))
+      const h = Math.min(MAX_SHEET, Math.max(MIN_SHEET, startH + ((ev.clientY - startY) / rect.height) * startH))
+      setLive({ w: Math.round(w), h: Math.round(h) })
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setLive((v) => {
+        if (v) onResize(v.w, v.h)
+        return null
+      })
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
   return (
     <div
       ref={ref}
@@ -60,17 +104,17 @@ function Sheet({
         'group relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)] dark:bg-neutral-900',
         active && 'ring-2 ring-[var(--accent-blue)]/60'
       )}
-      style={{ aspectRatio: `${SHEET_W} / ${SHEET_H}` }}
+      style={{ aspectRatio: `${dims.w} / ${dims.h}` }}
       onPointerDownCapture={onFocus}
     >
       {mounted ? (
-        <InfiniteCanvas key={sheetId} pageId={sheetId} />
+        <InfiniteCanvas key={sheetId} pageId={sheetId} locked />
       ) : (
         <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
           Page {index + 1}
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 right-2.5 z-10 text-[10.5px] font-medium text-muted-foreground">
+      <span className="pointer-events-none absolute bottom-1.5 left-2.5 z-10 text-[10.5px] font-medium text-muted-foreground">
         {index + 1}
       </span>
       {removable && (
@@ -84,6 +128,15 @@ function Sheet({
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       )}
+      {/* Drag to resize the page — persisted per sheet. */}
+      <div
+        role="separator"
+        aria-label="Resize page"
+        className="absolute bottom-0 right-0 z-10 flex h-5 w-5 cursor-nwse-resize items-end justify-end p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100"
+        onPointerDown={onResizeStart}
+      >
+        <GripHorizontal className="h-3 w-3 rotate-45" />
+      </div>
     </div>
   )
 }
@@ -96,7 +149,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const sheets = meta?.docPages ?? []
   const [visible, setVisible] = useState<Set<number>>(() => new Set([0]))
   const [exporting, setExporting] = useState(false)
+  const [zoom, setZoom] = useState(1)
   const scrollRef = useRef<HTMLDivElement>(null)
+  // The board dock (Toolbar) floats over this same page — when it's docked
+  // to the top it shares Export's corner, so Export moves down out of its way.
+  const dockTop = usePrefs((s) => s.notebook.dock) === 'top'
 
   // The toolbar/inspector need a target sheet from the moment the doc opens.
   useEffect(() => {
@@ -112,8 +169,37 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       return next
     })
 
+  // Ctrl/⌘+wheel and trackpad pinch zoom the whole page stack uniformly —
+  // "normal zoom", the same gesture as everywhere else in the app. A plain
+  // wheel is left alone so it scrolls the page list like any document.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * Math.exp(-e.deltaY * 0.0022))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
+  const sizeOf = (sheetId: string) => meta?.sheetSizes?.[sheetId] ?? { w: SHEET_W, h: SHEET_H }
+  const resizeSheet = (sheetId: string, w: number, h: number) => {
+    useWorkspaceStore.getState().updatePageMeta(pageId, {
+      sheetSizes: { ...(meta?.sheetSizes ?? {}), [sheetId]: { w, h } },
+    })
+  }
+
   const exportPdf = async () => {
     if (!sheets.length || exporting) return
+    // A blank page renders nothing worth printing and just burns a page — skip it.
+    const docs = useDocStore.getState().pages
+    const nonEmpty = sheets.filter((id) => Object.keys(docs[id]?.objects ?? {}).length > 0)
+    if (nonEmpty.length === 0) {
+      toast.error('Every page is empty — nothing to export.')
+      return
+    }
     setExporting(true)
     try {
       // Everything must be in the DOM to rasterize; mount all, give the
@@ -128,11 +214,21 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       const pw = pdf.internal.pageSize.getWidth()
       const ph = pdf.internal.pageSize.getHeight()
       const host = scrollRef.current!
-      for (let i = 0; i < sheets.length; i++) {
-        const el = host.querySelector<HTMLElement>(`[data-sheet="${sheets[i]}"]`)
+      let firstPage = true
+      for (const sheetId of nonEmpty) {
+        const el = host.querySelector<HTMLElement>(`[data-sheet="${sheetId}"]`)
         if (!el) continue
-        const canvas = await html2canvas(el, { scale: 2, useCORS: true, logging: false })
-        if (i > 0) pdf.addPage()
+        const canvas = await html2canvas(el, {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          // html2canvas can't parse modern CSS color functions (oklch/lab/
+          // color-mix) our design tokens use — sanitize the CLONE only, so
+          // the live, on-screen page never gets its colors mutated.
+          onclone: (_doc, cloned) => sanitizeColors(cloned as HTMLElement),
+        })
+        if (!firstPage) pdf.addPage()
+        firstPage = false
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pw, ph)
       }
       pdf.save(`${meta?.name ?? 'document'}.pdf`)
@@ -145,8 +241,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   }
 
   const removeSheet = (sheetId: string) => {
+    const nextSizes = { ...(meta?.sheetSizes ?? {}) }
+    delete nextSizes[sheetId]
     useWorkspaceStore.getState().updatePageMeta(pageId, {
       docPages: sheets.filter((s) => s !== sheetId),
+      sheetSizes: nextSizes,
     })
     useDocStore.getState().forgetPage(sheetId)
     if (activeSheetId === sheetId) setActiveSheet(sheets.find((s) => s !== sheetId) ?? null)
@@ -155,17 +254,19 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   return (
     <div className="relative h-full w-full">
       <div ref={scrollRef} className="h-full w-full overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6">
-        <div className="flex flex-col gap-4 pb-24">
+        <div className="flex flex-col gap-4 pb-24" style={{ zoom }}>
           {sheets.map((sheetId, i) => (
             <Sheet
               key={sheetId}
               sheetId={sheetId}
               index={i}
+              size={sizeOf(sheetId)}
               active={!bare && activeSheetId === sheetId}
               mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}
               onVisible={onVisible}
               onFocus={() => setActiveSheet(sheetId)}
               onRemove={() => removeSheet(sheetId)}
+              onResize={(w, h) => resizeSheet(sheetId, w, h)}
               removable={sheets.length > 1}
             />
           ))}
@@ -183,12 +284,49 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         <button
           type="button"
           disabled={exporting}
-          className="glass-strong absolute right-4 top-3 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60"
+          className={cn(
+            'glass-strong absolute right-4 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60',
+            dockTop ? 'top-16' : 'top-3'
+          )}
           onClick={() => void exportPdf()}
         >
           {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
           {exporting ? 'Exporting…' : 'Export PDF'}
         </button>
+      )}
+
+      {/* Doc-wide zoom — uniform across every sheet. Skipped in `bare` (the
+          PDF reader's notes pane already has its own zoom control). */}
+      {!bare && (
+      <div className="glass-strong absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5">
+        <button
+          type="button"
+          aria-label="Zoom out"
+          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.1))}
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </button>
+        <Slider
+          className="w-20"
+          min={MIN_ZOOM}
+          max={MAX_ZOOM}
+          step={0.05}
+          value={[zoom]}
+          onValueChange={([v]) => setZoom(v)}
+        />
+        <button
+          type="button"
+          aria-label="Zoom in"
+          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.1))}
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </button>
+        <span className="min-w-9 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
+          {Math.round(zoom * 100)}%
+        </span>
+      </div>
       )}
     </div>
   )

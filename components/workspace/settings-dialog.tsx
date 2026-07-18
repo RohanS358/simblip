@@ -230,9 +230,12 @@ function MotionSetting() {
             aria-pressed={accent === a.id}
             className="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-90"
             style={{
-              background: `var(--accent-${a.id})`,
+              // "Blue" reads the untouched base var — --accent-blue itself is
+              // overridden globally to the active tint, so the swatch would
+              // otherwise silently turn into a copy of whatever's selected.
+              background: `var(--accent-${a.id === 'blue' ? 'blue-base' : a.id})`,
               boxShadow: accent === a.id ? '0 0 0 2px var(--background), 0 0 0 4px currentColor' : undefined,
-              color: `var(--accent-${a.id})`,
+              color: `var(--accent-${a.id === 'blue' ? 'blue-base' : a.id})`,
             }}
             onClick={() => setAppearance({ accent: a.id })}
           />

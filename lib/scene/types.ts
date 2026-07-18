@@ -138,6 +138,8 @@ export interface PageMeta {
   kind?: PageKind
   /** doc: ordered content-page ids, one per sheet. */
   docPages?: string[]
+  /** doc: per-sheet page size overrides (CSS px, A4 ratio by default), keyed by sheet id. */
+  sheetSizes?: Record<string, { w: number; h: number }>
   /** pdf: content-page ids for linked per-PDF-page notes (index = pdf page − 1). */
   notesPages?: string[]
   /** pdf: id of the free-form notes doc opened beside the reader. */

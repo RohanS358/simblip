@@ -117,7 +117,7 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
       {/* Calculus action bar — shows once the text parses as f(x) = … */}
       {selected && !editing && parsed && (
         <div
-          className="glass-strong absolute -top-11 left-1/2 z-40 flex -translate-x-1/2 items-center gap-0.5 rounded-xl p-1"
+          className="glass-strong no-scrollbar absolute -top-11 left-1/2 z-40 flex max-w-[min(92vw,32rem)] -translate-x-1/2 items-center gap-0.5 overflow-x-auto rounded-xl p-1"
           onPointerDown={(e) => e.stopPropagation()}
         >
           {parsed.vars.map((v) => (

@@ -9,7 +9,7 @@ import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import type { PageKind } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
 
-const KIND_ICON: Record<PageKind, typeof Layout> = {
+export const KIND_ICON: Record<PageKind, typeof Layout> = {
   board: Layout,
   doc: FileText,
   pdf: BookOpen,

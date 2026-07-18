@@ -11,18 +11,20 @@
 // simulate right next to the page you are reading.
 //
 // The file also uploads to the app database (best-effort) where it lives for
-// 10 days, renewed on every read — see app/api/files/[...path]/route.ts.
+// 7 days, renewed on every read — see app/api/files/[...path]/route.ts.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Download, Eraser, FileUp, Highlighter, Link as LinkIcon, Link2Off, Loader2,
-  MousePointer2, NotebookPen, Pen, RotateCcw, Trash2,
+  MousePointer2, NotebookPen, Pen, RotateCcw, Trash2, ZoomIn, ZoomOut,
 } from 'lucide-react'
+import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
 import { getSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfAnnotations, type PdfStroke } from '@/lib/store/pdf-annotations'
+import { inkPath } from '@/components/objects/ink'
 import { resolveSharedFile } from '@/lib/data/session-upload'
 import { getAccessToken } from '@/lib/auth/store'
 import * as db from '@/lib/data/db'
@@ -161,6 +163,13 @@ function PdfPage({
 
   const path = (pts: number[]) =>
     pts.reduce((d, v, i) => (i % 2 ? `${d}${v} ` : `${d}${i === 0 ? 'M' : 'L'}${v} `), '')
+  // Pen strokes get the same variable-width, tapered outline as the board's
+  // pen (perfect-freehand); the highlighter stays a plain translucent band.
+  const toPts = (flat: number[]): number[][] => {
+    const out: number[][] = []
+    for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]])
+    return out
+  }
 
   return (
     <div
@@ -183,28 +192,36 @@ function PdfPage({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
       >
-        {strokes.map((s, i) => (
-          <path
-            key={i}
-            d={path(s.pts)}
-            fill="none"
-            stroke={s.color}
-            strokeWidth={s.size}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={s.hl ? 0.35 : 0.95}
-          />
-        ))}
+        {strokes.map((s, i) =>
+          s.hl ? (
+            <path
+              key={i}
+              d={path(s.pts)}
+              fill="none"
+              stroke={s.color}
+              strokeWidth={s.size}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.35}
+            />
+          ) : (
+            <path key={i} d={inkPath(toPts(s.pts), { size: s.size, last: true })} fill={s.color} stroke="none" opacity={0.95} />
+          )
+        )}
         {live && (
-          <path
-            d={path(live)}
-            fill="none"
-            stroke={color}
-            strokeWidth={mode === 'hl' ? size * 4 : size}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            opacity={mode === 'hl' ? 0.35 : 0.95}
-          />
+          mode === 'hl' ? (
+            <path
+              d={path(live)}
+              fill="none"
+              stroke={color}
+              strokeWidth={size * 4}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              opacity={0.35}
+            />
+          ) : (
+            <path d={inkPath(toPts(live), { size, last: false })} fill={color} stroke="none" opacity={0.95} />
+          )
         )}
       </svg>
       <span className="pointer-events-none absolute bottom-1.5 right-2.5 text-[10.5px] font-medium text-neutral-500">
@@ -228,12 +245,28 @@ export function PdfView({ pageId }: { pageId: string }) {
   const [linked, setLinked] = useState(false)
   const [notesRatio, setNotesRatio] = useState(0.55)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
+  const [zoom, setZoom] = useState(1)
   const inputRef = useRef<HTMLInputElement>(null)
   const splitRef = useRef<HTMLDivElement>(null)
+  const readerRef = useRef<HTMLDivElement>(null)
+
+  // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
+  // everywhere else in the app. A plain wheel is left alone to scroll.
+  useEffect(() => {
+    const el = readerRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!(e.ctrlKey || e.metaKey)) return
+      e.preventDefault()
+      setZoom((z) => Math.min(3, Math.max(0.25, z * Math.exp(-e.deltaY * 0.0022))))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
 
   const local = getSessionFile(pageId)
   // Fall back to the database copy (another device / after local wipe) —
-  // reading it also renews its 10-day retention window.
+  // reading it also renews its 7-day retention window.
   useEffect(() => {
     if (local || !meta?.fileUrl) return
     let dead = false
@@ -281,7 +314,7 @@ export function PdfView({ pageId }: { pageId: string }) {
     useWorkspaceStore.getState().updatePageMeta(pageId, { fileName: f.name, fileMime: 'application/pdf' })
     if (meta && meta.name.startsWith('Untitled')) useWorkspaceStore.getState().renamePage(pageId, f.name.replace(/\.[^.]+$/, ''))
     setRev((v) => v + 1)
-    // Database copy (10-day retention, renewed on read) — best-effort.
+    // Database copy (7-day retention, renewed on read) — best-effort.
     void (async () => {
       try {
         const blob = await getSessionBlob(pageId)
@@ -319,6 +352,15 @@ export function PdfView({ pageId }: { pageId: string }) {
     if (notesOpen && linked) useWorkspaceStore.getState().ensureNotesPage(pageId, current)
   }, [notesOpen, linked, current, pageId])
 
+  // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
+  // page while this is true — otherwise the notes canvas has no tools to open
+  // it with. Unlinked notes are a normal doc (DocView manages activeSheetId
+  // itself); linked notes are a bare InfiniteCanvas, so it's set here.
+  useEffect(() => {
+    useWorkspaceStore.setState({ pdfNotesActive: notesOpen && !!doc })
+    if (notesOpen && linked && linkedNoteId) useWorkspaceStore.getState().setActiveSheet(linkedNoteId)
+  }, [notesOpen, doc, linked, linkedNoteId])
+
   const onDivider = (e: React.PointerEvent) => {
     e.preventDefault()
     const host = splitRef.current!.getBoundingClientRect()
@@ -352,6 +394,7 @@ export function PdfView({ pageId }: { pageId: string }) {
 
   const reader = (
     <div
+      ref={readerRef}
       className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6"
       onDragOver={(e) => {
         e.preventDefault()
@@ -388,13 +431,13 @@ export function PdfView({ pageId }: { pageId: string }) {
               <br />
               <span className="text-[11px] opacity-70">
                 Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Kept in your
-                library for 10 days after the last read.
+                library for 7 days after the last read.
               </span></>
             )}
           </span>
         </button>
       ) : (
-        <div className="flex flex-col gap-4 pb-28">
+        <div className="flex flex-col gap-4 pb-28" style={{ zoom }}>
           {Array.from({ length: doc.numPages }, (_, i) => (
             <PdfPage
               key={i + 1}
@@ -451,9 +494,21 @@ export function PdfView({ pageId }: { pageId: string }) {
         )}
       </div>
 
-      {/* The reader dock — annotation-only, on purpose. */}
+      {/* The reader dock — annotation-only, on purpose. Capped and scrollable
+          so a full row (color + size swatches + undo/clear + notes/link) on
+          a narrow screen scrolls inside itself instead of pushing past the
+          screen edge and taking tools like Undo out of reach. */}
       {doc && (
-        <div className="glass-strong absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 items-center gap-0.5 rounded-2xl px-2 py-1">
+        <div
+          className={cn(
+            'glass-strong no-scrollbar absolute bottom-4 z-30 flex max-w-[calc(100vw-9rem)] items-center gap-0.5 overflow-x-auto rounded-2xl px-2 py-1',
+            // With notes open, the board dock takes the screen's own centre
+            // for the notes canvas — stay centred over the READER pane only,
+            // so the two docks don't stack on top of each other.
+            !notesOpen && 'left-1/2 -translate-x-1/2'
+          )}
+          style={notesOpen ? { left: `${(notesRatio * 100) / 2}%`, transform: 'translateX(-50%)' } : undefined}
+        >
           <span className="min-w-14 px-1 text-center font-mono text-[11px] tabular-nums text-muted-foreground">
             {current}/{doc.numPages}
           </span>
@@ -531,6 +586,47 @@ export function PdfView({ pageId }: { pageId: string }) {
           <ToolBtn label="Replace file" onClick={() => inputRef.current?.click()}>
             <FileUp className="h-4 w-4" />
           </ToolBtn>
+        </div>
+      )}
+
+      {/* Page zoom — its own corner, clear of the annotation dock above. With
+          notes open it stays over the READER pane only, so it doesn't land
+          on top of the notes doc's own controls on the other side. */}
+      {doc && (
+        <div
+          className={cn(
+            'glass-strong absolute bottom-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5',
+            !notesOpen && 'right-4'
+          )}
+          style={notesOpen ? { right: `calc(${(1 - notesRatio) * 100}% + 0.5rem)` } : undefined}
+        >
+          <button
+            type="button"
+            aria-label="Zoom out"
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))}
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <Slider
+            className="w-20"
+            min={0.25}
+            max={3}
+            step={0.05}
+            value={[zoom]}
+            onValueChange={([v]) => setZoom(v)}
+          />
+          <button
+            type="button"
+            aria-label="Zoom in"
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setZoom((z) => Math.min(3, z + 0.1))}
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-9 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
         </div>
       )}
 

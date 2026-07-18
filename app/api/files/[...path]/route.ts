@@ -7,8 +7,8 @@ import { bearerClaims } from '@/lib/server/auth'
 // deletes them when the presentation resolves, and every upload
 // opportunistically sweeps rows older than 3 hours. NOTEBOOK documents
 // (paths under `notebook/`) are the PDFs/PPTs users read in doc pages — they
-// keep for 10 days, and every read renews the clock, so a document only
-// disappears after 10 days of not being opened anywhere.
+// keep for 7 days, and every read renews the clock, so a document only
+// disappears after 7 days of not being opened anywhere.
 
 type Params = { params: Promise<{ path: string[] }> }
 
@@ -22,7 +22,7 @@ export async function GET(_req: Request, { params }: Params) {
     [path]
   )
   if (!rows[0]) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-  // Reading a notebook document keeps it alive — the 10-day clock restarts.
+  // Reading a notebook document keeps it alive — the 7-day clock restarts.
   if (path.startsWith('notebook/'))
     void q('update simblip_session_files set created_at = now() where path = $1', [path]).catch(() => {})
   return new NextResponse(new Uint8Array(rows[0].data), {
@@ -45,7 +45,7 @@ export async function POST(req: Request, { params }: Params) {
   void q(
     `delete from simblip_session_files
      where (path not like 'notebook/%' and created_at < now() - interval '3 hours')
-        or (path like 'notebook/%' and created_at < now() - interval '10 days')`
+        or (path like 'notebook/%' and created_at < now() - interval '7 days')`
   ).catch(() => {})
   return NextResponse.json({ ok: true }, { status: 201 })
 }

@@ -25,6 +25,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { clonePageDoc } from '@/lib/store/import-page'
+import { KIND_ICON } from './tabs-bar'
 import {
   AssignDialog,
   PresentDialog,
@@ -354,6 +355,10 @@ export function Sidebar() {
                           )}
                           onClick={() => store.getState().setActivePage(page.id)}
                         >
+                          {(() => {
+                            const KindIcon = KIND_ICON[page.kind ?? 'board']
+                            return <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                          })()}
                           <InlineName
                             name={page.name}
                             className="flex-1"
