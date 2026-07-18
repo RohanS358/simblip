@@ -25,10 +25,9 @@ import {
 } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
-import { getSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
+import { getSessionFile, loadSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
-import { useDocStore } from '@/lib/store/document'
 import { resolveSharedFile } from '@/lib/data/session-upload'
 import { getAccessToken } from '@/lib/auth/store'
 import * as db from '@/lib/data/db'
@@ -59,6 +58,13 @@ const loadPdfjs = () => {
 
 /** One rendered PDF page + its real ink overlay (mounted once the page has
  *  an annotation canvas — created on demand the moment it's focused). */
+/** Ink world-coordinate width for every PDF page, on every device. The
+ *  overlay canvas is laid out at this fixed width and visually scaled to the
+ *  page's rendered width — so a stroke drawn on a phone lands on the same
+ *  spot of the page on a desktop (the canvas corrects pointer input for
+ *  ancestor scale, see toLocal in canvas.tsx). */
+const ANNOT_W = 900
+
 function PdfPage({
   doc, n, annotId, onCurrent, onFocus,
 }: {
@@ -72,10 +78,16 @@ function PdfPage({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [near, setNear] = useState(n <= 2)
   const [aspect, setAspect] = useState(1.414)
-  // Only capture the pointer while a drawing tool is armed — in 'select'
-  // (the default) the overlay must be a no-op so touch/mouse drag keeps
-  // scrolling the reader instead of starting a marquee over the page.
-  const drawing = useDocStore((s) => s.tool !== 'select')
+  const [hostW, setHostW] = useState(0)
+
+  useEffect(() => {
+    const el = hostRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setHostW(el.clientWidth))
+    ro.observe(el)
+    setHostW(el.clientWidth)
+    return () => ro.disconnect()
+  }, [])
 
   useEffect(() => {
     const el = hostRef.current
@@ -123,9 +135,20 @@ function PdfPage({
       onPointerDownCapture={() => onFocus(n)}
     >
       {near && <canvas ref={canvasRef} className="block h-full w-full" />}
-      {annotId && (
-        <div className={cn('absolute inset-0 z-10', !drawing && 'pointer-events-none')}>
-          <InfiniteCanvas key={annotId} pageId={annotId} locked transparent />
+      {annotId && hostW > 0 && (
+        // passthrough: ink/objects on the page stay selectable and draggable
+        // while empty-area touches still scroll the reader underneath.
+        <div className="absolute inset-0 z-10 overflow-hidden">
+          <div
+            style={{
+              width: ANNOT_W,
+              height: ANNOT_W * aspect,
+              transform: `scale(${hostW / ANNOT_W})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            <InfiniteCanvas key={annotId} pageId={annotId} locked transparent passthrough />
+          </div>
         </div>
       )}
       <span className="pointer-events-none absolute bottom-1.5 right-2.5 z-20 text-[10.5px] font-medium text-neutral-500">
@@ -183,20 +206,86 @@ export function PdfView({ pageId }: { pageId: string }) {
     return () => ro.disconnect()
   }, [doc])
 
-  const local = getSessionFile(pageId)
-  // Fall back to the database copy (another device / after local wipe) —
-  // reading it also renews its 7-day retention window.
+  const [local, setLocal] = useState(() => getSessionFile(pageId))
   useEffect(() => {
-    if (local || !meta?.fileUrl) return
+    // After a reload the persisted copy lives in IndexedDB — hydrate it.
     let dead = false
-    void resolveSharedFile(meta.fileUrl).then((url) => {
-      if (!dead) setSharedUrl(url)
+    void loadSessionFile(pageId).then((f) => {
+      if (!dead && f) setLocal(f)
     })
     return () => {
       dead = true
     }
-  }, [local, meta?.fileUrl])
+  }, [pageId])
+  // No local copy → this device has never seen the document. Pull it from
+  // the database (the notebook tree syncs meta.fileUrl across devices) and
+  // DOWNLOAD it into local storage, so from now on it opens offline here and
+  // the short-lived server copy only has to seed devices, not serve them.
+  // Reading it also renews its 7-day retention window.
+  const fileName = meta?.fileName
+  useEffect(() => {
+    if (local || !meta?.fileUrl) return
+    let dead = false
+    void (async () => {
+      const url = await resolveSharedFile(meta.fileUrl!)
+      if (!url || dead) return
+      try {
+        const res = await fetch(url)
+        // 404 = the server copy aged out with no device online to renew it —
+        // don't cache the error body as a "PDF".
+        if (!res.ok) throw new Error(String(res.status))
+        const blob = await res.blob()
+        if (dead) return
+        const f = new File([blob], fileName ?? 'document.pdf', {
+          type: blob.type || 'application/pdf',
+        })
+        setLocal(putSessionFile(pageId, f))
+      } catch {
+        if (!dead) setSharedUrl(url) // stream it this time; cache on the next
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [local, meta?.fileUrl, fileName, pageId])
   const fileUrl = local?.url ?? sharedUrl
+
+  // Keep the cloud seed alive: any device HOLDING the file (re-)uploads it
+  // when the server copy is missing — first attach, an upload that failed
+  // offline, or a copy that aged out of its 7-day window. A HEAD when the
+  // copy exists renews its retention clock. So the server only ever has to
+  // seed devices that haven't downloaded the document yet.
+  useEffect(() => {
+    if (!local || db.dbMode !== 'cloud') return
+    let dead = false
+    const path = `notebook/${pageId}`
+    void (async () => {
+      try {
+        const hasUrl = !!findPageMeta(useWorkspaceStore.getState().notebooks, pageId)?.fileUrl
+        if (hasUrl) {
+          const head = await fetch(`/api/files/${path}`, { method: 'HEAD' })
+          if (head.ok || head.status >= 500 || dead) return
+        }
+        const blob = await getSessionBlob(pageId)
+        if (!blob || dead) return
+        const res = await fetch(`/api/files/${path}`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${getAccessToken() ?? ''}`,
+            'Content-Type': 'application/pdf',
+          },
+          body: blob,
+        })
+        if (res.ok && !dead)
+          useWorkspaceStore.getState().updatePageMeta(pageId, { fileUrl: `/api/files/${path}` })
+      } catch {
+        // best-effort — the local copy is authoritative on this device
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [local, pageId])
 
   useEffect(() => {
     if (!fileUrl) return
@@ -229,31 +318,11 @@ export function PdfView({ pageId }: { pageId: string }) {
         setConverting(null)
       }
     }
-    putSessionFile(pageId, toStore)
+    setLocal(putSessionFile(pageId, toStore))
     useWorkspaceStore.getState().updatePageMeta(pageId, { fileName: f.name, fileMime: 'application/pdf' })
     if (meta && meta.name.startsWith('Untitled')) useWorkspaceStore.getState().renamePage(pageId, f.name.replace(/\.[^.]+$/, ''))
     setRev((v) => v + 1)
-    // Database copy (7-day retention, renewed on read) — best-effort.
-    void (async () => {
-      try {
-        const blob = await getSessionBlob(pageId)
-        if (!blob) return
-        if (db.dbMode === 'cloud') {
-          const path = `notebook/${pageId}`
-          const res = await fetch(`/api/files/${path}`, {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${getAccessToken() ?? ''}`,
-              'Content-Type': 'application/pdf',
-            },
-            body: blob,
-          })
-          if (res.ok) useWorkspaceStore.getState().updatePageMeta(pageId, { fileUrl: `/api/files/${path}` })
-        }
-      } catch {
-        // local copy still works; the cloud copy is a convenience
-      }
-    })()
+    // The keep-alive effect below sees the new local copy and uploads it.
   }
 
   const onCurrent = useCallback((n: number) => setCurrent(n), [])
@@ -360,8 +429,8 @@ export function PdfView({ pageId }: { pageId: string }) {
               <>Upload a PDF or PowerPoint to read here
               <br />
               <span className="text-[11px] opacity-70">
-                Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Kept in your
-                library for 7 days after the last read.
+                Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
+                devices download their own copy the first time they open it.
               </span></>
             )}
           </span>

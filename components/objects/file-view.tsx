@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square, PanelRightClose, PanelRightOpen, Link, Link2Off } from 'lucide-react'
 import { toast } from 'sonner'
-import { getSessionFile, putSessionFile } from '@/lib/store/session-files'
+import { getSessionFile, loadSessionFile, putSessionFile } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
@@ -65,7 +65,17 @@ export function FileObject({ object }: ObjectRendererProps) {
 
   // Local attachment first; else a copy shared by the presenter (bucket URL
   // or demo-db data URL stamped into metadata at present-time).
-  const local = getSessionFile(object.id)
+  const [local, setLocal] = useState(() => getSessionFile(object.id))
+  useEffect(() => {
+    // After a reload the persisted copy lives in IndexedDB — hydrate it.
+    let dead = false
+    void loadSessionFile(object.id).then((f) => {
+      if (!dead && f) setLocal(f)
+    })
+    return () => {
+      dead = true
+    }
+  }, [object.id])
   const [shared, setShared] = useState<{ url: string; name: string; mime: string } | null>(null)
   const sharedUrl = object.metadata.fileUrl as string | undefined
   useEffect(() => {
@@ -110,7 +120,7 @@ export function FileObject({ object }: ObjectRendererProps) {
       }
     }
 
-    putSessionFile(object.id, toStore)
+    setLocal(putSessionFile(object.id, toStore))
     docRef.current = null
     setNumPages(0)
     setPage(1)

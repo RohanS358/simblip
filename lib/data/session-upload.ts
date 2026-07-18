@@ -14,7 +14,7 @@
 
 import * as db from './db'
 import { getAccessToken } from '@/lib/auth/store'
-import { getSessionBlob, getSessionFile } from '@/lib/store/session-files'
+import { getSessionBlob, loadSessionFile } from '@/lib/store/session-files'
 import type { PageDoc } from '@/lib/scene/types'
 
 const blobToDataUrl = (blob: Blob) =>
@@ -31,7 +31,7 @@ export async function uploadSessionFiles(sessionId: string, snapshot: PageDoc): 
   const doc = JSON.parse(JSON.stringify(snapshot)) as PageDoc
   for (const obj of Object.values(doc.objects)) {
     if (obj.metadata.render !== 'file') continue
-    const local = getSessionFile(obj.id)
+    const local = await loadSessionFile(obj.id)
     const blob = await getSessionBlob(obj.id)
     if (!local || !blob) continue
     try {

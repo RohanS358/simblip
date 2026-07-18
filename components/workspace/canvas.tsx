@@ -340,7 +340,10 @@ const ObjectView = memo(function ObjectView({
     <div
       ref={(el) => registerElement(object.id, el)}
       data-object-id={object.id}
-      className="absolute"
+      // touch-none here (not only on the canvas): on a passthrough overlay
+      // the canvas allows native panning, but a touch that starts ON an
+      // object is a drag/select and must not scroll the reader instead.
+      className="absolute touch-none"
       style={{
         left: object.position.x,
         top: object.position.y,
@@ -414,12 +417,18 @@ export function InfiniteCanvas({
   pageId,
   locked,
   transparent,
+  passthrough,
 }: {
   pageId: string
   locked?: boolean
   /** No opaque background, no grid — for overlaying real ink on top of
    *  something else already rendered underneath (a PDF page image). */
   transparent?: boolean
+  /** Overlay lives inside a scrolling reader: with the select tool, a touch
+   *  drag on empty canvas must SCROLL the reader (native pan), not marquee —
+   *  objects themselves still select/drag because their wrappers opt back
+   *  into touch capture. Mouse marquee still works; wheel already bubbles. */
+  passthrough?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
@@ -619,12 +628,23 @@ export function InfiniteCanvas({
     ensurePage(pageId)
   }, [pageId, ensurePage])
 
+  // Container-local layout coords. The doc/PDF views zoom their page stacks
+  // with an ancestor `transform: scale()`, so the bounding rect is in SCALED
+  // screen px while everything laid out inside is not — divide the pointer
+  // offset by that scale or ink/drag lands short of (or past) the pointer.
+  const toLocal = useCallback((clientX: number, clientY: number): Vec2 => {
+    const el = containerRef.current!
+    const rect = el.getBoundingClientRect()
+    const s = el.offsetWidth ? rect.width / el.offsetWidth : 1
+    return { x: (clientX - rect.left) / s, y: (clientY - rect.top) / s }
+  }, [])
+
   const toCanvas = useCallback((clientX: number, clientY: number): Vec2 => {
-    const rect = containerRef.current!.getBoundingClientRect()
+    const p = toLocal(clientX, clientY)
     // vpRef, not the store — the store intentionally lags behind a live pan.
     const v = vpRef.current
-    return { x: (clientX - rect.left - v.x) / v.zoom, y: (clientY - rect.top - v.y) / v.zoom }
-  }, [])
+    return { x: (p.x - v.x) / v.zoom, y: (p.y - v.y) / v.zoom }
+  }, [toLocal])
 
   // Mirror the store viewport into the ref and repaint. Runs when the store
   // changes from OUTSIDE a gesture (zoom buttons, Reset view, page switch);
@@ -830,7 +850,7 @@ export function InfiniteCanvas({
         const clientX = lp?.clientX ?? (rect ? rect.left + rect.width / 2 : 0)
         const clientY = lp?.clientY ?? (rect ? rect.top + rect.height / 2 : 0)
         setSlash({
-          screen: { x: clientX - (rect?.left ?? 0), y: clientY - (rect?.top ?? 0) },
+          screen: toLocal(clientX, clientY),
           canvas: toCanvas(clientX, clientY),
         })
         return
@@ -856,7 +876,7 @@ export function InfiniteCanvas({
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [pageId, toCanvas])
+  }, [pageId, toCanvas, toLocal])
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
@@ -1820,9 +1840,9 @@ export function InfiniteCanvas({
       timer: window.setTimeout(() => {
         longPressRef.current = null
         cancelGesture()
-        const rect = containerRef.current!.getBoundingClientRect()
+        const p = toLocal(x, y)
         if (objectId) useDocStore.getState().setSelection([objectId])
-        setCtxMenu({ x: x - rect.left, y: y - rect.top, objectId })
+        setCtxMenu({ x: p.x, y: p.y, objectId })
       }, 500),
     }
   }
@@ -1948,6 +1968,12 @@ export function InfiniteCanvas({
           beginGesture('move', e)
           return
         }
+      }
+      // Passthrough overlay: this touch belongs to the reader's native
+      // scroll (touch-action pans it) — just drop any selection on tap.
+      if (passthrough && e.pointerType === 'touch') {
+        store.setSelection([])
+        return
       }
       beginGesture('marquee', e)
       return
@@ -2096,11 +2122,11 @@ export function InfiniteCanvas({
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault() // the browser menu never belongs on the canvas
     clearLongPress() // Android fires contextmenu on long-press; avoid doubling
-    const rect = containerRef.current!.getBoundingClientRect()
+    const p = toLocal(e.clientX, e.clientY)
     const hit = (e.target as HTMLElement).closest?.('[data-object-id]')
     const objectId = hit?.getAttribute('data-object-id') ?? null
     if (objectId) useDocStore.getState().setSelection([objectId])
-    setCtxMenu({ x: e.clientX - rect.left, y: e.clientY - rect.top, objectId })
+    setCtxMenu({ x: p.x, y: p.y, objectId })
   }
 
   const duplicateObject = (id: string) => {
@@ -2224,10 +2250,18 @@ export function InfiniteCanvas({
       // select-none: mouse drags must marquee/move, never highlight text —
       // editing text re-enables selection locally via select-text.
       className={cn(
-        'relative h-full w-full touch-none select-none overflow-hidden',
+        'relative h-full w-full select-none overflow-hidden',
+        // Passthrough + select: leave touch panning to the reader's scroller
+        // (object wrappers re-block it so they stay draggable) — everywhere
+        // else the canvas owns every touch itself.
+        !(passthrough && tool === 'select') && 'touch-none',
         !transparent && 'bg-background'
       )}
-      style={{ cursor: editing ? cursor : 'default' }}
+      style={{
+        cursor: editing ? cursor : 'default',
+        // Scroll yes, browser pinch-zoom no.
+        ...(passthrough && tool === 'select' ? { touchAction: 'pan-x pan-y' } : {}),
+      }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}
       onPointerUpCapture={handleTouchUpCapture}

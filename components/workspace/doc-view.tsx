@@ -59,6 +59,10 @@ function Sheet({
   const ref = useRef<HTMLDivElement>(null)
   const [live, setLive] = useState<{ w: number; h: number } | null>(null)
   const dims = live ?? size
+  // Rendered width — maxWidth clamps the sheet on narrow screens, so the
+  // canvas is laid out at the sheet's TRUE size and visually scaled down;
+  // ink coordinates then mean the same thing on every device.
+  const [rw, setRw] = useState(0)
 
   useEffect(() => {
     const el = ref.current
@@ -68,7 +72,13 @@ function Sheet({
       { rootMargin: '600px 0px' } // pre-mount one sheet ahead in each direction
     )
     io.observe(el)
-    return () => io.disconnect()
+    const ro = new ResizeObserver(() => setRw(el.clientWidth))
+    ro.observe(el)
+    setRw(el.clientWidth)
+    return () => {
+      io.disconnect()
+      ro.disconnect()
+    }
   }, [index, onVisible])
 
   const onResizeStart = (e: React.PointerEvent) => {
@@ -108,7 +118,18 @@ function Sheet({
       onPointerDownCapture={onFocus}
     >
       {mounted ? (
-        <InfiniteCanvas key={sheetId} pageId={sheetId} locked />
+        <div className="absolute inset-0 overflow-hidden">
+          <div
+            style={{
+              width: dims.w,
+              height: dims.h,
+              transform: `scale(${(rw || dims.w) / dims.w})`,
+              transformOrigin: 'top left',
+            }}
+          >
+            <InfiniteCanvas key={sheetId} pageId={sheetId} locked />
+          </div>
+        </div>
       ) : (
         <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
           Page {index + 1}
@@ -248,7 +269,16 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         })
         if (!firstPage) pdf.addPage()
         firstPage = false
-        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pw, ph)
+        // Fit the sheet inside A4 keeping its (possibly custom) aspect ratio
+        // — stretching a free-resized page to the full A4 box distorts it.
+        const ratio = canvas.height / canvas.width
+        let w = pw
+        let h = pw * ratio
+        if (h > ph) {
+          h = ph
+          w = ph / ratio
+        }
+        pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h)
       }
       pdf.save(`${meta?.name ?? 'document'}.pdf`)
       toast.success('Exported to PDF')
