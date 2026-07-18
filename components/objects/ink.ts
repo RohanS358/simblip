@@ -1,7 +1,11 @@
 // Ink rendering: raw pointer points → a filled variable-width outline via
-// perfect-freehand (the tldraw/Excalidraw approach). Real pen pressure is
-// used when the hardware reports it; otherwise width follows velocity, so
-// mouse and finger strokes still look like ink instead of a jittery polyline.
+// perfect-freehand (the tldraw/Excalidraw approach). Width follows the
+// pressure recorded per point directly — real hardware pressure when the
+// device reports it, otherwise the flat value canvas.tsx records for
+// mouse/touch. perfect-freehand's own velocity-based pressure simulation is
+// intentionally left off: its running average takes 50-100px to converge,
+// so short strokes never reach the configured thickness before you lift,
+// and the flat end cap then reads as a sudden thick blob.
 //
 // Points are stored as [x, y, pressure?] — physics, recognition and circuit
 // code all read only [0]/[1], so the third element rides along untouched.
@@ -21,8 +25,6 @@ export function inkPath(
   } = {}
 ): string {
   if (points.length === 0) return ''
-  const first = points[0][2] ?? 0.5
-  const hasRealPressure = points.some((p) => Math.abs((p[2] ?? 0.5) - first) > 0.04)
   // Feel comes from the user's pen settings. `streamline` is the one that
   // makes writing feel laggy when it's high — it averages the input, so the
   // ink trails the hand. Smoothing only rounds the finished outline.
@@ -34,9 +36,10 @@ export function inkPath(
     thinning: opts.thinning ?? pen.sensitivity,
     smoothing: opts.smoothing ?? pen.smoothing,
     streamline: opts.streamline ?? pen.streamline,
-    simulatePressure: !hasRealPressure,
+    simulatePressure: false,
     last: opts.last ?? true,
-    ...(style.taper ? {} : { start: { taper: 0 }, end: { taper: 0 } }),
+    start: style.taper ? { taper: Math.max(8, size * 4) } : { taper: 0 },
+    end: style.taper ? { taper: Math.max(8, size * 4) } : { taper: 0 },
   })
   
   if (outline.length < 3) {
