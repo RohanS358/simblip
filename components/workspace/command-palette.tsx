@@ -21,6 +21,7 @@ import {
   Sun,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { searchInsertables, insertAt, viewportCenter } from '@/lib/scene/insertables'
 import { useAuthStore } from '@/lib/auth/store'
@@ -198,9 +199,9 @@ export function CommandPalette({
           )}
           <CommandItem
             value="toggle theme dark light"
-            onSelect={() => run(() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark'))}
+            onSelect={() => run(() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark'))}
           >
-            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             Toggle theme
           </CommandItem>
         </CommandGroup>

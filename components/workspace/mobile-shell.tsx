@@ -31,6 +31,7 @@ import {
   X,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
@@ -312,9 +313,9 @@ export function MobileShell() {
               </button>
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
               >
-                {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
+                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
               </button>
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"

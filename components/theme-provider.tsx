@@ -7,6 +7,30 @@ import {
 } from 'next-themes'
 import { usePrefs } from '@/lib/store/preferences'
 
+// Every selectable appearance theme, in display order. Light and dark each
+// come in flavors: Sepia is warm paper, Lily is baby pink/orange, Dim is
+// softened slate, Midnight is near-black for OLED, Contrast is a
+// high-visibility accessibility theme. Their palettes live in globals.css
+// under .<id>.
+export const APP_THEMES = [
+  { id: 'light', label: 'Light', dark: false },
+  { id: 'sepia', label: 'Sepia', dark: false },
+  { id: 'lily', label: 'Lily', dark: false },
+  { id: 'dark', label: 'Dark', dark: true },
+  { id: 'dim', label: 'Dim', dark: true },
+  { id: 'midnight', label: 'Midnight', dark: true },
+  { id: 'contrast', label: 'Contrast', dark: true },
+  { id: 'system', label: 'System', dark: false },
+] as const
+
+const DARK_FAMILY = new Set(['dark', 'dim', 'midnight', 'contrast'])
+
+// True for any dark-family theme — the canvas, icons and quick toggles must
+// treat Dim, Midnight and Contrast exactly like Dark.
+export function isDarkTheme(theme: string | undefined): boolean {
+  return !!theme && DARK_FAMILY.has(theme)
+}
+
 // The chosen tint overrides --accent-blue at the root; every "blue" surface
 // (selection, buttons, active states) follows, per theme, with no re-render.
 // It lives HERE — not in any one shell — so the mobile shell, room boards,

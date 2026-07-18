@@ -107,7 +107,13 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${jakarta.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+          themes={['light', 'sepia', 'lily', 'dark', 'dim', 'midnight', 'contrast', 'system']}
+        >
           {children}
           <Toaster position="bottom-right" />
         </ThemeProvider>

@@ -5,6 +5,7 @@
 // admin console; these are the signed-in user's own preferences.
 
 import { useTheme } from 'next-themes'
+import { APP_THEMES } from '@/components/theme-provider'
 import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
@@ -204,6 +205,19 @@ function NotebookSettings() {
       </button>
     </div>
   )
+}
+
+// Each theme's paper color, matching the .<id> palettes in globals.css.
+// System previews as a light/dark split.
+const THEME_SWATCH: Record<(typeof APP_THEMES)[number]['id'], string> = {
+  light: 'oklch(0.982 0.003 95)',
+  sepia: 'oklch(0.955 0.02 88)',
+  lily: 'linear-gradient(135deg, oklch(0.9 0.05 15) 0%, oklch(0.88 0.06 45) 100%)',
+  dark: 'oklch(0.17 0.01 270)',
+  dim: 'oklch(0.245 0.016 265)',
+  midnight: 'oklch(0.13 0.008 270)',
+  contrast: 'oklch(0.05 0 0)',
+  system: 'linear-gradient(135deg, oklch(0.982 0.003 95) 50%, oklch(0.17 0.01 270) 50%)',
 }
 
 function MotionSetting() {
@@ -445,21 +459,30 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
           <TabsContent value="appearance" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             <MotionSetting />
-            <div className="mt-3 flex gap-2">
-              {(['light', 'dark', 'system'] as const).map((t) => (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {APP_THEMES.map((t) => (
                 <Button
-                  key={t}
-                  variant={theme === t ? 'default' : 'outline'}
+                  key={t.id}
+                  variant={theme === t.id ? 'default' : 'outline'}
                   size="sm"
-                  className="capitalize"
-                  onClick={() => setTheme(t)}
+                  onClick={() => setTheme(t.id)}
                 >
-                  {t}
+                  <span
+                    aria-hidden
+                    className="h-3 w-3 rounded-full border border-border"
+                    // Fixed preview colors — the theme's own paper, not live
+                    // vars, which would all render in the active theme.
+                    style={{ background: THEME_SWATCH[t.id] }}
+                  />
+                  {t.label}
                 </Button>
               ))}
             </div>
             <p className="pt-3 text-[11.5px] text-muted-foreground">
-              Theme and tint apply everywhere — the notebook, room boards and the presenter.
+              Sepia is warm paper for reading; Lily is soft pink and orange; Dim is a softer dark
+              for lit rooms; Midnight is near-black for OLED screens; Contrast is high-visibility
+              for accessibility. Theme and tint apply everywhere — the notebook, room boards and
+              the presenter.
             </p>
           </TabsContent>
 

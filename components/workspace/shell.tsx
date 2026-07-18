@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { usePrefs } from '@/lib/store/preferences'
@@ -307,9 +308,9 @@ export function WorkspaceShell() {
           type="button"
           aria-label="Toggle theme"
           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => setTheme(resolvedTheme === 'dark' ? 'light' : 'dark')}
+          onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
         >
-          {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
         <button
           type="button"
