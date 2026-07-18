@@ -26,7 +26,6 @@ import {
   Plus,
   Settings,
   Share2,
-  SlidersHorizontal,
   Sun,
   Trash2,
   X,
@@ -530,7 +529,7 @@ export function MobileShell() {
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">
-            {notebook.emoji} {notebook.name}
+            {notebook.name}
           </span>
           {appMenu}
         </header>
