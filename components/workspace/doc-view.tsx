@@ -174,6 +174,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [naturalH, setNaturalH] = useState(0)
+  const [naturalW, setNaturalW] = useState(0)
   // The board dock (Toolbar) floats over this same page — when it's docked
   // to the top it shares Export's corner, so Export moves down out of its way.
   const dockTop = usePrefs((s) => s.notebook.dock) === 'top'
@@ -182,14 +183,18 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // page reflows, scroll math gets confused, and any split-view drawing goes
   // to the wrong spot. A `transform: scale()` is a pure visual magnification
   // — like zooming into an image — but it doesn't touch layout, so the
-  // scroll container needs to be told how tall the SCALED content actually
+  // scroll container needs to be told how big the SCALED content actually
   // is; that's what this measures.
   useEffect(() => {
     const el = contentRef.current
     if (!el) return
-    const ro = new ResizeObserver(() => setNaturalH(el.offsetHeight))
+    const ro = new ResizeObserver(() => {
+      setNaturalH(el.offsetHeight)
+      setNaturalW(el.offsetWidth)
+    })
     ro.observe(el)
     setNaturalH(el.offsetHeight)
+    setNaturalW(el.offsetWidth)
     return () => ro.disconnect()
   }, [])
 
@@ -207,16 +212,47 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       return next
     })
 
-  // Ctrl/⌘+wheel and trackpad pinch zoom the whole page stack uniformly —
-  // "normal zoom", the same gesture as everywhere else in the app. A plain
-  // wheel is left alone so it scrolls the page list like any document.
+  // Zoom anchored at a screen point (cursor, or viewport center for the
+  // buttons/slider). With transformOrigin 'top left', a content-space point
+  // (px, py) renders on screen at px*zoom - scrollLeft. To keep that same
+  // content point under the same screen point after zoom changes z -> nz,
+  // solve for the new scrollLeft/scrollTop and apply it once React has
+  // re-rendered the sizer/content at the new zoom.
+  const zoomAt = (clientX: number, clientY: number, factor: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setZoom((z) => {
+      const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor))
+      if (nz === z) return z
+      const cx = clientX - rect.left + el.scrollLeft
+      const cy = clientY - rect.top + el.scrollTop
+      const px = cx / z
+      const py = cy / z
+      requestAnimationFrame(() => {
+        el.scrollLeft = px * nz - (clientX - rect.left)
+        el.scrollTop = py * nz - (clientY - rect.top)
+      })
+      return nz
+    })
+  }
+
+  const zoomAtCenter = (factor: number) => {
+    const el = scrollRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor)
+  }
+
+  // Ctrl/⌘+wheel and trackpad pinch zoom the whole page stack, anchored at
+  // the cursor. A plain wheel is left alone so it scrolls the page list.
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return
       e.preventDefault()
-      setZoom((z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * Math.exp(-e.deltaY * 0.0022))))
+      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0022))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
@@ -298,15 +334,17 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
 
   return (
     <div className="relative h-full w-full">
-      <div ref={scrollRef} className="h-full w-full overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6">
-        {/* Spacer reserves the scaled content's real footprint so the
-            container has enough room to scroll to — transform doesn't
-            reflow, so nothing else tells it how tall the zoomed page is. */}
-        <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
+      <div ref={scrollRef} className="h-full w-full overflow-auto bg-muted/40 px-3 py-4 sm:px-6">
+        {/* Spacer reserves the scaled content's real footprint on both axes
+            so the container has enough room to scroll to — transform doesn't
+            reflow, so nothing else tells it how big the zoomed page is.
+            margin:auto (not flex centering) so overflow on either side
+            stays scrollable instead of getting clipped. */}
+        <div style={zoom !== 1 ? { width: naturalW * zoom, height: naturalH * zoom, margin: '0 auto' } : undefined}>
           <div
             ref={contentRef}
             className="flex flex-col gap-4 pb-24"
-            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
+            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left', width: naturalW } : undefined}
           >
             {sheets.map((sheetId, i) => (
               <Sheet
@@ -357,7 +395,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           type="button"
           aria-label="Zoom out"
           className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => setZoom((z) => Math.max(MIN_ZOOM, z - 0.1))}
+          onClick={() => zoomAtCenter(0.9)}
         >
           <ZoomOut className="h-3.5 w-3.5" />
         </button>
@@ -367,13 +405,13 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           max={MAX_ZOOM}
           step={0.05}
           value={[zoom]}
-          onValueChange={([v]) => setZoom(v)}
+          onValueChange={([v]) => zoomAtCenter(v / zoom)}
         />
         <button
           type="button"
           aria-label="Zoom in"
           className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => setZoom((z) => Math.min(MAX_ZOOM, z + 0.1))}
+          onClick={() => zoomAtCenter(1 / 0.9)}
         >
           <ZoomIn className="h-3.5 w-3.5" />
         </button>
