@@ -11,7 +11,7 @@
 // code all read only [0]/[1], so the third element rides along untouched.
 
 import { getStroke } from 'perfect-freehand'
-import { penPrefs, PEN_STYLES } from '@/lib/store/preferences'
+import { penPrefs } from '@/lib/store/preferences'
 
 export function inkPath(
   points: number[][],
@@ -29,7 +29,6 @@ export function inkPath(
   // makes writing feel laggy when it's high — it averages the input, so the
   // ink trails the hand. Smoothing only rounds the finished outline.
   const pen = penPrefs()
-  const style = PEN_STYLES[pen.style]
   const size = opts.size ?? pen.size
   const outline = getStroke(points, {
     size: size,
@@ -38,8 +37,15 @@ export function inkPath(
     streamline: opts.streamline ?? pen.streamline,
     simulatePressure: false,
     last: opts.last ?? true,
-    start: style.taper ? { taper: Math.max(8, size * 4) } : { taper: 0 },
-    end: style.taper ? { taper: Math.max(8, size * 4) } : { taper: 0 },
+    // No taper regardless of style: a nonzero taper measures back from the
+    // stroke's END, and while a stroke is still live (`last: false`) that
+    // end is wherever the pen currently is — a moving target on every
+    // pointermove. That traps the trailing ~30px behind your pen in a
+    // permanent thin-to-a-point taper the whole time you're writing; it
+    // only fills in once the geometry stops changing on pen-up. Flat caps
+    // avoid that entirely, at the cost of `style.taper` not doing anything.
+    start: { taper: 0 },
+    end: { taper: 0 },
   })
   
   if (outline.length < 3) {
