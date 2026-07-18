@@ -1,9 +1,13 @@
 'use client'
 
-// Pen settings — the sliders that decide how ink FEELS. Shared by the Settings
-// dialog and the popover that opens when you double-click the pen in the dock,
-// so there is one pen panel, not two that drift apart.
+// Pen settings — THE control surface for how ink feels. Opens when you
+// double-click the pen in the dock (the Settings dialog embeds the same
+// panel, so there is one pen panel, not two that drift apart). Every pen
+// behaviour lives here and only here: stability, smoothness, sensitivity,
+// thickness, colour (basic + custom), style and scribble-to-erase.
 
+import { useRef } from 'react'
+import { Plus, X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { inkPath } from '@/components/objects/ink'
 import {
@@ -17,33 +21,89 @@ import { cn } from '@/lib/utils'
 import { Field, Choice } from './settings-fields'
 
 /** Live preview: the same renderer the canvas uses, over a fixed sample
- *  stroke — so the sliders show their real effect, not an approximation. */
+ *  stroke with rising pressure — so every slider shows its real effect. */
 const SAMPLE: number[][] = Array.from({ length: 60 }, (_, i) => {
   const t = i / 59
   return [16 + t * 268, 34 + Math.sin(t * Math.PI * 2.2) * 16 + Math.sin(t * 31) * 1.4, 0.35 + t * 0.5]
 })
 
+function Swatch({
+  color,
+  active,
+  onSelect,
+  onRemove,
+}: {
+  color: string
+  active: boolean
+  onSelect: () => void
+  onRemove?: () => void
+}) {
+  return (
+    <span className="relative">
+      <button
+        type="button"
+        aria-label={`Pen colour ${color}`}
+        aria-pressed={active}
+        className={cn(
+          'h-7 w-7 rounded-full border-2 transition-transform',
+          active ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+        )}
+        style={{ background: color }}
+        onClick={onSelect}
+      />
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={`Remove colour ${color}`}
+          className="absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground hover:text-foreground"
+          onClick={onRemove}
+        >
+          <X className="h-2.5 w-2.5" />
+        </button>
+      )}
+    </span>
+  )
+}
+
 export function PenSettings() {
   const pen = usePrefs((s) => s.pen)
   const setPen = usePrefs((s) => s.setPen)
+  const colorInputRef = useRef<HTMLInputElement>(null)
+  const style = PEN_STYLES[pen.style] ?? PEN_STYLES.ink
+  const pressureStyle = style.pressure
 
   return (
     <div className="space-y-1">
       <div className="rounded-xl border border-border bg-card/60 p-2">
         <svg width="100%" height="72" viewBox="0 0 300 72" aria-label="Pen preview">
           <path
-            d={inkPath(SAMPLE, { size: pen.size })}
+            d={inkPath(SAMPLE, {
+              size: pen.size,
+              thinning: pressureStyle ? pen.sensitivity : 0,
+              smoothing: pen.smoothing,
+              streamline: pen.streamline,
+            })}
             fill={pen.color}
-            fillOpacity={PEN_STYLES[pen.style].opacity}
+            fillOpacity={style.opacity}
           />
         </svg>
       </div>
 
       <Field
-        label="Thickness"
-        value={`${pen.size}px`}
-        hint="Base stroke width — the same value the dock's hover flyout adjusts."
+        label="Style"
+        hint="Ink follows stylus pressure. Pen writes at one flat thickness. Highlighter is flat and translucent."
       >
+        <Choice<PenStyle>
+          value={PEN_STYLES[pen.style] ? pen.style : 'ink'}
+          onChange={(style) => setPen({ style })}
+          options={(Object.keys(PEN_STYLES) as PenStyle[]).map((id) => ({
+            id,
+            label: PEN_STYLES[id].label,
+          }))}
+        />
+      </Field>
+
+      <Field label="Thickness" value={`${pen.size}px`} hint="Base stroke width — what a mouse or flat style always draws at.">
         <Slider
           value={[pen.size]}
           min={0.5}
@@ -54,23 +114,9 @@ export function PenSettings() {
       </Field>
 
       <Field
-        label="Smoothing"
-        value={pen.smoothing.toFixed(2)}
-        hint="Rounds the finished outline. Low keeps every wobble; high makes clean curves."
-      >
-        <Slider
-          value={[pen.smoothing]}
-          min={0}
-          max={1}
-          step={0.05}
-          onValueChange={([v]) => setPen({ smoothing: v })}
-        />
-      </Field>
-
-      <Field
-        label="Stabilisation"
+        label="Stability"
         value={pen.streamline.toFixed(2)}
-        hint="How much the ink lags your hand to steady it. THIS is the one that feels sticky — turn it down for responsive writing, up for confident straight strokes."
+        hint="Steadies shaky lines. The tip stays glued to your pen, so even high values don't feel laggy — the line behind just settles straighter."
       >
         <Slider
           value={[pen.streamline]}
@@ -82,18 +128,34 @@ export function PenSettings() {
       </Field>
 
       <Field
-        label="Pressure sensitivity"
-        value={pen.sensitivity.toFixed(2)}
-        hint="How much the stroke thins and thickens with pressure (or speed, on a mouse)."
+        label="Smoothness"
+        value={pen.smoothing.toFixed(2)}
+        hint="Rounds the finished outline. Low keeps every wobble; high makes clean flowing curves."
       >
         <Slider
-          value={[pen.sensitivity]}
+          value={[pen.smoothing]}
           min={0}
           max={1}
           step={0.05}
-          onValueChange={([v]) => setPen({ sensitivity: v })}
+          onValueChange={([v]) => setPen({ smoothing: v })}
         />
       </Field>
+
+      {pressureStyle && (
+        <Field
+          label="Sensitivity"
+          value={pen.sensitivity.toFixed(2)}
+          hint="How much stylus pressure thins and thickens the stroke. Mouse and touch always write at the base thickness."
+        >
+          <Slider
+            value={[pen.sensitivity]}
+            min={0}
+            max={1}
+            step={0.05}
+            onValueChange={([v]) => setPen({ sensitivity: v })}
+          />
+        </Field>
+      )}
 
       <Field label="Dot size" value={`${pen.dotSize}x`} hint="Multiplier for single-tap dots (like the dot on an 'i').">
         <Slider
@@ -105,22 +167,49 @@ export function PenSettings() {
         />
       </Field>
 
-      <Field label="Colour">
-        <div className="flex gap-1.5">
+      <Field label="Colour" hint="Tap + to add your own colours; they stay in this palette.">
+        <div className="flex flex-wrap items-center gap-1.5">
           {PEN_COLORS.map((c) => (
-            <button
+            <Swatch key={c} color={c} active={pen.color === c} onSelect={() => setPen({ color: c })} />
+          ))}
+          {pen.customColors.map((c) => (
+            <Swatch
               key={c}
-              type="button"
-              aria-label={`Pen colour ${c}`}
-              aria-pressed={pen.color === c}
-              className={cn(
-                'h-7 w-7 rounded-full border-2 transition-transform',
-                pen.color === c ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
-              )}
-              style={{ background: c }}
-              onClick={() => setPen({ color: c })}
+              color={c}
+              active={pen.color === c}
+              onSelect={() => setPen({ color: c })}
+              onRemove={() =>
+                setPen({
+                  customColors: pen.customColors.filter((x) => x !== c),
+                  ...(pen.color === c ? { color: DEFAULT_PEN.color } : {}),
+                })
+              }
             />
           ))}
+          <button
+            type="button"
+            aria-label="Add custom colour"
+            className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground"
+            onClick={() => colorInputRef.current?.click()}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+          <input
+            ref={colorInputRef}
+            type="color"
+            aria-hidden
+            tabIndex={-1}
+            className="pointer-events-none absolute h-0 w-0 opacity-0"
+            onChange={(e) => {
+              const c = e.target.value
+              setPen({
+                color: c,
+                customColors: pen.customColors.includes(c)
+                  ? pen.customColors
+                  : [...pen.customColors, c].slice(-12),
+              })
+            }}
+          />
         </div>
       </Field>
 
@@ -142,25 +231,13 @@ export function PenSettings() {
         />
       </Field>
 
-      <Field label="Style">
-        <Choice<PenStyle>
-          value={pen.style}
-          onChange={(style) => setPen({ style })}
-          options={(Object.keys(PEN_STYLES) as PenStyle[]).map((id) => ({
-            id,
-            label: PEN_STYLES[id].label,
-          }))}
-        />
-      </Field>
-
       <button
         type="button"
         className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
-        onClick={() => setPen({ ...DEFAULT_PEN })}
+        onClick={() => setPen({ ...DEFAULT_PEN, customColors: pen.customColors })}
       >
         Reset pen to defaults
       </button>
     </div>
   )
 }
-

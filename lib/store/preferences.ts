@@ -13,23 +13,28 @@ import { persist } from 'zustand/middleware'
 export type ScrollAxis = 'free' | 'vertical' | 'horizontal'
 export type GridType = 'dots' | 'lines' | 'graph' | 'none'
 export type DockSide = 'bottom' | 'top' | 'left' | 'right'
-export type PenStyle = 'ink' | 'marker' | 'highlighter' | 'technical'
+export type PenStyle = 'ink' | 'pen' | 'highlighter'
 
 export interface PenPrefs {
-  /** perfect-freehand `smoothing`: how much the outline is rounded. */
+  /** Smoothness: how much the finished outline is rounded (0 keeps every
+   *  wobble, 1 gives clean flowing curves). */
   smoothing: number
-  /** perfect-freehand `streamline`: how much the input is lagged/averaged.
-   *  This is the one that makes writing feel "sticky" when it's too high. */
+  /** Stability: how much the ink trails the hand to steady it. The tip stays
+   *  glued to the pointer (see components/objects/ink.ts), so high values
+   *  steady the line without the old "sticky" lag. */
   streamline: number
-  /** How strongly width follows pressure/velocity (perfect-freehand thinning). */
+  /** Sensitivity: how strongly width follows stylus pressure. Flat styles
+   *  (pen, highlighter) ignore it entirely. */
   sensitivity: number
   size: number
   color: string
   style: PenStyle
+  /** User-added colours, shown after the basic palette in pen settings. */
+  customColors: string[]
   /** Scribble-to-erase: 0 = must scribble hard and long before anything is
    *  deleted, 1 = a light scratch is enough. Higher is easier to trigger. */
   scribbleSensitivity: number
-  /** Multiplier for dot size when drawing a single point (outline.length < 3) */
+  /** Multiplier for dot size when drawing a single point (a tap). */
   dotSize: number
 }
 
@@ -121,6 +126,7 @@ export const DEFAULT_PEN: PenPrefs = {
   size: 2.5, // a pen, not a marker
   color: 'var(--foreground)',
   style: 'ink',
+  customColors: [],
   scribbleSensitivity: 0.5,
   dotSize: 2.0,
 }
@@ -138,12 +144,15 @@ export const DEFAULT_NOTEBOOK: NotebookPrefs = {
   panelSpacing: 1,
 }
 
-/** Per-style overrides applied on top of the sliders. */
-export const PEN_STYLES: Record<PenStyle, { label: string; opacity: number; taper: boolean }> = {
-  ink: { label: 'Ink', opacity: 1, taper: true },
-  marker: { label: 'Marker', opacity: 1, taper: false },
-  highlighter: { label: 'Highlighter', opacity: 0.35, taper: false },
-  technical: { label: 'Technical', opacity: 1, taper: false },
+/** Per-style overrides applied on top of the sliders. `pressure: false`
+ *  means the stroke is drawn flat at the base thickness — the sensitivity
+ *  slider only applies to pressure styles. (Old stored styles 'marker' and
+ *  'technical' migrate to 'pen'; committed strokes carrying those names
+ *  still render via the `?? 1` opacity fallbacks at the call sites.) */
+export const PEN_STYLES: Record<PenStyle, { label: string; opacity: number; pressure: boolean }> = {
+  ink: { label: 'Ink', opacity: 1, pressure: true },
+  pen: { label: 'Pen', opacity: 1, pressure: false },
+  highlighter: { label: 'Highlighter', opacity: 0.35, pressure: false },
 }
 
 export const PEN_COLORS = [
@@ -183,7 +192,37 @@ export const usePrefs = create<PrefsState>()(
           appearance: { ...DEFAULT_APPEARANCE },
         }),
     }),
-    { name: 'simblip-preferences' } // device-wide, not per user
+    {
+      name: 'simblip-preferences', // device-wide, not per user
+      version: 2,
+      // Sanitise whatever localStorage hands back: clamp every pen number
+      // into its slider range (NaN/out-of-range values from older builds
+      // made the ink renderer misbehave) and map retired styles onto the
+      // current set.
+      migrate: (persisted) => {
+        const s = (persisted ?? {}) as Record<string, unknown>
+        const pen = (s.pen ?? {}) as Record<string, unknown>
+        const num = (v: unknown, d: number, lo: number, hi: number) =>
+          typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d
+        const style = pen.style as string
+        s.pen = {
+          ...DEFAULT_PEN,
+          ...pen,
+          smoothing: num(pen.smoothing, DEFAULT_PEN.smoothing, 0, 1),
+          streamline: num(pen.streamline, DEFAULT_PEN.streamline, 0, 0.9),
+          sensitivity: num(pen.sensitivity, DEFAULT_PEN.sensitivity, 0, 1),
+          size: num(pen.size, DEFAULT_PEN.size, 0.5, 16),
+          dotSize: num(pen.dotSize, DEFAULT_PEN.dotSize, 0.5, 5),
+          scribbleSensitivity: num(pen.scribbleSensitivity, DEFAULT_PEN.scribbleSensitivity, 0, 1),
+          style: style in PEN_STYLES ? style : style === 'marker' || style === 'technical' ? 'pen' : 'ink',
+          color: typeof pen.color === 'string' ? pen.color : DEFAULT_PEN.color,
+          customColors: Array.isArray(pen.customColors)
+            ? pen.customColors.filter((c): c is string => typeof c === 'string').slice(0, 12)
+            : [],
+        }
+        return s as unknown as PrefsState
+      },
+    }
   )
 )
 

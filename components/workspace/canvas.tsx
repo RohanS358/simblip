@@ -127,7 +127,38 @@ function isScribble(pts: number[][]): boolean {
   }
   const diag = Math.hypot(maxX - minX, maxY - minY)
   return diag > 40 && len / diag > minFold && totalTurn > minTurn
-} // screen px below which a drag counts as a click
+}
+
+/** One normalised pressure for every pointer type. A real stylus reports its
+ *  own pressure; mouse and touch are recorded FLAT at 0.5 — browsers report
+ *  0, 0.5 or 1 there depending on device, which made the sensitivity setting
+ *  randomly collapse the stroke to a hairline or balloon it. 0.5 is the ink
+ *  engine's neutral value: it always renders at the base thickness. */
+function inkPressure(e: { pointerType: string; pressure: number }): number {
+  if (e.pointerType !== 'pen') return 0.5
+  return Number.isFinite(e.pressure) && e.pressure > 0 ? Math.min(1, e.pressure) : 0.5
+}
+
+/** Effective pressure sensitivity for the current pen: flat styles
+ *  (pen, highlighter) ignore pressure entirely. */
+function liveThinning(): number {
+  const pen = penPrefs()
+  return PEN_STYLES[pen.style]?.pressure ? pen.sensitivity : 0
+}
+
+/** Committed ink remembers exactly how it was drawn — changing pen settings
+ *  later must never repaint what's already on the page. One stamp for every
+ *  commit path, so live ink and committed ink can't drift apart. */
+function stampInkMeta(obj: SceneObject) {
+  const pen = penPrefs()
+  obj.metadata.inkSize = pen.size
+  obj.metadata.inkColor = pen.color
+  obj.metadata.inkStyle = pen.style
+  obj.metadata.smoothing = pen.smoothing
+  obj.metadata.streamline = pen.streamline
+  obj.metadata.sensitivity = liveThinning()
+  obj.metadata.dotSize = pen.dotSize
+}
 
 // Inside a system boundary, recognized doodle shapes become that domain's
 // components: zigzag → resistor, box → battery/gate, blob → bulb/BJT…
@@ -449,7 +480,6 @@ export function InfiniteCanvas({
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const pen = usePrefs((s) => s.pen)
-  const penSize = pen.size
   // Phone: the zoom pill appears only while zooming (see the HUD effect).
   const isPhone = useIsNarrow(767)
   const [zoomHud, setZoomHud] = useState(false)
@@ -490,7 +520,9 @@ export function InfiniteCanvas({
     strokeRef.current = v
     setStrokeState(v)
   }
-  /** Per-move update: bypasses React entirely. */
+  /** Per-move update: bypasses React entirely. Reads the live pen prefs
+   *  (never a render closure), so a settings change applies to the very
+   *  next stroke instead of whenever React last re-rendered. */
   const updateStroke = (v: number[][]) => {
     strokeRef.current = v
     const el = strokePathRef.current
@@ -498,7 +530,7 @@ export function InfiniteCanvas({
     el.setAttribute(
       'd',
       useDocStore.getState().tool === 'pen'
-        ? inkPath(v, { size: penSize, last: false })
+        ? inkPath(v, { size: penPrefs().size, thinning: liveThinning(), last: false })
         : pointsToPath(v)
     )
   }
@@ -1080,16 +1112,24 @@ export function InfiniteCanvas({
           updateStroke(dense)
         } else {
           // Coalesced pointer events give the full-resolution ink trail;
-          // pressure rides along as a third component for the ink renderer.
-          const raw: { clientX: number; clientY: number; pressure: number }[] =
+          // normalised pressure rides along as a third component for the ink
+          // renderer (real stylus pressure, flat 0.5 for mouse/touch).
+          const raw: { clientX: number; clientY: number; pressure: number; pointerType: string }[] =
             typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents().length > 0
               ? e.getCoalescedEvents()
               : [e]
-          const pts = raw.map((ev) => ({ ...toCanvas(ev.clientX, ev.clientY), p: ev.pressure }))
+          const pts = raw.map((ev) => ({
+            ...toCanvas(ev.clientX, ev.clientY),
+            p: inkPressure({ pointerType: e.pointerType, pressure: ev.pressure }),
+          }))
+          // Jitter gate in SCREEN pixels: a fixed canvas-space gate dropped
+          // real detail when writing zoomed-in and kept sensor noise when
+          // zoomed-out.
+          const minStep = 0.75 / (vpRef.current.zoom || 1)
           const next = strokeRef.current ?? []
           for (const p of pts) {
             const last = next[next.length - 1]
-            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > 0.75)
+            if (!last || Math.hypot(p.x - last[0], p.y - last[1]) > minStep)
               next.push([p.x, p.y, p.p])
           }
           updateStroke(next)
@@ -1375,13 +1415,7 @@ export function InfiniteCanvas({
               w: Math.max(maxX - minX, 1),
               h: Math.max(maxY - minY, 1),
             })
-            obj.metadata.inkSize = usePrefs.getState().pen.size
-            obj.metadata.inkColor = usePrefs.getState().pen.color
-            obj.metadata.inkStyle = usePrefs.getState().pen.style
-            obj.metadata.smoothing = usePrefs.getState().pen.smoothing
-            obj.metadata.streamline = usePrefs.getState().pen.streamline
-            obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
-            obj.metadata.dotSize = usePrefs.getState().pen.dotSize
+            stampInkMeta(obj)
             const all = Object.values(store.pages[pageId]?.objects ?? {})
             if (connectEnds(obj, all)) {
               obj.behaviors.push(createBehavior('wire'))
@@ -1433,13 +1467,7 @@ export function InfiniteCanvas({
               w: rec.w,
               h: rec.h,
             })
-            raw.metadata.inkSize = usePrefs.getState().pen.size
-            raw.metadata.inkColor = usePrefs.getState().pen.color
-            raw.metadata.inkStyle = usePrefs.getState().pen.style
-            raw.metadata.smoothing = usePrefs.getState().pen.smoothing
-            raw.metadata.streamline = usePrefs.getState().pen.streamline
-            raw.metadata.sensitivity = usePrefs.getState().pen.sensitivity
-            raw.metadata.dotSize = usePrefs.getState().pen.dotSize
+            stampInkMeta(raw)
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
@@ -1533,15 +1561,7 @@ export function InfiniteCanvas({
               }
             }
           }
-          if (obj.geometry.kind === 'stroke') {
-            obj.metadata.inkSize = usePrefs.getState().pen.size
-            obj.metadata.inkColor = usePrefs.getState().pen.color
-            obj.metadata.inkStyle = usePrefs.getState().pen.style
-            obj.metadata.smoothing = usePrefs.getState().pen.smoothing
-            obj.metadata.streamline = usePrefs.getState().pen.streamline
-            obj.metadata.sensitivity = usePrefs.getState().pen.sensitivity
-            obj.metadata.dotSize = usePrefs.getState().pen.dotSize
-          }
+          if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
           store.addObject(pageId, obj)
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
@@ -1999,7 +2019,7 @@ export function InfiniteCanvas({
     }
     if (tool === 'pen' || tool === 'shaper') {
       const p = toCanvas(e.clientX, e.clientY)
-      setStroke([[p.x, p.y, e.pressure]])
+      setStroke([[p.x, p.y, inkPressure(e)]])
       beginGesture('draw', e)
       return
     }
@@ -2432,11 +2452,11 @@ export function InfiniteCanvas({
                   ref={strokePathRef}
                   d={
                     (strokeRef.current?.length ?? 0) > 1
-                      ? inkPath(strokeRef.current!, { size: penSize, last: false })
+                      ? inkPath(strokeRef.current!, { size: pen.size, thinning: liveThinning(), last: false })
                       : ''
                   }
                   fill={holdReady ? 'var(--accent-amber)' : pen.color}
-                  fillOpacity={PEN_STYLES[pen.style].opacity}
+                  fillOpacity={PEN_STYLES[pen.style]?.opacity ?? 1}
                   stroke="none"
                 />
                 {holdReady && strokeRef.current && strokeRef.current.length > 0 && (

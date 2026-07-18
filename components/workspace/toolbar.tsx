@@ -173,9 +173,6 @@ export function Toolbar({
   const inkAnnotate = useDocStore((s) => s.inkAnnotate)
   const toggleInkToShape = useDocStore((s) => s.toggleInkToShape)
   const toggleInkAnnotate = useDocStore((s) => s.toggleInkAnnotate)
-  // One pen size for the whole app — persisted with the rest of the pen feel.
-  const penSize = usePrefs((s) => s.pen.size)
-  const setPenSize = (size: number) => usePrefs.getState().setPen({ size })
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
@@ -186,9 +183,10 @@ export function Toolbar({
   const toggleTouchMeasureMode = useWorkspaceStore((s) => s.toggleTouchMeasureMode)
   const isTouchDevice = useIsTouchDevice()
 
-  // Pen-size flyout: opens on hover (mouse) with a grace timer so the cursor
-  // can travel to the slider; on touch, tapping the already-active pen toggles it.
-  const [showSize, setShowSize] = useState(false)
+  // Pen settings popover: the ONE control surface for the pen. Opens on
+  // double-click (or by tapping the already-active pen — the touch
+  // equivalent). The old hover thickness flyout is gone on purpose: every
+  // pen control lives in the settings panel, nowhere else.
   const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
   const dock = usePrefs((s) => s.notebook.dock)
@@ -202,18 +200,6 @@ export function Toolbar({
           ? 'left-full top-1/2 ml-2 -translate-y-1/2'
           : 'right-full top-1/2 mr-2 -translate-y-1/2'
   const toolOption = useDocStore((s) => s.toolOption)
-  const hideTimer = useRef<number | null>(null)
-  const openSize = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-    setShowSize(true)
-  }
-  const closeSize = () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-    hideTimer.current = window.setTimeout(() => setShowSize(false), 250)
-  }
-  useEffect(() => () => {
-    if (hideTimer.current) clearTimeout(hideTimer.current)
-  }, [])
 
   const toolbarRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -287,39 +273,6 @@ export function Toolbar({
       )}
     >
       <div ref={toolbarRef} className="relative flex min-h-0 min-w-0">
-      {showSize && (
-        <div
-          className={cn(
-            'glass-strong absolute flex items-center gap-2.5 rounded-xl px-3 py-2',
-            penFlyoutClass // always opens toward the screen centre, wherever the dock is
-          )}
-          // Mouse-gated: on touch, pointerleave fires after every slider drag
-          // and would dismiss the flyout mid-adjustment.
-          onPointerEnter={(e) => e.pointerType === 'mouse' && openSize()}
-          onPointerLeave={(e) => e.pointerType === 'mouse' && closeSize()}
-        >
-          <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
-            <span
-              className="rounded-full bg-foreground"
-              style={{ width: Math.min(16, penSize), height: Math.min(16, penSize) }}
-            />
-          </span>
-          <input
-            type="range"
-            min={0.5}
-            max={16}
-            step={0.25}
-            value={penSize}
-            aria-label="Pen thickness"
-            className="w-28 accent-[var(--accent-blue)]"
-            onChange={(e) => setPenSize(Number(e.target.value))}
-          />
-          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
-            {penSize}px
-          </span>
-        </div>
-      )}
-
       {showPen && (
         <>
           <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
@@ -372,36 +325,18 @@ export function Toolbar({
       >
       {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
         t === 'pen' ? (
-          <span
-            key={t}
-            className="shrink-0"
-            onPointerEnter={(e) => e.pointerType === 'mouse' && openSize()}
-            onPointerLeave={(e) => e.pointerType === 'mouse' && closeSize()}
-          >
-            <ToolButton
-              active={tool === 'pen'}
-              label={`${label} — hover for thickness`}
-              shortcut={key}
-              onClick={() => (tool === 'pen' ? setShowSize((v) => !v) : setTool('pen'))}
-              onDoubleClick={() => {
-                setShowSize(false)
-                setShowPen(true)
-              }}
-            >
-              <Icon className="h-4 w-4" />
-            </ToolButton>
-          </span>
-        ) : (
           <ToolButton
             key={t}
-            active={tool === t}
-            label={label}
+            active={tool === 'pen'}
+            label={`${label} — double-click for pen settings`}
             shortcut={key}
-            onClick={() => {
-              setShowSize(false)
-              setTool(t)
-            }}
+            onClick={() => (tool === 'pen' ? setShowPen(true) : setTool('pen'))}
+            onDoubleClick={() => setShowPen(true)}
           >
+            <Icon className="h-4 w-4" />
+          </ToolButton>
+        ) : (
+          <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
             <Icon className="h-4 w-4" />
           </ToolButton>
         )
@@ -410,10 +345,7 @@ export function Toolbar({
       <ToolButton
         active={showShapes || tool === 'shape'}
         label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
-        onClick={() => {
-          setShowSize(false)
-          setShowShapes((v) => !v)
-        }}
+        onClick={() => setShowShapes((v) => !v)}
       >
         <ShapesGroupIcon />
       </ToolButton>
