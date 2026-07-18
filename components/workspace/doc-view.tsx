@@ -340,7 +340,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           disabled={exporting}
           className={cn(
             'glass-strong absolute right-4 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60',
-            dockTop ? 'top-16' : 'top-3'
+            dockTop ? 'top-25' : 'top-3'
           )}
           onClick={() => void exportPdf()}
         >
