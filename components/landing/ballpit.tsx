@@ -249,23 +249,14 @@ function S(e) {
     hover: false,
     touching: false,
     onEnter() {},
-    onMove() {},
-    onClick() {},
-    onLeave() {},
+
     ...e
   };
   (function (e, t) {
     if (!b.has(e)) {
       b.set(e, t);
       if (!R) {
-        document.body.addEventListener('pointermove', M);
-        document.body.addEventListener('pointerleave', L);
-        document.body.addEventListener('click', C);
-
-        document.body.addEventListener('touchstart', TouchStart, { passive: false });
-        document.body.addEventListener('touchmove', TouchMove, { passive: false });
-        document.body.addEventListener('touchend', TouchEnd, { passive: false });
-        document.body.addEventListener('touchcancel', TouchEnd, { passive: false });
+        
 
         R = true;
       }
@@ -275,14 +266,7 @@ function S(e) {
     const t = e.domElement;
     b.delete(t);
     if (b.size === 0) {
-      document.body.removeEventListener('pointermove', M);
-      document.body.removeEventListener('pointerleave', L);
-      document.body.removeEventListener('click', C);
-
-      document.body.removeEventListener('touchstart', TouchStart);
-      document.body.removeEventListener('touchmove', TouchMove);
-      document.body.removeEventListener('touchend', TouchEnd);
-      document.body.removeEventListener('touchcancel', TouchEnd);
+      
 
       R = false;
     }
@@ -727,7 +711,7 @@ function createBallpit(e, t = {}) {
   };
 }
 
-const Ballpit = ({ className = '', followCursor = true, ...props }) => {
+const Ballpit = ({ className = '', followCursor = false, ...props }) => {
   const canvasRef = useRef(null);
   const spheresInstanceRef = useRef(null);
 
@@ -743,7 +727,7 @@ const Ballpit = ({ className = '', followCursor = true, ...props }) => {
     const raf = requestAnimationFrame(() => {
       if (disposed) return;
       try {
-        spheresInstanceRef.current = createBallpit(canvas, { followCursor, ...props });
+        spheresInstanceRef.current = createBallpit(canvas, { followCursor , ...props });
       } catch (err) {
         console.warn('Ballpit disabled: WebGL unavailable', err);
         spheresInstanceRef.current = null;
