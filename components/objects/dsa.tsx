@@ -44,7 +44,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
 
   const [trace, setTrace] = useState<TraceResult | null>(null)
   const [stepIdx, setStepIdx] = useState(0)
-  const [playing, setPlaying] = useState(false)
+  const [playing, setPlaying] = useState(true)
   const [speedIdx, setSpeedIdx] = useState(2) // 2×
   const [tab, setTab] = useState<Tab>('memory')
   const [scrollTop, setScrollTop] = useState(0)
