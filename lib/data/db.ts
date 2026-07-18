@@ -90,13 +90,23 @@ export function seedTable(table: string, rows: Row[]) {
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
+// Coalesce identical concurrent list() calls into one request — several
+// components independently poll the same table (e.g. the notification
+// center and the share inbox both read `shares`), and without this every
+// poll tick fires one fetch per subscriber instead of one per table.
+const inFlight = new Map<string, Promise<unknown>>()
+
 export async function list<T extends Row>(table: string, eq?: Eq, cols = '*'): Promise<T[]> {
   if (dbMode === 'cloud') {
     const q = eqQuery(eq)
-    // `cols` trims heavy jsonb columns off hot paths (e.g. the board's
-    // fast remote poll only needs `remote`, not the page snapshots).
-    const res = await restFetch(`simblip_${table}?select=${cols}${q ? `&${q}` : ''}`)
-    return (await res.json()) as T[]
+    const path = `simblip_${table}?select=${cols}${q ? `&${q}` : ''}`
+    const existing = inFlight.get(path)
+    if (existing) return existing as Promise<T[]>
+    const p = restFetch(path)
+      .then((res) => res.json() as Promise<T[]>)
+      .finally(() => inFlight.delete(path))
+    inFlight.set(path, p)
+    return p
   }
   return readTable(table).filter((r) => matches(r, eq)) as T[]
 }
