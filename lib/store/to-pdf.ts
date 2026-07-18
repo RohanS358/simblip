@@ -103,8 +103,12 @@ async function pagesToPdf(
   size: { w: number; h: number },
   onProgress?: ConvertProgress
 ): Promise<Blob> {
+  // html2canvas-pro: same API, but it actually parses the modern color
+  // functions (oklch/lab/color-mix) our design tokens use — the classic
+  // html2canvas throws "unsupported color function lab" on them, and the
+  // sanitizer below can't reach pseudo-elements.
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-    import('html2canvas'),
+    import('html2canvas-pro'),
     import('jspdf'),
   ])
   const landscape = size.w > size.h
@@ -116,7 +120,6 @@ async function pagesToPdf(
   })
 
   for (let i = 0; i < pages.length; i++) {
-    sanitizeColors(pages[i])
     const canvas = await html2canvas(pages[i], {
       scale: 2, // 2× so the PDF stays sharp when the whiteboard zooms in
       backgroundColor: '#ffffff',

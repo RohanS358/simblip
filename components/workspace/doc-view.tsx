@@ -247,7 +247,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       setVisible(new Set(sheets.map((_, i) => i)))
       await new Promise((r) => setTimeout(r, 900))
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import('html2canvas'),
+        import('html2canvas-pro'),
         import('jspdf'),
       ])
       const pdf = new jsPDF({ unit: 'pt', format: 'a4' })
@@ -262,10 +262,6 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           scale: 2,
           useCORS: true,
           logging: false,
-          // html2canvas can't parse modern CSS color functions (oklch/lab/
-          // color-mix) our design tokens use — sanitize the CLONE only, so
-          // the live, on-screen page never gets its colors mutated.
-          onclone: (_doc, cloned) => sanitizeColors(cloned as HTMLElement),
         })
         if (!firstPage) pdf.addPage()
         firstPage = false
