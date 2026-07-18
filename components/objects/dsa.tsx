@@ -44,7 +44,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
 
   const [trace, setTrace] = useState<TraceResult | null>(null)
   const [stepIdx, setStepIdx] = useState(0)
-  const [playing, setPlaying] = useState(true)
+  const [playing, setPlaying] = useState(false)
   const [speedIdx, setSpeedIdx] = useState(2) // 2×
   const [tab, setTab] = useState<Tab>('memory')
   const [scrollTop, setScrollTop] = useState(0)
@@ -58,8 +58,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
       const result = runCpp(source)
       setTrace(result)
       setStepIdx(0)
-      // replay from the start on each rebuild; skip autoplay on parse errors
-      setPlaying(result.steps.length > 1 && !result.error)
+      setPlaying(false)
       firstRun.current = false
     }, firstRun.current ? 0 : 500)
     return () => clearTimeout(t)
@@ -89,7 +88,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
 
   const restart = () => {
     setStepIdx(0)
-    setPlaying(true)
+    setPlaying(false)
   }
 
   return (
