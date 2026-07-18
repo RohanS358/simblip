@@ -2,9 +2,14 @@
 
 // PDF/PPT reader page. Upload (or drag-drop) any document — PPT/DOCX/… are
 // converted to PDF in the browser (lib/store/to-pdf.ts) — then read it as a
-// scrolling stack of pages and mark it up with the pen. Reader pages are for
-// READING: no simulations, so the dock here is a purpose-built annotation
-// dock, not the board toolbar.
+// scrolling stack of pages and mark it up with the pen.
+//
+// Ink on a page is a REAL InfiniteCanvas overlay (transparent, locked to the
+// page — no separate drawing system): whichever page or notes pane you last
+// clicked into becomes the shell's active target, so the real board dock
+// (Toolbar/Transport) — same pen, same double-tap-for-settings, same
+// undo/redo — draws right on top of the page image. See lib/store/workspace
+// `annotPages` (one real canvas per PDF page number).
 //
 // Notes: a side-by-side (borderless) notes doc with the full board toolset;
 // LINK mode gives every PDF page its own dedicated note sheet, so you can
@@ -15,16 +20,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
-  Download, Eraser, FileUp, Highlighter, Link as LinkIcon, Link2Off, Loader2,
-  MousePointer2, NotebookPen, Pen, RotateCcw, Trash2, ZoomIn, ZoomOut,
+  Download, FileUp, Link as LinkIcon, Link2Off, Loader2,
+  NotebookPen, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { toast } from 'sonner'
 import { getSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
-import { usePdfAnnotations, type PdfStroke } from '@/lib/store/pdf-annotations'
-import { inkPath } from '@/components/objects/ink'
+import { useDocStore } from '@/lib/store/document'
 import { resolveSharedFile } from '@/lib/data/session-upload'
 import { getAccessToken } from '@/lib/auth/store'
 import * as db from '@/lib/data/db'
@@ -53,32 +57,25 @@ const loadPdfjs = () => {
   return pdfjsPromise
 }
 
-type Mode = 'read' | 'pen' | 'hl' | 'eraser'
-const COLORS = ['#ef4444', '#3b82f6', '#10b981', '#f59e0b']
-const SIZES = [0.002, 0.004, 0.008] // in page-width units
-/** Stable empty result for the annotations selector — a fresh [] per call
- *  makes React's getSnapshot caching warning fire on unannotated pages. */
-const EMPTY_STROKES: PdfStroke[] = []
-
-/** One rendered PDF page + its annotation overlay. */
+/** One rendered PDF page + its real ink overlay (mounted once the page has
+ *  an annotation canvas — created on demand the moment it's focused). */
 function PdfPage({
-  doc, n, pageId, mode, color, size, onCurrent,
+  doc, n, annotId, onCurrent, onFocus,
 }: {
   doc: PdfDoc
   n: number
-  pageId: string
-  mode: Mode
-  color: string
-  size: number
+  annotId: string | null
   onCurrent: (n: number) => void
+  onFocus: (n: number) => void
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [near, setNear] = useState(n <= 2)
   const [aspect, setAspect] = useState(1.414)
-  const strokes = usePdfAnnotations((s) => s.strokes[pageId]?.[n] ?? EMPTY_STROKES)
-  const drawing = useRef<number[] | null>(null)
-  const [live, setLive] = useState<number[] | null>(null)
+  // Only capture the pointer while a drawing tool is armed — in 'select'
+  // (the default) the overlay must be a no-op so touch/mouse drag keeps
+  // scrolling the reader instead of starting a marquee over the page.
+  const drawing = useDocStore((s) => s.tool !== 'select')
 
   useEffect(() => {
     const el = hostRef.current
@@ -118,113 +115,20 @@ function PdfPage({
     }
   }, [near, doc, n])
 
-  const norm = (e: React.PointerEvent) => {
-    const r = hostRef.current!.getBoundingClientRect()
-    return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.width] as const
-  }
-
-  const onPointerDown = (e: React.PointerEvent) => {
-    if (mode === 'read') return
-    e.stopPropagation()
-    e.preventDefault()
-    const [x, y] = norm(e)
-    if (mode === 'eraser') {
-      usePdfAnnotations.getState().eraseAt(pageId, n, x, y, 0.015)
-      drawing.current = [] // flag "erasing while moving"
-      return
-    }
-    drawing.current = [x, y]
-    setLive([x, y])
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
-  }
-  const onPointerMove = (e: React.PointerEvent) => {
-    if (mode === 'read' || !drawing.current) return
-    const [x, y] = norm(e)
-    if (mode === 'eraser') {
-      usePdfAnnotations.getState().eraseAt(pageId, n, x, y, 0.015)
-      return
-    }
-    drawing.current.push(x, y)
-    setLive([...drawing.current])
-  }
-  const onPointerUp = () => {
-    if (drawing.current && drawing.current.length >= 4 && mode !== 'eraser') {
-      const stroke: PdfStroke = {
-        pts: drawing.current,
-        color,
-        size: mode === 'hl' ? size * 4 : size,
-        hl: mode === 'hl',
-      }
-      usePdfAnnotations.getState().addStroke(pageId, n, stroke)
-    }
-    drawing.current = null
-    setLive(null)
-  }
-
-  const path = (pts: number[]) =>
-    pts.reduce((d, v, i) => (i % 2 ? `${d}${v} ` : `${d}${i === 0 ? 'M' : 'L'}${v} `), '')
-  // Pen strokes get the same variable-width, tapered outline as the board's
-  // pen (perfect-freehand); the highlighter stays a plain translucent band.
-  const toPts = (flat: number[]): number[][] => {
-    const out: number[][] = []
-    for (let i = 0; i < flat.length; i += 2) out.push([flat[i], flat[i + 1]])
-    return out
-  }
-
   return (
     <div
       ref={hostRef}
       className="relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
       style={{ aspectRatio: `1 / ${aspect}` }}
+      onPointerDownCapture={() => onFocus(n)}
     >
       {near && <canvas ref={canvasRef} className="block h-full w-full" />}
-      {/* annotation layer — interactive only while a pen tool is armed */}
-      <svg
-        viewBox={`0 0 1 ${aspect}`}
-        preserveAspectRatio="none"
-        className={cn(
-          'absolute inset-0 h-full w-full',
-          mode === 'read' ? 'pointer-events-none' : 'touch-none',
-          mode === 'pen' || mode === 'hl' ? 'cursor-crosshair' : mode === 'eraser' ? 'cursor-cell' : ''
-        )}
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={onPointerUp}
-        onPointerCancel={onPointerUp}
-      >
-        {strokes.map((s, i) =>
-          s.hl ? (
-            <path
-              key={i}
-              d={path(s.pts)}
-              fill="none"
-              stroke={s.color}
-              strokeWidth={s.size}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.35}
-            />
-          ) : (
-            <path key={i} d={inkPath(toPts(s.pts), { size: s.size, last: true })} fill={s.color} stroke="none" opacity={0.95} />
-          )
-        )}
-        {live && (
-          mode === 'hl' ? (
-            <path
-              d={path(live)}
-              fill="none"
-              stroke={color}
-              strokeWidth={size * 4}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity={0.35}
-            />
-          ) : (
-            <path d={inkPath(toPts(live), { size, last: false })} fill={color} stroke="none" opacity={0.95} />
-          )
-        )}
-      </svg>
-      <span className="pointer-events-none absolute bottom-1.5 right-2.5 text-[10.5px] font-medium text-neutral-500">
+      {annotId && (
+        <div className={cn('absolute inset-0 z-10', !drawing && 'pointer-events-none')}>
+          <InfiniteCanvas key={annotId} pageId={annotId} locked transparent />
+        </div>
+      )}
+      <span className="pointer-events-none absolute bottom-1.5 right-2.5 z-20 text-[10.5px] font-medium text-neutral-500">
         {n}
       </span>
     </div>
@@ -237,18 +141,20 @@ export function PdfView({ pageId }: { pageId: string }) {
   const [converting, setConverting] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
   const [rev, setRev] = useState(0)
-  const [mode, setMode] = useState<Mode>('read')
-  const [color, setColor] = useState(COLORS[0])
-  const [size, setSize] = useState(SIZES[1])
   const [current, setCurrent] = useState(1)
   const [notesOpen, setNotesOpen] = useState(false)
   const [linked, setLinked] = useState(false)
   const [notesRatio, setNotesRatio] = useState(0.55)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
+  const [naturalH, setNaturalH] = useState(0)
+  // Which pane last had a pointer down in it owns the real board dock — a
+  // page you click on the reader side, or the notes canvas on the other.
+  const [focus, setFocus] = useState<'reader' | 'notes'>('reader')
   const inputRef = useRef<HTMLInputElement>(null)
   const splitRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
 
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
   // everywhere else in the app. A plain wheel is left alone to scroll.
@@ -263,6 +169,19 @@ export function PdfView({ pageId }: { pageId: string }) {
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
+
+  // CSS `zoom` resizes the layout box instead of just visually magnifying it
+  // — pages reflow and ink lands in the wrong place. `transform: scale()` is
+  // a pure visual zoom, like zooming into an image, but doesn't reflow, so
+  // the scroll container needs to be told how tall the scaled stack really is.
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setNaturalH(el.offsetHeight))
+    ro.observe(el)
+    setNaturalH(el.offsetHeight)
+    return () => ro.disconnect()
+  }, [doc])
 
   const local = getSessionFile(pageId)
   // Fall back to the database copy (another device / after local wipe) —
@@ -338,6 +257,10 @@ export function PdfView({ pageId }: { pageId: string }) {
   }
 
   const onCurrent = useCallback((n: number) => setCurrent(n), [])
+  const onPageFocus = useCallback((n: number) => {
+    setCurrent(n)
+    setFocus('reader')
+  }, [])
 
   // Per-page linked note sheet (created on demand).
   const linkedNoteId = linked
@@ -353,13 +276,20 @@ export function PdfView({ pageId }: { pageId: string }) {
   }, [notesOpen, linked, current, pageId])
 
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
-  // page while this is true — otherwise the notes canvas has no tools to open
-  // it with. Unlinked notes are a normal doc (DocView manages activeSheetId
-  // itself); linked notes are a bare InfiniteCanvas, so it's set here.
+  // page while this is true, targeting whichever pane was last clicked: the
+  // current reader page's own ink layer, or an open linked notes sheet.
+  // Unlinked notes are a normal doc — DocView manages activeSheetId itself
+  // once the notes pane has focus.
   useEffect(() => {
-    useWorkspaceStore.setState({ pdfNotesActive: notesOpen && !!doc })
-    if (notesOpen && linked && linkedNoteId) useWorkspaceStore.getState().setActiveSheet(linkedNoteId)
-  }, [notesOpen, doc, linked, linkedNoteId])
+    useWorkspaceStore.setState({ pdfToolsActive: !!doc })
+    if (!doc) return
+    if (focus === 'reader') {
+      const annotId = useWorkspaceStore.getState().ensureAnnotPage(pageId, current)
+      useWorkspaceStore.getState().setActiveSheet(annotId)
+    } else if (focus === 'notes' && linked && linkedNoteId) {
+      useWorkspaceStore.getState().setActiveSheet(linkedNoteId)
+    }
+  }, [doc, focus, current, pageId, linked, linkedNoteId])
 
   const onDivider = (e: React.PointerEvent) => {
     e.preventDefault()
@@ -437,19 +367,25 @@ export function PdfView({ pageId }: { pageId: string }) {
           </span>
         </button>
       ) : (
-        <div className="flex flex-col gap-4 pb-28" style={{ zoom }}>
-          {Array.from({ length: doc.numPages }, (_, i) => (
-            <PdfPage
-              key={i + 1}
-              doc={doc}
-              n={i + 1}
-              pageId={pageId}
-              mode={mode}
-              color={color}
-              size={size}
-              onCurrent={onCurrent}
-            />
-          ))}
+        // Spacer reserves the scaled stack's real footprint — see the
+        // ResizeObserver effect above.
+        <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
+          <div
+            ref={contentRef}
+            className="flex flex-col gap-4 pb-28"
+            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
+          >
+            {Array.from({ length: doc.numPages }, (_, i) => (
+              <PdfPage
+                key={i + 1}
+                doc={doc}
+                n={i + 1}
+                annotId={meta?.annotPages?.[i] || null}
+                onCurrent={onCurrent}
+                onFocus={onPageFocus}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -470,7 +406,7 @@ export function PdfView({ pageId }: { pageId: string }) {
               className="w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--accent-blue)]/30"
               onPointerDown={onDivider}
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1" onPointerDownCapture={() => setFocus('notes')}>
               {linked ? (
                 linkedNoteId ? (
                   <div className="relative h-full w-full bg-background">
@@ -494,17 +430,13 @@ export function PdfView({ pageId }: { pageId: string }) {
         )}
       </div>
 
-      {/* The reader dock — annotation-only, on purpose. Capped and scrollable
-          so a full row (color + size swatches + undo/clear + notes/link) on
-          a narrow screen scrolls inside itself instead of pushing past the
-          screen edge and taking tools like Undo out of reach. */}
+      {/* The reader dock — page nav, notes, file actions. Drawing lives on
+          the real board dock now (see the focus effect above), so this stays
+          small and never competes for space with it. */}
       {doc && (
         <div
           className={cn(
             'glass-strong no-scrollbar absolute bottom-4 z-30 flex max-w-[calc(100vw-9rem)] items-center gap-0.5 overflow-x-auto rounded-2xl px-2 py-1',
-            // With notes open, the board dock takes the screen's own centre
-            // for the notes canvas — stay centred over the READER pane only,
-            // so the two docks don't stack on top of each other.
             !notesOpen && 'left-1/2 -translate-x-1/2'
           )}
           style={notesOpen ? { left: `${(notesRatio * 100) / 2}%`, transform: 'translateX(-50%)' } : undefined}
@@ -512,52 +444,6 @@ export function PdfView({ pageId }: { pageId: string }) {
           <span className="min-w-14 px-1 text-center font-mono text-[11px] tabular-nums text-muted-foreground">
             {current}/{doc.numPages}
           </span>
-          <ToolBtn label="Read / scroll" active={mode === 'read'} onClick={() => setMode('read')}>
-            <MousePointer2 className="h-4 w-4" />
-          </ToolBtn>
-          <ToolBtn label="Pen" active={mode === 'pen'} onClick={() => setMode('pen')}>
-            <Pen className="h-4 w-4" />
-          </ToolBtn>
-          <ToolBtn label="Highlighter" active={mode === 'hl'} onClick={() => setMode('hl')}>
-            <Highlighter className="h-4 w-4" />
-          </ToolBtn>
-          <ToolBtn label="Eraser" active={mode === 'eraser'} onClick={() => setMode('eraser')}>
-            <Eraser className="h-4 w-4" />
-          </ToolBtn>
-          {(mode === 'pen' || mode === 'hl') && (
-            <>
-              <span className="mx-0.5 h-5 w-px bg-border" />
-              {COLORS.map((c) => (
-                <button
-                  key={c}
-                  type="button"
-                  aria-label={`Color ${c}`}
-                  className={cn('h-4.5 w-4.5 rounded-full border-2', color === c ? 'border-foreground' : 'border-transparent')}
-                  style={{ backgroundColor: c, width: 17, height: 17 }}
-                  onClick={() => setColor(c)}
-                />
-              ))}
-              <span className="mx-0.5 h-5 w-px bg-border" />
-              {SIZES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  aria-label="Stroke size"
-                  className={cn('grid h-6 w-5 place-items-center rounded', size === s && 'bg-accent')}
-                  onClick={() => setSize(s)}
-                >
-                  <span className="rounded-full bg-foreground" style={{ width: 3 + SIZES.indexOf(s) * 3, height: 3 + SIZES.indexOf(s) * 3 }} />
-                </button>
-              ))}
-            </>
-          )}
-          <span className="mx-0.5 h-5 w-px bg-border" />
-          <ToolBtn label="Undo stroke" onClick={() => usePdfAnnotations.getState().undoStroke(pageId, current)}>
-            <RotateCcw className="h-4 w-4" />
-          </ToolBtn>
-          <ToolBtn label="Clear this page's ink" onClick={() => usePdfAnnotations.getState().clearPage(pageId, current)}>
-            <Trash2 className="h-4 w-4" />
-          </ToolBtn>
           <span className="mx-0.5 h-5 w-px bg-border" />
           <ToolBtn label={notesOpen ? 'Close notes' : 'Open notes'} active={notesOpen} onClick={openNotes}>
             <NotebookPen className="h-4 w-4" />
@@ -571,6 +457,7 @@ export function PdfView({ pageId }: { pageId: string }) {
               {linked ? <LinkIcon className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
             </ToolBtn>
           )}
+          <span className="mx-0.5 h-5 w-px bg-border" />
           <ToolBtn
             label="Download original"
             onClick={() => {
@@ -589,7 +476,7 @@ export function PdfView({ pageId }: { pageId: string }) {
         </div>
       )}
 
-      {/* Page zoom — its own corner, clear of the annotation dock above. With
+      {/* Page zoom — its own corner, clear of the reader dock above. With
           notes open it stays over the READER pane only, so it doesn't land
           on top of the notes doc's own controls on the other side. */}
       {doc && (

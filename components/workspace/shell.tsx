@@ -141,17 +141,16 @@ export function WorkspaceShell() {
   const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
-  const pdfNotesActive = useWorkspaceStore((s) => s.pdfNotesActive)
+  const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const activeKind = useWorkspaceStore(
     (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
   )
   // What the toolbar/transport/inspector actually operate on: boards act on
-  // themselves, docs act on the focused SHEET, PDF readers keep their own
-  // annotation dock EXCEPT while their notes pane is open — that notes
-  // canvas needs the real board dock, same as any doc sheet.
-  const pdfWithNotes = activeKind === 'pdf' && pdfNotesActive
+  // themselves, docs act on the focused SHEET, and PDF readers draw with the
+  // real board dock too — targeting whichever page/notes canvas is focused.
+  const pdfToolsOn = activeKind === 'pdf' && pdfToolsActive
   const contentPageId =
-    activeKind === 'doc' || pdfWithNotes ? (activeSheetId ?? activePageId) : activePageId
+    activeKind === 'doc' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
   // Width of the legacy in-board document split pane (item: resizable).
   const [docSplitW, setDocSplitW] = useState(0.5)
   const [tabDropSide, setTabDropSide] = useState<'left' | 'right' | null>(null)
@@ -465,7 +464,7 @@ export function WorkspaceShell() {
                   </div>
                 )
               })()}
-              {(activeKind !== 'pdf' || pdfWithNotes) && contentPageId && (
+              {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
                 <>
                   <Transport pageId={contentPageId} />
                   <Toolbar

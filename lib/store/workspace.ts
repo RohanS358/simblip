@@ -22,10 +22,11 @@ interface WorkspaceState {
   splitRatio: number
   /** Doc pages: the sheet (content page) the tools currently target. */
   activeSheetId: string | null
-  /** PDF reader: true while its notes pane is open — the shell keeps the
-   *  board dock (Toolbar/Transport) mounted, targeting activeSheetId, so the
-   *  notes canvas is actually usable instead of being tool-less. */
-  pdfNotesActive: boolean
+  /** PDF reader: true while a document is loaded — the shell keeps the real
+   *  board dock (Toolbar/Transport) mounted, targeting activeSheetId (either
+   *  the current page's on-page ink layer or an open notes sheet). PDF pages
+   *  draw with the same pen/eraser/undo as a board, not a bespoke tool. */
+  pdfToolsActive: boolean
   sidebarOpen: boolean
   inspectorOpen: boolean
   aiOpen: boolean
@@ -50,6 +51,8 @@ interface WorkspaceState {
   addDocSheet: (pageId: string) => string
   /** Content page for the notes linked to one PDF page (created on demand). */
   ensureNotesPage: (pageId: string, pdfPage: number) => string
+  /** Content page for direct on-page ink on one PDF page (created on demand). */
+  ensureAnnotPage: (pageId: string, pdfPage: number) => string
   setActivePage: (id: string | null) => void
   closeTab: (id: string) => void
   openSplit: (id: string) => void
@@ -96,7 +99,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       splitPageId: null,
       splitRatio: 0.5,
       activeSheetId: null,
-      pdfNotesActive: false,
+      pdfToolsActive: false,
       sidebarOpen: true,
       inspectorOpen: true,
       aiOpen: false,
@@ -260,6 +263,21 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return { notebooks: patchPage(s.notebooks, pageId, { notesPages: notes }) }
         })
         return noteId
+      },
+
+      ensureAnnotPage: (pageId, pdfPage) => {
+        const meta = findPageMeta(get().notebooks, pageId)
+        const existing = meta?.annotPages?.[pdfPage - 1]
+        if (existing) return existing
+        const annotId = uid()
+        set((s) => {
+          const m = findPageMeta(s.notebooks, pageId)
+          const annots = [...(m?.annotPages ?? [])]
+          while (annots.length < pdfPage) annots.push('')
+          annots[pdfPage - 1] = annotId
+          return { notebooks: patchPage(s.notebooks, pageId, { annotPages: annots }) }
+        })
+        return annotId
       },
 
       setActivePage: (id) =>

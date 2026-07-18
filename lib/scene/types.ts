@@ -142,6 +142,9 @@ export interface PageMeta {
   sheetSizes?: Record<string, { w: number; h: number }>
   /** pdf: content-page ids for linked per-PDF-page notes (index = pdf page − 1). */
   notesPages?: string[]
+  /** pdf: content-page ids for direct on-page ink, one real canvas per PDF
+   *  page (index = pdf page − 1) — the same pen/eraser/undo as a board. */
+  annotPages?: string[]
   /** pdf: id of the free-form notes doc opened beside the reader. */
   notesDocId?: string
   /** pdf: shareable copy of the uploaded document (cloud/local db). */

@@ -130,15 +130,15 @@ export function MobileShell() {
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
-  const pdfNotesActive = useWorkspaceStore((s) => s.pdfNotesActive)
+  const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const activeKind = useWorkspaceStore(
     (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
   )
-  // Docs: the tools act on the focused sheet; boards act on themselves; a PDF
-  // with its notes pane open hands the sheet over too, same as a doc.
-  const pdfWithNotes = activeKind === 'pdf' && pdfNotesActive
+  // Docs: the tools act on the focused sheet; boards act on themselves; PDFs
+  // draw with the same real tools, targeting the focused page/notes canvas.
+  const pdfToolsOn = activeKind === 'pdf' && pdfToolsActive
   const contentPageId =
-    activeKind === 'doc' || pdfWithNotes ? (activeSheetId ?? activePageId) : activePageId
+    activeKind === 'doc' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
   const splitScreenObject = useDocStore((s) =>
     contentPageId && splitScreenDocumentId
       ? s.pages[contentPageId]?.objects?.[splitScreenDocumentId] ?? null
@@ -443,7 +443,7 @@ export function MobileShell() {
               </div>
             )
           })()}
-          {(activeKind !== 'pdf' || pdfWithNotes) && contentPageId && (
+          {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
             <>
               <Transport pageId={contentPageId} />
               <Toolbar

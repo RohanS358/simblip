@@ -101,10 +101,10 @@ function Sheet({
       ref={ref}
       data-sheet={sheetId}
       className={cn(
-        'group relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)] dark:bg-neutral-900',
+        'group relative mx-auto overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)] dark:bg-neutral-900',
         active && 'ring-2 ring-[var(--accent-blue)]/60'
       )}
-      style={{ aspectRatio: `${dims.w} / ${dims.h}` }}
+      style={{ width: dims.w, maxWidth: '100%', aspectRatio: `${dims.w} / ${dims.h}` }}
       onPointerDownCapture={onFocus}
     >
       {mounted ? (
@@ -151,9 +151,26 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const [exporting, setExporting] = useState(false)
   const [zoom, setZoom] = useState(1)
   const scrollRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [naturalH, setNaturalH] = useState(0)
   // The board dock (Toolbar) floats over this same page — when it's docked
   // to the top it shares Export's corner, so Export moves down out of its way.
   const dockTop = usePrefs((s) => s.notebook.dock) === 'top'
+
+  // CSS `zoom` RESIZES THE LAYOUT BOX (it isn't a pure visual scale) — the
+  // page reflows, scroll math gets confused, and any split-view drawing goes
+  // to the wrong spot. A `transform: scale()` is a pure visual magnification
+  // — like zooming into an image — but it doesn't touch layout, so the
+  // scroll container needs to be told how tall the SCALED content actually
+  // is; that's what this measures.
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => setNaturalH(el.offsetHeight))
+    ro.observe(el)
+    setNaturalH(el.offsetHeight)
+    return () => ro.disconnect()
+  }, [])
 
   // The toolbar/inspector need a target sheet from the moment the doc opens.
   useEffect(() => {
@@ -202,8 +219,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     }
     setExporting(true)
     try {
-      // Everything must be in the DOM to rasterize; mount all, give the
-      // canvases a beat to paint, then capture at 2× for a crisp PDF.
+      // Everything must be in the DOM to rasterize; mount all at true scale
+      // (a live zoom would rasterize at the wrong size), give the canvases a
+      // beat to paint, then capture at 2× for a crisp PDF.
+      setZoom(1)
       setVisible(new Set(sheets.map((_, i) => i)))
       await new Promise((r) => setTimeout(r, 900))
       const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -254,29 +273,38 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   return (
     <div className="relative h-full w-full">
       <div ref={scrollRef} className="h-full w-full overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6">
-        <div className="flex flex-col gap-4 pb-24" style={{ zoom }}>
-          {sheets.map((sheetId, i) => (
-            <Sheet
-              key={sheetId}
-              sheetId={sheetId}
-              index={i}
-              size={sizeOf(sheetId)}
-              active={!bare && activeSheetId === sheetId}
-              mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}
-              onVisible={onVisible}
-              onFocus={() => setActiveSheet(sheetId)}
-              onRemove={() => removeSheet(sheetId)}
-              onResize={(w, h) => resizeSheet(sheetId, w, h)}
-              removable={sheets.length > 1}
-            />
-          ))}
-          <button
-            type="button"
-            className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-[12.5px] text-muted-foreground transition-colors hover:border-[var(--accent-blue)] hover:text-foreground"
-            onClick={() => setActiveSheet(addDocSheet(pageId))}
+        {/* Spacer reserves the scaled content's real footprint so the
+            container has enough room to scroll to — transform doesn't
+            reflow, so nothing else tells it how tall the zoomed page is. */}
+        <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
+          <div
+            ref={contentRef}
+            className="flex flex-col gap-4 pb-24"
+            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
           >
-            <Plus className="h-4 w-4" /> Add page
-          </button>
+            {sheets.map((sheetId, i) => (
+              <Sheet
+                key={sheetId}
+                sheetId={sheetId}
+                index={i}
+                size={sizeOf(sheetId)}
+                active={!bare && activeSheetId === sheetId}
+                mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}
+                onVisible={onVisible}
+                onFocus={() => setActiveSheet(sheetId)}
+                onRemove={() => removeSheet(sheetId)}
+                onResize={(w, h) => resizeSheet(sheetId, w, h)}
+                removable={sheets.length > 1}
+              />
+            ))}
+            <button
+              type="button"
+              className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-[12.5px] text-muted-foreground transition-colors hover:border-[var(--accent-blue)] hover:text-foreground"
+              onClick={() => setActiveSheet(addDocSheet(pageId))}
+            >
+              <Plus className="h-4 w-4" /> Add page
+            </button>
+          </div>
         </div>
       </div>
 

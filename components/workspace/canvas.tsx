@@ -410,7 +410,17 @@ const ObjectView = memo(function ObjectView({
   )
 })
 
-export function InfiniteCanvas({ pageId, locked }: { pageId: string; locked?: boolean }) {
+export function InfiniteCanvas({
+  pageId,
+  locked,
+  transparent,
+}: {
+  pageId: string
+  locked?: boolean
+  /** No opaque background, no grid — for overlaying real ink on top of
+   *  something else already rendered underneath (a PDF page image). */
+  transparent?: boolean
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
   const [slash, setSlash] = useState<{ screen: Vec2; canvas: Vec2 } | null>(null)
@@ -2213,7 +2223,10 @@ export function InfiniteCanvas({ pageId, locked }: { pageId: string; locked?: bo
       ref={containerRef}
       // select-none: mouse drags must marquee/move, never highlight text —
       // editing text re-enables selection locally via select-text.
-      className="relative h-full w-full touch-none select-none overflow-hidden bg-background"
+      className={cn(
+        'relative h-full w-full touch-none select-none overflow-hidden',
+        !transparent && 'bg-background'
+      )}
       style={{ cursor: editing ? cursor : 'default' }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}
@@ -2237,7 +2250,7 @@ export function InfiniteCanvas({ pageId, locked }: { pageId: string; locked?: bo
           which is most of what made panning feel heavy. The pattern repeats,
           so translating by one grid cell (modulo) is visually identical and
           costs nothing. */}
-      {nbPrefs.grid !== 'none' && (
+      {nbPrefs.grid !== 'none' && !transparent && (
         <div
           ref={gridRef}
           aria-hidden
