@@ -580,7 +580,7 @@ const X = {
   maxY: 5,
   maxZ: 2,
   controlSphere0: false,
-  followCursor: true
+  followCursor: false
 };
 
 const U = new m();
