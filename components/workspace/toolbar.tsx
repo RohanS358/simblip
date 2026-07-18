@@ -39,6 +39,7 @@ import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useIsTouchDevice } from '@/hooks/use-mobile'
+import { useDockRect } from '@/hooks/use-dock-clearance'
 
 const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
@@ -172,8 +173,9 @@ export function Toolbar({
   const inkAnnotate = useDocStore((s) => s.inkAnnotate)
   const toggleInkToShape = useDocStore((s) => s.toggleInkToShape)
   const toggleInkAnnotate = useDocStore((s) => s.toggleInkAnnotate)
-  const penSize = useDocStore((s) => s.penSize)
-  const setPenSize = useDocStore((s) => s.setPenSize)
+  // One pen size for the whole app — persisted with the rest of the pen feel.
+  const penSize = usePrefs((s) => s.pen.size)
+  const setPenSize = (size: number) => usePrefs.getState().setPen({ size })
   const aiOpen = useWorkspaceStore((s) => s.aiOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
@@ -226,22 +228,65 @@ export function Toolbar({
     return () => window.removeEventListener('pointerdown', handleClickOutside)
   }, [showPen])
 
+  // The dock announces where it is: its measured rect goes into the shared
+  // store so floating neighbours (zoom pill, transport, reader controls) can
+  // slide out of its way instead of guessing. The same measurement drives
+  // the scroll-edge fades that show a clipped dock has more tools.
+  const pillRef = useRef<HTMLDivElement>(null)
+  const publishRef = useRef<() => void>(() => {})
+  const [fades, setFades] = useState({ start: false, end: false })
+  useEffect(() => {
+    const el = pillRef.current
+    if (!el) return
+    const publish = () => {
+      const r = el.getBoundingClientRect()
+      useDockRect.getState().set({ side: dock, left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+      const horizontal = dock === 'top' || dock === 'bottom'
+      const pos = horizontal ? el.scrollLeft : el.scrollTop
+      const max = horizontal ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight
+      setFades((f) => {
+        const next = { start: pos > 2, end: pos < max - 2 }
+        return f.start === next.start && f.end === next.end ? f : next
+      })
+    }
+    publishRef.current = publish
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    window.addEventListener('resize', publish)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', publish)
+      useDockRect.getState().set(null)
+    }
+  }, [dock])
+
+  const fadeMask =
+    fades.start || fades.end
+      ? `linear-gradient(${vertical ? 'to bottom' : 'to right'}, ${
+          fades.start ? 'transparent, black 24px' : 'black'
+        }, ${fades.end ? 'black calc(100% - 24px), transparent' : 'black'})`
+      : undefined
 
   return (
     <fm.div
       initial={{ y: 24, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={motion}
+      onAnimationComplete={() => publishRef.current()}
+      // Sizes are % of the PANE (the nearest positioned ancestor), not the
+      // viewport — with sidebar and inspector open a vw-based dock would
+      // overflow the canvas and land on top of them.
       className={cn(
-        'absolute z-40',
+        'absolute z-40 flex',
         dock === 'bottom' &&
-          'bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 max-w-[calc(100vw-1rem)] -translate-x-1/2',
-        dock === 'top' && 'left-1/2 top-5 max-w-[calc(100vw-1rem)] -translate-x-1/2',
-        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2 overflow-hidden',
-        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100vh-2rem)] -translate-y-1/2 overflow-hidden'
+          'bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 max-w-[calc(100%-1rem)] -translate-x-1/2',
+        dock === 'top' && 'left-1/2 top-5 max-w-[calc(100%-1rem)] -translate-x-1/2',
+        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100%-2rem)] -translate-y-1/2',
+        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100%-2rem)] -translate-y-1/2'
       )}
     >
-      <div ref={toolbarRef} className="relative">
+      <div ref={toolbarRef} className="relative flex min-h-0 min-w-0">
       {showSize && (
         <div
           className={cn(
@@ -256,7 +301,7 @@ export function Toolbar({
           <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden>
             <span
               className="rounded-full bg-foreground"
-              style={{ width: penSize, height: penSize }}
+              style={{ width: Math.min(16, penSize), height: Math.min(16, penSize) }}
             />
           </span>
           <input
@@ -269,7 +314,7 @@ export function Toolbar({
             className="w-28 accent-[var(--accent-blue)]"
             onChange={(e) => setPenSize(Number(e.target.value))}
           />
-          <span className="w-7 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
+          <span className="w-9 text-right font-mono text-[10px] tabular-nums text-muted-foreground">
             {penSize}px
           </span>
         </div>
@@ -314,10 +359,14 @@ export function Toolbar({
         </div>
       )}
 
-      {/* Inner pill owns the horizontal scroll so the flyout above never clips. */}
+      {/* Inner pill owns the scrolling so the flyouts above never clip; the
+          fade mask marks whichever end still has tools out of view. */}
       <div
+        ref={pillRef}
+        onScroll={() => publishRef.current()}
+        style={fadeMask ? { maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         className={cn(
-          'glass-strong no-scrollbar flex gap-1 rounded-2xl p-1.5',
+          'glass-strong no-scrollbar flex min-h-0 min-w-0 gap-1 rounded-2xl p-1.5',
           vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto'
         )}
       >

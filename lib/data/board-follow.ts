@@ -14,15 +14,18 @@ import { getSession, subscribeBoardSessions } from './boards'
 import type { BoardSessionRow } from './types'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
-import type { PageDoc } from '@/lib/scene/types'
+import type { PageKind } from '@/lib/scene/types'
+import {
+  bundleMetaPatch,
+  writeBundleContent,
+  type PageBundle,
+} from '@/lib/store/page-bundle'
 
 const active = new Map<string, string>() // sessionId → local pageId (this tab)
 
-const deep = (d: PageDoc): PageDoc => JSON.parse(JSON.stringify(d)) as PageDoc
-
 /** Find/create "Shared with me → Whiteboard" and add a page, without
  *  stealing the user's current focus. */
-function createTargetPage(pageName: string): string {
+function createTargetPage(pageName: string, kind: PageKind): string {
   const ws = useWorkspaceStore.getState()
   const nb = ws.notebooks.find((n) => n.name === 'Shared with me')
   const nbId = nb?.id ?? ws.addNotebook('Shared with me')
@@ -35,7 +38,7 @@ function createTargetPage(pageName: string): string {
   const sec = fresh.sections.find((s) => s.name === 'Whiteboard')
   const secId = sec?.id ?? ws.addSection(nbId, 'Whiteboard')
   const prevActive = useWorkspaceStore.getState().activePageId
-  const pageId = ws.addPage(nbId, secId, pageName)
+  const pageId = ws.addPage(nbId, secId, pageName, kind)
   useWorkspaceStore.getState().setActivePage(prevActive)
   return pageId
 }
@@ -46,27 +49,28 @@ export function followSession(session: BoardSessionRow): string {
   const existing = active.get(session.id)
   if (existing) return existing
 
-  const pageId = createTargetPage(session.page_name)
+  const first = (session.edited ?? session.snapshot) as PageBundle
+  const pageId = createTargetPage(session.page_name, first.bundle?.kind ?? 'board')
   active.set(session.id, pageId)
 
-  const write = (doc: PageDoc) => {
-    useDocStore.setState((s) => ({
-      pages: { ...s.pages, [pageId]: deep(doc) },
-      scopes: { ...s.scopes, [pageId]: undefined as never }, // force re-solve
-    }))
-    useDocStore.getState().ensurePage(pageId)
+  // The mirror keeps the sender's sheet ids (a private copy on this device),
+  // so every sync can simply overwrite content in place — kind, sheets and
+  // file refs land via the bundle's meta patch.
+  const write = (doc: PageBundle) => {
+    if (doc.bundle) useWorkspaceStore.getState().updatePageMeta(pageId, bundleMetaPatch(doc.bundle))
+    writeBundleContent(pageId, doc)
   }
-  write(session.edited ?? session.snapshot)
+  write(first)
 
   const unsub = subscribeBoardSessions(() => {
     void getSession(session.id).then((fresh) => {
       if (!fresh) return
       if (fresh.status === 'live') {
-        write(fresh.edited ?? fresh.snapshot)
+        write((fresh.edited ?? fresh.snapshot) as PageBundle)
         return
       }
       // Presentation over: keep the final board state, stamp the page.
-      write(fresh.edited ?? fresh.snapshot)
+      write((fresh.edited ?? fresh.snapshot) as PageBundle)
       const stamp = new Date().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })
       useWorkspaceStore.getState().renamePage(pageId, `${fresh.page_name} — ${stamp}`)
       toast.success(`Class copy saved: “${fresh.page_name} — ${stamp}”`)

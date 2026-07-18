@@ -12,7 +12,10 @@
 // (the page is there, just not opened yet on this device).
 
 import { useEffect, useMemo, useState } from 'react'
+import { FileText } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { pdfThumb } from '@/lib/store/pdf-thumb'
 import type { SceneObject, GeometryKind } from '@/lib/scene/types'
 
 type Props = {
@@ -97,17 +100,54 @@ function ShapeForObj({ obj }: { obj: SceneObject }) {
 }
 
 export function PageThumbnail({ pageId, className }: Props) {
+  // The preview must show what the page IS: a board previews its own
+  // objects, a doc previews its first SHEET, and a PDF shows its actual
+  // first page rendered from the locally cached file.
+  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId))
+  const kind = meta?.kind ?? 'board'
+  const contentId = kind === 'doc' ? (meta?.docPages?.[0] ?? pageId) : pageId
+
   // Subscribe to *this* page's content (zustand will only re-render us when
   // this slice changes). Reading the page from getState() on each render
   // would also work, but subscription is the idiomatic pattern.
-  const page = useDocStore((s) => s.pages[pageId])
+  const page = useDocStore((s) => s.pages[contentId])
   const [hasLoaded, setHasLoaded] = useState(false)
+  const [pdfImg, setPdfImg] = useState<string | null>(null)
 
   useEffect(() => {
-    if (hasLoaded) return
-    useDocStore.getState().ensurePage(pageId)
+    if (hasLoaded || kind === 'pdf') return
+    useDocStore.getState().ensurePage(contentId)
     setHasLoaded(true)
-  }, [pageId, hasLoaded])
+  }, [contentId, hasLoaded, kind])
+
+  useEffect(() => {
+    if (kind !== 'pdf') return
+    let dead = false
+    void pdfThumb(pageId).then((img) => {
+      if (!dead) setPdfImg(img)
+    })
+    return () => {
+      dead = true
+    }
+  }, [kind, pageId])
+
+  if (kind === 'pdf') {
+    return (
+      <div className={className}>
+        {pdfImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pdfImg} alt="" className="h-full w-full rounded-[4px] object-cover object-top" />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
+            <FileText className="h-6 w-6" />
+            {meta?.fileName && (
+              <span className="max-w-full truncate px-1 text-[9px]">{meta.fileName}</span>
+            )}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const viewBox = useMemo(() => {
     if (!page) return '0 0 100 100'

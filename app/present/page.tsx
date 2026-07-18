@@ -39,6 +39,12 @@ import { followSession } from '@/lib/data/board-follow'
 import { useAuthStore } from '@/lib/auth/store'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
+import {
+  flattenBundleObjects,
+  writeBundleContent,
+  bundleMetaPatch,
+  type PageBundle,
+} from '@/lib/store/page-bundle'
 import type { SceneObject } from '@/lib/scene/types'
 import { Button } from '@/components/ui/button'
 import {
@@ -148,8 +154,8 @@ function PresentController() {
     if (!page) return
     setBusy(true)
     try {
-      const content = useDocStore.getState().pages[pageId] ?? { objects: {}, variables: [] }
-      const s = await startSession({ boardId: board.id, pageId, pageName: page.name, snapshot: content })
+      const { bundlePage } = await import('@/lib/store/page-bundle')
+      const s = await startSession({ boardId: board.id, pageId, pageName: page.name, snapshot: bundlePage(pageId) })
       setSession(s)
       setPhase('live')
     } catch (err) {
@@ -174,14 +180,15 @@ function PresentController() {
     try {
       if (decision === 'merged') {
         const fresh = (await getSession(session.id)) ?? session
-        const edited = fresh.edited ?? fresh.snapshot
+        const edited = (fresh.edited ?? fresh.snapshot) as PageBundle
         const existsLocally = Boolean(useDocStore.getState().pages[fresh.page_id])
         if (existsLocally) {
-          useDocStore.setState((s) => ({
-            pages: { ...s.pages, [fresh.page_id]: JSON.parse(JSON.stringify(edited)) },
-            scopes: { ...s.scopes, [fresh.page_id]: undefined as never },
-          }))
-          useDocStore.getState().ensurePage(fresh.page_id)
+          // Sessions keep the original sheet ids, so a doc/PDF merge writes
+          // every sheet and ink layer straight back in place; sheets added
+          // on the board arrive through the meta patch.
+          if (edited.bundle)
+            useWorkspaceStore.getState().updatePageMeta(fresh.page_id, bundleMetaPatch(edited.bundle))
+          writeBundleContent(fresh.page_id, edited)
           toast.success(`Board changes merged into “${fresh.page_name}”`)
         } else {
           importPageDoc({
@@ -390,8 +397,9 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
   // Optimistic mirror of toggle states — the session row only syncs back
   // every few seconds, and a button that answers late feels broken.
   const [flips, setFlips] = useState<Record<string, boolean>>({})
-  const doc = session.edited ?? session.snapshot
-  const objects = Object.values(doc?.objects ?? {}) as SceneObject[]
+  const doc = (session.edited ?? session.snapshot) as PageBundle | null
+  // Docs/PDFs keep their objects on sheets — flatten so the remote sees them.
+  const objects = Object.values(doc ? flattenBundleObjects(doc) : {}) as SceneObject[]
   const files = objects.filter((o) => o.metadata?.render === 'file')
   const chosen = objects.find((o) => o.id === objId) ?? null
   const send = (cmd: Parameters<typeof sendRemote>[1]) => void sendRemote(session.id, cmd)

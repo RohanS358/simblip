@@ -162,7 +162,16 @@ export const usePrefs = create<PrefsState>()(
       notebook: { ...DEFAULT_NOTEBOOK },
       math: { ...DEFAULT_MATH },
       appearance: { ...DEFAULT_APPEARANCE },
-      setPen: (p) => set((s) => ({ pen: { ...s.pen, ...p } })),
+      setPen: (p) =>
+        set((s) => ({
+          pen: {
+            ...s.pen,
+            ...p,
+            // The thickness slider's full travel is 0.5–16 — clamp instead of
+            // silently snapping back mid-drag.
+            ...(p.size !== undefined ? { size: Math.min(16, Math.max(0.5, p.size)) } : {}),
+          },
+        })),
       setNotebook: (p) => set((s) => ({ notebook: { ...s.notebook, ...p } })),
       setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
       setAppearance: (p) => set((s) => ({ appearance: { ...s.appearance, ...p } })),

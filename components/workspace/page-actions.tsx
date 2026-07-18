@@ -9,7 +9,6 @@ import { useRouter } from 'next/navigation'
 import { Loader2, MonitorPlay } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
-import { useDocStore } from '@/lib/store/document'
 import { sharePage } from '@/lib/data/shares'
 import { createAssignment } from '@/lib/data/assignments'
 import { resolvePairing, startSession } from '@/lib/data/boards'
@@ -17,6 +16,7 @@ import { listRooms, listBoards } from '@/lib/data/admin'
 import * as db from '@/lib/data/db'
 import type { BoardRow, ProfileRow, RoomRow } from '@/lib/data/types'
 import type { PageDoc } from '@/lib/scene/types'
+import { bundlePage } from '@/lib/store/page-bundle'
 import {
   Dialog,
   DialogContent,
@@ -43,8 +43,9 @@ export interface PageRef {
   name: string
 }
 
-const pageContent = (pageId: string): PageDoc =>
-  useDocStore.getState().pages[pageId] ?? { objects: {}, variables: [] }
+// Every outgoing copy is a full bundle: kind + sheets + file refs ride along
+// so a shared doc opens as a doc and a shared PDF opens as a PDF.
+const pageContent = (pageId: string): PageDoc => bundlePage(pageId)
 
 /** Download a page (name + content) as a portable JSON file. */
 export function exportPageJson(page: PageRef) {

@@ -34,6 +34,8 @@ import * as db from '@/lib/data/db'
 import { uid } from '@/lib/scene/types'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
+import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { cn } from '@/lib/utils'
 
 type PdfDoc = {
@@ -175,9 +177,33 @@ export function PdfView({ pageId }: { pageId: string }) {
   // page you click on the reader side, or the notes canvas on the other.
   const [focus, setFocus] = useState<'reader' | 'notes'>('reader')
   const inputRef = useRef<HTMLInputElement>(null)
+  // When PDF drawing is on, the board dock shares this bottom edge — both
+  // strips measure it and slide up instead of being buried under it.
+  const readerDockRef = useRef<HTMLDivElement>(null)
+  const pageZoomRef = useRef<HTMLDivElement>(null)
+  const readerDockShift = useDockClearance(readerDockRef, [notesOpen, notesRatio, linked])
+  const pageZoomShift = useDockClearance(pageZoomRef, [notesOpen, notesRatio])
   const splitRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
+
+  // Zoom anchored at a screen point: the stack scales from 'top center', so
+  // a content point at y renders at y*zoom - scrollTop — keep the point under
+  // the gesture by solving for the new scrollTop after React re-renders.
+  const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
+    const el = readerRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    setZoom((z) => {
+      const nz = Math.min(3, Math.max(0.25, z * factor))
+      if (nz === z) return z
+      const py = (clientY - rect.top + el.scrollTop) / z
+      requestAnimationFrame(() => {
+        el.scrollTop = py * nz - (clientY - rect.top)
+      })
+      return nz
+    })
+  }, [])
 
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
   // everywhere else in the app. A plain wheel is left alone to scroll.
@@ -187,11 +213,14 @@ export function PdfView({ pageId }: { pageId: string }) {
     const onWheel = (e: WheelEvent) => {
       if (!(e.ctrlKey || e.metaKey)) return
       e.preventDefault()
-      setZoom((z) => Math.min(3, Math.max(0.25, z * Math.exp(-e.deltaY * 0.0022))))
+      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0022))
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [zoomAt])
+
+  // Touch: two-finger pinch, the only zoom gesture a phone has.
+  usePinchZoom(readerRef, zoomAt)
 
   // CSS `zoom` resizes the layout box instead of just visually magnifying it
   // — pages reflow and ink lands in the wrong place. `transform: scale()` is
@@ -319,6 +348,8 @@ export function PdfView({ pageId }: { pageId: string }) {
       }
     }
     setLocal(putSessionFile(pageId, toStore))
+    const { invalidatePdfThumb } = await import('@/lib/store/pdf-thumb')
+    invalidatePdfThumb(pageId)
     useWorkspaceStore.getState().updatePageMeta(pageId, { fileName: f.name, fileMime: 'application/pdf' })
     if (meta && meta.name.startsWith('Untitled')) useWorkspaceStore.getState().renamePage(pageId, f.name.replace(/\.[^.]+$/, ''))
     setRev((v) => v + 1)
@@ -504,11 +535,15 @@ export function PdfView({ pageId }: { pageId: string }) {
           small and never competes for space with it. */}
       {doc && (
         <div
+          ref={readerDockRef}
           className={cn(
-            'glass-strong no-scrollbar absolute bottom-4 z-30 flex max-w-[calc(100vw-9rem)] items-center gap-0.5 overflow-x-auto rounded-2xl px-2 py-1',
+            'glass-strong no-scrollbar absolute bottom-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-0.5 overflow-x-auto rounded-2xl px-2 py-1 transition-[translate] duration-200',
             !notesOpen && 'left-1/2 -translate-x-1/2'
           )}
-          style={notesOpen ? { left: `${(notesRatio * 100) / 2}%`, transform: 'translateX(-50%)' } : undefined}
+          style={{
+            translate: `${readerDockShift.x}px ${readerDockShift.y}px`,
+            ...(notesOpen ? { left: `${(notesRatio * 100) / 2}%`, transform: 'translateX(-50%)' } : {}),
+          }}
         >
           <span className="min-w-14 px-1 text-center font-mono text-[11px] tabular-nums text-muted-foreground">
             {current}/{doc.numPages}
@@ -550,11 +585,15 @@ export function PdfView({ pageId }: { pageId: string }) {
           on top of the notes doc's own controls on the other side. */}
       {doc && (
         <div
+          ref={pageZoomRef}
           className={cn(
-            'glass-strong absolute bottom-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5',
+            'glass-strong absolute bottom-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 transition-[translate] duration-200',
             !notesOpen && 'right-4'
           )}
-          style={notesOpen ? { right: `calc(${(1 - notesRatio) * 100}% + 0.5rem)` } : undefined}
+          style={{
+            translate: `${pageZoomShift.x}px ${pageZoomShift.y}px`,
+            ...(notesOpen ? { right: `calc(${(1 - notesRatio) * 100}% + 0.5rem)` } : {}),
+          }}
         >
           <button
             type="button"

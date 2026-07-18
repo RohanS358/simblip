@@ -459,7 +459,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               ))}
             </div>
             <p className="pt-3 text-[11.5px] text-muted-foreground">
-              The interface follows your institution's accent color automatically.
+              Theme and tint apply everywhere — the notebook, room boards and the presenter.
             </p>
           </TabsContent>
 

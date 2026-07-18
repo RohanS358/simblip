@@ -122,16 +122,8 @@ export function WorkspaceShell() {
       document.documentElement.style.fontSize = ''
     }
   }, [uiScale])
-  // The chosen tint overrides --accent-blue globally; every "blue" surface
-  // (selection, buttons, active states) follows, per theme, with no re-render.
-  const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
-  useEffect(() => {
-    if (accent === 'blue') document.documentElement.style.removeProperty('--accent-blue')
-    else document.documentElement.style.setProperty('--accent-blue', `var(--accent-${accent})`)
-    return () => {
-      document.documentElement.style.removeProperty('--accent-blue')
-    }
-  }, [accent])
+  // The accent tint is applied globally by ThemeProvider (AccentApplier) —
+  // it must also cover the mobile shell, boards and the presenter.
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)

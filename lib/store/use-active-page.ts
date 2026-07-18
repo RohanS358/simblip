@@ -41,7 +41,14 @@ export function useLazyActivePage(activePageId: string | null) {
         const meta = findPageMeta(s.notebooks, pageId)
         for (const sheet of meta?.docPages ?? []) ids.add(sheet)
         for (const note of meta?.notesPages ?? []) if (note) ids.add(note)
+        // A PDF's on-page ink canvases are on screen the whole time the
+        // reader is — evicting one mid-read blanks ink and text that was
+        // just drawn (it survives in the archive, but the mounted canvas
+        // never reloads it until refocused). They must be pinned too.
+        for (const annot of meta?.annotPages ?? []) if (annot) ids.add(annot)
+        if (meta?.notesDocId) ids.add(meta.notesDocId)
       }
+      if (s.activeSheetId) ids.add(s.activeSheetId)
       setLivePages([...ids])
     }
     compute()

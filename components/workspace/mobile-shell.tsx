@@ -55,7 +55,8 @@ import { SyncStatus } from './sync-status'
 import { TutorialPanel } from './tutorial'
 import { UndoRedo } from './undo-redo'
 import { Calculator } from './calculator'
-import { clonePageDoc } from '@/lib/store/import-page'
+import { importPageInto } from '@/lib/store/import-page'
+import { bundlePage } from '@/lib/store/page-bundle'
 import { FileObject } from '../objects/file-view'
 import { PageThumbnail } from './page-thumbnail'
 import { KIND_ICON } from './tabs-bar'
@@ -125,6 +126,7 @@ export function MobileShell() {
   const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
+  const openTabs = useWorkspaceStore((s) => s.openTabs)
   const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
   const splitPageId = useWorkspaceStore((s) => s.splitPageId)
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
@@ -164,11 +166,8 @@ export function MobileShell() {
   const staff = can(profile?.role, 'share-pages')
 
   const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
-    const newId = store.getState().addPage(nbId, secId, `${page.name} copy`)
-    const content = useDocStore.getState().pages[page.id]
-    if (content)
-      useDocStore.setState((s) => ({ pages: { ...s.pages, [newId]: clonePageDoc(content) } }))
-    useDocStore.getState().ensurePage(newId)
+    // Bundle-aware: duplicating a doc keeps its sheets, a PDF keeps its file.
+    importPageInto(nbId, secId, `${page.name} copy`, bundlePage(page.id))
     store.getState().setActivePage(null)
   }
 
@@ -362,7 +361,9 @@ export function MobileShell() {
               className="h-5 w-5 rounded object-contain"
             />
           ) : null}
-          <span className="text-[14px] font-extrabold tracking-tight">
+          {/* The page title is what matters mid-edit — the wordmark only
+              earns its pixels once the screen is tablet-sized. */}
+          <span className="hidden text-[14px] font-extrabold tracking-tight sm:inline">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <span className="hidden text-muted-foreground/50 sm:inline">/</span>
@@ -373,10 +374,14 @@ export function MobileShell() {
           {appMenu}
         </header>
 
-        {/* Same tab strip as desktop — open pages, ×, split toggle. */}
-        <div className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background px-1">
-          <TabsBar />
-        </div>
+        {/* Same tab strip as desktop — open pages, ×, split toggle. With a
+            single page open it's dead weight on a phone; it appears once
+            there's actually something to switch between. */}
+        {(!isPhone || openTabs.length > 1 || splitPageId) && (
+          <div className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background px-1">
+            <TabsBar />
+          </div>
+        )}
 
         <main className={cn('relative min-h-0 flex-1 flex', isPhone ? 'flex-col' : 'flex-row')}>
           {splitScreenObject && (

@@ -19,7 +19,8 @@ import { FileDown, Loader2, Plus, Trash2, ZoomIn, ZoomOut, GripHorizontal } from
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
-import { usePrefs } from '@/lib/store/preferences'
+import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { sanitizeColors } from '@/lib/store/to-pdf'
 import { Slider } from '@/components/ui/slider'
 import { InfiniteCanvas } from './canvas'
@@ -177,7 +178,12 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const [naturalW, setNaturalW] = useState(0)
   // The board dock (Toolbar) floats over this same page — when it's docked
   // to the top it shares Export's corner, so Export moves down out of its way.
-  const dockTop = usePrefs((s) => s.notebook.dock) === 'top'
+  // Both floating controls sit in dock-reachable corners — measure the dock
+  // and step aside only when it actually grows into them.
+  const exportRef = useRef<HTMLButtonElement>(null)
+  const exportShift = useDockClearance(exportRef, [bare, exporting])
+  const zoomStripRef = useRef<HTMLDivElement>(null)
+  const zoomStripShift = useDockClearance(zoomStripRef, [bare])
 
   // CSS `zoom` RESIZES THE LAYOUT BOX (it isn't a pure visual scale) — the
   // page reflows, scroll math gets confused, and any split-view drawing goes
@@ -257,6 +263,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
   }, [])
+
+  // Touch: two-finger pinch zooms too, anchored at the finger midpoint —
+  // the only zoom gesture a phone has.
+  usePinchZoom(scrollRef, zoomAt)
 
   const sizeOf = (sheetId: string) => meta?.sheetSizes?.[sheetId] ?? { w: SHEET_W, h: SHEET_H }
   const resizeSheet = (sheetId: string, w: number, h: number) => {
@@ -375,11 +385,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       {!bare && (
         <button
           type="button"
+          ref={exportRef}
           disabled={exporting}
-          className={cn(
-            'glass-strong absolute right-4 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-60',
-            dockTop ? 'top-25' : 'top-3'
-          )}
+          style={{ translate: `${exportShift.x}px ${exportShift.y}px` }}
+          className="glass-strong absolute right-4 top-3 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-[translate,color] duration-200 hover:text-foreground disabled:opacity-60"
           onClick={() => void exportPdf()}
         >
           {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
@@ -390,7 +399,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       {/* Doc-wide zoom — uniform across every sheet. Skipped in `bare` (the
           PDF reader's notes pane already has its own zoom control). */}
       {!bare && (
-      <div className="glass-strong absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5">
+      <div
+        ref={zoomStripRef}
+        style={{ translate: `${zoomStripShift.x}px ${zoomStripShift.y}px` }}
+        className="glass-strong absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 transition-[translate] duration-200"
+      >
         <button
           type="button"
           aria-label="Zoom out"

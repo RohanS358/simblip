@@ -40,6 +40,20 @@ export function PenSettings() {
       </div>
 
       <Field
+        label="Thickness"
+        value={`${pen.size}px`}
+        hint="Base stroke width — the same value the dock's hover flyout adjusts."
+      >
+        <Slider
+          value={[pen.size]}
+          min={0.5}
+          max={16}
+          step={0.25}
+          onValueChange={([v]) => setPen({ size: v })}
+        />
+      </Field>
+
+      <Field
         label="Smoothing"
         value={pen.smoothing.toFixed(2)}
         hint="Rounds the finished outline. Low keeps every wobble; high makes clean curves."
@@ -80,8 +94,6 @@ export function PenSettings() {
           onValueChange={([v]) => setPen({ sensitivity: v })}
         />
       </Field>
-
-      {/* Thickness lives on the dock's hover flyout — one place, not two. */}
 
       <Field label="Dot size" value={`${pen.dotSize}x`} hint="Multiplier for single-tap dots (like the dot on an 'i').">
         <Slider

@@ -21,10 +21,10 @@ import {
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
-import { clonePageDoc } from '@/lib/store/import-page'
+import { importPageInto } from '@/lib/store/import-page'
+import { bundlePage } from '@/lib/store/page-bundle'
 import { KIND_ICON } from './tabs-bar'
 import {
   AssignDialog,
@@ -131,12 +131,8 @@ export function Sidebar() {
   const staff = can(role, 'share-pages')
 
   const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
-    const newId = store.getState().addPage(nbId, secId, `${page.name} copy`)
-    const content = useDocStore.getState().pages[page.id]
-    if (content) {
-      useDocStore.setState((s) => ({ pages: { ...s.pages, [newId]: clonePageDoc(content) } }))
-    }
-    useDocStore.getState().ensurePage(newId)
+    // Bundle-aware: duplicating a doc keeps its sheets, a PDF keeps its file.
+    importPageInto(nbId, secId, `${page.name} copy`, bundlePage(page.id), true)
   }
 
   const [panelW, setPanelW] = useState(() => {

@@ -99,13 +99,16 @@ export function PublishDialog({
           content: objects,
         })
       } else {
+        // Full bundle: a published doc/PDF keeps its kind, sheets and file
+        // refs, so inserting it from the library recreates the real thing.
+        const { bundlePage } = await import('@/lib/store/page-bundle')
         await publishAsset({
           title: title.trim(),
           description: description.trim() || undefined,
           category,
           tags: tags.split(',').map((t) => t.trim()).filter(Boolean),
           kind: 'page',
-          content: page,
+          content: bundlePage(pageId),
         })
       }
       toast.success(`“${title.trim()}” published to the institution library`)

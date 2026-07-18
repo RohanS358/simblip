@@ -9,6 +9,7 @@
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { uid, type PageDoc, type SceneObject } from '@/lib/scene/types'
+import { stripBundle, type PageBundle } from '@/lib/store/page-bundle'
 
 /** Deep-clone a PageDoc with fresh object ids (graph source bindings remapped). */
 export function clonePageDoc(doc: PageDoc): PageDoc {
@@ -55,15 +56,70 @@ export function importPageDoc(input: {
   const section = notebook.sections.find((sec) => sec.name === input.sectionName)
   const secId = section?.id ?? ws.addSection(nbId, input.sectionName)
 
+  return importPageInto(nbId, secId, input.pageName, input.content, input.activate)
+}
+
+/** Same clone-delivery, into a KNOWN notebook/section — used by Duplicate. */
+export function importPageInto(
+  nbId: string,
+  secId: string,
+  pageName: string,
+  content: PageDoc,
+  activate?: boolean
+): string {
+  const ws = useWorkspaceStore.getState()
+  const input = { pageName, content, activate }
+  const bundle = input.content as PageBundle
+  const kind = bundle.bundle?.kind ?? 'board'
+
   const prevActive = useWorkspaceStore.getState().activePageId
-  const pageId = ws.addPage(nbId, secId, input.pageName)
+  const pageId = ws.addPage(nbId, secId, input.pageName, kind)
   if (!input.activate) useWorkspaceStore.getState().setActivePage(prevActive)
 
   const doc = useDocStore.getState()
   useDocStore.setState((s) => ({
-    pages: { ...s.pages, [pageId]: clonePageDoc(input.content) },
+    pages: { ...s.pages, [pageId]: clonePageDoc(stripBundle(bundle)) },
   }))
   doc.ensurePage(pageId) // computes the formula scope for the fresh content
+
+  // A doc or PDF page is more than its main content: re-mint every dependent
+  // sheet (doc sheets, per-PDF-page notes and ink) under fresh ids and wire
+  // the delivered copy's metadata to them. Old bare-PageDoc payloads skip
+  // this entirely and land as boards, same as before.
+  if (bundle.bundle && kind !== 'board') {
+    const b = bundle.bundle
+    const idMap = new Map<string, string>()
+    const remap = (old: string): string => {
+      if (!idMap.has(old)) idMap.set(old, uid())
+      return idMap.get(old)!
+    }
+    const docPages = b.docPages?.map(remap)
+    const notesPages = b.notesPages?.map((id) => (id ? remap(id) : ''))
+    const annotPages = b.annotPages?.map((id) => (id ? remap(id) : ''))
+    const notesDocId = b.notesDocId ? remap(b.notesDocId) : undefined
+    const sheetSizes = b.sheetSizes
+      ? Object.fromEntries(Object.entries(b.sheetSizes).map(([id, sz]) => [remap(id), sz]))
+      : undefined
+    useDocStore.setState((s) => {
+      const pages = { ...s.pages }
+      for (const [oldId, content] of Object.entries(bundle.sheets ?? {}))
+        pages[remap(oldId)] = clonePageDoc(content)
+      return { pages }
+    })
+    for (const id of idMap.values()) doc.ensurePage(id)
+    useWorkspaceStore.getState().updatePageMeta(pageId, {
+      // A fresh 'doc' was created with one starter sheet — replace it only
+      // when the bundle actually brought sheets of its own.
+      ...(docPages?.length ? { docPages } : {}),
+      ...(sheetSizes ? { sheetSizes } : {}),
+      ...(notesPages ? { notesPages } : {}),
+      ...(annotPages ? { annotPages } : {}),
+      ...(notesDocId ? { notesDocId } : {}),
+      ...(b.fileUrl ? { fileUrl: b.fileUrl } : {}),
+      ...(b.fileName ? { fileName: b.fileName } : {}),
+      ...(b.fileMime ? { fileMime: b.fileMime } : {}),
+    })
+  }
 
   return pageId
 }

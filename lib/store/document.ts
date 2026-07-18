@@ -156,8 +156,6 @@ interface DocState {
   inkToShape: boolean
   /** Small scribbles near components open the value/name annotation input. */
   inkAnnotate: boolean
-  /** Ink stroke width (max width of the pressure-shaped outline). */
-  penSize: number
   selection: string[]
   viewports: Record<string, Viewport>
   scopes: Record<string, Scope>
@@ -208,7 +206,6 @@ interface DocState {
   setTool: (tool: Tool, option?: string | null) => void
   toggleInkToShape: () => void
   toggleInkAnnotate: () => void
-  setPenSize: (size: number) => void
   setSelection: (ids: string[]) => void
   setViewport: (pageId: string, vp: Viewport) => void
 }
@@ -238,7 +235,6 @@ export const useDocStore = create<DocState>()(
       toolOption: null,
       inkToShape: true,
       inkAnnotate: false, // opt-in: a stray scribble shouldn't retitle a part
-      penSize: 5,
       selection: [],
       viewports: {},
       scopes: {},
@@ -542,7 +538,6 @@ export const useDocStore = create<DocState>()(
       setTool: (tool, option = null) => set({ tool, toolOption: option }),
       toggleInkToShape: () => set((s) => ({ inkToShape: !s.inkToShape })),
       toggleInkAnnotate: () => set((s) => ({ inkAnnotate: !s.inkAnnotate })),
-      setPenSize: (size) => set({ penSize: Math.min(12, Math.max(1.5, size)) }),
       setSelection: (ids) => set({ selection: ids }),
       setViewport: (pageId, vp) =>
         set((s) => ({ viewports: { ...s.viewports, [pageId]: vp } })),

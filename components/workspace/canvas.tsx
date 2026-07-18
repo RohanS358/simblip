@@ -15,7 +15,8 @@
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2, Lock, LockOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
+import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
 import { num, str, uid } from '@/lib/scene/types'
 import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
@@ -447,8 +448,26 @@ export function InfiniteCanvas({
   const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
-  const penSize = useDocStore((s) => s.penSize)
   const pen = usePrefs((s) => s.pen)
+  const penSize = pen.size
+  // Phone: the zoom pill appears only while zooming (see the HUD effect).
+  const isPhone = useIsNarrow(767)
+  const [zoomHud, setZoomHud] = useState(false)
+  const zoomHudTimer = useRef<number | null>(null)
+  const zoomHudArmed = useRef(false)
+  useEffect(() => {
+    if (!isPhone) return
+    if (!zoomHudArmed.current) {
+      zoomHudArmed.current = true // mount isn't a gesture
+      return
+    }
+    setZoomHud(true)
+    if (zoomHudTimer.current) clearTimeout(zoomHudTimer.current)
+    zoomHudTimer.current = window.setTimeout(() => setZoomHud(false), 1200)
+  }, [viewport.zoom, isPhone])
+  // The pill sits in the dock's favourite corner — let it dodge the dock.
+  const zoomPillRef = useRef<HTMLDivElement>(null)
+  const zoomPillShift = useDockClearance(zoomPillRef, [zoomHud])
   const nbPrefs = usePrefs((s) => s.notebook)
   const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
   const touchFreeMove = useWorkspaceStore((s) => s.touchFreeMove)
@@ -1356,7 +1375,7 @@ export function InfiniteCanvas({
               w: Math.max(maxX - minX, 1),
               h: Math.max(maxY - minY, 1),
             })
-            obj.metadata.inkSize = store.penSize
+            obj.metadata.inkSize = usePrefs.getState().pen.size
             obj.metadata.inkColor = usePrefs.getState().pen.color
             obj.metadata.inkStyle = usePrefs.getState().pen.style
             obj.metadata.smoothing = usePrefs.getState().pen.smoothing
@@ -1414,7 +1433,7 @@ export function InfiniteCanvas({
               w: rec.w,
               h: rec.h,
             })
-            raw.metadata.inkSize = store.penSize
+            raw.metadata.inkSize = usePrefs.getState().pen.size
             raw.metadata.inkColor = usePrefs.getState().pen.color
             raw.metadata.inkStyle = usePrefs.getState().pen.style
             raw.metadata.smoothing = usePrefs.getState().pen.smoothing
@@ -1515,7 +1534,7 @@ export function InfiniteCanvas({
             }
           }
           if (obj.geometry.kind === 'stroke') {
-            obj.metadata.inkSize = store.penSize
+            obj.metadata.inkSize = usePrefs.getState().pen.size
             obj.metadata.inkColor = usePrefs.getState().pen.color
             obj.metadata.inkStyle = usePrefs.getState().pen.style
             obj.metadata.smoothing = usePrefs.getState().pen.smoothing
@@ -2704,12 +2723,18 @@ export function InfiniteCanvas({
           )
         })()}
 
-      {/* Zoom level pill with a lock-zoom toggle button. */}
-      {(() => {
+      {/* Zoom level pill with a lock-zoom toggle button. On phones every
+          pixel of canvas matters, so the pill only fades in while the zoom
+          is actually changing and slips away right after. */}
+      {(isPhone ? zoomHud : true) && (() => {
         const locked = nbPrefs.lockZoom
         const LockIcon = locked ? Lock : LockOpen
         return (
-          <div className="glass absolute bottom-[4.5rem] right-3 flex items-center gap-0.5 rounded-full pl-3 pr-1 py-1 font-mono text-[11px] text-muted-foreground sm:bottom-4 sm:right-4">
+          <div
+            ref={zoomPillRef}
+            style={{ translate: `${zoomPillShift.x}px ${zoomPillShift.y}px` }}
+            className="glass absolute bottom-4 right-4 z-30 flex items-center gap-0.5 rounded-full pl-3 pr-1 py-1 font-mono text-[11px] text-muted-foreground transition-[translate,opacity] duration-200"
+          >
             <span className={cn(locked && 'text-foreground font-semibold')}>
               {Math.round(viewport.zoom * 100)}%
             </span>

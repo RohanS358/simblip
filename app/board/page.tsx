@@ -21,15 +21,23 @@ import {
 } from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
-import { InfiniteCanvas } from '@/components/workspace/canvas'
+import { PageView } from '@/components/workspace/page-view'
 import { Transport } from '@/components/workspace/transport'
 import { Toolbar } from '@/components/workspace/toolbar'
+import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { Palette } from '@/components/workspace/palette'
 import { LibraryPanel } from '@/components/workspace/library-panel'
 import { Inspector } from '@/components/workspace/inspector'
 import { useAuthStore } from '@/lib/auth/store'
 import { useDocStore } from '@/lib/store/document'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import {
+  bundleMetaPatch,
+  bundlePage,
+  writeBundleContent,
+  type PageBundle,
+} from '@/lib/store/page-bundle'
+import * as pageArchive from '@/lib/store/page-archive'
 import { play, pause, stop } from '@/lib/physics/world'
 import {
   endSession,
@@ -49,10 +57,28 @@ import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/da
 import { Button } from '@/components/ui/button'
 import { FileObject } from '@/components/objects/file-view'
 
+// A remote command names an object; on a doc/pdf session that object may
+// live on a sheet rather than the main content page — target whichever
+// loaded page actually holds it.
+function pageHolding(mainId: string, objectId: string): string {
+  const pages = useDocStore.getState().pages
+  if (pages[mainId]?.objects[objectId]) return mainId
+  const meta = findPageMeta(useWorkspaceStore.getState().notebooks, mainId)
+  for (const id of [
+    ...(meta?.docPages ?? []),
+    ...(meta?.notesPages ?? []).filter(Boolean),
+    ...(meta?.annotPages ?? []).filter(Boolean),
+  ])
+    if (pages[id]?.objects[objectId]) return id
+  return mainId
+}
+
 // The teacher's phone drives the board through commands stamped on the
 // session row — each seq is applied exactly once.
 function applyRemote(cmd: RemoteCommand, pageId: string) {
   const doc = useDocStore.getState()
+  if (cmd.objectId && (cmd.kind === 'param' || cmd.kind === 'toggle'))
+    pageId = pageHolding(pageId, cmd.objectId)
   switch (cmd.kind) {
     case 'play':
       play(pageId)
@@ -93,6 +119,63 @@ function applyRemote(cmd: RemoteCommand, pageId: string) {
       break
     }
   }
+}
+
+// The board account has no real notebook tree, but DocView/PdfView resolve a
+// page's kind and sheets through workspace metadata — so a presented page is
+// materialized as a real (temporary) tree entry, and every page kind renders
+// on the board exactly as it does in the notebook. Sheet ids are kept as the
+// teacher sent them, so edits round-trip back into the session bundle.
+const BOARD_NB = '__board-session'
+
+function registerSessionPage(tempId: string, name: string, bundle: PageBundle) {
+  useWorkspaceStore.setState((s) => ({
+    notebooks: [
+      ...s.notebooks.filter((n) => n.name !== BOARD_NB),
+      {
+        id: BOARD_NB,
+        name: BOARD_NB,
+        emoji: '🖥️',
+        sections: [
+          {
+            id: `${BOARD_NB}-sec`,
+            name: 'Live',
+            color: 'blue',
+            pages: [{ id: tempId, name, ...(bundle.bundle ? bundleMetaPatch(bundle.bundle) : { kind: 'board' as const }) }],
+          },
+        ],
+      },
+    ],
+  }))
+  writeBundleContent(tempId, bundle)
+}
+
+function clearSessionPage(tempId: string) {
+  const meta = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)
+  const ids = [
+    tempId,
+    ...(meta?.docPages ?? []),
+    ...(meta?.notesPages ?? []).filter(Boolean),
+    ...(meta?.annotPages ?? []).filter(Boolean),
+    ...(meta?.notesDocId ? [meta.notesDocId] : []),
+  ]
+  // NOT forgetPage — these ids belong to the teacher's pages; marking them
+  // deleted here would delete the originals from the cloud.
+  useDocStore.setState((s) => {
+    const pages = { ...s.pages }
+    const scopes = { ...s.scopes }
+    for (const id of ids) {
+      delete pages[id]
+      delete scopes[id]
+    }
+    return { pages, scopes }
+  })
+  ids.forEach((id) => pageArchive.dropPage(id))
+  useWorkspaceStore.setState((s) => ({
+    notebooks: s.notebooks.filter((n) => n.name !== BOARD_NB),
+    activeSheetId: null,
+    pdfToolsActive: false,
+  }))
 }
 
 function timeAgo(iso: string): string {
@@ -190,12 +273,20 @@ function BoardSurface() {
   const [scratch, setScratch] = useState(false) // temporary whiteboard, never saved
   const [clock, setClock] = useState('')
   const pageIdRef = useRef<string | null>(null)
+  // The pairing QR must never hide behind a bottom-docked toolbar.
+  const qrPillRef = useRef<HTMLDivElement>(null)
+  const qrPillShift = useDockClearance(qrPillRef, [session])
   // Remote replay guard: only commands newer than this seq run.
   const remoteSeqRef = useRef(0)
   const remoteSessionRef = useRef<string | null>(null)
 
-  // Board identity.
+  // Board identity. Also sweep any session page a crash left behind.
   useEffect(() => {
+    const leftover = useWorkspaceStore
+      .getState()
+      .notebooks.find((n) => n.name === BOARD_NB)
+      ?.sections[0]?.pages[0]?.id
+    if (leftover) clearSessionPage(leftover)
     void myBoard().then((res) => {
       if (res) {
         setBoard(res.board)
@@ -280,13 +371,11 @@ function BoardSurface() {
     }
     setSession((prev) => {
       if (live && prev?.id !== live.id) {
-        // New presentation: load the temporary copy into a scratch page.
+        // New presentation: materialize the temporary copy — content, sheets
+        // AND page kind — so docs and PDFs present as themselves.
         const tempId = `board-${live.id}`
         pageIdRef.current = tempId
-        useDocStore.setState((s) => ({
-          pages: { ...s.pages, [tempId]: JSON.parse(JSON.stringify(live.edited ?? live.snapshot)) },
-        }))
-        useDocStore.getState().ensurePage(tempId)
+        registerSessionPage(tempId, live.page_name, (live.edited ?? live.snapshot) as PageBundle)
         return live
       }
       if (!live && prev) {
@@ -294,11 +383,7 @@ function BoardSurface() {
         stop()
         const tempId = pageIdRef.current
         if (tempId) {
-          useDocStore.setState((s) => {
-            const pages = { ...s.pages }
-            delete pages[tempId]
-            return { pages }
-          })
+          clearSessionPage(tempId)
           pageIdRef.current = null
         }
         void rotatePairingCode(board.id).then((code) =>
@@ -345,16 +430,31 @@ function BoardSurface() {
   }, [session, syncSession])
 
   // Push the board's edits into the session row (debounced) so the teacher's
-  // merge decision sees the latest state.
+  // merge decision sees the latest state. Edits on a doc land in its SHEETS,
+  // and PDF ink lands in per-page annot canvases — so watch every content
+  // page the session owns and always send the composed bundle back.
   useEffect(() => {
     if (!session) return
     const tempId = `board-${session.id}`
     let timer: ReturnType<typeof setTimeout> | null = null
+    const ownIds = () => {
+      const meta = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)
+      return new Set([
+        tempId,
+        ...(meta?.docPages ?? []),
+        ...(meta?.notesPages ?? []).filter(Boolean),
+        ...(meta?.annotPages ?? []).filter(Boolean),
+        ...(meta?.notesDocId ? [meta.notesDocId] : []),
+      ])
+    }
     const unsub = useDocStore.subscribe((s, prev) => {
-      const page = s.pages[tempId]
-      if (!page || page === prev.pages[tempId]) return
+      if (s.pages === prev.pages) return
+      const ids = ownIds()
+      let changed = false
+      for (const id of ids) if (s.pages[id] !== prev.pages[id]) changed = true
+      if (!changed) return
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => void saveSessionEdits(session.id, page), 1000)
+      timer = setTimeout(() => void saveSessionEdits(session.id, bundlePage(tempId)), 1000)
     })
     return () => {
       if (timer) clearTimeout(timer)
@@ -369,6 +469,20 @@ function BoardSurface() {
 
   // Session takes over the surface; a scratch whiteboard yields to it.
   const activeBoardPage = session ? `board-${session.id}` : scratch ? 'board-scratch' : null
+
+  // Same targeting rules as the notebook shell: boards act on themselves,
+  // docs act on the focused sheet, PDFs draw through the real board dock
+  // once their reader has claimed an ink/notes canvas.
+  const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
+  const boardKind = useWorkspaceStore((s) =>
+    activeBoardPage ? (findPageMeta(s.notebooks, activeBoardPage)?.kind ?? 'board') : 'board'
+  )
+  const pdfToolsOn = boardKind === 'pdf' && pdfToolsActive
+  const boardContentId =
+    activeBoardPage && (boardKind === 'doc' || pdfToolsOn)
+      ? (activeSheetId ?? activeBoardPage)
+      : activeBoardPage
 
   // Split-screen document: same store as the notebook shell, so a teacher
   // can present a handout side-by-side with the canvas on the board.
@@ -435,15 +549,19 @@ function BoardSurface() {
             </div>
           )}
           <div className="relative min-w-0 flex-1">
-          <InfiniteCanvas key={activeBoardPage} pageId={activeBoardPage} />
-          <Transport pageId={activeBoardPage} />
-          <Toolbar
-            paletteOpen={paletteOpen}
-            onTogglePalette={() => setPaletteOpen((o) => !o)}
-            showAi={false}
-            pageId={activeBoardPage}
-          />
-          <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+          <PageView key={activeBoardPage} pageId={activeBoardPage} />
+          {(boardKind !== 'pdf' || pdfToolsOn) && boardContentId && (
+            <>
+              <Transport pageId={boardContentId} />
+              <Toolbar
+                paletteOpen={paletteOpen}
+                onTogglePalette={() => setPaletteOpen((o) => !o)}
+                showAi={false}
+                pageId={boardContentId}
+              />
+              <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+            </>
+          )}
 
           {/* Mid-edge handle, same affordance as the notebook shell. */}
           <button
@@ -483,11 +601,11 @@ function BoardSurface() {
 
           {libOpen && (
             <div className="absolute bottom-4 right-4 top-16 z-40 flex">
-              <LibraryPanel open onClose={() => setLibOpen(false)} pageId={activeBoardPage} />
+              <LibraryPanel open onClose={() => setLibOpen(false)} pageId={boardContentId ?? activeBoardPage} />
             </div>
           )}
           </div>
-          {inspectorOpen && <Inspector pageId={activeBoardPage} />}
+          {inspectorOpen && <Inspector pageId={boardContentId ?? activeBoardPage} />}
         </div>
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
@@ -523,7 +641,11 @@ function BoardSurface() {
 
       {/* The pairing QR is ALWAYS visible, fixed bottom-left. */}
       {pairUrl && (
-        <div className="glass-strong absolute bottom-4 left-4 z-50 flex items-center gap-3 rounded-2xl p-3">
+        <div
+          ref={qrPillRef}
+          style={{ translate: `${qrPillShift.x}px ${qrPillShift.y}px` }}
+          className="glass-strong absolute bottom-4 left-4 z-50 flex items-center gap-3 rounded-2xl p-3 transition-[translate] duration-200"
+        >
           <button
             type="button"
             aria-label="Enlarge QR to full screen"

@@ -38,6 +38,7 @@ import { listRooms, listAllMembers } from '@/lib/data/admin'
 import * as db from '@/lib/data/db'
 import type { AssignmentRow, ProfileRow, SubmissionRow, SubmissionStatus } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
+import { bundlePage } from '@/lib/store/page-bundle'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { Button } from '@/components/ui/button'
@@ -123,7 +124,9 @@ function StudentAssignments() {
 
   const submit = async (a: AssignmentRow) => {
     const pageId = assignmentPageLinks(profile.id)[a.id]
-    const content = pageId ? useDocStore.getState().pages[pageId] : null
+    // Submit the full bundle — a doc/PDF assignment's work lives in its
+    // sheets and ink layers, not just the main content page.
+    const content = pageId && useDocStore.getState().pages[pageId] ? bundlePage(pageId) : null
     if (!content) {
       toast.error('Open the assignment in your notebook first.')
       return
