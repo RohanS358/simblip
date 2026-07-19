@@ -9,7 +9,7 @@
 // doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Layers, Activity, TrendingUp, Sigma } from 'lucide-react'
+import { Layers, Activity, TrendingUp, Sigma, Box } from 'lucide-react'
 import {
   LineChart,
   Line,
@@ -29,6 +29,7 @@ import { fmtNum } from '@/lib/scene/format'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
+import { Graph3D } from './graph-3d'
 
 export const GRAPH_COLORS = [
   'var(--chart-1)',
@@ -258,6 +259,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const xChannel = getString(object, 'xChannel', 't') || 't'
   const formulasStr = getString(object, 'formulas')
   const stacked = getString(object, 'stacked') === '1'
+  const view: '2d' | '3d' = getString(object, 'view') === '3d' ? '3d' : '2d'
   const measuring = getString(object, 'measure') === '1'
   const deriv = getString(object, 'deriv') === '1'
   const integ = getString(object, 'integ') === '1'
@@ -515,7 +517,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
             d{integAxis}
           </button>
         )}
-        {panels.length > 1 && (
+        {view === '2d' && panels.length > 1 && (
           <button
             type="button"
             aria-label={stacked ? 'Combine into one chart' : 'Split into stacked charts'}
@@ -532,6 +534,27 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
             <Layers className="h-3.5 w-3.5" />
           </button>
         )}
+        {panels.length >= 3 && (
+          <button
+            type="button"
+            aria-label={view === '3d' ? 'Switch to 2D chart' : 'Switch to 3D trajectory view'}
+            aria-pressed={view === '3d'}
+            title={
+              view === '3d'
+                ? '3D view — first 3 series/formulas plotted as X/Y/Z'
+                : 'Plot the first 3 series/formulas as a 3D trajectory'
+            }
+            className={
+              view === '3d'
+                ? 'rounded p-0.5 text-[var(--accent-blue)]'
+                : 'rounded p-0.5 text-muted-foreground hover:text-foreground'
+            }
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={() => setStringParam(pageId, object.id, 'view', view === '3d' ? '' : '3d')}
+          >
+            <Box className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
       {stats && (
         <div
@@ -545,7 +568,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           <span>T {fmtMeas(stats.period)}</span>
         </div>
       )}
-      {deriv && (
+      {deriv && view === '2d' && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
           {hoverX === null ? (
             <span className="text-muted-foreground">Hover the chart to place the tangent…</span>
@@ -559,7 +582,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           )}
         </div>
       )}
-      {integ && (
+      {integ && view === '2d' && (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 border-b border-border/60 bg-accent/20 px-2 py-1 font-mono text-[9.5px]">
           <span className="text-muted-foreground">
             ∫ over {fmtMeas(intA)}…{fmtMeas(intB)} d{integAxis}
@@ -571,7 +594,23 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
           ))}
         </div>
       )}
-      {hasPlot && useStacked ? (
+      {view === '3d' ? (
+        panels.length >= 3 && rows.length > 1 ? (
+          <Graph3D
+            rows={rows}
+            axes={[panels[0], panels[1], panels[2]]}
+            xChannel={xChannel}
+            deriv={deriv}
+            integ={integ}
+            intA={intA}
+            intB={intB}
+          />
+        ) : (
+          <div className="flex flex-1 items-center justify-center p-4 text-center text-[12px] text-muted-foreground">
+            Pick at least 3 series or formulas — the first three become the X, Y, Z axes of the trajectory.
+          </div>
+        )
+      ) : hasPlot && useStacked ? (
         // Small multiples: one mini chart per series, shared X domain and a
         // synced tooltip cursor so values line up vertically for comparison.
         <div className="flex min-h-0 flex-1 flex-col p-1 text-[10px]" onPointerDown={(e) => e.stopPropagation()}>
