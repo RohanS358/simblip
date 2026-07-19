@@ -71,8 +71,9 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
   const [ax, ay, az] = axes
   const ramp = useHeightRamp()
   const gridColor = useThemeColor('var(--border)')
-  const axisColor = useThemeColor('var(--muted-foreground)')
-  const markerColor = useThemeColor(ay.color)
+  const axisColorX = useThemeColor(ax.color)
+  const axisColorY = useThemeColor(ay.color)
+  const axisColorZ = useThemeColor(az.color)
   const derivColor = useThemeColor('var(--accent-mint)')
   const [scrubT, setScrubT] = useState(1)
 
@@ -195,40 +196,32 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
             fadeDistance={SIZE * 4}
             infiniteGrid={false}
           />
-          {/* Corner axes at the floor's min-X/min-Z edge, labeled with the
-              bound panel names and their data range. */}
-          <Line
-            points={[
-              [-SIZE / 2, -SIZE / 2, -SIZE / 2],
-              [SIZE / 2, -SIZE / 2, -SIZE / 2],
-            ]}
-            color={axisColor}
-            lineWidth={1}
+          {/* Conventional X/Y/Z axes through the data's centroid (the scaled
+              cube is always centered at the origin by construction), each
+              colored to match its source panel — a corner "bounding box"
+              triad reads as off-center since all the axis chrome sits in one
+              octant; a centered cross keeps the composition balanced and
+              doubles as the answer to "where are X/Y/Z". */}
+          <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorX} lineWidth={1.5} />
+          <arrowHelper
+            args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorX, SIZE * 0.09, SIZE * 0.045]}
           />
-          <Line
-            points={[
-              [-SIZE / 2, -SIZE / 2, -SIZE / 2],
-              [-SIZE / 2, SIZE / 2, -SIZE / 2],
-            ]}
-            color={axisColor}
-            lineWidth={1}
+          <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorY} lineWidth={1.5} />
+          <arrowHelper
+            args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorY, SIZE * 0.09, SIZE * 0.045]}
           />
-          <Line
-            points={[
-              [-SIZE / 2, -SIZE / 2, -SIZE / 2],
-              [-SIZE / 2, -SIZE / 2, SIZE / 2],
-            ]}
-            color={axisColor}
-            lineWidth={1}
+          <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorZ} lineWidth={1.5} />
+          <arrowHelper
+            args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorZ, SIZE * 0.09, SIZE * 0.045]}
           />
-          <AxisLabel position={[SIZE / 2 + 0.3, -SIZE / 2, -SIZE / 2]}>
-            {ax.name} → {fmtNum(bx.max)}
+          <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>
+            {ax.name} ({fmtNum(bx.min)}…{fmtNum(bx.max)})
           </AxisLabel>
-          <AxisLabel position={[-SIZE / 2, SIZE / 2 + 0.3, -SIZE / 2]}>
-            {ay.name} ↑ {fmtNum(by.max)}
+          <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>
+            {ay.name} ({fmtNum(by.min)}…{fmtNum(by.max)})
           </AxisLabel>
-          <AxisLabel position={[-SIZE / 2, -SIZE / 2, SIZE / 2 + 0.3]}>
-            {az.name} ↘ {fmtNum(bz.max)}
+          <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>
+            {az.name} ({fmtNum(bz.min)}…{fmtNum(bz.max)})
           </AxisLabel>
 
           <Line points={points} vertexColors={colors} lineWidth={2.5} />
@@ -263,7 +256,7 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
             <>
               <mesh position={tangent.origin}>
                 <sphereGeometry args={[0.045, 12, 12]} />
-                <meshBasicMaterial color={markerColor} />
+                <meshBasicMaterial color={axisColorY} />
               </mesh>
               {tangent.speed > 0 && (
                 <arrowHelper
@@ -273,7 +266,7 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
             </>
           )}
 
-          <OrbitControls makeDefault enableDamping enablePan enableZoom enableRotate />
+          <OrbitControls makeDefault target={[0, 0, 0]} enableDamping enablePan enableZoom enableRotate />
         </Canvas>
       </div>
 
