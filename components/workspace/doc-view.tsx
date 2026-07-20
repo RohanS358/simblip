@@ -218,37 +218,38 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       return next
     })
 
-  // Zoom anchored at a screen point (cursor, or viewport center for the
-  // buttons/slider). With transformOrigin 'top left', a content-space point
-  // (px, py) renders on screen at px*zoom - scrollLeft. To keep that same
-  // content point under the same screen point after zoom changes z -> nz,
-  // stash the target and solve for scrollLeft/scrollTop in a useLayoutEffect
-  // that runs synchronously after the re-render — same frame as the new
-  // scale, instead of one frame later (which reads as a jump-then-snap).
-  const zoomAnchor = useRef<{ px: number; py: number; clientX: number; clientY: number } | null>(null)
+  // Zoom anchored vertically at a screen point (cursor, or viewport center
+  // for the buttons/slider) — same single-axis model as PdfView's reader
+  // (doc-view.tsx pairs with pdf-view.tsx: the page stack is always
+  // horizontally centered, so only the vertical anchor needs solving). With
+  // transformOrigin 'top left', a content-space point py renders on screen
+  // at py*zoom - scrollTop. To keep that same content point under the same
+  // screen point after zoom changes z -> nz, stash the target and solve for
+  // scrollTop in a useLayoutEffect that runs synchronously after the
+  // re-render — same frame as the new scale, instead of one frame later
+  // (which reads as a jump-then-snap).
+  const zoomAnchor = useRef<{ py: number; clientY: number } | null>(null)
 
-  const zoomAt = useCallback((clientX: number, clientY: number, factor: number) => {
+  const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
     const el = scrollRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     setZoom((z) => {
       const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor))
       if (nz === z) return z
-      zoomAnchor.current = {
-        px: (clientX - rect.left + el.scrollLeft) / z,
-        py: (clientY - rect.top + el.scrollTop) / z,
-        clientX: clientX - rect.left,
-        clientY: clientY - rect.top,
-      }
+      // capture the content-space point under the cursor BEFORE zoom changes
+      zoomAnchor.current = { py: (clientY - rect.top + el.scrollTop) / z, clientY: clientY - rect.top }
       return nz
     })
   }, [])
 
+  // Runs synchronously after the DOM updates but before the browser paints —
+  // so the corrected scrollTop lands in the SAME frame as the new scale,
+  // instead of one frame later (which is what caused the jump-then-snap).
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = zoomAnchor.current
     if (!el || !anchor) return
-    el.scrollLeft = anchor.px * zoom - anchor.clientX
     el.scrollTop = anchor.py * zoom - anchor.clientY
     zoomAnchor.current = null
   }, [zoom])
@@ -260,8 +261,8 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor)
   }
 
-  // Ctrl/⌘+wheel and trackpad pinch zoom the whole page stack, anchored at
-  // the cursor. A plain wheel is left alone so it scrolls the page list.
+  // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
+  // everywhere else in the app. A plain wheel is left alone to scroll.
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -274,43 +275,32 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     return () => el.removeEventListener('wheel', onWheel)
   }, [zoomAt])
 
-  // Touch: two-finger pinch zooms too, anchored at the finger midpoint —
-  // the only zoom gesture a phone has. Baseline (zoom, scroll position,
-  // original midpoint) is captured once when the fingers land and held
-  // fixed for the whole gesture — see usePinchZoom. Feeds the same
-  // zoomAnchor + useLayoutEffect mechanism as zoomAt above, just with an
-  // absolute target zoom (base.zoom * ratio) instead of a factor.
-  const pinchBaseRef = useRef<{
-    zoom: number
-    scrollLeft: number
-    scrollTop: number
-    clientX: number
-    clientY: number
-  } | null>(null)
+  // Touch: two-finger pinch, the only zoom gesture a phone has. Baseline
+  // (zoom, scroll position, original midpoint) is captured once when the
+  // fingers land and held fixed for the whole gesture — see usePinchZoom.
+  const pinchBaseRef = useRef<{ zoom: number; scrollTop: number; clientY: number } | null>(null)
 
   const onPinchStart = useCallback(
-    (clientX: number, clientY: number) => {
+    (_clientX: number, clientY: number) => {
       const el = scrollRef.current
       if (!el) return
-      pinchBaseRef.current = { zoom, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop, clientX, clientY }
+      pinchBaseRef.current = { zoom, scrollTop: el.scrollTop, clientY }
     },
     [zoom]
   )
 
-  const onPinchMove = useCallback((ratio: number, clientX: number, clientY: number) => {
+  const onPinchMove = useCallback((ratio: number, _clientX: number, clientY: number) => {
     const el = scrollRef.current
     const base = pinchBaseRef.current
     if (!el || !base) return
     const rect = el.getBoundingClientRect()
     const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, base.zoom * ratio))
     // Content-space point under the ORIGINAL two-finger midpoint — fixed for
-    // the whole gesture — mapped to the CURRENT midpoint on screen.
-    zoomAnchor.current = {
-      px: (base.clientX - rect.left + base.scrollLeft) / base.zoom,
-      py: (base.clientY - rect.top + base.scrollTop) / base.zoom,
-      clientX: clientX - rect.left,
-      clientY: clientY - rect.top,
-    }
+    // the whole gesture. Only the on-screen target (the current midpoint)
+    // moves as the fingers move; that's what keeps the same bit of content
+    // pinned under the fingers instead of sliding.
+    const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
+    zoomAnchor.current = { py, clientY: clientY - rect.top }
     setZoom(nz)
   }, [])
 

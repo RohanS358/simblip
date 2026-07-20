@@ -13,6 +13,15 @@ import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
 let nameCounter = 0
 const autoName = (base: string) => `${base} ${(++nameCounter % 1000)}`
 
+// Stacking order: seeded from the clock but then a plain monotonic counter,
+// never wrapped — Date.now() % 1_000_000 alone would wrap every ~16.7
+// minutes, so anything drawn late in a long session could land BEHIND
+// something placed earlier just because the clock rolled over.
+let zCounter = Date.now() % 1_000_000
+export function nextZ(): number {
+  return (zCounter += 1)
+}
+
 export function baseObject(kind: GeometryKind, position: Vec2, name?: string): SceneObject {
   return {
     id: uid(),
@@ -21,7 +30,7 @@ export function baseObject(kind: GeometryKind, position: Vec2, name?: string): S
     position,
     size: { w: 160, h: 120 },
     rotation: 0,
-    z: Date.now() % 1_000_000,
+    z: nextZ(),
     behaviors: [],
     parameters: {},
     metadata: {},

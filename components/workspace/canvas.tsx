@@ -23,7 +23,7 @@ import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/prefe
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
 import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
+import { createGeometry, fromRecognition, componentById, nextZ } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
@@ -304,7 +304,7 @@ function pasteClipboard(pageId: string) {
     idMap.set(src.id, newId)
     clone.id = newId
     clone.position = { x: src.position.x + offset, y: src.position.y + offset }
-    clone.z = Date.now() % 1_000_000
+    clone.z = nextZ()
     clone.behaviors.forEach((b) => (b.id = uid()))
     return clone
   })
@@ -1315,8 +1315,7 @@ export function InfiniteCanvas({
           const sides = g.placeShape ? SHAPE_SIDES[g.placeShape] : undefined
           if (sides) obj.geometry.points = regularPolygonPoints(sides, obj.size.w, obj.size.h)
           store.addObject(pageId, obj)
-          store.setSelection([obj.id])
-          if (!g.placeComponent) store.setTool('select')
+          store.setTool('select')
         }
       } else if (g.mode === 'placeLine') {
         // Drag-to-draw connector: anchor at press point, end at release.
@@ -1349,11 +1348,7 @@ export function InfiniteCanvas({
               obj.position = { x: a.x - obj.size.w / 2, y: a.y - obj.size.h / 2 }
             }
             store.addObject(pageId, obj)
-            store.setSelection([obj.id])
-            // Coarse pointers (phone/tablet) revert to select after placing —
-            // there's no hover cursor to signal "still in placement mode".
-            if (!g.placeComponent || window.matchMedia('(pointer: coarse)').matches)
-              store.setTool('select')
+            store.setTool('select')
           }
         }
       } else if (g.mode === 'draw') {
@@ -2183,7 +2178,7 @@ export function InfiniteCanvas({
     clone.id = uid()
     clone.name = `${src.name} copy`
     clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-    clone.z = Date.now() % 1_000_000
+    clone.z = nextZ()
     clone.behaviors.forEach((b) => (b.id = uid()))
     store.addObject(pageId, clone)
     store.setSelection([clone.id])
@@ -2199,7 +2194,7 @@ export function InfiniteCanvas({
       const clone: SceneObject = JSON.parse(JSON.stringify(src))
       clone.id = uid()
       clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-      clone.z = Date.now() % 1_000_000
+      clone.z = nextZ()
       clone.behaviors.forEach((b) => (b.id = uid()))
       store.addObject(pageId, clone)
       ids.push(clone.id)
