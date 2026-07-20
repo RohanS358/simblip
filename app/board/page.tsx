@@ -23,8 +23,7 @@ import {
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
 import { PageView } from '@/components/workspace/page-view'
-import { Transport } from '@/components/workspace/transport'
-import { Toolbar } from '@/components/workspace/toolbar'
+import { CanvasControls } from '@/components/workspace/canvas-controls'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { FloatingPalette } from '@/components/workspace/palette'
 import { LibraryPanel } from '@/components/workspace/library-panel'
@@ -553,8 +552,7 @@ function BoardSurface() {
           <PageView key={activeBoardPage} pageId={activeBoardPage} />
           {(boardKind !== 'pdf' || pdfToolsOn) && boardContentId && (
             <>
-              <Transport pageId={boardContentId} />
-              <Toolbar pageId={boardContentId} />
+              <CanvasControls pageId={boardContentId} />
               <FloatingPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
             </>
           )}

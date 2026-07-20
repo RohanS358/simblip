@@ -38,8 +38,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
-import { Toolbar } from './toolbar'
-import { Transport } from './transport'
+import { CanvasControls } from './canvas-controls'
 import { Inspector } from './inspector'
 import { FocusObject } from './focus-object'
 import { motion as fm, AnimatePresence } from 'framer-motion'
@@ -48,21 +47,19 @@ import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
-import { AiPanel } from './ai-panel'
-import { AiBubble } from './ai-bubble'
 import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
 import { TutorialPanel } from './tutorial'
 import { UndoRedo } from './undo-redo'
 import { Calculator } from './calculator'
+import { Sidebar } from './sidebar'
+import { Dock } from './dock'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
 import { FileObject } from '../objects/file-view'
 import { PageThumbnail } from './page-thumbnail'
 import { KIND_ICON } from './tabs-bar'
-import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
-import { SectionSheet } from './section-sheet'
 import {
   AssignDialog,
   PresentDialog,
@@ -103,10 +100,6 @@ export function MobileShell() {
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
-  // The touch equivalent of the desktop sidebar's rail — same taxonomy
-  // (Notebook/Components/Tools/Library), reached via a persistent rail on
-  // tablet and a drawer entry on phone. See docs/ui-simplification-plan.md §6.
-  const [activeSheetSection, setActiveSheetSection] = useState<SidebarSectionId | null>(null)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
@@ -156,7 +149,6 @@ export function MobileShell() {
 
   useShareInbox()
 
-  const aiAllowed = can(profile?.role, 'use-ai')
   const notebook = view.kind === 'notebook' ? notebooks.find((n) => n.id === view.id) : null
   const pageName = (() => {
     for (const nb of notebooks)
@@ -282,23 +274,6 @@ export function MobileShell() {
                     ))}
                 </div>
               ))}
-              {/* Components/Tools/Library — the same taxonomy as the desktop
-                  sidebar rail, reachable here (and via the persistent tablet
-                  rail in the editor). They act on the open page, so they only
-                  make sense while one is open. */}
-              {view.kind === 'editor' &&
-                SIDEBAR_SECTIONS.filter((s) => s.id !== 'notebook').map((s) => (
-                  <button
-                    key={s.id}
-                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                    onClick={() => {
-                      setActiveSheetSection(s.id)
-                      setDrawerOpen(false)
-                    }}
-                  >
-                    <s.icon className="h-4 w-4" /> {s.label}
-                  </button>
-                ))}
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => {
@@ -407,117 +382,83 @@ export function MobileShell() {
           </div>
         )}
 
-        <main className={cn('relative min-h-0 flex-1 flex', isPhone ? 'flex-col' : 'flex-row')}>
-          {/* Tablet gets a persistent rail (same taxonomy as the desktop
-              sidebar); a phone is too narrow for one, so it reaches the same
-              sheet through the drawer instead — see docs/ui-simplification-plan.md §6. */}
-          {!isPhone && (
-            <nav
-              className="glass-strong absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-2xl p-1.5"
-              aria-label="Sidebar"
-            >
-              {SIDEBAR_SECTIONS.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  aria-label={s.label}
-                  aria-pressed={activeSheetSection === s.id}
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-xl transition-colors',
-                    activeSheetSection === s.id
-                      ? 'bg-[var(--accent-blue)] text-primary-foreground shadow-sm'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )}
-                  onClick={() => setActiveSheetSection((cur) => (cur === s.id ? null : s.id))}
-                >
-                  <s.icon className="h-[18px] w-[18px]" />
-                </button>
-              ))}
-            </nav>
-          )}
-          {splitScreenObject && (
-            <div
-              className={cn(
-                'flex bg-muted/30 p-2 relative z-10',
-                isPhone
-                  ? 'w-full h-1/2 flex-col border-b border-border'
-                  : 'h-full w-1/2 flex-col border-r border-border'
-              )}
-            >
-              <FileObject object={splitScreenObject} pageId={contentPageId!} />
-            </div>
-          )}
-          {(() => {
-            // Split screen, exactly like desktop: primary pane stays put,
-            // the split pane sits beside it (tablet) or below it (phone).
-            const leftId = splitPageId ? (primaryPageId ?? activePageId) : activePageId
-            const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
-            if (!rightId) {
+        <main className="relative flex min-h-0 flex-1 flex-row">
+          {/* Same left-docked rail + collapsible pane as desktop — on a
+              phone it starts collapsed to the rail (sidebarOpen is forced
+              false below max-width:767px, same as the desktop shell), so it
+              never eats into canvas space uninvited. */}
+          <Dock side="left" panels={['pages']} render={() => <Sidebar />} />
+
+          <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
+            {splitScreenObject && (
+              <div
+                className={cn(
+                  'flex bg-muted/30 p-2 relative z-10',
+                  isPhone
+                    ? 'w-full h-1/2 flex-col border-b border-border'
+                    : 'h-full w-1/2 flex-col border-r border-border'
+                )}
+              >
+                <FileObject object={splitScreenObject} pageId={contentPageId!} />
+              </div>
+            )}
+            {(() => {
+              // Split screen, exactly like desktop: primary pane stays put,
+              // the split pane sits beside it (tablet) or below it (phone).
+              const leftId = splitPageId ? (primaryPageId ?? activePageId) : activePageId
+              const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
+              if (!rightId) {
+                return (
+                  <div className="relative flex-1 min-h-0">
+                    <PageView pageId={leftId} />
+                  </div>
+                )
+              }
               return (
-                <div className="relative flex-1 min-h-0">
-                  <PageView pageId={leftId} />
+                <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
+                  <div
+                    className={cn('relative min-h-0 min-w-0', activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
+                    style={isPhone ? { height: `${splitRatio * 100}%` } : { width: `${splitRatio * 100}%` }}
+                    onPointerDownCapture={() => activePageId !== leftId && store.getState().setActivePage(leftId)}
+                  >
+                    <PageView pageId={leftId} />
+                  </div>
+                  <div
+                    role="separator"
+                    aria-label="Resize split"
+                    className={cn('shrink-0 touch-none bg-border/60', isPhone ? 'h-1.5 w-full cursor-row-resize' : 'w-1.5 cursor-col-resize')}
+                    onPointerDown={(e) => {
+                      e.preventDefault()
+                      const el = e.currentTarget.parentElement!
+                      const rect = el.getBoundingClientRect()
+                      const move = (ev: PointerEvent) => {
+                        const r = isPhone
+                          ? (ev.clientY - rect.top) / rect.height
+                          : (ev.clientX - rect.left) / rect.width
+                        store.getState().setSplitRatio(r)
+                      }
+                      const up = () => {
+                        window.removeEventListener('pointermove', move)
+                        window.removeEventListener('pointerup', up)
+                      }
+                      window.addEventListener('pointermove', move)
+                      window.addEventListener('pointerup', up)
+                    }}
+                  />
+                  <div
+                    className={cn('relative min-h-0 min-w-0 flex-1', activePageId === rightId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
+                    onPointerDownCapture={() => activePageId !== rightId && store.getState().setActivePage(rightId)}
+                  >
+                    <PageView pageId={rightId} />
+                  </div>
                 </div>
               )
-            }
-            return (
-              <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
-                <div
-                  className={cn('relative min-h-0 min-w-0', activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
-                  style={isPhone ? { height: `${splitRatio * 100}%` } : { width: `${splitRatio * 100}%` }}
-                  onPointerDownCapture={() => activePageId !== leftId && store.getState().setActivePage(leftId)}
-                >
-                  <PageView pageId={leftId} />
-                </div>
-                <div
-                  role="separator"
-                  aria-label="Resize split"
-                  className={cn('shrink-0 touch-none bg-border/60', isPhone ? 'h-1.5 w-full cursor-row-resize' : 'w-1.5 cursor-col-resize')}
-                  onPointerDown={(e) => {
-                    e.preventDefault()
-                    const el = e.currentTarget.parentElement!
-                    const rect = el.getBoundingClientRect()
-                    const move = (ev: PointerEvent) => {
-                      const r = isPhone
-                        ? (ev.clientY - rect.top) / rect.height
-                        : (ev.clientX - rect.left) / rect.width
-                      store.getState().setSplitRatio(r)
-                    }
-                    const up = () => {
-                      window.removeEventListener('pointermove', move)
-                      window.removeEventListener('pointerup', up)
-                    }
-                    window.addEventListener('pointermove', move)
-                    window.addEventListener('pointerup', up)
-                  }}
-                />
-                <div
-                  className={cn('relative min-h-0 min-w-0 flex-1', activePageId === rightId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
-                  onPointerDownCapture={() => activePageId !== rightId && store.getState().setActivePage(rightId)}
-                >
-                  <PageView pageId={rightId} />
-                </div>
-              </div>
-            )
-          })()}
-          {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
-            <>
-              <Transport pageId={contentPageId} />
-              <Toolbar pageId={contentPageId} />
-            </>
-          )}
-          {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
-          {aiAllowed && contentPageId && (
-            <>
-              <AiPanel pageId={contentPageId} />
-              <AiBubble />
-            </>
-          )}
-          <SectionSheet
-            section={activeSheetSection}
-            onClose={() => setActiveSheetSection(null)}
-            pageId={contentPageId ?? activePageId}
-            fullWidth={isPhone}
-          />
+            })()}
+            {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
+              <CanvasControls pageId={contentPageId} />
+            )}
+            {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
+          </div>
         </main>
 
         {/* Editing on a small screen: lift the object out of the canvas and dim

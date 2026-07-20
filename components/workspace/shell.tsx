@@ -15,20 +15,17 @@ import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
-import { can, ROLE_LABEL } from '@/lib/auth/types'
+import { ROLE_LABEL } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
 import type { PanelId, Side } from '@/lib/store/layout'
-import { Toolbar } from './toolbar'
-import { Transport } from './transport'
+import { CanvasControls } from './canvas-controls'
 import { Inspector } from './inspector'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
-import { AiPanel } from './ai-panel'
-import { AiBubble } from './ai-bubble'
 import { SyncStatus } from './sync-status'
 import { MobileShell } from './mobile-shell'
 import { CommandPalette } from './command-palette'
@@ -218,8 +215,6 @@ export function WorkspaceShell() {
 
   // Phones get a Notes-style navigation app, not a shrunken desktop.
   if (isMobile) return <MobileShell />
-
-  const aiAllowed = can(profile?.role, 'use-ai')
 
   // Docked panels: Pages on the left, Inspector on the right — fixed homes.
   // The left rail is permanent (branding + navigation live there); sidebarOpen
@@ -460,18 +455,9 @@ export function WorkspaceShell() {
                 )
               })()}
               {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
-                <>
-                  <Transport pageId={contentPageId} />
-                  <Toolbar pageId={contentPageId} />
-                </>
+                <CanvasControls pageId={contentPageId} />
               )}
               {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
-              {aiAllowed && contentPageId && (
-                <>
-                  <AiPanel pageId={contentPageId} />
-                  <AiBubble />
-                </>
-              )}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">

@@ -19,6 +19,7 @@ import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
 import { Input } from '@/components/ui/input'
+import { ComponentIcon } from './component-icons'
 import { cn } from '@/lib/utils'
 
 const DOMAINS = [
@@ -107,15 +108,26 @@ export function Palette() {
               key={c.id}
               type="button"
               aria-pressed={armed}
+              // Always a lightly-bordered card (like a Library asset tile) —
+              // the icon is what makes a part recognizable at a glance; the
+              // accent border/tint on top of that just marks "armed."
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-xl border px-1.5 py-2 text-[11.5px] transition-colors',
+                'flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-[11.5px] transition-colors',
                 armed
                   ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
-                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                  : 'border-border/60 text-muted-foreground hover:border-border hover:bg-accent/40 hover:text-foreground'
               )}
               onClick={() => setTool(armed ? 'select' : 'place', armed ? null : c.id)}
             >
-              <span className="font-medium">{c.label}</span>
+              <span
+                className={cn(
+                  'flex h-9 w-full items-center justify-center px-1',
+                  armed ? 'text-[var(--accent-blue)]' : 'text-foreground/80'
+                )}
+              >
+                <ComponentIcon def={c} />
+              </span>
+              <span className="font-medium leading-tight">{c.label}</span>
               {/* The domain tag only earns its place once "All" mixes
                   domains together — otherwise the selected pill already
                   says which one this is. "symbol" always matters, though. */}

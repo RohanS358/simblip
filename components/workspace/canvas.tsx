@@ -2007,10 +2007,15 @@ export function InfiniteCanvas({
 
     // A single finger (or pen) dragging in select mode behaves exactly like
     // left-click + drag: a selection marquee. Two fingers still pan/zoom.
-    if (!editing || tool === 'select') {
+    // Lasso is the same marquee, minus the "drag inside the selection to
+    // move it" shortcut below — it always redraws a fresh region, even
+    // starting on top of an object, so a crowded diagram stays circle-able
+    // without grabbing anything by accident (the object layer goes
+    // pointer-events-none for every non-select tool, lasso included).
+    if (!editing || tool === 'select' || tool === 'lasso') {
       // Clicking empty space inside a multi-selection's bounds drags the
       // whole selection; only clicks outside it start a fresh marquee.
-      if (editing && store.selection.length > 1) {
+      if (editing && tool === 'select' && store.selection.length > 1) {
         const page = store.pages[pageId]
         const p = toCanvas(e.clientX, e.clientY)
         let minX = Infinity
@@ -2253,7 +2258,12 @@ export function InfiniteCanvas({
     )
   }
 
-  const cursor = tool === 'pen' || tool === 'shaper' ? 'crosshair' : tool === 'select' ? 'default' : 'copy'
+  const cursor =
+    tool === 'pen' || tool === 'shaper' || tool === 'lasso'
+      ? 'crosshair'
+      : tool === 'select'
+        ? 'default'
+        : 'copy'
 
   // O(1) lookups — `selection.includes(id)` inside the object map was O(n)
   // per object, i.e. O(n^2) for the page.

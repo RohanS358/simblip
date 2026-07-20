@@ -420,7 +420,12 @@ function SevenSegGlyph() {
   )
 }
 
-function SymbolGlyph({ obj }: { obj: SceneObject }) {
+/**
+ * Just the symbol's shape — no terminals, no live-value chrome. Extracted so
+ * a component palette/catalog can show the exact same schematic glyph as the
+ * canvas without pulling in the interactive extras (see component-icons.tsx).
+ */
+export function SymbolIcon({ obj, className }: { obj: SceneObject; className?: string }) {
   const name = obj.geometry.symbol ?? ''
   const glyph = name === 'seven-seg' ? <SevenSegGlyph /> : GLYPHS[name]
   const glow = GLOW_POS[name]
@@ -440,53 +445,61 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
         )
         .join(' ')
     : ''
+  return (
+    <svg
+      viewBox="0 0 96 48"
+      width="100%"
+      height="100%"
+      preserveAspectRatio="xMidYMid meet"
+      stroke="var(--foreground)"
+      strokeWidth={2}
+      fill="none"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-label={obj.name}
+      className={className}
+    >
+      {glow && (
+        <circle
+          data-glow=""
+          cx={glow.cx}
+          cy={glow.cy}
+          r={glow.r}
+          fill="var(--accent-amber)"
+          stroke="none"
+          style={{ opacity: 0, transition: 'opacity 120ms linear' }}
+        />
+      )}
+      {stubPath && <path d={stubPath} fill="none" />}
+      {glyph ?? (
+        <>
+          <rect x="16" y="8" width="64" height="32" rx="6" />
+          <text
+            x="48"
+            y="29"
+            textAnchor="middle"
+            fill="var(--foreground)"
+            stroke="none"
+            fontSize="11"
+            fontFamily="var(--font-jakarta)"
+          >
+            {obj.name.split(' ')[0]}
+          </text>
+        </>
+      )}
+    </svg>
+  )
+}
+
+function SymbolGlyph({ obj }: { obj: SceneObject }) {
+  const terminals = terminalsOf(obj)
   const digital = obj.geometry.domain === 'digital'
   const firstParam = Object.entries(obj.parameters).find(
     ([n, p]) => p.kind === 'number' && n !== 'inputs'
   )
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center">
-      <svg
-        viewBox="0 0 96 48"
-        width="100%"
-        height="100%"
-        preserveAspectRatio="xMidYMid meet"
-        stroke="var(--foreground)"
-        strokeWidth={2}
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-label={obj.name}
-      >
-        {glow && (
-          <circle
-            data-glow=""
-            cx={glow.cx}
-            cy={glow.cy}
-            r={glow.r}
-            fill="var(--accent-amber)"
-            stroke="none"
-            style={{ opacity: 0, transition: 'opacity 120ms linear' }}
-          />
-        )}
-        {stubPath && <path d={stubPath} fill="none" />}
-        {glyph ?? (
-          <>
-            <rect x="16" y="8" width="64" height="32" rx="6" />
-            <text
-              x="48"
-              y="29"
-              textAnchor="middle"
-              fill="var(--foreground)"
-              stroke="none"
-              fontSize="11"
-              fontFamily="var(--font-jakarta)"
-            >
-              {obj.name.split(' ')[0]}
-            </text>
-          </>
-        )}
-      </svg>
+      <SymbolIcon obj={obj} />
       {firstParam && (
         <span className="pointer-events-none -mt-0.5 font-mono text-[9.5px] text-muted-foreground">
           {firstParam[0]}={firstParam[1].kind === 'number' ? firstParam[1].value : ''}

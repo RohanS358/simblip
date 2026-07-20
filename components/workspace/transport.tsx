@@ -2,71 +2,51 @@
 
 // Unity-style transport: Edit → Play → Pause → Step → Reset.
 // Nothing is regenerated — the exact drawn scene starts simulating.
+//
+// Positioning is not this component's job anymore — it used to sit at a
+// hard-coded corner and reactively shift away if it measured a collision
+// with the dock (see use-dock-clearance.ts). It's now just a plain grid
+// item placed by CanvasControls, which puts the dock and the transport in
+// separate grid tracks so they structurally can't land on each other.
 
 import { Play, Pause, StepBack, StepForward, RotateCcw } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
-import { usePrefs } from '@/lib/store/preferences'
 import { useIsNarrow } from '@/hooks/use-mobile'
-import { useDockClearance } from '@/hooks/use-dock-clearance'
-import { useRef } from 'react'
 
 export function Transport({ pageId }: { pageId: string }) {
   const motion = useSpring()
   const mode = useRuntimeStore((s) => s.mode)
-  const dock = usePrefs((s) => s.notebook.dock)
   const time = useRuntimeStore((s) => s.time)
   // A phone doesn't have room for a five-button strip that's idle 95% of the
   // time: while editing it collapses to a single Play; the full transport
   // unfolds the moment a simulation is actually running.
   const isPhone = useIsNarrow(767)
-  // A TOP dock shares this edge — measure, don't guess, and step aside.
-  // The wrapper owns position so framer's intro can keep the transform.
-  const wrapRef = useRef<HTMLDivElement>(null)
-  const shift = useDockClearance(wrapRef, [isPhone, mode, dock])
 
   if (isPhone && mode === 'edit') {
     return (
-      <div
-        ref={wrapRef}
-        style={{ translate: `${shift.x}px ${shift.y}px` }}
-        className="absolute left-1/2 top-3 z-40 -translate-x-1/2 transition-[translate] duration-200"
+      <fm.div
+        initial={{ y: -16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={motion}
+        className="glass-strong rounded-2xl p-1"
+        aria-label="Simulation transport"
       >
-        <fm.div
-          initial={{ y: -16, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          transition={motion}
-          className="glass-strong rounded-2xl p-1"
-          aria-label="Simulation transport"
+        <button
+          type="button"
+          aria-label="Play"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--accent-mint)] transition-colors hover:bg-accent"
+          onClick={() => play(pageId)}
         >
-          <button
-            type="button"
-            aria-label="Play"
-            className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--accent-mint)] transition-colors hover:bg-accent"
-            onClick={() => play(pageId)}
-          >
-            <Play className="h-4 w-4" />
-          </button>
-        </fm.div>
-      </div>
+          <Play className="h-4 w-4" />
+        </button>
+      </fm.div>
     )
   }
 
   return (
-    <div
-      ref={wrapRef}
-      style={{ translate: `${shift.x}px ${shift.y}px` }}
-      className={cn(
-        'absolute z-40 transition-[translate] duration-200',
-        // The dock is centred on its edge, so a TOP dock would sit right on
-        // the transport. Park the transport beside it on the same row — the
-        // two read as one control strip — and let the clearance shift take
-        // over if the dock grows all the way into this corner.
-        dock === 'top' ? 'right-4 top-4' : 'left-1/2 top-4 -translate-x-1/2'
-      )}
-    >
     <fm.div
       initial={{ y: -16, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -133,6 +113,5 @@ export function Transport({ pageId }: { pageId: string }) {
         {mode === 'edit' ? 'EDIT' : `${time.toFixed(2)}s`}
       </span>
     </fm.div>
-    </div>
   )
 }

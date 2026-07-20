@@ -18,6 +18,7 @@ import { markPageDeleted } from '@/lib/store/deleted-pages'
 
 export type Tool =
   | 'select'
+  | 'lasso' // touch: drag over/across objects to multi-select, never moves them
   | 'pen' // freehand with sketch recognition
   | 'shaper' // freehand that ALWAYS beautifies: straightens, smooths, snaps shapes
   | 'eraser' // drag over ink to remove it

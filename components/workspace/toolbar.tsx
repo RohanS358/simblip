@@ -2,7 +2,10 @@
 
 // Floating tool switcher — reduced to exactly the drawing modes and inline
 // objects you place by clicking-then-drawing on the canvas: Select, Pen,
-// Shaper, Eraser, Text, Note, Formula, Graph, Table, Shapes, Document.
+// Shaper, Eraser, Text, Note, Formula, Graph, Table, Shapes, Document. Touch
+// devices also get Lasso right next to Select (see canvas.tsx's marquee
+// gesture) — a mouse can already drag-select over empty space, but a finger
+// needs an explicit tool to circle objects without grabbing one underneath.
 // Everything that was a toggle, browser, or utility (ink-to-shape/ink-
 // annotate toggles, touch-assist toggles, calculator, the components
 // palette, Ask AI, the Code quick-insert) has moved to the sidebar's Tools/
@@ -13,6 +16,7 @@
 
 import {
   MousePointer2,
+  LassoSelect,
   Pen,
   Eraser,
   Paperclip,
@@ -27,12 +31,13 @@ import {
   TableProperties,
   X,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -147,6 +152,11 @@ export function Toolbar({ pageId }: { pageId?: string }) {
   const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
+  // Lasso only earns a dock slot on touch: a mouse already gets multi-select
+  // for free (drag the Select tool over empty space) — a finger doesn't
+  // reliably find "empty space" in a crowded diagram, so touch needs an
+  // explicit tool that circles objects without ever grabbing one.
+  const isMobile = useIsMobile()
 
   // Pen settings popover: the ONE control surface for the pen. Opens on
   // double-click (or by tapping the already-active pen — the touch
@@ -225,17 +235,12 @@ export function Toolbar({ pageId }: { pageId?: string }) {
       animate={{ y: 0, opacity: 1 }}
       transition={motion}
       onAnimationComplete={() => publishRef.current()}
-      // Sizes are % of the PANE (the nearest positioned ancestor), not the
-      // viewport — with sidebar and inspector open a vw-based dock would
-      // overflow the canvas and land on top of them.
-      className={cn(
-        'absolute z-40 flex',
-        dock === 'bottom' &&
-          'bottom-[max(1.25rem,env(safe-area-inset-bottom))] left-1/2 max-w-[calc(100%-1rem)] -translate-x-1/2',
-        dock === 'top' && 'left-1/2 top-5 max-w-[calc(100%-1rem)] -translate-x-1/2',
-        dock === 'left' && 'left-5 top-1/2 max-h-[calc(100%-2rem)] -translate-y-1/2',
-        dock === 'right' && 'right-5 top-1/2 max-h-[calc(100%-2rem)] -translate-y-1/2'
-      )}
+      // No self-positioning here anymore — CanvasControls places this in a
+      // dedicated grid track for the current dock side, so it can never
+      // land on top of the transport. min-w/h-0 lets it actually shrink to
+      // that track instead of blowing out the grid (the flex default is
+      // min-width/height:auto, i.e. "never smaller than my content").
+      className={cn('flex min-h-0 min-w-0', vertical ? 'max-h-full' : 'max-w-full')}
     >
       <div ref={toolbarRef} className="relative flex min-h-0 min-w-0">
       {showPen && (
@@ -300,6 +305,21 @@ export function Toolbar({ pageId }: { pageId?: string }) {
           >
             <Icon className="h-4 w-4" />
           </ToolButton>
+        ) : t === 'select' ? (
+          <Fragment key={t}>
+            <ToolButton active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
+              <Icon className="h-4 w-4" />
+            </ToolButton>
+            {isMobile && (
+              <ToolButton
+                active={tool === 'lasso'}
+                label="Lasso — drag over objects to select several, without moving them"
+                onClick={() => setTool('lasso')}
+              >
+                <LassoSelect className="h-4 w-4" />
+              </ToolButton>
+            )}
+          </Fragment>
         ) : (
           <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
             <Icon className="h-4 w-4" />
