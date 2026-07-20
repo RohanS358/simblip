@@ -14,7 +14,7 @@
 // are light placeholders), and export force-mounts everything just long
 // enough to rasterize.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { FileDown, Loader2, Plus, Trash2, ZoomIn, ZoomOut, GripHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -222,26 +222,36 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // buttons/slider). With transformOrigin 'top left', a content-space point
   // (px, py) renders on screen at px*zoom - scrollLeft. To keep that same
   // content point under the same screen point after zoom changes z -> nz,
-  // solve for the new scrollLeft/scrollTop and apply it once React has
-  // re-rendered the sizer/content at the new zoom.
-  const zoomAt = (clientX: number, clientY: number, factor: number) => {
+  // stash the target and solve for scrollLeft/scrollTop in a useLayoutEffect
+  // that runs synchronously after the re-render — same frame as the new
+  // scale, instead of one frame later (which reads as a jump-then-snap).
+  const zoomAnchor = useRef<{ px: number; py: number; clientX: number; clientY: number } | null>(null)
+
+  const zoomAt = useCallback((clientX: number, clientY: number, factor: number) => {
     const el = scrollRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     setZoom((z) => {
       const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor))
       if (nz === z) return z
-      const cx = clientX - rect.left + el.scrollLeft
-      const cy = clientY - rect.top + el.scrollTop
-      const px = cx / z
-      const py = cy / z
-      requestAnimationFrame(() => {
-        el.scrollLeft = px * nz - (clientX - rect.left)
-        el.scrollTop = py * nz - (clientY - rect.top)
-      })
+      zoomAnchor.current = {
+        px: (clientX - rect.left + el.scrollLeft) / z,
+        py: (clientY - rect.top + el.scrollTop) / z,
+        clientX: clientX - rect.left,
+        clientY: clientY - rect.top,
+      }
       return nz
     })
-  }
+  }, [])
+
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    const anchor = zoomAnchor.current
+    if (!el || !anchor) return
+    el.scrollLeft = anchor.px * zoom - anchor.clientX
+    el.scrollTop = anchor.py * zoom - anchor.clientY
+    zoomAnchor.current = null
+  }, [zoom])
 
   const zoomAtCenter = (factor: number) => {
     const el = scrollRef.current
@@ -262,12 +272,14 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     }
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [zoomAt])
 
   // Touch: two-finger pinch zooms too, anchored at the finger midpoint —
   // the only zoom gesture a phone has. Baseline (zoom, scroll position,
   // original midpoint) is captured once when the fingers land and held
-  // fixed for the whole gesture — see usePinchZoom.
+  // fixed for the whole gesture — see usePinchZoom. Feeds the same
+  // zoomAnchor + useLayoutEffect mechanism as zoomAt above, just with an
+  // absolute target zoom (base.zoom * ratio) instead of a factor.
   const pinchBaseRef = useRef<{
     zoom: number
     scrollLeft: number
@@ -293,12 +305,12 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, base.zoom * ratio))
     // Content-space point under the ORIGINAL two-finger midpoint — fixed for
     // the whole gesture — mapped to the CURRENT midpoint on screen.
-    const px = (base.clientX - rect.left + base.scrollLeft) / base.zoom
-    const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
-    requestAnimationFrame(() => {
-      el.scrollLeft = px * nz - (clientX - rect.left)
-      el.scrollTop = py * nz - (clientY - rect.top)
-    })
+    zoomAnchor.current = {
+      px: (base.clientX - rect.left + base.scrollLeft) / base.zoom,
+      py: (base.clientY - rect.top + base.scrollTop) / base.zoom,
+      clientX: clientX - rect.left,
+      clientY: clientY - rect.top,
+    }
     setZoom(nz)
   }, [])
 
