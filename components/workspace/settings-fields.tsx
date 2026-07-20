@@ -6,6 +6,7 @@
 
 import { cn } from '@/lib/utils'
 import { InfoPopover } from './info-popover'
+import { Switch } from '@/components/ui/switch'
 
 export function Field({
   label,
@@ -28,6 +29,30 @@ export function Field({
         {value && <span className="font-mono text-[11px] text-muted-foreground">{value}</span>}
       </div>
       {children}
+    </div>
+  )
+}
+
+/** A labeled switch row — used by every settings surface and the pen popover's
+ *  touch-assist section so a toggle looks the same wherever it appears. */
+export function PrefRow({
+  label,
+  detail,
+  checked,
+  onChange,
+}: {
+  label: string
+  detail: string
+  checked: boolean
+  onChange: () => void
+}) {
+  return (
+    <div className="flex items-center justify-between gap-4 py-2">
+      <div className="flex items-center gap-1.5">
+        <p className="text-[13px] font-medium">{label}</p>
+        <InfoPopover description={detail} />
+      </div>
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
     </div>
   )
 }

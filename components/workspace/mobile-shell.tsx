@@ -40,7 +40,6 @@ import { can } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
 import { Toolbar } from './toolbar'
 import { Transport } from './transport'
-import { Palette } from './palette'
 import { Inspector } from './inspector'
 import { FocusObject } from './focus-object'
 import { motion as fm, AnimatePresence } from 'framer-motion'
@@ -50,6 +49,7 @@ import { usePrefs } from '@/lib/store/preferences'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { AiPanel } from './ai-panel'
+import { AiBubble } from './ai-bubble'
 import { NotificationCenter } from './notifications'
 import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
@@ -61,6 +61,8 @@ import { bundlePage } from '@/lib/store/page-bundle'
 import { FileObject } from '../objects/file-view'
 import { PageThumbnail } from './page-thumbnail'
 import { KIND_ICON } from './tabs-bar'
+import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
+import { SectionSheet } from './section-sheet'
 import {
   AssignDialog,
   PresentDialog,
@@ -100,9 +102,11 @@ export function MobileShell() {
   const { resolvedTheme, setTheme } = useTheme()
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
-  const [calcOpen, setCalcOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
+  // The touch equivalent of the desktop sidebar's rail — same taxonomy
+  // (Notebook/Components/Tools/Library), reached via a persistent rail on
+  // tablet and a drawer entry on phone. See docs/ui-simplification-plan.md §6.
+  const [activeSheetSection, setActiveSheetSection] = useState<SidebarSectionId | null>(null)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
@@ -118,6 +122,8 @@ export function MobileShell() {
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
+  const calcOpen = useWorkspaceStore((s) => s.calcOpen)
+  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const spring = useSpring('soft')
   // A phone is narrow; a tablet is a touch device that isn't. They want
   // different panels — a sheet from the bottom vs. the desktop side panel.
@@ -276,6 +282,23 @@ export function MobileShell() {
                     ))}
                 </div>
               ))}
+              {/* Components/Tools/Library — the same taxonomy as the desktop
+                  sidebar rail, reachable here (and via the persistent tablet
+                  rail in the editor). They act on the open page, so they only
+                  make sense while one is open. */}
+              {view.kind === 'editor' &&
+                SIDEBAR_SECTIONS.filter((s) => s.id !== 'notebook').map((s) => (
+                  <button
+                    key={s.id}
+                    className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                    onClick={() => {
+                      setActiveSheetSection(s.id)
+                      setDrawerOpen(false)
+                    }}
+                  >
+                    <s.icon className="h-4 w-4" /> {s.label}
+                  </button>
+                ))}
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => {
@@ -385,6 +408,33 @@ export function MobileShell() {
         )}
 
         <main className={cn('relative min-h-0 flex-1 flex', isPhone ? 'flex-col' : 'flex-row')}>
+          {/* Tablet gets a persistent rail (same taxonomy as the desktop
+              sidebar); a phone is too narrow for one, so it reaches the same
+              sheet through the drawer instead — see docs/ui-simplification-plan.md §6. */}
+          {!isPhone && (
+            <nav
+              className="glass-strong absolute left-3 top-1/2 z-30 flex -translate-y-1/2 flex-col items-center gap-1 rounded-2xl p-1.5"
+              aria-label="Sidebar"
+            >
+              {SIDEBAR_SECTIONS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-label={s.label}
+                  aria-pressed={activeSheetSection === s.id}
+                  className={cn(
+                    'flex h-9 w-9 items-center justify-center rounded-xl transition-colors',
+                    activeSheetSection === s.id
+                      ? 'bg-[var(--accent-blue)] text-primary-foreground shadow-sm'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                  onClick={() => setActiveSheetSection((cur) => (cur === s.id ? null : s.id))}
+                >
+                  <s.icon className="h-[18px] w-[18px]" />
+                </button>
+              ))}
+            </nav>
+          )}
           {splitScreenObject && (
             <div
               className={cn(
@@ -452,19 +502,22 @@ export function MobileShell() {
           {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
             <>
               <Transport pageId={contentPageId} />
-              <Toolbar
-                calcOpen={calcOpen}
-                onToggleCalc={() => setCalcOpen((o) => !o)}
-                paletteOpen={paletteOpen}
-                onTogglePalette={() => setPaletteOpen((o) => !o)}
-                showAi={aiAllowed}
-                pageId={contentPageId}
-              />
-              <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+              <Toolbar pageId={contentPageId} />
             </>
           )}
-          {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
-          {aiAllowed && contentPageId && <AiPanel pageId={contentPageId} />}
+          {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
+          {aiAllowed && contentPageId && (
+            <>
+              <AiPanel pageId={contentPageId} />
+              <AiBubble />
+            </>
+          )}
+          <SectionSheet
+            section={activeSheetSection}
+            onClose={() => setActiveSheetSection(null)}
+            pageId={contentPageId ?? activePageId}
+            fullWidth={isPhone}
+          />
         </main>
 
         {/* Editing on a small screen: lift the object out of the canvas and dim

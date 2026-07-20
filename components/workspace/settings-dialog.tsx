@@ -17,11 +17,10 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { Slider } from '@/components/ui/slider'
 import { PenSettings } from './pen-settings'
-import { Field, Choice } from './settings-fields'
+import { Field, Choice, PrefRow } from './settings-fields'
 import {
   usePrefs,
   PEN_COLORS,
@@ -41,7 +40,6 @@ import {
 import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
-import { InfoPopover } from './info-popover'
 
 const SHORTCUTS: Array<[string, string]> = [
   ['Ctrl/⌘ K', 'Command palette & global search'],
@@ -53,31 +51,11 @@ const SHORTCUTS: Array<[string, string]> = [
   ['Delete', 'Remove selection'],
 ]
 
-function PrefRow({
-  label,
-  detail,
-  checked,
-  onChange,
-}: {
-  label: string
-  detail: string
-  checked: boolean
-  onChange: () => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-2">
-      <div className="flex items-center gap-1.5">
-        <p className="text-[13px] font-medium">{label}</p>
-        <InfoPopover description={detail} />
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
-    </div>
-  )
-}
-
 function NotebookSettings() {
   const nb = usePrefs((s) => s.notebook)
   const setNb = usePrefs((s) => s.setNotebook)
+  const inkToShape = useDocStore((s) => s.inkToShape)
+  const inkAnnotate = useDocStore((s) => s.inkAnnotate)
 
   return (
     <div className="space-y-1">
@@ -195,6 +173,26 @@ function NotebookSettings() {
         checked={nb.disableDoubleTapZoom}
         onChange={() => setNb({ disableDoubleTapZoom: !nb.disableDoubleTapZoom })}
       />
+
+      <div className="pt-1">
+        <p className="pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          Editing behavior
+        </p>
+        <div className="divide-y divide-border/60">
+          <PrefRow
+            label="Ink to shape"
+            detail="Recognize pen strokes into circles, rectangles and components."
+            checked={inkToShape}
+            onChange={() => useDocStore.getState().toggleInkToShape()}
+          />
+          <PrefRow
+            label="Ink annotations"
+            detail="Small scribbles near components open the value/name input."
+            checked={inkAnnotate}
+            onChange={() => useDocStore.getState().toggleInkAnnotate()}
+          />
+        </div>
+      </div>
 
       <button
         type="button"
@@ -385,8 +383,6 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const { theme, setTheme } = useTheme()
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
-  const inkToShape = useDocStore((s) => s.inkToShape)
-  const inkAnnotate = useDocStore((s) => s.inkAnnotate)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -396,7 +392,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           <DialogDescription>Your preferences on this device.</DialogDescription>
         </DialogHeader>
         <Tabs defaultValue="profile" className="flex min-h-0 flex-1 flex-col">
-          {/* Seven tabs no longer fit a fixed strip — let it scroll rather
+          {/* Six tabs no longer fit a fixed strip — let it scroll rather
               than squeeze the labels out of the dialog. */}
           <TabsList className="no-scrollbar w-full justify-start overflow-x-auto">
             <TabsTrigger value="profile" className="shrink-0">Profile</TabsTrigger>
@@ -404,7 +400,6 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <TabsTrigger value="pen" className="shrink-0">Pen</TabsTrigger>
             <TabsTrigger value="notebook" className="shrink-0">Notebook</TabsTrigger>
             <TabsTrigger value="math" className="shrink-0">Math</TabsTrigger>
-            <TabsTrigger value="workspace" className="shrink-0">Workspace</TabsTrigger>
             <TabsTrigger value="shortcuts" className="shrink-0">Shortcuts</TabsTrigger>
             <TabsTrigger value="about" className="shrink-0">About</TabsTrigger>
           </TabsList>
@@ -484,21 +479,6 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               for accessibility. Theme and tint apply everywhere — the notebook, room boards and
               the presenter.
             </p>
-          </TabsContent>
-
-          <TabsContent value="workspace" className="divide-y divide-border/60 pt-1 min-h-0 flex-1 overflow-y-auto pr-1">
-            <PrefRow
-              label="Ink to shape"
-              detail="Recognize pen strokes into circles, rectangles and components."
-              checked={inkToShape}
-              onChange={() => useDocStore.getState().toggleInkToShape()}
-            />
-            <PrefRow
-              label="Ink annotations"
-              detail="Small scribbles near components open the value/name input."
-              checked={inkAnnotate}
-              onChange={() => useDocStore.getState().toggleInkAnnotate()}
-            />
           </TabsContent>
 
           <TabsContent value="shortcuts" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">

@@ -24,11 +24,11 @@ import { Dock } from './dock'
 import type { PanelId, Side } from '@/lib/store/layout'
 import { Toolbar } from './toolbar'
 import { Transport } from './transport'
-import { Palette } from './palette'
 import { Inspector } from './inspector'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { AiPanel } from './ai-panel'
+import { AiBubble } from './ai-bubble'
 import { SyncStatus } from './sync-status'
 import { MobileShell } from './mobile-shell'
 import { CommandPalette } from './command-palette'
@@ -99,9 +99,7 @@ export function WorkspaceShell() {
   // Stores hydrate from localStorage on the client; gate rendering to avoid
   // a server/client markup mismatch.
   const [ready, setReady] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
-  const [calcOpen, setCalcOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const { resolvedTheme, setTheme } = useTheme()
@@ -127,6 +125,7 @@ export function WorkspaceShell() {
   // it must also cover the mobile shell, boards and the presenter.
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
+  const calcOpen = useWorkspaceStore((s) => s.calcOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const syncScroll = useWorkspaceStore((s) => s.syncScroll)
@@ -460,19 +459,16 @@ export function WorkspaceShell() {
               {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
                 <>
                   <Transport pageId={contentPageId} />
-                  <Toolbar
-                    calcOpen={calcOpen}
-                    onToggleCalc={() => setCalcOpen((v) => !v)}
-                    paletteOpen={paletteOpen}
-                    onTogglePalette={() => setPaletteOpen((o) => !o)}
-                    showAi={aiAllowed}
-                    pageId={contentPageId}
-                  />
-                  <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+                  <Toolbar pageId={contentPageId} />
                 </>
               )}
-              {calcOpen && <Calculator onClose={() => setCalcOpen(false)} />}
-              {aiAllowed && contentPageId && <AiPanel pageId={contentPageId} />}
+              {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
+              {aiAllowed && contentPageId && (
+                <>
+                  <AiPanel pageId={contentPageId} />
+                  <AiBubble />
+                </>
+              )}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">

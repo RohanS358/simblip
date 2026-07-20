@@ -16,6 +16,7 @@ import {
   Megaphone,
   MonitorPlay,
   PenLine,
+  Shapes,
   Square,
   X,
 } from 'lucide-react'
@@ -25,7 +26,7 @@ import { PageView } from '@/components/workspace/page-view'
 import { Transport } from '@/components/workspace/transport'
 import { Toolbar } from '@/components/workspace/toolbar'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
-import { Palette } from '@/components/workspace/palette'
+import { FloatingPalette } from '@/components/workspace/palette'
 import { LibraryPanel } from '@/components/workspace/library-panel'
 import { Inspector } from '@/components/workspace/inspector'
 import { useAuthStore } from '@/lib/auth/store'
@@ -553,13 +554,8 @@ function BoardSurface() {
           {(boardKind !== 'pdf' || pdfToolsOn) && boardContentId && (
             <>
               <Transport pageId={boardContentId} />
-              <Toolbar
-                paletteOpen={paletteOpen}
-                onTogglePalette={() => setPaletteOpen((o) => !o)}
-                showAi={false}
-                pageId={boardContentId}
-              />
-              <Palette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+              <Toolbar pageId={boardContentId} />
+              <FloatingPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
             </>
           )}
 
@@ -579,6 +575,15 @@ function BoardSurface() {
                 ? `${session.page_name} · presented by ${room?.name ?? 'room'}`
                 : 'Temporary whiteboard — nothing is saved'}
             </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8"
+              aria-label="Toggle components"
+              onClick={() => setPaletteOpen((o) => !o)}
+            >
+              <Shapes className="h-3.5 w-3.5" /> Components
+            </Button>
             <Button
               size="sm"
               variant="outline"

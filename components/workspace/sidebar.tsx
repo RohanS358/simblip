@@ -1,439 +1,146 @@
 'use client'
 
-// Notebook → Section → Page tree with desktop-grade context menus.
-// Right-click anything for rename/duplicate/share/assign/present/export.
-// Double-click still renames inline; selection drives the active page.
+// The left dock's content — an activity-bar rail (Notebook / Components /
+// Tools / Library) plus whichever ONE section is open. Replaces the old
+// permanent 54/46 split between the notebook tree and the library: now each
+// section gets the panel's full height when it's open, and the rail alone
+// (no content pane) is the "collapsed, maximum canvas" state.
+//
+// This is also where the physics/circuit Palette and the Calculator's
+// trigger live now — they used to be floating popups pinned to the dock;
+// browsers belong in a browsable drawer, not a flyout. See
+// docs/ui-simplification-plan.md §4.
 
 import { useState } from 'react'
-import {
-  BookOpen,
-  ChevronRight,
-  ClipboardList,
-  Copy,
-  Download,
-  LibraryBig,
-  MonitorPlay,
-  Pencil,
-  Plus,
-  Share2,
-  Trash2,
-} from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { useAuthStore } from '@/lib/auth/store'
-import { can } from '@/lib/auth/types'
-import { importPageInto } from '@/lib/store/import-page'
-import { bundlePage } from '@/lib/store/page-bundle'
-import { KIND_ICON } from './tabs-bar'
-import {
-  AssignDialog,
-  PresentDialog,
-  ShareDialog,
-  exportPageJson,
-  type PageRef,
-} from './page-actions'
-import { LibraryPanel, PublishDialog } from './library-panel'
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
-  ContextMenuTrigger,
-} from '@/components/ui/context-menu'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
+import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
+import { NotebookTree } from './notebook-tree'
+import { Palette } from './palette'
+import { ToolsPanel } from './tools-panel'
+import { LibraryPanel } from './library-panel'
 import { cn } from '@/lib/utils'
 
-const SECTION_DOT: Record<string, string> = {
-  blue: 'bg-[var(--accent-blue)]',
-  mint: 'bg-[var(--accent-mint)]',
-  amber: 'bg-[var(--accent-amber)]',
-  violet: 'bg-[var(--accent-violet)]',
-  rose: 'bg-[var(--accent-rose)]',
-}
+const RAIL_W = 52
 
-function InlineName({
-  name,
-  className,
-  editing: editingExternal,
-  onEditDone,
-  onRename,
+function RailButton({
+  active,
+  label,
+  onClick,
+  children,
 }: {
-  name: string
-  className?: string
-  editing?: boolean
-  onEditDone?: () => void
-  onRename: (name: string) => void
+  active: boolean
+  label: string
+  onClick: () => void
+  children: React.ReactNode
 }) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(name)
-  const active = editing || editingExternal
-  if (active) {
-    return (
-      <input
-        autoFocus
-        aria-label="Rename"
-        className={cn('w-full rounded bg-accent/60 px-1 outline-none', className)}
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        onFocus={(e) => e.currentTarget.select()}
-        onBlur={() => {
-          setEditing(false)
-          onEditDone?.()
-          if (draft.trim()) onRename(draft.trim())
-        }}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') e.currentTarget.blur()
-          if (e.key === 'Escape') {
-            setDraft(name)
-            setEditing(false)
-            onEditDone?.()
-          }
-          e.stopPropagation()
-        }}
-        onPointerDown={(e) => e.stopPropagation()}
-      />
-    )
-  }
   return (
-    <span
-      className={cn('truncate', className)}
-      onDoubleClick={() => {
-        setDraft(name)
-        setEditing(true)
-      }}
-    >
-      {name}
-    </span>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          aria-pressed={active}
+          onClick={onClick}
+          className={cn(
+            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-colors',
+            active
+              ? 'bg-[var(--accent-blue)] text-primary-foreground shadow-sm'
+              : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+          )}
+        >
+          {children}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 
 export function Sidebar() {
   const motion = useSpring()
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
-  const role = useAuthStore((s) => s.profile?.role ?? null)
-  const store = useWorkspaceStore
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
-  const [libOpen, setLibOpen] = useState(true)
-  const [renaming, setRenaming] = useState<string | null>(null)
-  const [shareFor, setShareFor] = useState<PageRef | null>(null)
-  const [assignFor, setAssignFor] = useState<PageRef | null>(null)
-  const [presentFor, setPresentFor] = useState<PageRef | null>(null)
-  const [publishFor, setPublishFor] = useState<PageRef | null>(null)
-
-  const staff = can(role, 'share-pages')
-
-  const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
-    // Bundle-aware: duplicating a doc keeps its sheets, a PDF keeps its file.
-    importPageInto(nbId, secId, `${page.name} copy`, bundlePage(page.id), true)
-  }
+  const [activeSection, setActiveSection] = useState<SidebarSectionId | null>(() => {
+    if (typeof window === 'undefined') return 'notebook'
+    const saved = localStorage.getItem('simblip-sidebar-section')
+    return saved === 'none' ? null : (saved as SidebarSectionId | null) ?? 'notebook'
+  })
 
   const [panelW, setPanelW] = useState(() => {
     if (typeof window === 'undefined') return 288
     return Number(localStorage.getItem('simblip-sidebar-w')) || 288
   })
 
+  const selectSection = (id: SidebarSectionId) => {
+    const next = activeSection === id ? null : id
+    setActiveSection(next)
+    try {
+      localStorage.setItem('simblip-sidebar-section', next ?? 'none')
+    } catch {}
+  }
+
   return (
     <fm.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={motion}
-      className="glass relative z-30 m-3 flex flex-col rounded-2xl"
-      style={{ width: panelW }}
-      aria-label="Notebooks"
+      className="glass relative z-30 m-3 flex min-h-0 flex-row rounded-2xl"
+      style={{ width: activeSection ? RAIL_W + panelW : RAIL_W }}
+      aria-label="Sidebar"
     >
-      <div
-        role="separator"
-        aria-label="Resize sidebar"
-        className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
-        onPointerDown={(e) => {
-          e.preventDefault()
-          const startX = e.clientX
-          const startW = panelW
-          const move = (ev: PointerEvent) =>
-            setPanelW(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
-          const up = (ev: PointerEvent) => {
-            window.removeEventListener('pointermove', move)
-            window.removeEventListener('pointerup', up)
-            try {
-              localStorage.setItem(
-                'simblip-sidebar-w',
-                String(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
-              )
-            } catch {}
-          }
-          window.addEventListener('pointermove', move)
-          window.addEventListener('pointerup', up)
-        }}
-      />
-      <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          Notebooks
-        </span>
-        <button
-          type="button"
-          aria-label="New notebook"
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            const id = store.getState().addNotebook()
-            const sec = store.getState().addSection(id, 'Section 1')
-            store.getState().addPage(id, sec, 'Page 1')
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <div className="no-scrollbar flex-1 overflow-y-auto px-2 pb-3">
-        {notebooks.length === 0 && (
-          <p className="px-2 py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
-            No notebooks yet.
-            <br />
-            Create one to start working.
-          </p>
-        )}
-        {notebooks.map((nb) => (
-          <div key={nb.id} className="mt-1.5">
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <div className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-semibold hover:bg-accent/50">
-                  <button
-                    type="button"
-                    aria-label={collapsed[nb.id] ? 'Expand notebook' : 'Collapse notebook'}
-                    onClick={() => setCollapsed((c) => ({ ...c, [nb.id]: !c[nb.id] }))}
-                    className="text-muted-foreground"
-                  >
-                    <ChevronRight
-                      className={cn('h-3.5 w-3.5 transition-transform', !collapsed[nb.id] && 'rotate-90')}
-                    />
-                  </button>
-                  <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                  <InlineName
-                    name={nb.name}
-                    className="flex-1 text-[13px]"
-                    editing={renaming === nb.id}
-                    onEditDone={() => setRenaming(null)}
-                    onRename={(name) => store.getState().renameNotebook(nb.id, name)}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Add section"
-                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-                    onClick={() => store.getState().addSection(nb.id)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onClick={() => store.getState().addSection(nb.id)}>
-                  <Plus className="h-4 w-4" /> New section
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => setRenaming(nb.id)}>
-                  <Pencil className="h-4 w-4" /> Rename
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNotebook(nb.id)}>
-                  <Trash2 className="h-4 w-4" /> Delete notebook
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-
-            {!collapsed[nb.id] &&
-              nb.sections.map((sec) => (
-                <div key={sec.id} className="ml-4 mt-0.5">
-                  <ContextMenu>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        className="group flex items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] font-medium text-muted-foreground hover:bg-accent/50"
-                        // Drop a PDF/PPT straight onto a section — it becomes a
-                        // reader page (converted to PDF in the browser if needed).
-                        onDragOver={(e) => {
-                          if (e.dataTransfer.types.includes('Files')) e.preventDefault()
-                        }}
-                        onDrop={(e) => {
-                          const f = e.dataTransfer.files?.[0]
-                          if (!f) return
-                          e.preventDefault()
-                          void (async () => {
-                            const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-                            let file = f
-                            if (!isPdf) {
-                              const { convertToPdf } = await import('@/lib/store/to-pdf')
-                              try {
-                                file = await convertToPdf(f)
-                              } catch {
-                                return
-                              }
-                            }
-                            const pageId = store
-                              .getState()
-                              .addPage(nb.id, sec.id, f.name.replace(/\.[^.]+$/, ''), 'pdf')
-                            const { putSessionFile } = await import('@/lib/store/session-files')
-                            putSessionFile(pageId, file)
-                          })()
-                        }}
-                      >
-                        <span className={cn('h-2 w-2 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
-                        <InlineName
-                          name={sec.name}
-                          className="flex-1"
-                          editing={renaming === sec.id}
-                          onEditDone={() => setRenaming(null)}
-                          onRename={(name) => store.getState().renameSection(nb.id, sec.id, name)}
-                        />
-                        {/* Every page kind, one click away — not hidden behind
-                            the right-click menu. */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Add page"
-                              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 data-[state=open]:opacity-100"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-44">
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
-                              <Plus className="h-4 w-4" /> New board
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
-                              <Plus className="h-4 w-4" /> New document
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
-                              <Plus className="h-4 w-4" /> New PDF / PPT page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
-                        <Plus className="h-4 w-4" /> New board
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
-                        <Plus className="h-4 w-4" /> New document
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
-                        <Plus className="h-4 w-4" /> New PDF / PPT page
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => setRenaming(sec.id)}>
-                        <Pencil className="h-4 w-4" /> Rename
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem
-                        variant="destructive"
-                        onClick={() => store.getState().removeSection(nb.id, sec.id)}
-                      >
-                        <Trash2 className="h-4 w-4" /> Delete section
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-
-                  {sec.pages.map((page) => (
-                    <ContextMenu key={page.id}>
-                      <ContextMenuTrigger asChild>
-                        <div
-                          className={cn(
-                            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] transition-colors',
-                            activePageId === page.id
-                              ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
-                              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                          )}
-                          onClick={() => store.getState().setActivePage(page.id)}
-                        >
-                          {(() => {
-                            const KindIcon = KIND_ICON[page.kind ?? 'board']
-                            return <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          })()}
-                          <InlineName
-                            name={page.name}
-                            className="flex-1"
-                            editing={renaming === page.id}
-                            onEditDone={() => setRenaming(null)}
-                            onRename={(name) => store.getState().renamePage(page.id, name)}
-                          />
-                        </div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem onClick={() => store.getState().setActivePage(page.id)}>
-                          <BookOpen className="h-4 w-4" /> Open
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => setRenaming(page.id)}>
-                          <Pencil className="h-4 w-4" /> Rename
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => duplicatePage(nb.id, sec.id, page)}>
-                          <Copy className="h-4 w-4" /> Duplicate
-                        </ContextMenuItem>
-                        {staff && (
-                          <>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => setShareFor(page)}>
-                              <Share2 className="h-4 w-4" /> Share copy…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setAssignFor(page)}>
-                              <ClipboardList className="h-4 w-4" /> Assign…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setPresentFor(page)}>
-                              <MonitorPlay className="h-4 w-4" /> Present on room board…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setPublishFor(page)}>
-                              <LibraryBig className="h-4 w-4" /> Add to library…
-                            </ContextMenuItem>
-                          </>
-                        )}
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onClick={() => exportPageJson(page)}>
-                          <Download className="h-4 w-4" /> Export JSON
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          variant="destructive"
-                          onClick={() => store.getState().removePage(page.id)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete page
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  ))}
-                </div>
-              ))}
-          </div>
+      <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 py-3">
+        {SIDEBAR_SECTIONS.map((s) => (
+          <RailButton
+            key={s.id}
+            label={s.label}
+            active={activeSection === s.id}
+            onClick={() => selectSection(s.id)}
+          >
+            <s.icon className="h-[18px] w-[18px]" />
+          </RailButton>
         ))}
-      </div>
+      </nav>
 
-      {/* The institution library lives in the bottom half of this sidebar —
-          browse and insert without a second panel fighting for space. */}
-      {libOpen ? (
-        <div className="flex h-[46%] min-h-0 shrink-0 flex-col border-t border-border/50">
-          <LibraryPanel inline open onClose={() => setLibOpen(false)} pageId={activePageId} />
+      {activeSection && (
+        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border/50">
+          <div
+            role="separator"
+            aria-label="Resize sidebar"
+            className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
+            onPointerDown={(e) => {
+              e.preventDefault()
+              const startX = e.clientX
+              const startW = panelW
+              const move = (ev: PointerEvent) =>
+                setPanelW(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
+              const up = (ev: PointerEvent) => {
+                window.removeEventListener('pointermove', move)
+                window.removeEventListener('pointerup', up)
+                try {
+                  localStorage.setItem(
+                    'simblip-sidebar-w',
+                    String(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
+                  )
+                } catch {}
+              }
+              window.addEventListener('pointermove', move)
+              window.addEventListener('pointerup', up)
+            }}
+          />
+
+          {activeSection === 'notebook' && <NotebookTree />}
+          {activeSection === 'components' && <Palette />}
+          {activeSection === 'tools' && <ToolsPanel />}
+          {activeSection === 'library' && (
+            <LibraryPanel inline open onClose={() => selectSection('library')} pageId={activePageId} />
+          )}
         </div>
-      ) : (
-        <button
-          type="button"
-          className="flex items-center gap-2 border-t border-border/50 px-3.5 py-2.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-          onClick={() => setLibOpen(true)}
-        >
-          <LibraryBig className="h-3.5 w-3.5 text-[var(--accent-blue)]" /> Library
-        </button>
       )}
-
-      <ShareDialog page={shareFor} onOpenChange={(o) => !o && setShareFor(null)} />
-      <AssignDialog page={assignFor} onOpenChange={(o) => !o && setAssignFor(null)} />
-      <PresentDialog page={presentFor} onOpenChange={(o) => !o && setPresentFor(null)} />
-      <PublishDialog
-        open={publishFor !== null}
-        onOpenChange={(o) => !o && setPublishFor(null)}
-        pageId={publishFor?.id ?? null}
-      />
     </fm.aside>
   )
 }

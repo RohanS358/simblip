@@ -1,32 +1,31 @@
 'use client'
 
-// Floating tool switcher. Tools are data — adding one never touches layout.
-// The palette (component library) opens from here; drawing tools recognize
-// sketches into geometry that behaviors can then make real.
+// Floating tool switcher — reduced to exactly the drawing modes and inline
+// objects you place by clicking-then-drawing on the canvas: Select, Pen,
+// Shaper, Eraser, Text, Note, Formula, Graph, Table, Shapes, Document.
+// Everything that was a toggle, browser, or utility (ink-to-shape/ink-
+// annotate toggles, touch-assist toggles, calculator, the components
+// palette, Ask AI, the Code quick-insert) has moved to the sidebar's Tools/
+// Components sections, the pen settings popover's Touch assist section, or
+// a dedicated AI corner bubble — see docs/ui-simplification-plan.md §3.
+// Ink-to-shape/ink-annotate were already duplicated in Settings → Notebook,
+// so they're a pure removal here, not a relocation.
 
 import {
   MousePointer2,
   Pen,
   Eraser,
-  Move,
   Paperclip,
   Circle,
   Square,
   Minus,
-  Ruler,
   Type,
   StickyNote,
   Sigma,
   ChartLine,
-  Shapes,
   Spline,
-  Terminal,
-  Sparkles,
-  Wand2,
-  ScanText,
   TableProperties,
   X,
-  Calculator,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
@@ -34,14 +33,12 @@ import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
-import { useWorkspaceStore } from '@/lib/store/workspace'
 import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
-import { useIsTouchDevice } from '@/hooks/use-mobile'
 import { useDockRect } from '@/hooks/use-dock-clearance'
 
-const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }[] = [
+const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
   { tool: 'pen', icon: Pen, label: 'Pen — ink stays as drawn', key: 'P' },
   { tool: 'shaper', icon: Spline, label: 'Shaper — 90° elbowed lines, like Shift+pen', key: 'S' },
@@ -51,7 +48,6 @@ const TOOLS: { tool: Tool; icon: React.ElementType; label: string; key: string }
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
   { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
   { tool: 'table', icon: TableProperties, label: 'Table', key: 'B' },
-  { tool: 'code', icon: Terminal, label: 'Code', key: 'K' },
 ]
 
 /** Crisp inline n-gon icon — lucide has no heptagon. */
@@ -67,8 +63,7 @@ function NgonIcon({ n }: { n: number }) {
   )
 }
 
-/** Dock icon for the Shapes group — triangle + circle, distinct from the
- *  lucide `Shapes` icon the Components palette button already uses. */
+/** Dock icon for the Shapes group — triangle + circle. */
 const ShapesGroupIcon = () => (
   <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
     <polygon points="8.5,2.5 14.5,12.5 2.5,12.5" strokeLinejoin="round" />
@@ -148,40 +143,10 @@ function ToolButton({
   )
 }
 
-export function Toolbar({
-  paletteOpen,
-  onTogglePalette,
-  calcOpen,
-  onToggleCalc,
-  showAi = true,
-  pageId,
-}: {
-  paletteOpen: boolean
-  onTogglePalette: () => void
-  /** The sticky calculator — lives above the canvas, not on it. */
-  calcOpen?: boolean
-  onToggleCalc?: () => void
-  /** Students learn by building — the AI shortcut is staff-only. */
-  showAi?: boolean
-  /** enables the session-file attach button */
-  pageId?: string
-}) {
+export function Toolbar({ pageId }: { pageId?: string }) {
   const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
-  const inkToShape = useDocStore((s) => s.inkToShape)
-  const inkAnnotate = useDocStore((s) => s.inkAnnotate)
-  const toggleInkToShape = useDocStore((s) => s.toggleInkToShape)
-  const toggleInkAnnotate = useDocStore((s) => s.toggleInkAnnotate)
-  const aiOpen = useWorkspaceStore((s) => s.aiOpen)
-  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
-  const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
-  const touchFreeMove = useWorkspaceStore((s) => s.touchFreeMove)
-  const touchMeasureMode = useWorkspaceStore((s) => s.touchMeasureMode)
-  const toggleTouchOrthoPen = useWorkspaceStore((s) => s.toggleTouchOrthoPen)
-  const toggleTouchFreeMove = useWorkspaceStore((s) => s.toggleTouchFreeMove)
-  const toggleTouchMeasureMode = useWorkspaceStore((s) => s.toggleTouchMeasureMode)
-  const isTouchDevice = useIsTouchDevice()
 
   // Pen settings popover: the ONE control surface for the pen. Opens on
   // double-click (or by tapping the already-active pen — the touch
@@ -350,113 +315,38 @@ export function Toolbar({
         <ShapesGroupIcon />
       </ToolButton>
 
-      <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
-
-      <ToolButton
-        active={inkToShape}
-        label={inkToShape ? 'Ink → shape: on (sketches become components)' : 'Ink → shape: off (raw ink stays ink)'}
-        accent="var(--accent-amber)"
-        onClick={toggleInkToShape}
-      >
-        <Wand2 className="h-4 w-4" />
-      </ToolButton>
-
-      <ToolButton
-        active={inkAnnotate}
-        label={inkAnnotate ? 'Ink annotations: on (scribble near a part to set value/name)' : 'Ink annotations: off'}
-        accent="var(--accent-amber)"
-        onClick={toggleInkAnnotate}
-      >
-        <ScanText className="h-4 w-4" />
-      </ToolButton>
-
-      {isTouchDevice && (
+      {pageId && (
         <>
           <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
           <ToolButton
-            active={touchOrthoPen}
-            label="Touch orthogonal pen — the tablet substitute for Shift+pen"
-            accent="var(--accent-blue)"
-            onClick={toggleTouchOrthoPen}
+            active={false}
+            label="Document — attach a PDF/image for this session (never saved to the cloud)"
+            onClick={() => {
+              // Drop a session-document element at the viewport center.
+              const doc = useDocStore.getState()
+              const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+              const cx = (window.innerWidth / 2 - v.x) / v.zoom
+              const cy = (window.innerHeight / 2 - v.y) / v.zoom
+              const obj: SceneObject = {
+                id: uid(),
+                name: 'Document',
+                geometry: { kind: 'note' },
+                position: { x: cx - 240, y: cy - 170 },
+                size: { w: 480, h: 340 },
+                rotation: 0,
+                z: 0,
+                behaviors: [],
+                parameters: {},
+                metadata: { render: 'file' },
+              }
+              doc.addObject(pageId, obj)
+              doc.setSelection([obj.id])
+              doc.setTool('select')
+            }}
           >
-            <Spline className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton
-            active={touchFreeMove}
-            label="Touch free move — move without snap, like holding Alt"
-            accent="var(--accent-blue)"
-            onClick={toggleTouchFreeMove}
-          >
-            <Move className="h-4 w-4" />
-          </ToolButton>
-          <ToolButton
-            active={touchMeasureMode}
-            label="Touch measure — tap a second object to compare distance"
-            accent="var(--accent-blue)"
-            onClick={toggleTouchMeasureMode}
-          >
-            <Ruler className="h-4 w-4" />
+            <Paperclip className="h-4 w-4" />
           </ToolButton>
         </>
-      )}
-
-      <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
-
-      {onToggleCalc && (
-        <ToolButton
-          active={!!calcOpen}
-          label="Calculator — basic and scientific"
-          accent="var(--accent-violet)"
-          onClick={onToggleCalc}
-        >
-          <Calculator className="h-4 w-4" />
-        </ToolButton>
-      )}
-
-      <ToolButton
-        active={paletteOpen || tool === 'place'}
-        label="Components — masses, springs, circuits"
-        accent="var(--accent-mint)"
-        onClick={onTogglePalette}
-      >
-        <Shapes className="h-4 w-4" />
-      </ToolButton>
-
-      {pageId && (
-        <ToolButton
-          active={false}
-          label="Attach a PDF/image for this session (never saved to the cloud)"
-          onClick={() => {
-            // Drop a session-document element at the viewport center.
-            const doc = useDocStore.getState()
-            const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-            const cx = (window.innerWidth / 2 - v.x) / v.zoom
-            const cy = (window.innerHeight / 2 - v.y) / v.zoom
-            const obj: SceneObject = {
-              id: uid(),
-              name: 'Document',
-              geometry: { kind: 'note' },
-              position: { x: cx - 240, y: cy - 170 },
-              size: { w: 480, h: 340 },
-              rotation: 0,
-              z: 0,
-              behaviors: [],
-              parameters: {},
-              metadata: { render: 'file' },
-            }
-            doc.addObject(pageId, obj)
-            doc.setSelection([obj.id])
-            doc.setTool('select')
-          }}
-        >
-          <Paperclip className="h-4 w-4" />
-        </ToolButton>
-      )}
-
-      {showAi && (
-        <ToolButton active={aiOpen} label="Ask AI" accent="var(--accent-violet)" onClick={() => togglePanel('ai')}>
-          <Sparkles className="h-4 w-4" />
-        </ToolButton>
       )}
       </div>
       </div>

@@ -17,8 +17,10 @@ import {
   DEFAULT_PEN,
   type PenStyle,
 } from '@/lib/store/preferences'
+import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useIsTouchDevice } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
-import { Field, Choice } from './settings-fields'
+import { Field, Choice, PrefRow } from './settings-fields'
 
 /** Live preview: the same renderer the canvas uses, over a fixed sample
  *  stroke with rising pressure — so every slider shows its real effect. */
@@ -71,6 +73,13 @@ export function PenSettings() {
   const colorInputRef = useRef<HTMLInputElement>(null)
   const style = PEN_STYLES[pen.style] ?? PEN_STYLES.ink
   const pressureStyle = style.pressure
+  const isTouchDevice = useIsTouchDevice()
+  const touchOrthoPen = useWorkspaceStore((s) => s.touchOrthoPen)
+  const touchFreeMove = useWorkspaceStore((s) => s.touchFreeMove)
+  const touchMeasureMode = useWorkspaceStore((s) => s.touchMeasureMode)
+  const toggleTouchOrthoPen = useWorkspaceStore((s) => s.toggleTouchOrthoPen)
+  const toggleTouchFreeMove = useWorkspaceStore((s) => s.toggleTouchFreeMove)
+  const toggleTouchMeasureMode = useWorkspaceStore((s) => s.toggleTouchMeasureMode)
 
   return (
     <div className="space-y-1">
@@ -230,6 +239,34 @@ export function PenSettings() {
           onValueChange={([v]) => setPen({ scribbleSensitivity: v })}
         />
       </Field>
+
+      {isTouchDevice && (
+        <div className="pt-1">
+          <p className="pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            Touch assist
+          </p>
+          <div className="divide-y divide-border/60">
+            <PrefRow
+              label="Orthogonal pen"
+              detail="The tablet substitute for Shift+pen — straight lines snap to horizontal/vertical while drawing."
+              checked={touchOrthoPen}
+              onChange={toggleTouchOrthoPen}
+            />
+            <PrefRow
+              label="Free move"
+              detail="Move objects without snap, like holding Alt on a mouse."
+              checked={touchFreeMove}
+              onChange={toggleTouchFreeMove}
+            />
+            <PrefRow
+              label="Measure mode"
+              detail="Tap a second object to compare distance."
+              checked={touchMeasureMode}
+              onChange={toggleTouchMeasureMode}
+            />
+          </div>
+        </div>
+      )}
 
       <button
         type="button"
