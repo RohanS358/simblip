@@ -18,7 +18,7 @@
 // The file also uploads to the app database (best-effort) where it lives for
 // 7 days, renewed on every read — see app/api/files/[...path]/route.ts.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
 import {
   Download, FileUp, Link as LinkIcon, Link2Off, Loader2,
   NotebookPen, ZoomIn, ZoomOut,
@@ -37,6 +37,7 @@ import { InfiniteCanvas } from './canvas'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { cn } from '@/lib/utils'
+
 
 type PdfDoc = {
   numPages: number
@@ -187,23 +188,31 @@ export function PdfView({ pageId }: { pageId: string }) {
   const readerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  // Zoom anchored at a screen point: the stack scales from 'top center', so
-  // a content point at y renders at y*zoom - scrollTop — keep the point under
-  // the gesture by solving for the new scrollTop after React re-renders.
-  const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
-    const el = readerRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    setZoom((z) => {
-      const nz = Math.min(3, Math.max(0.25, z * factor))
-      if (nz === z) return z
-      const py = (clientY - rect.top + el.scrollTop) / z
-      requestAnimationFrame(() => {
-        el.scrollTop = py * nz - (clientY - rect.top)
-      })
-      return nz
-    })
-  }, [])
+  const zoomAnchor = useRef<{ py: number; clientY: number } | null>(null)
+
+const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
+  const el = readerRef.current
+  if (!el) return
+  const rect = el.getBoundingClientRect()
+  setZoom((z) => {
+    const nz = Math.min(3, Math.max(0.25, z * factor))
+    if (nz === z) return z
+    // capture the content-space point under the cursor BEFORE zoom changes
+    zoomAnchor.current = { py: (clientY - rect.top + el.scrollTop) / z, clientY: clientY - rect.top }
+    return nz
+  })
+}, [])
+
+// Runs synchronously after the DOM updates but before the browser paints —
+// so the corrected scrollTop lands in the SAME frame as the new scale,
+// instead of one frame later (which is what caused the jump-then-snap).
+useLayoutEffect(() => {
+  const el = readerRef.current
+  const anchor = zoomAnchor.current
+  if (!el || !anchor) return
+  el.scrollTop = anchor.py * zoom - anchor.clientY
+  zoomAnchor.current = null
+}, [zoom])
 
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
   // everywhere else in the app. A plain wheel is left alone to scroll.

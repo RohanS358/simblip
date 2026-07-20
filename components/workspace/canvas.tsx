@@ -37,6 +37,7 @@ import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, s
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
+import { penActive } from '@/lib/pointer/pen-active'
 import { cn } from '@/lib/utils'
 
 const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
@@ -1817,9 +1818,9 @@ export function InfiniteCanvas({
     pinchRef.current = {
       dist: Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1),
       center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
-      viewport: useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 },
+      viewport: vpRef.current, // live — matches beginGesture; the store lags on purpose
     }
-  }, [pageId])
+}, [])
 
   const onPinchEnd = useCallback(
     (e: PointerEvent) => {
@@ -1850,6 +1851,7 @@ export function InfiniteCanvas({
   const handleTouchDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'pen') {
       lastPenRef.current = Date.now() // stylus present → arm palm rejection
+      penActive.current = true
       return
     }
     if (e.pointerType !== 'touch') return
@@ -1895,10 +1897,15 @@ export function InfiniteCanvas({
   }
 
   const handleTouchUpCapture = (e: React.PointerEvent) => {
+    if (e.pointerType === 'pen') {
+    lastPenRef.current = Date.now() // keep the rejection window alive through long strokes
+    return
+  }
     if (e.pointerType !== 'touch') return
     touchesRef.current.delete(e.pointerId)
     clearLongPress()
   }
+  
 
   const beginGesture = (mode: GestureMode, e: React.PointerEvent, extra?: Partial<Gesture>) => {
     const store = useDocStore.getState()
