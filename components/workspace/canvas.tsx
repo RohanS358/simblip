@@ -286,6 +286,19 @@ function copySelection(pageId: string) {
   if (objs.length > 0) setClipboard(objs)
 }
 
+// Newly created/pasted/duplicated objects always land ABOVE everything
+// already on the page — a monotonic session counter (see nextZ in factory)
+// isn't enough on its own, since a page can hold objects placed in an
+// earlier session (or before this counter existed) with a higher z than
+// whatever the counter happens to be seeded at right now. Reading the
+// page's actual max keeps "just placed/drawn" reliably on top regardless.
+function topZ(pageId: string): number {
+  const objs = useDocStore.getState().pages[pageId]?.objects ?? {}
+  let max = 0
+  for (const o of Object.values(objs)) if (o.z > max) max = o.z
+  return Math.max(max + 1, nextZ())
+}
+
 function cutSelection(pageId: string) {
   copySelection(pageId)
   const store = useDocStore.getState()
@@ -304,7 +317,7 @@ function pasteClipboard(pageId: string) {
     idMap.set(src.id, newId)
     clone.id = newId
     clone.position = { x: src.position.x + offset, y: src.position.y + offset }
-    clone.z = nextZ()
+    clone.z = topZ(pageId)
     clone.behaviors.forEach((b) => (b.id = uid()))
     return clone
   })
@@ -1314,6 +1327,7 @@ export function InfiniteCanvas({
           }
           const sides = g.placeShape ? SHAPE_SIDES[g.placeShape] : undefined
           if (sides) obj.geometry.points = regularPolygonPoints(sides, obj.size.w, obj.size.h)
+          obj.z = topZ(pageId)
           store.addObject(pageId, obj)
           store.setTool('select')
         }
@@ -1347,6 +1361,7 @@ export function InfiniteCanvas({
               // Plain click: legacy behavior, default length centered on the click.
               obj.position = { x: a.x - obj.size.w / 2, y: a.y - obj.size.h / 2 }
             }
+            obj.z = topZ(pageId)
             store.addObject(pageId, obj)
             store.setTool('select')
           }
@@ -1417,6 +1432,7 @@ export function InfiniteCanvas({
               obj.behaviors.push(createBehavior('wire'))
               obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
             }
+            obj.z = topZ(pageId)
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
             return null
@@ -1464,6 +1480,7 @@ export function InfiniteCanvas({
               h: rec.h,
             })
             stampInkMeta(raw)
+            raw.z = topZ(pageId)
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
@@ -1558,6 +1575,7 @@ export function InfiniteCanvas({
             }
           }
           if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
+          obj.z = topZ(pageId)
           store.addObject(pageId, obj)
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
@@ -1685,7 +1703,10 @@ export function InfiniteCanvas({
         }
       }
     }
-    for (const o of created) store.addObject(pageId, o)
+    for (const o of created) {
+      o.z = topZ(pageId)
+      store.addObject(pageId, o)
+    }
     if (usedIds.size > 0) store.removeObjects(pageId, [...usedIds])
     // Remaining strokes conduct when their NODES land on terminals.
     const allNow = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
@@ -2178,7 +2199,7 @@ export function InfiniteCanvas({
     clone.id = uid()
     clone.name = `${src.name} copy`
     clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-    clone.z = nextZ()
+    clone.z = topZ(pageId)
     clone.behaviors.forEach((b) => (b.id = uid()))
     store.addObject(pageId, clone)
     store.setSelection([clone.id])
@@ -2194,7 +2215,7 @@ export function InfiniteCanvas({
       const clone: SceneObject = JSON.parse(JSON.stringify(src))
       clone.id = uid()
       clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-      clone.z = nextZ()
+      clone.z = topZ(pageId)
       clone.behaviors.forEach((b) => (b.id = uid()))
       store.addObject(pageId, clone)
       ids.push(clone.id)
