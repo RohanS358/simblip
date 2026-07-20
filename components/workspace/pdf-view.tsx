@@ -228,8 +228,36 @@ useLayoutEffect(() => {
     return () => el.removeEventListener('wheel', onWheel)
   }, [zoomAt])
 
-  // Touch: two-finger pinch, the only zoom gesture a phone has.
-  usePinchZoom(readerRef, zoomAt)
+  // Touch: two-finger pinch, the only zoom gesture a phone has. Baseline
+  // (zoom, scroll position, original midpoint) is captured once when the
+  // fingers land and held fixed for the whole gesture — see usePinchZoom.
+  const pinchBaseRef = useRef<{ zoom: number; scrollTop: number; clientY: number } | null>(null)
+
+  const onPinchStart = useCallback(
+    (_clientX: number, clientY: number) => {
+      const el = readerRef.current
+      if (!el) return
+      pinchBaseRef.current = { zoom, scrollTop: el.scrollTop, clientY }
+    },
+    [zoom]
+  )
+
+  const onPinchMove = useCallback((ratio: number, _clientX: number, clientY: number) => {
+    const el = readerRef.current
+    const base = pinchBaseRef.current
+    if (!el || !base) return
+    const rect = el.getBoundingClientRect()
+    const nz = Math.min(3, Math.max(0.25, base.zoom * ratio))
+    // Content-space point under the ORIGINAL two-finger midpoint — fixed for
+    // the whole gesture. Only the on-screen target (the current midpoint)
+    // moves as the fingers move; that's what keeps the same bit of content
+    // pinned under the fingers instead of sliding.
+    const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
+    zoomAnchor.current = { py, clientY: clientY - rect.top }
+    setZoom(nz)
+  }, [])
+
+  usePinchZoom(readerRef, { onStart: onPinchStart, onMove: onPinchMove })
 
   // CSS `zoom` resizes the layout box instead of just visually magnifying it
   // — pages reflow and ink lands in the wrong place. `transform: scale()` is

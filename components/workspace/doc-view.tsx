@@ -14,7 +14,7 @@
 // are light placeholders), and export force-mounts everything just long
 // enough to rasterize.
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FileDown, Loader2, Plus, Trash2, ZoomIn, ZoomOut, GripHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -265,8 +265,44 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   }, [])
 
   // Touch: two-finger pinch zooms too, anchored at the finger midpoint —
-  // the only zoom gesture a phone has.
-  usePinchZoom(scrollRef, zoomAt)
+  // the only zoom gesture a phone has. Baseline (zoom, scroll position,
+  // original midpoint) is captured once when the fingers land and held
+  // fixed for the whole gesture — see usePinchZoom.
+  const pinchBaseRef = useRef<{
+    zoom: number
+    scrollLeft: number
+    scrollTop: number
+    clientX: number
+    clientY: number
+  } | null>(null)
+
+  const onPinchStart = useCallback(
+    (clientX: number, clientY: number) => {
+      const el = scrollRef.current
+      if (!el) return
+      pinchBaseRef.current = { zoom, scrollLeft: el.scrollLeft, scrollTop: el.scrollTop, clientX, clientY }
+    },
+    [zoom]
+  )
+
+  const onPinchMove = useCallback((ratio: number, clientX: number, clientY: number) => {
+    const el = scrollRef.current
+    const base = pinchBaseRef.current
+    if (!el || !base) return
+    const rect = el.getBoundingClientRect()
+    const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, base.zoom * ratio))
+    // Content-space point under the ORIGINAL two-finger midpoint — fixed for
+    // the whole gesture — mapped to the CURRENT midpoint on screen.
+    const px = (base.clientX - rect.left + base.scrollLeft) / base.zoom
+    const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
+    requestAnimationFrame(() => {
+      el.scrollLeft = px * nz - (clientX - rect.left)
+      el.scrollTop = py * nz - (clientY - rect.top)
+    })
+    setZoom(nz)
+  }, [])
+
+  usePinchZoom(scrollRef, { onStart: onPinchStart, onMove: onPinchMove })
 
   const sizeOf = (sheetId: string) => meta?.sheetSizes?.[sheetId] ?? { w: SHEET_W, h: SHEET_H }
   const resizeSheet = (sheetId: string, w: number, h: number) => {
