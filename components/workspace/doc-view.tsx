@@ -396,12 +396,17 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         {/* Spacer reserves the scaled content's real footprint on both axes
             so the container has enough room to scroll to — transform doesn't
             reflow, so nothing else tells it how big the zoomed page is.
-            margin:auto (not flex centering) so overflow on either side
-            stays scrollable instead of getting clipped. */}
-        <div style={zoom !== 1 ? { width: naturalW * zoom, height: naturalH * zoom, margin: '0 auto' } : undefined}>
+            mx-auto (not flex centering) so it's centered when it fits and
+            scrolls symmetrically in both directions once it doesn't.
+            contentRef is `w-fit`, not stretched to the viewport — its
+            natural width is the widest SHEET, not the scroll container, so
+            zooming grows outward from the actual content instead of from an
+            invisible full-width box (which used to read as the page
+            "sliding left" as zoom increased). */}
+        <div className="mx-auto w-fit" style={zoom !== 1 ? { width: naturalW * zoom, height: naturalH * zoom } : undefined}>
           <div
             ref={contentRef}
-            className="flex flex-col gap-4 pb-24"
+            className="flex w-fit flex-col gap-4 pb-24"
             style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left', width: naturalW } : undefined}
           >
             {sheets.map((sheetId, i) => (
