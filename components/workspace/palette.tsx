@@ -11,13 +11,14 @@
 // docs/ui-simplification-plan.md §3/§4. It now renders inline, filling
 // whatever container the sidebar gives it.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
-import { X } from 'lucide-react'
+import { Search, X } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
+import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 
 const DOMAINS = [
@@ -32,24 +33,64 @@ const DOMAINS = [
   { id: 'dsa', label: 'DSA' },
 ] as const
 
+type DomainId = (typeof DOMAINS)[number]['id']
+
+const DOMAIN_LABEL: Record<DomainId, string> = Object.fromEntries(
+  DOMAINS.map((d) => [d.id, d.label])
+) as Record<DomainId, string>
+
+/** Search + category filter, same pattern as the Institution Library — a
+ *  query box and a single-select category row (with an "All" pill), both
+ *  narrowing the same list together. See docs/ui-simplification-plan.md
+ *  (Components section should search/section like the Library). */
 export function Palette() {
-  const [domain, setDomain] = useState<(typeof DOMAINS)[number]['id']>('mechanics')
+  const [domain, setDomain] = useState<DomainId | null>(null)
+  const [query, setQuery] = useState('')
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const setTool = useDocStore((s) => s.setTool)
 
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return COMPONENTS.filter((c) => !domain || c.domain === domain).filter(
+      (c) => !q || c.label.toLowerCase().includes(q)
+    )
+  }, [domain, query])
+
   return (
     <div className="flex h-full min-h-0 flex-col p-2.5" aria-label="Component palette">
+      <div className="relative mb-2">
+        <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+        <Input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search components…"
+          className="h-8 pl-8 text-[12.5px]"
+        />
+      </div>
+
       <div className="no-scrollbar mb-2 flex items-center gap-1 overflow-x-auto">
+        <button
+          type="button"
+          className={cn(
+            'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+            domain === null
+              ? 'bg-foreground text-background'
+              : 'bg-accent text-muted-foreground hover:text-foreground'
+          )}
+          onClick={() => setDomain(null)}
+        >
+          All
+        </button>
         {DOMAINS.map((d) => (
           <button
             key={d.id}
             type="button"
             className={cn(
-              'shrink-0 rounded-lg px-2.5 py-1 text-[12px] font-medium transition-colors',
+              'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
               domain === d.id
-                ? 'bg-[var(--accent-blue)] text-primary-foreground'
-                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                ? 'bg-foreground text-background'
+                : 'bg-accent text-muted-foreground hover:text-foreground'
             )}
             onClick={() => setDomain(d.id)}
           >
@@ -59,7 +100,7 @@ export function Palette() {
       </div>
 
       <div className="no-scrollbar grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto">
-        {COMPONENTS.filter((c) => c.domain === domain).map((c) => {
+        {filtered.map((c) => {
           const armed = tool === 'place' && toolOption === c.id
           return (
             <button
@@ -75,10 +116,24 @@ export function Palette() {
               onClick={() => setTool(armed ? 'select' : 'place', armed ? null : c.id)}
             >
               <span className="font-medium">{c.label}</span>
-              {!c.live && <span className="text-[9px] uppercase tracking-wide opacity-60">symbol</span>}
+              {/* The domain tag only earns its place once "All" mixes
+                  domains together — otherwise the selected pill already
+                  says which one this is. "symbol" always matters, though. */}
+              {(domain === null || !c.live) && (
+                <span className="text-[9px] uppercase tracking-wide opacity-60">
+                  {[domain === null ? DOMAIN_LABEL[c.domain as DomainId] : null, !c.live ? 'symbol' : null]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </span>
+              )}
             </button>
           )
         })}
+        {filtered.length === 0 && (
+          <p className="col-span-3 py-6 text-center text-[12px] text-muted-foreground">
+            No components match “{query}”.
+          </p>
+        )}
       </div>
       {tool === 'place' && (
         <p className="mt-2 text-center text-[11px] text-muted-foreground">

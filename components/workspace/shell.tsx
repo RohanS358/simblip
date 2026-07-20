@@ -222,10 +222,13 @@ export function WorkspaceShell() {
   const aiAllowed = can(profile?.role, 'use-ai')
 
   // Docked panels: Pages on the left, Inspector on the right — fixed homes.
+  // The left rail is permanent (branding + navigation live there); sidebarOpen
+  // now only controls whether its content PANE is expanded, handled inside
+  // Sidebar itself — so the left side always mounts.
   const dockFor = (side: Side) => {
     const panels: PanelId[] =
       side === 'left'
-        ? sidebarOpen ? ['pages'] : []
+        ? ['pages']
         : inspectorOpen && activePageId ? ['inspector'] : []
     return (
       <Dock

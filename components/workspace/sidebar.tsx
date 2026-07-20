@@ -1,21 +1,29 @@
 'use client'
 
-// The left dock's content — an activity-bar rail (Notebook / Components /
-// Tools / Library) plus whichever ONE section is open. Replaces the old
-// permanent 54/46 split between the notebook tree and the library: now each
-// section gets the panel's full height when it's open, and the rail alone
-// (no content pane) is the "collapsed, maximum canvas" state.
+// The left dock's content — a permanently fixed rail (Notebook / Components /
+// Tools / Library, with the institution mark on top) plus whichever ONE
+// section is open. Replaces the old permanent 54/46 split between the
+// notebook tree and the library: now each section gets the panel's full
+// height when it's open.
+//
+// The rail itself never disappears — it's the fixed anchor point for the
+// whole left edge, the way a dock or activity bar would be. Only the content
+// PANE collapses when not in use (via the same sidebarOpen toggle the header
+// and edge-handle already used) — collapsing used to hide the entire
+// sidebar, rail included, which left branding and navigation with no fixed
+// home. See docs/ui-simplification-plan.md §4.
 //
 // This is also where the physics/circuit Palette and the Calculator's
 // trigger live now — they used to be floating popups pinned to the dock;
-// browsers belong in a browsable drawer, not a flyout. See
-// docs/ui-simplification-plan.md §4.
+// browsers belong in a browsable drawer, not a flyout.
 
 import { useState } from 'react'
+import Image from 'next/image'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useAuthStore } from '@/lib/auth/store'
 import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
 import { NotebookTree } from './notebook-tree'
 import { Palette } from './palette'
@@ -64,11 +72,18 @@ function RailButton({
 export function Sidebar() {
   const motion = useSpring()
   const activePageId = useWorkspaceStore((s) => s.activePageId)
+  const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
+  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+  const institution = useAuthStore((s) => s.institution)
 
-  const [activeSection, setActiveSection] = useState<SidebarSectionId | null>(() => {
+  // Which section shows when the pane is open — remembered even while
+  // collapsed, so reopening lands back where you left it. Defaults to
+  // Notebook (today's most-used section) rather than nothing, to keep the
+  // day-one experience close to what it was before the rail existed.
+  const [activeSection, setActiveSection] = useState<SidebarSectionId>(() => {
     if (typeof window === 'undefined') return 'notebook'
     const saved = localStorage.getItem('simblip-sidebar-section')
-    return saved === 'none' ? null : (saved as SidebarSectionId | null) ?? 'notebook'
+    return (SIDEBAR_SECTIONS.some((s) => s.id === saved) ? saved : 'notebook') as SidebarSectionId
   })
 
   const [panelW, setPanelW] = useState(() => {
@@ -77,11 +92,15 @@ export function Sidebar() {
   })
 
   const selectSection = (id: SidebarSectionId) => {
-    const next = activeSection === id ? null : id
-    setActiveSection(next)
+    if (sidebarOpen && activeSection === id) {
+      togglePanel('sidebar') // same section tapped again — collapse the pane
+      return
+    }
+    setActiveSection(id)
     try {
-      localStorage.setItem('simblip-sidebar-section', next ?? 'none')
+      localStorage.setItem('simblip-sidebar-section', id)
     } catch {}
+    if (!sidebarOpen) togglePanel('sidebar')
   }
 
   return (
@@ -90,15 +109,30 @@ export function Sidebar() {
       animate={{ x: 0, opacity: 1 }}
       transition={motion}
       className="glass relative z-30 m-3 flex min-h-0 flex-row rounded-2xl"
-      style={{ width: activeSection ? RAIL_W + panelW : RAIL_W }}
+      style={{ width: sidebarOpen ? RAIL_W + panelW : RAIL_W }}
       aria-label="Sidebar"
     >
-      <nav className="flex w-[52px] shrink-0 flex-col items-center gap-1 py-3">
+      <nav className="flex w-[52px] shrink-0 flex-col items-center gap-2 py-3">
+        {institution?.logo_url ? (
+          <Image
+            src={String(institution.logo_url)}
+            alt={institution.name}
+            width={28}
+            height={28}
+            unoptimized
+            className="mb-1 h-7 w-7 shrink-0 rounded-lg object-contain"
+          />
+        ) : (
+          <span className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-[13px] font-extrabold text-white">
+            S
+          </span>
+        )}
+        <div className="h-px w-6 shrink-0 bg-border" />
         {SIDEBAR_SECTIONS.map((s) => (
           <RailButton
             key={s.id}
             label={s.label}
-            active={activeSection === s.id}
+            active={sidebarOpen && activeSection === s.id}
             onClick={() => selectSection(s.id)}
           >
             <s.icon className="h-[18px] w-[18px]" />
@@ -106,7 +140,7 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {activeSection && (
+      {sidebarOpen && (
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border/50">
           <div
             role="separator"
@@ -137,7 +171,7 @@ export function Sidebar() {
           {activeSection === 'components' && <Palette />}
           {activeSection === 'tools' && <ToolsPanel />}
           {activeSection === 'library' && (
-            <LibraryPanel inline open onClose={() => selectSection('library')} pageId={activePageId} />
+            <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
           )}
         </div>
       )}
