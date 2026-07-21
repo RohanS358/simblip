@@ -34,23 +34,18 @@ export function TabsBar({
   const closeSplit = useWorkspaceStore((s) => s.closeSplit)
 
   // Pinned outside the scrollable tab strip so it never scrolls away with
-  // the tabs — always reachable at the left edge.
-  const menu = (
-    <div className="shrink-0 pl-1">
-      <PageControlsMenu pageId={pageId} showTransport={showTransport} />
-    </div>
-  )
+  // the tabs — always reachable at the right edge.
+  const controls = <PageControlsMenu pageId={pageId} showTransport={showTransport} />
 
   if (openTabs.length === 0)
     return (
-      <div className="flex min-w-0 flex-1 items-center">
-        {menu}
+      <div className="flex min-w-0 flex-1 items-center justify-end">
+        {controls}
       </div>
     )
 
   return (
     <div className="flex min-w-0 flex-1 items-center">
-      {menu}
       <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
         {openTabs.map((id) => {
           const meta = findPageMeta(notebooks, id)
@@ -109,6 +104,7 @@ export function TabsBar({
           )
         })}
       </div>
+      {controls}
     </div>
   )
 }

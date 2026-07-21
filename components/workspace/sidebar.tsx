@@ -16,14 +16,21 @@
 // This is also where the physics/circuit Palette and the Calculator's
 // trigger live now — they used to be floating popups pinned to the dock;
 // browsers belong in a browsable drawer, not a flyout.
+//
+// "Left edge" is a desktop/tablet shape. On a phone the rail renders fixed
+// along the bottom instead — a left column permanently eats into a phone's
+// scarce width, and a phone has height to spare — with the open section's
+// panel sliding up above it as a capped-height sheet, not sideways.
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
+import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
+import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
 import { NotebookTree } from './notebook-tree'
 import { Palette } from './palette'
@@ -31,16 +38,18 @@ import { ToolsPanel } from './tools-panel'
 import { LibraryPanel } from './library-panel'
 import { cn } from '@/lib/utils'
 
-const RAIL_W = 52
+const RAIL_TH = 52 // the rail's thickness — a column width on desktop, a bar height on phone
 
 function RailButton({
   active,
   label,
+  tooltipSide = 'right',
   onClick,
   children,
 }: {
   active: boolean
   label: string
+  tooltipSide?: 'top' | 'right'
   onClick: () => void
   children: React.ReactNode
 }) {
@@ -62,7 +71,7 @@ function RailButton({
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="right" className="text-xs">
+      <TooltipContent side={tooltipSide} className="text-xs">
         {label}
       </TooltipContent>
     </Tooltip>
@@ -75,6 +84,37 @@ export function Sidebar() {
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const institution = useAuthStore((s) => s.institution)
+  // A phone is a narrow TOUCH device — a tablet is touch but not narrow, a
+  // narrowed desktop browser window is narrow but not touch, and neither of
+  // those wants the bottom bar (matches the isMobile+isPhone combo
+  // canvas-controls.tsx uses to reserve clearance for this same bar). Only
+  // an actual phone gets it: a left column permanently eats into its scarce
+  // width, and a phone has height to spare instead.
+  const isMobile = useIsMobile()
+  const isNarrow = useIsNarrow(767)
+  const isPhone = isMobile && isNarrow
+
+  // The dock (Toolbar/Transport, see canvas-controls.tsx) needs to always
+  // clear this bar — rail alone when collapsed, rail+panel when it's open
+  // and taller — so the actual measured height is published live rather
+  // than assuming a fixed rail thickness.
+  const barRef = useRef<HTMLElement>(null)
+  useEffect(() => {
+    if (!isPhone) {
+      useMobileNavBarStore.getState().setHeight(0)
+      return
+    }
+    const el = barRef.current
+    if (!el) return
+    const publish = () => useMobileNavBarStore.getState().setHeight(el.getBoundingClientRect().height)
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      useMobileNavBarStore.getState().setHeight(0)
+    }
+  }, [isPhone])
 
   // Which section shows when the pane is open — remembered even while
   // collapsed, so reopening lands back where you left it. Defaults to
@@ -103,42 +143,92 @@ export function Sidebar() {
     if (!sidebarOpen) togglePanel('sidebar')
   }
 
+  const railNav = (
+    <nav
+      className={cn(
+        'flex shrink-0 items-center gap-2',
+        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'w-[52px] flex-col py-3'
+      )}
+    >
+      {institution?.logo_url ? (
+        <Image
+          src={String(institution.logo_url)}
+          alt={institution.name}
+          width={28}
+          height={28}
+          unoptimized
+          className={cn('h-7 w-7 shrink-0 rounded-lg object-contain', !isPhone && 'mb-1')}
+        />
+      ) : (
+        <span
+          className={cn(
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-[13px] font-extrabold text-white',
+            !isPhone && 'mb-1'
+          )}
+        >
+          S
+        </span>
+      )}
+      <div className={cn('shrink-0 bg-border', isPhone ? 'h-6 w-px' : 'h-px w-6')} />
+      {SIDEBAR_SECTIONS.map((s) => (
+        <RailButton
+          key={s.id}
+          label={s.label}
+          tooltipSide={isPhone ? 'top' : 'right'}
+          active={sidebarOpen && activeSection === s.id}
+          onClick={() => selectSection(s.id)}
+        >
+          <s.icon className="h-[18px] w-[18px]" />
+        </RailButton>
+      ))}
+    </nav>
+  )
+
+  const panelSections = (
+    <>
+      {activeSection === 'notebook' && <NotebookTree />}
+      {activeSection === 'components' && <Palette />}
+      {activeSection === 'tools' && <ToolsPanel />}
+      {activeSection === 'library' && (
+        <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
+      )}
+    </>
+  )
+
+  // A left column permanently eats into a phone's scarce width; a phone has
+  // height to spare instead, so the rail renders as a fixed bottom bar there
+  // (same isPhone signal the Inspector uses for its own bottom sheet, see
+  // mobile-shell.tsx) — a tablet keeps the desktop-shaped left rail below.
+  if (isPhone) {
+    return (
+      <fm.aside
+        ref={barRef}
+        initial={{ y: 16, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={motion}
+        className="glass-strong fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl border-t border-border/40 pb-[env(safe-area-inset-bottom)]"
+        aria-label="Sidebar"
+      >
+        {sidebarOpen && (
+          <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden border-b border-border/50">
+            <div className="min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
+          </div>
+        )}
+        {railNav}
+      </fm.aside>
+    )
+  }
+
   return (
     <fm.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={motion}
       className="glass relative z-30 m-3 flex min-h-0 flex-row rounded-2xl"
-      style={{ width: sidebarOpen ? RAIL_W + panelW : RAIL_W }}
+      style={{ width: sidebarOpen ? RAIL_TH + panelW : RAIL_TH }}
       aria-label="Sidebar"
     >
-      <nav className="flex w-[52px] shrink-0 flex-col items-center gap-2 py-3">
-        {institution?.logo_url ? (
-          <Image
-            src={String(institution.logo_url)}
-            alt={institution.name}
-            width={28}
-            height={28}
-            unoptimized
-            className="mb-1 h-7 w-7 shrink-0 rounded-lg object-contain"
-          />
-        ) : (
-          <span className="mb-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-[13px] font-extrabold text-white">
-            S
-          </span>
-        )}
-        <div className="h-px w-6 shrink-0 bg-border" />
-        {SIDEBAR_SECTIONS.map((s) => (
-          <RailButton
-            key={s.id}
-            label={s.label}
-            active={sidebarOpen && activeSection === s.id}
-            onClick={() => selectSection(s.id)}
-          >
-            <s.icon className="h-[18px] w-[18px]" />
-          </RailButton>
-        ))}
-      </nav>
+      {railNav}
 
       {sidebarOpen && (
         <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border/50">
@@ -168,12 +258,7 @@ export function Sidebar() {
             }}
           />
 
-          {activeSection === 'notebook' && <NotebookTree />}
-          {activeSection === 'components' && <Palette />}
-          {activeSection === 'tools' && <ToolsPanel />}
-          {activeSection === 'library' && (
-            <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
-          )}
+          {panelSections}
         </div>
       )}
     </fm.aside>

@@ -7,22 +7,26 @@
 // Unlike a board, a sheet is STATIC: it doesn't pan or zoom internally (wheel/
 // pinch on the canvas do nothing) — a page is a fixed piece of paper, not an
 // infinite plane. Viewing zoom lives one level up, uniform across every sheet,
-// via ctrl/⌘+wheel, pinch, or the slider bottom-right. Each sheet's own size
-// can be dragged from its bottom-right corner and is saved per sheet.
+// via ctrl/⌘+wheel, pinch, or the zoom control in the tab bar. Each sheet's
+// own size can be dragged from its bottom-right corner and is saved per sheet.
 //
 // Resource notes: only sheets near the viewport mount a live canvas (the rest
 // are light placeholders), and export force-mounts everything just long
 // enough to rasterize.
+//
+// Export and zoom don't float their own chrome over the canvas — they're
+// published to useDocDockStore (lib/store/doc-dock.ts) and rendered from
+// PageControlsMenu in the tab bar instead (see tabs-bar.tsx), same pattern
+// as PdfView/usePdfDockStore.
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { FileDown, Loader2, Plus, Trash2, ZoomIn, ZoomOut, GripHorizontal } from 'lucide-react'
+import { Plus, Trash2, GripHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
-import { useDockClearance } from '@/hooks/use-dock-clearance'
+import { useDocDockStore } from '@/lib/store/doc-dock'
 import { sanitizeColors } from '@/lib/store/to-pdf'
-import { Slider } from '@/components/ui/slider'
 import { InfiniteCanvas } from './canvas'
 import { cn } from '@/lib/utils'
 
@@ -176,22 +180,24 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const contentRef = useRef<HTMLDivElement>(null)
   const [naturalH, setNaturalH] = useState(0)
   const [naturalW, setNaturalW] = useState(0)
-  // The board dock (Toolbar) floats over this same page — when it's docked
-  // to the top it shares Export's corner, so Export moves down out of its way.
-  // Both floating controls sit in dock-reachable corners — measure the dock
-  // and step aside only when it actually grows into them.
-  const exportRef = useRef<HTMLButtonElement>(null)
-  const exportShift = useDockClearance(exportRef, [bare, exporting])
-  const zoomStripRef = useRef<HTMLDivElement>(null)
-  const zoomStripShift = useDockClearance(zoomStripRef, [bare])
+  const [viewW, setViewW] = useState(0)
+  const [viewH, setViewH] = useState(0)
 
   // CSS `zoom` RESIZES THE LAYOUT BOX (it isn't a pure visual scale) — the
   // page reflows, scroll math gets confused, and any split-view drawing goes
   // to the wrong spot. A `transform: scale()` is a pure visual magnification
   // — like zooming into an image — but it doesn't touch layout, so the
   // scroll container needs to be told how big the SCALED content actually
-  // is; that's what this measures.
-  useEffect(() => {
+  // is; that's what this measures. contentRef never gets an explicit width
+  // (see the JSX below), so this stays the TRUE unscaled size at every zoom
+  // level, including through content changes (add/resize a sheet) — nothing
+  // here depends on zoom, so there's no circularity between "what we
+  // measure" and "what we then force the size to be".
+  //
+  // useLayoutEffect (not useEffect) so the first real measurement lands
+  // before paint — otherwise the stage/content below would flash at 0×0 for
+  // one frame on mount.
+  useLayoutEffect(() => {
     const el = contentRef.current
     if (!el) return
     const ro = new ResizeObserver(() => {
@@ -203,6 +209,43 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     setNaturalW(el.offsetWidth)
     return () => ro.disconnect()
   }, [])
+
+  // The scroller's own viewport size — needed to decide, in JS, whether the
+  // (possibly scaled) content fits and should be centered, or overflows and
+  // should sit flush at the scroll origin. This used to be left to CSS
+  // `mx-auto`, but auto margins are specified to collapse to 0 once content
+  // is wider than its container (CSS2.1 §10.3.3) rather than staying
+  // symmetric — so the page visibly snapped flush-left the moment zoomed
+  // content got wider than the pane, and everything downstream (the scroll-
+  // anchor math) was re-deriving that same ambiguous position from
+  // getBoundingClientRect() instead of just computing it. Tracking the
+  // viewport size directly lets `padLeft`/`padTop` below reproduce that
+  // "center if it fits, else flush" behavior ourselves, deterministically.
+  useLayoutEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setViewW(el.clientWidth)
+      setViewH(el.clientHeight)
+    })
+    ro.observe(el)
+    setViewW(el.clientWidth)
+    setViewH(el.clientHeight)
+    return () => ro.disconnect()
+  }, [])
+
+  // The scrollable "stage" is always at least as big as the viewport (so a
+  // small/unzoomed document still has room to be centered in) and grows to
+  // the scaled content's real footprint once that exceeds the viewport (so
+  // the scroller has something to actually scroll to). padLeft/padTop place
+  // the content within that stage: centered when there's slack, flush at 0
+  // when there isn't — the content can never end up somewhere the stage
+  // doesn't reserve room for, which is what made horizontal scrolling
+  // actually engage.
+  const stageW = Math.max(viewW, naturalW * zoom)
+  const stageH = Math.max(viewH, naturalH * zoom)
+  const padLeft = (stageW - naturalW * zoom) / 2
+  const padTop = (stageH - naturalH * zoom) / 2
 
   // The toolbar/inspector need a target sheet from the moment the doc opens.
   useEffect(() => {
@@ -218,40 +261,49 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       return next
     })
 
-  // Zoom anchored vertically at a screen point (cursor, or viewport center
-  // for the buttons/slider) — same single-axis model as PdfView's reader
-  // (doc-view.tsx pairs with pdf-view.tsx: the page stack is always
-  // horizontally centered, so only the vertical anchor needs solving). With
-  // transformOrigin 'top left', a content-space point py renders on screen
-  // at py*zoom - scrollTop. To keep that same content point under the same
-  // screen point after zoom changes z -> nz, stash the target and solve for
-  // scrollTop in a useLayoutEffect that runs synchronously after the
-  // re-render — same frame as the new scale, instead of one frame later
-  // (which reads as a jump-then-snap).
-  const zoomAnchor = useRef<{ py: number; clientY: number } | null>(null)
+  // Zoom anchored at a screen point (cursor, or viewport center for the
+  // buttons/slider) on BOTH axes. `zoomAt` captures which content-space
+  // point (contentRef-local, unscaled) is currently under that screen
+  // point — a plain read off the DOM, always accurate regardless of margins.
+  // The useLayoutEffect below then solves for the scrollLeft/scrollTop that
+  // puts that same content point back under that same screen point at the
+  // NEW zoom — but instead of re-measuring contentRef's rendered position a
+  // second time (which is exactly what silently broke: that position comes
+  // from padLeft/padTop above, and getBoundingClientRect() only reflects it
+  // AFTER the browser has actually committed the new layout, which isn't
+  // guaranteed to have happened for every intermediate style in one
+  // useLayoutEffect pass), it computes the target position directly from
+  // padLeft/padTop/zoom — the same numbers the JSX below uses to place
+  // contentRef — so there's exactly one place that decides where the
+  // content sits, not two that are supposed to agree.
+  const zoomAnchor = useRef<{ px: number; py: number; clientX: number; clientY: number } | null>(null)
 
-  const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
-    const el = scrollRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
+  const zoomAt = useCallback((clientX: number, clientY: number, factor: number) => {
+    const content = contentRef.current
+    if (!content) return
     setZoom((z) => {
       const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z * factor))
       if (nz === z) return z
-      // capture the content-space point under the cursor BEFORE zoom changes
-      zoomAnchor.current = { py: (clientY - rect.top + el.scrollTop) / z, clientY: clientY - rect.top }
+      const cRect = content.getBoundingClientRect()
+      zoomAnchor.current = { px: (clientX - cRect.left) / z, py: (clientY - cRect.top) / z, clientX, clientY }
       return nz
     })
   }, [])
 
-  // Runs synchronously after the DOM updates but before the browser paints —
-  // so the corrected scrollTop lands in the SAME frame as the new scale,
-  // instead of one frame later (which is what caused the jump-then-snap).
+  // Runs synchronously after the DOM updates but before the browser paints.
   useLayoutEffect(() => {
     const el = scrollRef.current
     const anchor = zoomAnchor.current
     if (!el || !anchor) return
-    el.scrollTop = anchor.py * zoom - anchor.clientY
+    const scrollRect = el.getBoundingClientRect()
+    el.scrollLeft = padLeft + anchor.px * zoom - (anchor.clientX - scrollRect.left)
+    el.scrollTop = padTop + anchor.py * zoom - (anchor.clientY - scrollRect.top)
     zoomAnchor.current = null
+    // padLeft/padTop are derived every render from viewW/viewH/naturalW/
+    // naturalH/zoom — this only needs to re-run when zoom itself changes
+    // (that's the one thing zoomAt/onPinchMove actually set an anchor for);
+    // the anchor-null guard above makes it a no-op on any other render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom])
 
   const zoomAtCenter = (factor: number) => {
@@ -262,7 +314,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   }
 
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
-  // everywhere else in the app. A plain wheel is left alone to scroll.
+  // everywhere else in the app. A plain wheel is left alone to scroll (both
+  // axes — the scroller is natively overflow-auto on x and y, so a
+  // shift+wheel or trackpad pan navigates left/right same as any scroll
+  // area once zoomed content is wider than the viewport).
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
@@ -275,32 +330,29 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     return () => el.removeEventListener('wheel', onWheel)
   }, [zoomAt])
 
-  // Touch: two-finger pinch, the only zoom gesture a phone has. Baseline
-  // (zoom, scroll position, original midpoint) is captured once when the
-  // fingers land and held fixed for the whole gesture — see usePinchZoom.
-  const pinchBaseRef = useRef<{ zoom: number; scrollTop: number; clientY: number } | null>(null)
+  // Touch: two-finger pinch, the only zoom gesture a phone has. The
+  // content-space anchor (px,py) is captured ONCE when the fingers land and
+  // held fixed for the whole gesture — that's what pins the same bit of
+  // content under the fingers as they move — while the on-screen target
+  // (clientX/clientY) updates every frame through the shared zoomAnchor/
+  // useLayoutEffect resolution above.
+  const pinchBaseRef = useRef<{ zoom: number; px: number; py: number } | null>(null)
 
   const onPinchStart = useCallback(
-    (_clientX: number, clientY: number) => {
-      const el = scrollRef.current
-      if (!el) return
-      pinchBaseRef.current = { zoom, scrollTop: el.scrollTop, clientY }
+    (clientX: number, clientY: number) => {
+      const content = contentRef.current
+      if (!content) return
+      const cRect = content.getBoundingClientRect()
+      pinchBaseRef.current = { zoom, px: (clientX - cRect.left) / zoom, py: (clientY - cRect.top) / zoom }
     },
     [zoom]
   )
 
-  const onPinchMove = useCallback((ratio: number, _clientX: number, clientY: number) => {
-    const el = scrollRef.current
+  const onPinchMove = useCallback((ratio: number, clientX: number, clientY: number) => {
     const base = pinchBaseRef.current
-    if (!el || !base) return
-    const rect = el.getBoundingClientRect()
+    if (!base) return
     const nz = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, base.zoom * ratio))
-    // Content-space point under the ORIGINAL two-finger midpoint — fixed for
-    // the whole gesture. Only the on-screen target (the current midpoint)
-    // moves as the fingers move; that's what keeps the same bit of content
-    // pinned under the fingers instead of sliding.
-    const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
-    zoomAnchor.current = { py, clientY: clientY - rect.top }
+    zoomAnchor.current = { px: base.px, py: base.py, clientX, clientY }
     setZoom(nz)
   }, [])
 
@@ -380,24 +432,41 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     if (activeSheetId === sheetId) setActiveSheet(sheets.find((s) => s !== sheetId) ?? null)
   }
 
+  // Export/zoom don't float their own chrome anymore — published to
+  // useDocDockStore and rendered from PageControlsMenu in the tab bar
+  // instead (see doc-dock.ts). `bare` embeds (the PDF reader's notes pane)
+  // never publish — that surface has no tab bar and no export of its own.
+  useEffect(() => {
+    if (bare) {
+      useDocDockStore.getState().set(null)
+      return
+    }
+    useDocDockStore.getState().set({
+      zoom,
+      exporting,
+      setZoom: (z) => zoomAtCenter(z / zoom),
+      exportPdf: () => void exportPdf(),
+    })
+    return () => useDocDockStore.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bare, zoom, exporting])
+
   return (
     <div className="relative h-full w-full">
-      <div ref={scrollRef} className="h-full w-full overflow-auto bg-muted/40 px-3 py-4 sm:px-6">
-        {/* Spacer reserves the scaled content's real footprint on both axes
-            so the container has enough room to scroll to — transform doesn't
-            reflow, so nothing else tells it how big the zoomed page is.
-            mx-auto (not flex centering) so it's centered when it fits and
-            scrolls symmetrically in both directions once it doesn't.
-            contentRef is `w-fit`, not stretched to the viewport — its
-            natural width is the widest SHEET, not the scroll container, so
-            zooming grows outward from the actual content instead of from an
-            invisible full-width box (which used to read as the page
-            "sliding left" as zoom increased). */}
-        <div className="mx-auto w-fit" style={zoom !== 1 ? { width: naturalW * zoom, height: naturalH * zoom } : undefined}>
+      <div ref={scrollRef} className="h-full w-full overflow-auto bg-muted/40">
+        {/* Stage reserves the scaled content's real footprint (or the
+            viewport's, whichever is bigger) so there's always somewhere for
+            the scroller to actually scroll to — transform doesn't reflow, so
+            nothing else tells the scroller how big the zoomed page is.
+            contentRef sits inside it at (padLeft, padTop), computed above:
+            centered while it fits, flush at the origin once it doesn't —
+            deterministic in JS rather than left to `mx-auto`'s collapse-to-
+            zero-margin behavior, which is what actually broke here. */}
+        <div className="relative" style={{ width: stageW, height: stageH }}>
           <div
             ref={contentRef}
-            className="flex w-fit flex-col gap-4 pb-24"
-            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left', width: naturalW } : undefined}
+            className="absolute flex w-fit flex-col gap-4 px-3 py-4 pb-24 sm:px-6"
+            style={{ left: padLeft, top: padTop, transform: `scale(${zoom})`, transformOrigin: 'top left' }}
           >
             {sheets.map((sheetId, i) => (
               <Sheet
@@ -424,58 +493,6 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           </div>
         </div>
       </div>
-
-      {!bare && (
-        <button
-          type="button"
-          ref={exportRef}
-          disabled={exporting}
-          style={{ translate: `${exportShift.x}px ${exportShift.y}px` }}
-          className="glass-strong absolute right-4 top-3 z-20 flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[12px] font-medium text-muted-foreground transition-[translate,color] duration-200 hover:text-foreground disabled:opacity-60"
-          onClick={() => void exportPdf()}
-        >
-          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
-          {exporting ? 'Exporting…' : 'Export PDF'}
-        </button>
-      )}
-
-      {/* Doc-wide zoom — uniform across every sheet. Skipped in `bare` (the
-          PDF reader's notes pane already has its own zoom control). */}
-      {!bare && (
-      <div
-        ref={zoomStripRef}
-        style={{ translate: `${zoomStripShift.x}px ${zoomStripShift.y}px` }}
-        className="glass-strong absolute bottom-4 right-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 transition-[translate] duration-200"
-      >
-        <button
-          type="button"
-          aria-label="Zoom out"
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => zoomAtCenter(0.9)}
-        >
-          <ZoomOut className="h-3.5 w-3.5" />
-        </button>
-        <Slider
-          className="w-20"
-          min={MIN_ZOOM}
-          max={MAX_ZOOM}
-          step={0.05}
-          value={[zoom]}
-          onValueChange={([v]) => zoomAtCenter(v / zoom)}
-        />
-        <button
-          type="button"
-          aria-label="Zoom in"
-          className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => zoomAtCenter(1 / 0.9)}
-        >
-          <ZoomIn className="h-3.5 w-3.5" />
-        </button>
-        <span className="min-w-9 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
-          {Math.round(zoom * 100)}%
-        </span>
-      </div>
-      )}
     </div>
   )
 }

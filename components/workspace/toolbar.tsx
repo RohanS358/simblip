@@ -108,6 +108,7 @@ function ToolButton({
   label,
   shortcut,
   accent,
+  size = 'h-9 w-9',
   onClick,
   onDoubleClick,
   children,
@@ -116,6 +117,10 @@ function ToolButton({
   label: string
   shortcut?: string
   accent?: string
+  /** Button footprint — shrunk to 'h-8 w-8' on mobile so the dock's fixed
+   *  track (see canvas-controls.tsx) fits more tools before it has to
+   *  scroll. */
+  size?: string
   onClick?: () => void
   onDoubleClick?: () => void
   children: React.ReactNode
@@ -130,7 +135,8 @@ function ToolButton({
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           className={cn(
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-all',
+            'flex shrink-0 items-center justify-center rounded-xl transition-all',
+            size,
             active
               ? 'text-primary-foreground shadow-sm'
               : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -148,7 +154,17 @@ function ToolButton({
   )
 }
 
-export function Toolbar({ pageId }: { pageId?: string }) {
+export function Toolbar({
+  pageId,
+  edge = false,
+}: {
+  pageId?: string
+  /** A phone's bottom edge is a fixed piece of chrome, not a floating
+   *  control — when true (see canvas-controls.tsx) the dock stretches full
+   *  width, flush with both edges, instead of the centered floating pill it
+   *  is everywhere else. */
+  edge?: boolean
+}) {
   const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
@@ -164,8 +180,20 @@ export function Toolbar({ pageId }: { pageId?: string }) {
   // pen control lives in the settings panel, nowhere else.
   const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
-  const dock = usePrefs((s) => s.notebook.dock)
+  const dockPref = usePrefs((s) => s.notebook.dock)
+  // A side dock (left/right) claims a slice of the SCARCE axis on a phone —
+  // its own width, permanently, out of a ~375px screen. A phone has plenty
+  // of height to spare instead, so the side preference only applies on
+  // desktop; on mobile every dock renders along the bottom regardless of
+  // what's saved in prefs (top stays top — it already costs height, not
+  // width, same as bottom).
+  const dock = isMobile && (dockPref === 'left' || dockPref === 'right') ? 'bottom' : dockPref
   const vertical = dock === 'left' || dock === 'right'
+  // Smaller footprint on mobile so more tools fit before the pill's own
+  // overflow-x-auto has to kick in (see canvas-controls.tsx for why the
+  // track itself is capped to the viewport in the first place).
+  const btnSize = isMobile ? 'h-8 w-8' : 'h-9 w-9'
+  const iconSize = isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'
   const penFlyoutClass =
     dock === 'bottom'
       ? 'bottom-full left-1/2 mb-2 -translate-x-1/2'
@@ -240,9 +268,9 @@ export function Toolbar({ pageId }: { pageId?: string }) {
       // land on top of the transport. min-w/h-0 lets it actually shrink to
       // that track instead of blowing out the grid (the flex default is
       // min-width/height:auto, i.e. "never smaller than my content").
-      className={cn('flex min-h-0 min-w-0', vertical ? 'max-h-full' : 'max-w-full')}
+      className={cn('flex min-h-0 min-w-0', edge ? 'w-full' : vertical ? 'max-h-full' : 'max-w-full')}
     >
-      <div ref={toolbarRef} className="relative flex min-h-0 min-w-0">
+      <div ref={toolbarRef} className={cn('relative flex min-h-0 min-w-0', edge && 'w-full')}>
       {showPen && (
         <>
           <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
@@ -289,8 +317,13 @@ export function Toolbar({ pageId }: { pageId?: string }) {
         onScroll={() => publishRef.current()}
         style={fadeMask ? { maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         className={cn(
-          'glass-strong no-scrollbar flex min-h-0 min-w-0 gap-1 rounded-2xl p-1.5',
-          vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto'
+          'glass-strong no-scrollbar flex min-h-0 min-w-0',
+          isMobile ? 'gap-0.5 p-1' : 'gap-1 p-1.5',
+          vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto',
+          // Flush with the screen edges above the phone's nav bar, not a
+          // floating pill — same rounded-top-only shape as that bar (see
+          // sidebar.tsx) rather than fully rounded.
+          edge ? 'w-full justify-center rounded-t-2xl border-t border-border/40' : 'rounded-2xl'
         )}
       >
       {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
@@ -300,29 +333,31 @@ export function Toolbar({ pageId }: { pageId?: string }) {
             active={tool === 'pen'}
             label={`${label} — double-click for pen settings`}
             shortcut={key}
+            size={btnSize}
             onClick={() => (tool === 'pen' ? setShowPen(true) : setTool('pen'))}
             onDoubleClick={() => setShowPen(true)}
           >
-            <Icon className="h-4 w-4" />
+            <Icon className={iconSize} />
           </ToolButton>
         ) : t === 'select' ? (
           <Fragment key={t}>
-            <ToolButton active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
-              <Icon className="h-4 w-4" />
+            <ToolButton active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
+              <Icon className={iconSize} />
             </ToolButton>
             {isMobile && (
               <ToolButton
                 active={tool === 'lasso'}
                 label="Lasso — drag over objects to select several, without moving them"
+                size={btnSize}
                 onClick={() => setTool('lasso')}
               >
-                <LassoSelect className="h-4 w-4" />
+                <LassoSelect className={iconSize} />
               </ToolButton>
             )}
           </Fragment>
         ) : (
-          <ToolButton key={t} active={tool === t} label={label} shortcut={key} onClick={() => setTool(t)}>
-            <Icon className="h-4 w-4" />
+          <ToolButton key={t} active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
+            <Icon className={iconSize} />
           </ToolButton>
         )
       )}
@@ -330,6 +365,7 @@ export function Toolbar({ pageId }: { pageId?: string }) {
       <ToolButton
         active={showShapes || tool === 'shape'}
         label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
+        size={btnSize}
         onClick={() => setShowShapes((v) => !v)}
       >
         <ShapesGroupIcon />
@@ -341,6 +377,7 @@ export function Toolbar({ pageId }: { pageId?: string }) {
           <ToolButton
             active={false}
             label="Document — attach a PDF/image for this session (never saved to the cloud)"
+            size={btnSize}
             onClick={() => {
               // Drop a session-document element at the viewport center.
               const doc = useDocStore.getState()
@@ -364,7 +401,7 @@ export function Toolbar({ pageId }: { pageId?: string }) {
               doc.setTool('select')
             }}
           >
-            <Paperclip className="h-4 w-4" />
+            <Paperclip className={iconSize} />
           </ToolButton>
         </>
       )}

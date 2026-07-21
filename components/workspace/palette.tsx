@@ -18,6 +18,7 @@ import { useSpring } from '@/lib/motion'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { Input } from '@/components/ui/input'
 import { ComponentIcon } from './component-icons'
 import { cn } from '@/lib/utils'
@@ -164,7 +165,12 @@ export function Palette() {
  */
 export function FloatingPalette({ open, onClose }: { open: boolean; onClose: () => void }) {
   const motion = useSpring()
-  const dock = usePrefs((s) => s.notebook.dock)
+  const dockPref = usePrefs((s) => s.notebook.dock)
+  // Same mobile override as the dock itself (canvas-controls.tsx/toolbar.tsx)
+  // — this flyout has to slide out of whichever side the dock is actually
+  // rendering on, not the raw desktop preference.
+  const isMobile = useIsMobile()
+  const dock = isMobile && (dockPref === 'left' || dockPref === 'right') ? 'bottom' : dockPref
   const vertical = dock === 'left' || dock === 'right'
   // Grow out of the dock rather than up from the floor.
   const slideFrom =

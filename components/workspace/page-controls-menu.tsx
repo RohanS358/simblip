@@ -1,38 +1,43 @@
 'use client'
 
-// The dynamic per-page controls menu — sits at the left edge of the tab bar
-// (see tabs-bar.tsx). Two sections, either or both may appear: the PDF
-// reader's page nav/notes/zoom/file controls (published by PdfView via
-// usePdfDockStore — it no longer floats its own pill) and the simulation
-// Transport for whichever content page is focused. Neither floats over the
-// canvas anymore, so reading or simulating doesn't cost any canvas space.
+// The per-page controls — sit at the right edge of the tab bar (see
+// tabs-bar.tsx), laid out inline as bare buttons rather than tucked behind a
+// menu or wrapped in a floating pill. Up to three groups, whichever apply:
+// zoom, then the current page's own controls (the PDF reader's page/notes/
+// file controls, published by PdfView via usePdfDockStore — or the doc page
+// kind's Export PDF, published by DocView via useDocDockStore), then the
+// simulation Transport (rightmost). A page is either 'pdf' or 'doc', never
+// both, so only one of the two docks is ever populated at once. None of
+// this floats over the canvas anymore, so reading/exporting/simulating
+// doesn't cost any canvas space.
 
 import {
-  SlidersHorizontal, Download, FileUp, Link as LinkIcon, Link2Off,
+  Download, FileDown, FileUp, Link as LinkIcon, Link2Off, Loader2,
   NotebookPen, ZoomIn, ZoomOut,
 } from 'lucide-react'
-import { Slider } from '@/components/ui/slider'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
+import { useDocDockStore } from '@/lib/store/doc-dock'
 import { Transport } from './transport'
 import { cn } from '@/lib/utils'
 
 function DockBtn({
-  active, label, onClick, children,
-}: { active?: boolean; label: string; onClick: () => void; children: React.ReactNode }) {
+  active, disabled, label, onClick, children,
+}: {
+  active?: boolean
+  disabled?: boolean
+  label: string
+  onClick: () => void
+  children: React.ReactNode
+}) {
   return (
     <button
       type="button"
       aria-label={label}
       title={label}
       aria-pressed={active}
+      disabled={disabled}
       className={cn(
-        'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-colors',
+        'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-colors disabled:opacity-40',
         active
           ? 'text-[var(--accent-blue)]'
           : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -44,6 +49,26 @@ function DockBtn({
   )
 }
 
+function Divider() {
+  return <div className="mx-1 h-4 w-px shrink-0 bg-border" />
+}
+
+function ZoomGroup({ zoom, setZoom }: { zoom: number; setZoom: (zoom: number) => void }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      <DockBtn label="Zoom out" onClick={() => setZoom(zoom - 0.1)}>
+        <ZoomOut className="h-3.5 w-3.5" />
+      </DockBtn>
+      <span className="min-w-9 shrink-0 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
+        {Math.round(zoom * 100)}%
+      </span>
+      <DockBtn label="Zoom in" onClick={() => setZoom(zoom + 0.1)}>
+        <ZoomIn className="h-3.5 w-3.5" />
+      </DockBtn>
+    </div>
+  )
+}
+
 export function PageControlsMenu({
   pageId,
   showTransport,
@@ -51,93 +76,68 @@ export function PageControlsMenu({
   pageId: string | null
   showTransport: boolean
 }) {
-  const dock = usePdfDockStore((s) => s.dock)
-  const showPdf = !!dock
+  const pdfDock = usePdfDockStore((s) => s.dock)
+  const docDock = useDocDockStore((s) => s.dock)
+  const showPdf = !!pdfDock
+  const showDoc = !!docDock
   const showSim = showTransport && !!pageId
+  const showZoom = showPdf || showDoc
 
-  if (!showPdf && !showSim) return null
+  if (!showPdf && !showDoc && !showSim) return null
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Page controls"
-          className="flex shrink-0 items-center rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    <div className="flex shrink-0 items-center pr-1">
+      {showPdf && <ZoomGroup zoom={pdfDock.zoom} setZoom={pdfDock.setZoom} />}
+      {showDoc && <ZoomGroup zoom={docDock.zoom} setZoom={docDock.setZoom} />}
+
+      {showZoom && pdfDock && <Divider />}
+      {pdfDock && (
+        <div className="flex items-center gap-0.5">
+          <span className="mr-0.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+            {pdfDock.current}/{pdfDock.numPages}
+          </span>
+          <DockBtn
+            label={pdfDock.notesOpen ? 'Close notes' : 'Open notes'}
+            active={pdfDock.notesOpen}
+            onClick={pdfDock.toggleNotes}
+          >
+            <NotebookPen className="h-3.5 w-3.5" />
+          </DockBtn>
+          {pdfDock.notesOpen && (
+            <DockBtn
+              label={pdfDock.linked ? 'Unlink notes from PDF pages' : 'Link: one note page per PDF page'}
+              active={pdfDock.linked}
+              onClick={pdfDock.toggleLink}
+            >
+              {pdfDock.linked ? <LinkIcon className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
+            </DockBtn>
+          )}
+          <DockBtn label="Download original" onClick={pdfDock.download}>
+            <Download className="h-3.5 w-3.5" />
+          </DockBtn>
+          <DockBtn label="Replace file" onClick={pdfDock.replace}>
+            <FileUp className="h-3.5 w-3.5" />
+          </DockBtn>
+        </div>
+      )}
+
+      {showZoom && docDock && <Divider />}
+      {docDock && (
+        <DockBtn
+          label={docDock.exporting ? 'Exporting…' : 'Export PDF'}
+          disabled={docDock.exporting}
+          onClick={docDock.exportPdf}
         >
-          <SlidersHorizontal className="h-4 w-4" />
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64 rounded-xl p-2.5">
-        {showSim && (
-          <div className="flex justify-center pb-1">
-            <Transport pageId={pageId!} />
-          </div>
-        )}
-        {showSim && showPdf && <DropdownMenuSeparator className="my-2" />}
-        {dock && (
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between px-0.5">
-              <span className="font-mono text-[12px] tabular-nums text-muted-foreground">
-                Page {dock.current} / {dock.numPages}
-              </span>
-              <div className="flex items-center gap-0.5">
-                <DockBtn
-                  label={dock.notesOpen ? 'Close notes' : 'Open notes'}
-                  active={dock.notesOpen}
-                  onClick={dock.toggleNotes}
-                >
-                  <NotebookPen className="h-4 w-4" />
-                </DockBtn>
-                {dock.notesOpen && (
-                  <DockBtn
-                    label={dock.linked ? 'Unlink notes from PDF pages' : 'Link: one note page per PDF page'}
-                    active={dock.linked}
-                    onClick={dock.toggleLink}
-                  >
-                    {dock.linked ? <LinkIcon className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
-                  </DockBtn>
-                )}
-                <DockBtn label="Download original" onClick={dock.download}>
-                  <Download className="h-4 w-4" />
-                </DockBtn>
-                <DockBtn label="Replace file" onClick={dock.replace}>
-                  <FileUp className="h-4 w-4" />
-                </DockBtn>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 px-0.5">
-              <button
-                type="button"
-                aria-label="Zoom out"
-                className="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => dock.setZoom(dock.zoom - 0.1)}
-              >
-                <ZoomOut className="h-3.5 w-3.5" />
-              </button>
-              <Slider
-                className="w-full"
-                min={0.25}
-                max={3}
-                step={0.05}
-                value={[dock.zoom]}
-                onValueChange={([v]) => dock.setZoom(v)}
-              />
-              <button
-                type="button"
-                aria-label="Zoom in"
-                className="shrink-0 rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => dock.setZoom(dock.zoom + 0.1)}
-              >
-                <ZoomIn className="h-3.5 w-3.5" />
-              </button>
-              <span className="min-w-9 shrink-0 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
-                {Math.round(dock.zoom * 100)}%
-              </span>
-            </div>
-          </div>
-        )}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          {docDock.exporting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <FileDown className="h-3.5 w-3.5" />
+          )}
+        </DockBtn>
+      )}
+
+      {(showPdf || showDoc) && showSim && <Divider />}
+      {showSim && <Transport pageId={pageId!} flat />}
+    </div>
   )
 }
