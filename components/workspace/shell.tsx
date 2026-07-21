@@ -268,7 +268,10 @@ export function WorkspaceShell() {
         )}
         <span className="hidden text-muted-foreground/50 sm:inline">/</span>
         {/* open pages ride in the header as tabs — boards, docs and PDFs side by side */}
-        <TabsBar />
+        <TabsBar
+          pageId={contentPageId}
+          showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
+        />
         <button
           type="button"
           aria-label="Search (Ctrl+K)"
@@ -455,7 +458,7 @@ export function WorkspaceShell() {
                 )
               })()}
               {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
-                <CanvasControls pageId={contentPageId} />
+                <CanvasControls pageId={contentPageId} showTransport={false} />
               )}
               {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
             </>

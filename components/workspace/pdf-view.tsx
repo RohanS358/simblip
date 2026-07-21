@@ -17,17 +17,18 @@
 //
 // The file also uploads to the app database (best-effort) where it lives for
 // 7 days, renewed on every read — see app/api/files/[...path]/route.ts.
+//
+// Page nav/notes/zoom/file controls don't float their own pill anymore —
+// they're published to usePdfDockStore and rendered from PageControlsMenu in
+// the tab bar instead, so reading a PDF doesn't cost any canvas real estate.
 
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
-import {
-  Download, FileUp, Link as LinkIcon, Link2Off, Loader2,
-  NotebookPen, ZoomIn, ZoomOut,
-} from 'lucide-react'
-import { Slider } from '@/components/ui/slider'
+import { FileUp, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, loadSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { resolveSharedFile } from '@/lib/data/session-upload'
 import { getAccessToken } from '@/lib/auth/store'
 import * as db from '@/lib/data/db'
@@ -35,8 +36,6 @@ import { uid } from '@/lib/scene/types'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
-import { useDockClearance } from '@/hooks/use-dock-clearance'
-import { cn } from '@/lib/utils'
 
 
 type PdfDoc = {
@@ -178,12 +177,6 @@ export function PdfView({ pageId }: { pageId: string }) {
   // page you click on the reader side, or the notes canvas on the other.
   const [focus, setFocus] = useState<'reader' | 'notes'>('reader')
   const inputRef = useRef<HTMLInputElement>(null)
-  // When PDF drawing is on, the board dock shares this bottom edge — both
-  // strips measure it and slide up instead of being buried under it.
-  const readerDockRef = useRef<HTMLDivElement>(null)
-  const pageZoomRef = useRef<HTMLDivElement>(null)
-  const readerDockShift = useDockClearance(readerDockRef, [notesOpen, notesRatio, linked])
-  const pageZoomShift = useDockClearance(pageZoomRef, [notesOpen, notesRatio])
   const splitRef = useRef<HTMLDivElement>(null)
   const readerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
@@ -412,6 +405,35 @@ useLayoutEffect(() => {
     if (notesOpen && linked) useWorkspaceStore.getState().ensureNotesPage(pageId, current)
   }, [notesOpen, linked, current, pageId])
 
+  // Hand this page's controls to PageControlsMenu (in the tab bar) instead of
+  // rendering any floating dock chrome of our own — see the file banner.
+  useEffect(() => {
+    if (!doc) {
+      usePdfDockStore.getState().set(null)
+      return
+    }
+    usePdfDockStore.getState().set({
+      current,
+      numPages: doc.numPages,
+      notesOpen,
+      linked,
+      zoom,
+      toggleNotes: openNotes,
+      toggleLink: () => setLinked((v) => !v),
+      setZoom: (z) => setZoom(Math.min(3, Math.max(0.25, z))),
+      download: () => {
+        if (!fileUrl) return
+        const a = document.createElement('a')
+        a.href = fileUrl
+        a.download = meta?.fileName ?? 'document.pdf'
+        a.click()
+      },
+      replace: () => inputRef.current?.click(),
+    })
+    return () => usePdfDockStore.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName])
+
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
   // page while this is true, targeting whichever pane was last clicked: the
   // current reader page's own ink layer, or an open linked notes sheet.
@@ -440,24 +462,6 @@ useLayoutEffect(() => {
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
   }
-
-  const ToolBtn = ({
-    active, label, onClick, children,
-  }: { active?: boolean; label: string; onClick: () => void; children: React.ReactNode }) => (
-    <button
-      type="button"
-      aria-label={label}
-      title={label}
-      aria-pressed={active}
-      className={cn(
-        'rounded-lg p-1.5 transition-colors hover:bg-accent',
-        active ? 'text-[var(--accent-blue)]' : 'text-muted-foreground hover:text-foreground'
-      )}
-      onClick={onClick}
-    >
-      {children}
-    </button>
-  )
 
   const reader = (
     <div
@@ -566,101 +570,6 @@ useLayoutEffect(() => {
           reader
         )}
       </div>
-
-      {/* The reader dock — page nav, notes, file actions. Drawing lives on
-          the real board dock now (see the focus effect above), so this stays
-          small and never competes for space with it. */}
-      {doc && (
-        <div
-          ref={readerDockRef}
-          className={cn(
-            'glass-strong no-scrollbar absolute bottom-4 z-30 flex max-w-[calc(100%-2rem)] items-center gap-0.5 overflow-x-auto rounded-2xl px-2 py-1 transition-[translate] duration-200',
-            !notesOpen && 'left-1/2 -translate-x-1/2'
-          )}
-          style={{
-            translate: `${readerDockShift.x}px ${readerDockShift.y}px`,
-            ...(notesOpen ? { left: `${(notesRatio * 100) / 2}%`, transform: 'translateX(-50%)' } : {}),
-          }}
-        >
-          <span className="min-w-14 px-1 text-center font-mono text-[11px] tabular-nums text-muted-foreground">
-            {current}/{doc.numPages}
-          </span>
-          <span className="mx-0.5 h-5 w-px bg-border" />
-          <ToolBtn label={notesOpen ? 'Close notes' : 'Open notes'} active={notesOpen} onClick={openNotes}>
-            <NotebookPen className="h-4 w-4" />
-          </ToolBtn>
-          {notesOpen && (
-            <ToolBtn
-              label={linked ? 'Unlink notes from PDF pages' : 'Link: one note page per PDF page'}
-              active={linked}
-              onClick={() => setLinked((v) => !v)}
-            >
-              {linked ? <LinkIcon className="h-4 w-4" /> : <Link2Off className="h-4 w-4" />}
-            </ToolBtn>
-          )}
-          <span className="mx-0.5 h-5 w-px bg-border" />
-          <ToolBtn
-            label="Download original"
-            onClick={() => {
-              if (!fileUrl) return
-              const a = document.createElement('a')
-              a.href = fileUrl
-              a.download = meta?.fileName ?? 'document.pdf'
-              a.click()
-            }}
-          >
-            <Download className="h-4 w-4" />
-          </ToolBtn>
-          <ToolBtn label="Replace file" onClick={() => inputRef.current?.click()}>
-            <FileUp className="h-4 w-4" />
-          </ToolBtn>
-        </div>
-      )}
-
-      {/* Page zoom — its own corner, clear of the reader dock above. With
-          notes open it stays over the READER pane only, so it doesn't land
-          on top of the notes doc's own controls on the other side. */}
-      {doc && (
-        <div
-          ref={pageZoomRef}
-          className={cn(
-            'glass-strong absolute bottom-4 z-20 flex items-center gap-1.5 rounded-2xl px-2.5 py-1.5 transition-[translate] duration-200',
-            !notesOpen && 'right-4'
-          )}
-          style={{
-            translate: `${pageZoomShift.x}px ${pageZoomShift.y}px`,
-            ...(notesOpen ? { right: `calc(${(1 - notesRatio) * 100}% + 0.5rem)` } : {}),
-          }}
-        >
-          <button
-            type="button"
-            aria-label="Zoom out"
-            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => setZoom((z) => Math.max(0.25, z - 0.1))}
-          >
-            <ZoomOut className="h-3.5 w-3.5" />
-          </button>
-          <Slider
-            className="w-20"
-            min={0.25}
-            max={3}
-            step={0.05}
-            value={[zoom]}
-            onValueChange={([v]) => setZoom(v)}
-          />
-          <button
-            type="button"
-            aria-label="Zoom in"
-            className="rounded-lg p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => setZoom((z) => Math.min(3, z + 0.1))}
-          >
-            <ZoomIn className="h-3.5 w-3.5" />
-          </button>
-          <span className="min-w-9 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
-            {Math.round(zoom * 100)}%
-          </span>
-        </div>
-      )}
 
       <input
         ref={inputRef}

@@ -126,7 +126,6 @@ export function MobileShell() {
   const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
   const closeInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
   const store = useWorkspaceStore
-  const openTabs = useWorkspaceStore((s) => s.openTabs)
   const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
   const splitPageId = useWorkspaceStore((s) => s.splitPageId)
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
@@ -373,14 +372,18 @@ export function MobileShell() {
           {appMenu}
         </header>
 
-        {/* Same tab strip as desktop — open pages, ×, split toggle. With a
-            single page open it's dead weight on a phone; it appears once
-            there's actually something to switch between. */}
-        {(!isPhone || openTabs.length > 1 || splitPageId) && (
-          <div className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background px-1">
-            <TabsBar />
-          </div>
-        )}
+        {/* Same tab strip as desktop — open pages, ×, split toggle — plus the
+            controls menu at its left edge (PDF page nav/zoom, simulation
+            transport). It used to collapse away on a phone with a single
+            page open, but it's no longer just tab-switching chrome — it's
+            also where those controls live now instead of floating over the
+            canvas, so it stays. */}
+        <div className="flex h-9 shrink-0 items-center border-b border-border/40 bg-background px-1">
+          <TabsBar
+            pageId={contentPageId}
+            showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
+          />
+        </div>
 
         <main className="relative flex min-h-0 flex-1 flex-row">
           {/* Same left-docked rail + collapsible pane as desktop — on a
@@ -455,7 +458,7 @@ export function MobileShell() {
               )
             })()}
             {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
-              <CanvasControls pageId={contentPageId} />
+              <CanvasControls pageId={contentPageId} showTransport={false} />
             )}
             {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
           </div>

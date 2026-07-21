@@ -29,7 +29,6 @@ interface WorkspaceState {
   pdfToolsActive: boolean
   sidebarOpen: boolean
   inspectorOpen: boolean
-  aiOpen: boolean
   /** The sticky calculator — its trigger lives in the sidebar's Tools
    *  section now, not the dock, but it still floats over the canvas. */
   calcOpen: boolean
@@ -64,7 +63,7 @@ interface WorkspaceState {
   closeSplit: (keep?: 'primary' | 'split') => void
   setSplitRatio: (f: number) => void
   setActiveSheet: (id: string | null) => void
-  togglePanel: (panel: 'sidebar' | 'inspector' | 'ai' | 'calc') => void
+  togglePanel: (panel: 'sidebar' | 'inspector' | 'calc') => void
   toggleTouchOrthoPen: () => void
   toggleTouchFreeMove: () => void
   toggleTouchMeasureMode: () => void
@@ -105,7 +104,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       pdfToolsActive: false,
       sidebarOpen: true,
       inspectorOpen: true,
-      aiOpen: false,
       calcOpen: false,
       touchOrthoPen: false,
       touchFreeMove: false,
@@ -365,9 +363,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             ? { sidebarOpen: !s.sidebarOpen }
             : panel === 'inspector'
               ? { inspectorOpen: !s.inspectorOpen }
-              : panel === 'ai'
-                ? { aiOpen: !s.aiOpen }
-                : { calcOpen: !s.calcOpen }
+              : { calcOpen: !s.calcOpen }
         ),
 
       toggleTouchOrthoPen: () => set((s) => ({ touchOrthoPen: !s.touchOrthoPen })),

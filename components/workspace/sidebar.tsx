@@ -145,9 +145,10 @@ export function Sidebar() {
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize"
+            className="absolute -right-2 top-0 z-10 h-full w-4 touch-none cursor-col-resize"
             onPointerDown={(e) => {
               e.preventDefault()
+              e.currentTarget.setPointerCapture(e.pointerId)
               const startX = e.clientX
               const startW = panelW
               const move = (ev: PointerEvent) =>

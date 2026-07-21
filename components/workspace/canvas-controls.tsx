@@ -4,19 +4,29 @@
 // and the simulation transport — laid out on one 3×3 grid instead of each
 // guessing its own absolute position and reactively nudging itself away if
 // it happens to measure a collision with the other (the old approach: see
-// hooks/use-dock-clearance.ts, still used by unrelated pills like the PDF
-// reader's zoom indicator). Every edge and corner is its own grid track —
-// an item can grow right up to its track's limit (the toolbar's own pill
-// already scrolls internally past that point, see toolbar.tsx) but it can
-// never spill into a neighbouring track, so the dock and the transport
-// can't end up on top of each other on any of the four dock sides.
+// hooks/use-dock-clearance.ts). Every edge and corner is its own grid
+// track — an item can grow right up to its track's limit (the toolbar's
+// own pill already scrolls internally past that point, see toolbar.tsx) but
+// it can never spill into a neighbouring track, so the dock and the
+// transport can't end up on top of each other on any of the four dock sides.
 
 import { usePrefs } from '@/lib/store/preferences'
 import { Toolbar } from './toolbar'
 import { Transport } from './transport'
 import { cn } from '@/lib/utils'
 
-export function CanvasControls({ pageId }: { pageId: string }) {
+export function CanvasControls({
+  pageId,
+  showTransport = true,
+}: {
+  pageId: string
+  /** The main workspace shells host Transport in the tab bar's controls
+   *  menu instead (see page-controls-menu.tsx), so it doesn't float over
+   *  the canvas there — pass false. Standalone surfaces with no tab bar
+   *  (the room-board presenter, app/board/page.tsx) keep the floating
+   *  default. */
+  showTransport?: boolean
+}) {
   const dock = usePrefs((s) => s.notebook.dock)
 
   const toolbarCell =
@@ -47,9 +57,11 @@ export function CanvasControls({ pageId }: { pageId: string }) {
       <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
         <Toolbar pageId={pageId} />
       </div>
-      <div className={cn('pointer-events-auto min-h-0 min-w-0', transportCell)}>
-        <Transport pageId={pageId} />
-      </div>
+      {showTransport && (
+        <div className={cn('pointer-events-auto min-h-0 min-w-0', transportCell)}>
+          <Transport pageId={pageId} />
+        </div>
+      )}
     </div>
   )
 }
