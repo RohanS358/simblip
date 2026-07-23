@@ -45,8 +45,8 @@ export function TabsBar({
     )
 
   return (
-    <div className="flex min-w-0 flex-1 items-center">
-      <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1">
+    <div className="relative flex min-w-0 flex-1 items-center overflow-hidden">
+      <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 pr-3">
         {openTabs.map((id) => {
           const meta = findPageMeta(notebooks, id)
           if (!meta) return null
@@ -104,7 +104,11 @@ export function TabsBar({
           )
         })}
       </div>
-      {controls}
+      {controls && (
+        <div className="relative z-10 flex shrink-0 items-center bg-background pl-1.5 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.5)] [clip-path:inset(0_0_0_-20px)]">
+          {controls}
+        </div>
+      )}
     </div>
   )
 }

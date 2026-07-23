@@ -46,14 +46,14 @@ import { cn } from '@/lib/utils'
 // desktop, a bar on phone) — no computed widths anymore; the pane's fold
 // is a Framer width animation instead.
 
-function RailButton({
-  active,
+export function RailButton({
+  active = false,
   label,
   tooltipSide = 'right',
   onClick,
   children,
 }: {
-  active: boolean
+  active?: boolean
   label: string
   tooltipSide?: 'top' | 'right'
   onClick: () => void
@@ -84,7 +84,13 @@ function RailButton({
   )
 }
 
-export function Sidebar() {
+export function Sidebar({
+  hideNotebook = false,
+  bottomRailContent,
+}: {
+  hideNotebook?: boolean
+  bottomRailContent?: React.ReactNode
+}) {
   const motion = useSpring()
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
@@ -129,6 +135,16 @@ export function Sidebar() {
   const activeSection = useSidebarSection((s) => s.section)
   const setActiveSection = useSidebarSection((s) => s.setSection)
 
+  useEffect(() => {
+    if (hideNotebook && activeSection === 'notebook') {
+      setActiveSection('components')
+    }
+  }, [hideNotebook, activeSection, setActiveSection])
+
+  const sections = hideNotebook
+    ? SIDEBAR_SECTIONS.filter((s) => s.id !== 'notebook')
+    : SIDEBAR_SECTIONS
+
   // What Properties operates on: boards act on themselves, docs act on the
   // focused sheet, PDF readers on the focused ink/notes canvas — the same
   // derivation the toolbar/transport use (see shell.tsx).
@@ -160,11 +176,10 @@ export function Sidebar() {
     <nav
       className={cn(
         'flex shrink-0 items-center gap-2',
-        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'w-[52px] flex-col py-3'
+        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'h-full w-[52px] flex-col py-3'
       )}
     >
-   
-      {SIDEBAR_SECTIONS.map((s) => (
+      {sections.map((s) => (
         <RailButton
           key={s.id}
           label={s.label}
@@ -175,6 +190,11 @@ export function Sidebar() {
           <s.icon className="h-[18px] w-[18px]" />
         </RailButton>
       ))}
+      {bottomRailContent && (
+        <div className={cn('flex items-center justify-center', !isPhone && 'mt-auto')}>
+          {bottomRailContent}
+        </div>
+      )}
     </nav>
   )
 
@@ -251,8 +271,7 @@ export function Sidebar() {
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute -right-3 top-0 z-10 h-full w-4 touch-none cursor-col-resize border-l border-border/50"
-            
+            className="absolute -right-3 top-0 z-10 h-full w-4 touch-none cursor-col-resize border-l border-border/50 transition-all duration-150 hover:border-l-2 hover:border-sky-400 hover:shadow-[2px_0_2px_2px_rgba(56,189,248,0.5)]"
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)

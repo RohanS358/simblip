@@ -7,30 +7,44 @@
 // The teacher's original notebook is only touched if they merge afterwards.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
+import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
-  ChevronLeft,
-  ChevronRight,
   ClipboardList,
-  LibraryBig,
+  GraduationCap,
   Megaphone,
   MonitorPlay,
+  Moon,
   PenLine,
-  Shapes,
+  QrCode as QrCodeIcon,
+  Search,
   Square,
+  Sun,
   X,
 } from 'lucide-react'
+import { useTheme } from 'next-themes'
+import { isDarkTheme } from '@/components/theme-provider'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { QrCode } from '@/components/platform/qr-code'
 import { PageView } from '@/components/workspace/page-view'
 import { CanvasControls } from '@/components/workspace/canvas-controls'
+import { Dock } from '@/components/workspace/dock'
+import { Sidebar, RailButton } from '@/components/workspace/sidebar'
+import { CommandPalette } from '@/components/workspace/command-palette'
+import { SettingsDialog } from '@/components/workspace/settings-dialog'
+import { TutorialPanel } from '@/components/workspace/tutorial'
+import { Calculator } from '@/components/workspace/calculator'
+import { UndoRedo } from '@/components/workspace/undo-redo'
+import { SyncStatus } from '@/components/workspace/sync-status'
+import { NotificationCenter } from '@/components/workspace/notifications'
+import { ProfileMenu } from '@/components/workspace/profile-menu'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
-import { FloatingPalette } from '@/components/workspace/palette'
-import { LibraryPanel } from '@/components/workspace/library-panel'
-import { Inspector } from '@/components/workspace/inspector'
 import { useAuthStore } from '@/lib/auth/store'
+import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { usePrefs } from '@/lib/store/preferences'
 import {
   bundleMetaPatch,
   bundlePage,
@@ -55,7 +69,9 @@ import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignment
 import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { Button } from '@/components/ui/button'
+import { Kbd } from '@/components/ui/kbd'
 import { FileObject } from '@/components/objects/file-view'
+import { cn } from '@/lib/utils'
 
 // A remote command names an object; on a doc/pdf session that object may
 // live on a sheet rather than the main content page — target whichever
@@ -146,6 +162,7 @@ function registerSessionPage(tempId: string, name: string, bundle: PageBundle) {
         ],
       },
     ],
+    activePageId: tempId,
   }))
   writeBundleContent(tempId, bundle)
 }
@@ -173,6 +190,7 @@ function clearSessionPage(tempId: string) {
   ids.forEach((id) => pageArchive.dropPage(id))
   useWorkspaceStore.setState((s) => ({
     notebooks: s.notebooks.filter((n) => n.name !== BOARD_NB),
+    activePageId: s.activePageId === tempId ? null : s.activePageId,
     activeSheetId: null,
     pdfToolsActive: false,
   }))
@@ -262,16 +280,20 @@ function NoticeStack({ items }: { items: BoardNotice[] }) {
 }
 
 function BoardSurface() {
+  const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
   const [board, setBoard] = useState<BoardRow | null>(null)
   const [room, setRoom] = useState<RoomRow | null>(null)
   const [session, setSession] = useState<BoardSessionRow | null>(null)
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [qrBig, setQrBig] = useState(false)
-  const [libOpen, setLibOpen] = useState(false)
-  const [inspectorOpen, setInspectorOpen] = useState(true)
+  const [qrCardOpen, setQrCardOpen] = useState(true)
   const [scratch, setScratch] = useState(false) // temporary whiteboard, never saved
   const [clock, setClock] = useState('')
+  const [commandOpen, setCommandOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [docSplitW, setDocSplitW] = useState(0.5)
+  const { resolvedTheme, setTheme } = useTheme()
   const pageIdRef = useRef<string | null>(null)
   // The pairing QR must never hide behind a bottom-docked toolbar.
   const qrPillRef = useRef<HTMLDivElement>(null)
@@ -279,6 +301,27 @@ function BoardSurface() {
   // Remote replay guard: only commands newer than this seq run.
   const remoteSeqRef = useRef(0)
   const remoteSessionRef = useRef<string | null>(null)
+
+  // Interface UI scale matches workspace shell settings
+  const uiScale = usePrefs((s) => s.notebook.uiScale)
+  useEffect(() => {
+    document.documentElement.style.fontSize = `${uiScale * 100}%`
+    return () => {
+      document.documentElement.style.fontSize = ''
+    }
+  }, [uiScale])
+
+  // Global command palette keybindings (⌘K / Ctrl+K)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setCommandOpen((o) => !o)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Board identity. Also sweep any session page a crash left behind.
   useEffect(() => {
@@ -488,10 +531,19 @@ function BoardSurface() {
   // can present a handout side-by-side with the canvas on the board.
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const syncScroll = useWorkspaceStore((s) => s.syncScroll)
-  const splitScreenObject = useDocStore((s) =>
-    activeBoardPage && splitScreenDocumentId
-      ? s.pages[activeBoardPage]?.objects?.[splitScreenDocumentId] ?? null
+  const calcOpen = useWorkspaceStore((s) => s.calcOpen)
+  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+
+  const activePageObjects = useDocStore((s) =>
+    boardContentId ? s.pages[boardContentId]?.objects : null
+  )
+  const splitScreenObject =
+    activeBoardPage && splitScreenDocumentId && activePageObjects
+      ? activePageObjects[splitScreenDocumentId] ?? null
       : null
+
+  const objectCount = useDocStore((s) =>
+    boardContentId ? Object.keys(s.pages[boardContentId]?.objects ?? {}).length : 0
   )
 
   // Drive the board's canvas viewport from the PDF's scroll position when
@@ -510,7 +562,6 @@ function BoardSurface() {
   }, [syncScroll, activeBoardPage])
 
   if (!board) {
-
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-2 bg-background text-center">
         <MonitorPlay className="h-6 w-6 text-muted-foreground/60" />
@@ -527,6 +578,7 @@ function BoardSurface() {
       pages: { ...s.pages, 'board-scratch': { objects: {}, variables: [] } },
     }))
     useDocStore.getState().ensurePage('board-scratch')
+    useWorkspaceStore.setState({ activePageId: 'board-scratch' })
     setScratch(true)
   }
   const closeScratch = () => {
@@ -536,94 +588,247 @@ function BoardSurface() {
       delete pages['board-scratch']
       return { pages }
     })
+    useWorkspaceStore.setState({ activePageId: null })
     setScratch(false)
   }
+
+  // When QR card is closed, show QR button in the bottom of the sidebar rail
+  const sidebarQrButton =
+    pairUrl && !qrCardOpen ? (
+      <fm.div
+        initial={{ opacity: 0, scale: 0.5 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.5 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+      >
+        <RailButton
+          label="Show pairing QR"
+          tooltipSide="right"
+          active={false}
+          onClick={() => setQrCardOpen(true)}
+        >
+          <QrCodeIcon className="h-[18px] w-[18px]" />
+        </RailButton>
+      </fm.div>
+    ) : null
 
   return (
     <div className="relative h-dvh overflow-hidden bg-background">
       {activeBoardPage ? (
-        <div className="flex h-full">
-          {splitScreenObject && (
-            <div className="flex w-1/2 flex-col border-r border-border bg-muted/30 p-2">
-              <FileObject object={splitScreenObject} pageId={activeBoardPage} />
-            </div>
-          )}
-          <div className="relative min-w-0 flex-1">
-          <PageView key={activeBoardPage} pageId={activeBoardPage} />
-          {(boardKind !== 'pdf' || pdfToolsOn) && boardContentId && (
-            <>
-              <CanvasControls pageId={boardContentId} />
-              <FloatingPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-            </>
-          )}
-
-          {/* Mid-edge handle, same affordance as the notebook shell. */}
-          <button
-            type="button"
-            aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-            className="glass-strong absolute right-0 top-1/2 z-40 -translate-y-1/2 rounded-l-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => setInspectorOpen((o) => !o)}
-          >
-            {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-          </button>
-
-          <div className="absolute right-4 top-4 z-40 flex items-center gap-2">
-            <span className="glass rounded-xl px-3 py-1.5 text-[12.5px] font-semibold">
-              {session
-                ? `${session.page_name} · presented by ${room?.name ?? 'room'}`
-                : 'Temporary whiteboard — nothing is saved'}
+        <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+          <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4 border-b border-border/40">
+            {institution?.logo_url ? (
+              <Image
+                src={String(institution.logo_url)}
+                alt={institution.name}
+                width={20}
+                height={20}
+                unoptimized
+                className="h-5 w-5 rounded object-contain"
+              />
+            ) : null}
+            <span className="text-[14px] font-extrabold tracking-tight">
+              SIM<span className="text-[var(--accent-blue)]">BLIP</span>
             </span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8"
-              aria-label="Toggle components"
-              onClick={() => setPaletteOpen((o) => !o)}
-            >
-              <Shapes className="h-3.5 w-3.5" /> Components
-            </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="h-8"
-              aria-label="Toggle library"
-              onClick={() => setLibOpen((o) => !o)}
-            >
-              <LibraryBig className="h-3.5 w-3.5" /> Library
-            </Button>
-            {session ? (
-              <Button size="sm" variant="outline" className="h-8" onClick={() => void endSession(session.id)}>
-                <Square className="h-3.5 w-3.5" /> End presentation
-              </Button>
-            ) : (
-              <Button size="sm" variant="outline" className="h-8" onClick={closeScratch}>
-                <X className="h-3.5 w-3.5" /> Close whiteboard
-              </Button>
+            {institution && (
+              <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+                · {institution.name}
+              </span>
             )}
+            <span className="hidden text-muted-foreground/50 sm:inline">/</span>
+
+            <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
+              <span className="glass truncate rounded-lg px-2.5 py-1 text-[12px] font-medium text-foreground">
+                {session
+                  ? `${session.page_name} · presented by ${room?.name ?? 'room'}`
+                  : 'Temporary whiteboard — nothing is saved'}
+              </span>
+              {session ? (
+                <button
+                  type="button"
+                  aria-label="End presentation"
+                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 text-[12px] font-medium text-red-500 transition-colors hover:bg-red-500/20"
+                  onClick={() => void endSession(session.id)}
+                >
+                  <Square className="h-3.5 w-3.5" />
+                  <span>End presentation</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  aria-label="Close whiteboard"
+                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border/60 px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={closeScratch}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  <span>Close whiteboard</span>
+                </button>
+              )}
+            </div>
+
+            <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background pl-2 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.5)] [clip-path:inset(0_0_0_-20px)]">
+              <button
+                type="button"
+                aria-label="Search (Ctrl+K)"
+                className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+                onClick={() => setCommandOpen(true)}
+              >
+                <Search className="h-3.5 w-3.5" />
+                Search
+                <Kbd className="text-[10px]">⌘K</Kbd>
+              </button>
+              <button
+                type="button"
+                aria-label="Search"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+                onClick={() => setCommandOpen(true)}
+              >
+                <Search className="h-4 w-4" />
+              </button>
+
+              {boardContentId && <UndoRedo pageId={boardContentId} />}
+              <SyncStatus />
+              <NotificationCenter />
+              <button
+                type="button"
+                aria-label="Tutorials"
+                className={cn(
+                  'rounded-lg p-1.5 transition-colors hover:bg-accent',
+                  tutorialOpen ? 'text-foreground' : 'text-muted-foreground'
+                )}
+                onClick={() => setTutorialOpen((o) => !o)}
+              >
+                <GraduationCap className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Toggle theme"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
+              >
+                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+
+              <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
+            </div>
+          </header>
+
+          <div className="relative flex min-h-0 flex-1">
+            <Dock
+              side="left"
+              panels={['pages']}
+              render={() => <Sidebar hideNotebook bottomRailContent={sidebarQrButton} />}
+            />
+
+            {splitScreenObject && (
+              <>
+                <div
+                  className="flex min-w-0 flex-col bg-muted/30 p-2"
+                  style={{ width: `${docSplitW * 100}%` }}
+                >
+                  <FileObject object={splitScreenObject} pageId={boardContentId!} />
+                </div>
+                <div
+                  role="separator"
+                  aria-label="Resize document pane"
+                  className="w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50"
+                  onPointerDown={(e) => {
+                    e.preventDefault()
+                    const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
+                    const move = (ev: PointerEvent) =>
+                      setDocSplitW(Math.min(0.75, Math.max(0.25, (ev.clientX - host.left) / host.width)))
+                    const up = () => {
+                      window.removeEventListener('pointermove', move)
+                      window.removeEventListener('pointerup', up)
+                    }
+                    window.addEventListener('pointermove', move)
+                    window.addEventListener('pointerup', up)
+                  }}
+                />
+              </>
+            )}
+
+            <main className="relative min-w-0 flex-1">
+              <PageView key={activeBoardPage} pageId={activeBoardPage} />
+              {(boardKind !== 'pdf' || pdfToolsOn) && boardContentId && (
+                <CanvasControls pageId={boardContentId} showTransport={true} />
+              )}
+              {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
+            </main>
           </div>
 
-          {libOpen && (
-            <div className="absolute bottom-4 right-4 top-16 z-40 flex">
-              <LibraryPanel open onClose={() => setLibOpen(false)} pageId={boardContentId ?? activeBoardPage} />
-            </div>
-          )}
-          </div>
-          {inspectorOpen && <Inspector pageId={boardContentId ?? activeBoardPage} />}
+          <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+            {profile && (
+              <span className="font-medium">
+                {profile.full_name} · {ROLE_LABEL[profile.role]}
+              </span>
+            )}
+            {institution && <span className="hidden sm:inline">{institution.name}</span>}
+            <div className="flex-1" />
+            {boardContentId && <span>{objectCount} objects</span>}
+            <span>SIMBLIP · Built by Rohan Singh</span>
+          </footer>
+
+          <CommandPalette
+            open={commandOpen}
+            onOpenChange={setCommandOpen}
+            onOpenSettings={() => setSettingsOpen(true)}
+          />
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+          {tutorialOpen && <TutorialPanel pageId={activeBoardPage} onClose={() => setTutorialOpen(false)} />}
         </div>
       ) : (
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-          <p className="text-[13px] uppercase tracking-[0.2em] text-muted-foreground">
-            {institution?.name ?? 'SIMBLIP'}
-          </p>
-          <h1 className="text-5xl font-extrabold tracking-tight">{room?.name ?? 'Room board'}</h1>
-          <p className="text-[15px] text-muted-foreground">{clock}</p>
-          <p className="mt-6 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
-            Scan the QR code with your phone to present a notebook page on this board.
-          </p>
-          <Button variant="outline" className="mt-4" onClick={openScratch}>
-            <PenLine className="h-4 w-4" /> Open temporary whiteboard
-          </Button>
-          <NoticeStack items={notices} />
+        <div className="flex h-full flex-col">
+          {/* Same top header as the active whiteboard view */}
+          <header className="z-40 flex h-12 shrink-0 items-center gap-2 bg-background px-4">
+            {institution?.logo_url ? (
+              <Image
+                src={String(institution.logo_url)}
+                alt={institution.name}
+                width={20}
+                height={20}
+                unoptimized
+                className="h-5 w-5 rounded object-contain"
+              />
+            ) : null}
+            <span className="text-[14px] font-extrabold tracking-tight">
+              SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+            </span>
+            {institution && (
+              <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+                · {institution.name}
+              </span>
+            )}
+            <div className="flex-1" />
+            <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background">
+              <button
+                type="button"
+                aria-label="Toggle theme"
+                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
+              >
+                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </button>
+              <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
+            </div>
+          </header>
+
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+            <p className="text-[13px] uppercase tracking-[0.2em] text-muted-foreground">
+              {institution?.name ?? 'SIMBLIP'}
+            </p>
+            <h1 className="text-5xl font-extrabold tracking-tight">{room?.name ?? 'Room board'}</h1>
+            <p className="text-[15px] text-muted-foreground">{clock}</p>
+            <p className="mt-6 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+              Scan the QR code with your phone to present a notebook page on this board.
+            </p>
+            <Button variant="outline" className="mt-4" onClick={openScratch}>
+              <PenLine className="h-4 w-4" /> Open temporary whiteboard
+            </Button>
+            <NoticeStack items={notices} />
+          </div>
+
+          <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>
       )}
 
@@ -642,34 +847,73 @@ function BoardSurface() {
         </button>
       )}
 
-      {/* The pairing QR is ALWAYS visible, fixed bottom-left. */}
-      {pairUrl && (
-        <div
-          ref={qrPillRef}
-          style={{ translate: `${qrPillShift.x}px ${qrPillShift.y}px` }}
-          className="glass-strong absolute bottom-4 left-4 z-50 flex items-center gap-3 rounded-2xl p-3 transition-[translate] duration-200"
-        >
-          <button
-            type="button"
-            aria-label="Enlarge QR to full screen"
-            className="cursor-zoom-in"
-            onClick={() => setQrBig(true)}
+      {/* Floating QR button on idle screen when popup is closed */}
+      {pairUrl && !qrCardOpen && !activeBoardPage && (
+        <AnimatePresence>
+          <fm.div
+            initial={{ opacity: 0, scale: 0.5 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.5 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="absolute bottom-4 left-4 z-50"
           >
-            <QrCode value={pairUrl} size={session ? 72 : 128} className="rounded-lg" />
-          </button>
-          <div className="pr-1 text-left">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-              Pair to present
-            </p>
-            <p className="font-mono text-[15px] font-bold tracking-[0.2em]">{board.pairing_code}</p>
-            {!session && (
-              <p className="mt-0.5 max-w-40 text-[10.5px] leading-snug text-muted-foreground">
-                Scan with your phone, pick a page, press Present.
-              </p>
-            )}
-          </div>
-        </div>
+            <button
+              type="button"
+              aria-label="Show pairing QR"
+              onClick={() => setQrCardOpen(true)}
+              className="glass-strong flex h-10 w-10 items-center justify-center rounded-2xl text-muted-foreground shadow-lg transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <QrCodeIcon className="h-5 w-5" />
+            </button>
+          </fm.div>
+        </AnimatePresence>
       )}
+
+      {/* The pairing QR pill popup with close button and shrinking animation */}
+      <AnimatePresence>
+        {pairUrl && qrCardOpen && (
+          <fm.div
+            key="qr-card-popup"
+            ref={qrPillRef}
+            style={{ translate: `${qrPillShift.x}px ${qrPillShift.y}px` }}
+            initial={{ opacity: 0, scale: 0.2, x: -40, y: 30 }}
+            animate={{ opacity: 1, scale: 1, x: 0, y: 0 }}
+            exit={{ opacity: 0, scale: 0.1, x: -50, y: 40 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            className="glass-strong absolute bottom-4 left-4 z-50 flex items-start gap-3 rounded-2xl p-3 shadow-xl transition-[translate] duration-200"
+          >
+            <button
+              type="button"
+              aria-label="Enlarge QR to full screen"
+              className="cursor-zoom-in shrink-0"
+              onClick={() => setQrBig(true)}
+            >
+              <QrCode value={pairUrl} size={session ? 72 : 128} className="rounded-lg" />
+            </button>
+            <div className="pr-1 text-left min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  Pair to present
+                </p>
+                <button
+                  type="button"
+                  aria-label="Close QR popup"
+                  className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  onClick={() => setQrCardOpen(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <p className="font-mono text-[15px] font-bold tracking-[0.2em]">{board.pairing_code}</p>
+              {!session && (
+                <p className="mt-0.5 max-w-40 text-[10.5px] leading-snug text-muted-foreground">
+                  Scan with your phone, pick a page, press Present.
+                </p>
+              )}
+            </div>
+          </fm.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

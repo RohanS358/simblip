@@ -223,7 +223,7 @@ export function WorkspaceShell() {
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4">
+      <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4 border-b border-border/40 bg-background">
         
         {institution?.logo_url ? (
           <Image
@@ -249,48 +249,50 @@ export function WorkspaceShell() {
           pageId={contentPageId}
           showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
         />
-        <button
-          type="button"
-          aria-label="Search (Ctrl+K)"
-          className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
-          onClick={() => setCommandOpen(true)}
-        >
-          <Search className="h-3.5 w-3.5" />
-          Search
-          <Kbd className="text-[10px]">⌘K</Kbd>
-        </button>
-        <button
-          type="button"
-          aria-label="Search"
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
-          onClick={() => setCommandOpen(true)}
-        >
-          <Search className="h-4 w-4" />
-        </button>
-        {contentPageId && <UndoRedo pageId={contentPageId} />}
-        <SyncStatus />
-        <NotificationCenter />
-        <button
-          type="button"
-          aria-label="Tutorials"
-          className={cn(
-            'rounded-lg p-1.5 transition-colors hover:bg-accent',
-            tutorialOpen ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          onClick={() => setTutorialOpen((o) => !o)}
-        >
-          <GraduationCap className="h-4 w-4" />
-        </button>
-        <button
-          type="button"
-          aria-label="Toggle theme"
-          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-        >
-          {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
-        
-        <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
+        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background pl-2 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.5)] [clip-path:inset(0_0_0_-20px)]">
+          <button
+            type="button"
+            aria-label="Search (Ctrl+K)"
+            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+            onClick={() => setCommandOpen(true)}
+          >
+            <Search className="h-3.5 w-3.5" />
+            Search
+            <Kbd className="text-[10px]">⌘K</Kbd>
+          </button>
+          <button
+            type="button"
+            aria-label="Search"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+            onClick={() => setCommandOpen(true)}
+          >
+            <Search className="h-4 w-4" />
+          </button>
+          {contentPageId && <UndoRedo pageId={contentPageId} />}
+          <SyncStatus />
+          <NotificationCenter />
+          <button
+            type="button"
+            aria-label="Tutorials"
+            className={cn(
+              'rounded-lg p-1.5 transition-colors hover:bg-accent',
+              tutorialOpen ? 'text-foreground' : 'text-muted-foreground'
+            )}
+            onClick={() => setTutorialOpen((o) => !o)}
+          >
+            <GraduationCap className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Toggle theme"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
+          >
+            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          
+          <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
+        </div>
       </header>
 
       <div className="relative flex min-h-0 flex-1">
