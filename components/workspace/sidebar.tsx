@@ -232,7 +232,7 @@ export function Sidebar() {
       className="relative z-30 flex min-h-0 flex-row"
       aria-label="Sidebar"
     >
-      <div className="flex min-h-0 flex-col border-r border-border/40 bg-sidebar/85 backdrop-blur-xl">
+      <div className="flex min-h-0 flex-col border-r bg-sidebar/85 backdrop-blur-xl">
         {railNav}
       </div>
 
@@ -246,12 +246,13 @@ export function Sidebar() {
       >
         <div
           style={{ width: panelW }}
-          className="glass relative flex h-full min-h-0 flex-col rounded-r-2xl border-l-0"
+          className="relative flex h-full min-h-0 flex-col rounded-r-2xl "
         >
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute -right-2 top-0 z-10 h-full w-4 touch-none cursor-col-resize"
+            className="absolute -right-3 top-0 z-10 h-full w-4 touch-none cursor-col-resize border-l border-border/50"
+            
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)
