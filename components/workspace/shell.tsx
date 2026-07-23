@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { ChevronLeft, ChevronRight, GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
+import { GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -21,9 +21,8 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
-import type { PanelId, Side } from '@/lib/store/layout'
+import { useSidebarSection, openProperties } from '@/lib/store/sidebar-sections'
 import { CanvasControls } from './canvas-controls'
-import { Inspector } from './inspector'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { SyncStatus } from './sync-status'
@@ -121,7 +120,7 @@ export function WorkspaceShell() {
   // The accent tint is applied globally by ThemeProvider (AccentApplier) —
   // it must also cover the mobile shell, boards and the presenter.
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
-  const inspectorOpen = useWorkspaceStore((s) => s.inspectorOpen)
+  const sidebarSection = useSidebarSection((s) => s.section)
   const calcOpen = useWorkspaceStore((s) => s.calcOpen)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
@@ -216,38 +215,16 @@ export function WorkspaceShell() {
   // Phones get a Notes-style navigation app, not a shrunken desktop.
   if (isMobile) return <MobileShell />
 
-  // Docked panels: Pages on the left, Inspector on the right — fixed homes.
-  // The left rail is permanent (branding + navigation live there); sidebarOpen
-  // now only controls whether its content PANE is expanded, handled inside
-  // Sidebar itself — so the left side always mounts.
-  const dockFor = (side: Side) => {
-    const panels: PanelId[] =
-      side === 'left'
-        ? ['pages']
-        : inspectorOpen && activePageId ? ['inspector'] : []
-    return (
-      <Dock
-        side={side}
-        panels={panels}
-        render={(id) => (id === 'pages' ? <Sidebar /> : <Inspector pageId={contentPageId ?? activePageId!} />)}
-      />
-    )
-  }
+  // One docked panel system: the left rail (branding + navigation + every
+  // section, Properties included — the right Inspector dock retired when
+  // Properties joined the rail). sidebarOpen only controls whether the
+  // content PANE is expanded, handled inside Sidebar itself.
+  const leftDock = <Dock side="left" panels={['pages']} render={() => <Sidebar />} />
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
       <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4">
-        <button
-          type="button"
-          aria-label="Toggle sidebar"
-          className={cn(
-            'rounded-lg p-1.5 transition-colors hover:bg-accent',
-            sidebarOpen ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          onClick={() => togglePanel('sidebar')}
-        >
-          <PanelLeft className="h-4 w-4" />
-        </button>
+        
         {institution?.logo_url ? (
           <Image
             src={String(institution.logo_url)}
@@ -312,22 +289,12 @@ export function WorkspaceShell() {
         >
           {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
         </button>
-        <button
-          type="button"
-          aria-label="Toggle inspector"
-          className={cn(
-            'rounded-lg p-1.5 transition-colors hover:bg-accent',
-            inspectorOpen ? 'text-foreground' : 'text-muted-foreground'
-          )}
-          onClick={() => togglePanel('inspector')}
-        >
-          <PanelRight className="h-4 w-4" />
-        </button>
+        
         <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
       </header>
 
       <div className="relative flex min-h-0 flex-1">
-        {dockFor('left')}
+        {leftDock}
 
         {splitScreenObject && (
           <>
@@ -384,30 +351,10 @@ export function WorkspaceShell() {
           {tabDropSide && (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-2 z-50 w-1/2 rounded-2xl border-2 border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/10 transition-all',
+                'pointer-events-none absolute inset-y-2 z-50 w-1/2 rounded-2xl border-2 border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/10',
                 tabDropSide === 'left' ? 'left-2' : 'right-2'
               )}
             />
-          )}
-          {/* Edge handles — toggle the side panels from mid-screen instead of
-              reaching for the top corners. */}
-          <button
-            type="button"
-            aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-            className="glass-strong absolute left-0 top-1/2 z-40 -translate-y-1/2 rounded-r-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
-            onClick={() => togglePanel('sidebar')}
-          >
-            {sidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-          </button>
-          {activePageId && (
-            <button
-              type="button"
-              aria-label={inspectorOpen ? 'Close inspector' : 'Open inspector'}
-              className="glass-strong absolute right-0 top-1/2 z-40 -translate-y-1/2 rounded-l-xl px-0.5 py-4 text-muted-foreground transition-colors hover:text-foreground"
-              onClick={() => togglePanel('inspector')}
-            >
-              {inspectorOpen ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-            </button>
           )}
           {activePageId ? (
             <>
@@ -471,8 +418,6 @@ export function WorkspaceShell() {
             </div>
           )}
         </main>
-
-        {dockFor('right')}
       </div>
 
       <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">

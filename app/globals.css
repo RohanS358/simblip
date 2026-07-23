@@ -387,6 +387,8 @@
   --radius-md: calc(var(--radius) - 3px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  /* Strong ease-out for UI transitions — fast start, soft landing. */
+  --ease-strong: cubic-bezier(0.23, 1, 0.32, 1);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -664,5 +666,25 @@
     color: var(--accent-blue);
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+}
+
+/* OS-level reduce-motion: movement becomes instant app-wide. Spinners and
+   live-status pulses keep animating — they communicate state, and reduced
+   motion means gentler, not broken. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-spin {
+    animation: spin 1s linear infinite !important;
+  }
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
   }
 }

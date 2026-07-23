@@ -13,17 +13,27 @@
 // here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { Copy, CopyPlus, BringToFront, SendToBack, Trash2, SlidersHorizontal, LibraryBig, Wand2, Lock, LockOpen } from 'lucide-react'
+import { LibraryBig, Wand2, Lock, LockOpen } from 'lucide-react'
 import { toast } from 'sonner'
-import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
+import { useIsNarrow } from '@/hooks/use-mobile'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
-import { num, str, uid } from '@/lib/scene/types'
+import { num } from '@/lib/scene/types'
 import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
-import { setClipboard, getClipboard, hasClipboard, nextPasteOffset } from '@/lib/store/clipboard'
+import { hasClipboard } from '@/lib/store/clipboard'
+import { openProperties } from '@/lib/store/sidebar-sections'
+import {
+  actionsForSelection,
+  registerSelectionActions,
+  copySelection,
+  cutSelection,
+  pasteClipboard,
+  topZ,
+  type SelectionAction,
+} from '@/lib/scene/selection-actions'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { createGeometry, fromRecognition, componentById, nextZ } from '@/lib/scene/factory'
+import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
@@ -170,6 +180,22 @@ const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
   digital: { rect: 'and-gate', circle: 'or-gate' },
 }
 
+/** Corner + edge grips of the selection box. Edges resize one axis only. */
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+
+// Which way each grip drags, as a compass angle — with the object's rotation
+// added, this picks the cursor that matches what the user will SEE, not the
+// unrotated frame (the stock nwse/nesw pair is wrong on any tilted object).
+const HANDLE_ANGLE: Record<ResizeHandle, number> = {
+  e: 0, se: 45, s: 90, sw: 135, w: 180, nw: 225, n: 270, ne: 315,
+}
+const RESIZE_CURSORS = ['ew-resize', 'nwse-resize', 'ns-resize', 'nesw-resize'] as const
+
+function resizeCursor(handle: ResizeHandle, rotation: number): string {
+  const a = (((HANDLE_ANGLE[handle] + rotation) % 180) + 180) % 180
+  return RESIZE_CURSORS[Math.round(a / 45) % 4]
+}
+
 type GestureMode =
   | 'idle'
   | 'pan'
@@ -192,7 +218,7 @@ interface Gesture {
   resizeId?: string
   resizeStart?: { w: number; h: number }
   resizeOrigin?: Vec2
-  resizeCorner?: 'nw' | 'ne' | 'sw' | 'se'
+  resizeCorner?: ResizeHandle
   rotateId?: string
   rotateCenter?: Vec2
   rotateStartAngle?: number
@@ -224,31 +250,23 @@ const HOLD_STILL_PX = 6
 
 type CtxItem = [label: string, action: () => void, danger?: boolean]
 
-function ctxMenuItems(
-  objectId: string | null,
-  editing: boolean,
-  pageId: string,
-  duplicateObject: (id: string) => void,
-  restack: (id: string, where: 'front' | 'back') => void
-): CtxItem[] {
-  const toggleInspector = () => useWorkspaceStore.getState().togglePanel('inspector')
+// The object case renders straight from the selection-actions pipeline, so
+// the context menu can never drift out of sync with the dock's contextual
+// segment. Only the empty-canvas items stay menu-specific.
+function ctxMenuItems(objectId: string | null, editing: boolean, pageId: string): CtxItem[] {
   if (!objectId) {
     const items: CtxItem[] = [
-      ['Toggle inspector', toggleInspector],
+      ['Properties', openProperties],
       ['Reset view', () => useDocStore.getState().setViewport(pageId, { x: 0, y: 0, zoom: 1 })],
     ]
     if (editing && hasClipboard()) items.push(['Paste', () => pasteClipboard(pageId)])
     return items
   }
-  if (!editing) return [['Properties', toggleInspector]] // Play mode: hands off
-  return [
-    ['Properties', toggleInspector],
-    ['Copy', () => copySelection(pageId)],
-    ['Duplicate', () => duplicateObject(objectId)],
-    ['Bring to front', () => restack(objectId, 'front')],
-    ['Send to back', () => restack(objectId, 'back')],
-    ['Delete', () => useDocStore.getState().removeObjects(pageId, [objectId]), true],
-  ]
+  const sel = useDocStore.getState().selection
+  const ids = sel.includes(objectId) ? sel : [objectId]
+  return actionsForSelection({ pageId, ids, editing }).map(
+    (a): CtxItem => [a.label, a.run, a.danger]
+  )
 }
 
 // Snap a drawn line/stroke's endpoints onto any circuit terminal within
@@ -273,66 +291,201 @@ function connectEnds(obj: SceneObject, all: SceneObject[]): boolean {
   return hit
 }
 
-// Copy/cut/paste the current selection — plain functions (not closures over
-// component state) so they're safe to call from both the keyboard handler
-// and the context menu without any stale-pageId risk. Works across pages
-// too: the clipboard (lib/store/clipboard.ts) is a module that outlives
-// Canvas unmounting when the user switches pages.
-function copySelection(pageId: string) {
+function convertSelectionToCircuit(pageId: string) {
+  const store = useDocStore.getState()
+  const page = store.pages[pageId]
+  if (!page) return
+  const strokes = store.selection
+    .map((id) => page.objects[id])
+    .filter(
+      (o): o is SceneObject =>
+        !!o && (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
+    )
+  if (strokes.length === 0) {
+    toast('Select the sketched strokes to convert.')
+    return
+  }
+  store.pushHistory(pageId)
+  const absPts = (o: SceneObject) =>
+    (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y])
+  // Cluster multi-stroke glyphs: significant bbox overlap (not mere
+  // touching — wires touch components at endpoints and must stay separate).
+  const par = strokes.map((_, i) => i)
+  const find = (i: number): number => (par[i] === i ? i : (par[i] = find(par[i])))
+  const boxOf = (o: SceneObject) => ({ x0: o.position.x, y0: o.position.y, x1: o.position.x + o.size.w, y1: o.position.y + o.size.h })
+  for (let i = 0; i < strokes.length; i++) {
+    for (let j = i + 1; j < strokes.length; j++) {
+      const a = boxOf(strokes[i])
+      const b = boxOf(strokes[j])
+      const ix = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0))
+      const iy = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0))
+      const minArea = Math.max(1, Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0)))
+      if ((ix * iy) / minArea > 0.3) par[find(i)] = find(j)
+    }
+  }
+  const clusters = new Map<number, SceneObject[]>()
+  strokes.forEach((o, i) => {
+    const r = find(i)
+    clusters.set(r, [...(clusters.get(r) ?? []), o])
+  })
+  // Greedy agglomerative matching: a cluster that doesn't match on its
+  // own retries merged with NEARBY clusters — multi-stroke symbols
+  // (capacitor plates, battery bars) rarely overlap, they just sit close.
+  // /train matches the same merged cloud, so this mirrors its behavior.
+  interface Cand {
+    members: SceneObject[]
+    strokes: number[][][]
+    pts: number[][]
+    box: { x0: number; y0: number; x1: number; y1: number }
+    used: boolean
+  }
+  const cands: Cand[] = [...clusters.values()].map((members) => {
+    const strokesOf = members.map(absPts)
+    const pts = strokesOf.flat()
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    for (const [x, y] of pts) {
+      x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
+    }
+    return { members, strokes: strokesOf, pts, box: { x0, y0, x1, y1 }, used: false }
+  })
+  const near = (a: Cand, b: Cand, pad = 28) =>
+    a.box.x0 - pad < b.box.x1 && b.box.x0 - pad < a.box.x1 &&
+    a.box.y0 - pad < b.box.y1 && b.box.y0 - pad < a.box.y1
+  const usedIds = new Set<string>()
+  const created: SceneObject[] = []
+  for (const c of cands) {
+    if (c.used) continue
+    // Score alone AND merged with neighbors — take whichever combination
+    // matches best, so partial shapes never win over the full symbol.
+    let chosen: Cand[] = [c]
+    let m = matchCustomSketch(c.strokes)
+    const nbs = cands.filter((o) => o !== c && !o.used && near(c, o))
+    for (const nb of nbs) {
+      const mm = matchCustomSketch([...c.strokes, ...nb.strokes])
+      if (mm && (!m || mm.score > m.score)) {
+        m = mm
+        chosen = [c, nb]
+      }
+    }
+    if (nbs.length > 1) {
+      const mm = matchCustomSketch([...c.strokes, ...nbs.flatMap((n) => n.strokes)])
+      if (mm && (!m || mm.score > m.score)) {
+        m = mm
+        chosen = [c, ...nbs]
+      }
+    }
+    let obj: SceneObject | null = null
+    if (m) {
+      const def = componentById(m.componentId)
+      if (def) {
+        const merged = chosen.flatMap((g) => g.pts)
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+        for (const [x, y] of merged) {
+          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
+        }
+        obj = def.create({ x: (x0 + x1) / 2, y: (y0 + y1) / 2 })
+        if (obj.geometry.kind === 'symbol') {
+          const w2 = Math.min(200, Math.max(72, x1 - x0))
+          obj.size = { w: w2, h: w2 / 2 }
+        } else {
+          obj.size = { w: Math.max(24, x1 - x0), h: Math.max(24, y1 - y0) }
+        }
+        obj.position = { x: (x0 + x1) / 2 - obj.size.w / 2, y: (y0 + y1) / 2 - obj.size.h / 2 }
+      }
+    }
+    if (obj) {
+      created.push(obj)
+      for (const g of chosen) {
+        g.used = true
+        for (const o of g.members) usedIds.add(o.id)
+      }
+    }
+  }
+  for (const o of created) {
+    o.z = topZ(pageId)
+    store.addObject(pageId, o)
+  }
+  if (usedIds.size > 0) store.removeObjects(pageId, [...usedIds])
+  // Remaining strokes conduct when their NODES land on terminals.
+  const allNow = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
+  let wires = 0
+  for (const o of strokes) {
+    if (usedIds.has(o.id)) continue
+    const live = useDocStore.getState().pages[pageId]?.objects[o.id]
+    if (!live) continue
+    const clone = JSON.parse(JSON.stringify(live)) as SceneObject
+    if (connectEnds(clone, allNow)) {
+      clone.behaviors.push(createBehavior('wire'))
+      clone.name = clone.name.replace(/^(Line|Stroke)/, 'Wire')
+      useDocStore.getState().updateObject(pageId, o.id, {
+        geometry: clone.geometry, position: clone.position, size: clone.size,
+        behaviors: clone.behaviors, name: clone.name,
+      })
+      wires++
+    }
+  }
+  toast(
+    created.length > 0
+      ? `Converted ${created.length} component(s), ${wires} wire(s).`
+      : 'No trained component matched — add examples on /train.'
+  )
+  if (created.length > 0) store.setSelection(created.map((c) => c.id))
+}
+
+function saveSelectionToLibrary(pageId: string) {
   const store = useDocStore.getState()
   const objs = store.selection
     .map((id) => store.pages[pageId]?.objects[id])
-    .filter((o): o is SceneObject => Boolean(o))
-  if (objs.length > 0) setClipboard(objs)
-}
-
-// Newly created/pasted/duplicated objects always land ABOVE everything
-// already on the page — a monotonic session counter (see nextZ in factory)
-// isn't enough on its own, since a page can hold objects placed in an
-// earlier session (or before this counter existed) with a higher z than
-// whatever the counter happens to be seeded at right now. Reading the
-// page's actual max keeps "just placed/drawn" reliably on top regardless.
-function topZ(pageId: string): number {
-  const objs = useDocStore.getState().pages[pageId]?.objects ?? {}
-  let max = 0
-  for (const o of Object.values(objs)) if (o.z > max) max = o.z
-  return Math.max(max + 1, nextZ())
-}
-
-function cutSelection(pageId: string) {
-  copySelection(pageId)
-  const store = useDocStore.getState()
-  if (store.selection.length > 0) store.removeObjects(pageId, store.selection)
-}
-
-function pasteClipboard(pageId: string) {
-  const items = getClipboard()
-  if (items.length === 0) return
-  const store = useDocStore.getState()
-  const offset = nextPasteOffset()
-  const idMap = new Map<string, string>()
-  const clones = items.map((src) => {
-    const clone: SceneObject = JSON.parse(JSON.stringify(src))
-    const newId = uid()
-    idMap.set(src.id, newId)
-    clone.id = newId
-    clone.position = { x: src.position.x + offset, y: src.position.y + offset }
-    clone.z = topZ(pageId)
-    clone.behaviors.forEach((b) => (b.id = uid()))
-    return clone
+    .filter(Boolean) as SceneObject[]
+  if (objs.length === 0) return
+  const title = window.prompt('Library asset name', `Selection (${objs.length} objects)`)
+  if (!title) return
+  void publishAsset({
+    title,
+    category: 'Selections',
+    tags: [],
+    kind: 'objects',
+    content: JSON.parse(JSON.stringify(objs)) as SceneObject[],
   })
-  // A graph pasted together with the object it's bound to should stay
-  // paired with the NEW copy, not silently keep pointing at the original.
-  for (const clone of clones) {
-    const sourceId = clone.parameters.sourceId
-    if (clone.geometry.kind === 'graph' && sourceId?.kind === 'string' && idMap.has(sourceId.value)) {
-      clone.parameters.sourceId = str(idMap.get(sourceId.value)!)
-    }
-  }
-  store.pushHistory(pageId)
-  for (const clone of clones) store.addObject(pageId, clone, { history: false })
-  store.setSelection(clones.map((c) => c.id))
+    .then(() => toast.success('Saved to the institution library'))
+    .catch((err) => toast.error(err instanceof Error ? err.message : 'Could not save'))
 }
+
+// Canvas-owned contributions to the selection-actions pipeline: multi-stroke
+// sketch recognition, and publishing a selection to the institution library.
+// Registered at module scope; the registry is read per call, so these apply
+// to every canvas (boards, doc sheets, PDF ink overlays) automatically.
+registerSelectionActions('canvas-sketch-library', ({ pageId, ids }) => {
+  const page = useDocStore.getState().pages[pageId]
+  if (!page || ids.length < 2) return []
+  const objs = ids.map((id) => page.objects[id]).filter((o): o is SceneObject => Boolean(o))
+  const actions: SelectionAction[] = []
+  const hasInk = objs.some(
+    (o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
+  )
+  if (hasInk)
+    actions.push({
+      id: 'recognize',
+      label: 'Recognize components',
+      icon: Wand2,
+      group: 'convert',
+      run: () => convertSelectionToCircuit(pageId),
+    })
+  const role = useAuthStore.getState().profile?.role
+  if (role && can(role, 'publish-library'))
+    actions.push({
+      id: 'save-library',
+      label: 'Save to library',
+      icon: LibraryBig,
+      group: 'share',
+      run: () => saveSelectionToLibrary(pageId),
+    })
+  return actions
+})
+
+// Copy/cut/paste/duplicate/restack now live in lib/scene/selection-actions.ts
+// — the shared pipeline every action surface (dock, context menu) renders
+// from. The keyboard handler below imports the same functions.
 
 /** Kinds whose on-canvas chrome (text, buttons, tables…) should follow
  *  Components UI scale. Pure ink / connectors keep canvas zoom only. */
@@ -351,10 +504,25 @@ const COMPONENT_UI_KINDS = new Set([
   'symbol',
 ])
 
+/** Anchor of each grip on the box, in percent. */
+const HANDLE_POS: Record<ResizeHandle, { left: string; top: string }> = {
+  nw: { left: '0%', top: '0%' },
+  n: { left: '50%', top: '0%' },
+  ne: { left: '100%', top: '0%' },
+  e: { left: '100%', top: '50%' },
+  se: { left: '100%', top: '100%' },
+  s: { left: '50%', top: '100%' },
+  sw: { left: '0%', top: '100%' },
+  w: { left: '0%', top: '50%' },
+}
+const CORNER_HANDLES: ResizeHandle[] = ['nw', 'ne', 'sw', 'se']
+const EDGE_HANDLES: ResizeHandle[] = ['n', 'e', 's', 'w']
+
 const ObjectView = memo(function ObjectView({
   pageId,
   object,
   selected,
+  chromeScale = 1,
   onPointerDown,
   onResizeStart,
   onRotateStart,
@@ -363,8 +531,12 @@ const ObjectView = memo(function ObjectView({
   pageId: string
   object: SceneObject
   selected: boolean
+  /** 1/viewport.zoom — counter-scales the selection grips so they stay the
+   *  same size ON SCREEN at every zoom. Only passed while selected, so
+   *  unselected objects never re-render on zoom. */
+  chromeScale?: number
   onPointerDown: (e: React.PointerEvent, id: string) => void
-  onResizeStart: (e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => void
+  onResizeStart: (e: React.PointerEvent, id: string, corner: ResizeHandle) => void
   onRotateStart: (e: React.PointerEvent, id: string) => void
   onHover: (id: string | null) => void
 }) {
@@ -415,44 +587,59 @@ const ObjectView = memo(function ObjectView({
       >
         <Renderer pageId={pageId} object={object} selected={selected} />
       </div>
-      {selected && resizable && (
-        // Figma-style corner handles — resize from any corner; opposite corner
-        // stays anchored. Shift keeps the aspect ratio.
-        <>
-          {(
-            [
-              ['nw', '-top-1 -left-1 cursor-nwse-resize'],
-              ['ne', '-top-1 -right-1 cursor-nesw-resize'],
-              ['sw', '-bottom-1 -left-1 cursor-nesw-resize'],
-              ['se', '-bottom-1 -right-1 cursor-nwse-resize'],
-            ] as const
-          ).map(([corner, cls]) => (
-            <div
-              key={corner}
-              role="button"
-              aria-label={`Resize ${corner}`}
-              className={cn(
-                // The ::after pad widens the touch target without fattening the dot.
-                'absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--ring)] bg-background',
-                "after:absolute after:-inset-2 after:content-['']",
-                cls
-              )}
-              onPointerDown={(e) => onResizeStart(e, object.id, corner)}
-            />
-          ))}
-        </>
-      )}
       {selected && (
-        // Canva-style rotation grip above the selection box.
+        // Selection chrome rides a layer with the SAME rotation as the
+        // object, so grips sit on the corners the user actually sees. Each
+        // grip counter-scales by chromeScale (1/zoom) to stay a constant
+        // size on screen, and its cursor is computed from grip + rotation.
         <div
-          role="button"
-          aria-label="Rotate"
-          className="absolute -top-6 left-1/2 flex -translate-x-1/2 flex-col items-center after:absolute after:-inset-2 after:content-['']"
-          style={{ cursor: 'grab' }}
-          onPointerDown={(e) => onRotateStart(e, object.id)}
+          className="pointer-events-none absolute inset-0"
+          style={{
+            transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined,
+            transformOrigin: 'center center',
+          }}
         >
-          <div className="h-3 w-3 rounded-full border border-[var(--ring)] bg-background" />
-          <div className="h-2.5 w-px bg-[var(--ring)] opacity-60" />
+          {resizable &&
+            [...CORNER_HANDLES, ...EDGE_HANDLES].map((h) => {
+              const edge = h.length === 1
+              return (
+                <div key={h} className="absolute" style={HANDLE_POS[h]}>
+                  <div
+                    role="button"
+                    aria-label={`Resize ${h}`}
+                    className={cn(
+                      // The ::after pad widens the touch target without
+                      // fattening the visible grip.
+                      'pointer-events-auto absolute rounded-[3px] border border-[var(--ring)] bg-background',
+                      "after:absolute after:-inset-2 after:content-['']",
+                      edge ? (h === 'n' || h === 's' ? 'h-1.5 w-4' : 'h-4 w-1.5') : 'h-2.5 w-2.5'
+                    )}
+                    style={{
+                      transform: `translate(-50%, -50%) scale(${chromeScale})`,
+                      cursor: resizeCursor(h, object.rotation),
+                    }}
+                    onPointerDown={(e) => onResizeStart(e, object.id, h)}
+                  />
+                </div>
+              )
+            })}
+          {/* Canva-style rotation grip above the top edge. */}
+          <div className="absolute" style={{ left: '50%', top: '0%' }}>
+            <div
+              role="button"
+              aria-label="Rotate"
+              className="pointer-events-auto absolute flex flex-col items-center after:absolute after:-inset-2 after:content-['']"
+              style={{
+                transform: `translate(-50%, -100%) scale(${chromeScale})`,
+                transformOrigin: 'bottom center',
+                cursor: 'grab',
+              }}
+              onPointerDown={(e) => onRotateStart(e, object.id)}
+            >
+              <div className="h-3 w-3 rounded-full border border-[var(--ring)] bg-background" />
+              <div className="h-2.5 w-px bg-[var(--ring)] opacity-60" />
+            </div>
+          </div>
         </div>
       )}
     </div>
@@ -496,6 +683,9 @@ export function InfiniteCanvas({
   const pen = usePrefs((s) => s.pen)
   // Phone: the zoom pill appears only while zooming (see the HUD effect).
   const isPhone = useIsNarrow(767)
+  // While the rotate grip is held: which object, so a live angle chip can
+  // follow it (cleared on pointer-up/cancel).
+  const [rotatingId, setRotatingId] = useState<string | null>(null)
   const [zoomHud, setZoomHud] = useState(false)
   const zoomHudTimer = useRef<number | null>(null)
   const zoomHudArmed = useRef(false)
@@ -519,8 +709,6 @@ export function InfiniteCanvas({
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
-  const isMobile = useIsMobile()
-  const myRole = useAuthStore((s) => s.profile?.role)
 
   const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
   // Live ink is imperative. Points live in a ref and the SVG path's `d` is
@@ -1209,8 +1397,9 @@ export function InfiniteCanvas({
         const corner = g.resizeCorner ?? 'se'
         const dx = dxScreen / zoom
         const dy = dyScreen / zoom
-        let w = Math.max(16, g.resizeStart.w + (corner.includes('e') ? dx : -dx))
-        let h = Math.max(16, g.resizeStart.h + (corner.includes('s') ? dy : -dy))
+        // Edges move one axis; the perpendicular one stays frozen.
+        let w = Math.max(16, g.resizeStart.w + (corner.includes('e') ? dx : corner.includes('w') ? -dx : 0))
+        let h = Math.max(16, g.resizeStart.h + (corner.includes('s') ? dy : corner.includes('n') ? -dy : 0))
         if (e.shiftKey) {
           const k = Math.max(w / g.resizeStart.w, h / g.resizeStart.h)
           w = Math.max(16, g.resizeStart.w * k)
@@ -1242,6 +1431,8 @@ export function InfiniteCanvas({
       gestureRef.current = null
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      document.body.style.cursor = ''
+      setRotatingId(null)
       setGuides(null)
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current)
@@ -1593,152 +1784,6 @@ export function InfiniteCanvas({
   // run through the trained recognizer (lib/sketch/custom + /train page);
   // matches become real components. Leftover strokes whose endpoints touch
   // terminals become wires — so a fully sketched diagram assembles at once.
-  const convertSelectionToCircuit = useCallback(() => {
-    const store = useDocStore.getState()
-    const page = store.pages[pageId]
-    if (!page) return
-    const strokes = store.selection
-      .map((id) => page.objects[id])
-      .filter(
-        (o): o is SceneObject =>
-          !!o && (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
-      )
-    if (strokes.length === 0) {
-      toast('Select the sketched strokes to convert.')
-      return
-    }
-    store.pushHistory(pageId)
-    const absPts = (o: SceneObject) =>
-      (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y])
-    // Cluster multi-stroke glyphs: significant bbox overlap (not mere
-    // touching — wires touch components at endpoints and must stay separate).
-    const par = strokes.map((_, i) => i)
-    const find = (i: number): number => (par[i] === i ? i : (par[i] = find(par[i])))
-    const boxOf = (o: SceneObject) => ({ x0: o.position.x, y0: o.position.y, x1: o.position.x + o.size.w, y1: o.position.y + o.size.h })
-    for (let i = 0; i < strokes.length; i++) {
-      for (let j = i + 1; j < strokes.length; j++) {
-        const a = boxOf(strokes[i])
-        const b = boxOf(strokes[j])
-        const ix = Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0))
-        const iy = Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0))
-        const minArea = Math.max(1, Math.min((a.x1 - a.x0) * (a.y1 - a.y0), (b.x1 - b.x0) * (b.y1 - b.y0)))
-        if ((ix * iy) / minArea > 0.3) par[find(i)] = find(j)
-      }
-    }
-    const clusters = new Map<number, SceneObject[]>()
-    strokes.forEach((o, i) => {
-      const r = find(i)
-      clusters.set(r, [...(clusters.get(r) ?? []), o])
-    })
-    // Greedy agglomerative matching: a cluster that doesn't match on its
-    // own retries merged with NEARBY clusters — multi-stroke symbols
-    // (capacitor plates, battery bars) rarely overlap, they just sit close.
-    // /train matches the same merged cloud, so this mirrors its behavior.
-    interface Cand {
-      members: SceneObject[]
-      strokes: number[][][]
-      pts: number[][]
-      box: { x0: number; y0: number; x1: number; y1: number }
-      used: boolean
-    }
-    const cands: Cand[] = [...clusters.values()].map((members) => {
-      const strokesOf = members.map(absPts)
-      const pts = strokesOf.flat()
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-      for (const [x, y] of pts) {
-        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
-      }
-      return { members, strokes: strokesOf, pts, box: { x0, y0, x1, y1 }, used: false }
-    })
-    const near = (a: Cand, b: Cand, pad = 28) =>
-      a.box.x0 - pad < b.box.x1 && b.box.x0 - pad < a.box.x1 &&
-      a.box.y0 - pad < b.box.y1 && b.box.y0 - pad < a.box.y1
-    const usedIds = new Set<string>()
-    const created: SceneObject[] = []
-    for (const c of cands) {
-      if (c.used) continue
-      // Score alone AND merged with neighbors — take whichever combination
-      // matches best, so partial shapes never win over the full symbol.
-      let chosen: Cand[] = [c]
-      let m = matchCustomSketch(c.strokes)
-      const nbs = cands.filter((o) => o !== c && !o.used && near(c, o))
-      for (const nb of nbs) {
-        const mm = matchCustomSketch([...c.strokes, ...nb.strokes])
-        if (mm && (!m || mm.score > m.score)) {
-          m = mm
-          chosen = [c, nb]
-        }
-      }
-      if (nbs.length > 1) {
-        const mm = matchCustomSketch([...c.strokes, ...nbs.flatMap((n) => n.strokes)])
-        if (mm && (!m || mm.score > m.score)) {
-          m = mm
-          chosen = [c, ...nbs]
-        }
-      }
-      let obj: SceneObject | null = null
-      if (m) {
-        const def = componentById(m.componentId)
-        if (def) {
-          const merged = chosen.flatMap((g) => g.pts)
-          let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
-          for (const [x, y] of merged) {
-            x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y)
-          }
-          obj = def.create({ x: (x0 + x1) / 2, y: (y0 + y1) / 2 })
-          if (obj.geometry.kind === 'symbol') {
-            const w2 = Math.min(200, Math.max(72, x1 - x0))
-            obj.size = { w: w2, h: w2 / 2 }
-          } else {
-            obj.size = { w: Math.max(24, x1 - x0), h: Math.max(24, y1 - y0) }
-          }
-          obj.position = { x: (x0 + x1) / 2 - obj.size.w / 2, y: (y0 + y1) / 2 - obj.size.h / 2 }
-        }
-      }
-      if (obj) {
-        created.push(obj)
-        for (const g of chosen) {
-          g.used = true
-          for (const o of g.members) usedIds.add(o.id)
-        }
-      }
-    }
-    for (const o of created) {
-      o.z = topZ(pageId)
-      store.addObject(pageId, o)
-    }
-    if (usedIds.size > 0) store.removeObjects(pageId, [...usedIds])
-    // Remaining strokes conduct when their NODES land on terminals.
-    const allNow = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
-    let wires = 0
-    for (const o of strokes) {
-      if (usedIds.has(o.id)) continue
-      const live = useDocStore.getState().pages[pageId]?.objects[o.id]
-      if (!live) continue
-      const clone = JSON.parse(JSON.stringify(live)) as SceneObject
-      if (connectEnds(clone, allNow)) {
-        clone.behaviors.push(createBehavior('wire'))
-        clone.name = clone.name.replace(/^(Line|Stroke)/, 'Wire')
-        useDocStore.getState().updateObject(pageId, o.id, {
-          geometry: clone.geometry, position: clone.position, size: clone.size,
-          behaviors: clone.behaviors, name: clone.name,
-        })
-        wires++
-      }
-    }
-    toast(
-      created.length > 0
-        ? `Converted ${created.length} component(s), ${wires} wire(s).`
-        : 'No trained component matched — add examples on /train.'
-    )
-    if (created.length > 0) store.setSelection(created.map((c) => c.id))
-  }, [pageId])
-
-  const convertItem = useCallback((): CtxItem[] => {
-    return editing && useDocStore.getState().selection.length > 1
-      ? [['Convert to circuit', convertSelectionToCircuit]]
-      : []
-  }, [editing, convertSelectionToCircuit])
 
   // Aborts an in-flight one-finger gesture — a second finger means pinch,
   // a long-press means menu; either way the started gesture must not commit.
@@ -1748,6 +1793,8 @@ export function InfiniteCanvas({
     gestureRef.current = null
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
+    document.body.style.cursor = ''
+    setRotatingId(null)
     if (g.mode === 'move') {
       const store = useDocStore.getState()
       for (const [id, p] of g.objectStartPositions)
@@ -1939,6 +1986,9 @@ export function InfiniteCanvas({
       ),
       ...extra,
     }
+    // Grabby gestures grab: the whole window shows a closed hand until the
+    // pointer lifts (cleared in onPointerUp/cancelGesture).
+    if (mode === 'pan' || mode === 'rotate') document.body.style.cursor = 'grabbing'
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
   }
@@ -2150,7 +2200,7 @@ export function InfiniteCanvas({
     beginGesture('move', e)
   }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
 
-  const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: 'nw' | 'ne' | 'sw' | 'se') => {
+  const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: ResizeHandle) => {
     if (!editing) return
     e.stopPropagation()
     const store = useDocStore.getState()
@@ -2183,6 +2233,7 @@ export function InfiniteCanvas({
       rotateStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
       rotateStartRotation: obj.rotation,
     })
+    setRotatingId(id)
   }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
   // ── Custom right-click menu ───────────────────────────────────────────────
@@ -2196,67 +2247,9 @@ export function InfiniteCanvas({
     setCtxMenu({ x: p.x, y: p.y, objectId })
   }
 
-  const duplicateObject = (id: string) => {
-    const store = useDocStore.getState()
-    const src = store.pages[pageId]?.objects[id]
-    if (!src) return
-    const clone: SceneObject = JSON.parse(JSON.stringify(src))
-    clone.id = uid()
-    clone.name = `${src.name} copy`
-    clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-    clone.z = topZ(pageId)
-    clone.behaviors.forEach((b) => (b.id = uid()))
-    store.addObject(pageId, clone)
-    store.setSelection([clone.id])
-  }
 
-  // Group actions for a multi-selection (the enclosure's floating bar).
-  const duplicateSelection = () => {
-    const store = useDocStore.getState()
-    const ids: string[] = []
-    for (const id of store.selection) {
-      const src = store.pages[pageId]?.objects[id]
-      if (!src) continue
-      const clone: SceneObject = JSON.parse(JSON.stringify(src))
-      clone.id = uid()
-      clone.position = { x: src.position.x + 24, y: src.position.y + 24 }
-      clone.z = topZ(pageId)
-      clone.behaviors.forEach((b) => (b.id = uid()))
-      store.addObject(pageId, clone)
-      ids.push(clone.id)
-    }
-    store.setSelection(ids)
-  }
 
-  const saveSelectionToLibrary = () => {
-    const store = useDocStore.getState()
-    const objs = store.selection
-      .map((id) => store.pages[pageId]?.objects[id])
-      .filter(Boolean) as SceneObject[]
-    if (objs.length === 0) return
-    const title = window.prompt('Library asset name', `Selection (${objs.length} objects)`)
-    if (!title) return
-    void publishAsset({
-      title,
-      category: 'Selections',
-      tags: [],
-      kind: 'objects',
-      content: JSON.parse(JSON.stringify(objs)) as SceneObject[],
-    })
-      .then(() => toast.success('Saved to the institution library'))
-      .catch((err) => toast.error(err instanceof Error ? err.message : 'Could not save'))
-  }
 
-  const restack = (id: string, where: 'front' | 'back') => {
-    const store = useDocStore.getState()
-    const zs = Object.values(store.pages[pageId]?.objects ?? {}).map((o) => o.z)
-    store.updateObject(
-      pageId,
-      id,
-      { z: where === 'front' ? Math.max(...zs, 0) + 1 : Math.min(...zs, 0) - 1 },
-      { history: true }
-    )
-  }
 
   const cursor =
     tool === 'pen' || tool === 'shaper' || tool === 'lasso'
@@ -2412,6 +2405,7 @@ export function InfiniteCanvas({
             pageId={pageId}
             object={obj}
             selected={selectedSet.has(obj.id)}
+            chromeScale={selectedSet.has(obj.id) ? 1 / viewport.zoom : undefined}
             onPointerDown={handleObjectPointerDown}
             onResizeStart={handleResizeStart}
             onRotateStart={handleRotateStart}
@@ -2588,7 +2582,24 @@ export function InfiniteCanvas({
               <div
                 className="pointer-events-none absolute rounded-xl border-2 border-dashed border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_4%,transparent)]"
                 style={{ left: x, top: y, width: r - x, height: b - y }}
-              />
+              >
+                {/* Corner dots give the group the same "one selectable thing"
+                    visual language as a single selection box. */}
+                {(['0% 0%', '100% 0%', '0% 100%', '100% 100%'] as const).map((pos) => {
+                  const [lx, ty] = pos.split(' ')
+                  return (
+                    <div
+                      key={pos}
+                      className="absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--accent-blue)] bg-background"
+                      style={{
+                        left: lx,
+                        top: ty,
+                        transform: `translate(-50%, -50%) scale(${1 / viewport.zoom})`,
+                      }}
+                    />
+                  )
+                })}
+              </div>
             )
           })()}
       </div>
@@ -2649,7 +2660,7 @@ export function InfiniteCanvas({
           onPointerDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
-          {[...convertItem(), ...ctxMenuItems(ctxMenu.objectId, editing, pageId, duplicateObject, restack)].map(([label, action, danger]) => (
+          {ctxMenuItems(ctxMenu.objectId, editing, pageId).map(([label, action, danger]) => (
             <button
               key={label}
               type="button"
@@ -2668,110 +2679,20 @@ export function InfiniteCanvas({
         </div>
       )}
 
-      {/* Group action bar above the multi-selection enclosure — the same
-          quick actions the mobile single-select bar offers, plus "save the
-          whole group as a reusable library component". */}
-      {editing &&
-        selection.length > 1 &&
-        objects &&
-        (() => {
-          const sel = selection.map((id) => objects[id]).filter(Boolean)
-          if (sel.length < 2) return null
-          const x = Math.min(...sel.map((o) => o.position.x))
-          const y = Math.min(...sel.map((o) => o.position.y))
-          const r = Math.max(...sel.map((o) => o.position.x + o.size.w))
-          const cx = ((x + r) / 2) * viewport.zoom + viewport.x
-          const top = y * viewport.zoom + viewport.y
-          const hasInk = sel.some(
-            (o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
-          )
-          const actions: [string, typeof Copy, () => void, boolean?][] = [
-            ['Copy', Copy, () => copySelection(pageId)],
-            ['Duplicate', CopyPlus, duplicateSelection],
-            // Multi-stroke recognition: pen+hold is single-stroke, so this is
-            // where sketched symbols made of several strokes become live
-            // components (and leftover strokes become wires).
-            ...(hasInk
-              ? ([['Recognize components', Wand2, convertSelectionToCircuit]] as [string, typeof Copy, () => void][])
-              : []),
-            ...(myRole && can(myRole, 'publish-library')
-              ? ([['Save to library', LibraryBig, saveSelectionToLibrary]] as [string, typeof Copy, () => void][])
-              : []),
-            ['Delete', Trash2, () => useDocStore.getState().removeObjects(pageId, selection), true],
-          ]
-          return (
-            <div
-              className="glass-strong absolute z-40 flex items-center gap-0.5 rounded-xl p-1"
-              style={{ left: cx, top: Math.max(8, top - 62), transform: 'translateX(-50%)' }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <span className="px-2 font-mono text-[11px] text-muted-foreground">{sel.length}×</span>
-              {actions.map(([label, Icon, action, danger]) => (
-                <button
-                  key={label}
-                  type="button"
-                  aria-label={label}
-                  title={label}
-                  className={cn(
-                    'flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent',
-                    danger ? 'text-[var(--accent-rose)]' : 'text-foreground'
-                  )}
-                  onClick={action}
-                >
-                  <Icon className="h-4 w-4" />
-                </button>
-              ))}
-            </div>
-          )
-        })()}
 
-      {isMobile &&
-        editing &&
-        selection.length === 1 &&
-        objects?.[selection[0]] &&
+      {/* Live angle readout while the rotate grip is held. */}
+      {rotatingId &&
+        objects?.[rotatingId] &&
         (() => {
-          const obj = objects[selection[0]]
-          // The exact same action list as the desktop right-click menu —
-          // "Properties" included: shell.tsx has a real mobile Inspector
-          // drawer (isMobile && inspectorOpen), it's just presented as a
-          // slide-in overlay instead of the docked desktop panel, so this
-          // icon is what opens it here. Everything else is unchanged, just
-          // icons sized for a fingertip instead of a text menu meant for a mouse.
-          const items = [...convertItem(), ...ctxMenuItems(obj.id, editing, pageId, duplicateObject, restack)]
-          const ICONS: Record<string, typeof Copy> = {
-            Properties: SlidersHorizontal,
-            Copy: Copy,
-            Duplicate: CopyPlus,
-            'Bring to front': BringToFront,
-            'Send to back': SendToBack,
-            Delete: Trash2,
-          }
-          const screenX = obj.position.x * viewport.zoom + viewport.x
-          const screenY = obj.position.y * viewport.zoom + viewport.y
-          const screenW = obj.size.w * viewport.zoom
+          const o = objects[rotatingId]
+          const sx = (o.position.x + o.size.w / 2) * viewport.zoom + viewport.x
+          const sy = o.position.y * viewport.zoom + viewport.y
           return (
             <div
-              className="glass-strong absolute z-40 flex items-center gap-0.5 rounded-xl p-1"
-              style={{ left: screenX + screenW / 2, top: Math.max(8, screenY - 52), transform: 'translateX(-50%)' }}
-              onPointerDown={(e) => e.stopPropagation()}
+              className="glass-strong pointer-events-none absolute z-40 rounded-md px-1.5 py-0.5 font-mono text-[11px]"
+              style={{ left: sx, top: Math.max(8, sy - 48), transform: 'translateX(-50%)' }}
             >
-              {items.map(([label, action, danger]) => {
-                const Icon = ICONS[label] ?? Copy
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    aria-label={label}
-                    className={cn(
-                      'flex h-9 w-9 items-center justify-center rounded-lg transition-colors hover:bg-accent',
-                      danger ? 'text-[var(--accent-rose)]' : 'text-foreground'
-                    )}
-                    onClick={action}
-                  >
-                    <Icon className="h-4 w-4" />
-                  </button>
-                )
-              })}
+              {Math.round(o.rotation)}°
             </div>
           )
         })()}

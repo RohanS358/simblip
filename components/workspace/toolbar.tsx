@@ -35,6 +35,8 @@ import { Fragment, useEffect, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
+import { useRuntimeStore } from '@/lib/physics/world'
+import { actionsForSelection } from '@/lib/scene/selection-actions'
 import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -135,7 +137,7 @@ function ToolButton({
           onClick={onClick}
           onDoubleClick={onDoubleClick}
           className={cn(
-            'flex shrink-0 items-center justify-center rounded-xl transition-all',
+            'flex shrink-0 items-center justify-center rounded-xl transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
             size,
             active
               ? 'text-primary-foreground shadow-sm'
@@ -168,6 +170,19 @@ export function Toolbar({
   const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
+  // Contextual segment: whatever the current selection can do, straight from
+  // the selection-actions pipeline (lib/scene/selection-actions.ts). The dock
+  // is where element actions live — nothing floats over the canvas anymore.
+  const selection = useDocStore((s) => s.selection)
+  const editing = useRuntimeStore((s) => s.mode) === 'edit'
+  const selActions = pageId && selection.length > 0
+    ? actionsForSelection({ pageId, ids: selection, editing })
+    : []
+  // Keep the last non-empty list rendered while the segment folds shut, so
+  // deselecting collapses smoothly instead of blinking the buttons away.
+  const lastActionsRef = useRef(selActions)
+  if (selActions.length > 0) lastActionsRef.current = selActions
+  const segActions = selActions.length > 0 ? selActions : lastActionsRef.current
   // Lasso only earns a dock slot on touch: a mouse already gets multi-select
   // for free (drag the Select tool over empty space) — a finger doesn't
   // reliably find "empty space" in a crowded diagram, so touch needs an
@@ -404,6 +419,58 @@ export function Toolbar({
             <Paperclip className={iconSize} />
           </ToolButton>
         </>
+      )}
+
+      {/* Selection actions — fold out of the pill while something is
+          selected (grid 0fr↔1fr, a width/height transition that retargets
+          mid-motion if the selection changes under it). */}
+      {pageId && (
+        <div
+          className={cn(
+            'grid min-w-0 shrink-0 transition-[grid-template-columns,grid-template-rows] duration-200 ease-strong',
+            vertical
+              ? selActions.length > 0 ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+              : selActions.length > 0 ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'
+          )}
+        >
+          <div
+            className={cn(
+              'flex min-h-0 min-w-0 items-center overflow-hidden',
+              vertical && 'flex-col',
+              isMobile ? 'gap-0.5' : 'gap-1'
+            )}
+          >
+            <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
+            {selection.length > 1 && (
+              <span className="shrink-0 px-0.5 font-mono text-[11px] text-muted-foreground">
+                {selection.length}×
+              </span>
+            )}
+            {segActions.map((a) => (
+              <Tooltip key={a.id}>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label={a.label}
+                    onClick={a.run}
+                    className={cn(
+                      'flex shrink-0 items-center justify-center rounded-xl transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
+                      btnSize,
+                      a.danger
+                        ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
+                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                    )}
+                  >
+                    <a.icon className={iconSize} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-xs">
+                  {a.label}
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        </div>
       )}
       </div>
       </div>

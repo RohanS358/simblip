@@ -240,7 +240,7 @@ function MotionSetting() {
             type="button"
             aria-label={`${a.label} tint`}
             aria-pressed={accent === a.id}
-            className="flex h-7 w-7 items-center justify-center rounded-full transition-transform active:scale-90"
+            className="flex h-7 w-7 items-center justify-center rounded-full transition-transform duration-150 ease-out active:scale-95"
             style={{
               // "Blue" reads the untouched base var — --accent-blue itself is
               // overridden globally to the active tint, so the swatch would

@@ -10,8 +10,24 @@
 // One source of truth, so the whole app moves the same way — and so the user
 // can dial it down (or off) from Appearance.
 
+import { useSyncExternalStore } from 'react'
 import type { Transition } from 'framer-motion'
 import { usePrefs, type MotionStyle } from '@/lib/store/preferences'
+
+// OS-level "reduce motion" always wins over the in-app setting — a vestibular
+// user shouldn't have to find our Appearance panel to make the UI hold still.
+const REDUCED = '(prefers-reduced-motion: reduce)'
+const subscribeReduced = (cb: () => void) => {
+  const mq = window.matchMedia(REDUCED)
+  mq.addEventListener('change', cb)
+  return () => mq.removeEventListener('change', cb)
+}
+const osReduced = () => window.matchMedia(REDUCED).matches
+
+/** OS-level reduce-motion. False on the server. */
+export function useOsReducedMotion(): boolean {
+  return useSyncExternalStore(subscribeReduced, osReduced, () => false)
+}
 
 /**
  * Springs are described by mass/stiffness/damping rather than a duration —
@@ -53,15 +69,24 @@ function pick(kind: MotionKind, style: MotionStyle): Transition {
 /** Reactive: use inside components so changing the setting takes effect live. */
 export function useSpring(kind: MotionKind = 'default'): Transition {
   const style = usePrefs((s) => s.appearance.motion)
-  return pick(kind, style)
+  const reduced = useOsReducedMotion()
+  return pick(kind, reduced ? 'none' : style)
 }
 
 /** Non-reactive read, for places outside React. */
 export const spring = (kind: MotionKind = 'default'): Transition =>
-  pick(kind, usePrefs.getState().appearance.motion)
+  pick(
+    kind,
+    typeof window !== 'undefined' && window.matchMedia(REDUCED).matches
+      ? 'none'
+      : usePrefs.getState().appearance.motion
+  )
 
 /** True when motion is switched off — skip mount animations entirely. */
-export const useMotionOff = (): boolean => usePrefs((s) => s.appearance.motion) === 'none'
+export const useMotionOff = (): boolean => {
+  const off = usePrefs((s) => s.appearance.motion) === 'none'
+  return useOsReducedMotion() || off
+}
 
 /** The pop-in a panel/popover uses: scale + fade, so it grows from nothing. */
 export const POP = {

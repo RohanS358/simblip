@@ -36,6 +36,7 @@ import { uid } from '@/lib/scene/types'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { useTransientHud } from '@/hooks/use-transient-hud'
 
 
 type PdfDoc = {
@@ -153,7 +154,7 @@ function PdfPage({
           </div>
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 right-2.5 z-20 text-[10.5px] font-medium text-neutral-500">
+      <span className="pointer-events-none absolute bottom-1.5 right-2 z-20 rounded-md bg-black/35 px-1.5 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
         {n}
       </span>
     </div>
@@ -172,6 +173,8 @@ export function PdfView({ pageId }: { pageId: string }) {
   const [notesRatio, setNotesRatio] = useState(0.55)
   const [sharedUrl, setSharedUrl] = useState<string | null>(null)
   const [zoom, setZoom] = useState(1)
+  // Transient zoom readout — same language as the board's zoom pill.
+  const zoomHud = useTransientHud(zoom)
   const [naturalH, setNaturalH] = useState(0)
   // Which pane last had a pointer down in it owns the real board dock — a
   // page you click on the reader side, or the notes canvas on the other.
@@ -480,8 +483,10 @@ useLayoutEffect(() => {
       }}
     >
       {dragOver && (
-        <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)]">
-          <span className="rounded-lg bg-card px-3 py-1.5 text-[12px] font-semibold shadow">Drop to open</span>
+        <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
+          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[12px] font-semibold shadow duration-150">
+            Drop to open
+          </span>
         </div>
       )}
       {converting ? (
@@ -540,11 +545,12 @@ useLayoutEffect(() => {
             <div style={{ width: `${notesRatio * 100}%` }} className="min-w-0">
               {reader}
             </div>
-            {/* borderless split — the divider is the only seam */}
+            {/* borderless split — the divider is the only seam. The ::after
+                pad widens the grab target without widening the seam. */}
             <div
               role="separator"
               aria-label="Resize notes"
-              className="w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors hover:bg-[var(--accent-blue)]/30"
+              className="relative w-1.5 shrink-0 cursor-col-resize bg-transparent transition-colors after:absolute after:inset-y-0 after:-inset-x-1.5 after:content-[''] hover:bg-[var(--accent-blue)]/30 active:bg-[var(--accent-blue)]/50"
               onPointerDown={onDivider}
             />
             <div className="min-w-0 flex-1" onPointerDownCapture={() => setFocus('notes')}>
@@ -570,6 +576,12 @@ useLayoutEffect(() => {
           reader
         )}
       </div>
+
+      {zoomHud && doc && (
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
+          {Math.round(zoom * 100)}%
+        </div>
+      )}
 
       <input
         ref={inputRef}

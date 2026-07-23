@@ -1367,16 +1367,51 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   )
 }
 
+/** The Properties/Variables tabs without any panel shell — hosted by the
+ *  left rail's Properties section on desktop and by Inspector (the phone
+ *  drawer's floating card) below. */
+export function InspectorPane({ pageId }: { pageId: string }) {
+  const selection = useDocStore((s) => s.selection)
+  const object = useDocStore((s) =>
+    selection.length === 1 ? s.pages[pageId]?.objects[selection[0]] : undefined
+  )
+
+  return (
+    <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
+      <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
+        <TabsTrigger value="properties" className="text-[12px]">
+          Properties
+        </TabsTrigger>
+        <TabsTrigger value="variables" className="text-[12px]">
+          Variables
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="properties" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        {object ? (
+          <ObjectProperties pageId={pageId} object={object} />
+        ) : (
+          <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+            {selection.length > 1
+              ? `${selection.length} objects selected`
+              : 'Select an object — or draw one and give it a behavior.'}
+          </p>
+        )}
+      </TabsContent>
+      <TabsContent value="variables" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <VariablesPanel pageId={pageId} />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+/** The floating panel shell — the phone inspector drawer's card. Desktop no
+ *  longer docks this; Properties lives in the left rail (see sidebar.tsx). */
 export function Inspector({ pageId }: { pageId: string }) {
   const motion = useSpring()
-  const selection = useDocStore((s) => s.selection)
   const [panelW, setPanelW] = useState(() => {
     if (typeof window === 'undefined') return 288
     return Number(localStorage.getItem('simblip-inspector-w')) || 288
   })
-  const object = useDocStore((s) =>
-    selection.length === 1 ? s.pages[pageId]?.objects[selection[0]] : undefined
-  )
 
   return (
     <fm.aside
@@ -1411,30 +1446,7 @@ export function Inspector({ pageId }: { pageId: string }) {
           window.addEventListener('pointerup', up)
         }}
       />
-      <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
-        <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
-          <TabsTrigger value="properties" className="text-[12px]">
-            Properties
-          </TabsTrigger>
-          <TabsTrigger value="variables" className="text-[12px]">
-            Variables
-          </TabsTrigger>
-        </TabsList>
-        <TabsContent value="properties" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          {object ? (
-            <ObjectProperties pageId={pageId} object={object} />
-          ) : (
-            <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
-              {selection.length > 1
-                ? `${selection.length} objects selected`
-                : 'Select an object — or draw one and give it a behavior.'}
-            </p>
-          )}
-        </TabsContent>
-        <TabsContent value="variables" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
-          <VariablesPanel pageId={pageId} />
-        </TabsContent>
-      </Tabs>
+      <InspectorPane pageId={pageId} />
     </fm.aside>
   )
 }

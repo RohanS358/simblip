@@ -131,7 +131,7 @@ export function DsaTreeView({ trace, stepIdx }: { trace: TraceResult | null; ste
                 width={NODE_W}
                 height={NODE_H}
                 rx={10}
-                className="transition-all duration-200"
+                className="transition-[fill,stroke] duration-200"
                 fill={
                   isActive
                     ? 'color-mix(in oklch, var(--accent-mint) 22%, var(--card))'

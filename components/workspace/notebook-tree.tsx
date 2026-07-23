@@ -217,8 +217,16 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
               </ContextMenuContent>
             </ContextMenu>
 
-            {!collapsed[nb.id] &&
-              nb.sections.map((sec) => (
+            {/* Sections stay mounted; the grid row folds to 0fr so collapse
+                animates and re-clicks retarget mid-motion. */}
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows] duration-200 ease-strong',
+                collapsed[nb.id] ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+              )}
+            >
+              <div className="min-h-0 overflow-hidden">
+              {nb.sections.map((sec) => (
                 <div key={sec.id} className="ml-4 mt-0.5">
                   <ContextMenu>
                     <ContextMenuTrigger asChild>
@@ -377,6 +385,8 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
                   ))}
                 </div>
               ))}
+              </div>
+            </div>
           </div>
         ))}
       </div>

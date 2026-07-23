@@ -63,7 +63,7 @@ function StepHighlight({ selector }: { selector?: string }) {
   return (
     <div
       aria-hidden
-      className="pointer-events-none fixed z-[60] animate-pulse rounded-xl border-2 border-[var(--accent-blue)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--accent-blue)_25%,transparent)] transition-all duration-300"
+      className="pointer-events-none fixed z-[60] animate-pulse rounded-xl border-2 border-[var(--accent-blue)] shadow-[0_0_0_5px_color-mix(in_oklch,var(--accent-blue)_25%,transparent)] transition-[left,top,width,height] duration-300 ease-out"
       style={{ left: rect.left - 6, top: rect.top - 6, width: rect.width + 12, height: rect.height + 12 }}
     />
   )

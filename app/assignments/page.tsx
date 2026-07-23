@@ -322,7 +322,15 @@ function TeacherAssignments() {
               </button>
             </button>
 
-            {expanded && (
+            {/* Kept mounted; the grid row folds so expand/collapse animates
+                and rapid re-clicks retarget mid-motion. */}
+            <div
+              className={cn(
+                'grid transition-[grid-template-rows] duration-200 ease-strong',
+                expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+              )}
+            >
+              <div className="min-h-0 overflow-hidden">
               <div className="mt-3 space-y-1.5 border-t border-border/50 pt-3">
                 {targets.length === 0 && (
                   <p className="text-[12px] text-muted-foreground">No students enrolled in the targeted rooms.</p>
@@ -371,7 +379,8 @@ function TeacherAssignments() {
                   )
                 })}
               </div>
-            )}
+              </div>
+            </div>
           </div>
         )
       })}

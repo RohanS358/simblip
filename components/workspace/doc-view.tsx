@@ -25,6 +25,7 @@ import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
+import { useTransientHud } from '@/hooks/use-transient-hud'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { sanitizeColors } from '@/lib/store/to-pdf'
 import { InfiniteCanvas } from './canvas'
@@ -117,7 +118,9 @@ function Sheet({
       data-sheet={sheetId}
       className={cn(
         'group relative mx-auto overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)] dark:bg-neutral-900',
-        active && 'ring-2 ring-[var(--accent-blue)]/60'
+        // Focused, not alarmed: a quiet ring plus a soft tinted glow.
+        active &&
+          'ring-1 ring-[var(--accent-blue)]/50 shadow-[0_2px_24px_color-mix(in_oklch,var(--accent-blue)_18%,transparent)]'
       )}
       style={{ width: dims.w, maxWidth: '100%', aspectRatio: `${dims.w} / ${dims.h}` }}
       onPointerDownCapture={onFocus}
@@ -140,7 +143,7 @@ function Sheet({
           Page {index + 1}
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 left-2.5 z-10 text-[10.5px] font-medium text-muted-foreground">
+      <span className="pointer-events-none absolute bottom-1.5 left-2 z-10 rounded-md bg-foreground/8 px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm">
         {index + 1}
       </span>
       {removable && (
@@ -176,6 +179,8 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const [visible, setVisible] = useState<Set<number>>(() => new Set([0]))
   const [exporting, setExporting] = useState(false)
   const [zoom, setZoom] = useState(1)
+  // Transient zoom readout — same language as the board's zoom pill.
+  const zoomHud = useTransientHud(zoom)
   const scrollRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
   const [naturalH, setNaturalH] = useState(0)
@@ -485,7 +490,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
             ))}
             <button
               type="button"
-              className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-[12.5px] text-muted-foreground transition-colors hover:border-[var(--accent-blue)] hover:text-foreground"
+              className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-[12.5px] text-muted-foreground transition-[color,border-color,transform] duration-150 ease-out hover:border-[var(--accent-blue)] hover:text-foreground active:scale-[0.97]"
               onClick={() => setActiveSheet(addDocSheet(pageId))}
             >
               <Plus className="h-4 w-4" /> Add page
@@ -493,6 +498,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           </div>
         </div>
       </div>
+      {zoomHud && !bare && (
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
+          {Math.round(zoom * 100)}%
+        </div>
+      )}
     </div>
   )
 }

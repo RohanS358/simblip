@@ -211,7 +211,7 @@ export function Landing() {
           </nav>
           <Link
             href="/login"
-            className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
+            className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
           >
             Sign in
           </Link>
@@ -238,7 +238,7 @@ export function Landing() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <Link
                 href="/login"
-                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-[14.5px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
+                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-[14.5px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
               >
                 Sign in to your institution
               </Link>
@@ -269,7 +269,7 @@ export function Landing() {
 
       {/* Discipline strip — edge to edge */}
       <section className="border-y border-border/50 px-4 py-6 sm:px-8">
-        <div data-fx="domino" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6 [perspective:900px]">
+        <div data-fx="domino" className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
           {[
             ['Mechanics', 'Rigid bodies, springs, hinges, motors — drawn, then simulated.'],
             ['Circuits', 'Kirchhoff-solved R/L/C, diodes, op-amps at 120 Hz.'],
@@ -294,7 +294,7 @@ export function Landing() {
             More than a whiteboard now
           </h2>
         </div>
-        <div data-fx="domino" className="grid gap-4 [perspective:1100px] sm:grid-cols-2 xl:grid-cols-4">
+        <div data-fx="domino" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             ['DSA Lab', 'A C++ interpreter lives inside the notebook. Step through your own code and watch arrays, stacks, trees and graph traversals animate as textbook-quality visualizations.', 'var(--accent-violet)'],
             ['Local AI agent', 'Ask for “a projectile hitting a spring on an incline” and the on-device AI assembles it from real simulation components. Nothing leaves your machine.', 'var(--accent-blue)'],
@@ -319,7 +319,7 @@ export function Landing() {
             the same math you get on the canvas.
           </p>
         </div>
-        <div data-fx="domino" className="grid gap-4 [perspective:1100px] sm:grid-cols-2 xl:grid-cols-3">
+        <div data-fx="domino" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <DemoCard title="Mechanics that obey you" caption="Pendulums, springs, collisions — gravity and air drag are just variables you edit, even mid-swing.">
           <PendulumDemo />
         </DemoCard>
@@ -358,7 +358,7 @@ export function Landing() {
               reproduced faithfully in your notebook.
             </p>
           </div>
-          <div data-fx="domino" className="grid content-center gap-3 sm:grid-cols-3 lg:grid-cols-1 [perspective:900px]">
+          <div data-fx="domino" className="grid content-center gap-3 sm:grid-cols-3 lg:grid-cols-1">
             {[
               ['Huygens–Fresnel', 'Every open slit is summed as secondary wavelets — Σ e^{ikr}/√r. Change λ, gap or spacing and the fringes respond exactly as theory predicts.'],
               ['Born rule photons', 'In Play mode single photons accumulate stochastically from |A|². Watch randomness become the interference pattern.'],
@@ -384,7 +384,7 @@ export function Landing() {
             runs on. Teachers teach from it, boards present it, students submit through it.
           </p>
         </div>
-        <div data-fx="domino" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 [perspective:900px]">
+        <div data-fx="domino" className="mt-10 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
             ['1 · Scan', 'Every classroom display shows a rotating QR. A teacher scans it with their phone and picks any notebook page.'],
             ['2 · Present', 'The board loads a temporary copy — annotate, simulate, rewind. The original teaching material is never touched.'],
@@ -400,7 +400,7 @@ export function Landing() {
       </section>
 
       <section className="border-t border-border/60 px-4 py-16 sm:px-8">
-        <div data-fx="domino" className="grid gap-x-10 gap-y-8 [perspective:900px] sm:grid-cols-2 lg:grid-cols-3">
+        <div data-fx="domino" className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(([title, body]) => (
             <div key={title} className="border-l-2 border-[color-mix(in_oklch,var(--accent-blue)_35%,transparent)] pl-4">
               <h3 className="text-[14px] font-semibold">{title}</h3>
@@ -428,7 +428,7 @@ export function Landing() {
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <a
               href="mailto:licensing@simblip.app?subject=SIMBLIP%20institution%20licensing"
-              className="rounded-full bg-[var(--accent-blue)] px-8 py-3.5 text-[15px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-all hover:opacity-90 active:scale-[0.97]"
+              className="rounded-full bg-[var(--accent-blue)] px-8 py-3.5 text-[15px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
             >
               Contact us for licensing
             </a>

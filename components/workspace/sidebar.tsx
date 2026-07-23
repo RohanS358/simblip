@@ -27,18 +27,25 @@ import Image from 'next/image'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
-import { SIDEBAR_SECTIONS, type SidebarSectionId } from '@/lib/store/sidebar-sections'
+import {
+  SIDEBAR_SECTIONS,
+  useSidebarSection,
+  type SidebarSectionId,
+} from '@/lib/store/sidebar-sections'
 import { NotebookTree } from './notebook-tree'
 import { Palette } from './palette'
 import { ToolsPanel } from './tools-panel'
 import { LibraryPanel } from './library-panel'
+import { InspectorPane } from './inspector'
 import { cn } from '@/lib/utils'
 
-const RAIL_TH = 52 // the rail's thickness — a column width on desktop, a bar height on phone
+// Rail thickness comes from railNav's own classes (w-[52px] column on
+// desktop, a bar on phone) — no computed widths anymore; the pane's fold
+// is a Framer width animation instead.
 
 function RailButton({
   active,
@@ -117,14 +124,24 @@ export function Sidebar() {
   }, [isPhone])
 
   // Which section shows when the pane is open — remembered even while
-  // collapsed, so reopening lands back where you left it. Defaults to
-  // Notebook (today's most-used section) rather than nothing, to keep the
-  // day-one experience close to what it was before the rail existed.
-  const [activeSection, setActiveSection] = useState<SidebarSectionId>(() => {
-    if (typeof window === 'undefined') return 'notebook'
-    const saved = localStorage.getItem('simblip-sidebar-section')
-    return (SIDEBAR_SECTIONS.some((s) => s.id === saved) ? saved : 'notebook') as SidebarSectionId
-  })
+  // collapsed, so reopening lands back where you left it. Shared store (not
+  // local state) so actions elsewhere — the dock's Properties action, the
+  // context menu — can land the user on a specific section.
+  const activeSection = useSidebarSection((s) => s.section)
+  const setActiveSection = useSidebarSection((s) => s.setSection)
+
+  // What Properties operates on: boards act on themselves, docs act on the
+  // focused sheet, PDF readers on the focused ink/notes canvas — the same
+  // derivation the toolbar/transport use (see shell.tsx).
+  const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
+  const activeKind = useWorkspaceStore(
+    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+  )
+  const contentPageId =
+    activeKind === 'doc' || (activeKind === 'pdf' && pdfToolsActive)
+      ? (activeSheetId ?? activePageId)
+      : activePageId
 
   const [panelW, setPanelW] = useState(() => {
     if (typeof window === 'undefined') return 288
@@ -137,9 +154,6 @@ export function Sidebar() {
       return
     }
     setActiveSection(id)
-    try {
-      localStorage.setItem('simblip-sidebar-section', id)
-    } catch {}
     if (!sidebarOpen) togglePanel('sidebar')
   }
 
@@ -150,26 +164,7 @@ export function Sidebar() {
         isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'w-[52px] flex-col py-3'
       )}
     >
-      {institution?.logo_url ? (
-        <Image
-          src={String(institution.logo_url)}
-          alt={institution.name}
-          width={28}
-          height={28}
-          unoptimized
-          className={cn('h-7 w-7 shrink-0 rounded-lg object-contain', !isPhone && 'mb-1')}
-        />
-      ) : (
-        <span
-          className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-blue)] text-[13px] font-extrabold text-white',
-            !isPhone && 'mb-1'
-          )}
-        >
-          S
-        </span>
-      )}
-      <div className={cn('shrink-0 bg-border', isPhone ? 'h-6 w-px' : 'h-px w-6')} />
+   
       {SIDEBAR_SECTIONS.map((s) => (
         <RailButton
           key={s.id}
@@ -192,6 +187,14 @@ export function Sidebar() {
       {activeSection === 'library' && (
         <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
       )}
+      {activeSection === 'properties' &&
+        (contentPageId ? (
+          <InspectorPane pageId={contentPageId} />
+        ) : (
+          <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+            Open a page to inspect its objects and variables.
+          </p>
+        ))}
     </>
   )
 
@@ -220,18 +223,32 @@ export function Sidebar() {
   }
 
   return (
+    // Not a floating card: the rail is flush window chrome (like an activity
+    // bar), and the content pane folds out of it with an interruptible
+    // spring. Only the pane carries the soft glass edge.
     <fm.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={motion}
-      className="glass relative z-30 m-3 flex min-h-0 flex-row rounded-2xl"
-      style={{ width: sidebarOpen ? RAIL_TH + panelW : RAIL_TH }}
+      className="relative z-30 flex min-h-0 flex-row"
       aria-label="Sidebar"
     >
-      {railNav}
+      <div className="flex min-h-0 flex-col border-r border-border/40 bg-sidebar/85 backdrop-blur-xl">
+        {railNav}
+      </div>
 
-      {sidebarOpen && (
-        <div className="relative flex min-h-0 min-w-0 flex-1 flex-col border-l border-border/50">
+      {/* Width animates; the content keeps its TRUE width inside the
+          overflow-hidden fold so text never reflows mid-motion. */}
+      <fm.div
+        initial={false}
+        animate={{ width: sidebarOpen ? panelW : 0, opacity: sidebarOpen ? 1 : 0 }}
+        transition={motion}
+        className="relative z-30 my-2 min-h-0 overflow-hidden"
+      >
+        <div
+          style={{ width: panelW }}
+          className="glass relative flex h-full min-h-0 flex-col rounded-r-2xl border-l-0"
+        >
           <div
             role="separator"
             aria-label="Resize sidebar"
@@ -260,7 +277,7 @@ export function Sidebar() {
 
           {panelSections}
         </div>
-      )}
+      </fm.div>
     </fm.aside>
   )
 }

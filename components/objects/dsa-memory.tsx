@@ -38,7 +38,7 @@ function CellBox({
     <div
       data-addr={cell.addr}
       className={cn(
-        'flex min-w-9 flex-col items-center px-1.5 py-1 transition-all duration-300',
+        'flex min-w-9 flex-col items-center px-1.5 py-1 transition-colors duration-300',
         isChanged && 'bg-[color-mix(in_oklch,var(--accent-amber)_28%,transparent)]',
         !isChanged && isRead && 'bg-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)]'
       )}
@@ -78,7 +78,7 @@ function BlockBox({
       data-addr={block.addr}
       data-block="1"
       className={cn(
-        'flex flex-col overflow-hidden rounded-lg border bg-[var(--card)] shadow-sm transition-all duration-300',
+        'flex flex-col overflow-hidden rounded-lg border bg-[var(--card)] shadow-sm transition-colors duration-300',
         block.heap
           ? 'border-[color-mix(in_oklch,var(--accent-violet)_55%,transparent)] bg-[color-mix(in_oklch,var(--accent-violet)_7%,var(--card))]'
           : 'border-border/70',
