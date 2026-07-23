@@ -23,7 +23,6 @@
 // panel sliding up above it as a capped-height sheet, not sideways.
 
 import { useEffect, useRef, useState } from 'react'
-import Image from 'next/image'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'

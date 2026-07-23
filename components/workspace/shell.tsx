@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
-import { GraduationCap, PanelLeft, PanelRight, Search, Sun, Moon } from 'lucide-react'
+import { GraduationCap, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
