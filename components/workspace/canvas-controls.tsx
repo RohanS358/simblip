@@ -45,7 +45,7 @@ import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { Toolbar } from './toolbar'
-import { Transport } from './transport'
+import { Transport, FloatingTransport } from './transport'
 import { cn } from '@/lib/utils'
 
 export function CanvasControls({
@@ -53,26 +53,13 @@ export function CanvasControls({
   showTransport = true,
 }: {
   pageId: string
-  /** The main workspace shells host Transport in the tab bar's controls
-   *  menu instead (see page-controls-menu.tsx), so it doesn't float over
-   *  the canvas there — pass false. Standalone surfaces with no tab bar
-   *  (the room-board presenter, app/board/page.tsx) keep the floating
-   *  default. */
   showTransport?: boolean
 }) {
   const dockPref = usePrefs((s) => s.notebook.dock)
-  // A side dock (left/right) costs a slice of a phone's scarce width,
-  // permanently. A phone has height to spare instead, so on mobile a side
-  // preference renders along the bottom — same override Toolbar itself
-  // applies internally (toolbar.tsx); it has to be mirrored here too since
-  // this is what actually picks the grid cell. Top/bottom are untouched,
-  // they already cost height, not width.
   const isMobile = useIsMobile()
   const dock = isMobile && (dockPref === 'left' || dockPref === 'right') ? 'bottom' : dockPref
 
   const navBarH = useMobileNavBarStore((s) => s.height)
-  // navBarH is only ever nonzero while Sidebar's phone bottom-bar is
-  // mounted, so it doubles as the "are we actually on a phone" signal here.
   const edgeToolbar = dock === 'bottom' && navBarH > 0
 
   const toolbarCell = edgeToolbar
@@ -85,36 +72,24 @@ export function CanvasControls({
           ? 'col-start-1 row-start-2 justify-self-start self-center'
           : 'col-start-3 row-start-2 justify-self-end self-center'
 
-  // Transport lives top-center by default (a video-scrubber convention) and
-  // only steps aside — to top-right — when the dock is also on top and
-  // would otherwise claim that same cell.
-  const transportCell =
-    dock === 'top'
-      ? 'col-start-3 row-start-1 justify-self-end self-start'
-      : 'col-start-2 row-start-1 justify-self-center self-start'
-
   return (
-    <div
-      className={cn('pointer-events-none absolute inset-0 z-40 grid gap-3 py-4', edgeToolbar ? 'px-0' : 'px-4')}
-      style={{
-        gridTemplateColumns: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
-        gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
-        // navBarH already includes the bar's own safe-area padding (it's a
-        // real measured box height), so it isn't added again here.
-        paddingBottom:
-          dock === 'bottom' && navBarH > 0
-            ? `calc(${navBarH}px + 0.75rem)`
-            : 'max(1rem, env(safe-area-inset-bottom))',
-      }}
-    >
-      <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
-        <Toolbar pageId={pageId} edge={edgeToolbar} />
-      </div>
-      {showTransport && (
-        <div className={cn('pointer-events-auto min-h-0 min-w-0', transportCell)}>
-          <Transport pageId={pageId} />
+    <>
+      <FloatingTransport pageId={pageId} />
+      <div
+        className={cn('pointer-events-none absolute inset-0 z-40 grid gap-3 py-4', edgeToolbar ? 'px-0' : 'px-4')}
+        style={{
+          gridTemplateColumns: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
+          gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
+          paddingBottom:
+            dock === 'bottom' && navBarH > 0
+              ? `calc(${navBarH}px + 0.75rem)`
+              : 'max(1rem, env(safe-area-inset-bottom))',
+        }}
+      >
+        <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
+          <Toolbar pageId={pageId} edge={edgeToolbar} />
         </div>
-      )}
-    </div>
+      </div>
+    </>
   )
 }

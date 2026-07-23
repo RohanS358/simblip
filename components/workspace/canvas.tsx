@@ -13,7 +13,7 @@
 // here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { LibraryBig, Wand2, Lock, LockOpen } from 'lucide-react'
+import { LibraryBig, Wand2, Lock, LockOpen, RotateCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
@@ -204,6 +204,7 @@ type GestureMode =
   | 'draw'
   | 'resize'
   | 'rotate'
+  | 'rotateGroup'
   | 'placeLine'
   | 'placeRect'
   | 'placeRadius'
@@ -223,6 +224,11 @@ interface Gesture {
   rotateCenter?: Vec2
   rotateStartAngle?: number
   rotateStartRotation?: number
+  /** Group rotation: center of the group bounding box, start angle, and each
+   *  object's rotation at the time the grip was grabbed. */
+  rotateGroupCenter?: Vec2
+  rotateGroupStartAngle?: number
+  rotateGroupStartRotations?: Map<string, number>
   /** Palette component id for drag-to-draw placement. */
   placeComponent?: string
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
@@ -522,6 +528,7 @@ const ObjectView = memo(function ObjectView({
   pageId,
   object,
   selected,
+  multiSelected,
   chromeScale = 1,
   onPointerDown,
   onResizeStart,
@@ -531,6 +538,9 @@ const ObjectView = memo(function ObjectView({
   pageId: string
   object: SceneObject
   selected: boolean
+  /** True when this object is part of a multi-object selection — suppress
+   *  per-object resize/rotate grips so only the group bounding box is shown. */
+  multiSelected?: boolean
   /** 1/viewport.zoom — counter-scales the selection grips so they stay the
    *  same size ON SCREEN at every zoom. Only passed while selected, so
    *  unselected objects never re-render on zoom. */
@@ -577,7 +587,7 @@ const ObjectView = memo(function ObjectView({
       <div
         className={cn(
           'h-full w-full rounded-xl',
-          selected && 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent'
+          selected && !multiSelected && 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent'
         )}
         style={{
           transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined,
@@ -587,7 +597,10 @@ const ObjectView = memo(function ObjectView({
       >
         <Renderer pageId={pageId} object={object} selected={selected} />
       </div>
-      {selected && (
+      {/* Only show per-object resize/rotate grips for single selections.
+          Multi-selections get a shared group bounding box rendered by the
+          canvas, so individual grips would be visually cluttered. */}
+      {selected && !multiSelected && (
         // Selection chrome rides a layer with the SAME rotation as the
         // object, so grips sit on the corners the user actually sees. Each
         // grip counter-scales by chromeScale (1/zoom) to stay a constant
@@ -623,12 +636,13 @@ const ObjectView = memo(function ObjectView({
                 </div>
               )
             })}
-          {/* Canva-style rotation grip above the top edge. */}
+          {/* Rotation grip above the top edge — shows RotateCw icon so it's
+              unmistakably different from the resize grips. */}
           <div className="absolute" style={{ left: '50%', top: '0%' }}>
             <div
               role="button"
               aria-label="Rotate"
-              className="pointer-events-auto absolute flex flex-col items-center after:absolute after:-inset-2 after:content-['']"
+              className="pointer-events-auto absolute flex flex-col items-center gap-0.5 after:absolute after:-inset-2 after:content-['']"
               style={{
                 transform: `translate(-50%, -100%) scale(${chromeScale})`,
                 transformOrigin: 'bottom center',
@@ -636,7 +650,9 @@ const ObjectView = memo(function ObjectView({
               }}
               onPointerDown={(e) => onRotateStart(e, object.id)}
             >
-              <div className="h-3 w-3 rounded-full border border-[var(--ring)] bg-background" />
+              <div className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--ring)] bg-background text-[var(--ring)] shadow-sm">
+                <RotateCw className="h-3 w-3" strokeWidth={2.5} />
+              </div>
               <div className="h-2.5 w-px bg-[var(--ring)] opacity-60" />
             </div>
           </div>
@@ -686,6 +702,10 @@ export function InfiniteCanvas({
   // While the rotate grip is held: which object, so a live angle chip can
   // follow it (cleared on pointer-up/cancel).
   const [rotatingId, setRotatingId] = useState<string | null>(null)
+  const [rotatingGroupAngle, setRotatingGroupAngle] = useState<number | null>(null)
+  // Live drag offset: updated every RAF alongside guides so the group
+  // bounding box follows the drag without writing to the store per-frame.
+  const [liveDragOffset, setLiveDragOffset] = useState<{ dx: number; dy: number } | null>(null)
   const [zoomHud, setZoomHud] = useState(false)
   const zoomHudTimer = useRef<number | null>(null)
   const zoomHudArmed = useRef(false)
@@ -1258,6 +1278,8 @@ export function InfiniteCanvas({
             setGuides(
               newGuides.v.length + newGuides.h.length + newGuides.pts.length > 0 ? newGuides : null
             )
+            // Also tick the group bounding box to follow the drag.
+            setLiveDragOffset({ dx, dy })
           })
         }
       } else if (g.mode === 'marquee') {
@@ -1420,6 +1442,34 @@ export function InfiniteCanvas({
         if (e.shiftKey) deg = Math.round(deg / 15) * 15
         deg = ((deg % 360) + 360) % 360
         store.updateObject(pageId, g.rotateId, { rotation: Math.round(deg * 10) / 10 })
+      } else if (g.mode === 'rotateGroup' && g.rotateGroupCenter) {
+        // Rotate all selected objects around the group center.
+        const angle = Math.atan2(point.y - g.rotateGroupCenter.y, point.x - g.rotateGroupCenter.x)
+        let deltaRad = angle - (g.rotateGroupStartAngle ?? 0)
+        let deltaDeg = (deltaRad * 180) / Math.PI
+        if (e.shiftKey) deltaDeg = Math.round(deltaDeg / 15) * 15
+        setRotatingGroupAngle(Math.round(deltaDeg * 10) / 10)
+        const cx = g.rotateGroupCenter.x
+        const cy = g.rotateGroupCenter.y
+        const cos = Math.cos((deltaDeg * Math.PI) / 180)
+        const sin = Math.sin((deltaDeg * Math.PI) / 180)
+        for (const [id, startPos] of g.objectStartPositions) {
+          const startObj = store.pages[pageId]?.objects[id]
+          if (!startObj) continue
+          // Rotate the object's center around the group center.
+          const ocx = startPos.x + startObj.size.w / 2
+          const ocy = startPos.y + startObj.size.h / 2
+          const rx = ocx - cx
+          const ry = ocy - cy
+          const newCx = cx + rx * cos - ry * sin
+          const newCy = cy + rx * sin + ry * cos
+          const startRot = g.rotateGroupStartRotations?.get(id) ?? 0
+          const newRot = ((startRot + deltaDeg) % 360 + 360) % 360
+          store.updateObject(pageId, id, {
+            position: { x: newCx - startObj.size.w / 2, y: newCy - startObj.size.h / 2 },
+            rotation: Math.round(newRot * 10) / 10,
+          })
+        }
       }
     },
     [pageId, toCanvas]
@@ -1433,6 +1483,7 @@ export function InfiniteCanvas({
       window.removeEventListener('pointerup', onPointerUp)
       document.body.style.cursor = ''
       setRotatingId(null)
+      setRotatingGroupAngle(null)
       setGuides(null)
       if (holdTimerRef.current) {
         clearTimeout(holdTimerRef.current)
@@ -1446,6 +1497,7 @@ export function InfiniteCanvas({
       if (g?.mode === 'pan') commitViewport() // the store has been lagging on purpose
       if (!g) return
       const store = useDocStore.getState()
+      setLiveDragOffset(null)
 
       // Commit a live drag: the elements have been moved by transform only, so
       // now write the real positions ONCE and drop the inline transforms. The
@@ -1988,7 +2040,7 @@ export function InfiniteCanvas({
     }
     // Grabby gestures grab: the whole window shows a closed hand until the
     // pointer lifts (cleared in onPointerUp/cancelGesture).
-    if (mode === 'pan' || mode === 'rotate') document.body.style.cursor = 'grabbing'
+    if (mode === 'pan' || mode === 'rotate' || mode === 'rotateGroup') document.body.style.cursor = 'grabbing'
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
   }
@@ -2236,6 +2288,29 @@ export function InfiniteCanvas({
     setRotatingId(id)
   }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
+  const handleGroupRotateStart = useCallback((e: React.PointerEvent) => {
+    if (!editing) return
+    e.stopPropagation()
+    const store = useDocStore.getState()
+    const objs = store.selection
+      .map((id) => store.pages[pageId]?.objects[id])
+      .filter(Boolean) as import('@/lib/scene/types').SceneObject[]
+    if (objs.length < 2) return
+    store.pushHistory(pageId)
+    const x = Math.min(...objs.map((o) => o.position.x))
+    const y = Math.min(...objs.map((o) => o.position.y))
+    const r = Math.max(...objs.map((o) => o.position.x + o.size.w))
+    const b = Math.max(...objs.map((o) => o.position.y + o.size.h))
+    const center = { x: (x + r) / 2, y: (y + b) / 2 }
+    const p = toCanvas(e.clientX, e.clientY)
+    const startRotations = new Map(objs.map((o) => [o.id, o.rotation ?? 0]))
+    beginGesture('rotateGroup', e, {
+      rotateGroupCenter: center,
+      rotateGroupStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
+      rotateGroupStartRotations: startRotations,
+    })
+  }, [pageId, editing, beginGesture, toCanvas])
+
   // ── Custom right-click menu ───────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault() // the browser menu never belongs on the canvas
@@ -2243,7 +2318,10 @@ export function InfiniteCanvas({
     const p = toLocal(e.clientX, e.clientY)
     const hit = (e.target as HTMLElement).closest?.('[data-object-id]')
     const objectId = hit?.getAttribute('data-object-id') ?? null
-    if (objectId) useDocStore.getState().setSelection([objectId])
+    const currentSel = useDocStore.getState().selection
+    if (objectId && !currentSel.includes(objectId)) {
+      useDocStore.getState().setSelection([objectId])
+    }
     setCtxMenu({ x: p.x, y: p.y, objectId })
   }
 
@@ -2399,19 +2477,24 @@ export function InfiniteCanvas({
           ))}
         </svg>
 
-        {interactiveObjects.map((obj) => (
-          <ObjectView
-            key={obj.id}
-            pageId={pageId}
-            object={obj}
-            selected={selectedSet.has(obj.id)}
-            chromeScale={selectedSet.has(obj.id) ? 1 / viewport.zoom : undefined}
-            onPointerDown={handleObjectPointerDown}
-            onResizeStart={handleResizeStart}
-            onRotateStart={handleRotateStart}
-            onHover={setHoveredId}
-          />
-        ))}
+        {interactiveObjects.map((obj) => {
+          const isSelected = selectedSet.has(obj.id)
+          const isMulti = isSelected && selection.length > 1
+          return (
+            <ObjectView
+              key={obj.id}
+              pageId={pageId}
+              object={obj}
+              selected={isSelected}
+              multiSelected={isMulti}
+              chromeScale={isSelected && !isMulti ? 1 / viewport.zoom : undefined}
+              onPointerDown={handleObjectPointerDown}
+              onResizeStart={handleResizeStart}
+              onRotateStart={handleRotateStart}
+              onHover={setHoveredId}
+            />
+          )
+        })}
 
         {(altHeld || touchMeasureTargetId) &&
           selection.length === 1 &&
@@ -2574,31 +2657,52 @@ export function InfiniteCanvas({
           (() => {
             const sel = selection.map((id) => objects[id]).filter(Boolean)
             if (sel.length < 2) return null
-            const x = Math.min(...sel.map((o) => o.position.x)) - 10
-            const y = Math.min(...sel.map((o) => o.position.y)) - 10
-            const r = Math.max(...sel.map((o) => o.position.x + o.size.w)) + 10
-            const b = Math.max(...sel.map((o) => o.position.y + o.size.h)) + 10
+            const odx = liveDragOffset?.dx ?? 0
+            const ody = liveDragOffset?.dy ?? 0
+            const x = Math.min(...sel.map((o) => o.position.x)) - 10 + odx
+            const y = Math.min(...sel.map((o) => o.position.y)) - 10 + ody
+            const r = Math.max(...sel.map((o) => o.position.x + o.size.w)) + 10 + odx
+            const b = Math.max(...sel.map((o) => o.position.y + o.size.h)) + 10 + ody
+            const cs = 1 / viewport.zoom
             return (
               <div
-                className="pointer-events-none absolute rounded-xl border-2 border-dashed border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_4%,transparent)]"
+                className="absolute rounded-xl border-2 border-[var(--accent-blue)]"
                 style={{ left: x, top: y, width: r - x, height: b - y }}
               >
-                {/* Corner dots give the group the same "one selectable thing"
-                    visual language as a single selection box. */}
+                {/* Corner dots */}
                 {(['0% 0%', '100% 0%', '0% 100%', '100% 100%'] as const).map((pos) => {
                   const [lx, ty] = pos.split(' ')
                   return (
                     <div
                       key={pos}
-                      className="absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--accent-blue)] bg-background"
+                      className="pointer-events-none absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--accent-blue)] bg-background"
                       style={{
                         left: lx,
                         top: ty,
-                        transform: `translate(-50%, -50%) scale(${1 / viewport.zoom})`,
+                        transform: `translate(-50%, -50%) scale(${cs})`,
                       }}
                     />
                   )
                 })}
+                {/* Group rotate grip — same visual language as single-object grip */}
+                <div className="pointer-events-auto absolute" style={{ left: '50%', top: '0%' }}>
+                  <div
+                    role="button"
+                    aria-label="Rotate group"
+                    className="absolute flex flex-col items-center gap-0.5 after:absolute after:-inset-3 after:content-['']"
+                    style={{
+                      transform: `translate(-50%, -100%) scale(${cs})`,
+                      transformOrigin: 'bottom center',
+                      cursor: 'grab',
+                    }}
+                    onPointerDown={handleGroupRotateStart}
+                  >
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full border border-[var(--accent-blue)] bg-background text-[var(--accent-blue)] shadow-sm">
+                      <RotateCw className="h-3 w-3" strokeWidth={2.5} />
+                    </div>
+                    <div className="h-2.5 w-px bg-[var(--accent-blue)] opacity-60" />
+                  </div>
+                </div>
               </div>
             )
           })()}
@@ -2696,6 +2800,12 @@ export function InfiniteCanvas({
             </div>
           )
         })()}
+
+      {rotatingGroupAngle !== null && (
+        <div className="glass-strong pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--accent-blue)]/40 px-3 py-1 font-mono text-[12px] font-bold text-[var(--accent-blue)] shadow-lg">
+          Group Rotation: {rotatingGroupAngle}°
+        </div>
+      )}
 
       {/* Zoom level pill with a lock-zoom toggle button. On phones every
           pixel of canvas matters, so the pill only fades in while the zoom

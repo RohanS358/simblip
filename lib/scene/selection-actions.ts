@@ -42,6 +42,8 @@ export interface SelectionAction {
   danger?: boolean
   /** Ordering + separator bucket in the dock: edit → arrange → convert → share. */
   group: 'edit' | 'arrange' | 'convert' | 'share'
+  /** Fine-grained sort order within the group (lower = earlier). Defaults to 0. */
+  order?: number
 }
 
 export type ActionProvider = (ctx: ActionCtx) => SelectionAction[]
@@ -150,29 +152,32 @@ export function registerSelectionActions(key: string, provider: ActionProvider):
   }
 }
 
-const GROUP_ORDER: SelectionAction['group'][] = ['edit', 'arrange', 'convert', 'share']
+const GROUP_ORDER: SelectionAction['group'][] = ['arrange', 'edit', 'convert', 'share']
 
 /** Everything the current selection can do, grouped and ordered for display.
  *  Empty array when nothing is selected. */
 export function actionsForSelection(ctx: ActionCtx): SelectionAction[] {
   if (ctx.ids.length === 0) return []
 
+  // Requested order: Bring Front, Send Back, Duplicate, Copy, Properties, Delete
   const core: SelectionAction[] = [
-    { id: 'properties', label: 'Properties', icon: SlidersHorizontal, group: 'edit', run: openProperties },
+    { id: 'properties', label: 'Properties', icon: SlidersHorizontal, group: 'edit', order: 50, run: openProperties },
   ]
   if (ctx.editing) {
     core.push(
-      { id: 'copy', label: 'Copy', icon: Copy, group: 'edit', run: () => copySelection(ctx.pageId) },
-      { id: 'duplicate', label: 'Duplicate', icon: CopyPlus, group: 'edit', run: () => duplicateObjects(ctx.pageId, ctx.ids) },
-      { id: 'bring-front', label: 'Bring to front', icon: BringToFront, group: 'arrange', run: () => restackObjects(ctx.pageId, ctx.ids, 'front') },
-      { id: 'send-back', label: 'Send to back', icon: SendToBack, group: 'arrange', run: () => restackObjects(ctx.pageId, ctx.ids, 'back') },
-      { id: 'delete', label: 'Delete', icon: Trash2, group: 'edit', danger: true, run: () => useDocStore.getState().removeObjects(ctx.pageId, ctx.ids) },
+      { id: 'bring-front', label: 'Bring to front', icon: BringToFront, group: 'arrange', order: 10, run: () => restackObjects(ctx.pageId, ctx.ids, 'front') },
+      { id: 'send-back',   label: 'Send to back',   icon: SendToBack,   group: 'arrange', order: 20, run: () => restackObjects(ctx.pageId, ctx.ids, 'back') },
+      { id: 'duplicate',   label: 'Duplicate',       icon: CopyPlus,     group: 'arrange', order: 30, run: () => duplicateObjects(ctx.pageId, ctx.ids) },
+      { id: 'copy',        label: 'Copy',             icon: Copy,         group: 'arrange', order: 40, run: () => copySelection(ctx.pageId) },
+      { id: 'delete',      label: 'Delete',           icon: Trash2,       group: 'edit',    order: 99, danger: true, run: () => useDocStore.getState().removeObjects(ctx.pageId, ctx.ids) },
     )
   }
 
   const extra = ctx.editing ? [...providers.values()].flatMap((p) => p(ctx)) : []
 
   return [...core, ...extra].sort(
-    (a, b) => GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group)
+    (a, b) =>
+      GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) ||
+      (a.order ?? 0) - (b.order ?? 0)
   )
 }

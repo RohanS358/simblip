@@ -1,31 +1,155 @@
-'use client'
-
-// Unity-style transport: Edit → Play → Pause → Step → Reset.
-// Nothing is regenerated — the exact drawn scene starts simulating.
-//
-// Positioning is not this component's job anymore — it used to sit at a
-// hard-coded corner and reactively shift away if it measured a collision
-// with the dock (see use-dock-clearance.ts). By default it's a plain grid
-// item placed by CanvasControls (floating, so it draws its own glass pill
-// to stay legible over the canvas). Pass `flat` when embedding it inline in
-// a bar that already has its own chrome (the tab bar's controls row, see
-// page-controls-menu.tsx) — it then renders as bare buttons instead of a
-// self-contained pill.
-
-import { Play, Pause, StepBack, StepForward, RotateCcw } from 'lucide-react'
-import { motion as fm } from 'framer-motion'
+import { useState, useRef, useEffect } from 'react'
+import { Play, Pause, StepBack, StepForward, RotateCcw, GripHorizontal } from 'lucide-react'
+import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
+import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { cn } from '@/lib/utils'
 import { useIsNarrow } from '@/hooks/use-mobile'
+import { toast } from 'sonner'
+
+export function HoldableMergedTransport({ pageId }: { pageId: string }) {
+  const [holding, setHolding] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const setFloating = useTransportDockStore((s) => s.setFloating)
+  const setPosition = useTransportDockStore((s) => s.setPosition)
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    setHolding(true)
+    timerRef.current = setTimeout(() => {
+      setHolding(false)
+      const posX = Math.max(16, rect.left)
+      const posY = Math.max(60, rect.bottom + 12)
+      setPosition({ x: posX, y: posY })
+      setFloating(true)
+      toast.success('Simulation controls detached into a floating pill! Drag to move, or drag to top bar to re-merge.')
+    }, 1000)
+  }
+
+  const cancelHold = () => {
+    setHolding(false)
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+  }
+
+  return (
+    <div
+      className="relative flex items-center group cursor-grab active:cursor-grabbing select-none rounded-xl px-1 py-0.5"
+      onPointerDown={handlePointerDown}
+      onPointerUp={cancelHold}
+      onPointerLeave={cancelHold}
+      onPointerCancel={cancelHold}
+      title="Hold for 1 second to pop out simulation controls"
+    >
+      {holding && (
+        <div className="absolute inset-0 overflow-hidden rounded-xl border border-[var(--accent-mint)] bg-[var(--accent-mint)]/10">
+          <div className="h-full bg-[var(--accent-mint)]/40 transition-all duration-[1000ms] ease-linear w-full origin-left scale-x-100" />
+        </div>
+      )}
+      <Transport pageId={pageId} flat />
+    </div>
+  )
+}
+
+export function FloatingTransport({ pageId }: { pageId: string }) {
+  const floating = useTransportDockStore((s) => s.floating)
+  const position = useTransportDockStore((s) => s.position)
+  const setFloating = useTransportDockStore((s) => s.setFloating)
+  const setPosition = useTransportDockStore((s) => s.setPosition)
+
+  const [isNearTop, setIsNearTop] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted || !floating || !pageId) return null
+
+  const defaultX = typeof window !== 'undefined' ? Math.max(20, window.innerWidth / 2 - 120) : 200
+  const defaultY = 70
+
+  const posX = position?.x ?? defaultX
+  const posY = position?.y ?? defaultY
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    e.stopPropagation()
+    const target = e.currentTarget as HTMLElement
+    target.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX,
+      posY,
+    }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    const newX = Math.max(16, Math.min(window.innerWidth - 240, dragRef.current.posX + dx))
+    const newY = Math.max(16, Math.min(window.innerHeight - 80, dragRef.current.posY + dy))
+
+    setIsNearTop(e.clientY < 60)
+    setPosition({ x: newX, y: newY })
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    dragRef.current = null
+    if (e.clientY < 60) {
+      setFloating(false)
+      setIsNearTop(false)
+      toast.info('Simulation controls merged into top bar')
+    } else {
+      setIsNearTop(false)
+    }
+  }
+
+  return (
+    <AnimatePresence>
+      <fm.div
+        style={{ left: `${posX}px`, top: `${posY}px` }}
+        initial={{ opacity: 0, scale: 0.8, y: -20 }}
+        animate={{
+          opacity: 1,
+          scale: isNearTop ? 0.95 : 1,
+          y: 0,
+        }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        className={cn(
+          'fixed z-[60] flex items-center gap-1 rounded-2xl glass-strong p-1.5 shadow-2xl cursor-grab active:cursor-grabbing border transition-colors select-none touch-none',
+          isNearTop
+            ? 'border-[var(--accent-mint)] bg-[var(--accent-mint)]/20 ring-2 ring-[var(--accent-mint)] shadow-[0_0_24px_rgba(16,185,129,0.3)]'
+            : 'border-border/60'
+        )}
+        aria-label="Floating simulation transport"
+      >
+        <div className="flex shrink-0 items-center justify-center pl-1 pr-0.5 text-muted-foreground/60">
+          <GripHorizontal className="h-4 w-4" />
+        </div>
+        <Transport pageId={pageId} />
+      </fm.div>
+    </AnimatePresence>
+  )
+}
 
 export function Transport({ pageId, flat = false }: { pageId: string; flat?: boolean }) {
   const motion = useSpring()
   const mode = useRuntimeStore((s) => s.mode)
   const time = useRuntimeStore((s) => s.time)
-  // A phone doesn't have room for a five-button strip that's idle 95% of the
-  // time: while editing it collapses to a single Play; the full transport
-  // unfolds the moment a simulation is actually running.
   const isPhone = useIsNarrow(767)
 
   const btnSize = flat ? 'h-7 w-7' : 'h-9 w-9'

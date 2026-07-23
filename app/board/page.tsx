@@ -35,6 +35,7 @@ import { CommandPalette } from '@/components/workspace/command-palette'
 import { SettingsDialog } from '@/components/workspace/settings-dialog'
 import { TutorialPanel } from '@/components/workspace/tutorial'
 import { Calculator } from '@/components/workspace/calculator'
+import { PageControlsMenu } from '@/components/workspace/page-controls-menu'
 import { UndoRedo } from '@/components/workspace/undo-redo'
 import { SyncStatus } from '@/components/workspace/sync-status'
 import { NotificationCenter } from '@/components/workspace/notifications'
@@ -686,6 +687,7 @@ function BoardSurface() {
                 <Search className="h-4 w-4" />
               </button>
 
+              {boardContentId && <PageControlsMenu pageId={boardContentId} showTransport={true} />}
               {boardContentId && <UndoRedo pageId={boardContentId} />}
               <SyncStatus />
               <NotificationCenter />
