@@ -176,7 +176,7 @@ export function Sidebar({
     <nav
       className={cn(
         'flex shrink-0 items-center gap-2',
-        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'h-full flex-col py-3'
+        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'h-full w-[40px] flex-col py-3'
       )}
     >
       {sections.map((s) => (
