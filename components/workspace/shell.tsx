@@ -249,7 +249,7 @@ export function WorkspaceShell() {
           pageId={contentPageId}
           showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
         />
-        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background pl-2 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.5)] [clip-path:inset(0_0_0_-20px)]">
+        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background pl-2  dark:">
           <button
             type="button"
             aria-label="Search (Ctrl+K)"
