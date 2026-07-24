@@ -223,9 +223,6 @@ export function Landing() {
         <HeroBallpit />
         <div className="relative grid min-h-[92svh] items-end gap-10 px-4 pb-14 pt-28 sm:px-8 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-center lg:pb-20">
           <div data-fx="hero">
-            <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[var(--accent-blue)]">
-              The engineering notebook that runs
-            </p>
             <h1 className="mt-4 max-w-[13ch] text-[clamp(2.6rem,7.5vw,6rem)] font-bold leading-[0.98] tracking-[-0.03em]">
               Your <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
               <span className="text-[var(--accent-mint)]">experiments</span>
@@ -248,19 +245,6 @@ export function Landing() {
               >
                 See it in action
               </a>
-            </div>
-          </div>
-          <div data-fx="rise" className="hidden gap-3 lg:grid">
-            <div className="liquid-glass canvas-dots grid place-items-center rounded-3xl p-4 [background-size:20px_20px]">
-              <PendulumDemo />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="liquid-glass canvas-dots grid place-items-center overflow-hidden rounded-3xl p-2 [background-size:20px_20px]">
-                <CircuitDemo />
-              </div>
-              <div className="liquid-glass canvas-dots grid place-items-center overflow-hidden rounded-3xl p-2 [background-size:20px_20px]">
-                <GraphDemo />
-              </div>
             </div>
           </div>
         </div>
@@ -289,7 +273,7 @@ export function Landing() {
       {/* What's new — the platform's latest capabilities, front and center. */}
       <section id="new" className="px-4 py-16 sm:px-8">
         <div data-fx="rise" className="mb-8">
-          <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-[var(--accent-mint)]">New in SIMBLIP</p>
+          
           <h2 className="mt-3 max-w-[18ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">
             More than a whiteboard now
           </h2>

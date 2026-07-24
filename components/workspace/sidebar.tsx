@@ -176,7 +176,7 @@ export function Sidebar({
     <nav
       className={cn(
         'flex shrink-0 items-center gap-2',
-        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'h-full w-[52px] flex-col py-3'
+        isPhone ? 'w-full flex-row justify-center px-3 py-2' : 'h-full flex-col py-3'
       )}
     >
       {sections.map((s) => (
@@ -233,7 +233,7 @@ export function Sidebar({
       >
         {sidebarOpen && (
           <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden border-b border-border/50">
-            <div className="min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
+            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
           </div>
         )}
         {railNav}
