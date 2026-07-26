@@ -11,15 +11,29 @@
 // physics/engineering notebook doesn't earn permanent dock real estate.
 // See docs/ui-simplification-plan.md §3/§4.
 
-import { Calculator as CalculatorIcon, ChartLine, TableProperties, Terminal } from 'lucide-react'
+import {
+  Calculator as CalculatorIcon,
+  ChartLine,
+  TableProperties,
+  Terminal,
+  Sliders,
+  MousePointerClick,
+  Zap,
+} from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { cn } from '@/lib/utils'
 
 const QUICK_INSERT: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
-  { tool: 'table', icon: TableProperties, label: 'Table' },
+  { tool: 'table', icon: TableProperties, label: 'Formula Table' },
   { tool: 'graph', icon: ChartLine, label: 'Graph' },
   { tool: 'code', icon: Terminal, label: 'Code' },
+]
+
+const INTERACTIVE_TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
+  { tool: 'slider', icon: Sliders, label: 'Slider' },
+  { tool: 'button', icon: MousePointerClick, label: 'Button' },
+  { tool: 'trigger', icon: Zap, label: 'Trigger' },
 ]
 
 export function ToolsPanel() {
@@ -29,7 +43,7 @@ export function ToolsPanel() {
   const setTool = useDocStore((s) => s.setTool)
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-2.5">
+    <div className="flex h-full min-h-0 flex-col p-2.5 overflow-y-auto">
       <span className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         Tools
       </span>
@@ -45,9 +59,35 @@ export function ToolsPanel() {
         )}
         onClick={() => togglePanel('calc')}
       >
-        <CalculatorIcon className="h-4 w-4" />
+        <CalculatorIcon className="h-4 w-4 text-[var(--accent-violet)]" />
         {calcOpen ? 'Close calculator' : 'Open calculator'}
       </button>
+
+      <span className="px-1 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
+        Interactive Controls
+      </span>
+      <div className="space-y-1">
+        {INTERACTIVE_TOOLS.map(({ tool: t, icon: Icon, label }) => {
+          const active = tool === t
+          return (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={active}
+              className={cn(
+                'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
+                active
+                  ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
+                  : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+              )}
+              onClick={() => setTool(active ? 'select' : t)}
+            >
+              <Icon className="h-4 w-4 text-[var(--accent-blue)]" />
+              {label}
+            </button>
+          )
+        })}
+      </div>
 
       <span className="px-1 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
         Quick insert
@@ -74,8 +114,9 @@ export function ToolsPanel() {
           )
         })}
       </div>
-      {tool === 'table' || tool === 'graph' || tool === 'code' ? (
-        <p className="mt-2 px-1 text-center text-[11px] text-muted-foreground">
+
+      {tool === 'table' || tool === 'graph' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
+        <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
           Click the canvas to place · Esc to stop
         </p>
       ) : null}

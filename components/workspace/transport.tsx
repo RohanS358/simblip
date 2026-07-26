@@ -125,19 +125,22 @@ export function FloatingTransport({ pageId }: { pageId: string }) {
         }}
         exit={{ opacity: 0, scale: 0.8 }}
         transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
-        onPointerCancel={handlePointerUp}
         className={cn(
-          'fixed z-[60] flex items-center gap-1 rounded-2xl glass-strong p-1.5 shadow-2xl cursor-grab active:cursor-grabbing border transition-colors select-none touch-none',
+          'fixed z-[60] flex items-center gap-1 rounded-2xl glass-strong p-1.5 shadow-2xl border transition-colors select-none touch-none',
           isNearTop
             ? 'border-[var(--accent-mint)] bg-[var(--accent-mint)]/20 ring-2 ring-[var(--accent-mint)] shadow-[0_0_24px_rgba(16,185,129,0.3)]'
             : 'border-border/60'
         )}
         aria-label="Floating simulation transport"
       >
-        <div className="flex shrink-0 items-center justify-center pl-1 pr-0.5 text-muted-foreground/60">
+        <div
+          onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerUp}
+          className="flex shrink-0 items-center justify-center pl-1 pr-0.5 text-muted-foreground/60 cursor-grab active:cursor-grabbing hover:text-foreground"
+          title="Drag handle"
+        >
           <GripHorizontal className="h-4 w-4" />
         </div>
         <Transport pageId={pageId} />
@@ -188,6 +191,8 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
       <button
         type="button"
         aria-label={mode === 'running' ? 'Pause' : 'Play'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         className={cn(
           'flex items-center justify-center rounded-xl transition-colors',
           btnSize,
@@ -203,6 +208,8 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
         type="button"
         aria-label="Step back one frame"
         disabled={mode === 'edit' || mode === 'running'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         className={cn(
           'flex items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30',
           btnSize
@@ -215,6 +222,8 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
         type="button"
         aria-label="Step one frame"
         disabled={mode === 'running'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         className={cn(
           'flex items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30',
           btnSize
@@ -233,6 +242,8 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
         type="button"
         aria-label="Reset simulation"
         disabled={mode === 'edit'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
         className={cn(
           'flex items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30',
           btnSize

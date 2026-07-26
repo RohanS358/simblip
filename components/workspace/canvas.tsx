@@ -13,7 +13,7 @@
 // here; edit gestures are locked until Reset.
 
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { LibraryBig, Wand2, Lock, LockOpen, RotateCw } from 'lucide-react'
+import { LibraryBig, Wand2, Lock, LockOpen, RotateCw, Maximize2, Minimize2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
@@ -612,6 +612,21 @@ const ObjectView = memo(function ObjectView({
             transformOrigin: 'center center',
           }}
         >
+          {(['table', 'gridtable', 'dsa', 'code', 'cashflow', 'graph', 'truthtable'].includes(object.geometry.kind) ||
+            object.metadata?.render === 'system') && (
+            <button
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation()
+                useWorkspaceStore.getState().setFullscreenObject(object.id)
+              }}
+              style={{ transform: `scale(${chromeScale})`, transformOrigin: 'bottom center' }}
+              className="pointer-events-auto absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-0.5 font-sans text-[10.5px] font-medium text-foreground shadow-md transition-transform hover:scale-105 hover:bg-accent select-none"
+              title="Expand to Full Viewport Screen"
+            >
+              <Maximize2 className="h-3 w-3 text-[var(--accent-blue)]" /> Fullscreen
+            </button>
+          )}
           {resizable &&
             [...CORNER_HANDLES, ...EDGE_HANDLES].map((h) => {
               const edge = h.length === 1
@@ -2341,6 +2356,7 @@ export function InfiniteCanvas({
   const selectedSet = useMemo(() => new Set(selection), [selection])
 
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
+  const fullscreenObjectId = useWorkspaceStore((s) => s.fullscreenObjectId)
 
   // Viewport culling: only mount what's actually on screen (plus a margin, so
   // scrolling doesn't pop). A page with hundreds of objects only ever pays for
@@ -2806,6 +2822,37 @@ export function InfiniteCanvas({
           Group Rotation: {rotatingGroupAngle}°
         </div>
       )}
+
+      {/* Fullscreen Viewport Expansion Overlay */}
+      {fullscreenObjectId && page && (() => {
+        const fsObj = page.objects[fullscreenObjectId]
+        if (!fsObj) return null
+        const Renderer = OBJECT_RENDERERS[fsObj.geometry.kind]
+        return (
+          <div className="absolute inset-4 z-40 flex flex-col rounded-2xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-xl">
+            <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-sm font-bold text-foreground truncate">{fsObj.name}</span>
+                <span className="rounded-full bg-accent/80 px-2.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground uppercase shrink-0">
+                  {fsObj.geometry.kind === 'rect' && fsObj.metadata?.render === 'system'
+                    ? `${fsObj.metadata.domain} System Enclosure`
+                    : fsObj.geometry.kind}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => useWorkspaceStore.getState().setFullscreenObject(null)}
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-accent/60 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+              >
+                <Minimize2 className="h-4 w-4 text-[var(--accent-blue)]" /> Exit Fullscreen
+              </button>
+            </div>
+            <div className="relative flex-1 min-h-0 w-full overflow-auto">
+              {Renderer ? <Renderer pageId={pageId} object={fsObj} selected={true} /> : null}
+            </div>
+          </div>
+        )
+      })()}
 
       {/* Zoom level pill with a lock-zoom toggle button. On phones every
           pixel of canvas matters, so the pill only fades in while the zoom

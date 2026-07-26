@@ -54,7 +54,7 @@ const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; la
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
   { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
-  { tool: 'table', icon: TableProperties, label: 'Table', key: 'B' },
+  { tool: 'gridtable', icon: TableProperties, label: 'Grid Table', key: 'B' },
 ]
 
 /** Crisp inline n-gon icon — lucide has no heptagon. */

@@ -22,7 +22,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { num, type SceneObject } from '@/lib/scene/types'
+import { num, str, type SceneObject } from '@/lib/scene/types'
+import { getString, getNumber } from '@/components/objects/types'
+import { getObjectParams } from '@/lib/scene/control-targets'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
 import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
 import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
@@ -950,6 +952,547 @@ function GraphOptions({
   )
 }
 
+function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const page = useDocStore((s) => s.pages[pageId])
+  const objects = Object.values(page?.objects ?? {}).filter((o) => o.id !== object.id)
+  const variables = page?.variables ?? []
+
+  const targetType = getString(object, 'targetType', 'variable')
+  const targetObjectId = getString(object, 'targetObjectId', '')
+  const targetParamName = getString(object, 'targetParamName', 'x')
+  const label = getString(object, 'label', object.name)
+  const min = getNumber(object, 'min', 0)
+  const max = getNumber(object, 'max', 100)
+  const step = getNumber(object, 'step', 1)
+
+  const selectedTargetObj = page?.objects[targetObjectId]
+  const targetObjParams = getObjectParams(selectedTargetObj)
+
+  return (
+    <div className="space-y-2">
+      <SectionTitle>Slider Configuration</SectionTitle>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Label</label>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        />
+      </div>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Target Type</label>
+        <select
+          value={targetType}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetType: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        >
+          <option value="variable">Page Variable</option>
+          <option value="objectParam">Component Parameter</option>
+        </select>
+      </div>
+
+      {targetType === 'objectParam' && (
+        <div>
+          <label className="text-[11px] text-muted-foreground">Target Component</label>
+          <select
+            value={targetObjectId}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          >
+            <option value="">Select component…</option>
+            {objects.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.geometry.kind})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Target Parameter / Variable</label>
+        <select
+          value={targetParamName}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetParamName: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        >
+          <option value="">Select target…</option>
+          {targetType === 'variable'
+            ? variables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  Variable: {v.name}
+                </option>
+              ))
+            : targetObjParams.map((p) => (
+                <option key={p} value={p}>
+                  Param: {p}
+                </option>
+              ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-3 gap-1.5">
+        <div>
+          <label className="text-[10px] text-muted-foreground">Min</label>
+          <input
+            type="number"
+            value={min}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, min: num(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">Max</label>
+          <input
+            type="number"
+            value={max}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, max: num(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+          />
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">Step</label>
+          <input
+            type="number"
+            value={step}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, step: num(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+          />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const page = useDocStore((s) => s.pages[pageId])
+  const objects = Object.values(page?.objects ?? {}).filter((o) => o.id !== object.id)
+  const variables = page?.variables ?? []
+
+  const targetType = getString(object, 'targetType', 'variable')
+  const targetObjectId = getString(object, 'targetObjectId', '')
+  const targetParamName = getString(object, 'targetParamName', 'x')
+  const actionType = getString(object, 'actionType', 'set')
+  const targetValue = getNumber(object, 'targetValue', 1)
+  const label = getString(object, 'label', object.name)
+
+  const selectedTargetObj = page?.objects[targetObjectId]
+  const targetObjParams = getObjectParams(selectedTargetObj)
+
+  return (
+    <div className="space-y-2">
+      <SectionTitle>Button Configuration</SectionTitle>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Label</label>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        />
+      </div>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Action Type</label>
+        <select
+          value={actionType}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, actionType: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        >
+          <option value="set">Set Target Value</option>
+          <option value="toggle">Toggle Flag (0 ↔ 1)</option>
+          <option value="step">Step Add Value</option>
+        </select>
+      </div>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Target Type</label>
+        <select
+          value={targetType}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetType: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        >
+          <option value="variable">Page Variable</option>
+          <option value="objectParam">Component Parameter</option>
+        </select>
+      </div>
+
+      {targetType === 'objectParam' && (
+        <div>
+          <label className="text-[11px] text-muted-foreground">Target Component</label>
+          <select
+            value={targetObjectId}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          >
+            <option value="">Select component…</option>
+            {objects.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.geometry.kind})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Target Parameter / Variable</label>
+        <select
+          value={targetParamName}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetParamName: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        >
+          <option value="">Select target…</option>
+          {targetType === 'variable'
+            ? variables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  Variable: {v.name}
+                </option>
+              ))
+            : targetObjParams.map((p) => (
+                <option key={p} value={p}>
+                  Param: {p}
+                </option>
+              ))}
+        </select>
+      </div>
+
+      {actionType !== 'toggle' && (
+        <div>
+          <label className="text-[11px] text-muted-foreground">Value to Set / Step</label>
+          <input
+            type="number"
+            value={targetValue}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, targetValue: num(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const page = useDocStore((s) => s.pages[pageId])
+  const objects = Object.values(page?.objects ?? {}).filter((o) => o.id !== object.id)
+  const variables = page?.variables ?? []
+
+  const sourceType = getString(object, 'sourceType', 'variable')
+  const sourceObjectId = getString(object, 'sourceObjectId', '')
+  const sourceParamName = getString(object, 'sourceParamName', 'x')
+  const condition = getString(object, 'condition', '>')
+  const threshold = getNumber(object, 'threshold', 50)
+
+  const targetType = getString(object, 'targetType', 'variable')
+  const targetObjectId = getString(object, 'targetObjectId', '')
+  const targetParamName = getString(object, 'targetParamName', 'y')
+  const actionType = getString(object, 'actionType', 'toggle')
+  const targetValue = getNumber(object, 'targetValue', 1)
+  const label = getString(object, 'label', object.name)
+
+  const selectedSourceObj = page?.objects[sourceObjectId]
+  const sourceObjParams = getObjectParams(selectedSourceObj)
+
+  const selectedTargetObj = page?.objects[targetObjectId]
+  const targetObjParams = getObjectParams(selectedTargetObj)
+
+  return (
+    <div className="space-y-2">
+      <SectionTitle>Trigger Condition</SectionTitle>
+
+      <div>
+        <label className="text-[11px] text-muted-foreground">Label</label>
+        <input
+          type="text"
+          value={label}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+        />
+      </div>
+
+      <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monitored Source</p>
+        <select
+          value={sourceType}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, sourceType: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+        >
+          <option value="variable">Page Variable</option>
+          <option value="objectParam">Component Parameter</option>
+        </select>
+
+        {sourceType === 'objectParam' && (
+          <select
+            value={sourceObjectId}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, sourceObjectId: str(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          >
+            <option value="">Select source component…</option>
+            {objects.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.geometry.kind})
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={sourceParamName}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, sourceParamName: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+        >
+          <option value="">Select monitored value…</option>
+          {sourceType === 'variable'
+            ? variables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  Variable: {v.name}
+                </option>
+              ))
+            : sourceObjParams.map((p) => (
+                <option key={p} value={p}>
+                  Param: {p}
+                </option>
+              ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <div>
+          <label className="text-[10px] text-muted-foreground">Operator</label>
+          <select
+            value={condition}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, condition: str(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+          >
+            <option value=">">&gt; (Greater Than)</option>
+            <option value="<">&lt; (Less Than)</option>
+            <option value="==">== (Equals)</option>
+            <option value=">=">&gt;= (Greater or Equal)</option>
+            <option value="<=">&lt;= (Less or Equal)</option>
+            <option value="!=">!= (Not Equal)</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-muted-foreground">Threshold Value</label>
+          <input
+            type="number"
+            value={threshold}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, threshold: num(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target Action</p>
+        <select
+          value={targetType}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetType: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+        >
+          <option value="variable">Page Variable</option>
+          <option value="objectParam">Component Parameter</option>
+        </select>
+
+        {targetType === 'objectParam' && (
+          <select
+            value={targetObjectId}
+            onChange={(e) =>
+              updateObject(
+                pageId,
+                object.id,
+                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { history: true }
+              )
+            }
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          >
+            <option value="">Select target component…</option>
+            {objects.map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.name} ({o.geometry.kind})
+              </option>
+            ))}
+          </select>
+        )}
+
+        <select
+          value={targetParamName}
+          onChange={(e) =>
+            updateObject(
+              pageId,
+              object.id,
+              { parameters: { ...object.parameters, targetParamName: str(e.target.value) } },
+              { history: true }
+            )
+          }
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+        >
+          <option value="">Select target value…</option>
+          {targetType === 'variable'
+            ? variables.map((v) => (
+                <option key={v.id} value={v.name}>
+                  Variable: {v.name}
+                </option>
+              ))
+            : targetObjParams.map((p) => (
+                <option key={p} value={p}>
+                  Param: {p}
+                </option>
+              ))}
+        </select>
+      </div>
+    </div>
+  )
+}
+
 function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setParam = useDocStore((s) => s.setParam)
   const updateObject = useDocStore((s) => s.updateObject)
@@ -1113,6 +1656,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       {object.geometry.kind === 'truthtable' && (
         <TruthTableOptions pageId={pageId} object={object} />
       )}
+
+      {object.geometry.kind === 'slider' && <SliderOptions pageId={pageId} object={object} />}
+      {object.geometry.kind === 'button' && <ButtonOptions pageId={pageId} object={object} />}
+      {object.geometry.kind === 'trigger' && <TriggerOptions pageId={pageId} object={object} />}
 
       {contentParams.length > 0 && (
         <div className="space-y-1.5">

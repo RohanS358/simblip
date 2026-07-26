@@ -30,11 +30,18 @@ const widget = (
   create: (p) => createGeometry(kind, p),
 })
 
+import { usePrefs } from '@/lib/store/preferences'
+
 const WIDGETS: Insertable[] = [
   widget('text', 'Text', 'write markdown paragraph'),
   widget('note', 'Note', 'sticky memo'),
   widget('formula', 'Formula', 'latex equation derivative integral laplace fourier'),
   widget('graph', 'Graph', 'plot chart series oscilloscope'),
+  widget('table', 'Formula Table', 'excel data spreadsheet calculation formula'),
+  widget('gridtable', 'Grid Table', 'simple word canva grid table rows columns transparent cell'),
+  widget('slider', 'Slider', 'control input variable parameter interactive slider real-time'),
+  widget('button', 'Button', 'control click trigger action set variable parameter'),
+  widget('trigger', 'Trigger', 'conditional threshold comparison compare toggle automator'),
   widget('cashflow', 'Cash Flow', 'economics npv irr annuity salvage marr'),
   widget('truthtable', 'Truth Table', 'digital logic gate boolean inputs outputs'),
   widget('dsa', 'DSA Lab', 'c++ cpp code algorithm sort search recursion pointer array visualize interpreter complexity big-o'),
@@ -45,23 +52,30 @@ const WIDGETS: Insertable[] = [
 
 const title = (s: string) => (s === 'dsa' ? 'DSA' : s.charAt(0).toUpperCase() + s.slice(1))
 
-export const INSERTABLES: Insertable[] = [
-  ...WIDGETS,
-  ...COMPONENTS.map((c) => ({
-    id: `component:${c.id}`,
-    label: c.label,
-    group: title(c.domain),
-    keywords: `${c.label} ${c.domain} ${c.id.replace(/-/g, ' ')}`,
-    create: c.create,
-  })),
-]
+export function getInsertables(): Insertable[] {
+  const packages = usePrefs.getState?.()?.packages ?? {}
+  const activeComponents = COMPONENTS.filter((c) => packages[c.domain] !== false)
+  return [
+    ...WIDGETS,
+    ...activeComponents.map((c) => ({
+      id: `component:${c.id}`,
+      label: c.label,
+      group: title(c.domain),
+      keywords: `${c.label} ${c.domain} ${c.id.replace(/-/g, ' ')}`,
+      create: c.create,
+    })),
+  ]
+}
+
+export const INSERTABLES: Insertable[] = getInsertables()
 
 /** Case-insensitive token search — every typed word must appear somewhere. */
 export function searchInsertables(query: string, limit = 40): Insertable[] {
   const q = query.trim().toLowerCase()
-  if (!q) return INSERTABLES.slice(0, limit)
+  const list = getInsertables()
+  if (!q) return list.slice(0, limit)
   const words = q.split(/\s+/)
-  const scored = INSERTABLES.map((it) => {
+  const scored = list.map((it) => {
     const hay = `${it.label} ${it.group} ${it.keywords}`.toLowerCase()
     if (!words.every((w) => hay.includes(w))) return null
     // Prefix matches on the label rank first, then plain label hits.

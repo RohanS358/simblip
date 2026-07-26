@@ -98,15 +98,29 @@ export interface MathPrefs {
   zeroThreshold: number
 }
 
+export const DEFAULT_PACKAGES: Record<string, boolean> = {
+  mechanics: true,
+  electrical: true,
+  electronics: true,
+  digital: true,
+  optics: true,
+  waves: true,
+  quantum: true,
+  economics: true,
+  dsa: true,
+}
+
 interface PrefsState {
   pen: PenPrefs
   notebook: NotebookPrefs
   math: MathPrefs
   appearance: AppearancePrefs
+  packages: Record<string, boolean>
   setPen: (p: Partial<PenPrefs>) => void
   setNotebook: (p: Partial<NotebookPrefs>) => void
   setMath: (p: Partial<MathPrefs>) => void
   setAppearance: (p: Partial<AppearancePrefs>) => void
+  setPackage: (id: string, enabled: boolean) => void
   reset: () => void
 }
 
@@ -171,6 +185,7 @@ export const usePrefs = create<PrefsState>()(
       notebook: { ...DEFAULT_NOTEBOOK },
       math: { ...DEFAULT_MATH },
       appearance: { ...DEFAULT_APPEARANCE },
+      packages: { ...DEFAULT_PACKAGES },
       setPen: (p) =>
         set((s) => ({
           pen: {
@@ -184,12 +199,21 @@ export const usePrefs = create<PrefsState>()(
       setNotebook: (p) => set((s) => ({ notebook: { ...s.notebook, ...p } })),
       setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
       setAppearance: (p) => set((s) => ({ appearance: { ...s.appearance, ...p } })),
+      setPackage: (id, enabled) =>
+        set((s) => ({
+          packages: {
+            ...DEFAULT_PACKAGES,
+            ...s.packages,
+            [id]: enabled,
+          },
+        })),
       reset: () =>
         set({
           pen: { ...DEFAULT_PEN },
           notebook: { ...DEFAULT_NOTEBOOK },
           math: { ...DEFAULT_MATH },
           appearance: { ...DEFAULT_APPEARANCE },
+          packages: { ...DEFAULT_PACKAGES },
         }),
     }),
     {

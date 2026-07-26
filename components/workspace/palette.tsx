@@ -46,18 +46,25 @@ const DOMAIN_LABEL: Record<DomainId, string> = Object.fromEntries(
  *  narrowing the same list together. See docs/ui-simplification-plan.md
  *  (Components section should search/section like the Library). */
 export function Palette() {
+  const packages = usePrefs((s) => s.packages) ?? {}
   const [domain, setDomain] = useState<DomainId | null>(null)
   const [query, setQuery] = useState('')
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const setTool = useDocStore((s) => s.setTool)
 
+  const activeDomains = useMemo(() => {
+    return DOMAINS.filter((d) => packages[d.id] !== false)
+  }, [packages])
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return COMPONENTS.filter((c) => !domain || c.domain === domain).filter(
-      (c) => !q || c.label.toLowerCase().includes(q)
-    )
-  }, [domain, query])
+    return COMPONENTS.filter((c) => packages[c.domain] !== false)
+      .filter((c) => !domain || c.domain === domain)
+      .filter((c) => !q || c.label.toLowerCase().includes(q))
+  }, [domain, query, packages])
+
+  const currentDomainValid = domain === null || packages[domain] !== false
 
   return (
     <div className="flex h-full min-h-0 flex-col p-2.5" aria-label="Component palette">
@@ -76,7 +83,7 @@ export function Palette() {
           type="button"
           className={cn(
             'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
-            domain === null
+            (domain === null || !currentDomainValid)
               ? 'bg-foreground text-background'
               : 'bg-accent text-muted-foreground hover:text-foreground'
           )}
@@ -84,7 +91,7 @@ export function Palette() {
         >
           All
         </button>
-        {DOMAINS.map((d) => (
+        {activeDomains.map((d) => (
           <button
             key={d.id}
             type="button"

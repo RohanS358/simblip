@@ -279,7 +279,30 @@ Symbols are ONE geometry kind (`symbol`) with `geometry.symbol = '<name>'` and
 
 ---
 
-## 8. Design language (non-negotiable)
+## 9. Interactive Control Tools, Grid Tables, Fullscreen & Package Architecture
+
+### Interactive Control Tools (`slider`, `button`, `trigger`)
+- Exclusively hosted in the sidebar **Tools** panel under *Interactive Controls*.
+- **Slider (`slider`)**: Dynamically binds to any component property or page variable with real-time value updates.
+- **Button (`button`)**: Triggers set, toggle, or step actions on click.
+- **Trigger (`trigger`)**: Monitors a target property or variable using condition operators (`==`, `>`, `<`, `>=`, `<=`, `!=`) and threshold values, executing target actions when triggered.
+
+### Grid Table vs. Formula Table
+- **Formula Table (`table`)**: Retained in the sidebar Tools panel for Excel-style live formula evaluations (`name=expr`), summary metrics (Avg, Sum, etc.), and data row operations.
+- **Grid Table (`gridtable`)**: Accessible via the dock toolbar. Features a transparent Canva/MS Word style cell grid with direct inline editing, row/column addition/removal controls, and drag-to-resize column width handles.
+
+### Fullscreen Viewport Expansion & Resizable Sections
+- **Fullscreen Expansion**: Expandable widgets (`table`, `gridtable`, `dsa`, `code`, `cashflow`, `graph`, `truthtable`, and system enclosures) include an **Expand to Fullscreen** button on selection. Activating fills the entire canvas viewport with the component while leaving topbar, sidebar, and dock UI visible.
+- **Internal Section Resizing**: Components with split panels (such as DSA Lab code/visualization splitters and Grid Table columns) incorporate interactive drag handles for custom panel width allocation.
+
+### Subject Component Package System
+- Subject components are organized into 9 domain packages: `mechanics`, `electrical`, `electronics`, `digital`, `optics`, `waves`, `quantum`, `economics`, `dsa`.
+- Registered in `lib/packages/registry.ts` and managed in **Settings → Packages**.
+- Toggling a package filters component availability across the sidebar component panel, search, palette, and dock.
+
+---
+
+## 10. Design language (non-negotiable)
 
 Source of truth: `docs/design-system.md`. Direction: **"Apple designed MATLAB for
 engineering students"** — precision instruments floating over calm paper.

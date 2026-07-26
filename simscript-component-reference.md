@@ -198,11 +198,15 @@ Rotation/dir ignored (always 0). Rendered as vertical/point elements you positio
 ## Canvas / data objects
 
 ```javascript
-var t = create("table", {                                            // 380x260
+var t = create("table", {                                            // 380x260, Excel-style formula table
   headers: "SN;t;d;v=d/t",           // or array; "name=expr" = live formula column
   data: [[1, 1, 4.9], [2, 2, 19.6]], // or "1;1;4.9\n2;2;19.6"
   summary: "Avg",                    // Sum|Avg|Min|Max|Count|Stddev|Stderr|First|Last|Range|None
 });
+var gt = create("gridtable", { transparent: 1, rows: 3, cols: 3 });  // 360x220 transparent Canva / MS Word style grid table
+var sld = create("slider", { min: 0, max: 100, targetParamName: "mass" }); // 240x80 placeable real-time control slider
+var btn = create("button", { label: "Pulse", actionType: "toggle" });       // 160x54 interactive click button
+var trg = create("trigger", { condition: ">", threshold: 50 });            // 230x90 conditional comparison trigger
 var n = create("note", { text: "reminder", color: "amber" });        // 220x180, color default "amber"
 var tx = create("text", { text: "Heading" });                        // 320x48 markdown text block
 var f = create("formula", { latex: "s = ut + \\frac{1}{2}at^2" });  // 300x96 KaTeX + solver
@@ -214,6 +218,15 @@ var ide = create("code", { source: "// SimScript…" });               // 420x30
 ```
 
 `dsa` is the **DSA Lab**: a C++ IDE that interprets the `source` prop line by line and animates memory blocks, pointer arrows, the recursion tree, and measured Big-O analysis. Pass complete C++ (a `main()`, or loose top-level statements) in `source`; it re-runs automatically on every edit.
+
+### Interactive Control Tools & UI Extensions
+- **Slider (`slider`)**: Available in the sidebar Tools panel. Binds to page variables or component properties with live, real-time value sync as the thumb moves.
+- **Button (`button`)**: Available in the sidebar Tools panel. Executes set, toggle, or step actions on click.
+- **Trigger (`trigger`)**: Available in the sidebar Tools panel. Monitors page variables or component properties against operators (`==`, `>`, `<`, `>=`, `<=`, `!=`) and threshold values, executing target actions when satisfied.
+- **Grid Table (`gridtable`)**: Placed from the tool dock. Features a transparent background, Canva/MS Word style cell grid, direct cell editing when selected, row/column management, and resizable column width splitters.
+- **Fullscreen Viewport Expansion**: Tables, Grid Tables, DSA Lab, Code IDE, Cashflow diagrams, Graphs, Truth Tables, and System Enclosures include a **Fullscreen** toggle button on selection. Expanding fills the entire canvas viewport while keeping topbar, sidebars, and dock accessible.
+- **Internal Resizable Sections**: Split panes and column dividers (such as DSA Lab code/visualization splitters and Grid Table columns) feature interactive drag handles for custom panel sizing.
+- **Subject Component Package System**: Components are organized into subject packages (`mechanics`, `electrical`, `electronics`, `digital`, `optics`, `waves`, `quantum`, `economics`, `dsa`). Toggleable in **Settings → Packages**, hiding or showing subject modules across the palette, dock, and search.
 
 Do **not** `create("graph", {...})` for a chart — use `graph.plot(...)` (see top of doc).
 

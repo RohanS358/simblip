@@ -32,6 +32,7 @@ interface WorkspaceState {
   /** The sticky calculator — its trigger lives in the sidebar's Tools
    *  section now, not the dock, but it still floats over the canvas. */
   calcOpen: boolean
+  fullscreenObjectId: string | null
   touchOrthoPen: boolean
   touchFreeMove: boolean
   touchMeasureMode: boolean
@@ -64,6 +65,7 @@ interface WorkspaceState {
   setSplitRatio: (f: number) => void
   setActiveSheet: (id: string | null) => void
   togglePanel: (panel: 'sidebar' | 'inspector' | 'calc') => void
+  setFullscreenObject: (id: string | null) => void
   toggleTouchOrthoPen: () => void
   toggleTouchFreeMove: () => void
   toggleTouchMeasureMode: () => void
@@ -105,6 +107,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       sidebarOpen: true,
       inspectorOpen: true,
       calcOpen: false,
+      fullscreenObjectId: null,
+      setFullscreenObject: (id) => set({ fullscreenObjectId: id }),
       touchOrthoPen: false,
       touchFreeMove: false,
       touchMeasureMode: false,

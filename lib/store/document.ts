@@ -32,6 +32,10 @@ export type Tool =
   | 'code'
   | 'graph'
   | 'table'
+  | 'gridtable'
+  | 'slider'
+  | 'button'
+  | 'trigger'
   | 'place' // placing a palette component (toolOption = component id)
 
 export interface Viewport {
@@ -188,6 +192,7 @@ interface DocState {
   refreshLive: (pageId: string) => void
   setParam: (pageId: string, objectId: string, name: string, expr: string) => void
   setStringParam: (pageId: string, objectId: string, name: string, value: string) => void
+  updateObjectParameter: (pageId: string, objectId: string, name: string, value: unknown) => void
 
   addBehavior: (pageId: string, objectId: string, type: BehaviorType) => void
   removeBehavior: (pageId: string, objectId: string, behaviorId: string) => void
@@ -429,6 +434,34 @@ export const useDocStore = create<DocState>()(
             ...obj,
             parameters: { ...obj.parameters, [name]: { kind: 'string', value } },
           }))
+        )
+      },
+
+      updateObjectParameter: (pageId, objectId, name, val) => {
+        set((s) =>
+          patchObject(s, pageId, objectId, (obj) => {
+            const scope = s.scopes[pageId] ?? {}
+            let newParam
+            if (typeof val === 'number') {
+              newParam = { kind: 'number' as const, expr: String(val), value: val }
+            } else if (typeof val === 'boolean') {
+              newParam = { kind: 'bool' as const, value: val }
+            } else if (typeof val === 'string') {
+              const numVal = Number(val)
+              if (val.trim() !== '' && !isNaN(numVal)) {
+                const { value, error } = evalExpr(val, scope, numVal)
+                newParam = { kind: 'number' as const, expr: val, value, error }
+              } else {
+                newParam = { kind: 'string' as const, value: val }
+              }
+            } else {
+              newParam = { kind: 'string' as const, value: String(val ?? '') }
+            }
+            return {
+              ...obj,
+              parameters: { ...obj.parameters, [name]: newParam },
+            }
+          })
         )
       },
 

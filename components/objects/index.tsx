@@ -16,6 +16,10 @@ import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
 import { CodeObject } from './code'
 import { DsaObject } from './dsa'
+import { GridTableObject } from './grid-table'
+import { SliderObject } from './slider'
+import { ButtonObject } from './button'
+import { TriggerObject } from './trigger'
 
 export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRendererProps>> = {
   circle: GeometryObject,
@@ -29,6 +33,10 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   formula: FormulaObject,
   graph: GraphObject,
   table: TableObject,
+  gridtable: GridTableObject,
+  slider: SliderObject,
+  button: ButtonObject,
+  trigger: TriggerObject,
   cashflow: CashflowObject,
   truthtable: TruthTableObject,
   code: CodeObject,

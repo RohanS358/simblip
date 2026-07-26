@@ -49,6 +49,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
   const [tab, setTab] = useState<Tab>('memory')
   const [scrollTop, setScrollTop] = useState(0)
   const [editing, setEditing] = useState(false)
+  const [editorRatio, setEditorRatio] = useState(44) // percentage width for editor panel
   const editorRef = useRef<HTMLTextAreaElement>(null)
   const firstRun = useRef(true)
 
@@ -89,6 +90,28 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
   const restart = () => {
     setStepIdx(0)
     setPlaying(false)
+  }
+
+  // Resizable splitter between editor and visualization panels
+  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    const startX = e.clientX
+    const startRatio = editorRatio
+    const containerW = object.size.w || 980
+
+    const onMouseMove = (moveEvt: MouseEvent) => {
+      const deltaPercent = ((moveEvt.clientX - startX) / containerW) * 100
+      setEditorRatio(Math.max(20, Math.min(80, startRatio + deltaPercent)))
+    }
+
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove)
+      window.removeEventListener('mouseup', onMouseUp)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', onMouseUp)
   }
 
   return (
@@ -174,7 +197,10 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
         onWheel={(e) => e.stopPropagation()}
       >
         {/* editor */}
-        <div className="relative min-h-0 w-[44%] shrink-0 overflow-hidden border-r border-border/40">
+        <div
+          className="relative min-h-0 shrink-0 overflow-hidden border-r border-border/40"
+          style={{ width: `${editorRatio}%` }}
+        >
           {/* current-line highlight */}
           {activeLine > 0 && !trace?.error && (
             <div
@@ -242,6 +268,13 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
             }}
           />
         </div>
+
+        {/* Resizable Section Splitter */}
+        <div
+          onMouseDown={handleSplitterMouseDown}
+          className="relative z-20 w-1.5 shrink-0 cursor-col-resize bg-border/40 transition-colors hover:bg-[var(--accent-blue)]/60"
+          title="Drag to resize panels"
+        />
 
         {/* visualization */}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col" onPointerDown={(e) => e.stopPropagation()}>

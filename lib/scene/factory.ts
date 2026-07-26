@@ -72,6 +72,58 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.size = { w: 380, h: 260 }
       obj.parameters.data = str('')
       break
+    case 'gridtable':
+      obj.name = autoName('Grid Table')
+      obj.size = { w: 360, h: 220 }
+      obj.parameters.rows = num(3)
+      obj.parameters.cols = num(3)
+      obj.parameters.cells = str(
+        JSON.stringify([
+          ['Header 1', 'Header 2', 'Header 3'],
+          ['Item 1', 'Item 2', 'Item 3'],
+          ['Item 4', 'Item 5', 'Item 6'],
+        ])
+      )
+      obj.parameters.transparent = num(1)
+      break
+    case 'slider':
+      obj.name = autoName('Slider')
+      obj.size = { w: 240, h: 80 }
+      obj.parameters.targetType = str('variable')
+      obj.parameters.targetObjectId = str('')
+      obj.parameters.targetParamName = str('x')
+      obj.parameters.min = num(0)
+      obj.parameters.max = num(100)
+      obj.parameters.step = num(1)
+      obj.parameters.value = num(50)
+      obj.parameters.label = str('Slider')
+      break
+    case 'button':
+      obj.name = autoName('Button')
+      obj.size = { w: 160, h: 54 }
+      obj.parameters.targetType = str('variable')
+      obj.parameters.targetObjectId = str('')
+      obj.parameters.targetParamName = str('x')
+      obj.parameters.actionType = str('set')
+      obj.parameters.targetValue = num(1)
+      obj.parameters.label = str('Button')
+      break
+    case 'trigger':
+      obj.name = autoName('Trigger')
+      obj.size = { w: 230, h: 90 }
+      obj.parameters.sourceType = str('variable')
+      obj.parameters.sourceObjectId = str('')
+      obj.parameters.sourceParamName = str('x')
+      obj.parameters.condition = str('>')
+      obj.parameters.threshold = num(50)
+      obj.parameters.targetType = str('variable')
+      obj.parameters.targetObjectId = str('')
+      obj.parameters.targetParamName = str('y')
+      obj.parameters.actionType = str('toggle')
+      obj.parameters.targetValue = num(1)
+      obj.parameters.label = str('Trigger')
+      obj.parameters.state = num(0)
+      break
     case 'cashflow':
       obj.size = { w: 480, h: 300 }
       obj.parameters.spec = str(JSON.stringify(EMPTY_SPEC))

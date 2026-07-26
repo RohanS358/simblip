@@ -19,6 +19,9 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import { COMPONENT_PACKAGES } from '@/lib/packages/registry'
+import { Package } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { Field, Choice, PrefRow } from './settings-fields'
 import {
@@ -379,6 +382,49 @@ function MathSettings() {
   )
 }
 
+function PackagesSettings() {
+  const packages = usePrefs((s) => s.packages) ?? {}
+  const setPackage = usePrefs((s) => s.setPackage)
+
+  return (
+    <div className="space-y-3 pt-1">
+      <div className="rounded-xl border border-border bg-card/60 p-3">
+        <div className="flex items-center gap-2 font-semibold text-[13px] text-foreground">
+          <Package className="h-4 w-4 text-[var(--accent-blue)]" />
+          Subject Component Packages
+        </div>
+        <p className="mt-1 text-[11.5px] leading-normal text-muted-foreground">
+          Toggle subject packages to enable or disable their components in the sidebar component panel, palette, dock, and search. Unlocked on this device.
+        </p>
+      </div>
+
+      <div className="divide-y divide-border/60">
+        {COMPONENT_PACKAGES.map((pkg) => {
+          const enabled = packages[pkg.domain] ?? true
+          return (
+            <div key={pkg.id} className="flex items-center justify-between gap-3 py-2.5">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[13px] font-medium text-foreground">{pkg.name}</span>
+                  <span className="rounded-full bg-accent/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                    {pkg.price}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11.5px] leading-normal text-muted-foreground">{pkg.description}</p>
+              </div>
+              <Switch
+                checked={enabled}
+                onCheckedChange={(val) => setPackage(pkg.domain, val)}
+                aria-label={`Toggle ${pkg.name}`}
+              />
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const { theme, setTheme } = useTheme()
   const profile = useAuthStore((s) => s.profile)
@@ -396,6 +442,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               than squeeze the labels out of the dialog. */}
           <TabsList className="no-scrollbar w-full justify-start overflow-x-auto">
             <TabsTrigger value="profile" className="shrink-0">Profile</TabsTrigger>
+            <TabsTrigger value="packages" className="shrink-0">Packages</TabsTrigger>
             <TabsTrigger value="appearance" className="shrink-0">Appearance</TabsTrigger>
             <TabsTrigger value="pen" className="shrink-0">Pen</TabsTrigger>
             <TabsTrigger value="notebook" className="shrink-0">Notebook</TabsTrigger>
@@ -438,6 +485,10 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 </div>
               </>
             )}
+          </TabsContent>
+
+          <TabsContent value="packages" className="pt-2 min-h-0 flex-1 overflow-y-auto pr-1">
+            <PackagesSettings />
           </TabsContent>
 
           <TabsContent value="pen" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
