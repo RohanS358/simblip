@@ -620,8 +620,8 @@ const ObjectView = memo(function ObjectView({
                 e.stopPropagation()
                 useWorkspaceStore.getState().setFullscreenObject(object.id)
               }}
-              style={{ transform: `scale(${chromeScale})`, transformOrigin: 'bottom center' }}
-              className="pointer-events-auto absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-0.5 font-sans text-[10.5px] font-medium text-foreground shadow-md transition-transform hover:scale-105 hover:bg-accent select-none"
+              style={{ transform: `scale(${chromeScale})`, transformOrigin: 'bottom right' }}
+              className="pointer-events-auto absolute -top-8 right-0 flex items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-0.5 font-sans text-[10.5px] font-medium text-foreground shadow-md transition-transform hover:scale-105 hover:bg-accent select-none"
               title="Expand to Full Viewport Screen"
             >
               <Maximize2 className="h-3 w-3 text-[var(--accent-blue)]" /> Fullscreen
@@ -708,6 +708,7 @@ export function InfiniteCanvas({
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
 
   const objects = useDocStore((s) => s.pages[pageId]?.objects)
+  const page = useDocStore((s) => s.pages[pageId])
   const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
@@ -2829,7 +2830,7 @@ export function InfiniteCanvas({
         if (!fsObj) return null
         const Renderer = OBJECT_RENDERERS[fsObj.geometry.kind]
         return (
-          <div className="absolute inset-4 z-40 flex flex-col rounded-2xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-xl">
+          <div className="fixed inset-4 z-[200] flex flex-col rounded-2xl border border-border/80 bg-background/95 p-4 shadow-2xl backdrop-blur-xl">
             <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-sm font-bold text-foreground truncate">{fsObj.name}</span>

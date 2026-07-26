@@ -40,6 +40,10 @@ const KIND_FILL: Record<GeometryKind, string> = {
   code: 'fill-foreground/10 stroke-foreground/30',
   table: 'fill-[var(--accent-blue)]/15 stroke-[var(--accent-blue)]',
   dsa: 'fill-[var(--accent-violet)]/15 stroke-[var(--accent-violet)]',
+  gridtable: 'fill-[var(--accent-blue)]/10 stroke-[var(--accent-blue)]/50',
+  slider: 'fill-[var(--accent-blue)]/20 stroke-[var(--accent-blue)]',
+  button: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
+  trigger: 'fill-[var(--accent-amber)]/20 stroke-[var(--accent-amber)]',
 }
 
 function ShapeForObj({ obj }: { obj: SceneObject }) {
