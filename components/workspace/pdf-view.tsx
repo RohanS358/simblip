@@ -190,6 +190,12 @@ export function PdfView({ pageId }: { pageId: string }) {
   // unaffected by the transform: scale() zoom applies to contentRef — CSS
   // transforms don't change layout box metrics — so no zoom-division needed.
   const [naturalW, setNaturalW] = useState(0)
+  // A single page's true (unscaled) height — same host element as naturalW,
+  // just the other axis. naturalH (below) is the whole SCROLLED STACK's
+  // height (all pages + gaps), which is what the scroll container needs to
+  // know its size — but "full height" has to fit ONE page, or it zooms out
+  // to show the entire document instead of filling the viewport with page 1.
+  const [pageNaturalH, setPageNaturalH] = useState(0)
   // The reader pane's own viewport size — what fitWidth/fitHeight solve for.
   const [viewW, setViewW] = useState(0)
   const [viewH, setViewH] = useState(0)
@@ -288,9 +294,13 @@ useLayoutEffect(() => {
   useEffect(() => {
     const host = readerRef.current?.querySelector<HTMLElement>('[data-pdf-host]')
     if (!host) return
-    const ro = new ResizeObserver(() => setNaturalW(host.offsetWidth))
+    const ro = new ResizeObserver(() => {
+      setNaturalW(host.offsetWidth)
+      setPageNaturalH(host.offsetHeight)
+    })
     ro.observe(host)
     setNaturalW(host.offsetWidth)
+    setPageNaturalH(host.offsetHeight)
     return () => ro.disconnect()
   }, [doc])
 
@@ -454,7 +464,7 @@ useLayoutEffect(() => {
       toggleLink: () => setLinked((v) => !v),
       setZoom: (z) => setZoom(Math.min(3, Math.max(0.25, z))),
       fitWidth: () => naturalW > 0 && setZoom(Math.min(3, Math.max(0.25, viewW / naturalW))),
-      fitHeight: () => naturalH > 0 && setZoom(Math.min(3, Math.max(0.25, viewH / naturalH))),
+      fitHeight: () => pageNaturalH > 0 && setZoom(Math.min(3, Math.max(0.25, viewH / pageNaturalH))),
       download: () => {
         if (!fileUrl) return
         const a = document.createElement('a')
@@ -466,7 +476,7 @@ useLayoutEffect(() => {
     })
     return () => usePdfDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, viewW, viewH])
+  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH])
 
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
   // page while this is true, targeting whichever pane was last clicked: the

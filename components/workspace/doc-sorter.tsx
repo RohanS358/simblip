@@ -89,9 +89,7 @@ export function DocSorter({
   return (
     <div className="glass-strong absolute inset-x-0 bottom-0 z-30 flex h-32 flex-col border-t border-border/40">
       <div className="flex shrink-0 items-center justify-between px-3 py-1">
-        <span className="text-[10.5px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
-          Pages · drag to reorder
-        </span>
+       
         <button
           type="button"
           aria-label="Close page sorter"
