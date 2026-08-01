@@ -68,6 +68,19 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.sourceId = str('')
       obj.parameters.yChannels = str('')
       break
+    case 'surface3d':
+      obj.name = autoName('3D Graph')
+      obj.size = { w: 420, h: 340 }
+      obj.parameters.formulas = str('sin(x)*cos(y)')
+      obj.parameters.axis = str('z')
+      break
+    case 'chart':
+      obj.name = autoName('Chart')
+      obj.size = { w: 380, h: 280 }
+      obj.parameters.chartType = str('bar')
+      obj.parameters.labels = str('A;B;C;D')
+      obj.parameters.series = str('Series 1|10;25;16;30')
+      break
     case 'table':
       obj.size = { w: 380, h: 260 }
       obj.parameters.data = str('')

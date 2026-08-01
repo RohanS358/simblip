@@ -31,6 +31,8 @@ export type Tool =
   | 'formula'
   | 'code'
   | 'graph'
+  | 'surface3d'
+  | 'chart'
   | 'table'
   | 'gridtable'
   | 'slider'

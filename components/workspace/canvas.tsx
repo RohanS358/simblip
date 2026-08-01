@@ -500,6 +500,8 @@ const COMPONENT_UI_KINDS = new Set([
   'text',
   'formula',
   'graph',
+  'surface3d',
+  'chart',
   'table',
   'cashflow',
   'truthtable',
@@ -581,6 +583,7 @@ const ObjectView = memo(function ObjectView({
         transformOrigin: 'center center',
       }}
       onPointerDown={(e) => onPointerDown(e, object.id)}
+      onDoubleClick={() => openProperties()}
       onPointerEnter={() => onHover(object.id)}
       onPointerLeave={() => onHover(null)}
     >
@@ -612,7 +615,7 @@ const ObjectView = memo(function ObjectView({
             transformOrigin: 'center center',
           }}
         >
-          {(['table', 'gridtable', 'dsa', 'code', 'cashflow', 'graph', 'truthtable'].includes(object.geometry.kind) ||
+          {(['table', 'gridtable', 'dsa', 'code', 'cashflow', 'graph', 'surface3d', 'chart', 'truthtable'].includes(object.geometry.kind) ||
             object.metadata?.render === 'system') && (
             <button
               type="button"
@@ -682,6 +685,7 @@ export function InfiniteCanvas({
   locked,
   transparent,
   passthrough,
+  active = true,
 }: {
   pageId: string
   locked?: boolean
@@ -693,6 +697,16 @@ export function InfiniteCanvas({
    *  objects themselves still select/drag because their wrappers opt back
    *  into touch capture. Mouse marquee still works; wheel already bubbles. */
   passthrough?: boolean
+  /** Whether this instance is the one keyboard shortcuts should reach.
+   *  Callers that mount several InfiniteCanvas at once (doc sheets, PDF
+   *  annotation layers) MUST pass this — the global keydown map below binds
+   *  to `window`, so every mounted instance would otherwise fire the same
+   *  "/", undo, delete, tool-hotkey etc. simultaneously, one per instance,
+   *  each computed against ITS OWN (possibly off-screen) container. That's
+   *  what made "/" open a slash menu on the wrong sheet and yank the scroll
+   *  position to it (autoFocus scrolls the focused input into view). A lone
+   *  board/page-view mounts exactly one instance, so the default is fine. */
+  active?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
@@ -937,11 +951,17 @@ export function InfiniteCanvas({
 
   // Mirror the store viewport into the ref and repaint. Runs when the store
   // changes from OUTSIDE a gesture (zoom buttons, Reset view, page switch);
-  // during a gesture the ref is already ahead, so this is a no-op.
+  // during a gesture the ref is already ahead, so this is a no-op. Also
+  // re-runs on nbPrefs.gridSize alone: paintViewport reads the pref fresh
+  // every call, but without this it only ever ran again on the NEXT pan/zoom
+  // — invisible on a regular board (you're always panning) but a changed
+  // grid size never took effect at all on a locked doc-view sheet, since
+  // those never pan or zoom, until the page was reopened.
   useEffect(() => {
     vpRef.current = viewport
     paintViewport(viewport)
-  }, [viewport, paintViewport])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [viewport, paintViewport, nbPrefs.gridSize])
 
   // Doc-page sheets are static: pan/zoom gestures are disabled below, but a
   // sheet may still carry a stale viewport from before this mode existed
@@ -1053,6 +1073,10 @@ export function InfiniteCanvas({
       (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Only the active instance (see the `active` prop doc above) answers
+      // to the keyboard — otherwise every mounted-but-off-screen sheet/page
+      // would react to the same keystroke too.
+      if (!active) return
       if (e.code === 'Space' && !isTyping(e.target)) spaceRef.current = true
       if (e.key === 'Alt' && !isTyping(e.target)) setAltHeld(true)
       if (isTyping(e.target)) return
@@ -1165,7 +1189,7 @@ export function InfiniteCanvas({
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
     }
-  }, [pageId, toCanvas, toLocal])
+  }, [pageId, toCanvas, toLocal, active])
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
@@ -2857,8 +2881,12 @@ export function InfiniteCanvas({
 
       {/* Zoom level pill with a lock-zoom toggle button. On phones every
           pixel of canvas matters, so the pill only fades in while the zoom
-          is actually changing and slips away right after. */}
-      {(isPhone ? zoomHud : true) && (() => {
+          is actually changing and slips away right after. A `locked` (static
+          sheet / PDF ink overlay) instance has no zoom of its own — its
+          viewport is pinned to 1× above — so the pill would just be a
+          meaningless "100%" badge, and with several such instances mounted
+          at once (doc sheets, PDF pages) it was piling up one per instance. */}
+      {!locked && (isPhone ? zoomHud : true) && (() => {
         const locked = nbPrefs.lockZoom
         const LockIcon = locked ? Lock : LockOpen
         return (

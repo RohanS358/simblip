@@ -23,33 +23,59 @@ function getProbe(): HTMLSpanElement | null {
   return probe
 }
 
+// getComputedStyle resolves var()/color-mix() fine, but modern Chromium hands
+// the result back in whatever CSS Color 4 function produced it — oklch(), for
+// a design system built on oklch(). THREE.Color.setStyle only recognizes
+// rgb/hsl/hex; anything else silently no-ops (a console warning, no throw),
+// leaving the color at its default black. Every themed 3D color was quietly
+// collapsing to black — bounce the resolved string through a 1×1 canvas
+// instead: fillStyle accepts any CSS color the browser understands, and
+// getImageData reads back the actual painted pixel, sidestepping string
+// parsing entirely regardless of which color function was involved.
+let swatchCtx: CanvasRenderingContext2D | null = null
+function getSwatch(): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null
+  if (!swatchCtx) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1
+    canvas.height = 1
+    swatchCtx = canvas.getContext('2d', { willReadFrequently: true })
+  }
+  return swatchCtx
+}
+
 /** Resolves any CSS color expression (var(--x), oklch(), color-mix()…) to a
  *  concrete THREE.Color via the browser's computed style. */
 export function resolveThemeColor(cssColor: string, fallback = '#888888'): THREE.Color {
   const el = getProbe()
-  if (!el) return new THREE.Color(fallback)
-  el.style.color = cssColor
-  const rgb = getComputedStyle(el).color
+  const ctx = getSwatch()
   const c = new THREE.Color()
+  if (!el || !ctx) return c.set(fallback)
+  el.style.color = cssColor
+  const resolved = getComputedStyle(el).color
   try {
-    c.setStyle(rgb || fallback)
+    ctx.fillStyle = resolved || fallback
+    ctx.fillRect(0, 0, 1, 1)
+    const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data
+    c.setRGB(r / 255, g / 255, b / 255, THREE.SRGBColorSpace)
   } catch {
     c.set(fallback)
   }
   return c
 }
 
-const RAMP_STOPS = [15, 30, 45, 60, 80, 100]
+// ── Fixed app palette ───────────────────────────────────────────────────────
+// Only these four colors are used anywhere in the 3D theming — deliberately
+// hardcoded (not var(--chart-N)) so nothing else in the design system can
+// pull the ramps off-palette. Ordered dark → light.
+export const PALETTE = {
+  deepViolet: '#321E48',
+  slateBlue: '#43637E',
+  teal: '#65DCD5',
+  paleMint: '#D9FFF4',
+} as const
 
-/** Sequential light→dark ramp seeded from the design system's series-1 hue,
- *  receding toward the card surface at the low end (dataviz: "sequential =
- *  one hue, light→dark, lightest step recedes toward the surface"). Built
- *  from the same color-mix(in oklch, var(--hue) N%, var(--surface)) pattern
- *  already used for tinting in components/objects/geometry.tsx, so it tracks
- *  the app's own theme instead of a hardcoded palette. */
-export function buildHeightRamp(hueVar = '--chart-1', surfaceVar = '--card'): THREE.Color[] {
-  return RAMP_STOPS.map((pct) => resolveThemeColor(`color-mix(in oklch, var(${hueVar}) ${pct}%, var(${surfaceVar}))`))
-}
+const PALETTE_STOPS = [PALETTE.deepViolet, PALETTE.slateBlue, PALETTE.teal, PALETTE.paleMint]
 
 /** Sample the ramp at t in [0,1] (e.g. a normalized height/magnitude). */
 export function sampleHeightRamp(ramp: THREE.Color[], t: number): THREE.Color {
@@ -61,11 +87,42 @@ export function sampleHeightRamp(ramp: THREE.Color[], t: number): THREE.Color {
   return ramp[i].clone().lerp(ramp[i + 1], pos - i)
 }
 
+/** Sequential low→high ramp built ONLY from the four fixed palette colors
+ *  (deep violet → slate blue → teal → pale mint), finely subdivided via
+ *  sampleHeightRamp so height fields still read smoothly. Replaces the old
+ *  var(--chart-1)/var(--card) mix — nothing here depends on the app theme. */
+export function buildHeightRamp(): THREE.Color[] {
+  const base = PALETTE_STOPS.map((hex) => resolveThemeColor(hex))
+  const STEPS = 6
+  return Array.from({ length: STEPS }, (_, i) => sampleHeightRamp(base, i / (STEPS - 1)))
+}
+
 /** Re-resolves the height ramp whenever the viewer's theme changes. */
-export function useHeightRamp(hueVar = '--chart-1', surfaceVar = '--card'): THREE.Color[] {
+export function useHeightRamp(): THREE.Color[] {
   const { resolvedTheme } = useTheme()
-  const [ramp, setRamp] = useState<THREE.Color[]>(() => buildHeightRamp(hueVar, surfaceVar))
-  useEffect(() => setRamp(buildHeightRamp(hueVar, surfaceVar)), [hueVar, surfaceVar, resolvedTheme])
+  const [ramp, setRamp] = useState<THREE.Color[]>(() => buildHeightRamp())
+  useEffect(() => setRamp(buildHeightRamp()), [resolvedTheme])
+  return ramp
+}
+
+// Spectrum ramp — same four fixed colors, used as-is (no dilution toward
+// --card) for surfaces that want the full violet → mint range directly.
+const SPECTRUM_STOPS = PALETTE_STOPS
+
+/** Low→high ramp across the full fixed palette (violet → blue → teal →
+ *  mint) for surfaces where a single-hue ramp reads as flat/washed-out — a
+ *  static height-field plot benefits from real color contrast to show
+ *  curvature, the way buildHeightRamp's sequential-dataviz convention
+ *  doesn't need to for a bars/lines chart. */
+export function buildSpectrumRamp(): THREE.Color[] {
+  return SPECTRUM_STOPS.map((v) => resolveThemeColor(v))
+}
+
+/** Re-resolves the spectrum ramp whenever the viewer's theme changes. */
+export function useSpectrumRamp(): THREE.Color[] {
+  const { resolvedTheme } = useTheme()
+  const [ramp, setRamp] = useState<THREE.Color[]>(() => buildSpectrumRamp())
+  useEffect(() => setRamp(buildSpectrumRamp()), [resolvedTheme])
   return ramp
 }
 

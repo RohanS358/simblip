@@ -15,6 +15,7 @@ import type { TraceResult } from '@/lib/dsa/trace'
 import { cn } from '@/lib/utils'
 import { getString, type ObjectRendererProps } from './types'
 import { DsaMemoryView } from './dsa-memory'
+import { DsaGraphView } from './dsa-graph'
 import { DsaTreeView } from './dsa-tree'
 import { DsaAnalysisView } from './dsa-analysis'
 
@@ -35,12 +36,13 @@ const KIND_COLOR: Record<string, string> = {
   error: 'var(--accent-rose)',
 }
 
-type Tab = 'memory' | 'tree' | 'analysis'
+type Tab = 'memory' | 'graph' | 'tree' | 'analysis'
 
 export function DsaObject({ pageId, object }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
   const pushHistory = useDocStore((s) => s.pushHistory)
   const source = getString(object, 'source', DEFAULT_DSA_SOURCE)
+  const stdin = getString(object, 'stdin', '')
 
   const [trace, setTrace] = useState<TraceResult | null>(null)
   const [stepIdx, setStepIdx] = useState(0)
@@ -51,19 +53,20 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
   const [editing, setEditing] = useState(false)
   const [editorRatio, setEditorRatio] = useState(44) // percentage width for editor panel
   const editorRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
   const firstRun = useRef(true)
 
   // Re-interpret on every change, debounced — the "live interpreter" feel.
   useEffect(() => {
     const t = setTimeout(() => {
-      const result = runCpp(source)
+      const result = runCpp(source, stdin)
       setTrace(result)
       setStepIdx(0)
       setPlaying(false)
       firstRun.current = false
     }, firstRun.current ? 0 : 500)
     return () => clearTimeout(t)
-  }, [source])
+  }, [source, stdin])
 
   const maxStep = Math.max(0, (trace?.steps.length ?? 0) - 1)
   const step = trace && trace.steps.length > 0 ? trace.steps[Math.min(stepIdx, maxStep)] : null
@@ -92,13 +95,16 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
     setPlaying(false)
   }
 
-  // Resizable splitter between editor and visualization panels
+  // Resizable splitter between editor and visualization panels.
+  // Uses getBoundingClientRect() for the container width so the delta is in
+  // real screen pixels — object.size.w is scene-space and is off by zoom.
   const handleSplitterMouseDown = (e: React.MouseEvent) => {
     e.preventDefault()
     e.stopPropagation()
     const startX = e.clientX
     const startRatio = editorRatio
-    const containerW = object.size.w || 980
+    // Snapshot the rendered pixel width at drag-start time.
+    const containerW = containerRef.current?.getBoundingClientRect().width || object.size.w || 980
 
     const onMouseMove = (moveEvt: MouseEvent) => {
       const deltaPercent = ((moveEvt.clientX - startX) / containerW) * 100
@@ -283,6 +289,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
             {(
               [
                 ['memory', 'Memory'],
+                ['graph', 'Graph'],
                 ['tree', 'Recursion Tree'],
                 ['analysis', 'Analysis'],
               ] as [Tab, string][]
@@ -313,8 +320,27 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
             )}
           </div>
 
+          {/* cin reads sequentially from here — whitespace-separated tokens,
+              same convention real stdin redirection uses. */}
+          <div className="flex shrink-0 items-center gap-1.5 border-b border-border/40 bg-muted/10 px-2 py-1">
+            <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Input
+            </span>
+            <input
+              type="text"
+              value={stdin}
+              onChange={(e) => setStringParam(pageId, object.id, 'stdin', e.target.value)}
+              onPointerDown={(e) => e.stopPropagation()}
+              onKeyDown={(e) => e.stopPropagation()}
+              placeholder="values for cin, space-separated — e.g. 5 hello 3.25"
+              aria-label="Program input (stdin) for cin"
+              className="min-w-0 flex-1 rounded-md border border-border/50 bg-background/60 px-2 py-0.5 font-mono text-[11px] text-foreground outline-none focus:border-[var(--ring)]"
+            />
+          </div>
+
           <div className="min-h-0 flex-1">
             {tab === 'memory' && <DsaMemoryView step={step} />}
+            {tab === 'graph' && <DsaGraphView step={step} />}
             {tab === 'tree' && <DsaTreeView trace={trace} stepIdx={Math.min(stepIdx, maxStep)} />}
             {tab === 'analysis' && <DsaAnalysisView trace={trace} />}
           </div>

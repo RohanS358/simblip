@@ -37,6 +37,8 @@ const WIDGETS: Insertable[] = [
   widget('note', 'Note', 'sticky memo'),
   widget('formula', 'Formula', 'latex equation derivative integral laplace fourier'),
   widget('graph', 'Graph', 'plot chart series oscilloscope'),
+  widget('surface3d', '3D Graph', 'surface plot 3d z=f(x,y) plane sphere equation rotate calculus'),
+  widget('chart', 'Chart', 'bar pie line area scatter stacked chart data visualization'),
   widget('table', 'Formula Table', 'excel data spreadsheet calculation formula'),
   widget('gridtable', 'Grid Table', 'simple word canva grid table rows columns transparent cell'),
   widget('slider', 'Slider', 'control input variable parameter interactive slider real-time'),

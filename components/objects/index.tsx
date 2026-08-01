@@ -11,6 +11,8 @@ import { NoteObject } from './note'
 import { TextObject } from './text'
 import { FormulaObject } from './formula'
 import { GraphObject } from './graph'
+import { Surface3DObject } from './surface3d'
+import { ChartObject } from './chart'
 import { TableObject } from './table'
 import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
@@ -32,6 +34,8 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   text: TextObject,
   formula: FormulaObject,
   graph: GraphObject,
+  surface3d: Surface3DObject,
+  chart: ChartObject,
   table: TableObject,
   gridtable: GridTableObject,
   slider: SliderObject,

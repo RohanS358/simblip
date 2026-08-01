@@ -11,13 +11,13 @@ export interface SnapCell {
   value: string
   /** address this cell points to (pointer cells only) */
   ptrTo: number | null
-  /** array element index (array blocks only) */
+  /** array element index (array blocks only) — column index for matrix blocks */
   index?: number
   /** field name (object blocks only) */
   field?: string
 }
 
-/** A visual block: one variable, array, or object (stack or heap). */
+/** A visual block: one variable, array, object, or matrix (stack or heap). */
 export interface SnapBlock {
   /** stable identity for animations: `b${headerAddr}` */
   id: string
@@ -25,11 +25,15 @@ export interface SnapBlock {
   name: string
   /** display type, e.g. "int", "int[6]", "Node*", "vector<int>" */
   type: string
-  kind: 'scalar' | 'array' | 'object'
+  kind: 'scalar' | 'array' | 'object' | 'matrix'
   heap: boolean
   /** header address (shown at the bottom of the block) */
   addr: number
   cells: SnapCell[]
+  /** matrix blocks only: row-major grid — a raw `T[R][C]` or a
+   *  `vector<vector<T>>`, rendered as an actual 2D plot instead of a strip
+   *  of opaque "[C]" placeholders. Rows may be jagged (ragged vectors). */
+  rows?: SnapCell[][]
 }
 
 export interface FrameSnap {
@@ -38,6 +42,33 @@ export interface FrameSnap {
   /** pretty argument list, e.g. "lo=0, hi=5" */
   args: string
   blocks: SnapBlock[]
+}
+
+/** One edge in a detected adjacency-list graph. Undirected when both
+ *  directions are present in the adjacency list (the common `addEdge` idiom
+ *  that pushes each side), directed when only one is. */
+export interface GraphEdge {
+  a: number
+  b: number
+  directed: boolean
+}
+
+/** Adjacency-list graph found anywhere in live memory at this step — a
+ *  `vector<vector<int>>` regardless of whether it's a bare local or, as in
+ *  the textbook `class Graph { vector<vector<int>> adjList; }` shape, a
+ *  field nested inside an object. Scanned straight off interpreter memory
+ *  (lib/dsa/interpreter.ts `snapshotGraph`), not the display-only SnapBlock
+ *  tree, since object fields there only get a flattened summary string. */
+export interface GraphSnap {
+  nodeCount: number
+  edges: GraphEdge[]
+  /** a same-length `vector<bool>`/`bool[]`, if one exists — e.g. BFS/DFS `visited` */
+  visited: boolean[] | null
+  /** index into `visited` written at this exact step, for a "just visited" highlight */
+  visitedNode: number | null
+  /** contents of a `queue<int>`/`stack<int>` in front→back / bottom→top order, if one exists */
+  queue: number[] | null
+  queueKind: 'queue' | 'stack' | null
 }
 
 export type StepKind =
@@ -67,6 +98,9 @@ export interface TraceStep {
   output: string
   /** id of the call-tree node currently executing */
   activeCall: string
+  /** the first adjacency-list graph found in memory, if any — null when the
+   *  program isn't working with a `vector<vector<int>>` shape */
+  graph: GraphSnap | null
 }
 
 export interface CallNode {

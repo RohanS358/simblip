@@ -27,7 +27,7 @@ import { useDocStore } from '@/lib/store/document'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useTransientHud } from '@/hooks/use-transient-hud'
 import { useDocDockStore } from '@/lib/store/doc-dock'
-import { sanitizeColors } from '@/lib/store/to-pdf'
+import { sanitizeFormFields } from '@/lib/store/to-pdf'
 import { InfiniteCanvas } from './canvas'
 import { cn } from '@/lib/utils'
 
@@ -39,12 +39,63 @@ const MAX_SHEET = 2400
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 3
 
+/** Compulsory title/subtitle/date banner on a doc's first page — not a
+ *  SceneObject, so there's nothing to accidentally delete. Sits inside the
+ *  same [data-sheet] element PDF export rasterizes, so it prints too. Title
+ *  reuses the page's own name (renaming it here is the same rename as the
+ *  notebook tree); subtitle/date are new PageMeta fields. The date field
+ *  shows today's date until someone picks a different one, without writing
+ *  anything until they do. */
+function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: string }) {
+  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, docPageId))
+  const renamePage = useWorkspaceStore((s) => s.renamePage)
+  const subtitle = meta?.docSubtitle ?? ''
+  const dateVal = meta?.docDate ?? new Date().toISOString().slice(0, 10)
+  const stop = (e: React.KeyboardEvent) => e.stopPropagation()
+
+  return (
+    <div className="absolute inset-x-0 top-0 z-[5] border-b border-black/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-neutral-900 sm:px-10 sm:py-5">
+      <div className="flex items-start justify-between gap-3">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => renamePage(docPageId, e.target.value)}
+          onKeyDown={stop}
+          placeholder="Document title"
+          aria-label="Document title"
+          className="min-w-0 flex-1 bg-transparent text-xl font-bold leading-tight text-neutral-900 outline-none dark:text-neutral-100 sm:text-2xl"
+        />
+        <input
+          type="date"
+          value={dateVal}
+          onChange={(e) => useWorkspaceStore.getState().updatePageMeta(docPageId, { docDate: e.target.value })}
+          onKeyDown={stop}
+          aria-label="Document date"
+          className="shrink-0 bg-transparent text-right font-mono text-[11px] text-neutral-500 outline-none dark:text-neutral-400"
+        />
+      </div>
+      <input
+        type="text"
+        value={subtitle}
+        onChange={(e) => useWorkspaceStore.getState().updatePageMeta(docPageId, { docSubtitle: e.target.value })}
+        onKeyDown={stop}
+        placeholder="Subtitle"
+        aria-label="Document subtitle"
+        className="mt-0.5 w-full min-w-0 bg-transparent text-[13px] text-neutral-500 outline-none dark:text-neutral-400"
+      />
+    </div>
+  )
+}
+
 function Sheet({
   sheetId,
   index,
   size,
   active,
+  canvasActive,
   mounted,
+  docPageId,
+  docName,
   onVisible,
   onFocus,
   onRemove,
@@ -55,7 +106,16 @@ function Sheet({
   index: number
   size: { w: number; h: number }
   active: boolean
+  /** Distinct from `active`: whether THIS sheet's InfiniteCanvas should
+   *  answer to the keyboard. `active` also folds in `!bare` to suppress the
+   *  visual ring on borderless embeds (the PDF notes pane) — but keyboard
+   *  routing must still work there, so it's driven by activeSheetId alone. */
+  canvasActive: boolean
   mounted: boolean
+  /** parent doc's page id + name — only used to render the compulsory
+   *  title/subtitle/date header on the first sheet (index 0). */
+  docPageId: string
+  docName: string
   onVisible: (i: number, v: boolean) => void
   onFocus: () => void
   onRemove: () => void
@@ -135,7 +195,14 @@ function Sheet({
               transformOrigin: 'top left',
             }}
           >
-            <InfiniteCanvas key={sheetId} pageId={sheetId} locked />
+            <InfiniteCanvas key={sheetId} pageId={sheetId} locked active={canvasActive} />
+            {/* Lives INSIDE the same true-pixel/scaled box as the canvas,
+                not as a sibling at the sheet's own (possibly narrower,
+                CSS-fit) display size — otherwise it sits in a different
+                coordinate system than the content it's supposed to cap,
+                which is what made it double/mis-align under html2canvas's
+                PDF-export capture. */}
+            {index === 0 && <DocFirstPageHeader docPageId={docPageId} name={docName} />}
           </div>
         </div>
       ) : (
@@ -403,6 +470,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           scale: 2,
           useCORS: true,
           logging: false,
+          onclone: (_doc, cloned) => sanitizeFormFields(cloned as HTMLElement),
         })
         if (!firstPage) pdf.addPage()
         firstPage = false
@@ -480,7 +548,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 index={i}
                 size={sizeOf(sheetId)}
                 active={!bare && activeSheetId === sheetId}
+                canvasActive={activeSheetId === sheetId}
                 mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}
+                docPageId={pageId}
+                docName={meta?.name ?? 'Untitled'}
                 onVisible={onVisible}
                 onFocus={() => setActiveSheet(sheetId)}
                 onRemove={() => removeSheet(sheetId)}

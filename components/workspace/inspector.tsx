@@ -952,6 +952,94 @@ function GraphOptions({
   )
 }
 
+/** 3D Graph — the surface-plot analog of GraphOptions above. Axis choice
+ *  lives on the card itself (a plain <select>, no history/undo needed for a
+ *  view toggle); this panel handles the things worth undo-tracking: the
+ *  formula list and the axis bounds/resolution. */
+function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const set = (name: string, v: string) => setStringParam(pageId, object.id, name, v)
+
+  const formulas = splitList(getStr(object, 'formulas'))
+  const writeFormulas = (list: string[]) => set('formulas', list.join('; '))
+
+  const editableList = (list: string[], write: (l: string[]) => void, itemLabel: string) => (
+    <div className="space-y-1">
+      {list.map((item, i) => (
+        <div key={i} className="flex items-center gap-1.5">
+          <ExprInput
+            ariaLabel={`${itemLabel} ${i + 1}`}
+            value={item}
+            onCommit={(v) =>
+              write(v.trim() ? list.map((x, j) => (j === i ? v.trim() : x)) : list.filter((_, j) => j !== i))
+            }
+          />
+          <button
+            type="button"
+            aria-label={`Remove ${itemLabel} ${i + 1}`}
+            className="rounded p-0.5 text-muted-foreground hover:text-[var(--accent-rose)]"
+            onClick={() => write(list.filter((_, j) => j !== i))}
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+
+  const rangeField = (name: string, label: string, fallback: string) => (
+    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className="w-8 shrink-0 font-mono">{label}</span>
+      <ExprInput ariaLabel={`Range ${label}`} value={getStr(object, name)} placeholder={fallback} onCommit={(v) => set(name, v)} />
+    </label>
+  )
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <SectionTitle>Formulas</SectionTitle>
+        {editableList(formulas, writeFormulas, 'Formula')}
+        <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'x^2+y^2'])} />
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Explicit: <span className="font-mono">sin(x)*cos(y)</span> plots as a height field. Implicit
+          equations work too — <span className="font-mono">x^2+y^2+z^2=25</span> (sphere) or{' '}
+          <span className="font-mono">2*x+3*y+z=6</span> (plane) — solved for the dependent axis and
+          rendered as two caps. The dependent axis (which variable is &quot;height&quot;) is picked on
+          the card itself.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Bounds</SectionTitle>
+        <div className="grid grid-cols-2 gap-1.5">
+          {rangeField('xMin', 'x min', '-5')}
+          {rangeField('xMax', 'x max', '5')}
+          {rangeField('yMin', 'y min', '-5')}
+          {rangeField('yMax', 'y max', '5')}
+          {rangeField('zMin', 'z min', '-5')}
+          {rangeField('zMax', 'z max', '5')}
+        </div>
+        <p className="text-[10.5px] text-muted-foreground">Values can be expressions (e.g. 2*r).</p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Resolution</SectionTitle>
+        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <span className="w-8 shrink-0 font-mono">grid</span>
+          <ExprInput
+            ariaLabel="Grid resolution"
+            value={getStr(object, 'res')}
+            placeholder="28"
+            scrubbable={false}
+            onCommit={(v) => set('res', v)}
+          />
+        </label>
+        <p className="text-[10.5px] text-muted-foreground">Samples per axis, 8–60. Higher is smoother but slower.</p>
+      </div>
+    </div>
+  )
+}
+
 function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
   const updateObject = useDocStore((s) => s.updateObject)
   const page = useDocStore((s) => s.pages[pageId])
@@ -1651,6 +1739,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         <GraphOptions pageId={pageId} object={object} bodies={bodies} />
       )}
 
+      {object.geometry.kind === 'surface3d' && <Surface3DOptions pageId={pageId} object={object} />}
+
       {object.geometry.kind === 'cashflow' && <CashflowOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'truthtable' && (
@@ -1684,7 +1774,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {!['note', 'text', 'formula', 'graph', 'cashflow', 'truthtable'].includes(object.geometry.kind) &&
+      {!['note', 'text', 'formula', 'graph', 'surface3d', 'chart', 'cashflow', 'truthtable'].includes(object.geometry.kind) &&
         object.metadata.render !== 'system' && (
           <BehaviorsSection pageId={pageId} object={object} />
         )}

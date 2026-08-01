@@ -184,7 +184,10 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
         <Canvas
           frameloop="demand"
           camera={{ position: [SIZE * 1.1, SIZE * 0.9, SIZE * 1.1], fov: 45 }}
-          gl={{ antialias: true, alpha: true }}
+          // See surface3d.tsx: needed so PDF export's html2canvas pass can
+          // actually read this WebGL canvas's pixels instead of capturing it
+          // blank.
+          gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         >
           <Grid
             args={[SIZE, SIZE]}

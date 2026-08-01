@@ -19,6 +19,8 @@ import {
   Sliders,
   MousePointerClick,
   Zap,
+  Box,
+  BarChart3,
 } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -27,6 +29,8 @@ import { cn } from '@/lib/utils'
 const QUICK_INSERT: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
   { tool: 'table', icon: TableProperties, label: 'Formula Table' },
   { tool: 'graph', icon: ChartLine, label: 'Graph' },
+  { tool: 'surface3d', icon: Box, label: '3D Graph' },
+  { tool: 'chart', icon: BarChart3, label: 'Chart' },
   { tool: 'code', icon: Terminal, label: 'Code' },
 ]
 
@@ -115,7 +119,7 @@ export function ToolsPanel() {
         })}
       </div>
 
-      {tool === 'table' || tool === 'graph' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
+      {tool === 'table' || tool === 'graph' || tool === 'surface3d' || tool === 'chart' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
         <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
           Click the canvas to place · Esc to stop
         </p>

@@ -297,6 +297,35 @@ export function evalExpr(
 }
 
 /**
+ * Compile an expression once, then evaluate it many times with a real
+ * per-call error signal — unlike compileExpr below, which papers over a
+ * domain error (e.g. sqrt of a negative) by sticking on the last good value.
+ * For a hot numeric loop that needs to know exactly which calls failed (the
+ * 3D surface sampler: hundreds of thousands of evaluations per render, where
+ * a NaN has to become a hole in the mesh, not a stale height), compiling
+ * once up front is the difference between a render and a multi-second freeze
+ * — mathjs's parse() is the expensive part, not evaluate().
+ */
+export function compileExprChecked(expr: string): (scope: Scope) => { value: number; error?: string } {
+  try {
+    const ints: IntegralSpec[] = []
+    const compiled = rewriteCalculus(parse(extractLiveRefs(expr)), ints).compile()
+    return (scope: Scope) => {
+      try {
+        const v = compiled.evaluate(withCalculus(ints, scope))
+        if (typeof v !== 'number' || !Number.isFinite(v)) return { value: NaN, error: 'Not a finite number' }
+        return { value: v }
+      } catch (e) {
+        return { value: NaN, error: e instanceof Error ? e.message : 'Invalid expression' }
+      }
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'Invalid expression'
+    return () => ({ value: NaN, error: msg })
+  }
+}
+
+/**
  * Compile an expression once for per-frame evaluation (Play mode evaluates
  * behavior expressions every frame; parsing each frame would melt the budget).
  * The returned function is error-safe and falls back to the last good value.

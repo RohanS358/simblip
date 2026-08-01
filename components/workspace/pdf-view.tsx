@@ -69,11 +69,16 @@ const loadPdfjs = () => {
 const ANNOT_W = 900
 
 function PdfPage({
-  doc, n, annotId, onCurrent, onFocus,
+  doc, n, annotId, active, onCurrent, onFocus,
 }: {
   doc: PdfDoc
   n: number
   annotId: string | null
+  /** Several PdfPages (and their ink overlays) mount near the viewport at
+   *  once, but only the one holding the shell's active target (see
+   *  `activeSheetId` below) should answer to the keyboard — see
+   *  InfiniteCanvas's `active` prop. */
+  active: boolean
   onCurrent: (n: number) => void
   onFocus: (n: number) => void
 }) {
@@ -150,7 +155,7 @@ function PdfPage({
               transformOrigin: 'top left',
             }}
           >
-            <InfiniteCanvas key={annotId} pageId={annotId} locked transparent passthrough />
+            <InfiniteCanvas key={annotId} pageId={annotId} locked transparent passthrough active={active} />
           </div>
         </div>
       )}
@@ -163,6 +168,7 @@ function PdfPage({
 
 export function PdfView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId))
+  const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const [doc, setDoc] = useState<PdfDoc | null>(null)
   const [converting, setConverting] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -527,6 +533,7 @@ useLayoutEffect(() => {
                 doc={doc}
                 n={i + 1}
                 annotId={meta?.annotPages?.[i] || null}
+                active={!!meta?.annotPages?.[i] && meta.annotPages[i] === activeSheetId}
                 onCurrent={onCurrent}
                 onFocus={onPageFocus}
               />
@@ -557,7 +564,7 @@ useLayoutEffect(() => {
               {linked ? (
                 linkedNoteId ? (
                   <div className="relative h-full w-full bg-background">
-                    <InfiniteCanvas key={linkedNoteId} pageId={linkedNoteId} />
+                    <InfiniteCanvas key={linkedNoteId} pageId={linkedNoteId} active={activeSheetId === linkedNoteId} />
                     <span className="pointer-events-none absolute left-3 top-2 z-10 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
                       Notes · page {current}
                     </span>

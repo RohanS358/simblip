@@ -34,6 +34,8 @@ const KIND_FILL: Record<GeometryKind, string> = {
   note: 'fill-[var(--accent-amber)]/30 stroke-[var(--accent-amber)]',
   formula: 'fill-[var(--accent-blue)]/20 stroke-[var(--accent-blue)]',
   graph: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
+  surface3d: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
+  chart: 'fill-[var(--accent-blue)]/20 stroke-[var(--accent-blue)]',
   cashflow: 'fill-[var(--accent-violet)]/20 stroke-[var(--accent-violet)]',
   truthtable: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
   symbol: 'fill-[var(--accent-blue)]/30 stroke-[var(--accent-blue)]',

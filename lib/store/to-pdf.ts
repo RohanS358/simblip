@@ -98,6 +98,33 @@ export function sanitizeColors(root: HTMLElement) {
   }
 }
 
+// Widget types where the browser draws a real control, not text — swapping
+// these would lose the control itself, and they don't hit the clipping bug
+// below since there's no glyph box to mis-measure.
+const NON_TEXT_INPUT_TYPES = new Set(['checkbox', 'radio', 'range', 'color', 'file', 'button', 'submit', 'image'])
+
+/** html2canvas-pro doesn't reproduce a browser's own text-box layout for
+ *  form controls — it mis-measures the glyph box and renders <input>/
+ *  <textarea> text with the top of each line clipped (worst on large/bold
+ *  text, e.g. a page title). Run in `onclone` only, same rule as
+ *  sanitizeColors: swap each text-bearing field for a plain div carrying its
+ *  value/placeholder and classes, so the rasterized clone lays the text out
+ *  like any other block instead of through the broken control path. */
+export function sanitizeFormFields(root: HTMLElement) {
+  const doc = root.ownerDocument
+  const isTextField = (el: Element): el is HTMLInputElement | HTMLTextAreaElement =>
+    el instanceof HTMLTextAreaElement ||
+    (el instanceof HTMLInputElement && !NON_TEXT_INPUT_TYPES.has(el.type))
+  const fields = Array.from(root.querySelectorAll('input, textarea')).filter(isTextField)
+  if (root instanceof HTMLElement && isTextField(root)) fields.unshift(root)
+  for (const field of fields) {
+    const div = doc.createElement('div')
+    div.textContent = field.value || field.placeholder
+    div.className = field.className
+    field.replaceWith(div)
+  }
+}
+
 async function pagesToPdf(
   pages: HTMLElement[],
   size: { w: number; h: number },
@@ -131,7 +158,10 @@ async function pagesToPdf(
       height: size.h,
       windowWidth: size.w,
       windowHeight: size.h,
-      onclone: (_doc, element) => sanitizeColors(element as HTMLElement),
+      onclone: (_doc, element) => {
+        sanitizeColors(element as HTMLElement)
+        sanitizeFormFields(element as HTMLElement)
+      },
     })
     if (i > 0) pdf.addPage([size.w, size.h], landscape ? 'landscape' : 'portrait')
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, size.w, size.h)

@@ -38,7 +38,7 @@ function CellBox({
     <div
       data-addr={cell.addr}
       className={cn(
-        'flex min-w-9 flex-col items-center px-1.5 py-1 transition-colors duration-300',
+        'flex min-w-9 shrink-0 flex-col items-center px-1.5 py-1 transition-colors duration-300',
         isChanged && 'bg-[color-mix(in_oklch,var(--accent-amber)_28%,transparent)]',
         !isChanged && isRead && 'bg-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)]'
       )}
@@ -47,18 +47,105 @@ function CellBox({
         <span className="max-w-24 truncate text-[9.5px] font-medium text-muted-foreground">{cell.field}</span>
       )}
       <span
+        title={cell.value.length > 14 ? cell.value : undefined}
         className={cn(
-          'font-mono text-[13px] leading-5',
+          'max-w-40 truncate font-mono text-[13px] leading-5',
           cell.value === 'null' && 'text-muted-foreground/70',
           cell.value === 'dangling' && 'text-[var(--accent-rose)] text-[10px]',
           cell.ptrTo !== null && 'text-[var(--accent-blue)]'
         )}
       >
-        {cell.ptrTo !== null ? '●' : cell.value}
+        {cell.ptrTo !== null ? '●' : cell.value === '""' ? <span className="italic text-muted-foreground/60">empty</span> : cell.value}
       </span>
       {cell.index !== undefined && (
         <span className="text-[9px] font-medium text-muted-foreground/80">{cell.index}</span>
       )}
+    </div>
+  )
+}
+
+/** A matrix cell — same look as CellBox's value glyph, but without the
+ *  index/field footer (the grid's own row/column gutters label position). */
+function MatrixCellBox({
+  cell,
+  block,
+  changed,
+  reads,
+}: {
+  cell: SnapCell
+  block: SnapBlock
+  changed: Set<number>
+  reads: Set<number>
+}) {
+  const isChanged = changed.has(cell.addr) || (cell.ptrTo !== null && changed.has(block.addr))
+  const isRead = reads.has(cell.addr)
+  return (
+    <div
+      data-addr={cell.addr}
+      className={cn(
+        'flex h-8 min-w-9 items-center justify-center border-l border-t border-border/40 px-1 transition-colors duration-300',
+        isChanged && 'bg-[color-mix(in_oklch,var(--accent-amber)_28%,transparent)]',
+        !isChanged && isRead && 'bg-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)]'
+      )}
+    >
+      <span
+        title={cell.value.length > 10 ? cell.value : undefined}
+        className={cn(
+          'max-w-24 truncate font-mono text-[12px] leading-none',
+          cell.value === 'null' && 'text-muted-foreground/70',
+          cell.value === 'dangling' && 'text-[var(--accent-rose)] text-[9px]',
+          cell.ptrTo !== null && 'text-[var(--accent-blue)]'
+        )}
+      >
+        {cell.ptrTo !== null ? '●' : cell.value}
+      </span>
+    </div>
+  )
+}
+
+/** Rows stacked vertically, each a horizontal strip of cells — reads as an
+ *  actual 2D plot (row/column gutters included) rather than the opaque
+ *  "[C]" placeholder a nested array used to render as. Rows may be jagged
+ *  (a ragged `vector<vector<T>>`), so this deliberately isn't a strict CSS
+ *  grid with a single shared column count. */
+function MatrixGrid({
+  block,
+  changed,
+  reads,
+}: {
+  block: SnapBlock
+  changed: Set<number>
+  reads: Set<number>
+}) {
+  const rows = block.rows ?? []
+  const cCount = Math.max(0, ...rows.map((r) => r.length))
+  return (
+    <div className="flex">
+      {/* row-index gutter */}
+      <div className="flex flex-col border-r border-border/40">
+        {rows.map((_, ri) => (
+          <div key={ri} className="flex h-8 w-5 items-center justify-center text-[9px] font-medium text-muted-foreground/80">
+            {ri}
+          </div>
+        ))}
+      </div>
+      <div>
+        {/* column-index header */}
+        <div className="flex">
+          {Array.from({ length: cCount }, (_, ci) => (
+            <div key={ci} className="flex h-4 min-w-9 items-center justify-center border-l border-border/40 text-[8.5px] font-medium text-muted-foreground/70">
+              {ci}
+            </div>
+          ))}
+        </div>
+        {rows.map((row, ri) => (
+          <div key={ri} className="flex">
+            {row.map((c) => (
+              <MatrixCellBox key={c.addr} cell={c} block={block} changed={changed} reads={reads} />
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -72,13 +159,16 @@ function BlockBox({
   changed: Set<number>
   reads: Set<number>
 }) {
-  const touched = block.cells.some((c) => changed.has(c.addr)) || changed.has(block.addr)
+  const touched =
+    block.cells.some((c) => changed.has(c.addr)) ||
+    (block.rows ?? []).some((row) => row.some((c) => changed.has(c.addr))) ||
+    changed.has(block.addr)
   return (
     <div
       data-addr={block.addr}
       data-block="1"
       className={cn(
-        'flex flex-col overflow-hidden rounded-lg border bg-[var(--card)] shadow-sm transition-colors duration-300',
+        'flex shrink-0 flex-col overflow-hidden rounded-lg border bg-[var(--card)] shadow-sm transition-colors duration-300',
         block.heap
           ? 'border-[color-mix(in_oklch,var(--accent-violet)_55%,transparent)] bg-[color-mix(in_oklch,var(--accent-violet)_7%,var(--card))]'
           : 'border-border/70',
@@ -94,16 +184,22 @@ function BlockBox({
         <span className="max-w-40 truncate text-[10.5px] font-semibold text-foreground">{block.name}</span>
         <span className="text-[9px] font-medium text-muted-foreground">{block.type}</span>
       </div>
-      <div className={cn('flex items-stretch', block.kind === 'object' && 'flex-wrap')}>
-        {block.cells.length === 0 && (
-          <span className="px-2 py-1 text-[10px] italic text-muted-foreground">empty</span>
-        )}
-        {block.cells.map((c, i) => (
-          <div key={c.addr} className={cn('flex', i > 0 && 'border-l border-border/40')}>
-            <CellBox cell={c} block={block} changed={changed} reads={reads} />
-          </div>
-        ))}
-      </div>
+      {block.kind === 'matrix' ? (
+        <div className="overflow-x-auto">
+          <MatrixGrid block={block} changed={changed} reads={reads} />
+        </div>
+      ) : (
+        <div className={cn('flex items-stretch', block.kind === 'object' && 'flex-wrap')}>
+          {block.cells.length === 0 && (
+            <span className="px-2 py-1 text-[10px] italic text-muted-foreground">empty</span>
+          )}
+          {block.cells.map((c, i) => (
+            <div key={c.addr} className={cn('flex', i > 0 && 'border-l border-border/40')}>
+              <CellBox cell={c} block={block} changed={changed} reads={reads} />
+            </div>
+          ))}
+        </div>
+      )}
       <div className="border-t border-border/40 px-2 py-0.5 text-[8.5px] font-mono text-muted-foreground/70">
         {fmtAddr(block.addr, block.heap)}
       </div>
@@ -141,7 +237,8 @@ export function DsaMemoryView({ step }: { step: TraceStep | null }) {
     const next: Arrow[] = []
     const allBlocks = [...step.frames.flatMap((f) => f.blocks), ...step.heapBlocks]
     for (const b of allBlocks) {
-      for (const c of b.cells) {
+      const allCells = b.kind === 'matrix' ? (b.rows ?? []).flat() : b.cells
+      for (const c of allCells) {
         if (c.ptrTo === null) continue
         const from = byAddr.get(c.addr)
         const to = byAddr.get(c.ptrTo)

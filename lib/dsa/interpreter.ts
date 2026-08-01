@@ -13,6 +13,8 @@ import {
   type CallNode,
   type Counters,
   type FrameSnap,
+  type GraphEdge,
+  type GraphSnap,
   type Invocation,
   type SnapBlock,
   type SnapCell,
@@ -21,6 +23,8 @@ import {
   type TraceStep,
   emptyCounters,
 } from './trace'
+
+const INT_LIKE = new Set(['int', 'long', 'short', 'size_t'])
 
 const MAX_STEPS = 3000
 const MAX_OPS = 500_000
@@ -158,6 +162,7 @@ type Expr =
   | { k: 'new'; type: TypeRef; args: Expr[]; count?: Expr; line: number }
   | { k: 'initlist'; items: Expr[]; line: number }
   | { k: 'sizeof'; line: number }
+  | { k: 'ctorcall'; type: TypeRef; args: Expr[]; line: number }
 
 interface Declarator {
   name: string
@@ -372,8 +377,18 @@ class Parser {
     const targs: TypeRef[] = []
     if ((base === 'vector' || base === 'stack' || base === 'queue') && this.eat('<')) {
       targs.push(this.parseTypeWithPtr())
-      // handle '>>' closing nested templates
-      if (this.peek().v === '>>') { this.toks[this.pos] = { k: 'op', v: '>', line: this.peek().line } }
+      // `vector<vector<int>>` lexes its closing `>>` as ONE token shared by
+      // both template arg lists. Splitting it into two separate '>' tokens
+      // (rather than relabeling it in place) leaves one for THIS call's
+      // own expect('>') and one still in the stream for whichever
+      // enclosing parseType() called us — otherwise the outer close has
+      // nothing left to consume and `vector<vector<int>>` never parses at
+      // all, which is exactly the 2D-matrix declaration this interpreter
+      // most needs to support.
+      if (this.peek().v === '>>') {
+        const line = this.peek().line
+        this.toks.splice(this.pos, 1, { k: 'op', v: '>', line }, { k: 'op', v: '>', line })
+      }
       this.expect('>')
     }
     return { base, targs, ptr: 0, ref: false }
@@ -715,6 +730,22 @@ class Parser {
   }
 
   parsePrimary(): Expr {
+    // vector<T>(...), stack<T>(...), queue<T>(...) used as an EXPRESSION —
+    // the standard `vector<vector<int>> grid(rows, vector<int>(cols, 0))`
+    // matrix-init idiom needs the inner `vector<int>(cols, 0)` to parse as a
+    // value, not just as a top-level declaration (which parseStatement
+    // already handles separately via parseType + declarators).
+    const p0 = this.peek()
+    if (p0.k === 'kw' && (p0.v === 'vector' || p0.v === 'stack' || p0.v === 'queue') && this.peek(1).v === '<') {
+      const type = this.parseType()
+      this.expect('(')
+      const args: Expr[] = []
+      if (!this.at(')')) {
+        do { args.push(this.parseAssignExpr()) } while (this.eat(','))
+      }
+      this.expect(')')
+      return { k: 'ctorcall', type, args, line: p0.line }
+    }
     const t = this.next()
     if (t.k === 'num') {
       let v = t.v.replace(/[uUlL]+$/, '')
@@ -769,11 +800,18 @@ function pe(e: Expr): string {
     case 'new': return `new ${e.type.base}${e.count ? `[${pe(e.count)}]` : ''}`
     case 'initlist': return `{${e.items.map(pe).join(', ')}}`
     case 'sizeof': return 'sizeof(…)'
+    case 'ctorcall': return `${e.type.base}<...>(${e.args.map(pe).join(', ')})`
   }
 }
 
 // ── Runtime model ───────────────────────────────────────────────────────────
 
+// An iterator is index-based (header + idx into the arr cell's `elems` list)
+// rather than a raw address, unlike a decayed array pointer — vector elems
+// aren't guaranteed contiguous once push_back interleaves with other
+// allocations, so `++it` walking real memory addresses would silently skip
+// or alias the wrong cell. Indexing through `elems` is honest regardless of
+// allocation order and works identically for nested containers (matrix rows).
 type Cell =
   | { t: 'num'; v: number; ct: string }
   | { t: 'bool'; v: boolean }
@@ -782,6 +820,7 @@ type Cell =
   | { t: 'ptr'; v: number; pt: string } // v === 0 → nullptr
   | { t: 'arr'; elems: number[]; et: string; dyn: boolean; ctag?: 'vector' | 'stack' | 'queue' }
   | { t: 'obj'; type: string; fields: Record<string, number> }
+  | { t: 'iter'; header: number; idx: number; et: string }
 
 type Val =
   | { t: 'num'; v: number; ct: string }
@@ -789,6 +828,7 @@ type Val =
   | { t: 'char'; v: string }
   | { t: 'str'; v: string }
   | { t: 'ptr'; v: number; pt: string }
+  | { t: 'iter'; header: number; idx: number; et: string }
   | { t: 'void' }
   | { t: 'stream' }
 
@@ -842,10 +882,22 @@ class Interp {
   curChanged: number[] = []
   curReads: number[] = []
   randState = 0x2f6e2b1
+  stdinTokens: string[] = []
+  stdinPos = 0
 
-  constructor(prog: Program) {
+  constructor(prog: Program, stdin = '') {
     this.prog = prog
+    this.stdinTokens = stdin.trim().length > 0 ? stdin.trim().split(/\s+/) : []
     this.globalFrame = this.pushFrame('globals', '', '_root')
+  }
+
+  /** Next whitespace-separated token for `cin >>` — mirrors real cin's
+   *  behavior of skipping whitespace and reading one token at a time. */
+  nextInputToken(line: number): string {
+    if (this.stdinPos >= this.stdinTokens.length) {
+      throw new RuntimeError('cin: no more input available — add values to the Input field above Run', line)
+    }
+    return this.stdinTokens[this.stdinPos++]
   }
 
   // ── memory helpers ──
@@ -879,6 +931,9 @@ class Interp {
       if (v.t === 'ptr') next = { t: 'ptr', v: v.v, pt: cur.pt }
       else if (v.t === 'num' && v.v === 0) next = { t: 'ptr', v: 0, pt: cur.pt }
       else throw new RuntimeError('Cannot assign a non-pointer value to a pointer', line)
+    } else if (cur.t === 'iter') {
+      if (v.t !== 'iter') throw new RuntimeError('Cannot assign a non-iterator value to an iterator', line)
+      next = { t: 'iter', header: v.header, idx: v.idx, et: v.et }
     } else throw new RuntimeError('Cannot assign to an array/object as a whole here', line)
     // int truncation
     if (next.t === 'num' && ['int', 'long', 'short', 'size_t', 'char'].includes(next.ct)) next = { ...next, v: Math.trunc(next.v) }
@@ -952,6 +1007,7 @@ class Interp {
       heapBlocks: this.snapshotHeap(),
       output: this.output,
       activeCall: top.callNodeId,
+      graph: this.snapshotGraph(),
     })
     this.curChanged = []
     this.curReads = []
@@ -962,6 +1018,12 @@ class Interp {
       if (c.v === 0) return { value: 'null', ptrTo: null }
       if (!this.mem.has(c.v) && !this.findHeaderFor(c.v)) return { value: 'dangling', ptrTo: null }
       return { value: '•', ptrTo: c.v }
+    }
+    if (c.t === 'iter') {
+      const arrCell = this.mem.get(c.header)
+      const elemAddr = arrCell?.t === 'arr' ? arrCell.elems[c.idx] : undefined
+      if (elemAddr === undefined) return { value: 'end', ptrTo: null }
+      return { value: '•', ptrTo: elemAddr }
     }
     return { value: fmtCell(c), ptrTo: null }
   }
@@ -978,6 +1040,36 @@ class Interp {
     const c = this.mem.get(addr)
     if (!c) return null
     if (c.t === 'arr') {
+      // Matrix: every element is itself an array of scalar/pointer cells —
+      // a raw `T[R][C]` or a `vector<vector<T>>` built via push_back/ctor.
+      // Render it as an actual 2D grid instead of a strip of opaque "[C]"
+      // placeholders (what the flat 'array' path below would otherwise do).
+      const rowCells = c.elems.map((ea) => this.mem.get(ea))
+      const isMatrix =
+        c.elems.length > 0 &&
+        rowCells.every(
+          (rc) => rc?.t === 'arr' && rc.elems.every((ce) => {
+            const cc = this.mem.get(ce)
+            return cc && cc.t !== 'arr' && cc.t !== 'obj'
+          })
+        )
+      if (isMatrix) {
+        const rows: SnapCell[][] = c.elems.map((ea) => {
+          const rc = this.mem.get(ea) as Extract<Cell, { t: 'arr' }>
+          return rc.elems.map((ce, ci) => {
+            const cc = this.mem.get(ce)
+            const s = cc ? this.snapshotCellValue(cc) : { value: '?', ptrTo: null }
+            return { addr: ce, value: s.value, ptrTo: s.ptrTo, index: ci }
+          })
+        })
+        const firstRow = rowCells[0] as Extract<Cell, { t: 'arr' }> | undefined
+        const cCount = Math.max(0, ...rows.map((r) => r.length))
+        const typeName =
+          c.ctag && firstRow?.ctag
+            ? `${c.ctag}<${firstRow.ctag}<${firstRow.et}>>`
+            : `${firstRow?.et ?? c.et}[${c.elems.length}][${cCount}]`
+        return { id: `b${addr}`, name, type: typeName, kind: 'matrix', heap, addr, cells: [], rows }
+      }
       const cells: SnapCell[] = c.elems.map((ea, i) => {
         const ec = this.mem.get(ea)
         const s = ec ? this.snapshotCellValue(ec) : { value: '?', ptrTo: null }
@@ -995,7 +1087,7 @@ class Interp {
       return { id: `b${addr}`, name, type: c.type, kind: 'object', heap, addr, cells }
     }
     const s = this.snapshotCellValue(c)
-    const type = c.t === 'num' ? c.ct : c.t === 'ptr' ? `${c.pt}*` : c.t === 'str' ? 'string' : c.t
+    const type = c.t === 'num' ? c.ct : c.t === 'ptr' ? `${c.pt}*` : c.t === 'iter' ? `${c.et}*` : c.t === 'str' ? 'string' : c.t
     return { id: `b${addr}`, name, type, kind: 'scalar', heap, addr, cells: [{ addr, value: s.value, ptrTo: s.ptrTo }] }
   }
 
@@ -1027,6 +1119,84 @@ class Interp {
       if (b) out.push(b)
     }
     return out
+  }
+
+  /** Finds an adjacency-list graph anywhere in live memory — a
+   *  `vector<vector<int>>`/`int[][]` shape — regardless of whether it's a
+   *  bare local or, as in the textbook `class Graph { vector<vector<int>>
+   *  adjList; }` idiom, a field nested inside an object. Scanning raw memory
+   *  (rather than the already-built SnapBlock tree) is what makes the nested
+   *  case work: blockFor only gives object fields a flattened summary
+   *  string, never a full nested block. Paired `visited`/`queue`|`stack`
+   *  companions are matched the same way, purely by shape (bool array of the
+   *  same length; int queue/stack) — there's no way to know the user's
+   *  variable names, so shape is the only signal available. */
+  snapshotGraph(): GraphSnap | null {
+    // The outer cell's `et` is the row type's own base ('vector' for
+    // `vector<vector<int>>`), not 'int' — only the ROWS are int arrays, so
+    // the outer cell itself is matched purely by shape (mirrors blockFor's
+    // own matrix-detection heuristic).
+    let adj: Extract<Cell, { t: 'arr' }> | null = null
+    for (const c of this.mem.values()) {
+      if (c.t !== 'arr' || c.elems.length === 0) continue
+      const isMatrix = c.elems.every((ea) => {
+        const rc = this.mem.get(ea)
+        return rc?.t === 'arr' && INT_LIKE.has(rc.et)
+      })
+      if (isMatrix) { adj = c; break }
+    }
+    if (!adj) return null
+
+    const nodeCount = adj.elems.length
+    const seen = new Set<string>()
+    for (let i = 0; i < nodeCount; i++) {
+      const row = this.mem.get(adj.elems[i])
+      if (row?.t !== 'arr') continue
+      for (const ea of row.elems) {
+        const cc = this.mem.get(ea)
+        if (cc?.t !== 'num') continue
+        const j = cc.v
+        if (Number.isInteger(j) && j >= 0 && j < nodeCount && j !== i) seen.add(`${i}>${j}`)
+      }
+    }
+    const edges: GraphEdge[] = []
+    for (let i = 0; i < nodeCount; i++) {
+      for (let j = i + 1; j < nodeCount; j++) {
+        const fwd = seen.has(`${i}>${j}`)
+        const bwd = seen.has(`${j}>${i}`)
+        if (fwd && bwd) edges.push({ a: i, b: j, directed: false })
+        else if (fwd) edges.push({ a: i, b: j, directed: true })
+        else if (bwd) edges.push({ a: j, b: i, directed: true })
+      }
+    }
+
+    let visited: boolean[] | null = null
+    let visitedNode: number | null = null
+    for (const c of this.mem.values()) {
+      if (c.t !== 'arr' || c.et !== 'bool' || c.elems.length !== nodeCount) continue
+      visited = c.elems.map((ea) => {
+        const bc = this.mem.get(ea)
+        return bc?.t === 'bool' ? bc.v : false
+      })
+      for (let i = 0; i < c.elems.length; i++) {
+        if (this.curChanged.includes(c.elems[i])) visitedNode = i
+      }
+      break
+    }
+
+    let queue: number[] | null = null
+    let queueKind: 'queue' | 'stack' | null = null
+    for (const c of this.mem.values()) {
+      if (c.t !== 'arr' || (c.ctag !== 'queue' && c.ctag !== 'stack') || !INT_LIKE.has(c.et)) continue
+      queue = c.elems.map((ea) => {
+        const nc = this.mem.get(ea)
+        return nc?.t === 'num' ? nc.v : NaN
+      })
+      queueKind = c.ctag
+      break
+    }
+
+    return { nodeCount, edges, visited, visitedNode, queue, queueKind }
   }
 
   // ── construction of storage from types ──
@@ -1078,34 +1248,217 @@ class Interp {
     throw new RuntimeError('Expected a numeric value', line)
   }
 
+  // ── container / object VALUE semantics ──
+  // `Val` (the type evalR returns) is scalars-only — it always was, because
+  // C++ arrays historically decayed to a pointer. But vector/stack/queue and
+  // struct/class instances are VALUE types: `b = a`, `v.push_back(row)`, and
+  // passing one by value must each produce an independent deep copy, not a
+  // pointer alias and not a crash. These three helpers are the one place
+  // that understands "this expression's value might be a whole structure",
+  // used by decl-init, push_back's argument, plain `=` assignment, and
+  // by-value function/method parameters.
+
+  /** Recursively clone a cell (and everything it owns) into FRESH addresses. */
+  deepCopyCell(srcAddr: number, line: number): number {
+    const c = this.cellAt(srcAddr, line)
+    if (c.t === 'arr') {
+      const elems = c.elems.map((ea) => this.deepCopyCell(ea, line))
+      return this.alloc({ ...c, elems })
+    }
+    if (c.t === 'obj') {
+      const fields: Record<string, number> = {}
+      for (const [k, fa] of Object.entries(c.fields)) fields[k] = this.deepCopyCell(fa, line)
+      return this.alloc({ ...c, fields })
+    }
+    return this.alloc({ ...c })
+  }
+
+  /** Overwrite dst IN PLACE with a deep copy of src's structure — dst keeps
+   *  its own address, so anything already pointing at it sees the new
+   *  contents (matches `existingVector = otherVector` semantics). */
+  copyCellInto(dstAddr: number, srcAddr: number, line: number) {
+    const src = this.cellAt(srcAddr, line)
+    if (src.t === 'arr') {
+      const elems = src.elems.map((ea) => this.deepCopyCell(ea, line))
+      this.mem.set(dstAddr, { ...src, elems })
+    } else if (src.t === 'obj') {
+      const fields: Record<string, number> = {}
+      for (const [k, fa] of Object.entries(src.fields)) fields[k] = this.deepCopyCell(fa, line)
+      this.mem.set(dstAddr, { ...src, fields })
+    } else {
+      this.mem.set(dstAddr, { ...src })
+    }
+    this.curChanged.push(dstAddr)
+  }
+
+  /** `vector<T>(n)` / `vector<T>(n, fill)` / `vector<T>()` — also stack and
+   *  queue. `fill` may itself be a container expression, which is what makes
+   *  `vector<vector<int>> grid(rows, vector<int>(cols, 0))` — the standard
+   *  one-liner matrix idiom — actually build a real 2D structure. */
+  buildContainer(t: TypeRef, ctorArgs: Expr[], line: number): number {
+    const et: TypeRef = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+    const n = ctorArgs[0] ? Math.max(0, this.asNum(this.evalR(ctorArgs[0]), line) | 0) : 0
+    const fillExpr = ctorArgs[1]
+    const elems: number[] = []
+    for (let i = 0; i < n; i++) {
+      elems.push(fillExpr ? this.copyOfExprValue(fillExpr, et, line) : this.alloc(this.defaultCell(et, line)))
+    }
+    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' })
+  }
+
+  /** `{1, 2, 3}` (or nested, `{{1,2},{3,4}}`) for a vector/stack/queue decl. */
+  buildFromInitList(t: TypeRef, items: Expr[], line: number): number {
+    const et: TypeRef = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+    const isContainerEt = et.base === 'vector' || et.base === 'stack' || et.base === 'queue'
+    const elems = items.map((it) =>
+      it.k === 'initlist' && isContainerEt ? this.buildFromInitList(et, it.items, line) : this.copyOfExprValue(it, et, line)
+    )
+    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' })
+  }
+
+  /** Resolve one call argument against its parameter (builtins/ctors have no
+   *  declared params, hence `| undefined`): a reference param aliases the
+   *  caller's own cell (`&ref`, unchanged from before); a vector/stack/queue
+   *  or struct/class VALUE param (no `*`, and `int arr[]` params already
+   *  parse as pointers — see parseParams) is deep-copied into a fresh,
+   *  independent cell and tagged `&byval` — callFunction recognizes that tag
+   *  and binds the frame's param straight to it. A raw array/pointer param
+   *  deliberately keeps the classic decay-to-pointer behavior below (plain
+   *  evalR): that's what lets `bubbleSort(int arr[], int n)` mutate the
+   *  CALLER's array in place, which is the entire point of passing one. A
+   *  plain scalar also goes through evalR exactly as before: no extra
+   *  allocation, so recursion-analytics (numericArgs, keyed off
+   *  `Val.t === 'num'`) and the changed-cell highlight trail are untouched
+   *  for the common case. */
+  bindArg(argExpr: Expr, param: Param | undefined, line: number): Val {
+    if (param?.type.ref) return { t: 'ptr', v: this.addrOf(argExpr), pt: '&ref' }
+    const isValueContainer =
+      param &&
+      param.type.ptr === 0 &&
+      (param.type.base === 'vector' || param.type.base === 'stack' || param.type.base === 'queue' || this.prog.types.has(param.type.base))
+    if (isValueContainer) {
+      if (argExpr.k === 'ctorcall') return { t: 'ptr', v: this.buildContainer(argExpr.type, argExpr.args, line), pt: '&byval' }
+      const srcAddr = this.addrOfOrNull(argExpr)
+      const c = srcAddr !== null ? this.mem.get(srcAddr) : undefined
+      if (c && (c.t === 'arr' || c.t === 'obj')) return { t: 'ptr', v: this.deepCopyCell(srcAddr!, line), pt: '&byval' }
+    }
+    return this.evalR(argExpr)
+  }
+
+  /** The value of `e`, materialized into a FRESH address of type `target`:
+   *  a deep copy if `e` is a `vector<T>(…)` ctor-call or names an existing
+   *  container/object variable AND `target` itself is declared as that value
+   *  type (not a pointer — `int* p = arr;` must still DECAY to a pointer
+   *  aliasing the same memory, never copy it, or in-place mutation through
+   *  `p` would silently stop reaching `arr`). Otherwise a plain scalar cell
+   *  (unchanged behavior — evalR + write, exactly as every call site did
+   *  before this existed). Used anywhere a value (not a reference) is
+   *  needed: decl init, a container's fill element, push_back's argument. */
+  copyOfExprValue(e: Expr, target: TypeRef, line: number): number {
+    const isValueTarget =
+      target.ptr === 0 &&
+      (target.base === 'vector' || target.base === 'stack' || target.base === 'queue' || this.prog.types.has(target.base))
+    if (isValueTarget) {
+      if (e.k === 'ctorcall') return this.buildContainer(e.type, e.args, line)
+      const srcAddr = this.addrOfOrNull(e)
+      const c = srcAddr !== null ? this.mem.get(srcAddr) : undefined
+      if (c && (c.t === 'arr' || c.t === 'obj')) return this.deepCopyCell(srcAddr!, line)
+    }
+    // `auto x = expr;` (bare, no `*`) can't pre-build a cell shape the way
+    // every other declared type can — `defaultCell` used to guess 'int' and
+    // then silently coerce/zero whatever the initializer actually was. That
+    // was invisible for numeric inits but corrupted anything else: `auto p =
+    // &y;` and `auto it = v.begin();` both stored 0. Evaluate first and let
+    // the real Val shape decide the cell.
+    if (target.base === 'auto' && target.ptr === 0) {
+      const v = this.evalR(e)
+      if (v.t === 'void' || v.t === 'stream') throw new RuntimeError('Cannot initialize a variable from a void expression', line)
+      return this.alloc(this.cellForVal(v))
+    }
+    const addr = this.alloc(this.defaultCell(target, line))
+    this.write(addr, this.evalR(e), line)
+    return addr
+  }
+
+  /** Build a Cell that exactly matches a scalar/pointer/iterator Val's shape
+   *  — used for `auto` inference, where the declared type can't be known
+   *  ahead of evaluating the initializer. */
+  cellForVal(v: Exclude<Val, { t: 'void' } | { t: 'stream' }>): Cell {
+    switch (v.t) {
+      case 'num': return { t: 'num', v: v.v, ct: v.ct }
+      case 'bool': return { t: 'bool', v: v.v }
+      case 'char': return { t: 'char', v: v.v }
+      case 'str': return { t: 'str', v: v.v }
+      case 'ptr': return { t: 'ptr', v: v.v, pt: v.pt }
+      case 'iter': return { t: 'iter', header: v.header, idx: v.idx, et: v.et }
+    }
+  }
+
+  /** Resolve a `[first, last)` argument pair — either vector iterators
+   *  (index-based, via the array's elems list) or raw decayed pointers
+   *  (address-based, contiguous by construction) — into the ordered list of
+   *  real element addresses in between. The one place sort/find/reverse/
+   *  min_element/max_element share, so both `sort(v.begin(), v.end())` and
+   *  the classic `sort(arr, arr + n)` work. */
+  resolveRange(a: Val, b: Val, line: number): number[] {
+    if (a.t === 'iter' && b.t === 'iter') {
+      if (a.header !== b.header) throw new RuntimeError('Iterators are from different containers', line)
+      const c = this.cellAt(a.header, line)
+      if (c.t !== 'arr') throw new RuntimeError('Invalid iterator range', line)
+      const lo = Math.max(0, Math.min(a.idx, b.idx, c.elems.length))
+      const hi = Math.max(0, Math.min(Math.max(a.idx, b.idx), c.elems.length))
+      return c.elems.slice(lo, hi)
+    }
+    if (a.t === 'ptr' && b.t === 'ptr') {
+      const lo = Math.min(a.v, b.v)
+      const hi = Math.max(a.v, b.v)
+      const out: number[] = []
+      for (let addr = lo; addr < hi; addr++) out.push(addr)
+      return out
+    }
+    throw new RuntimeError('Expected a matching pair of iterators/pointers (e.g. v.begin(), v.end())', line)
+  }
+
+  /** Same equality real C++ `==` would use for the scalar element types this
+   *  interpreter supports (numbers, chars, bools, strings). */
+  valsEqual(a: Val, b: Val, line: number): boolean {
+    if (a.t === 'str' || b.t === 'str') return fmtVal(a, true) === fmtVal(b, true)
+    return this.asNum(a, line) === this.asNum(b, line)
+  }
+
   // ── declaration execution ──
   execDecl(s: Extract<Stmt, { k: 'decl' }>) {
     for (const d of s.decls) {
       const t: TypeRef = { ...s.type, ptr: s.type.ptr + d.ptr }
       let addr: number
       let descVal = ''
+      const isContainerType = t.base === 'vector' || t.base === 'stack' || t.base === 'queue'
       if (d.arrDims.length > 0) {
         addr = this.allocArray(t, d.arrDims, d.init, s.line)
         const c = this.mem.get(addr)
         descVal = c?.t === 'arr' ? fmtArrShort(c, this.mem) : ''
-      } else if (d.init && d.init.k === 'initlist' && (t.base === 'vector' || t.base === 'stack' || t.base === 'queue')) {
-        const et: TypeRef = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
-        const elems = d.init.items.map((it) => {
-          const ec = this.defaultCell(et, s.line)
-          const a = this.alloc(ec)
-          this.write(a, this.evalR(it), s.line)
-          return a
-        })
-        addr = this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' })
+      } else if (d.init && d.init.k === 'initlist' && isContainerType) {
+        // {1,2,3} — items may themselves be nested initlists (a matrix
+        // literal like `vector<vector<int>> grid = {{1,2},{3,4}};`).
+        addr = this.buildFromInitList(t, d.init.items, s.line)
         descVal = `{${d.init.items.map(pe).join(', ')}}`
+      } else if (d.ctorArgs && isContainerType) {
+        // vector<T> v(n) / v(n, fill) — fill may be a nested `vector<T>(…)`
+        // ctorcall, which is what actually builds a 2D matrix in one line.
+        addr = this.buildContainer(t, d.ctorArgs, s.line)
+        const c = this.mem.get(addr)
+        descVal = c?.t === 'arr' ? fmtArrShort(c, this.mem) : ''
+      } else if (d.init) {
+        // Deep-copies when the RHS is a container/object (variable or a
+        // `vector<T>(…)` ctorcall); plain evalR+write otherwise — same as
+        // before for every scalar/pointer initializer.
+        addr = this.copyOfExprValue(d.init, t, s.line)
+        const c = this.mem.get(addr)
+        descVal = c?.t === 'arr' ? fmtArrShort(c, this.mem) : c?.t === 'obj' ? c.type : c ? fmtCell(c) : ''
       } else {
         const cell = this.defaultCell(t, s.line)
         addr = this.alloc(cell)
-        if (d.init) {
-          const v = this.evalR(d.init)
-          this.write(addr, v, s.line)
-          descVal = fmtVal(v)
-        } else if (d.ctorArgs && cell.t === 'obj') {
+        if (d.ctorArgs && cell.t === 'obj') {
           const td = this.prog.types.get(t.base)
           if (td?.ctor) this.callFunction(td.ctor, d.ctorArgs.map((a) => this.evalR(a)), s.line, addr, d.ctorArgs.map(pe).join(', '))
         } else if (d.ctorArgs && d.ctorArgs.length === 1) {
@@ -1272,7 +1625,19 @@ class Interp {
         f.scopes.push(new Map())
         this.loopDepth++
         this.counters.maxLoopDepth = Math.max(this.counters.maxLoopDepth, this.loopDepth)
-        const varAddr = this.alloc(this.defaultCell(s.type, s.line))
+        // `for (auto w : words)` over a vector<string> (or bool/char) hit the
+        // same shape-inference gap as bare `auto x = expr;` — defaultCell
+        // guessed 'int' before seeing an element, so a string element wrote
+        // as 0. Peek the first element's actual (scalar) shape instead;
+        // nested containers/structs still fall back to defaultCell, same as
+        // before — copying THOSE by value through a loop var is a separate,
+        // deeper gap this doesn't attempt to fix.
+        const firstCell = cell.elems.length > 0 ? this.mem.get(cell.elems[0]) : undefined
+        const varCell =
+          s.type.base === 'auto' && s.type.ptr === 0 && firstCell && firstCell.t !== 'arr' && firstCell.t !== 'obj'
+            ? this.cellForVal(firstCell)
+            : this.defaultCell(s.type, s.line)
+        const varAddr = this.alloc(varCell)
         this.declare(s.name, varAddr)
         try {
           for (const ea of [...cell.elems]) {
@@ -1417,6 +1782,14 @@ class Interp {
       case 'un':
         if (e.op === '*') {
           const p = this.evalR(e.e)
+          if (p.t === 'iter') {
+            const c = this.cellAt(p.header, e.line)
+            if (c.t !== 'arr') throw new RuntimeError('Invalid iterator', e.line)
+            if (p.idx < 0 || p.idx >= c.elems.length) {
+              throw new RuntimeError('Dereferencing an out-of-range iterator (did you dereference end()?)', e.line)
+            }
+            return c.elems[p.idx]
+          }
           if (p.t !== 'ptr') throw new RuntimeError(`Cannot dereference non-pointer '${pe(e.e)}'`, e.line)
           if (p.v === 0) throw new RuntimeError('Null pointer dereference', e.line)
           return p.v
@@ -1452,7 +1825,7 @@ class Interp {
         if (e.name === 'endl') return { t: 'str', v: '\n' }
         if (e.name === 'INT_MAX') return { t: 'num', v: 2147483647, ct: 'int' }
         if (e.name === 'INT_MIN') return { t: 'num', v: -2147483648, ct: 'int' }
-        if (e.name === 'cin') throw new RuntimeError('cin is not supported — assign values in the code instead', e.line)
+        if (e.name === 'cin') return { t: 'stream' }
         const a = this.lookup(e.name)
         if (a === null) throw new RuntimeError(`'${e.name}' is not declared`, e.line)
         return this.readCell(a, e.line)
@@ -1478,6 +1851,19 @@ class Interp {
       case 'bin': return this.evalBinary(e)
       case 'assign': {
         const addr = this.addrOf(e.target)
+        if (e.op === '=') {
+          const tcell = this.cellAt(addr, e.line)
+          if (tcell.t === 'arr' || tcell.t === 'obj') {
+            // `existingVector = otherVector`, `grid[i] = row`, `n2 = n1` —
+            // whole-structure assignment: deep-copy INTO the target's own
+            // address so anything else already pointing at it sees the new
+            // contents, same value semantics as a declaration-init copy.
+            const srcAddr = e.value.k === 'ctorcall' ? this.buildContainer(e.value.type, e.value.args, e.line) : this.addrOf(e.value)
+            this.copyCellInto(addr, srcAddr, e.line)
+            const c = this.mem.get(addr)!
+            return c.t === 'arr' ? { t: 'ptr', v: c.elems[0] ?? 0, pt: c.et } : { t: 'ptr', v: addr, pt: c.t === 'obj' ? c.type : 'object' }
+          }
+        }
         let v = this.evalR(e.value)
         if (e.op !== '=') {
           const cur = this.readCell(addr, e.line)
@@ -1493,6 +1879,16 @@ class Interp {
       }
       case 'new': return this.evalNew(e)
       case 'call': return this.evalCall(e)
+      case 'ctorcall': {
+        // Reached only when a `vector<T>(…)` expression shows up somewhere
+        // that isn't already handled by copyOfExprValue/buildContainer
+        // (decl-init, push_back's arg, a container's fill, an assignment
+        // RHS, a by-value call argument). Build it and decay to a pointer,
+        // same convention arrays already use when read as a plain Val.
+        const addr = this.buildContainer(e.type, e.args, e.line)
+        const c = this.mem.get(addr)
+        return c?.t === 'arr' ? { t: 'ptr', v: c.elems[0] ?? addr, pt: c.et } : { t: 'ptr', v: addr, pt: e.type.base }
+      }
     }
   }
 
@@ -1503,6 +1899,7 @@ class Interp {
       const delta = e.op === '++' ? 1 : -1
       let next: Val
       if (cur.t === 'ptr') next = { t: 'ptr', v: cur.v + delta, pt: cur.pt }
+      else if (cur.t === 'iter') next = { t: 'iter', header: cur.header, idx: cur.idx + delta, et: cur.et }
       else next = { t: 'num', v: this.asNum(cur, e.line) + delta, ct: cur.t === 'num' ? cur.ct : 'int' }
       this.write(addr, next, e.line)
       return e.prefix ? next : cur
@@ -1531,6 +1928,13 @@ class Interp {
       return { t: 'ptr', v: op === '+' ? l.v + d : l.v - d, pt: l.pt }
     }
     if (l.t === 'ptr' && r.t === 'ptr' && op === '-') return { t: 'num', v: l.v - r.v, ct: 'int' }
+    // iterator arithmetic: `it + n` / `it - n` advances by index, `it2 - it1`
+    // is a distance — same shape as pointer arithmetic above, index-based.
+    if (l.t === 'iter' && r.t !== 'iter' && (op === '+' || op === '-')) {
+      const d = this.asNum(r, line)
+      return { t: 'iter', header: l.header, idx: op === '+' ? l.idx + d : l.idx - d, et: l.et }
+    }
+    if (l.t === 'iter' && r.t === 'iter' && op === '-') return { t: 'num', v: l.idx - r.idx, ct: 'int' }
     // string concat
     if (op === '+' && (l.t === 'str' || r.t === 'str')) return { t: 'str', v: fmtVal(l, true) + fmtVal(r, true) }
     const a = this.asNum(l, line)
@@ -1587,7 +1991,22 @@ class Interp {
     }
     if (e.op === '>>') {
       const l = this.evalR(e.l)
-      if (l.t === 'stream') throw new RuntimeError('cin is not supported — assign values in the code instead', e.line)
+      if (l.t === 'stream') {
+        // cin >> x — read the next whitespace-separated token from the
+        // Input panel's stdin buffer and coerce it to x's cell type, same
+        // convention cout << uses on the output side (fmtVal/write).
+        const addr = this.addrOf(e.r)
+        const cell = this.cellAt(addr, e.line)
+        const raw = this.nextInputToken(e.line)
+        let v: Val
+        if (cell.t === 'num') v = { t: 'num', v: Number(raw), ct: cell.ct }
+        else if (cell.t === 'bool') v = { t: 'bool', v: raw === '1' || raw.toLowerCase() === 'true' }
+        else if (cell.t === 'char') v = { t: 'char', v: raw[0] ?? '\0' }
+        else if (cell.t === 'str') v = { t: 'str', v: raw }
+        else throw new RuntimeError(`cin >> '${pe(e.r)}' needs a plain int/double/char/bool/string variable`, e.line)
+        this.write(addr, v, e.line)
+        return { t: 'stream' }
+      }
       const r = this.evalR(e.r)
       return this.numericBinop('>>', l, r, e.line)
     }
@@ -1596,7 +2015,12 @@ class Interp {
     if (['==', '!=', '<', '>', '<=', '>='].includes(e.op)) {
       this.counters.comparisons++
       let res: boolean
-      if (l.t === 'str' || r.t === 'str') {
+      if (l.t === 'iter' || r.t === 'iter') {
+        if (l.t !== 'iter' || r.t !== 'iter') throw new RuntimeError('Cannot compare an iterator with a non-iterator', e.line)
+        const a = l.idx
+        const b = r.idx
+        res = e.op === '==' ? a === b : e.op === '!=' ? a !== b : e.op === '<' ? a < b : e.op === '>' ? a > b : e.op === '<=' ? a <= b : a >= b
+      } else if (l.t === 'str' || r.t === 'str') {
         const a = fmtVal(l, true)
         const b = fmtVal(r, true)
         res = e.op === '==' ? a === b : e.op === '!=' ? a !== b : e.op === '<' ? a < b : e.op === '>' ? a > b : e.op === '<=' ? a <= b : a >= b
@@ -1670,15 +2094,54 @@ class Interp {
 
     const fn = this.prog.funcs.get(name)
     if (fn) {
-      const args = e.args.map((a, i) => {
-        const p = fn.params[i]
-        if (p?.type.ref) {
-          const addr = this.addrOf(e.args[i])
-          return { t: 'ptr', v: addr, pt: '&ref' } as Val
-        }
-        return this.evalR(a)
-      })
+      const args = e.args.map((a, i) => this.bindArg(a, fn.params[i], e.line))
       return this.callFunction(fn, args, e.line, null, e.args.map((a) => this.fmtArg(a)).join(', '))
+    }
+
+    // STL algorithms over an iterator/pointer [first, last) range.
+    if (name === 'sort' || name === 'reverse' || name === 'find' || name === 'min_element' || name === 'max_element') {
+      if (name === 'sort' && e.args.length > 2) {
+        throw new RuntimeError('sort() with a custom comparator is not supported — only ascending sort(first, last)', e.line)
+      }
+      const a = this.evalR(e.args[0])
+      const b = this.evalR(e.args[1])
+      const addrs = this.resolveRange(a, b, e.line)
+      const iterAt = (i: number): Val => {
+        if (a.t === 'iter') return { t: 'iter', header: a.header, idx: a.idx + i, et: a.et }
+        if (a.t === 'ptr') return { t: 'ptr', v: addrs[i], pt: a.pt }
+        throw new RuntimeError(`${name}() needs a pair of iterators/pointers`, e.line)
+      }
+      if (name === 'sort') {
+        const withKey = addrs.map((addr) => {
+          const v = this.readCell(addr, e.line)
+          return { v, key: v.t === 'str' ? v.v : this.asNum(v, e.line) }
+        })
+        withKey.sort((x, y) => (typeof x.key === 'string' ? (x.key < (y.key as string) ? -1 : x.key > (y.key as string) ? 1 : 0) : (x.key as number) - (y.key as number)))
+        withKey.forEach((item, i) => this.write(addrs[i], item.v, e.line))
+        return { t: 'void' }
+      }
+      if (name === 'reverse') {
+        const vals = addrs.map((addr) => this.readCell(addr, e.line))
+        vals.reverse().forEach((v, i) => this.write(addrs[i], v, e.line))
+        return { t: 'void' }
+      }
+      if (name === 'find') {
+        const target = this.evalR(e.args[2])
+        for (let i = 0; i < addrs.length; i++) {
+          if (this.valsEqual(this.readCell(addrs[i], e.line), target, e.line)) return iterAt(i)
+        }
+        return b // std::find returns `last` on failure
+      }
+      // min_element / max_element
+      if (addrs.length === 0) return b
+      let bestI = 0
+      let bestVal = this.readCell(addrs[0], e.line)
+      for (let i = 1; i < addrs.length; i++) {
+        const v = this.readCell(addrs[i], e.line)
+        const better = name === 'min_element' ? this.asNum(v, e.line) < this.asNum(bestVal, e.line) : this.asNum(v, e.line) > this.asNum(bestVal, e.line)
+        if (better) { bestVal = v; bestI = i }
+      }
+      return iterAt(bestI)
     }
 
     // math / misc builtins
@@ -1741,14 +2204,26 @@ class Interp {
 
     // container methods
     if (recvAddr !== null && cell?.t === 'arr') {
-      const argVals = args.map((a) => this.evalR(a))
       const c = cell
+      const et: TypeRef = { base: c.et, targs: [], ptr: 0, ref: false }
+      // Args are resolved lazily per-case below (via copyOfExprValue for
+      // anything that stores a value, asNum for anything that wants a plain
+      // number) — NOT eagerly evalR'd up front, which used to blow up the
+      // instant you pushed a struct or a row (another vector) into this
+      // container: evalR on an 'obj' id throws, and on an 'arr' id it
+      // decayed to a pointer instead of copying — see copyOfExprValue.
       switch (m.name) {
         case 'size': case 'length': return { t: 'num', v: c.elems.length, ct: 'int' }
         case 'empty': return { t: 'bool', v: c.elems.length === 0 }
+        case 'begin': case 'end': {
+          // stack/queue are container ADAPTORS in real C++ — no iterators.
+          if (c.ctag === 'stack' || c.ctag === 'queue') {
+            throw new RuntimeError(`${c.ctag} has no ${m.name}() — it isn't an iterable container in real C++`, line)
+          }
+          return { t: 'iter', header: recvAddr, idx: m.name === 'begin' ? 0 : c.elems.length, et: c.et }
+        }
         case 'push_back': case 'push': {
-          const a = this.alloc(this.defaultCell({ base: c.et, targs: [], ptr: 0, ref: false }, line))
-          this.write(a, argVals[0] ?? { t: 'num', v: 0, ct: 'int' }, line)
+          const a = args[0] ? this.copyOfExprValue(args[0], et, line) : this.alloc(this.defaultCell(et, line))
           this.mem.set(recvAddr, { ...c, elems: [...c.elems, a] })
           this.curChanged.push(recvAddr)
           return { t: 'void' }
@@ -1784,7 +2259,7 @@ class Interp {
           return this.readCell(a, line)
         }
         case 'at': {
-          const i = this.asNum(argVals[0] ?? { t: 'num', v: 0, ct: 'int' }, line) | 0
+          const i = (args[0] ? this.asNum(this.evalR(args[0]), line) : 0) | 0
           if (i < 0 || i >= c.elems.length) throw new RuntimeError(`at(${i}) out of range (size ${c.elems.length})`, line)
           this.counters.arrayAccesses++
           return this.readCell(c.elems[i], line)
@@ -1796,13 +2271,13 @@ class Interp {
           return { t: 'void' }
         }
         case 'resize': {
-          const n = Math.max(0, this.asNum(argVals[0] ?? { t: 'num', v: 0, ct: 'int' }, line) | 0)
+          const n = Math.max(0, (args[0] ? this.asNum(this.evalR(args[0]), line) : 0) | 0)
           let elems = [...c.elems]
           while (elems.length > n) {
             const victim = elems.pop()
             if (victim !== undefined) this.mem.delete(victim)
           }
-          while (elems.length < n) elems.push(this.alloc(this.defaultCell({ base: c.et, targs: [], ptr: 0, ref: false }, line)))
+          while (elems.length < n) elems.push(args[1] ? this.copyOfExprValue(args[1], et, line) : this.alloc(this.defaultCell(et, line)))
           this.mem.set(recvAddr, { ...c, elems })
           this.curChanged.push(recvAddr)
           return { t: 'void' }
@@ -1816,11 +2291,7 @@ class Interp {
       const td = this.prog.types.get(cell.type)
       const fn = td?.methods.get(m.name)
       if (!fn) throw new RuntimeError(`No method '${m.name}' on '${cell.type}'`, line)
-      const argVals = args.map((a, i) => {
-        const p = fn.params[i]
-        if (p?.type.ref) return { t: 'ptr', v: this.addrOf(args[i]), pt: '&ref' } as Val
-        return this.evalR(a)
-      })
+      const argVals = args.map((a, i) => this.bindArg(a, fn.params[i], line))
       return this.callFunction(fn, argVals, line, recvAddr, args.map((a) => this.fmtArg(a)).join(', '))
     }
     throw new RuntimeError(`Cannot call '${m.name}' on '${pe(m.base)}'`, line)
@@ -1863,6 +2334,12 @@ class Interp {
       const a = args[i]
       if (p.type.ref && a && a.t === 'ptr' && a.pt === '&ref') {
         // reference param: alias the caller's cell
+        frame.scopes[0].set(p.name, a.v)
+        continue
+      }
+      if (a && a.t === 'ptr' && a.pt === '&byval') {
+        // by-value container/object arg: bindArg already deep-copied it
+        // into a fresh, independent cell — use that cell directly.
         frame.scopes[0].set(p.name, a.v)
         continue
       }
@@ -1951,6 +2428,7 @@ function fmtVal(v: Val, forOutput = false): string {
     case 'char': return forOutput ? v.v : `'${v.v}'`
     case 'str': return forOutput ? v.v : JSON.stringify(v.v)
     case 'ptr': return v.v === 0 ? (forOutput ? '0' : 'null') : `@${v.v}`
+    case 'iter': return `it@${v.idx}`
     case 'void': return 'void'
     case 'stream': return ''
   }
@@ -1968,6 +2446,7 @@ function fmtCell(c: Cell): string {
     case 'char': return c.v === '\0' ? "'\\0'" : `'${c.v}'`
     case 'str': return JSON.stringify(c.v)
     case 'ptr': return c.v === 0 ? 'null' : '•'
+    case 'iter': return `it@${c.idx}`
     case 'arr': return `[${c.elems.length}]`
     case 'obj': return c.type
   }
@@ -1989,7 +2468,7 @@ function typeName(t: TypeRef): string {
 
 // ── entry point ─────────────────────────────────────────────────────────────
 
-export function runCpp(source: string): TraceResult {
+export function runCpp(source: string, stdin = ''): TraceResult {
   const base: TraceResult = {
     steps: [],
     callNodes: {},
@@ -2007,7 +2486,7 @@ export function runCpp(source: string): TraceResult {
     const message = err instanceof Error ? err.message : String(err)
     return { ...base, error: { line, message } }
   }
-  const interp = new Interp(prog)
+  const interp = new Interp(prog, stdin)
   const error = interp.run()
   return {
     steps: interp.steps,
