@@ -55,10 +55,24 @@ const boundOf = (expr: string, fallback: number, scope: Scope): number => {
 const scaleTo = (v: number, b: { min: number; max: number }) =>
   b.max === b.min ? 0 : ((v - b.min) / (b.max - b.min)) * SIZE - SIZE / 2
 
-function AxisLabel({ position, children }: { position: [number, number, number]; children: React.ReactNode }) {
+function AxisLabel({
+  position,
+  color,
+  children,
+}: {
+  position: [number, number, number]
+  /** Matches this axis's line/arrow color — at the default camera angle the
+   *  x and y labels project close together, and with both a flat gray they
+   *  read as one illegible overlapping blob. Color is the cheapest way to
+   *  tell them apart even while overlapping. */
+  color: string
+  children: React.ReactNode
+}) {
   return (
     <Html position={position} center distanceFactor={8} style={{ pointerEvents: 'none' }}>
-      <span className="whitespace-nowrap font-mono text-[9px] text-muted-foreground">{children}</span>
+      <span className="whitespace-nowrap font-mono text-[9px] font-semibold" style={{ color }}>
+        {children}
+      </span>
     </Html>
   )
 }
@@ -353,9 +367,15 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
         <arrowHelper args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorDep, SIZE * 0.09, SIZE * 0.045]} />
         <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorV} lineWidth={1.5} />
         <arrowHelper args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorV, SIZE * 0.09, SIZE * 0.045]} />
-        <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>{ua} ({fmtNum(bounds[ua].min)}…{fmtNum(bounds[ua].max)})</AxisLabel>
-        <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>{dependent} ({fmtNum(bounds[dependent].min)}…{fmtNum(bounds[dependent].max)})</AxisLabel>
-        <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>{va} ({fmtNum(bounds[va].min)}…{fmtNum(bounds[va].max)})</AxisLabel>
+        <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]} color={`#${axisColorU.getHexString()}`}>
+          {ua} ({fmtNum(bounds[ua].min)}…{fmtNum(bounds[ua].max)})
+        </AxisLabel>
+        <AxisLabel position={[0, SIZE / 2 + 0.3, 0]} color={`#${axisColorDep.getHexString()}`}>
+          {dependent} ({fmtNum(bounds[dependent].min)}…{fmtNum(bounds[dependent].max)})
+        </AxisLabel>
+        <AxisLabel position={[0, 0, SIZE / 2 + 0.3]} color={`#${axisColorV.getHexString()}`}>
+          {va} ({fmtNum(bounds[va].min)}…{fmtNum(bounds[va].max)})
+        </AxisLabel>
 
         {meshes.map((branches, i) => branches.map((data, bi) => <SurfaceMesh key={`${i}-${bi}`} data={data} opacity={i === 0 ? 1 : 0.9} />))}
 
@@ -403,6 +423,11 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
           axisColors={[`#${axisColorU.getHexString()}`, `#${axisColorDep.getHexString()}`, `#${axisColorV.getHexString()}`]}
           labels={[ua, dependent, va]}
           labelColor="black"
+          // Without this, drei also draws the -x/-y/-z heads: same color,
+          // no label, just smaller and half-transparent — reading as
+          // unlabeled duplicate dots cluttering the widget rather than a
+          // clear 3-axis tripod.
+          hideNegativeAxes
         />
       </GizmoHelper>
     </Canvas>
