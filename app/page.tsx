@@ -1,6 +1,6 @@
 import { Landing } from '@/components/landing/showcase'
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
 
 // Structured data: tells search engines what SIMBLIP is and who built it.
 const jsonLd = {

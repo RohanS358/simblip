@@ -30,7 +30,7 @@ const jetbrainsMono = JetBrains_Mono({
   variable: '--font-jetbrains',
 })
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.vercel.app'
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
   
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -85,9 +85,16 @@ export const metadata: Metadata = {
       { url: '/logo.png', media: '(prefers-color-scheme: light)' },
       { url: '/logo.png', media: '(prefers-color-scheme: dark)' },
     ],
-    apple: '/logo.png',
+    apple: '/apple-icon.png',
   },
   category: 'education',
+  // Drop a Search Console verification code in .env as
+  // NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to prove ownership without another
+  // deploy — unindexed is far more often "never verified/submitted" than a
+  // markup problem.
+  verification: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION }
+    : undefined,
 }
 
 export const viewport = {

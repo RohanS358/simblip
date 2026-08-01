@@ -204,7 +204,15 @@ function Sheet({
               transformOrigin: 'top left',
             }}
           >
-            <InfiniteCanvas key={sheetId} pageId={sheetId} locked active={canvasActive} />
+            {/* passthrough: a locked sheet never pans/zooms itself, but without
+                this a one-finger touch drag on empty sheet area starts the
+                canvas's own marquee-select AND touch-action:none blocks the
+                scroller's native pan underneath it — so the page simply
+                doesn't scroll on a phone. PdfView's ink overlay already
+                passes this for the same reason (see pdf-view.tsx); objects
+                placed on the sheet keep their own touch-none, so tapping or
+                dragging one still selects/moves it instead of scrolling. */}
+            <InfiniteCanvas key={sheetId} pageId={sheetId} locked passthrough active={canvasActive} />
             {/* Lives INSIDE the same true-pixel/scaled box as the canvas,
                 not as a sibling at the sheet's own (possibly narrower,
                 CSS-fit) display size — otherwise it sits in a different
