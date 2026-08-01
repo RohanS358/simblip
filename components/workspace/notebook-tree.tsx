@@ -38,6 +38,7 @@ import {
   type PageRef,
 } from './page-actions'
 import { PublishDialog } from './library-panel'
+import { AddPageDialog } from './add-page-dialog'
 import {
   ContextMenu,
   ContextMenuContent,
@@ -45,12 +46,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 const SECTION_DOT: Record<string, string> = {
@@ -129,6 +124,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
+  const [addTarget, setAddTarget] = useState<{ notebookId: string; sectionId: string } | null>(null)
 
   const staff = can(role, 'share-pages')
 
@@ -270,40 +266,22 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
                         />
                         {/* Every page kind, one click away — not hidden behind
                             the right-click menu. */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              type="button"
-                              aria-label="Add page"
-                              className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100 data-[state=open]:opacity-100"
-                              onClick={(e) => e.stopPropagation()}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="start" className="w-44">
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
-                              <Plus className="h-4 w-4" /> New board
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
-                              <Plus className="h-4 w-4" /> New document
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
-                              <Plus className="h-4 w-4" /> New PDF / PPT page
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <button
+                          type="button"
+                          aria-label="Add page"
+                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setAddTarget({ notebookId: nb.id, sectionId: sec.id })
+                          }}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
                       </div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id)}>
-                        <Plus className="h-4 w-4" /> New board
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled Doc', 'doc')}>
-                        <Plus className="h-4 w-4" /> New document
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => store.getState().addPage(nb.id, sec.id, 'Untitled PDF', 'pdf')}>
-                        <Plus className="h-4 w-4" /> New PDF / PPT page
+                      <ContextMenuItem onClick={() => setAddTarget({ notebookId: nb.id, sectionId: sec.id })}>
+                        <Plus className="h-4 w-4" /> Add page…
                       </ContextMenuItem>
                       <ContextMenuItem onClick={() => setRenaming(sec.id)}>
                         <Pencil className="h-4 w-4" /> Rename
@@ -399,6 +377,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
         onOpenChange={(o) => !o && setPublishFor(null)}
         pageId={publishFor?.id ?? null}
       />
+      <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={selectPage} />
     </div>
   )
 }

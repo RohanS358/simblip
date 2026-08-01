@@ -13,7 +13,7 @@
 
 import { ACTIVE_USER_KEY } from '@/lib/auth/store'
 
-interface SessionFile {
+export interface SessionFile {
   url: string
   name: string
   mime: string

@@ -43,6 +43,7 @@ import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
+import { useSlashMenuStore } from '@/lib/store/slash-menu'
 import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { pointsToPath } from '@/components/objects/geometry'
@@ -1190,6 +1191,22 @@ export function InfiniteCanvas({
       window.removeEventListener('blur', onBlur)
     }
   }, [pageId, toCanvas, toLocal, active])
+
+  // Touch devices have no physical "/" key — lib/store/slash-menu.ts is how
+  // the mobile/tablet toolbar's Insert button (toolbar.tsx) asks for the
+  // same menu the "/" keydown above opens. Same active+pageId guard as that
+  // handler, for the same reason: several InfiniteCanvas instances (doc
+  // sheets) can be mounted at once, and only the active one should answer.
+  const slashRequest = useSlashMenuStore((s) => s.request)
+  useEffect(() => {
+    if (!active || !slashRequest || slashRequest.pageId !== pageId) return
+    const rect = containerRef.current?.getBoundingClientRect()
+    if (!rect) return
+    const clientX = rect.left + rect.width / 2
+    const clientY = rect.top + rect.height / 2
+    setSlash({ screen: toLocal(clientX, clientY), canvas: toCanvas(clientX, clientY) })
+    useSlashMenuStore.getState().clear()
+  }, [slashRequest, active, pageId, toLocal, toCanvas])
 
   const onPointerMove = useCallback(
     (e: PointerEvent) => {

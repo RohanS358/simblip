@@ -18,6 +18,9 @@ export interface PdfDockState {
   toggleNotes: () => void
   toggleLink: () => void
   setZoom: (zoom: number) => void
+  /** Zoom so the page's full width (or height) fills the reader pane. */
+  fitWidth: () => void
+  fitHeight: () => void
   download: () => void
   replace: () => void
 }

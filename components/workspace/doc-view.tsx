@@ -29,6 +29,7 @@ import { useTransientHud } from '@/hooks/use-transient-hud'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { sanitizeFormFields } from '@/lib/store/to-pdf'
 import { InfiniteCanvas } from './canvas'
+import { DocSorter } from './doc-sorter'
 import { cn } from '@/lib/utils'
 
 /** A4 at ~96 dpi. Sheets keep this ratio at any pane width unless resized. */
@@ -245,6 +246,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const sheets = meta?.docPages ?? []
   const [visible, setVisible] = useState<Set<number>>(() => new Set([0]))
   const [exporting, setExporting] = useState(false)
+  const [sorterOpen, setSorterOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
   // Transient zoom readout — same language as the board's zoom pill.
   const zoomHud = useTransientHud(zoom)
@@ -385,6 +387,17 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     zoomAt(rect.left + rect.width / 2, rect.top + rect.height / 2, factor)
   }
 
+  // "Full width"/"Full height" from the zoom dropdown (page-controls-menu.tsx)
+  // — reuse the same anchored-zoom machinery the −/+ buttons and dock's
+  // setZoom already go through, just solving for a target absolute zoom
+  // instead of a relative nudge.
+  const fitWidth = () => {
+    if (naturalW > 0) zoomAtCenter(viewW / naturalW / zoom)
+  }
+  const fitHeight = () => {
+    if (naturalH > 0) zoomAtCenter(viewH / naturalH / zoom)
+  }
+
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
   // everywhere else in the app. A plain wheel is left alone to scroll (both
   // axes — the scroller is natively overflow-auto on x and y, so a
@@ -430,7 +443,8 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
 
   usePinchZoom(scrollRef, { onStart: onPinchStart, onMove: onPinchMove })
 
-  const sizeOf = (sheetId: string) => meta?.sheetSizes?.[sheetId] ?? { w: SHEET_W, h: SHEET_H }
+  const sizeOf = (sheetId: string) =>
+    meta?.sheetSizes?.[sheetId] ?? meta?.docPageSize ?? { w: SHEET_W, h: SHEET_H }
   const resizeSheet = (sheetId: string, w: number, h: number) => {
     useWorkspaceStore.getState().updatePageMeta(pageId, {
       sheetSizes: { ...(meta?.sheetSizes ?? {}), [sheetId]: { w, h } },
@@ -518,11 +532,15 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       zoom,
       exporting,
       setZoom: (z) => zoomAtCenter(z / zoom),
+      fitWidth,
+      fitHeight,
       exportPdf: () => void exportPdf(),
+      sorterOpen,
+      toggleSorter: () => setSorterOpen((v) => !v),
     })
     return () => useDocDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bare, zoom, exporting])
+  }, [bare, zoom, exporting, naturalW, naturalH, viewW, viewH, sorterOpen])
 
   return (
     <div className="relative h-full w-full">
@@ -584,6 +602,28 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
           {Math.round(zoom * 100)}%
         </div>
+      )}
+      {sorterOpen && !bare && (
+        <DocSorter
+          sheets={sheets}
+          activeSheetId={activeSheetId}
+          onClose={() => setSorterOpen(false)}
+          onReorder={(next) => {
+            useWorkspaceStore.getState().updatePageMeta(pageId, { docPages: next })
+            // The mounted-sheet window is keyed by INDEX (visible), and a
+            // reorder just moved sheet-ids to different indices without
+            // re-firing their IntersectionObservers — reset it so the sheet
+            // that's actually near the viewport is what mounts.
+            setVisible(new Set([0]))
+          }}
+          onJump={(sheetId) => {
+            setActiveSheet(sheetId)
+            scrollRef.current?.querySelector<HTMLElement>(`[data-sheet="${sheetId}"]`)?.scrollIntoView({
+              behavior: 'smooth',
+              block: 'start',
+            })
+          }}
+        />
       )}
     </div>
   )

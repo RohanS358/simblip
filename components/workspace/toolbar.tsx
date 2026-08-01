@@ -29,6 +29,7 @@ import {
   ChartLine,
   Spline,
   TableProperties,
+  Blocks,
   X,
 } from 'lucide-react'
 import { Fragment, useEffect, useRef, useState } from 'react'
@@ -40,6 +41,7 @@ import { actionsForSelection } from '@/lib/scene/selection-actions'
 import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
+import { useSlashMenuStore } from '@/lib/store/slash-menu'
 import { uid, type SceneObject } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
@@ -385,6 +387,22 @@ export function Toolbar({
       >
         <ShapesGroupIcon />
       </ToolButton>
+
+      {/* Touch has no physical "/" key — this opens the same quick-insert
+          search desktop gets from the keyboard shortcut (see canvas.tsx's
+          SlashMenu + lib/store/slash-menu.ts), a faster path than the
+          Components sidebar's arm-then-tap-canvas flow. Tablets need this
+          exactly as much as phones — gated on touch capability, not width. */}
+      {isMobile && pageId && (
+        <ToolButton
+          active={false}
+          label="Insert a component — search everything you can add"
+          size={btnSize}
+          onClick={() => useSlashMenuStore.getState().open(pageId)}
+        >
+          <Blocks className={iconSize} />
+        </ToolButton>
+      )}
 
       {pageId && (
         <>

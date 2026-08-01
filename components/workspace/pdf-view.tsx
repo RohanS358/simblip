@@ -23,10 +23,10 @@
 // the tab bar instead, so reading a PDF doesn't cost any canvas real estate.
 
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
-import { FileUp, Loader2 } from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, loadSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
-import { convertToPdf } from '@/lib/store/to-pdf'
+import { attachPdfToPage } from '@/lib/store/pdf-attach'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { resolveSharedFile } from '@/lib/data/session-upload'
@@ -35,6 +35,7 @@ import * as db from '@/lib/data/db'
 import { uid } from '@/lib/scene/types'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
+import { PdfDropzone } from './pdf-dropzone'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useTransientHud } from '@/hooks/use-transient-hud'
 
@@ -138,6 +139,7 @@ function PdfPage({
   return (
     <div
       ref={hostRef}
+      data-pdf-host={n === 1 ? '' : undefined}
       className="relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
       style={{ aspectRatio: `1 / ${aspect}` }}
       onPointerDownCapture={() => onFocus(n)}
@@ -182,6 +184,15 @@ export function PdfView({ pageId }: { pageId: string }) {
   // Transient zoom readout — same language as the board's zoom pill.
   const zoomHud = useTransientHud(zoom)
   const [naturalH, setNaturalH] = useState(0)
+  // A single page's true (unscaled) width — every PdfPage shares the same
+  // w-full/max-w-[900px] clamp, so any one of them stands in for "the
+  // page's natural width" (used by fitWidth below). Reading offsetWidth is
+  // unaffected by the transform: scale() zoom applies to contentRef — CSS
+  // transforms don't change layout box metrics — so no zoom-division needed.
+  const [naturalW, setNaturalW] = useState(0)
+  // The reader pane's own viewport size — what fitWidth/fitHeight solve for.
+  const [viewW, setViewW] = useState(0)
+  const [viewH, setViewH] = useState(0)
   // Which pane last had a pointer down in it owns the real board dock — a
   // page you click on the reader side, or the notes canvas on the other.
   const [focus, setFocus] = useState<'reader' | 'notes'>('reader')
@@ -273,6 +284,28 @@ useLayoutEffect(() => {
     setNaturalH(el.offsetHeight)
     return () => ro.disconnect()
   }, [doc])
+
+  useEffect(() => {
+    const host = readerRef.current?.querySelector<HTMLElement>('[data-pdf-host]')
+    if (!host) return
+    const ro = new ResizeObserver(() => setNaturalW(host.offsetWidth))
+    ro.observe(host)
+    setNaturalW(host.offsetWidth)
+    return () => ro.disconnect()
+  }, [doc])
+
+  useEffect(() => {
+    const el = readerRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setViewW(el.clientWidth)
+      setViewH(el.clientHeight)
+    })
+    ro.observe(el)
+    setViewW(el.clientWidth)
+    setViewH(el.clientHeight)
+    return () => ro.disconnect()
+  }, [])
 
   const [local, setLocal] = useState(() => getSessionFile(pageId))
   useEffect(() => {
@@ -373,24 +406,14 @@ useLayoutEffect(() => {
   }, [fileUrl, rev])
 
   const attach = async (f: File) => {
-    const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
-    let toStore = f
-    if (!(f.type === 'application/pdf' || ext === '.pdf')) {
-      setConverting('Converting to PDF…')
-      try {
-        toStore = await convertToPdf(f, (done, total) => setConverting(`Converting to PDF… ${done}/${total}`))
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not convert this file.')
-        return
-      } finally {
-        setConverting(null)
-      }
+    let stored
+    try {
+      stored = await attachPdfToPage(pageId, f, setConverting)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not convert this file.')
+      return
     }
-    setLocal(putSessionFile(pageId, toStore))
-    const { invalidatePdfThumb } = await import('@/lib/store/pdf-thumb')
-    invalidatePdfThumb(pageId)
-    useWorkspaceStore.getState().updatePageMeta(pageId, { fileName: f.name, fileMime: 'application/pdf' })
-    if (meta && meta.name.startsWith('Untitled')) useWorkspaceStore.getState().renamePage(pageId, f.name.replace(/\.[^.]+$/, ''))
+    setLocal(stored)
     setRev((v) => v + 1)
     // The keep-alive effect below sees the new local copy and uploads it.
   }
@@ -430,6 +453,8 @@ useLayoutEffect(() => {
       toggleNotes: openNotes,
       toggleLink: () => setLinked((v) => !v),
       setZoom: (z) => setZoom(Math.min(3, Math.max(0.25, z))),
+      fitWidth: () => naturalW > 0 && setZoom(Math.min(3, Math.max(0.25, viewW / naturalW))),
+      fitHeight: () => naturalH > 0 && setZoom(Math.min(3, Math.max(0.25, viewH / naturalH))),
       download: () => {
         if (!fileUrl) return
         const a = document.createElement('a')
@@ -441,7 +466,7 @@ useLayoutEffect(() => {
     })
     return () => usePdfDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName])
+  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, viewW, viewH])
 
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
   // page while this is true, targeting whichever pane was last clicked: the
@@ -479,17 +504,21 @@ useLayoutEffect(() => {
       // See doc-view.tsx: without this, native page-zoom competes with
       // usePinchZoom's own two-finger handling on mobile/tablet.
       style={{ touchAction: 'pan-y' }}
-      onDragOver={(e) => {
+      // Only wired while a doc is already loaded — that's the "drop a
+      // replacement file anywhere on the reader" gesture. While empty, the
+      // PdfDropzone below owns drag-and-drop itself; wiring both here would
+      // double-fire attach() on the same drop.
+      onDragOver={doc ? (e) => {
         e.preventDefault()
         setDragOver(true)
-      }}
-      onDragLeave={() => setDragOver(false)}
-      onDrop={(e) => {
+      } : undefined}
+      onDragLeave={doc ? () => setDragOver(false) : undefined}
+      onDrop={doc ? (e) => {
         e.preventDefault()
         setDragOver(false)
         const f = e.dataTransfer.files?.[0]
         if (f) void attach(f)
-      }}
+      } : undefined}
     >
       {dragOver && (
         <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
@@ -504,23 +533,7 @@ useLayoutEffect(() => {
           <span className="text-[12px]">{converting}</span>
         </div>
       ) : !doc ? (
-        <button
-          type="button"
-          className="flex h-full w-full flex-col items-center justify-center gap-3 text-muted-foreground transition-colors hover:text-foreground"
-          onClick={() => inputRef.current?.click()}
-        >
-          <FileUp className="h-8 w-8" />
-          <span className="max-w-72 text-center text-[13px] leading-relaxed">
-            {fileUrl ? 'Opening…' : (
-              <>Upload a PDF or PowerPoint to read here
-              <br />
-              <span className="text-[11px] opacity-70">
-                Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
-                devices download their own copy the first time they open it.
-              </span></>
-            )}
-          </span>
-        </button>
+        <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />
       ) : (
         // Spacer reserves the scaled stack's real footprint — see the
         // ResizeObserver effect above.

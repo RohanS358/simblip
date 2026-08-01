@@ -12,7 +12,12 @@ export interface DocDockState {
   zoom: number
   exporting: boolean
   setZoom: (zoom: number) => void
+  /** Zoom so the page's full width (or height) fills the viewport. */
+  fitWidth: () => void
+  fitHeight: () => void
   exportPdf: () => void
+  sorterOpen: boolean
+  toggleSorter: () => void
 }
 
 interface DocDockStore {

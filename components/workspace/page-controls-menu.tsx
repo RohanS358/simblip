@@ -12,13 +12,19 @@
 // doesn't cost any canvas space.
 
 import {
-  Download, FileDown, FileUp, Link as LinkIcon, Link2Off, Loader2,
+  Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
   NotebookPen, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { HoldableMergedTransport } from './transport'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 function DockBtn({
@@ -54,15 +60,35 @@ function Divider() {
   return <div className="mx-1 h-4 w-px shrink-0 bg-border" />
 }
 
-function ZoomGroup({ zoom, setZoom }: { zoom: number; setZoom: (zoom: number) => void }) {
+function ZoomGroup({
+  zoom, setZoom, fitWidth, fitHeight,
+}: {
+  zoom: number
+  setZoom: (zoom: number) => void
+  fitWidth: () => void
+  fitHeight: () => void
+}) {
   return (
     <div className="flex items-center gap-0.5">
       <DockBtn label="Zoom out" onClick={() => setZoom(zoom - 0.1)}>
         <ZoomOut className="h-3.5 w-3.5" />
       </DockBtn>
-      <span className="min-w-9 shrink-0 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground">
-        {Math.round(zoom * 100)}%
-      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Zoom options"
+            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="center" className="w-40">
+          <DropdownMenuItem onClick={fitWidth}>Full width</DropdownMenuItem>
+          <DropdownMenuItem onClick={fitHeight}>Full height</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setZoom(1)}>100%</DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <DockBtn label="Zoom in" onClick={() => setZoom(zoom + 0.1)}>
         <ZoomIn className="h-3.5 w-3.5" />
       </DockBtn>
@@ -90,8 +116,12 @@ export function PageControlsMenu({
 
   return (
     <div className="flex shrink-0 items-center pr-1">
-      {showPdf && <ZoomGroup zoom={pdfDock.zoom} setZoom={pdfDock.setZoom} />}
-      {showDoc && <ZoomGroup zoom={docDock.zoom} setZoom={docDock.setZoom} />}
+      {showPdf && (
+        <ZoomGroup zoom={pdfDock.zoom} setZoom={pdfDock.setZoom} fitWidth={pdfDock.fitWidth} fitHeight={pdfDock.fitHeight} />
+      )}
+      {showDoc && (
+        <ZoomGroup zoom={docDock.zoom} setZoom={docDock.setZoom} fitWidth={docDock.fitWidth} fitHeight={docDock.fitHeight} />
+      )}
 
       {showZoom && pdfDock && <Divider />}
       {pdfDock && (
@@ -126,17 +156,26 @@ export function PageControlsMenu({
 
       {showZoom && docDock && <Divider />}
       {docDock && (
-        <DockBtn
-          label={docDock.exporting ? 'Exporting…' : 'Export PDF'}
-          disabled={docDock.exporting}
-          onClick={docDock.exportPdf}
-        >
-          {docDock.exporting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <FileDown className="h-3.5 w-3.5" />
-          )}
-        </DockBtn>
+        <div className="flex items-center gap-0.5">
+          <DockBtn
+            label={docDock.sorterOpen ? 'Hide page sorter' : 'Reorder pages'}
+            active={docDock.sorterOpen}
+            onClick={docDock.toggleSorter}
+          >
+            <GalleryThumbnails className="h-3.5 w-3.5" />
+          </DockBtn>
+          <DockBtn
+            label={docDock.exporting ? 'Exporting…' : 'Export PDF'}
+            disabled={docDock.exporting}
+            onClick={docDock.exportPdf}
+          >
+            {docDock.exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <FileDown className="h-3.5 w-3.5" />
+            )}
+          </DockBtn>
+        </div>
       )}
 
       {(showPdf || showDoc) && showSim && <Divider />}

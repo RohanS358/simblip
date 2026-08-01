@@ -14,8 +14,8 @@
 // Every heavy dependency is imported lazily so the notebook bundle never
 // carries them until someone actually attaches a document.
 
-const PPT_W = 960 // 16:9 slide, CSS px
-const PPT_H = 540
+export const PPT_W = 960 // 16:9 slide, CSS px
+export const PPT_H = 540
 const DOC_W = 794 // A4 @ 96dpi
 const DOC_H = 1123
 

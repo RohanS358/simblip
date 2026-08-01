@@ -68,6 +68,7 @@ import {
   type PageRef,
 } from './page-actions'
 import { PublishDialog } from './library-panel'
+import { AddPageDialog } from './add-page-dialog'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -104,6 +105,7 @@ export function MobileShell() {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
+  const [addTarget, setAddTarget] = useState<{ notebookId: string; sectionId: string } | null>(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [coverFor, setCoverFor] = useState<string | null>(null)
   const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({})
@@ -185,6 +187,7 @@ export function MobileShell() {
         onOpenChange={(o) => !o && setPublishFor(null)}
         pageId={publishFor?.id ?? null}
       />
+      <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />
     </>
   )
 
@@ -568,28 +571,14 @@ export function MobileShell() {
                   >
                     <Pencil className="h-3.5 w-3.5" />
                   </button>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label={`New page in ${sec.name}`}
-                        className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id))}>
-                        <Plus className="h-4 w-4" /> New board
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id, 'Untitled Doc', 'doc'))}>
-                        <Plus className="h-4 w-4" /> New document
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openPage(store.getState().addPage(notebook.id, sec.id, 'Untitled PDF', 'pdf'))}>
-                        <Plus className="h-4 w-4" /> New PDF / PPT page
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <button
+                    type="button"
+                    aria-label={`New page in ${sec.name}`}
+                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                    onClick={() => setAddTarget({ notebookId: notebook.id, sectionId: sec.id })}
+                  >
+                    <Plus className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
               
