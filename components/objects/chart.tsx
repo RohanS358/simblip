@@ -1,12 +1,17 @@
 'use client'
 
-// Chart tool — bar/line/area/scatter/pie over a small inline-editable data
-// table (labels x one-or-more series), the spreadsheet-simple counterpart to
-// the Graph object's live-simulation/function plotting. Switching chart type
-// keeps the SAME data (same convention as flipping chart type in a
-// spreadsheet) — there's exactly one thing to learn: edit the grid, pick a
-// shape. "Stacked" is a modifier on bar/area, not a separate chart family,
-// matching how the Graph object's own `stacked` toggle already works.
+// Chart tool — bar/line/area/scatter/pie over a small data table (labels x
+// one-or-more series), the spreadsheet-simple counterpart to the Graph
+// object's live-simulation/function plotting. Switching chart type keeps the
+// SAME data (same convention as flipping chart type in a spreadsheet) —
+// there's exactly one thing to learn: edit the grid, pick a shape. "Stacked"
+// is a modifier on bar/area, not a separate chart family, matching how the
+// Graph object's own `stacked` toggle already works.
+//
+// The type selector and the data grid (incl. CSV import) live in the
+// Inspector's properties panel (ChartOptions, inspector.tsx) — this card is
+// just the rendered chart, so the object's own footprint stays chart-sized
+// instead of losing ~40% of its height to an inline editor.
 
 import { useMemo } from 'react'
 import type { ReactElement } from 'react'
@@ -35,25 +40,21 @@ import {
   AreaChart as AreaChartIcon,
   ScatterChart as ScatterChartIcon,
   PieChart as PieChartIcon,
-  Layers,
-  Plus,
-  X,
 } from 'lucide-react'
-import { useDocStore } from '@/lib/store/document'
 import { GRAPH_COLORS } from './graph'
 import { getString, type ObjectRendererProps } from './types'
 
 export type ChartType = 'bar' | 'line' | 'area' | 'scatter' | 'pie'
 
-interface Series {
+export interface Series {
   name: string
   values: number[]
 }
 
-const splitList = (s: string) => s.split(';').map((c) => c.trim()).filter((c) => c.length > 0)
+export const splitList = (s: string) => s.split(';').map((c) => c.trim()).filter((c) => c.length > 0)
 
 /** `series` param shape: series separated by "||", each "Name|v1;v2;v3". */
-function parseSeries(raw: string): Series[] {
+export function parseSeries(raw: string): Series[] {
   if (!raw.trim()) return []
   return raw.split('||').map((part) => {
     const i = part.indexOf('|')
@@ -63,11 +64,11 @@ function parseSeries(raw: string): Series[] {
   })
 }
 
-function serializeSeries(list: Series[]): string {
+export function serializeSeries(list: Series[]): string {
   return list.map((s) => `${s.name}|${s.values.join(';')}`).join('||')
 }
 
-const CHART_TYPES: { id: ChartType; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
+export const CHART_TYPES: { id: ChartType; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
   { id: 'bar', icon: BarChart3, label: 'Bar' },
   { id: 'line', icon: LineChartIcon, label: 'Line' },
   { id: 'area', icon: AreaChartIcon, label: 'Area' },
@@ -164,10 +165,7 @@ function renderChart(chartType: ChartType, data: Record<string, string | number>
   )
 }
 
-export function ChartObject({ pageId, object }: ObjectRendererProps) {
-  const setStringParam = useDocStore((s) => s.setStringParam)
-  const pushHistory = useDocStore((s) => s.pushHistory)
-
+export function ChartObject({ object }: ObjectRendererProps) {
   const chartType = (getString(object, 'chartType', 'bar') || 'bar') as ChartType
   const stacked = getString(object, 'stacked') === '1'
   const labelsStr = getString(object, 'labels', 'A;B;C;D')
@@ -179,30 +177,6 @@ export function ChartObject({ pageId, object }: ObjectRendererProps) {
   const rows = parsedLabels.length < 3 ? [...parsedLabels, ...Array(3 - parsedLabels.length).fill('')] : parsedLabels
   const cols = parsedSeries.length > 0 ? parsedSeries : [{ name: 'Series 1', values: rows.map(() => 0) }]
 
-  const commit = (nextLabels: string[], nextSeries: Series[]) => {
-    pushHistory(pageId)
-    setStringParam(pageId, object.id, 'labels', nextLabels.join(';'))
-    setStringParam(pageId, object.id, 'series', serializeSeries(nextSeries))
-  }
-
-  const updateLabel = (r: number, v: string) => commit(rows.map((l, i) => (i === r ? v : l)), cols)
-  const updateCell = (r: number, c: number, v: string) =>
-    commit(
-      rows,
-      cols.map((s, i) => (i === c ? { ...s, values: s.values.map((x, j) => (j === r ? Number(v) || 0 : x)) } : s))
-    )
-  const updateSeriesName = (c: number, v: string) => commit(rows, cols.map((s, i) => (i === c ? { ...s, name: v } : s)))
-  const addRow = () => commit([...rows, ''], cols.map((s) => ({ ...s, values: [...s.values, 0] })))
-  const removeRow = (r: number) => {
-    if (rows.length <= 1) return
-    commit(rows.filter((_, i) => i !== r), cols.map((s) => ({ ...s, values: s.values.filter((_, i) => i !== r) })))
-  }
-  const addSeries = () => commit(rows, [...cols, { name: `Series ${cols.length + 1}`, values: rows.map(() => 0) }])
-  const removeSeries = (c: number) => {
-    if (cols.length <= 1) return
-    commit(rows, cols.filter((_, i) => i !== c))
-  }
-
   const data = useMemo(
     () =>
       rows.map((label, i) => ({
@@ -212,44 +186,18 @@ export function ChartObject({ pageId, object }: ObjectRendererProps) {
     [rows, cols]
   )
 
+  // Type switching and the data grid moved to the Inspector's properties
+  // panel (Chart type / Data sections, incl. CSV import) — the card itself
+  // is now just the chart, with a small read-only badge for orientation.
+  const activeType = CHART_TYPES.find((t) => t.id === chartType) ?? CHART_TYPES[0]
+
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
-      {/* No stopPropagation on the row itself — like every other object's
-          header, empty space here is the drag handle to relocate the card.
-          Each button stops it individually so a click doesn't also start a
-          drag (same pattern as Graph's and 3D Graph's header buttons). */}
-      <div className="flex items-center gap-1 border-b border-border/60 px-2 py-1.5">
-        {CHART_TYPES.map(({ id, icon: Icon, label }) => (
-          <button
-            key={id}
-            type="button"
-            aria-label={label}
-            aria-pressed={chartType === id}
-            title={label}
-            className={
-              chartType === id
-                ? 'rounded-md bg-[var(--accent-blue)]/10 p-1 text-[var(--accent-blue)]'
-                : 'rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground'
-            }
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setStringParam(pageId, object.id, 'chartType', id)}
-          >
-            <Icon className="h-3.5 w-3.5" />
-          </button>
-        ))}
-        <div className="flex-1" />
-        {(chartType === 'bar' || chartType === 'area') && (
-          <button
-            type="button"
-            aria-label={stacked ? 'Unstack series' : 'Stack series'}
-            aria-pressed={stacked}
-            title={stacked ? 'Stacked: on' : 'Stack series'}
-            className={stacked ? 'rounded-md p-1 text-[var(--accent-blue)]' : 'rounded-md p-1 text-muted-foreground hover:text-foreground'}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={() => setStringParam(pageId, object.id, 'stacked', stacked ? '' : '1')}
-          >
-            <Layers className="h-3.5 w-3.5" />
-          </button>
+      <div className="flex items-center gap-1.5 border-b border-border/60 px-2 py-1.5 text-[10.5px] font-medium text-muted-foreground">
+        <activeType.icon className="h-3.5 w-3.5" />
+        {activeType.label} chart
+        {stacked && (chartType === 'bar' || chartType === 'area') && (
+          <span className="rounded-full bg-accent px-1.5 py-0.5 text-[9.5px]">Stacked</span>
         )}
       </div>
 
@@ -257,106 +205,6 @@ export function ChartObject({ pageId, object }: ObjectRendererProps) {
         <ResponsiveContainer width="100%" height="100%">
           {renderChart(chartType, data, cols, stacked)}
         </ResponsiveContainer>
-      </div>
-
-      {/* inline data grid — same interaction language as the Formula Table */}
-      <div className="max-h-[42%] shrink-0 overflow-auto border-t border-border/60" onPointerDown={(e) => e.stopPropagation()}>
-        <table className="w-full border-collapse font-mono text-[11px]">
-          <thead className="sticky top-0 z-10 bg-card">
-            <tr className="bg-[var(--accent-blue)]/8">
-              <th className="min-w-[56px] border-b border-r border-border/50 px-1.5 py-1 text-left text-[10.5px] font-semibold text-muted-foreground">
-                Label
-              </th>
-              {cols.map((s, c) => (
-                <th key={c} className="min-w-[64px] border-b border-r border-border/50 px-1 py-1 text-left">
-                  <div className="flex items-center gap-1">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ background: GRAPH_COLORS[c % GRAPH_COLORS.length] }}
-                      aria-hidden
-                    />
-                    <input
-                      type="text"
-                      spellCheck={false}
-                      value={s.name}
-                      onChange={(e) => updateSeriesName(c, e.target.value)}
-                      aria-label={`Series ${c + 1} name`}
-                      className="w-full min-w-0 bg-transparent text-foreground outline-none"
-                    />
-                    {cols.length > 1 && (
-                      <button
-                        type="button"
-                        aria-label={`Remove series ${s.name}`}
-                        onClick={() => removeSeries(c)}
-                        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-50 transition-opacity hover:text-[var(--accent-rose)] hover:opacity-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
-                </th>
-              ))}
-              <th className="w-6 border-b border-border p-0">
-                <button
-                  type="button"
-                  aria-label="Add series"
-                  onClick={addSeries}
-                  className="flex h-full w-full items-center justify-center text-muted-foreground hover:text-foreground"
-                >
-                  <Plus className="h-3.5 w-3.5" />
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((label, r) => (
-              <tr key={r} className={r % 2 ? 'bg-accent/20' : undefined}>
-                <td className="border-r border-border/40 p-0">
-                  <input
-                    type="text"
-                    spellCheck={false}
-                    value={label}
-                    onChange={(e) => updateLabel(r, e.target.value)}
-                    aria-label={`Row ${r + 1} label`}
-                    className="w-full bg-transparent px-1.5 py-0.5 text-foreground outline-none"
-                    placeholder={`#${r + 1}`}
-                  />
-                </td>
-                {cols.map((s, c) => (
-                  <td key={c} className="border-r border-border/40 p-0">
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      spellCheck={false}
-                      value={s.values[r] ?? 0}
-                      onChange={(e) => updateCell(r, c, e.target.value)}
-                      aria-label={`Row ${r + 1} ${s.name}`}
-                      className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums"
-                    />
-                  </td>
-                ))}
-                <td className="p-0">
-                  <button
-                    type="button"
-                    aria-label={`Remove row ${r + 1}`}
-                    onClick={() => removeRow(r)}
-                    disabled={rows.length <= 1}
-                    className="flex h-full w-full items-center justify-center text-muted-foreground hover:text-[var(--accent-rose)] disabled:opacity-30"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-        <button
-          type="button"
-          onClick={addRow}
-          className="flex w-full items-center justify-center gap-1 border-t border-border/40 py-1 text-[10.5px] text-muted-foreground hover:text-foreground"
-        >
-          <Plus className="h-3 w-3" /> Add row
-        </button>
       </div>
     </div>
   )

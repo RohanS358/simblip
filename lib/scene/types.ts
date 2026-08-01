@@ -146,6 +146,10 @@ export interface PageMeta {
   docPages?: string[]
   /** doc: per-sheet page size overrides (CSS px, A4 ratio by default), keyed by sheet id. */
   sheetSizes?: Record<string, { w: number; h: number }>
+  /** doc: page size chosen at creation (see lib/scene/doc-page-sizes.ts) — the
+   *  default every NEW sheet gets until individually resized. A sheetSizes
+   *  entry always overrides this for that sheet. */
+  docPageSize?: { w: number; h: number }
   /** doc: subtitle shown under the title in the compulsory first-page header. */
   docSubtitle?: string
   /** doc: date shown in the compulsory first-page header, ISO (YYYY-MM-DD).

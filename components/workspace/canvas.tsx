@@ -2184,6 +2184,15 @@ export function InfiniteCanvas({
         store.setSelection([])
         return
       }
+      // Touch has no middle button, so on the Select tool a bare finger
+      // drag over empty canvas pans instead of marquee-selecting — the
+      // same gesture desktop's middle-button/space pan drives. Lasso stays
+      // a marquee since picking it is a deliberate ask for a selection box,
+      // and tapping an object directly still selects it (handleObjectPointerDown).
+      if (e.pointerType === 'touch' && tool === 'select' && !locked) {
+        beginGesture('pan', e)
+        return
+      }
       beginGesture('marquee', e)
       return
     }

@@ -5,12 +5,20 @@
 // field accepts an expression against the page's variable scope.
 
 import { useState, useEffect, useRef } from 'react'
-import { Link2, Maximize2, Plus, Trash2, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
+import { Link2, Maximize2, Plus, Trash2, Upload, X, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
+import {
+  parseSeries as parseChartSeries,
+  serializeSeries as serializeChartSeries,
+  splitList as splitChartLabels,
+  CHART_TYPES,
+  type ChartType,
+  type Series as ChartDataSeries,
+} from '@/components/objects/chart'
 import { isBody } from '@/lib/behaviors/registry'
 import { specsForGeometry, behaviorSpec } from '@/lib/behaviors/registry'
 import { recommendedHeight } from '@/lib/circuit/engine'
@@ -1040,6 +1048,249 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
   )
 }
 
+/** Minimal CSV split with double-quote support — good enough for a
+ *  spreadsheet export's simple quoting, not a full RFC 4180 parser. */
+function parseCsvLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let inQuotes = false
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i]
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') { cur += '"'; i++ } else inQuotes = false
+      } else cur += c
+    } else if (c === '"') inQuotes = true
+    else if (c === ',') { out.push(cur); cur = '' }
+    else cur += c
+  }
+  out.push(cur)
+  return out
+}
+
+/** Chart — type switching and the data grid live here rather than on the
+ *  card itself, so the card's whole footprint goes to the rendered chart.
+ *  CSV import expects a header row (blank/label cell, then one column per
+ *  series) followed by one row per label. */
+function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const pushHistory = useDocStore((s) => s.pushHistory)
+  const set = (name: string, v: string) => setStringParam(pageId, object.id, name, v)
+
+  const chartType = (getStr(object, 'chartType') || 'bar') as ChartType
+  const stacked = getStr(object, 'stacked') === '1'
+  const labelsStr = getStr(object, 'labels') || 'A;B;C;D'
+  const seriesStr = getStr(object, 'series') || 'Series 1|10;25;16;30'
+
+  const parsedLabels = splitChartLabels(labelsStr)
+  const parsedSeries = parseChartSeries(seriesStr)
+  const rows = parsedLabels.length < 3 ? [...parsedLabels, ...Array(3 - parsedLabels.length).fill('')] : parsedLabels
+  const cols = parsedSeries.length > 0 ? parsedSeries : [{ name: 'Series 1', values: rows.map(() => 0) }]
+
+  const commit = (nextLabels: string[], nextSeries: ChartDataSeries[]) => {
+    pushHistory(pageId)
+    set('labels', nextLabels.join(';'))
+    set('series', serializeChartSeries(nextSeries))
+  }
+  const updateLabel = (r: number, v: string) => commit(rows.map((l, i) => (i === r ? v : l)), cols)
+  const updateCell = (r: number, c: number, v: string) =>
+    commit(
+      rows,
+      cols.map((s, i) => (i === c ? { ...s, values: s.values.map((x, j) => (j === r ? Number(v) || 0 : x)) } : s))
+    )
+  const updateSeriesName = (c: number, v: string) => commit(rows, cols.map((s, i) => (i === c ? { ...s, name: v } : s)))
+  const addRow = () => commit([...rows, ''], cols.map((s) => ({ ...s, values: [...s.values, 0] })))
+  const removeRow = (r: number) => {
+    if (rows.length <= 1) return
+    commit(rows.filter((_, i) => i !== r), cols.map((s) => ({ ...s, values: s.values.filter((_, i) => i !== r) })))
+  }
+  const addSeries = () => commit(rows, [...cols, { name: `Series ${cols.length + 1}`, values: rows.map(() => 0) }])
+  const removeSeries = (c: number) => {
+    if (cols.length <= 1) return
+    commit(rows, cols.filter((_, i) => i !== c))
+  }
+
+  const importCsv = (file: File) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const text = String(reader.result ?? '')
+      const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0)
+      if (lines.length === 0) return
+      const table = lines.map(parseCsvLine)
+      const [header, ...body] = table
+      const seriesNames = header.slice(1).map((n, i) => (n.trim() ? n.trim() : `Series ${i + 1}`))
+      const newRows = body.map((r) => (r[0] ?? '').trim())
+      const newCols: ChartDataSeries[] =
+        seriesNames.length > 0
+          ? seriesNames.map((name, c) => ({ name, values: body.map((r) => Number(r[c + 1]) || 0) }))
+          : [{ name: 'Series 1', values: body.map(() => 0) }]
+      commit(newRows, newCols)
+    }
+    reader.readAsText(file)
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <SectionTitle>Chart type</SectionTitle>
+        <div className="grid grid-cols-5 gap-1">
+          {CHART_TYPES.map(({ id, icon: Icon, label }) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={label}
+              aria-pressed={chartType === id}
+              title={label}
+              onClick={() => set('chartType', id)}
+              className={cn(
+                'flex flex-col items-center gap-0.5 rounded-md py-1.5 text-[9.5px]',
+                chartType === id
+                  ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              <Icon className="h-4 w-4" />
+              {label}
+            </button>
+          ))}
+        </div>
+        {(chartType === 'bar' || chartType === 'area') && (
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className="w-14 shrink-0 text-[11px] text-muted-foreground">Stacked</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={stacked}
+              aria-label="Stacked series"
+              onClick={() => set('stacked', stacked ? '' : '1')}
+              className={cn(
+                'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                stacked ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]' : 'bg-accent text-muted-foreground'
+              )}
+            >
+              {stacked ? 'On' : 'Off'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between">
+          <SectionTitle>Data</SectionTitle>
+          <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+            <Upload className="h-3 w-3" /> Import CSV
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0]
+                if (f) importCsv(f)
+                e.target.value = ''
+              }}
+            />
+          </label>
+        </div>
+        <div className="max-h-64 overflow-auto rounded-md border border-border/60">
+          <table className="w-full border-collapse font-mono text-[10.5px]">
+            <thead className="sticky top-0 z-10 bg-card">
+              <tr className="bg-[var(--accent-blue)]/8">
+                <th className="min-w-[52px] border-b border-r border-border/50 px-1.5 py-1 text-left text-[10px] font-semibold text-muted-foreground">
+                  Label
+                </th>
+                {cols.map((s, c) => (
+                  <th key={c} className="min-w-[60px] border-b border-r border-border/50 px-1 py-1 text-left">
+                    <div className="flex items-center gap-1">
+                      <span
+                        className="h-2 w-2 shrink-0 rounded-full"
+                        style={{ background: GRAPH_COLORS[c % GRAPH_COLORS.length] }}
+                        aria-hidden
+                      />
+                      <input
+                        type="text"
+                        spellCheck={false}
+                        value={s.name}
+                        onChange={(e) => updateSeriesName(c, e.target.value)}
+                        aria-label={`Series ${c + 1} name`}
+                        className="w-full min-w-0 bg-transparent text-foreground outline-none"
+                      />
+                      {cols.length > 1 && (
+                        <button
+                          type="button"
+                          aria-label={`Remove series ${s.name}`}
+                          onClick={() => removeSeries(c)}
+                          className="shrink-0 rounded p-0.5 text-muted-foreground opacity-50 transition-opacity hover:text-[var(--accent-rose)] hover:opacity-100"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </th>
+                ))}
+                <th className="w-6 border-b border-border p-0">
+                  <button
+                    type="button"
+                    aria-label="Add series"
+                    onClick={addSeries}
+                    className="flex h-full w-full items-center justify-center text-muted-foreground hover:text-foreground"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                  </button>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((label, r) => (
+                <tr key={r} className={r % 2 ? 'bg-accent/20' : undefined}>
+                  <td className="border-r border-border/40 p-0">
+                    <input
+                      type="text"
+                      spellCheck={false}
+                      value={label}
+                      onChange={(e) => updateLabel(r, e.target.value)}
+                      aria-label={`Row ${r + 1} label`}
+                      className="w-full bg-transparent px-1.5 py-0.5 text-foreground outline-none"
+                      placeholder={`#${r + 1}`}
+                    />
+                  </td>
+                  {cols.map((s, c) => (
+                    <td key={c} className="border-r border-border/40 p-0">
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        spellCheck={false}
+                        value={s.values[r] ?? 0}
+                        onChange={(e) => updateCell(r, c, e.target.value)}
+                        aria-label={`Row ${r + 1} ${s.name}`}
+                        className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums"
+                      />
+                    </td>
+                  ))}
+                  <td className="p-0">
+                    <button
+                      type="button"
+                      aria-label={`Remove row ${r + 1}`}
+                      onClick={() => removeRow(r)}
+                      disabled={rows.length <= 1}
+                      className="flex h-full w-full items-center justify-center text-muted-foreground hover:text-[var(--accent-rose)] disabled:opacity-30"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <AddRowButton label="Add row" onClick={addRow} />
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          CSV: header row (blank cell, then one column per series), then one row per label.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
   const updateObject = useDocStore((s) => s.updateObject)
   const page = useDocStore((s) => s.pages[pageId])
@@ -1740,6 +1991,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       )}
 
       {object.geometry.kind === 'surface3d' && <Surface3DOptions pageId={pageId} object={object} />}
+
+      {object.geometry.kind === 'chart' && <ChartOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'cashflow' && <CashflowOptions pageId={pageId} object={object} />}
 

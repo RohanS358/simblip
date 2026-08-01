@@ -82,6 +82,15 @@ export function findPageMeta(notebooks: Notebook[], pageId: string | null): Page
   return null
 }
 
+/** Which notebook owns a page — same walk as findPageMeta, returns the id. */
+export function findNotebookId(notebooks: Notebook[], pageId: string | null): string | null {
+  if (!pageId) return null
+  for (const nb of notebooks)
+    for (const sec of nb.sections)
+      for (const p of sec.pages) if (p.id === pageId) return nb.id
+  return null
+}
+
 const patchPage = (notebooks: Notebook[], pageId: string, patch: Partial<PageMeta>): Notebook[] =>
   notebooks.map((n) => ({
     ...n,

@@ -19,7 +19,7 @@
 import { useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import { Line, Grid as DreiGrid, Html, OrbitControls, GizmoHelper, GizmoViewport } from '@react-three/drei'
+import { Line, Grid as DreiGrid, Html, OrbitControls, GizmoHelper, GizmoViewport, Bounds } from '@react-three/drei'
 import { Box, TrendingUp, Sigma } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
@@ -101,6 +101,92 @@ function buildMeshData(grid: SurfaceGrid, dependent: Axis, ua: Axis, va: Axis, b
   return { positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices) }
 }
 
+/** The volume overlay is signed area extended to a surface: like the 2D
+ *  graph's shaded area-under-the-curve, it hangs from the surface down (or
+ *  up) to the dependent axis's ZERO level, not to the floor of the whole
+ *  bounding box — a maximum above the axis reads as a positive-colored bulge,
+ *  a minimum below it as a negative-colored one, matching the actual sign
+ *  contributions to the double integral. Built as a closed solid (perimeter
+ *  walls + a flat cap at zero, same triangulation as the top surface, which
+ *  is drawn separately) rather than just a boundary skirt, so peaks/valleys
+ *  read as distinct volumes instead of a hollow frame. */
+function buildVolumeMesh(
+  grid: SurfaceGrid,
+  ua: Axis,
+  va: Axis,
+  dependent: Axis,
+  bounds: SurfaceBounds,
+  posColor: THREE.Color,
+  negColor: THREE.Color
+): MeshData {
+  const { uVals, vVals, height } = grid
+  const nu = uVals.length
+  const nv = vVals.length
+  const db = bounds[dependent]
+  // Clamp the reference level into the axis's own range — if the whole
+  // plotted range sits on one side of zero, the "axis" collapses to that
+  // nearer edge rather than pointing outside the box.
+  const zero = Math.min(db.max, Math.max(db.min, 0))
+  const zeroY = scaleTo(zero, db)
+  const positions: number[] = []
+  const colors: number[] = []
+  const indices: number[] = []
+  const colorOf = (h: number) => (h >= zero ? posColor : negColor)
+
+  const pushWall = (pts: { u: number; v: number; h: number }[]) => {
+    if (pts.length < 2) return
+    const base = positions.length / 3
+    for (const p of pts) {
+      const h = Number.isFinite(p.h) ? p.h : zero
+      const c = colorOf(h)
+      const x = scaleTo(p.u, bounds[ua])
+      const z = scaleTo(p.v, bounds[va])
+      const y = scaleTo(h, db)
+      positions.push(x, y, z, x, zeroY, z)
+      colors.push(c.r, c.g, c.b, c.r, c.g, c.b)
+    }
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a0 = base + i * 2
+      const b0 = base + i * 2 + 1
+      const a1 = base + (i + 1) * 2
+      const b1 = base + (i + 1) * 2 + 1
+      indices.push(a0, b0, a1, b0, b1, a1)
+    }
+  }
+
+  pushWall(vVals.map((v, j) => ({ u: uVals[0], v, h: height[0][j] })))
+  pushWall(vVals.map((v, j) => ({ u: uVals[nu - 1], v, h: height[nu - 1][j] })))
+  pushWall(uVals.map((u, i) => ({ u, v: vVals[0], h: height[i][0] })))
+  pushWall(uVals.map((u, i) => ({ u, v: vVals[nv - 1], h: height[i][nv - 1] })))
+
+  // Flat cap at the zero plane, mirroring the surface's own triangulation
+  // (including NaN gaps) so the solid is fully closed rather than a hollow
+  // frame open on the bottom.
+  const idxAt: (number | null)[][] = []
+  let vi = positions.length / 3
+  for (let i = 0; i < nu; i++) {
+    const row: (number | null)[] = []
+    for (let j = 0; j < nv; j++) {
+      const h = height[i][j]
+      if (!Number.isFinite(h)) { row.push(null); continue }
+      const c = colorOf(h)
+      positions.push(scaleTo(uVals[i], bounds[ua]), zeroY, scaleTo(vVals[j], bounds[va]))
+      colors.push(c.r, c.g, c.b)
+      row.push(vi++)
+    }
+    idxAt.push(row)
+  }
+  for (let i = 0; i < nu - 1; i++) {
+    for (let j = 0; j < nv - 1; j++) {
+      const a = idxAt[i][j], b = idxAt[i + 1][j], c = idxAt[i][j + 1], d = idxAt[i + 1][j + 1]
+      if (a !== null && b !== null && c !== null) indices.push(a, c, b)
+      if (b !== null && d !== null && c !== null) indices.push(b, c, d)
+    }
+  }
+
+  return { positions: new Float32Array(positions), colors: new Float32Array(colors), indices: new Uint32Array(indices) }
+}
+
 function SurfaceMesh({ data, opacity = 1 }: { data: MeshData; opacity?: number }) {
   if (data.indices.length === 0) return null
   return (
@@ -138,6 +224,8 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
   const axisColorDep = useThemeColor('#65DCD5')
   const axisColorV = useThemeColor('#66BB6A')
   const derivColor = useThemeColor('var(--accent-mint)')
+  const integPosColor = useThemeColor('var(--accent-violet)')
+  const integNegColor = useThemeColor('var(--accent-rose)')
 
   const grids = useMemo(
     () => formulas.map((f) => sampleSurface(f, dependent, bounds, res, scope)),
@@ -189,6 +277,16 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
     return new THREE.Vector3(scaleTo(probeU, bounds[ua]), scaleTo(tangent.z, bounds[dependent]), scaleTo(probeV, bounds[va]))
   }, [tangent, bounds, ua, va, dependent, probeU, probeV])
 
+  // Integral overlay was previously text-only (the readout in the parent's
+  // toolbar strip) with nothing drawn in the scene — this is the actual 3D
+  // visual for "the signed volume between the surface and the axis."
+  const volumeMesh = useMemo(() => {
+    if (!integ || !firstIsExplicit) return null
+    const grid = grids[0]?.[0]
+    return grid ? buildVolumeMesh(grid, ua, va, dependent, bounds, integPosColor, integNegColor) : null
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [integ, firstIsExplicit, grids, ua, va, dependent, bounds, integPosColor, integNegColor])
+
   return (
     <Canvas
       frameloop="demand"
@@ -202,48 +300,69 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
     >
       <ambientLight intensity={0.75} />
       <directionalLight position={[SIZE, SIZE * 1.5, SIZE]} intensity={0.6} />
-      <DreiGrid
-        args={[SIZE, SIZE]}
-        position={[0, -SIZE / 2, 0]}
-        cellColor={gridColor}
-        sectionColor={gridColor}
-        cellSize={SIZE / 10}
-        sectionSize={SIZE / 2}
-        fadeDistance={SIZE * 4}
-        infiniteGrid={false}
-      />
-      <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorU} lineWidth={1.5} />
-      <arrowHelper args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorU, SIZE * 0.09, SIZE * 0.045]} />
-      <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorDep} lineWidth={1.5} />
-      <arrowHelper args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorDep, SIZE * 0.09, SIZE * 0.045]} />
-      <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorV} lineWidth={1.5} />
-      <arrowHelper args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorV, SIZE * 0.09, SIZE * 0.045]} />
-      <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>{ua} ({fmtNum(bounds[ua].min)}…{fmtNum(bounds[ua].max)})</AxisLabel>
-      <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>{dependent} ({fmtNum(bounds[dependent].min)}…{fmtNum(bounds[dependent].max)})</AxisLabel>
-      <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>{va} ({fmtNum(bounds[va].min)}…{fmtNum(bounds[va].max)})</AxisLabel>
+      {/* Bounds(fit, observe) re-frames the camera distance to the content's
+          actual bounding box every time the container resizes — including
+          the fullscreen toggle, which used to leave the fixed-FOV camera at
+          the same absolute framing regardless of the new (often much wider)
+          viewport, so the plot stayed small with dead space around it
+          instead of growing to use the extra room. It re-scales distance
+          along the CURRENT view direction only, so a user's manual orbit
+          survives the refit. */}
+      <Bounds fit clip observe margin={1.2}>
+        <DreiGrid
+          args={[SIZE, SIZE]}
+          position={[0, -SIZE / 2, 0]}
+          cellColor={gridColor}
+          sectionColor={gridColor}
+          cellSize={SIZE / 10}
+          sectionSize={SIZE / 2}
+          fadeDistance={SIZE * 4}
+          infiniteGrid={false}
+        />
+        <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorU} lineWidth={1.5} />
+        <arrowHelper args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorU, SIZE * 0.09, SIZE * 0.045]} />
+        <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorDep} lineWidth={1.5} />
+        <arrowHelper args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorDep, SIZE * 0.09, SIZE * 0.045]} />
+        <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorV} lineWidth={1.5} />
+        <arrowHelper args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorV, SIZE * 0.09, SIZE * 0.045]} />
+        <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>{ua} ({fmtNum(bounds[ua].min)}…{fmtNum(bounds[ua].max)})</AxisLabel>
+        <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>{dependent} ({fmtNum(bounds[dependent].min)}…{fmtNum(bounds[dependent].max)})</AxisLabel>
+        <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>{va} ({fmtNum(bounds[va].min)}…{fmtNum(bounds[va].max)})</AxisLabel>
 
-      {meshes.map((branches, i) => branches.map((data, bi) => <SurfaceMesh key={`${i}-${bi}`} data={data} opacity={i === 0 ? 1 : 0.9} />))}
+        {meshes.map((branches, i) => branches.map((data, bi) => <SurfaceMesh key={`${i}-${bi}`} data={data} opacity={i === 0 ? 1 : 0.9} />))}
 
-      {tangentQuad && (
-        <mesh>
-          <bufferGeometry>
-            <bufferAttribute
-              attach="attributes-position"
-              args={[new Float32Array(tangentQuad.flatMap((p) => [p.x, p.y, p.z])), 3]}
-              count={4}
-              itemSize={3}
-            />
-            <bufferAttribute attach="index" args={[new Uint16Array([0, 1, 2, 0, 2, 3]), 1]} count={6} itemSize={1} />
-          </bufferGeometry>
-          <meshBasicMaterial color={derivColor} transparent opacity={0.4} side={THREE.DoubleSide} depthWrite={false} />
-        </mesh>
-      )}
-      {probeMarker && (
-        <mesh position={probeMarker}>
-          <sphereGeometry args={[0.05, 12, 12]} />
-          <meshBasicMaterial color={derivColor} />
-        </mesh>
-      )}
+        {volumeMesh && volumeMesh.indices.length > 0 && (
+          <mesh>
+            <bufferGeometry>
+              <bufferAttribute attach="attributes-position" args={[volumeMesh.positions, 3]} count={volumeMesh.positions.length / 3} itemSize={3} />
+              <bufferAttribute attach="attributes-color" args={[volumeMesh.colors, 3]} count={volumeMesh.colors.length / 3} itemSize={3} />
+              <bufferAttribute attach="index" args={[volumeMesh.indices, 1]} count={volumeMesh.indices.length} itemSize={1} />
+            </bufferGeometry>
+            <meshBasicMaterial vertexColors transparent opacity={0.55} side={THREE.DoubleSide} depthWrite={false} />
+          </mesh>
+        )}
+
+        {tangentQuad && (
+          <mesh>
+            <bufferGeometry>
+              <bufferAttribute
+                attach="attributes-position"
+                args={[new Float32Array(tangentQuad.flatMap((p) => [p.x, p.y, p.z])), 3]}
+                count={4}
+                itemSize={3}
+              />
+              <bufferAttribute attach="index" args={[new Uint16Array([0, 1, 2, 0, 2, 3]), 1]} count={6} itemSize={1} />
+            </bufferGeometry>
+            <meshBasicMaterial color={derivColor} transparent opacity={0.4} side={THREE.DoubleSide} depthWrite={false} />
+          </mesh>
+        )}
+        {probeMarker && (
+          <mesh position={probeMarker}>
+            <sphereGeometry args={[0.05, 12, 12]} />
+            <meshBasicMaterial color={derivColor} />
+          </mesh>
+        )}
+      </Bounds>
 
       <OrbitControls makeDefault target={[0, 0, 0]} enableDamping enablePan enableZoom enableRotate />
 

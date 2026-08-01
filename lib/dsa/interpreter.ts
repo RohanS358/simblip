@@ -179,7 +179,7 @@ type Stmt =
   | { k: 'while'; c: Expr; body: Stmt; line: number }
   | { k: 'do'; c: Expr; body: Stmt; line: number }
   | { k: 'for'; init?: Stmt; c?: Expr; inc?: Expr; body: Stmt; line: number }
-  | { k: 'forRange'; type: TypeRef; name: string; iter: Expr; body: Stmt; line: number }
+  | { k: 'forRange'; type: TypeRef; name: string; ref: boolean; iter: Expr; body: Stmt; line: number }
   | { k: 'block'; body: Stmt[]; line: number }
   | { k: 'return'; e?: Expr; line: number }
   | { k: 'break'; line: number }
@@ -484,12 +484,12 @@ class Parser {
           const ty = this.parseType()
           let ptr = 0
           while (this.eat('*')) ptr++
-          this.eat('&')
+          const ref = this.eat('&')
           const name = this.next()
           if (name.k === 'id' && this.eat(':')) {
             const iter = this.parseExpr()
             this.expect(')')
-            return { k: 'forRange', type: { ...ty, ptr }, name: name.v, iter, body: this.parseStatement(), line }
+            return { k: 'forRange', type: { ...ty, ptr }, name: name.v, ref, iter, body: this.parseStatement(), line }
           }
         } catch { /* fall through to classic for */ }
         this.pos = save
@@ -734,9 +734,21 @@ class Parser {
     // the standard `vector<vector<int>> grid(rows, vector<int>(cols, 0))`
     // matrix-init idiom needs the inner `vector<int>(cols, 0)` to parse as a
     // value, not just as a top-level declaration (which parseStatement
-    // already handles separately via parseType + declarators).
+    // already handles separately via parseType + declarators). Also covers
+    // the fully-qualified `std::vector<int>(cols, 0)` spelling — textbook
+    // code almost always writes the inner ctor-call with the `std::` prefix
+    // too (`std::vector<std::vector<int>> grid(rows, std::vector<int>(...))`),
+    // and without this branch it fell through to plain identifier parsing,
+    // leaving the `<int>(...)` unconsumed and erroring on the stray `int`.
     const p0 = this.peek()
-    if (p0.k === 'kw' && (p0.v === 'vector' || p0.v === 'stack' || p0.v === 'queue') && this.peek(1).v === '<') {
+    const isBareCtor = p0.k === 'kw' && (p0.v === 'vector' || p0.v === 'stack' || p0.v === 'queue') && this.peek(1).v === '<'
+    const isStdCtor =
+      p0.k === 'id' &&
+      p0.v === 'std' &&
+      this.peek(1).v === '::' &&
+      (this.peek(2).v === 'vector' || this.peek(2).v === 'stack' || this.peek(2).v === 'queue') &&
+      this.peek(3).v === '<'
+    if (isBareCtor || isStdCtor) {
       const type = this.parseType()
       this.expect('(')
       const args: Expr[] = []
@@ -1628,23 +1640,45 @@ class Interp {
         // `for (auto w : words)` over a vector<string> (or bool/char) hit the
         // same shape-inference gap as bare `auto x = expr;` — defaultCell
         // guessed 'int' before seeing an element, so a string element wrote
-        // as 0. Peek the first element's actual (scalar) shape instead;
-        // nested containers/structs still fall back to defaultCell, same as
-        // before — copying THOSE by value through a loop var is a separate,
-        // deeper gap this doesn't attempt to fix.
+        // as 0. Peek the first element's actual (scalar) shape instead.
         const firstCell = cell.elems.length > 0 ? this.mem.get(cell.elems[0]) : undefined
-        const varCell =
-          s.type.base === 'auto' && s.type.ptr === 0 && firstCell && firstCell.t !== 'arr' && firstCell.t !== 'obj'
-            ? this.cellForVal(firstCell)
-            : this.defaultCell(s.type, s.line)
-        const varAddr = this.alloc(varCell)
-        this.declare(s.name, varAddr)
+        const isContainerElem = firstCell !== undefined && (firstCell.t === 'arr' || firstCell.t === 'obj')
+        // Elements that are themselves vectors/objects (the standard
+        // `for (auto& row : grid)` matrix walk, then `for (auto& cell :
+        // row)` inside it) can't be represented by copying a VALUE into a
+        // fixed scalar cell the way `int x : vec` can — there's no scalar to
+        // copy. `&` aliases the loop var directly onto each element's own
+        // address (so nested range-for sees a real array, and mutations
+        // through the loop var reach the source container, matching C++
+        // reference semantics); without `&`, deep-copy each element into a
+        // fresh cell instead, matching by-value semantics.
+        const byRef = s.ref
+        let varAddr = -1
+        if (!byRef && !isContainerElem) {
+          // Plain scalar `auto`/typed loop var: one cell, overwritten via
+          // write() below each iteration (existing behavior, unchanged) —
+          // `auto` infers the element's own shape; an explicit type (e.g.
+          // `double x : intVec`) keeps its declared cell so values convert
+          // into it the same way an assignment would.
+          const varCell =
+            s.type.base === 'auto' && s.type.ptr === 0 && firstCell && firstCell.t !== 'arr' && firstCell.t !== 'obj'
+              ? this.cellForVal(firstCell)
+              : this.defaultCell(s.type, s.line)
+          varAddr = this.alloc(varCell)
+          this.declare(s.name, varAddr)
+        }
         try {
           for (const ea of [...cell.elems]) {
             this.counters.iterations++
-            const v = this.readCell(ea, s.line)
-            this.write(varAddr, v, s.line)
-            this.emit('assign', s.line, `${s.name} = ${fmtVal(v)}`)
+            if (byRef || isContainerElem) {
+              const addr = byRef ? ea : this.deepCopyCell(ea, s.line)
+              this.declare(s.name, addr)
+              this.emit('assign', s.line, `${s.name} ${byRef ? '&= ' : '= '}${pe(iterV)}[…]`)
+            } else {
+              const v = this.readCell(ea, s.line)
+              this.write(varAddr, v, s.line)
+              this.emit('assign', s.line, `${s.name} = ${fmtVal(v)}`)
+            }
             try {
               this.execStmt(s.body)
             } catch (e) {

@@ -32,7 +32,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
-import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta, findNotebookId } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -155,6 +155,11 @@ export function MobileShell() {
         for (const p of sec.pages) if (p.id === activePageId) return p.name
     return 'Page'
   })()
+  // Where the editor's back button returns to — the notebook the open page
+  // actually lives in, not always Home.
+  const activeNotebookId = findNotebookId(notebooks, activePageId)
+  const goBackFromEditor = () =>
+    setView(activeNotebookId ? { kind: 'notebook', id: activeNotebookId } : { kind: 'home' })
 
   const openPage = (pageId: string) => {
     store.getState().setActivePage(pageId)
@@ -345,7 +350,7 @@ export function MobileShell() {
             type="button"
             aria-label="Back"
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-            onClick={() => setView({ kind: 'home' })}
+            onClick={goBackFromEditor}
           >
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
@@ -509,7 +514,7 @@ export function MobileShell() {
                   <X className="h-4 w-4" />
                 </button>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
+              <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
                 <Inspector pageId={contentPageId ?? activePageId} />
               </div>
             </fm.div>

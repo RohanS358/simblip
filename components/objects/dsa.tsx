@@ -98,26 +98,32 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
   // Resizable splitter between editor and visualization panels.
   // Uses getBoundingClientRect() for the container width so the delta is in
   // real screen pixels — object.size.w is scene-space and is off by zoom.
-  const handleSplitterMouseDown = (e: React.MouseEvent) => {
+  // Pointer Events (not mouse events): a touch drag never fires mousedown,
+  // so on mobile/tablet the old mouse-only handler let the gesture fall
+  // through to the canvas, which dragged the whole window instead of
+  // resizing the split. setPointerCapture keeps the drag on this handle
+  // even if the finger wanders off its thin hit target.
+  const handleSplitterPointerDown = (e: React.PointerEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    e.currentTarget.setPointerCapture(e.pointerId)
     const startX = e.clientX
     const startRatio = editorRatio
     // Snapshot the rendered pixel width at drag-start time.
     const containerW = containerRef.current?.getBoundingClientRect().width || object.size.w || 980
 
-    const onMouseMove = (moveEvt: MouseEvent) => {
+    const onPointerMove = (moveEvt: PointerEvent) => {
       const deltaPercent = ((moveEvt.clientX - startX) / containerW) * 100
       setEditorRatio(Math.max(20, Math.min(80, startRatio + deltaPercent)))
     }
 
-    const onMouseUp = () => {
-      window.removeEventListener('mousemove', onMouseMove)
-      window.removeEventListener('mouseup', onMouseUp)
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove)
+      window.removeEventListener('pointerup', onPointerUp)
     }
 
-    window.addEventListener('mousemove', onMouseMove)
-    window.addEventListener('mouseup', onMouseUp)
+    window.addEventListener('pointermove', onPointerMove)
+    window.addEventListener('pointerup', onPointerUp)
   }
 
   return (
@@ -277,8 +283,8 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
 
         {/* Resizable Section Splitter */}
         <div
-          onMouseDown={handleSplitterMouseDown}
-          className="relative z-20 w-1.5 shrink-0 cursor-col-resize bg-border/40 transition-colors hover:bg-[var(--accent-blue)]/60"
+          onPointerDown={handleSplitterPointerDown}
+          className="relative z-20 w-1.5 shrink-0 touch-none cursor-col-resize bg-border/40 transition-colors hover:bg-[var(--accent-blue)]/60"
           title="Drag to resize panels"
         />
 

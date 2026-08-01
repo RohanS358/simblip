@@ -526,7 +526,18 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
 
   return (
     <div className="relative h-full w-full">
-      <div ref={scrollRef} className="h-full w-full overflow-auto bg-muted/40">
+      <div
+        ref={scrollRef}
+        className="h-full w-full overflow-auto bg-muted/40"
+        // Without this, a two-finger pinch here races the browser's own
+        // native page-zoom on mobile/tablet (nothing in the viewport meta
+        // disables it) instead of reaching usePinchZoom below — the native
+        // gesture would win or fight the JS one, so pinching a doc page
+        // visibly failed to zoom the CONTENT and instead zoomed the whole
+        // UI. Excluding pinch-zoom from touch-action keeps native pan-x/
+        // pan-y (plain scrolling) while routing two-finger gestures to JS.
+        style={{ touchAction: 'pan-x pan-y' }}
+      >
         {/* Stage reserves the scaled content's real footprint (or the
             viewport's, whichever is bigger) so there's always somewhere for
             the scroller to actually scroll to — transform doesn't reflow, so

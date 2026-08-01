@@ -18,7 +18,7 @@
 import { useMemo, useState } from 'react'
 import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
-import { Line, Grid, Html, OrbitControls } from '@react-three/drei'
+import { Line, Grid, Html, OrbitControls, Bounds } from '@react-three/drei'
 import { useHeightRamp, useThemeColor, sampleHeightRamp } from '@/lib/render/theme-color'
 import { fmtNum } from '@/lib/scene/format'
 
@@ -189,85 +189,92 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
           // blank.
           gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
         >
-          <Grid
-            args={[SIZE, SIZE]}
-            position={[0, -SIZE / 2, 0]}
-            cellColor={gridColor}
-            sectionColor={gridColor}
-            cellSize={SIZE / 10}
-            sectionSize={SIZE / 2}
-            fadeDistance={SIZE * 4}
-            infiniteGrid={false}
-          />
-          {/* Conventional X/Y/Z axes through the data's centroid (the scaled
-              cube is always centered at the origin by construction), each
-              colored to match its source panel — a corner "bounding box"
-              triad reads as off-center since all the axis chrome sits in one
-              octant; a centered cross keeps the composition balanced and
-              doubles as the answer to "where are X/Y/Z". */}
-          <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorX} lineWidth={1.5} />
-          <arrowHelper
-            args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorX, SIZE * 0.09, SIZE * 0.045]}
-          />
-          <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorY} lineWidth={1.5} />
-          <arrowHelper
-            args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorY, SIZE * 0.09, SIZE * 0.045]}
-          />
-          <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorZ} lineWidth={1.5} />
-          <arrowHelper
-            args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorZ, SIZE * 0.09, SIZE * 0.045]}
-          />
-          <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>
-            {ax.name} ({fmtNum(bx.min)}…{fmtNum(bx.max)})
-          </AxisLabel>
-          <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>
-            {ay.name} ({fmtNum(by.min)}…{fmtNum(by.max)})
-          </AxisLabel>
-          <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>
-            {az.name} ({fmtNum(bz.min)}…{fmtNum(bz.max)})
-          </AxisLabel>
+          {/* Bounds(fit, observe): see surface3d.tsx — re-frames camera
+              distance to content on every container resize (including the
+              fullscreen toggle), instead of leaving a fixed-FOV camera
+              under-filling a much wider viewport. Distance-only along the
+              current view direction, so manual orbit survives the refit. */}
+          <Bounds fit clip observe margin={1.2}>
+            <Grid
+              args={[SIZE, SIZE]}
+              position={[0, -SIZE / 2, 0]}
+              cellColor={gridColor}
+              sectionColor={gridColor}
+              cellSize={SIZE / 10}
+              sectionSize={SIZE / 2}
+              fadeDistance={SIZE * 4}
+              infiniteGrid={false}
+            />
+            {/* Conventional X/Y/Z axes through the data's centroid (the scaled
+                cube is always centered at the origin by construction), each
+                colored to match its source panel — a corner "bounding box"
+                triad reads as off-center since all the axis chrome sits in one
+                octant; a centered cross keeps the composition balanced and
+                doubles as the answer to "where are X/Y/Z". */}
+            <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorX} lineWidth={1.5} />
+            <arrowHelper
+              args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorX, SIZE * 0.09, SIZE * 0.045]}
+            />
+            <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorY} lineWidth={1.5} />
+            <arrowHelper
+              args={[new THREE.Vector3(0, 1, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorY, SIZE * 0.09, SIZE * 0.045]}
+            />
+            <Line points={[[0, 0, -SIZE / 2], [0, 0, 0]]} color={axisColorZ} lineWidth={1.5} />
+            <arrowHelper
+              args={[new THREE.Vector3(0, 0, 1), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorZ, SIZE * 0.09, SIZE * 0.045]}
+            />
+            <AxisLabel position={[SIZE / 2 + 0.3, 0, 0]}>
+              {ax.name} ({fmtNum(bx.min)}…{fmtNum(bx.max)})
+            </AxisLabel>
+            <AxisLabel position={[0, SIZE / 2 + 0.3, 0]}>
+              {ay.name} ({fmtNum(by.min)}…{fmtNum(by.max)})
+            </AxisLabel>
+            <AxisLabel position={[0, 0, SIZE / 2 + 0.3]}>
+              {az.name} ({fmtNum(bz.min)}…{fmtNum(bz.max)})
+            </AxisLabel>
 
-          <Line points={points} vertexColors={colors} lineWidth={2.5} />
+            <Line points={points} vertexColors={colors} lineWidth={2.5} />
 
-          {curtain && (
-            <mesh>
-              <bufferGeometry>
-                <bufferAttribute
-                  attach="attributes-position"
-                  args={[curtain.positions, 3]}
-                  count={curtain.positions.length / 3}
-                  itemSize={3}
-                />
-                <bufferAttribute
-                  attach="attributes-color"
-                  args={[curtain.colors, 3]}
-                  count={curtain.colors.length / 3}
-                  itemSize={3}
-                />
-                <bufferAttribute
-                  attach="index"
-                  args={[curtain.indices, 1]}
-                  count={curtain.indices.length}
-                  itemSize={1}
-                />
-              </bufferGeometry>
-              <meshBasicMaterial vertexColors transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
-            </mesh>
-          )}
-
-          {deriv && tangent && (
-            <>
-              <mesh position={tangent.origin}>
-                <sphereGeometry args={[0.045, 12, 12]} />
-                <meshBasicMaterial color={axisColorY} />
+            {curtain && (
+              <mesh>
+                <bufferGeometry>
+                  <bufferAttribute
+                    attach="attributes-position"
+                    args={[curtain.positions, 3]}
+                    count={curtain.positions.length / 3}
+                    itemSize={3}
+                  />
+                  <bufferAttribute
+                    attach="attributes-color"
+                    args={[curtain.colors, 3]}
+                    count={curtain.colors.length / 3}
+                    itemSize={3}
+                  />
+                  <bufferAttribute
+                    attach="index"
+                    args={[curtain.indices, 1]}
+                    count={curtain.indices.length}
+                    itemSize={1}
+                  />
+                </bufferGeometry>
+                <meshBasicMaterial vertexColors transparent opacity={0.35} side={THREE.DoubleSide} depthWrite={false} />
               </mesh>
-              {tangent.speed > 0 && (
-                <arrowHelper
-                  args={[tangent.dir, tangent.origin, Math.min(2.2, 0.6 + tangent.speed * 0.2), derivColor, undefined, undefined]}
-                />
-              )}
-            </>
-          )}
+            )}
+
+            {deriv && tangent && (
+              <>
+                <mesh position={tangent.origin}>
+                  <sphereGeometry args={[0.045, 12, 12]} />
+                  <meshBasicMaterial color={axisColorY} />
+                </mesh>
+                {tangent.speed > 0 && (
+                  <arrowHelper
+                    args={[tangent.dir, tangent.origin, Math.min(2.2, 0.6 + tangent.speed * 0.2), derivColor, undefined, undefined]}
+                  />
+                )}
+              </>
+            )}
+          </Bounds>
 
           <OrbitControls makeDefault target={[0, 0, 0]} enableDamping enablePan enableZoom enableRotate />
         </Canvas>

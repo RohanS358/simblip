@@ -476,6 +476,9 @@ useLayoutEffect(() => {
     <div
       ref={readerRef}
       className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6"
+      // See doc-view.tsx: without this, native page-zoom competes with
+      // usePinchZoom's own two-finger handling on mobile/tablet.
+      style={{ touchAction: 'pan-y' }}
       onDragOver={(e) => {
         e.preventDefault()
         setDragOver(true)
