@@ -71,6 +71,27 @@ export interface GraphSnap {
   queueKind: 'queue' | 'stack' | null
 }
 
+/** One node of a detected binary tree (BST/AVL/heap-as-tree/…) anywhere in
+ *  live memory at this step — a struct with two self-referential pointer
+ *  fields (`Node* left; Node* right;`, whatever they're actually named),
+ *  found the same "shape not name" way `GraphSnap` finds an adjacency list.
+ *  Nested (not a flat list) since a tree renders as a tree, not a table. */
+export interface TreeNodeSnap {
+  addr: number
+  /** compact display of the node's own non-pointer field(s), e.g. "5" for a
+   *  single `int data` field, or "data=5, ht=2" if there's more than one. */
+  label: string
+  left: TreeNodeSnap | null
+  right: TreeNodeSnap | null
+}
+
+export interface TreeSnap {
+  root: TreeNodeSnap
+  /** address written at this exact step, for a "just touched" highlight —
+   *  mirrors GraphSnap's visitedNode. */
+  touchedAddr: number | null
+}
+
 export type StepKind =
   | 'decl'
   | 'assign'
@@ -101,6 +122,9 @@ export interface TraceStep {
   /** the first adjacency-list graph found in memory, if any — null when the
    *  program isn't working with a `vector<vector<int>>` shape */
   graph: GraphSnap | null
+  /** the first binary tree found in memory, if any — null when the program
+   *  isn't working with a self-referential two-pointer-field struct */
+  tree: TreeSnap | null
 }
 
 export interface CallNode {
@@ -153,6 +177,15 @@ export interface RecurrenceReport {
   maxDepth: number
 }
 
+/** One heap block still live (never delete'd) when the program finished —
+ *  a straightforward leak-detection summary distinct from the per-cell
+ *  "dangling pointer" highlight, which flags the opposite mistake (using a
+ *  pointer AFTER its target was freed). */
+export interface LeakedBlock {
+  addr: number
+  name: string
+}
+
 export interface TraceResult {
   steps: TraceStep[]
   callNodes: Record<string, CallNode>
@@ -162,6 +195,9 @@ export interface TraceResult {
   output: string
   error?: { line: number; message: string }
   truncated: boolean
+  /** Heap blocks never freed by program end (empty if none, or if the
+   *  program never reached a normal end — e.g. it errored out first). */
+  leaked: LeakedBlock[]
 }
 
 export const emptyCounters = (): Counters => ({

@@ -125,6 +125,12 @@ function Sheet({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [live, setLive] = useState<{ w: number; h: number } | null>(null)
+  // Mirrors `live` so `onResizeStart`'s pointerup handler can read the
+  // latest dragged size without going through a functional setState updater
+  // — React invokes those during render, so calling onResize (which cascades
+  // into a different component's store update) from inside one trips
+  // "Cannot update a component while rendering a different component".
+  const liveRef = useRef<{ w: number; h: number } | null>(null)
   const dims = live ?? size
   // Rendered width — maxWidth clamps the sheet on narrow screens, so the
   // canvas is laid out at the sheet's TRUE size and visually scaled down;
@@ -159,15 +165,17 @@ function Sheet({
     const move = (ev: PointerEvent) => {
       const w = Math.min(MAX_SHEET, Math.max(MIN_SHEET, startW + ((ev.clientX - startX) / rect.width) * startW))
       const h = Math.min(MAX_SHEET, Math.max(MIN_SHEET, startH + ((ev.clientY - startY) / rect.height) * startH))
-      setLive({ w: Math.round(w), h: Math.round(h) })
+      const next = { w: Math.round(w), h: Math.round(h) }
+      liveRef.current = next
+      setLive(next)
     }
     const up = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
-      setLive((v) => {
-        if (v) onResize(v.w, v.h)
-        return null
-      })
+      const v = liveRef.current
+      liveRef.current = null
+      setLive(null)
+      if (v) onResize(v.w, v.h)
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -390,12 +398,24 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // "Full width"/"Full height" from the zoom dropdown (page-controls-menu.tsx)
   // — reuse the same anchored-zoom machinery the −/+ buttons and dock's
   // setZoom already go through, just solving for a target absolute zoom
-  // instead of a relative nudge.
+  // instead of a relative nudge. naturalW/naturalH (above) measure the
+  // WHOLE scrolled stack (every sheet + gaps) — that's what the scroll
+  // container needs to size itself, but fitting THAT to the viewport zooms
+  // out to show every page at once instead of filling the view with one
+  // page. "Full width/height" means a single page, so these query the
+  // active sheet's own (unscaled — transform: scale() doesn't affect
+  // offsetWidth/offsetHeight) box directly instead.
+  const activeSheetEl = () =>
+    contentRef.current?.querySelector<HTMLElement>(
+      activeSheetId ? `[data-sheet="${activeSheetId}"]` : '[data-sheet]'
+    )
   const fitWidth = () => {
-    if (naturalW > 0) zoomAtCenter(viewW / naturalW / zoom)
+    const w = activeSheetEl()?.offsetWidth
+    if (w) zoomAtCenter(viewW / w / zoom)
   }
   const fitHeight = () => {
-    if (naturalH > 0) zoomAtCenter(viewH / naturalH / zoom)
+    const h = activeSheetEl()?.offsetHeight
+    if (h) zoomAtCenter(viewH / h / zoom)
   }
 
   // Ctrl/⌘+wheel or trackpad pinch zooms the page stack — same gesture as
@@ -540,7 +560,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     })
     return () => useDocDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bare, zoom, exporting, naturalW, naturalH, viewW, viewH, sorterOpen])
+  }, [bare, zoom, exporting, naturalW, naturalH, viewW, viewH, sorterOpen, activeSheetId])
 
   return (
     <div className="relative h-full w-full">

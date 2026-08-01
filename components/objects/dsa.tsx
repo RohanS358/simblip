@@ -17,6 +17,7 @@ import { getString, type ObjectRendererProps } from './types'
 import { DsaMemoryView } from './dsa-memory'
 import { DsaGraphView } from './dsa-graph'
 import { DsaTreeView } from './dsa-tree'
+import { DsaBstView } from './dsa-bst'
 import { DsaAnalysisView } from './dsa-analysis'
 
 const LH = 19 // editor line height (px) — keep in sync with the classes below
@@ -36,7 +37,7 @@ const KIND_COLOR: Record<string, string> = {
   error: 'var(--accent-rose)',
 }
 
-type Tab = 'memory' | 'graph' | 'tree' | 'analysis'
+type Tab = 'memory' | 'graph' | 'bst' | 'tree' | 'analysis'
 
 export function DsaObject({ pageId, object }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -226,59 +227,66 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
               style={{ top: PAD_T + (errorLine - 1) * LH - scrollTop, height: LH }}
             />
           )}
-          {/* gutter */}
-          <div
-            className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-8 select-none border-r border-border/30 bg-muted/10 pt-2 text-right"
-            aria-hidden
-          >
-            <div style={{ transform: `translateY(${-scrollTop}px)` }}>
-              {lines.map((_, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    'pr-1.5 font-mono text-[10px] leading-[19px] text-muted-foreground/60',
-                    i + 1 === activeLine && 'font-bold text-[var(--accent-mint)]',
-                    i + 1 === errorLine && 'font-bold text-[var(--accent-rose)]'
-                  )}
-                >
-                  {i + 1}
-                </div>
-              ))}
+          {/* gutter + code: separate flex columns (not an overlay) so
+              horizontally scrolled code can never slide under the line
+              numbers — a textarea scrolls its padding along with its text,
+              so a padding-reserved overlay gutter doesn't stay put. */}
+          <div className="relative flex h-full">
+            <div
+              className="pointer-events-none relative w-8 shrink-0 select-none overflow-hidden border-r border-border/30 bg-muted/10 pt-2 text-right"
+              aria-hidden
+            >
+              <div style={{ transform: `translateY(${-scrollTop}px)` }}>
+                {lines.map((_, i) => (
+                  <div
+                    key={i}
+                    className={cn(
+                      'pr-1.5 font-mono text-[10px] leading-[19px] text-muted-foreground/60',
+                      i + 1 === activeLine && 'font-bold text-[var(--accent-mint)]',
+                      i + 1 === errorLine && 'font-bold text-[var(--accent-rose)]'
+                    )}
+                  >
+                    {i + 1}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="relative min-w-0 flex-1 overflow-hidden">
+              <textarea
+                ref={editorRef}
+                className="absolute inset-0 resize-none whitespace-pre bg-transparent py-2 px-2 font-mono text-[13px] leading-[19px] text-foreground focus:outline-none"
+                value={source}
+                wrap="off"
+                spellCheck={false}
+                onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
+                onPointerDown={(e) => e.stopPropagation()}
+                onFocus={() => setEditing(true)}
+                onBlur={() => setEditing(false)}
+                onChange={(e) => {
+                  if (!editing) pushHistory(pageId)
+                  setStringParam(pageId, object.id, 'source', e.target.value)
+                  setEditing(true)
+                }}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Escape') {
+                    e.currentTarget.blur()
+                    return
+                  }
+                  if (e.key === 'Tab') {
+                    e.preventDefault()
+                    const el = e.currentTarget
+                    const { selectionStart, selectionEnd, value } = el
+                    const next = value.slice(0, selectionStart) + '  ' + value.slice(selectionEnd)
+                    setStringParam(pageId, object.id, 'source', next)
+                    requestAnimationFrame(() => {
+                      el.selectionStart = el.selectionEnd = selectionStart + 2
+                    })
+                  }
+                }}
+              />
             </div>
           </div>
-          <textarea
-            ref={editorRef}
-            className="absolute inset-0 z-[5] resize-none whitespace-pre bg-transparent py-2 pl-10 pr-2 font-mono text-[13px] leading-[19px] text-foreground focus:outline-none"
-            value={source}
-            wrap="off"
-            spellCheck={false}
-            onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-            onPointerDown={(e) => e.stopPropagation()}
-            onFocus={() => setEditing(true)}
-            onBlur={() => setEditing(false)}
-            onChange={(e) => {
-              if (!editing) pushHistory(pageId)
-              setStringParam(pageId, object.id, 'source', e.target.value)
-              setEditing(true)
-            }}
-            onKeyDown={(e) => {
-              e.stopPropagation()
-              if (e.key === 'Escape') {
-                e.currentTarget.blur()
-                return
-              }
-              if (e.key === 'Tab') {
-                e.preventDefault()
-                const el = e.currentTarget
-                const { selectionStart, selectionEnd, value } = el
-                const next = value.slice(0, selectionStart) + '  ' + value.slice(selectionEnd)
-                setStringParam(pageId, object.id, 'source', next)
-                requestAnimationFrame(() => {
-                  el.selectionStart = el.selectionEnd = selectionStart + 2
-                })
-              }
-            }}
-          />
         </div>
 
         {/* Resizable Section Splitter */}
@@ -296,6 +304,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
               [
                 ['memory', 'Memory'],
                 ['graph', 'Graph'],
+                ['bst', 'Binary Tree'],
                 ['tree', 'Recursion Tree'],
                 ['analysis', 'Analysis'],
               ] as [Tab, string][]
@@ -347,6 +356,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
           <div className="min-h-0 flex-1">
             {tab === 'memory' && <DsaMemoryView step={step} />}
             {tab === 'graph' && <DsaGraphView step={step} />}
+            {tab === 'bst' && <DsaBstView step={step} />}
             {tab === 'tree' && <DsaTreeView trace={trace} stepIdx={Math.min(stepIdx, maxStep)} />}
             {tab === 'analysis' && <DsaAnalysisView trace={trace} />}
           </div>
@@ -366,6 +376,12 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
               {trace?.truncated && (
                 <p className="text-[10px] italic text-muted-foreground">
                   Trace truncated — the animation shows the first {trace.steps.length} steps. Use a smaller input to see it all.
+                </p>
+              )}
+              {!!trace?.leaked.length && (
+                <p className="font-mono text-[11px] leading-snug" style={{ color: 'var(--accent-violet)' }}>
+                  ⚠ {trace.leaked.length} heap block{trace.leaked.length > 1 ? 's' : ''} never freed:{' '}
+                  {trace.leaked.map((b) => b.name).join(', ')}
                 </p>
               )}
             </div>

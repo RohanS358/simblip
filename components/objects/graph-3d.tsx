@@ -20,6 +20,7 @@ import * as THREE from 'three'
 import { Canvas } from '@react-three/fiber'
 import { Line, Grid, Html, OrbitControls, Bounds } from '@react-three/drei'
 import { useHeightRamp, useThemeColor, sampleHeightRamp } from '@/lib/render/theme-color'
+import { useSharpDpr } from '@/lib/render/use-sharp-dpr'
 import { fmtNum } from '@/lib/scene/format'
 
 const SIZE = 5 // display cube extent per axis, scene units
@@ -76,6 +77,7 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
   const axisColorZ = useThemeColor(az.color)
   const derivColor = useThemeColor('var(--accent-mint)')
   const [scrubT, setScrubT] = useState(1)
+  const { ref: dprRef, dpr } = useSharpDpr<HTMLDivElement>()
 
   const validRows = useMemo(
     () => rows.filter((r) => Number.isFinite(r[ax.key]) && Number.isFinite(r[ay.key]) && Number.isFinite(r[az.key])),
@@ -177,9 +179,27 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div
+        ref={dprRef}
         className="relative min-h-0 flex-1"
         style={{ touchAction: 'none' }}
         onPointerDown={(e) => e.stopPropagation()}
+        // OrbitControls owns the wheel entirely once it's over this widget —
+        // it dollies the camera on ANY wheel, with no ctrlKey check. Every
+        // ancestor (canvas.tsx's board pan/zoom, doc-view.tsx/pdf-view.tsx's
+        // page zoom) ALSO listens for wheel natively and doesn't stop at
+        // preventDefault, so without this, scrolling to dolly the embedded
+        // camera simultaneously panned/zoomed the page underneath it — the
+        // widget's content visibly translated relative to the rest of the
+        // page while "zooming" it. Capture-phase stopPropagation (an
+        // ancestor of the R3F canvas, so it runs before OrbitControls' own
+        // listener even sees the event) keeps every wheel gesture over this
+        // widget local to it, regardless of modifier keys.
+        onWheelCapture={(e) => e.stopPropagation()}
+        // A right-click-drag to pan (OrbitControls) still ends in a native
+        // 'contextmenu' event on release — left unstopped, that bubbled up
+        // to canvas.tsx's own object context menu, which popped open over
+        // the plot right as the pan finished.
+        onContextMenu={(e) => e.stopPropagation()}
       >
         <Canvas
           frameloop="demand"
@@ -188,6 +208,27 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
           // actually read this WebGL canvas's pixels instead of capturing it
           // blank.
           gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
+          // useSharpDpr: keeps the render target's resolution matched to the
+          // widget's actual on-screen size, including any ancestor page-zoom
+          // (doc-view/pdf-view) — see lib/render/use-sharp-dpr.ts.
+          dpr={dpr}
+          // R3F's own auto-sizing (react-use-measure) reads the container's
+          // getBoundingClientRect — which, unlike a plain ResizeObserver,
+          // DOES include ancestor CSS transforms — and by default
+          // re-measures on every 'scroll' event, not just real resizes.
+          // doc-view.tsx's zoom-anchor logic sets scrollLeft/scrollTop on
+          // EVERY wheel tick of a ctrl+wheel zoom to keep the cursor's
+          // content point fixed, and each of those is itself a scroll event.
+          // So mid-zoom, this canvas's `size` (camera aspect, and Bounds'
+          // fit target below) was being asynchronously reset via a stale,
+          // already-transformed measurement on every tick — a moving target
+          // Bounds kept re-fitting against, which is what read as jitter and
+          // the origin visibly drifting. Turning off scroll-triggered
+          // remeasurement leaves `size` to only change on an actual layout
+          // resize (still correctly reacts to the fullscreen toggle etc.),
+          // while useSharpDpr above independently — and smoothly — tracks
+          // the live CSS zoom for resolution only.
+          resize={{ scroll: false }}
         >
           {/* Bounds(fit, observe): see surface3d.tsx — re-frames camera
               distance to content on every container resize (including the

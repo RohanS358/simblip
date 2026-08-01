@@ -26,6 +26,7 @@ import { usePrefs } from '@/lib/store/preferences'
 import { evalExpr, type Scope } from '@/lib/formula/engine'
 import { fmtNum } from '@/lib/scene/format'
 import { useSpectrumRamp, useThemeColor, resolveThemeColor, sampleHeightRamp } from '@/lib/render/theme-color'
+import { useSharpDpr } from '@/lib/render/use-sharp-dpr'
 import {
   baseAxes,
   integrateGrid,
@@ -211,9 +212,10 @@ interface SceneProps {
   integ: boolean
   probeU: number
   probeV: number
+  dpr: number
 }
 
-function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ, probeU, probeV }: SceneProps) {
+function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ, probeU, probeV, dpr }: SceneProps) {
   const [ua, va] = baseAxes(dependent)
   // A static height-field plot reads best with real, multi-hue color
   // contrast (cool low → warm high) rather than the app's usual single-hue
@@ -297,6 +299,26 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
       // the time html2canvas gets to it the canvas is blank. Costs nothing
       // for interactive use, only matters for this off-screen capture.
       gl={{ antialias: true, alpha: true, preserveDrawingBuffer: true }}
+      // useSharpDpr: keeps the render target's resolution matched to the
+      // widget's actual on-screen size, including any ancestor page-zoom
+      // (doc-view/pdf-view) — see lib/render/use-sharp-dpr.ts.
+      dpr={dpr}
+      // R3F's own auto-sizing (react-use-measure) reads the container's
+      // getBoundingClientRect — which, unlike a plain ResizeObserver, DOES
+      // include ancestor CSS transforms — and by default re-measures on
+      // every 'scroll' event, not just real resizes. doc-view.tsx's
+      // zoom-anchor logic sets scrollLeft/scrollTop on EVERY wheel tick of a
+      // ctrl+wheel zoom to keep the cursor's content point fixed, and each
+      // of those is itself a scroll event. So mid-zoom, this canvas's `size`
+      // (camera aspect, and Bounds' fit target below) was being
+      // asynchronously reset via a stale, already-transformed measurement on
+      // every tick — a moving target Bounds kept re-fitting against, which
+      // is what read as jitter and the origin visibly drifting. Turning off
+      // scroll-triggered remeasurement leaves `size` to only change on an
+      // actual layout resize (still correctly reacts to the fullscreen
+      // toggle etc.), while useSharpDpr above independently — and smoothly
+      // — tracks the live CSS zoom for resolution only.
+      resize={{ scroll: false }}
     >
       <ambientLight intensity={0.75} />
       <directionalLight position={[SIZE, SIZE * 1.5, SIZE]} intensity={0.6} />
@@ -407,6 +429,7 @@ export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
 
   const [probeU, setProbeU] = useState(0)
   const [probeV, setProbeV] = useState(0)
+  const { ref: dprRef, dpr } = useSharpDpr<HTMLDivElement>()
 
   const firstFormula = formulas[0]
   const firstIsExplicit = firstFormula !== undefined && !isImplicitExpr(firstFormula)
@@ -511,7 +534,23 @@ export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
       )}
 
       {formulas.length > 0 ? (
-        <div className="relative min-h-0 flex-1" style={{ touchAction: 'none' }} onPointerDown={(e) => e.stopPropagation()}>
+        <div
+          ref={dprRef}
+          className="relative min-h-0 flex-1"
+          style={{ touchAction: 'none' }}
+          onPointerDown={(e) => e.stopPropagation()}
+          // See graph-3d.tsx: OrbitControls dollies on ANY wheel with no
+          // ctrlKey check, and ancestors (board pan/zoom, page zoom) also
+          // react to the same native event since preventDefault doesn't
+          // stop propagation — so scrolling to zoom this widget was also
+          // panning/zooming the page underneath it. Capture-phase
+          // stopPropagation keeps every wheel gesture over the widget local.
+          onWheelCapture={(e) => e.stopPropagation()}
+          // A right-click-drag orbit-pan still fires a native 'contextmenu'
+          // on release — unstopped, it bubbled to canvas.tsx's own object
+          // context menu, popping it open over the plot mid-interaction.
+          onContextMenu={(e) => e.stopPropagation()}
+        >
           <Surface3DScene
             formulas={formulas}
             dependent={dependent}
@@ -522,6 +561,7 @@ export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
             integ={integ}
             probeU={probeU}
             probeV={probeV}
+            dpr={dpr}
           />
         </div>
       ) : (

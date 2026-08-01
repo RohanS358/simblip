@@ -21,10 +21,17 @@ import {
   type StepKind,
   type TraceResult,
   type TraceStep,
+  type TreeNodeSnap,
+  type TreeSnap,
   emptyCounters,
 } from './trace'
 
 const INT_LIKE = new Set(['int', 'long', 'short', 'size_t'])
+
+/** string::npos — the real value (size_t(-1) for a 32-bit size_t, matching
+ *  sizeOfType('size_t') === 4 elsewhere) so the standard
+ *  `if (s.find(x) != string::npos)` idiom compares correctly. */
+const STRING_NPOS = 4294967295
 
 const MAX_STEPS = 3000
 const MAX_OPS = 500_000
@@ -43,6 +50,7 @@ const KEYWORDS = new Set([
   'string', 'size_t', 'struct', 'class', 'public', 'private', 'protected', 'return', 'if', 'else',
   'while', 'do', 'for', 'break', 'continue', 'switch', 'case', 'default', 'new', 'delete', 'true',
   'false', 'nullptr', 'using', 'namespace', 'const', 'sizeof', 'this', 'vector', 'stack', 'queue',
+  'pair', 'deque', 'priority_queue', 'map', 'unordered_map', 'set', 'unordered_set',
 ])
 
 const THREE_OPS = ['<<=', '>>='] as const
@@ -161,12 +169,13 @@ type Expr =
   | { k: 'member'; base: Expr; name: string; arrow: boolean; line: number }
   | { k: 'new'; type: TypeRef; args: Expr[]; count?: Expr; line: number }
   | { k: 'initlist'; items: Expr[]; line: number }
-  | { k: 'sizeof'; line: number }
+  | { k: 'sizeof'; arg: { kind: 'type'; type: TypeRef } | { kind: 'expr'; e: Expr } | null; line: number }
   | { k: 'ctorcall'; type: TypeRef; args: Expr[]; line: number }
 
 interface Declarator {
   name: string
   ptr: number
+  ref: boolean
   arrDims: (Expr | null)[]
   init?: Expr
   ctorArgs?: Expr[]
@@ -219,6 +228,20 @@ interface Program {
 const BUILTIN_TYPES = new Set([
   'int', 'long', 'float', 'double', 'char', 'bool', 'void', 'auto', 'unsigned', 'signed', 'short',
   'string', 'size_t', 'vector', 'stack', 'queue',
+  'pair', 'deque', 'priority_queue', 'map', 'unordered_map', 'set', 'unordered_set',
+])
+
+/** Container/adaptor base names whose runtime cell is a single flat `arr`
+ *  Cell (see Cell's `t: 'arr'` variant) — vector/stack/queue plus the newer
+ *  deque/priority_queue, all differing only in which methods are exposed
+ *  and how push/pop pick an end, never in storage shape. */
+const ARR_CTAGS = new Set(['vector', 'stack', 'queue', 'deque', 'priority_queue'])
+
+/** <algorithm> functions taking an iterator/pointer [first, last) range as
+ *  their first two arguments — the one shared dispatch block in evalCall. */
+const RANGE_ALGO_NAMES = new Set([
+  'sort', 'reverse', 'find', 'min_element', 'max_element',
+  'count', 'fill', 'unique', 'binary_search', 'lower_bound', 'upper_bound', 'copy',
 ])
 
 class Parser {
@@ -375,8 +398,18 @@ class Parser {
     if (base === 'long' && (this.at('long') || this.at('int'))) this.next()
     if (base === 'short' && this.at('int')) this.next()
     const targs: TypeRef[] = []
-    if ((base === 'vector' || base === 'stack' || base === 'queue') && this.eat('<')) {
+    // Any templated identifier — a known container (vector/pair/map/…) AND
+    // an unrecognized one too (e.g. a comparator functor like `greater<int>`
+    // inside `priority_queue<T, vector<T>, greater<T>>`): parseType is only
+    // ever called once we're already committed to parsing a TYPE (the type-
+    // vs-expression call is made by the caller via isTypeStart before this
+    // runs), so a `<` here is never a "less than" — always a template open.
+    // Unrecognized template args are kept (so the syntax parses) but never
+    // interpreted, same spirit as headers being stripped without being
+    // individually understood.
+    if (this.eat('<')) {
       targs.push(this.parseTypeWithPtr())
+      while (this.eat(',')) targs.push(this.parseTypeWithPtr())
       // `vector<vector<int>>` lexes its closing `>>` as ONE token shared by
       // both template arg lists. Splitting it into two separate '>' tokens
       // (rather than relabeling it in place) leaves one for THIS call's
@@ -553,10 +586,10 @@ class Parser {
       do {
         let ptr = 0
         while (this.eat('*')) ptr++
-        this.eat('&')
+        const ref = this.eat('&')
         const nameTok = this.next()
         if (nameTok.k !== 'id') throw new ParseError(`Expected a variable name, found '${nameTok.v}'`, nameTok.line)
-        const d: Declarator = { name: nameTok.v, ptr, arrDims: [] }
+        const d: Declarator = { name: nameTok.v, ptr, ref, arrDims: [] }
         while (this.eat('[')) {
           d.arrDims.push(this.at(']') ? null : this.parseExpr())
           this.expect(']')
@@ -689,16 +722,17 @@ class Parser {
     if (t.k === 'kw' && t.v === 'sizeof') {
       this.next()
       if (this.eat('(')) {
-        // consume whatever's inside
-        let depth = 1
-        while (depth > 0 && this.peek().k !== 'eof') {
-          if (this.at('(')) depth++
-          if (this.at(')')) depth--
-          if (depth > 0) this.next()
-        }
+        // sizeof(Type) vs sizeof(expr) — a type name unambiguously starts a
+        // type (builtin keyword, or an already-declared struct/class name);
+        // anything else (a variable, an index/member expression, …) is an
+        // expression whose runtime SHAPE determines the size.
+        const arg = this.isTypeStart()
+          ? { kind: 'type' as const, type: this.parseTypeWithPtr() }
+          : { kind: 'expr' as const, e: this.parseExpr() }
         this.expect(')')
+        return { k: 'sizeof', arg, line: t.line }
       }
-      return { k: 'sizeof', line: t.line }
+      return { k: 'sizeof', arg: null, line: t.line }
     }
     return this.parsePostfix()
   }
@@ -730,6 +764,11 @@ class Parser {
   }
 
   parsePrimary(): Expr {
+    // A bare brace-init used INLINE as an expression, not just a decl-init —
+    // e.g. `pq.push({dist, node});` / `v.push_back({3, 4});`, the standard
+    // way to build a pair/struct/container value in one call argument. `{`
+    // never otherwise starts a valid expression, so this is unambiguous.
+    if (this.at('{')) return this.parseInitList()
     // vector<T>(...), stack<T>(...), queue<T>(...) used as an EXPRESSION —
     // the standard `vector<vector<int>> grid(rows, vector<int>(cols, 0))`
     // matrix-init idiom needs the inner `vector<int>(cols, 0)` to parse as a
@@ -773,6 +812,11 @@ class Parser {
       if (t.v === 'false') return { k: 'bool', v: false, line: t.line }
       if (t.v === 'nullptr') return { k: 'null', line: t.line }
       if (t.v === 'this') return { k: 'this', line: t.line }
+      if (t.v === 'string' && this.eat('::')) {
+        const n = this.next()
+        if (n.v === 'npos') return { k: 'num', v: STRING_NPOS, line: t.line }
+        throw new ParseError(`Unknown string:: member '${n.v}'`, n.line)
+      }
     }
     if (t.k === 'id') {
       if (t.v === 'NULL') return { k: 'null', line: t.line }
@@ -811,7 +855,7 @@ function pe(e: Expr): string {
     case 'member': return `${pe(e.base)}${e.arrow ? '->' : '.'}${e.name}`
     case 'new': return `new ${e.type.base}${e.count ? `[${pe(e.count)}]` : ''}`
     case 'initlist': return `{${e.items.map(pe).join(', ')}}`
-    case 'sizeof': return 'sizeof(…)'
+    case 'sizeof': return e.arg ? `sizeof(${e.arg.kind === 'type' ? typeName(e.arg.type) : pe(e.arg.e)})` : 'sizeof()'
     case 'ctorcall': return `${e.type.base}<...>(${e.args.map(pe).join(', ')})`
   }
 }
@@ -830,7 +874,17 @@ type Cell =
   | { t: 'char'; v: string }
   | { t: 'str'; v: string }
   | { t: 'ptr'; v: number; pt: string } // v === 0 → nullptr
-  | { t: 'arr'; elems: number[]; et: string; dyn: boolean; ctag?: 'vector' | 'stack' | 'queue' }
+  | {
+      t: 'arr'
+      elems: number[]
+      et: string
+      dyn: boolean
+      // map/unordered_map elements are `pair` objects (key=first, value=
+      // second); set/unordered_set elements are plain scalar keys — both
+      // reuse this same flat-list Cell shape, just with different element
+      // shapes and key-based (not index-based) method semantics.
+      ctag?: 'vector' | 'stack' | 'queue' | 'deque' | 'priority_queue' | 'map' | 'unordered_map' | 'set' | 'unordered_set'
+    }
   | { t: 'obj'; type: string; fields: Record<string, number> }
   | { t: 'iter'; header: number; idx: number; et: string }
 
@@ -894,22 +948,53 @@ class Interp {
   curChanged: number[] = []
   curReads: number[] = []
   randState = 0x2f6e2b1
-  stdinTokens: string[] = []
+  // Raw stdin + a character cursor — NOT pre-split into whitespace tokens,
+  // because getline() needs LINE boundaries, which a token split discards
+  // (`cin >>` and getline() must share one cursor into the same buffer, the
+  // same way real cin/getline interleave on one input stream).
+  stdinRaw = ''
   stdinPos = 0
 
   constructor(prog: Program, stdin = '') {
     this.prog = prog
-    this.stdinTokens = stdin.trim().length > 0 ? stdin.trim().split(/\s+/) : []
+    this.stdinRaw = stdin
     this.globalFrame = this.pushFrame('globals', '', '_root')
   }
 
   /** Next whitespace-separated token for `cin >>` — mirrors real cin's
    *  behavior of skipping whitespace and reading one token at a time. */
   nextInputToken(line: number): string {
-    if (this.stdinPos >= this.stdinTokens.length) {
+    while (this.stdinPos < this.stdinRaw.length && /\s/.test(this.stdinRaw[this.stdinPos])) this.stdinPos++
+    if (this.stdinPos >= this.stdinRaw.length) {
       throw new RuntimeError('cin: no more input available — add values to the Input field above Run', line)
     }
-    return this.stdinTokens[this.stdinPos++]
+    const start = this.stdinPos
+    while (this.stdinPos < this.stdinRaw.length && !/\s/.test(this.stdinRaw[this.stdinPos])) this.stdinPos++
+    return this.stdinRaw.slice(start, this.stdinPos)
+  }
+
+  /** Next full LINE for getline() — up to (and consuming) the next '\n', or
+   *  to the end of input. Returns null at EOF (no more input) rather than
+   *  throwing, so `while (getline(cin, s))` terminates the loop naturally
+   *  the way real end-of-stream failure does, instead of erroring out. */
+  nextInputLineOrNull(): string | null {
+    if (this.stdinPos >= this.stdinRaw.length) return null
+    const nl = this.stdinRaw.indexOf('\n', this.stdinPos)
+    const end = nl === -1 ? this.stdinRaw.length : nl
+    const out = this.stdinRaw.slice(this.stdinPos, end)
+    this.stdinPos = nl === -1 ? this.stdinRaw.length : nl + 1
+    return out
+  }
+
+  /** `cin.ignore()` — the standard fix-up for mixing `cin >>` with a
+   *  following getline() (the leftover '\n' after a `>>` read would
+   *  otherwise make the next getline() return an empty line). Simplified to
+   *  "skip to just past the next newline" regardless of arguments — the
+   *  real overload's exact count/delimiter isn't modeled, but this is what
+   *  the idiom is reached for in practice. */
+  skipToNextLine() {
+    const nl = this.stdinRaw.indexOf('\n', this.stdinPos)
+    this.stdinPos = nl === -1 ? this.stdinRaw.length : nl + 1
   }
 
   // ── memory helpers ──
@@ -1020,6 +1105,7 @@ class Interp {
       output: this.output,
       activeCall: top.callNodeId,
       graph: this.snapshotGraph(),
+      tree: this.snapshotTree(),
     })
     this.curChanged = []
     this.curReads = []
@@ -1211,6 +1297,72 @@ class Interp {
     return { nodeCount, edges, visited, visitedNode, queue, queueKind }
   }
 
+  /** Finds a struct with (at least) two self-referential pointer fields —
+   *  the `Node* left; Node* right;` binary-tree idiom, whatever the fields
+   *  are actually named — then locates a live instance that ISN'T
+   *  referenced as anyone's child (the root) and walks it. Purely
+   *  shape-based, same spirit as snapshotGraph: there's no way to know
+   *  which struct/variable the student intends as "the tree." A
+   *  doubly-linked list (`Node* prev; Node* next;`) also has two
+   *  self-pointer fields but doesn't misfire here — every node in a
+   *  doubly-linked list ends up referenced by SOME neighbor via one field
+   *  or the other, so no root candidate is ever found and this correctly
+   *  returns null instead of rendering nonsense. */
+  snapshotTree(): TreeSnap | null {
+    let treeType: TypeDef | null = null
+    let leftField = ''
+    let rightField = ''
+    for (const td of this.prog.types.values()) {
+      const selfPtrFields = td.fields.filter((f) => f.ptr === 1 && f.arrDims.length === 0 && f.type.base === td.name)
+      if (selfPtrFields.length >= 2) {
+        treeType = td
+        leftField = selfPtrFields[0].name
+        rightField = selfPtrFields[1].name
+        break
+      }
+    }
+    if (!treeType) return null
+
+    const instances: number[] = []
+    const referenced = new Set<number>()
+    for (const [addr, c] of this.mem) {
+      if (c.t !== 'obj' || c.type !== treeType.name) continue
+      instances.push(addr)
+      const lc = this.mem.get(c.fields[leftField])
+      const rc = this.mem.get(c.fields[rightField])
+      if (lc?.t === 'ptr' && lc.v !== 0) referenced.add(lc.v)
+      if (rc?.t === 'ptr' && rc.v !== 0) referenced.add(rc.v)
+    }
+    const rootAddr = instances.find((a) => !referenced.has(a))
+    if (rootAddr === undefined) return null
+
+    const labelFields = treeType.fields.filter((f) => f.name !== leftField && f.name !== rightField)
+    const labelOf = (fields: Record<string, number>): string => {
+      const parts = labelFields.map((f) => {
+        const fc = this.mem.get(fields[f.name])
+        return fc ? fmtCell(fc) : '?'
+      })
+      return labelFields.length <= 1 ? (parts[0] ?? '') : labelFields.map((f, i) => `${f.name}=${parts[i]}`).join(', ')
+    }
+
+    let touchedAddr: number | null = null
+    const seen = new Set<number>()
+    const walk = (addr: number): TreeNodeSnap | null => {
+      if (seen.has(addr)) return null // malformed/cyclic structure — don't hang
+      seen.add(addr)
+      const c = this.mem.get(addr)
+      if (!c || c.t !== 'obj') return null
+      if (this.curChanged.includes(addr)) touchedAddr = addr
+      const lc = this.mem.get(c.fields[leftField])
+      const rc = this.mem.get(c.fields[rightField])
+      const left = lc?.t === 'ptr' && lc.v !== 0 ? walk(lc.v) : null
+      const right = rc?.t === 'ptr' && rc.v !== 0 ? walk(rc.v) : null
+      return { addr, label: labelOf(c.fields), left, right }
+    }
+    const root = walk(rootAddr)
+    return root ? { root, touchedAddr } : null
+  }
+
   // ── construction of storage from types ──
   defaultCell(t: TypeRef, line: number): Cell {
     if (t.ptr > 0) return { t: 'ptr', v: 0, pt: t.base }
@@ -1220,8 +1372,19 @@ class Interp {
       case 'bool': return { t: 'bool', v: false }
       case 'char': return { t: 'char', v: '\0' }
       case 'string': return { t: 'str', v: '' }
-      case 'vector': case 'stack': case 'queue':
+      case 'vector': case 'stack': case 'queue': case 'deque': case 'priority_queue':
         return { t: 'arr', elems: [], et: t.targs[0]?.base ?? 'int', dyn: true, ctag: t.base }
+      case 'map': case 'unordered_map':
+        return { t: 'arr', elems: [], et: t.targs[1]?.base ?? 'int', dyn: true, ctag: t.base }
+      case 'set': case 'unordered_set':
+        return { t: 'arr', elems: [], et: t.targs[0]?.base ?? 'int', dyn: true, ctag: t.base }
+      case 'pair': {
+        const t1 = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+        const t2 = t.targs[1] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+        const first = this.alloc(this.defaultCell(t1, line))
+        const second = this.alloc(this.defaultCell(t2, line))
+        return { t: 'obj', type: 'pair', fields: { first, second } }
+      }
       default: {
         const td = this.prog.types.get(t.base)
         if (!td) throw new RuntimeError(`Unknown type '${t.base}'`, line)
@@ -1250,6 +1413,79 @@ class Interp {
       }
     }
     return { t: 'obj', type: td.name, fields }
+  }
+
+  // ── sizeof ──
+  // Approximate, conventional byte sizes (gcc/x86-64-ish: int=4, long/
+  // double/pointer=8, …) — real C++'s sizeof is implementation-defined, so
+  // there's no single "correct" answer; what matters for the standard
+  // teaching idiom `sizeof(arr)/sizeof(arr[0])` is that these are INTERNALLY
+  // consistent (same element size used on both sides of that division).
+  sizeOfType(t: TypeRef): number {
+    if (t.ptr > 0) return 8
+    switch (t.base) {
+      case 'char': case 'bool': return 1
+      case 'short': return 2
+      case 'int': case 'float': case 'size_t': case 'auto': return 4
+      case 'long': case 'double': return 8
+      case 'string': return 32
+      case 'pair': {
+        const t1 = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+        const t2 = t.targs[1] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+        return this.sizeOfType(t1) + this.sizeOfType(t2)
+      }
+      case 'vector': case 'stack': case 'queue': case 'deque': case 'priority_queue': return 24
+      case 'map': case 'unordered_map': case 'set': case 'unordered_set': return 48
+      default: {
+        const td = this.prog.types.get(t.base)
+        if (!td) return 4
+        let sum = 0
+        for (const f of td.fields) {
+          if (f.ptr > 0) sum += 8
+          else if (f.arrDims.length > 0) sum += this.sizeOfType({ ...f.type, ptr: 0 }) // length unknown statically here — element size only
+          else sum += this.sizeOfType({ ...f.type, ptr: f.ptr })
+        }
+        return sum || 4
+      }
+    }
+  }
+
+  sizeOfCell(c: Cell): number {
+    switch (c.t) {
+      case 'num': return this.sizeOfType({ base: c.ct, targs: [], ptr: 0, ref: false })
+      case 'bool': return 1
+      case 'char': return 1
+      case 'str': return 32
+      case 'ptr': return 8
+      case 'iter': return 8
+      case 'arr': {
+        const elemSize = c.elems.length > 0 ? this.sizeOfCell(this.cellAt(c.elems[0], 0)) : this.sizeOfType({ base: c.et, targs: [], ptr: 0, ref: false })
+        // A raw/static array's sizeof is its full byte footprint (what makes
+        // `sizeof(arr)/sizeof(arr[0])` recover the element count); a dynamic
+        // container (vector/…) instead reports its own small control-block
+        // size, same as real C++ — its footprint doesn't grow with content.
+        return c.dyn ? this.sizeOfType({ base: c.ctag ?? 'vector', targs: [], ptr: 0, ref: false }) : elemSize * c.elems.length
+      }
+      case 'obj': {
+        if (c.type === 'pair') {
+          return Object.values(c.fields).reduce((sum, fa) => sum + this.sizeOfCell(this.cellAt(fa, 0)), 0)
+        }
+        const td = this.prog.types.get(c.type)
+        if (!td) return 4
+        return Object.values(c.fields).reduce((sum, fa) => sum + this.sizeOfCell(this.cellAt(fa, 0)), 0)
+      }
+    }
+  }
+
+  sizeOfExpr(e: Expr, line: number): number {
+    const addr = this.addrOfOrNull(e)
+    if (addr !== null) {
+      const c = this.mem.get(addr)
+      if (c) return this.sizeOfCell(c)
+    }
+    const v = this.evalR(e)
+    if (v.t === 'void' || v.t === 'stream') return 0
+    return this.sizeOfCell(this.cellForVal(v))
   }
 
   asNum(v: Val, line: number): number {
@@ -1315,17 +1551,104 @@ class Interp {
     for (let i = 0; i < n; i++) {
       elems.push(fillExpr ? this.copyOfExprValue(fillExpr, et, line) : this.alloc(this.defaultCell(et, line)))
     }
-    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' })
+    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' | 'deque' | 'priority_queue' })
+  }
+
+  /** `Node n = {1, 2};` — brace aggregate-init for a struct/class (or
+   *  `pair<T1,T2> p = {1, 2};`), field-order like `evalNew`'s own aggregate-
+   *  init for `new Node(args)` (which this mirrors — neither handles a
+   *  nested-braces field, matching real C++ aggregate-init depth this
+   *  interpreter otherwise supports). */
+  buildStructFromInitList(t: TypeRef, items: Expr[], line: number): number {
+    if (t.base === 'pair') {
+      const t1 = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+      const t2 = t.targs[1] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+      const first = items[0] ? this.copyOfExprValue(items[0], t1, line) : this.alloc(this.defaultCell(t1, line))
+      const second = items[1] ? this.copyOfExprValue(items[1], t2, line) : this.alloc(this.defaultCell(t2, line))
+      return this.alloc({ t: 'obj', type: 'pair', fields: { first, second } })
+    }
+    const td = this.prog.types.get(t.base)
+    if (!td) throw new RuntimeError(`Unknown type '${t.base}'`, line)
+    const objCell = this.buildObject(td, line)
+    const addr = this.alloc(objCell)
+    td.fields.forEach((f, i) => {
+      if (i < items.length) this.write(objCell.fields[f.name], this.evalR(items[i]), line)
+    })
+    return addr
+  }
+
+  /** `map<K,V> m = {{"a",1}, {"b",2}};` — each item is a `{key, value}`
+   *  brace pair (unlike a set's flat `{1,2,3}`, reused via buildFromInitList
+   *  below). Kept sorted by key on construction, same as insert(). */
+  buildMapFromInitList(t: TypeRef, items: Expr[], line: number): number {
+    const kt = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+    const vt = t.targs[1] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+    const elems = items.map((it) => {
+      if (it.k !== 'initlist' || it.items.length !== 2) throw new RuntimeError('Expected a {key, value} pair', line)
+      const first = this.copyOfExprValue(it.items[0], kt, line)
+      const second = this.copyOfExprValue(it.items[1], vt, line)
+      return this.alloc({ t: 'obj', type: 'pair', fields: { first, second } })
+    })
+    return this.alloc({
+      t: 'arr',
+      elems: this.sortAddrsAscending(elems, line),
+      et: vt.base,
+      dyn: true,
+      ctag: t.base as 'map' | 'unordered_map',
+    })
+  }
+
+  /** Resolve an expression that should produce a `pair`-shaped value — a
+   *  `make_pair(...)` call, an existing pair variable, or an inline `{k, v}`
+   *  literal (map::insert's usual argument shapes) — into its (first,
+   *  second) field addresses, without needing to know the pair's element
+   *  types ahead of time: each field's cell shapes itself from the
+   *  literal's own runtime value, same `auto`-inference convention used
+   *  elsewhere (cellForVal). */
+  resolveAsPairFields(e: Expr, line: number): { first: number; second: number } {
+    if (e.k === 'initlist') {
+      if (e.items.length !== 2) throw new RuntimeError('Expected a {key, value} pair', line)
+      return {
+        first: this.alloc(this.cellForVal(this.evalR(e.items[0]) as Exclude<Val, { t: 'void' } | { t: 'stream' }>)),
+        second: this.alloc(this.cellForVal(this.evalR(e.items[1]) as Exclude<Val, { t: 'void' } | { t: 'stream' }>)),
+      }
+    }
+    const src = this.resolveObjectSource(e, line)
+    if (src !== null) {
+      const c = this.cellAt(src, line)
+      if (c.t === 'obj' && c.type === 'pair') return { first: c.fields.first, second: c.fields.second }
+    }
+    throw new RuntimeError('Expected a pair (e.g. make_pair(k, v) or {k, v})', line)
+  }
+
+  /** `set<T> s = {5, 3, 3, 1, 4};` — unlike a vector's flat initlist, a set
+   *  must deduplicate and stay sorted, so this inserts one at a time through
+   *  the same exists-check `insert()` uses rather than bulk-building then
+   *  reconciling duplicates after the fact. */
+  buildSetFromInitList(t: TypeRef, items: Expr[], line: number): number {
+    const et: TypeRef = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
+    const header = this.alloc({ t: 'arr', elems: [], et: et.base, dyn: true, ctag: t.base as 'set' | 'unordered_set' })
+    for (const it of items) {
+      const v = this.evalR(it)
+      if (v.t === 'void' || v.t === 'stream') throw new RuntimeError('Cannot insert a void value into a set', line)
+      const cell = this.cellAt(header, line)
+      if (cell.t !== 'arr') continue
+      const exists = cell.elems.some((ea) => this.valsEqual(this.readCell(ea, line), v, line))
+      if (exists) continue
+      const a = this.alloc(this.cellForVal(v))
+      this.mem.set(header, { ...cell, elems: this.sortAddrsAscending([...cell.elems, a], line) })
+    }
+    return header
   }
 
   /** `{1, 2, 3}` (or nested, `{{1,2},{3,4}}`) for a vector/stack/queue decl. */
   buildFromInitList(t: TypeRef, items: Expr[], line: number): number {
     const et: TypeRef = t.targs[0] ?? { base: 'int', targs: [], ptr: 0, ref: false }
-    const isContainerEt = et.base === 'vector' || et.base === 'stack' || et.base === 'queue'
+    const isContainerEt = ARR_CTAGS.has(et.base)
     const elems = items.map((it) =>
       it.k === 'initlist' && isContainerEt ? this.buildFromInitList(et, it.items, line) : this.copyOfExprValue(it, et, line)
     )
-    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' })
+    return this.alloc({ t: 'arr', elems, et: et.base, dyn: true, ctag: t.base as 'vector' | 'stack' | 'queue' | 'deque' | 'priority_queue' })
   }
 
   /** Resolve one call argument against its parameter (builtins/ctors have no
@@ -1344,17 +1667,96 @@ class Interp {
    *  for the common case. */
   bindArg(argExpr: Expr, param: Param | undefined, line: number): Val {
     if (param?.type.ref) return { t: 'ptr', v: this.addrOf(argExpr), pt: '&ref' }
-    const isValueContainer =
-      param &&
-      param.type.ptr === 0 &&
-      (param.type.base === 'vector' || param.type.base === 'stack' || param.type.base === 'queue' || this.prog.types.has(param.type.base))
+    const isValueContainer = param !== undefined && param.type.ptr === 0 && this.isValueTypeBase(param.type.base)
     if (isValueContainer) {
-      if (argExpr.k === 'ctorcall') return { t: 'ptr', v: this.buildContainer(argExpr.type, argExpr.args, line), pt: '&byval' }
-      const srcAddr = this.addrOfOrNull(argExpr)
-      const c = srcAddr !== null ? this.mem.get(srcAddr) : undefined
-      if (c && (c.t === 'arr' || c.t === 'obj')) return { t: 'ptr', v: this.deepCopyCell(srcAddr!, line), pt: '&byval' }
+      const src = this.resolveObjectSource(argExpr, line)
+      if (src !== null) return { t: 'ptr', v: this.deepCopyCell(src, line), pt: '&byval' }
     }
     return this.evalR(argExpr)
+  }
+
+  /** Reorders a list of element ADDRESSES (not their values — the addresses
+   *  themselves, so this works for `priority_queue`'s own `elems` list
+   *  without needing to write anything into a fixed slot the way the
+   *  `sort()` builtin does) into ascending order by value. A `pair` element
+   *  sorts by its `.first` field — real C++ pairs compare lexicographically
+   *  (first, then second), but `.first` alone is the dominant case (a
+   *  priority_queue<pair<int,int>> keyed by distance/weight, the standard
+   *  Dijkstra/Prim idiom) and covers it without needing full tuple
+   *  comparison. */
+  sortAddrsAscending(addrs: number[], line: number): number[] {
+    const keyOf = (addr: number): number | string => {
+      const c = this.cellAt(addr, line)
+      if (c.t === 'obj' && c.type === 'pair' && 'first' in c.fields) {
+        const fv = this.readCell(c.fields.first, line)
+        return fv.t === 'str' ? fv.v : this.asNum(fv, line)
+      }
+      const v = this.readCell(addr, line)
+      return v.t === 'str' ? v.v : this.asNum(v, line)
+    }
+    const withKey = addrs.map((addr) => ({ addr, key: keyOf(addr) }))
+    withKey.sort((x, y) =>
+      typeof x.key === 'string'
+        ? x.key < (y.key as string) ? -1 : x.key > (y.key as string) ? 1 : 0
+        : (x.key as number) - (y.key as number)
+    )
+    return withKey.map((w) => w.addr)
+  }
+
+  /** readCell, but a whole object VALUE (a `pair`/struct/class instance)
+   *  decays to a pointer at its own address instead of throwing — needed by
+   *  container accessors (`top`/`front`/`back`/`at`) that must be able to
+   *  hand back a container-of-objects' element, not just a scalar. Matches
+   *  the decay convention `new`/ctor-calls/`make_pair` already use; scoped
+   *  to these accessors rather than folded into `readCell` itself, which
+   *  elsewhere deliberately THROWS on a bare object read as a guard against
+   *  treating a whole struct as a scalar somewhere unsupported. */
+  readOrDecayCell(addr: number, line: number): Val {
+    const c = this.cellAt(addr, line)
+    if (c.t === 'obj') {
+      this.curReads.push(addr)
+      this.op()
+      return { t: 'ptr', v: addr, pt: c.type }
+    }
+    return this.readCell(addr, line)
+  }
+
+  /** True for any base type whose VALUE is a whole structure (a container
+   *  or a struct/class instance) rather than a scalar — these always need
+   *  deep-copy value semantics (assignment, by-value params, decl-init),
+   *  never a bare scalar write. */
+  isValueTypeBase(base: string): boolean {
+    return (
+      ARR_CTAGS.has(base) ||
+      base === 'pair' ||
+      base === 'map' ||
+      base === 'unordered_map' ||
+      base === 'set' ||
+      base === 'unordered_set' ||
+      this.prog.types.has(base)
+    )
+  }
+
+  /** Address of a whole container/object VALUE ready to copy from — a
+   *  `vector<T>(…)`/`pair<T,T>(…)` ctor-call, a variable naming an existing
+   *  container/object, or a CALL expression that produces one BY VALUE
+   *  (e.g. `make_pair(a, b)`), which decays to a pointer at its own address
+   *  the same way `new`/a ctor-call already do. Returns null if `e` isn't
+   *  any of these — callers fall back to their own plain-scalar path then. */
+  resolveObjectSource(e: Expr, line: number): number | null {
+    if (e.k === 'ctorcall') return this.buildContainer(e.type, e.args, line)
+    const srcAddr = this.addrOfOrNull(e)
+    if (srcAddr !== null) {
+      const c = this.mem.get(srcAddr)
+      if (c && (c.t === 'arr' || c.t === 'obj')) return srcAddr
+    } else if (e.k === 'call') {
+      const v = this.evalR(e)
+      if (v.t === 'ptr' && v.v !== 0) {
+        const c = this.mem.get(v.v)
+        if (c && (c.t === 'arr' || c.t === 'obj')) return v.v
+      }
+    }
+    return null
   }
 
   /** The value of `e`, materialized into a FRESH address of type `target`:
@@ -1367,14 +1769,17 @@ class Interp {
    *  before this existed). Used anywhere a value (not a reference) is
    *  needed: decl init, a container's fill element, push_back's argument. */
   copyOfExprValue(e: Expr, target: TypeRef, line: number): number {
-    const isValueTarget =
-      target.ptr === 0 &&
-      (target.base === 'vector' || target.base === 'stack' || target.base === 'queue' || this.prog.types.has(target.base))
+    // Brace-init used inline as a value (`push_back({3, 4})`, a fill/resize
+    // arg, …) — same aggregate-build the decl-init path uses, just reached
+    // from a container-method/argument site instead of `execDecl` directly.
+    if (e.k === 'initlist' && target.ptr === 0) {
+      if (ARR_CTAGS.has(target.base)) return this.buildFromInitList(target, e.items, line)
+      if (target.base === 'pair' || this.prog.types.has(target.base)) return this.buildStructFromInitList(target, e.items, line)
+    }
+    const isValueTarget = target.ptr === 0 && this.isValueTypeBase(target.base)
     if (isValueTarget) {
-      if (e.k === 'ctorcall') return this.buildContainer(e.type, e.args, line)
-      const srcAddr = this.addrOfOrNull(e)
-      const c = srcAddr !== null ? this.mem.get(srcAddr) : undefined
-      if (c && (c.t === 'arr' || c.t === 'obj')) return this.deepCopyCell(srcAddr!, line)
+      const src = this.resolveObjectSource(e, line)
+      if (src !== null) return this.deepCopyCell(src, line)
     }
     // `auto x = expr;` (bare, no `*`) can't pre-build a cell shape the way
     // every other declared type can — `defaultCell` used to guess 'int' and
@@ -1438,13 +1843,35 @@ class Interp {
     return this.asNum(a, line) === this.asNum(b, line)
   }
 
+  /** Ordering compare for the same scalar element types — negative/zero/
+   *  positive like a normal comparator. Shared by binary_search/lower_bound/
+   *  upper_bound (all assume an ascending-sorted range, same as real C++). */
+  cmpVals(a: Val, b: Val, line: number): number {
+    if (a.t === 'str' || b.t === 'str') {
+      const as = fmtVal(a, true)
+      const bs = fmtVal(b, true)
+      return as < bs ? -1 : as > bs ? 1 : 0
+    }
+    return this.asNum(a, line) - this.asNum(b, line)
+  }
+
   // ── declaration execution ──
   execDecl(s: Extract<Stmt, { k: 'decl' }>) {
     for (const d of s.decls) {
       const t: TypeRef = { ...s.type, ptr: s.type.ptr + d.ptr }
+      // Reference variable: `int &a = b;` / `Node &curr = node;` — alias the
+      // initializer's OWN address rather than allocating a fresh cell, same
+      // convention reference PARAMETERS already use (bindArg/callFunction).
+      if (d.ref) {
+        if (!d.init) throw new RuntimeError(`Reference '${d.name}' must be initialized`, s.line)
+        const addr = this.addrOf(d.init)
+        this.declare(d.name, addr)
+        this.emit('decl', s.line, `${typeName(t)}& ${d.name} = ${pe(d.init)}`)
+        continue
+      }
       let addr: number
       let descVal = ''
-      const isContainerType = t.base === 'vector' || t.base === 'stack' || t.base === 'queue'
+      const isContainerType = ARR_CTAGS.has(t.base)
       if (d.arrDims.length > 0) {
         addr = this.allocArray(t, d.arrDims, d.init, s.line)
         const c = this.mem.get(addr)
@@ -1454,12 +1881,28 @@ class Interp {
         // literal like `vector<vector<int>> grid = {{1,2},{3,4}};`).
         addr = this.buildFromInitList(t, d.init.items, s.line)
         descVal = `{${d.init.items.map(pe).join(', ')}}`
+      } else if (d.init && d.init.k === 'initlist' && t.ptr === 0 && (t.base === 'pair' || this.prog.types.has(t.base))) {
+        // Node n = {1, 2};  /  pair<int,int> p = {1, 2};
+        addr = this.buildStructFromInitList(t, d.init.items, s.line)
+        descVal = `{${d.init.items.map(pe).join(', ')}}`
+      } else if (d.init && d.init.k === 'initlist' && (t.base === 'map' || t.base === 'unordered_map')) {
+        // map<K,V> m = {{"a",1}, {"b",2}};
+        addr = this.buildMapFromInitList(t, d.init.items, s.line)
+        descVal = `{${d.init.items.map(pe).join(', ')}}`
+      } else if (d.init && d.init.k === 'initlist' && (t.base === 'set' || t.base === 'unordered_set')) {
+        // set<T> s = {5, 3, 3, 1, 4}; — deduplicates, stays sorted.
+        addr = this.buildSetFromInitList(t, d.init.items, s.line)
+        descVal = `{${d.init.items.map(pe).join(', ')}}`
       } else if (d.ctorArgs && isContainerType) {
         // vector<T> v(n) / v(n, fill) — fill may be a nested `vector<T>(…)`
         // ctorcall, which is what actually builds a 2D matrix in one line.
         addr = this.buildContainer(t, d.ctorArgs, s.line)
         const c = this.mem.get(addr)
         descVal = c?.t === 'arr' ? fmtArrShort(c, this.mem) : ''
+      } else if (d.ctorArgs && t.base === 'pair') {
+        // pair<int,int> p(1, 2);
+        addr = this.buildStructFromInitList(t, d.ctorArgs, s.line)
+        descVal = `{${d.ctorArgs.map(pe).join(', ')}}`
       } else if (d.init) {
         // Deep-copies when the RHS is a container/object (variable or a
         // `vector<T>(…)` ctorcall); plain evalR+write otherwise — same as
@@ -1486,7 +1929,11 @@ class Interp {
       }
       this.declare(d.name, addr)
       const tn = typeName(t)
-      this.emit('decl', s.line, descVal ? `${tn} ${d.name} = ${descVal}` : `${tn} ${d.name}`)
+      // A declaration whose initializer allocates on the heap reads as an
+      // allocation event first and a plain decl second — same distinction
+      // the 'alloc' step kind exists for (heap-tracker color in dsa.tsx).
+      const kind: StepKind = d.init?.k === 'new' ? 'alloc' : 'decl'
+      this.emit(kind, s.line, descVal ? `${tn} ${d.name} = ${descVal}` : `${tn} ${d.name}`)
     }
   }
 
@@ -1537,7 +1984,11 @@ class Interp {
         const v = this.evalR(s.e)
         if (isBareUserCall) return // entry/return steps already emitted
         const isIO = this.output.length > hadOutput
-        const kind: StepKind = isIO ? 'io' : s.e.k === 'assign' || s.e.k === 'un' ? 'assign' : 'flow'
+        // `p = new Node();` (an assignment INTO an existing pointer, not a
+        // fresh decl — that case is handled in execDecl) is an allocation
+        // event first, same distinction as there.
+        const isAlloc = s.e.k === 'new' || (s.e.k === 'assign' && s.e.value.k === 'new')
+        const kind: StepKind = isIO ? 'io' : isAlloc ? 'alloc' : s.e.k === 'assign' || s.e.k === 'un' ? 'assign' : 'flow'
         let desc = pe(s.e)
         if (s.e.k === 'assign') desc = `${pe(s.e.target)} ${s.e.op} ${fmtValOrExpr(v, s.e.value)}`
         if (isIO) desc = `cout ≪ ${JSON.stringify(this.output.slice(hadOutput))}`
@@ -1780,6 +2231,30 @@ class Interp {
       case 'index': {
         const baseAddr = this.addrOfOrNull(e.base)
         const baseCell = baseAddr !== null ? this.mem.get(baseAddr) : undefined
+        // map/unordered_map's operator[] takes a KEY, not a numeric index —
+        // must be checked (and e.idx evaluated as a plain Val, not eagerly
+        // coerced to a number below) before the generic numeric-index path.
+        if (baseCell?.t === 'arr' && (baseCell.ctag === 'map' || baseCell.ctag === 'unordered_map')) {
+          const key = this.evalR(e.idx)
+          if (key.t === 'void' || key.t === 'stream') throw new RuntimeError('Cannot use a void value as a map key', e.line)
+          const existing = baseCell.elems.find((ea) => {
+            const pc = this.cellAt(ea, e.line)
+            return pc.t === 'obj' && this.valsEqual(this.readCell(pc.fields.first, e.line), key, e.line)
+          })
+          if (existing !== undefined) {
+            const pc = this.cellAt(existing, e.line)
+            if (pc.t === 'obj') return pc.fields.second
+          }
+          // Not found: operator[] auto-inserts a default-valued entry —
+          // matches real std::map::operator[] semantics.
+          const valueT: TypeRef = { base: baseCell.et, targs: [], ptr: 0, ref: false }
+          const keyAddr = this.alloc(this.cellForVal(key))
+          const valAddr = this.alloc(this.defaultCell(valueT, e.line))
+          const pairAddr = this.alloc({ t: 'obj', type: 'pair', fields: { first: keyAddr, second: valAddr } })
+          this.mem.set(baseAddr!, { ...baseCell, elems: this.sortAddrsAscending([...baseCell.elems, pairAddr], e.line) })
+          this.curChanged.push(baseAddr!)
+          return valAddr
+        }
         const idx = this.asNum(this.evalR(e.idx), e.line) | 0
         this.counters.arrayAccesses++
         if (baseCell?.t === 'arr') {
@@ -1801,9 +2276,23 @@ class Interp {
         let objAddr: number
         if (e.arrow) {
           const p = this.evalR(e.base)
-          if (p.t !== 'ptr') throw new RuntimeError(`'${pe(e.base)}' is not a pointer`, e.line)
-          if (p.v === 0) throw new RuntimeError(`Null pointer dereference: '${pe(e.base)}' is nullptr`, e.line)
-          objAddr = p.v
+          if (p.t === 'iter') {
+            // `it->first`/`it->second` — the standard map-iteration idiom.
+            // Real C++ overloads `->` for iterators the same as `*it` plus
+            // a field access; mirror that by dereferencing exactly like the
+            // unary `*` case above does, instead of requiring a raw pointer.
+            const ac = this.cellAt(p.header, e.line)
+            if (ac.t !== 'arr') throw new RuntimeError('Invalid iterator', e.line)
+            if (p.idx < 0 || p.idx >= ac.elems.length) {
+              throw new RuntimeError('Dereferencing an out-of-range iterator (did you dereference end()?)', e.line)
+            }
+            objAddr = ac.elems[p.idx]
+          } else if (p.t === 'ptr') {
+            if (p.v === 0) throw new RuntimeError(`Null pointer dereference: '${pe(e.base)}' is nullptr`, e.line)
+            objAddr = p.v
+          } else {
+            throw new RuntimeError(`'${pe(e.base)}' is not a pointer or iterator`, e.line)
+          }
         } else {
           objAddr = this.addrOf(e.base)
         }
@@ -1848,7 +2337,11 @@ class Interp {
       case 'chr': return { t: 'char', v: e.v }
       case 'bool': return { t: 'bool', v: e.v }
       case 'null': return { t: 'ptr', v: 0, pt: 'void' }
-      case 'sizeof': return { t: 'num', v: 4, ct: 'int' }
+      case 'sizeof': {
+        if (!e.arg) return { t: 'num', v: 4, ct: 'size_t' }
+        const v = e.arg.kind === 'type' ? this.sizeOfType(e.arg.type) : this.sizeOfExpr(e.arg.e, e.line)
+        return { t: 'num', v, ct: 'size_t' }
+      }
       case 'this': {
         const f = this.frames[this.frames.length - 1]
         if (f.thisAddr === null) throw new RuntimeError("'this' outside a method", e.line)
@@ -1892,7 +2385,8 @@ class Interp {
             // whole-structure assignment: deep-copy INTO the target's own
             // address so anything else already pointing at it sees the new
             // contents, same value semantics as a declaration-init copy.
-            const srcAddr = e.value.k === 'ctorcall' ? this.buildContainer(e.value.type, e.value.args, e.line) : this.addrOf(e.value)
+            const srcAddr = this.resolveObjectSource(e.value, e.line)
+            if (srcAddr === null) throw new RuntimeError(`Cannot assign '${pe(e.value)}' to '${pe(e.target)}'`, e.line)
             this.copyCellInto(addr, srcAddr, e.line)
             const c = this.mem.get(addr)!
             return c.t === 'arr' ? { t: 'ptr', v: c.elems[0] ?? 0, pt: c.et } : { t: 'ptr', v: addr, pt: c.t === 'obj' ? c.type : 'object' }
@@ -2126,6 +2620,43 @@ class Interp {
       return { t: 'void' }
     }
 
+    // make_pair(a, b) — builds a pair<...> object and decays to a pointer at
+    // its own address, the same convention `new`/a ctor-call already use for
+    // any value-returning-by-object expression. cellForVal shapes each field
+    // from the ARGUMENT's own runtime value rather than a declared type, so
+    // this works before pair's own T1/T2 are known anywhere syntactically —
+    // exactly like `auto` inference elsewhere in this file.
+    if (name === 'make_pair') {
+      if (e.args.length !== 2) throw new RuntimeError('make_pair(a, b) takes two arguments', e.line)
+      const av = this.evalR(e.args[0])
+      const bv = this.evalR(e.args[1])
+      if (av.t === 'void' || av.t === 'stream' || bv.t === 'void' || bv.t === 'stream') {
+        throw new RuntimeError('Cannot build a pair from a void/stream value', e.line)
+      }
+      const first = this.alloc(this.cellForVal(av))
+      const second = this.alloc(this.cellForVal(bv))
+      const addr = this.alloc({ t: 'obj', type: 'pair', fields: { first, second } })
+      return { t: 'ptr', v: addr, pt: 'pair' }
+    }
+
+    // getline(cin, str) — reads a whole LINE (embedded spaces included,
+    // unlike cin >>) into str. Returns a bool standing in for the real
+    // istream& result: true on success, false at end-of-input, so the
+    // standard `while (getline(cin, line))` read-everything idiom
+    // terminates naturally instead of erroring out.
+    if (name === 'getline') {
+      if (e.args.length !== 2) throw new RuntimeError('getline(cin, str) takes a stream and a string variable', e.line)
+      const streamV = this.evalR(e.args[0])
+      if (streamV.t !== 'stream') throw new RuntimeError("getline()'s first argument must be cin", e.line)
+      const addr = this.addrOf(e.args[1])
+      const cell = this.cellAt(addr, e.line)
+      if (cell.t !== 'str') throw new RuntimeError('getline() needs a plain string variable', e.line)
+      const lineStr = this.nextInputLineOrNull()
+      if (lineStr === null) return { t: 'bool', v: false }
+      this.write(addr, { t: 'str', v: lineStr }, e.line)
+      return { t: 'bool', v: true }
+    }
+
     const fn = this.prog.funcs.get(name)
     if (fn) {
       const args = e.args.map((a, i) => this.bindArg(a, fn.params[i], e.line))
@@ -2133,7 +2664,7 @@ class Interp {
     }
 
     // STL algorithms over an iterator/pointer [first, last) range.
-    if (name === 'sort' || name === 'reverse' || name === 'find' || name === 'min_element' || name === 'max_element') {
+    if (RANGE_ALGO_NAMES.has(name)) {
       if (name === 'sort' && e.args.length > 2) {
         throw new RuntimeError('sort() with a custom comparator is not supported — only ascending sort(first, last)', e.line)
       }
@@ -2165,6 +2696,71 @@ class Interp {
           if (this.valsEqual(this.readCell(addrs[i], e.line), target, e.line)) return iterAt(i)
         }
         return b // std::find returns `last` on failure
+      }
+      if (name === 'count') {
+        const target = this.evalR(e.args[2])
+        let n = 0
+        for (const addr of addrs) if (this.valsEqual(this.readCell(addr, e.line), target, e.line)) n++
+        return { t: 'num', v: n, ct: 'int' }
+      }
+      if (name === 'fill') {
+        const v = this.evalR(e.args[2])
+        for (const addr of addrs) this.write(addr, v, e.line)
+        return { t: 'void' }
+      }
+      if (name === 'unique') {
+        // Collapses each run of consecutive equal elements to one, written
+        // into the FRONT of the range (real std::unique semantics) — the
+        // rest of the range is left as-is (unspecified in real C++ too).
+        // Returns an iterator to the new logical end; combine with
+        // resize() (not erase(), which isn't supported here) to shrink:
+        // `int n = unique(v.begin(), v.end()) - v.begin(); v.resize(n);`
+        let w = 0
+        for (let i = 0; i < addrs.length; i++) {
+          const v = this.readCell(addrs[i], e.line)
+          if (w === 0 || !this.valsEqual(v, this.readCell(addrs[w - 1], e.line), e.line)) {
+            if (i !== w) this.write(addrs[w], v, e.line)
+            w++
+          }
+        }
+        return iterAt(w)
+      }
+      if (name === 'binary_search' || name === 'lower_bound' || name === 'upper_bound') {
+        const target = this.evalR(e.args[2])
+        let lo = 0
+        let hi = addrs.length
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1
+          const cmp = this.cmpVals(this.readCell(addrs[mid], e.line), target, e.line)
+          const goLeft = name === 'upper_bound' ? cmp > 0 : cmp >= 0
+          if (goLeft) hi = mid
+          else lo = mid + 1
+        }
+        if (name === 'binary_search') {
+          return { t: 'bool', v: lo < addrs.length && this.valsEqual(this.readCell(addrs[lo], e.line), target, e.line) }
+        }
+        return iterAt(lo)
+      }
+      if (name === 'copy') {
+        const destV = this.evalR(e.args[2])
+        let destAddrOf: (i: number) => number
+        if (destV.t === 'iter') {
+          const dc = this.cellAt(destV.header, e.line)
+          if (dc.t !== 'arr') throw new RuntimeError('copy() needs a valid destination iterator', e.line)
+          destAddrOf = (i) => {
+            const idx = destV.idx + i
+            if (idx < 0 || idx >= dc.elems.length) throw new RuntimeError('copy() destination range is too short', e.line)
+            return dc.elems[idx]
+          }
+        } else if (destV.t === 'ptr') {
+          destAddrOf = (i) => destV.v + i
+        } else {
+          throw new RuntimeError('copy() needs an iterator/pointer destination', e.line)
+        }
+        addrs.forEach((srcAddr, i) => this.write(destAddrOf(i), this.readCell(srcAddr, e.line), e.line))
+        return destV.t === 'iter'
+          ? { t: 'iter', header: destV.header, idx: destV.idx + addrs.length, et: destV.et }
+          : { t: 'ptr', v: destV.v + addrs.length, pt: destV.pt }
       }
       // min_element / max_element
       if (addrs.length === 0) return b
@@ -2217,6 +2813,14 @@ class Interp {
   }
 
   evalMethodCall(m: Extract<Expr, { k: 'member' }>, args: Expr[], line: number): Val {
+    // cin.ignore() — cin has no address of its own (it's a special
+    // identifier, not a declared variable), so it must be caught before the
+    // generic receiver-resolution below, which would otherwise fail to find
+    // any cell for it and report "cannot call ignore() on cin".
+    if (m.base.k === 'id' && m.base.name === 'cin' && m.name === 'ignore') {
+      this.skipToNextLine()
+      return { t: 'void' }
+    }
     // resolve the receiver
     let recvAddr: number | null = null
     if (m.arrow) {
@@ -2233,6 +2837,44 @@ class Interp {
     if (recvAddr !== null && cell?.t === 'str') {
       if (m.name === 'length' || m.name === 'size') return { t: 'num', v: cell.v.length, ct: 'int' }
       if (m.name === 'empty') return { t: 'bool', v: cell.v.length === 0 }
+      if (m.name === 'substr') {
+        const pos = args[0] ? this.asNum(this.evalR(args[0]), line) | 0 : 0
+        const len = args[1] !== undefined ? this.asNum(this.evalR(args[1]), line) | 0 : undefined
+        return { t: 'str', v: len !== undefined ? cell.v.slice(pos, pos + len) : cell.v.slice(pos) }
+      }
+      if (m.name === 'find') {
+        const needleV = this.evalR(args[0])
+        const needle = needleV.t === 'char' ? needleV.v : fmtVal(needleV, true)
+        const from = args[1] ? this.asNum(this.evalR(args[1]), line) | 0 : 0
+        const idx = cell.v.indexOf(needle, from)
+        return { t: 'num', v: idx === -1 ? STRING_NPOS : idx, ct: 'size_t' }
+      }
+      if (m.name === 'erase') {
+        const pos = args[0] ? this.asNum(this.evalR(args[0]), line) | 0 : 0
+        const len = args[1] !== undefined ? this.asNum(this.evalR(args[1]), line) | 0 : cell.v.length - pos
+        this.mem.set(recvAddr, { t: 'str', v: cell.v.slice(0, pos) + cell.v.slice(pos + len) })
+        this.curChanged.push(recvAddr)
+        return { t: 'void' }
+      }
+      if (m.name === 'insert') {
+        const pos = this.asNum(this.evalR(args[0]), line) | 0
+        const insV = this.evalR(args[1])
+        const insStr = insV.t === 'char' ? insV.v : fmtVal(insV, true)
+        this.mem.set(recvAddr, { t: 'str', v: cell.v.slice(0, pos) + insStr + cell.v.slice(pos) })
+        this.curChanged.push(recvAddr)
+        return { t: 'void' }
+      }
+      if (m.name === 'append') {
+        const appV = this.evalR(args[0])
+        const appStr = appV.t === 'char' ? appV.v : fmtVal(appV, true)
+        this.mem.set(recvAddr, { t: 'str', v: cell.v + appStr })
+        this.curChanged.push(recvAddr)
+        return { t: 'void' }
+      }
+      if (m.name === 'compare') {
+        const other = fmtVal(this.evalR(args[0]), true)
+        return { t: 'num', v: cell.v < other ? -1 : cell.v > other ? 1 : 0, ct: 'int' }
+      }
       throw new RuntimeError(`string::${m.name} is not supported`, line)
     }
 
@@ -2250,15 +2892,27 @@ class Interp {
         case 'size': case 'length': return { t: 'num', v: c.elems.length, ct: 'int' }
         case 'empty': return { t: 'bool', v: c.elems.length === 0 }
         case 'begin': case 'end': {
-          // stack/queue are container ADAPTORS in real C++ — no iterators.
-          if (c.ctag === 'stack' || c.ctag === 'queue') {
+          // stack/queue/priority_queue are container ADAPTORS in real C++
+          // — no iterators (deque, unlike those three, is a real iterable
+          // container, so it's deliberately not excluded here).
+          if (c.ctag === 'stack' || c.ctag === 'queue' || c.ctag === 'priority_queue') {
             throw new RuntimeError(`${c.ctag} has no ${m.name}() — it isn't an iterable container in real C++`, line)
           }
           return { t: 'iter', header: recvAddr, idx: m.name === 'begin' ? 0 : c.elems.length, et: c.et }
         }
         case 'push_back': case 'push': {
           const a = args[0] ? this.copyOfExprValue(args[0], et, line) : this.alloc(this.defaultCell(et, line))
-          this.mem.set(recvAddr, { ...c, elems: [...c.elems, a] })
+          // priority_queue keeps itself sorted ascending on every insert —
+          // top()/pop() then read from the END, same convention `stack`
+          // already uses, giving a default MAX-heap.
+          const elems = c.ctag === 'priority_queue' ? this.sortAddrsAscending([...c.elems, a], line) : [...c.elems, a]
+          this.mem.set(recvAddr, { ...c, elems })
+          this.curChanged.push(recvAddr)
+          return { t: 'void' }
+        }
+        case 'push_front': {
+          const a = args[0] ? this.copyOfExprValue(args[0], et, line) : this.alloc(this.defaultCell(et, line))
+          this.mem.set(recvAddr, { ...c, elems: [a, ...c.elems] })
           this.curChanged.push(recvAddr)
           return { t: 'void' }
         }
@@ -2271,8 +2925,18 @@ class Interp {
           }
           return { t: 'void' }
         }
+        case 'pop_front': {
+          const first = c.elems[0]
+          if (first !== undefined) {
+            this.mem.delete(first)
+            this.mem.set(recvAddr, { ...c, elems: c.elems.slice(1) })
+            this.curChanged.push(recvAddr)
+          }
+          return { t: 'void' }
+        }
         case 'pop': {
-          // stack pops back; queue pops front
+          // stack/priority_queue pop the back (the max, for a p_queue, since
+          // push kept `elems` sorted ascending); queue pops the front.
           const fromFront = c.ctag === 'queue'
           const victim = fromFront ? c.elems[0] : c.elems[c.elems.length - 1]
           if (victim !== undefined) {
@@ -2285,18 +2949,18 @@ class Interp {
         case 'top': case 'back': {
           const a = c.elems[c.elems.length - 1]
           if (a === undefined) throw new RuntimeError(`${m.name}() on empty container`, line)
-          return this.readCell(a, line)
+          return this.readOrDecayCell(a, line)
         }
         case 'front': {
           const a = c.elems[0]
           if (a === undefined) throw new RuntimeError('front() on empty container', line)
-          return this.readCell(a, line)
+          return this.readOrDecayCell(a, line)
         }
         case 'at': {
           const i = (args[0] ? this.asNum(this.evalR(args[0]), line) : 0) | 0
           if (i < 0 || i >= c.elems.length) throw new RuntimeError(`at(${i}) out of range (size ${c.elems.length})`, line)
           this.counters.arrayAccesses++
-          return this.readCell(c.elems[i], line)
+          return this.readOrDecayCell(c.elems[i], line)
         }
         case 'clear': {
           for (const a of c.elems) this.mem.delete(a)
@@ -2315,6 +2979,83 @@ class Interp {
           this.mem.set(recvAddr, { ...c, elems })
           this.curChanged.push(recvAddr)
           return { t: 'void' }
+        }
+        // ── map/set-only methods (key-based, not index-based) ──
+        case 'insert': {
+          const isMap = c.ctag === 'map' || c.ctag === 'unordered_map'
+          const isSet = c.ctag === 'set' || c.ctag === 'unordered_set'
+          if (isMap) {
+            const { first, second } = this.resolveAsPairFields(args[0], line)
+            const keyVal = this.readCell(first, line)
+            const exists = c.elems.some((ea) => {
+              const pc = this.cellAt(ea, line)
+              return pc.t === 'obj' && this.valsEqual(this.readCell(pc.fields.first, line), keyVal, line)
+            })
+            if (exists) return { t: 'bool', v: false } // real map::insert no-ops on an existing key
+            const pairAddr = this.alloc({
+              t: 'obj',
+              type: 'pair',
+              fields: { first: this.deepCopyCell(first, line), second: this.deepCopyCell(second, line) },
+            })
+            this.mem.set(recvAddr, { ...c, elems: this.sortAddrsAscending([...c.elems, pairAddr], line) })
+            this.curChanged.push(recvAddr)
+            return { t: 'bool', v: true }
+          }
+          if (isSet) {
+            const v = this.evalR(args[0])
+            if (v.t === 'void' || v.t === 'stream') throw new RuntimeError('Cannot insert a void value into a set', line)
+            const exists = c.elems.some((ea) => this.valsEqual(this.readCell(ea, line), v, line))
+            if (exists) return { t: 'bool', v: false }
+            const a = this.alloc(this.cellForVal(v))
+            this.mem.set(recvAddr, { ...c, elems: this.sortAddrsAscending([...c.elems, a], line) })
+            this.curChanged.push(recvAddr)
+            return { t: 'bool', v: true }
+          }
+          throw new RuntimeError('insert() is only supported on map/set — use push_back for a vector', line)
+        }
+        case 'erase': {
+          const isMap = c.ctag === 'map' || c.ctag === 'unordered_map'
+          const isSet = c.ctag === 'set' || c.ctag === 'unordered_set'
+          if (!isMap && !isSet) {
+            throw new RuntimeError('erase() by iterator (vector/deque) is not supported — only map/set erase(key)', line)
+          }
+          const key = this.evalR(args[0])
+          const idx = c.elems.findIndex((ea) => {
+            const pc = this.cellAt(ea, line)
+            const kv = isMap && pc.t === 'obj' ? this.readCell(pc.fields.first, line) : this.readCell(ea, line)
+            return this.valsEqual(kv, key, line)
+          })
+          if (idx === -1) return { t: 'num', v: 0, ct: 'size_t' }
+          this.mem.delete(c.elems[idx])
+          this.mem.set(recvAddr, { ...c, elems: c.elems.filter((_, i) => i !== idx) })
+          this.curChanged.push(recvAddr)
+          return { t: 'num', v: 1, ct: 'size_t' }
+        }
+        case 'find': {
+          const isMap = c.ctag === 'map' || c.ctag === 'unordered_map'
+          const isSet = c.ctag === 'set' || c.ctag === 'unordered_set'
+          if (!isMap && !isSet) {
+            throw new RuntimeError('find() as a method needs a map/set — for a vector use the free function std::find(first, last, val)', line)
+          }
+          const key = this.evalR(args[0])
+          const idx = c.elems.findIndex((ea) => {
+            const pc = this.cellAt(ea, line)
+            const kv = isMap && pc.t === 'obj' ? this.readCell(pc.fields.first, line) : this.readCell(ea, line)
+            return this.valsEqual(kv, key, line)
+          })
+          return { t: 'iter', header: recvAddr, idx: idx === -1 ? c.elems.length : idx, et: c.et }
+        }
+        case 'count': {
+          const isMap = c.ctag === 'map' || c.ctag === 'unordered_map'
+          const isSet = c.ctag === 'set' || c.ctag === 'unordered_set'
+          if (!isMap && !isSet) throw new RuntimeError('count() is only supported on map/set', line)
+          const key = this.evalR(args[0])
+          const n = c.elems.filter((ea) => {
+            const pc = this.cellAt(ea, line)
+            const kv = isMap && pc.t === 'obj' ? this.readCell(pc.fields.first, line) : this.readCell(ea, line)
+            return this.valsEqual(kv, key, line)
+          }).length
+          return { t: 'num', v: n, ct: 'int' }
         }
       }
       throw new RuntimeError(`Container method '${m.name}' is not supported`, line)
@@ -2511,6 +3252,7 @@ export function runCpp(source: string, stdin = ''): TraceResult {
     invocations: [],
     output: '',
     truncated: false,
+    leaked: [],
   }
   let prog: Program
   try {
@@ -2531,5 +3273,13 @@ export function runCpp(source: string, stdin = ''): TraceResult {
     output: interp.output,
     error,
     truncated: interp.truncated,
+    // Any heap block delete never reached by the time the program ended —
+    // reported only on a clean finish (an error mid-run leaves memory in an
+    // arbitrary half-finished state, not a meaningful leak report).
+    leaked: error
+      ? []
+      : interp.heapOrder
+          .filter((addr) => interp.mem.has(addr))
+          .map((addr) => ({ addr, name: interp.heapNames.get(addr) ?? 'heap' })),
   }
 }
