@@ -228,7 +228,19 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
           // resize (still correctly reacts to the fullscreen toggle etc.),
           // while useSharpDpr above independently — and smoothly — tracks
           // the live CSS zoom for resolution only.
-          resize={{ scroll: false }}
+          //
+          // Un-debounced real resizes had the identical symptom on MOUNT:
+          // react-use-measure's default `debounce.resize` is 0, so every
+          // ResizeObserver tick during the layout's initial settling burst
+          // (sidebar, the editor/viz splitter, other objects mounting
+          // nearby, font metrics landing) committed immediately as a new
+          // `size` — and each one restarted Bounds' fit animation from
+          // wherever the camera was mid-flight, which is what read as the
+          // trajectory jittering/snapping for the first second after the
+          // widget appeared. Debouncing settles `size` the same way
+          // useSharpDpr already settles `dpr`, so Bounds only fits once
+          // layout has actually stopped moving.
+          resize={{ scroll: false, debounce: 150 }}
         >
           {/* Bounds(fit, observe): see surface3d.tsx — re-frames camera
               distance to content on every container resize (including the

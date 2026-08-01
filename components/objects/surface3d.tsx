@@ -318,7 +318,13 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
       // actual layout resize (still correctly reacts to the fullscreen
       // toggle etc.), while useSharpDpr above independently — and smoothly
       // — tracks the live CSS zoom for resolution only.
-      resize={{ scroll: false }}
+      //
+      // Un-debounced real resizes had the identical symptom on MOUNT: see
+      // graph-3d.tsx — debouncing settles `size` the same way useSharpDpr
+      // already settles `dpr`, so Bounds only fits once layout has stopped
+      // moving instead of restarting its fit animation on every intermediate
+      // ResizeObserver tick during the initial layout settle.
+      resize={{ scroll: false, debounce: 150 }}
     >
       <ambientLight intensity={0.75} />
       <directionalLight position={[SIZE, SIZE * 1.5, SIZE]} intensity={0.6} />
