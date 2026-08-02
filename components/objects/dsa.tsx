@@ -189,6 +189,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
             min={0}
             max={maxStep}
             value={Math.min(stepIdx, maxStep)}
+            aria-label="Trace step position"
             className="h-1 w-24 accent-[var(--accent-blue)]"
             onChange={(e) => {
               setPlaying(false)

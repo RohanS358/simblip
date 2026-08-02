@@ -109,6 +109,33 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
   }
 }
 
+// Access tokens are only good for an hour (ACCESS_TTL in app/api/auth); a tab
+// left open longer than that would otherwise 401 on every request forever —
+// nothing else re-checks the token once init() has run. This loop keeps the
+// session alive for as long as the tab stays open and the refresh token is
+// still valid, and signs the user out the moment it genuinely can't.
+const REFRESH_CHECK_MS = 60_000
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+function stopRefreshLoop() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function startRefreshLoop() {
+  if (!db.cloudConfigured || refreshTimer) return
+  refreshTimer = setInterval(async () => {
+    const session = loadSession()
+    if (!session) return stopRefreshLoop()
+    if (!(await refreshIfNeeded(session))) {
+      stopRefreshLoop()
+      useAuthStore.getState().logout()
+    }
+  }, REFRESH_CHECK_MS)
+}
+
 // ── Local bootstrap ─────────────────────────────────────────────────────────
 
 /** Local mode only: seed the platform pseudo-tenant + operator so /dev can
@@ -177,6 +204,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
       localStorage.setItem(ACTIVE_USER_KEY, ctx.profile.id)
       set({ status: 'authed', ...ctx, error: null })
+      startRefreshLoop()
     } catch (err) {
       set({ status: 'anon', error: err instanceof Error ? err.message : String(err) })
     }
@@ -208,6 +236,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (!ctx) throw new Error('No profile found for this account. Ask your institution admin.')
       localStorage.setItem(ACTIVE_USER_KEY, ctx.profile.id)
       set({ status: 'authed', ...ctx, error: null })
+      startRefreshLoop()
       return ctx.profile
     } catch (err) {
       saveSession(null) // never keep a session that couldn't resolve a profile
@@ -222,6 +251,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     void import('@/lib/store/session-files').then(({ clearSessionFiles }) =>
       clearSessionFiles(localStorage.getItem(ACTIVE_USER_KEY))
     )
+    stopRefreshLoop()
     saveSession(null)
     localStorage.removeItem(ACTIVE_USER_KEY)
     set({ status: 'anon', profile: null, institution: null, myRoomIds: [] })

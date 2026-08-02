@@ -615,13 +615,14 @@
   }
   .md-editor[data-empty='true']::before {
     content: attr(data-placeholder);
-    color: color-mix(in oklch, var(--muted-foreground) 70%, transparent);
+    /* full-strength, not dampened: mixing toward the background drops below
+       WCAG AA contrast on the lighter themes well before it looks "faded" */
+    color: var(--muted-foreground);
     pointer-events: none;
     position: absolute;
   }
   .md-editor .md-marker {
     color: var(--muted-foreground);
-    opacity: 0.6;
   }
   .md-editor .md-h {
     font-weight: 700;
@@ -646,7 +647,6 @@
   .md-editor .md-hr {
     display: block;
     color: var(--muted-foreground);
-    opacity: 0.6;
   }
   .md-editor .md-done {
     text-decoration: line-through;

@@ -1,6 +1,14 @@
+import type { Metadata } from 'next'
 import { Landing } from '@/components/landing/showcase'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
+
+// The root layout no longer sets a blanket canonical — every route was
+// inheriting "/" as its canonical URL otherwise. This is the one route
+// where "/" is actually correct.
+export const metadata: Metadata = {
+  alternates: { canonical: '/' },
+}
 
 // Structured data: tells search engines what SIMBLIP is and who built it.
 const jsonLd = {

@@ -47,6 +47,7 @@
     "@types/matter-js": "^0.20.2",
     "@types/pg": "^8.20.0",
     "@vercel/analytics": "1.3.1",
+    "@vercel/functions": "^3.7.6",
     "autoprefixer": "^10.4.20",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -83,6 +84,7 @@
     "tailwindcss-animate": "^1.0.7",
     "three": "0.183.2",
     "vaul": "^1.1.2",
+    "ws": "^8.21.1",
     "zod": "3.25.76",
     "zustand": "^5.0.14"
   },
@@ -91,9 +93,18 @@
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/ws": "^8.18.1",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",
     "tw-animate-css": "1.3.3",
     "typescript": "^5"
-  }
+  },
+  "browserslist": [
+    "last 2 Chrome versions",
+    "last 2 Firefox versions",
+    "last 2 Safari versions",
+    "last 2 Edge versions",
+    "not IE 11",
+    "not dead"
+  ]
 }

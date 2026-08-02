@@ -20,6 +20,10 @@ import {
   writeBundleContent,
   type PageBundle,
 } from '@/lib/store/page-bundle'
+import { dbMode } from './db'
+import { connectBoardLive, type BoardLiveHandle } from './board-live-client'
+import type { BoardLiveServerMsg } from './board-live-types'
+import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
 
 const active = new Map<string, string>() // sessionId → local pageId (this tab)
 
@@ -50,7 +54,8 @@ export function followSession(session: BoardSessionRow): string {
   if (existing) return existing
 
   const first = (session.edited ?? session.snapshot) as PageBundle
-  const pageId = createTargetPage(session.page_name, first.bundle?.kind ?? 'board')
+  const kind = first.bundle?.kind ?? 'board'
+  const pageId = createTargetPage(session.page_name, kind)
   active.set(session.id, pageId)
 
   // The mirror keeps the sender's sheet ids (a private copy on this device),
@@ -61,6 +66,51 @@ export function followSession(session: BoardSessionRow): string {
     writeBundleContent(pageId, doc)
   }
   write(first)
+
+  // Live socket: incoming patches/bundles land near-instantly, and — the
+  // actual new capability — this student's own edits to the mirrored page
+  // are now sent back into the shared session instead of staying purely
+  // local. The 4s-poll mirror below stays wired as the fallback whenever
+  // the socket isn't connected.
+  let wsHandle: BoardLiveHandle | null = null
+  let unsubPatchWatcher: (() => void) | null = null
+  if (dbMode === 'cloud') {
+    wsHandle = connectBoardLive(
+      session.id,
+      (evt: BoardLiveServerMsg) => {
+        // No echo guard needed here: the server already excludes the
+        // sending socket from fan-out, so this only ever sees other
+        // participants' patches (teacher, board, or other students).
+        switch (evt.type) {
+          case 'obj-patch':
+            applyObjectPatch(pageId, evt.objectId, evt.obj)
+            break
+          case 'bundle':
+            write(evt.bundle)
+            break
+          case 'resync':
+            void getSession(session.id).then((fresh) => {
+              if (fresh) write((fresh.edited ?? fresh.snapshot) as PageBundle)
+            })
+            break
+        }
+      },
+      () => {
+        void getSession(session.id).then((fresh) => {
+          if (fresh) write((fresh.edited ?? fresh.snapshot) as PageBundle)
+        })
+      }
+    )
+    if (kind === 'board') {
+      unsubPatchWatcher = useDocStore.subscribe((s, prev) => {
+        if (!wsHandle?.connected) return
+        if (s.pages[pageId] === prev.pages[pageId]) return
+        const { changed, removed } = diffObjects(prev.pages[pageId]?.objects ?? {}, s.pages[pageId]?.objects ?? {})
+        for (const obj of Object.values(changed)) wsHandle.sendPatch(obj.id, obj)
+        for (const id of removed) wsHandle.sendPatch(id, null)
+      })
+    }
+  }
 
   const unsub = subscribeBoardSessions(() => {
     void getSession(session.id).then((fresh) => {
@@ -75,6 +125,8 @@ export function followSession(session: BoardSessionRow): string {
       useWorkspaceStore.getState().renamePage(pageId, `${fresh.page_name} — ${stamp}`)
       toast.success(`Class copy saved: “${fresh.page_name} — ${stamp}”`)
       unsub()
+      unsubPatchWatcher?.()
+      wsHandle?.close()
     })
   })
 

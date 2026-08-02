@@ -2,6 +2,7 @@ import React from 'react'
 import type { Metadata } from 'next'
 import localFont from 'next/font/local'
 import { JetBrains_Mono } from 'next/font/google'
+import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
 import { Toaster } from '@/components/ui/sonner'
@@ -58,7 +59,6 @@ export const metadata: Metadata = {
     'SIMBLIP',
     'Rohan Singh',
   ],
-  alternates: { canonical: '/' },
   openGraph: {
     type: 'website',
     url: SITE_URL,
@@ -125,6 +125,7 @@ export default function RootLayout({
           <Toaster position="bottom-right" />
         </ThemeProvider>
         <PwaRegister />
+        <Analytics />
       </body>
     </html>
   )

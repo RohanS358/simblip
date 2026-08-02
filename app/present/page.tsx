@@ -37,6 +37,8 @@ import {
 } from '@/lib/data/boards'
 import { followSession } from '@/lib/data/board-follow'
 import { useAuthStore } from '@/lib/auth/store'
+import { dbMode } from '@/lib/data/db'
+import { useBoardLive } from '@/lib/data/board-live-client'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
 import {
@@ -402,7 +404,11 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
   const objects = Object.values(doc ? flattenBundleObjects(doc) : {}) as SceneObject[]
   const files = objects.filter((o) => o.metadata?.render === 'file')
   const chosen = objects.find((o) => o.id === objId) ?? null
-  const send = (cmd: Parameters<typeof sendRemote>[1]) => void sendRemote(session.id, cmd)
+  // The teacher's phone only needs to SEND remote commands here — incoming
+  // session content already refreshes through this component's own poll.
+  const wsHandle = useBoardLive(dbMode === 'cloud' ? session.id : null, () => {}, () => {})
+  const send = (cmd: Parameters<typeof sendRemote>[1]) =>
+    wsHandle?.connected ? wsHandle.sendRemote(cmd) : void sendRemote(session.id, cmd)
 
   // The same components a tap toggles on the board itself: switches and
   // logic inputs. They get real buttons here — not a number field.

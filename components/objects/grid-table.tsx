@@ -203,6 +203,7 @@ export function GridTableObject({ pageId, object, selected }: ObjectRendererProp
                         onKeyDown={(e) => {
                           if (e.key === 'Enter' || e.key === 'Escape') setEditingCell(null)
                         }}
+                        aria-label={`Cell row ${r + 1}, column ${c + 1}`}
                         className="w-full bg-transparent font-inherit outline-none border-b border-[var(--accent-blue)]"
                       />
                     ) : (

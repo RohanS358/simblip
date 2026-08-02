@@ -91,6 +91,7 @@ export function CommandPalette({
     <CommandDialog open={open} onOpenChange={onOpenChange} title="Command palette" description="Search pages, assets and actions">
       <CommandInput
         placeholder="Search components, pages, library, actions…"
+        aria-label="Search components, pages, library, actions"
         value={query}
         onValueChange={setQuery}
       />

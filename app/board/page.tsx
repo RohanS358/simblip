@@ -56,6 +56,7 @@ import * as pageArchive from '@/lib/store/page-archive'
 import { play, pause, stop } from '@/lib/physics/world'
 import {
   endSession,
+  getSession,
   liveSessionFor,
   myBoard,
   pollRemote,
@@ -69,6 +70,9 @@ import { listRoomShares, subscribeShares } from '@/lib/data/shares'
 import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignments'
 import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
+import { useBoardLive } from '@/lib/data/board-live-client'
+import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
+import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { FileObject } from '@/components/objects/file-view'
@@ -445,12 +449,57 @@ function BoardSurface() {
     return subscribeBoardSessions(() => void syncSession())
   }, [board, syncSession])
 
+  // Board-live socket: pushes remote commands, object patches and bundle
+  // updates instantly instead of the poll lanes below. Both poll lanes stay
+  // in place as the fallback for whenever the socket isn't connected — the
+  // feature is additive, never a hard replacement.
+  const refreshSessionContent = useCallback(async () => {
+    if (!session) return
+    const fresh = await getSession(session.id)
+    if (!fresh) return
+    writeBundleContent(`board-${fresh.id}`, (fresh.edited ?? fresh.snapshot) as PageBundle)
+  }, [session])
+
+  const handleLiveEvent = useCallback(
+    (evt: BoardLiveServerMsg) => {
+      if (!session) return
+      const tempId = `board-${session.id}`
+      switch (evt.type) {
+        case 'obj-patch':
+          applyObjectPatch(tempId, evt.objectId, evt.obj)
+          break
+        case 'remote':
+          if (evt.cmd.seq > remoteSeqRef.current) {
+            remoteSeqRef.current = evt.cmd.seq
+            applyRemote(evt.cmd, tempId)
+          }
+          break
+        case 'bundle':
+          if (evt.origin !== 'board') writeBundleContent(tempId, evt.bundle)
+          break
+        case 'status':
+          if (evt.status !== 'live') void syncSession()
+          break
+        case 'resync':
+          void refreshSessionContent()
+          break
+      }
+    },
+    [session, syncSession, refreshSessionContent]
+  )
+
+  const wsHandle = useBoardLive(
+    dbMode === 'cloud' ? (session?.id ?? null) : null,
+    handleLiveEvent,
+    () => void refreshSessionContent()
+  )
+
   // Fast remote lane (cloud only — local mode is already instant over
   // BroadcastChannel): poll just the tiny remote/status columns at ~1 Hz so
   // phone commands land in about a second instead of riding the 4 s
-  // full-session poll.
+  // full-session poll. Skipped entirely while the live socket is connected.
   useEffect(() => {
-    if (!session || dbMode !== 'cloud') return
+    if (!session || dbMode !== 'cloud' || wsHandle?.connected) return
     let busy = false
     const t = setInterval(async () => {
       if (busy) return
@@ -471,16 +520,36 @@ function BoardSurface() {
       }
     }, 1100)
     return () => clearInterval(t)
-  }, [session, syncSession])
+  }, [session, syncSession, wsHandle?.connected])
+
+  // Per-object live patches for board-kind sessions with a healthy socket —
+  // finer-grained than the whole-bundle watcher below, and this is what lets
+  // students editing the same session actually reach the board instantly.
+  useEffect(() => {
+    if (!session || !wsHandle?.connected) return
+    const tempId = `board-${session.id}`
+    const kind = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)?.kind ?? 'board'
+    if (kind !== 'board') return
+    return useDocStore.subscribe((s, prev) => {
+      if (s.pages[tempId] === prev.pages[tempId]) return
+      const { changed, removed } = diffObjects(prev.pages[tempId]?.objects ?? {}, s.pages[tempId]?.objects ?? {})
+      for (const obj of Object.values(changed)) wsHandle.sendPatch(obj.id, obj)
+      for (const id of removed) wsHandle.sendPatch(id, null)
+    })
+  }, [session, wsHandle, wsHandle?.connected])
 
   // Push the board's edits into the session row (debounced) so the teacher's
   // merge decision sees the latest state. Edits on a doc land in its SHEETS,
   // and PDF ink lands in per-page annot canvases — so watch every content
-  // page the session owns and always send the composed bundle back.
+  // page the session owns and always send the composed bundle back. Sent
+  // over the live socket when connected, REST otherwise. Skipped entirely
+  // for board-kind content while the socket is connected — the per-object
+  // watcher above handles that case at finer granularity.
   useEffect(() => {
     if (!session) return
     const tempId = `board-${session.id}`
     let timer: ReturnType<typeof setTimeout> | null = null
+    const kindOf = () => findPageMeta(useWorkspaceStore.getState().notebooks, tempId)?.kind ?? 'board'
     const ownIds = () => {
       const meta = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)
       return new Set([
@@ -493,18 +562,23 @@ function BoardSurface() {
     }
     const unsub = useDocStore.subscribe((s, prev) => {
       if (s.pages === prev.pages) return
+      if (kindOf() === 'board' && wsHandle?.connected) return
       const ids = ownIds()
       let changed = false
       for (const id of ids) if (s.pages[id] !== prev.pages[id]) changed = true
       if (!changed) return
       if (timer) clearTimeout(timer)
-      timer = setTimeout(() => void saveSessionEdits(session.id, bundlePage(tempId)), 1000)
+      timer = setTimeout(() => {
+        const bundle = bundlePage(tempId)
+        if (wsHandle?.connected) wsHandle.sendBundle(bundle)
+        else void saveSessionEdits(session.id, bundle)
+      }, 1000)
     })
     return () => {
       if (timer) clearTimeout(timer)
       unsub()
     }
-  }, [session])
+  }, [session, wsHandle?.connected])
 
   const pairUrl =
     board && typeof window !== 'undefined'

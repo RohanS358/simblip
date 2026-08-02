@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { castFor, encodeValue, ident, pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims, type Claims } from '@/lib/server/auth'
+import { publish } from '@/lib/server/board-live-bus'
+import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
+import type { BoardSessionStatus, RemoteCommand } from '@/lib/data/types'
 
 // Data gateway (replaces Supabase PostgREST). Speaks the exact query dialect
 // the client data layer already uses:
@@ -219,6 +222,24 @@ export async function PATCH(req: Request, { params }: Params) {
       `update simblip_${ident(ctx.table)} set ${sets.join(', ')}${clause}`,
       [...wp, ...cols.map((c) => encodeValue(ctx.table, c, patch[c]))]
     )
+    // Additive hook: feeds the board-live realtime bus so REST-path writes
+    // (endSession, resolveSession, sendRemote's fallback) reach anyone
+    // connected over the WS route too, without duplicating this file's
+    // scoping/security logic. Never fails the request — a publish hiccup
+    // just means peers fall back to their existing poll for this update.
+    if (ctx.table === 'board_sessions') {
+      const sessionId = url.searchParams.get('id')?.replace(/^eq\./, '')
+      if (sessionId) {
+        if ('status' in patch) {
+          const evt: BoardLiveServerMsg = { type: 'status', status: patch.status as BoardSessionStatus }
+          await publish(sessionId, evt).catch(() => {})
+        }
+        if ('remote' in patch) {
+          const evt: BoardLiveServerMsg = { type: 'remote', cmd: patch.remote as RemoteCommand }
+          await publish(sessionId, evt).catch(() => {})
+        }
+      }
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })

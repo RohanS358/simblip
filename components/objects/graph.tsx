@@ -9,6 +9,7 @@
 // doubles as a function plotter.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Layers, Activity, TrendingUp, Sigma, Box } from 'lucide-react'
 import {
   LineChart,
@@ -29,7 +30,9 @@ import { fmtNum } from '@/lib/scene/format'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
-import { Graph3D } from './graph-3d'
+
+// three.js only loads once a graph object actually switches to 3D view.
+const Graph3D = dynamic(() => import('./graph-3d').then((m) => m.Graph3D), { ssr: false })
 
 export const GRAPH_COLORS = [
   'var(--chart-1)',
