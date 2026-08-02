@@ -1,5 +1,6 @@
 import React from 'react'
 import type { Metadata } from 'next'
+import { headers } from 'next/headers'
 import localFont from 'next/font/local'
 import { JetBrains_Mono } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
@@ -106,11 +107,17 @@ export const viewport = {
   initialScale: 1,
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  // Reading the CSP nonce here (set by proxy.ts) is what makes Next apply it
+  // to its own inline hydration scripts — see proxy.ts. next-themes injects
+  // its own no-flash inline script outside that mechanism, so it needs the
+  // nonce passed explicitly too.
+  const nonce = (await headers()).get('x-nonce') ?? undefined
+
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${jakarta.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
@@ -119,6 +126,7 @@ export default function RootLayout({
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
+          nonce={nonce}
           themes={['light', 'sepia', 'lily', 'dark', 'dim', 'midnight', 'contrast', 'system']}
         >
           {children}

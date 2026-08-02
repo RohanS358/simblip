@@ -229,6 +229,7 @@ export function CodeObject({ pageId, object, selected }: ObjectRendererProps) {
           <textarea
             ref={taRef}
             wrap="off"
+            aria-label="SimScript code editor"
             className="absolute inset-0 h-full w-full resize-none whitespace-pre bg-transparent p-3 font-mono text-[13px] leading-[20px] placeholder:text-muted-foreground focus:outline-none"
             style={{ color: 'transparent', caretColor: 'var(--foreground)', tabSize: 2 }}
             value={source}

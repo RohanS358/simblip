@@ -710,7 +710,7 @@ function BoardSurface() {
                 · {institution.name}
               </span>
             )}
-            <span className="hidden text-muted-foreground/50 sm:inline">/</span>
+            <span aria-hidden className="hidden text-muted-foreground/50 sm:inline">/</span>
 
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
               <span className="glass truncate rounded-lg px-2.5 py-1 text-[12px] font-medium text-foreground">

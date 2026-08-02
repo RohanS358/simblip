@@ -256,6 +256,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
             <div className="relative min-w-0 flex-1 overflow-hidden">
               <textarea
                 ref={editorRef}
+                aria-label="DSA lab code editor"
                 className="absolute inset-0 resize-none whitespace-pre bg-transparent py-2 px-2 font-mono text-[13px] leading-[19px] text-foreground focus:outline-none"
                 value={source}
                 wrap="off"

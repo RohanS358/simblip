@@ -39,7 +39,7 @@ export function SyncStatus() {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <span aria-label={view.label} className="rounded-lg p-1.5">
+        <span role="img" aria-label={view.label} className="rounded-lg p-1.5">
           <Icon className={cn('h-4 w-4', view.cls)} />
         </span>
       </TooltipTrigger>

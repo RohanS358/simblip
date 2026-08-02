@@ -93,6 +93,7 @@ function NotebookSettings() {
         hint="Controls how large each grid cell is. Smaller values give a finer grid; larger values give a coarser one."
       >
         <Slider
+          aria-label="Grid size"
           value={[nb.gridSize]}
           min={16}
           max={80}
@@ -107,6 +108,7 @@ function NotebookSettings() {
         hint="Scales panels, docks and the inspector chrome — the canvas and its components keep their own sizes."
       >
         <Slider
+          aria-label="Interface UI scale"
           value={[nb.uiScale]}
           min={0.8}
           max={1.4}
@@ -121,6 +123,7 @@ function NotebookSettings() {
         hint="Scales text and chrome inside canvas components — tables, formulas, graphs, notes, labs — and the calculator. Canvas zoom and Interface UI stay untouched."
       >
         <Slider
+          aria-label="Component scale"
           value={[nb.componentScale ?? 1]}
           min={0.8}
           max={1.6}
@@ -135,6 +138,7 @@ function NotebookSettings() {
         hint="Text size inside the docked panels only — Interface UI and canvas zoom stay untouched."
       >
         <Slider
+          aria-label="Panel font scale"
           value={[nb.panelFontScale ?? 1]}
           min={0.85}
           max={1.3}
@@ -149,6 +153,7 @@ function NotebookSettings() {
         hint="Letter spacing in the docked panels — denser or airier text."
       >
         <Slider
+          aria-label="Panel letter spacing"
           value={[nb.panelSpacing ?? 1]}
           min={0.9}
           max={1.25}
@@ -308,6 +313,7 @@ function MathSettings() {
         hint="Digits after the point in every readout — graphs, measurements, variables."
       >
         <Slider
+          aria-label="Decimal precision"
           value={[math.precision]}
           min={0}
           max={8}
@@ -363,6 +369,7 @@ function MathSettings() {
         hint="Floating-point error leaves values like 1e-17 lying around. Anything smaller than this reads as exactly 0, so noise doesn't look like signal."
       >
         <Slider
+          aria-label="Zero threshold"
           value={[Math.log10(math.zeroThreshold)]}
           min={-15}
           max={-3}

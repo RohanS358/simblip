@@ -114,6 +114,7 @@ export function PenSettings() {
 
       <Field label="Thickness" value={`${pen.size}px`} hint="Base stroke width — what a mouse or flat style always draws at.">
         <Slider
+          aria-label="Thickness"
           value={[pen.size]}
           min={0.5}
           max={16}
@@ -128,6 +129,7 @@ export function PenSettings() {
         hint="Steadies shaky lines. The tip stays glued to your pen, so even high values don't feel laggy — the line behind just settles straighter."
       >
         <Slider
+          aria-label="Stability"
           value={[pen.streamline]}
           min={0}
           max={0.9}
@@ -142,6 +144,7 @@ export function PenSettings() {
         hint="Rounds the finished outline. Low keeps every wobble; high makes clean flowing curves."
       >
         <Slider
+          aria-label="Smoothness"
           value={[pen.smoothing]}
           min={0}
           max={1}
@@ -157,6 +160,7 @@ export function PenSettings() {
           hint="How much stylus pressure thins and thickens the stroke. Mouse and touch always write at the base thickness."
         >
           <Slider
+            aria-label="Sensitivity"
             value={[pen.sensitivity]}
             min={0}
             max={1}
@@ -168,6 +172,7 @@ export function PenSettings() {
 
       <Field label="Dot size" value={`${pen.dotSize}x`} hint="Multiplier for single-tap dots (like the dot on an 'i').">
         <Slider
+          aria-label="Dot size"
           value={[pen.dotSize]}
           min={0.5}
           max={5}
@@ -232,6 +237,7 @@ export function PenSettings() {
         hint="Scratching over your work deletes what's under it. Low means you must scribble hard and long before anything goes — safer while you're writing. High means a quick zigzag is enough."
       >
         <Slider
+          aria-label="Scribble to erase"
           value={[pen.scribbleSensitivity]}
           min={0}
           max={1}

@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { GraduationCap, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
@@ -26,19 +27,25 @@ import { CanvasControls } from './canvas-controls'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { SyncStatus } from './sync-status'
-import { MobileShell } from './mobile-shell'
-import { CommandPalette } from './command-palette'
-import { Calculator } from './calculator'
 import { UndoRedo } from './undo-redo'
 import { NotificationCenter } from './notifications'
 import { ProfileMenu } from './profile-menu'
-import { SettingsDialog } from './settings-dialog'
-import { TutorialPanel } from './tutorial'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { Kbd } from '@/components/ui/kbd'
 import { cn } from '@/lib/utils'
 import { FileObject } from '@/components/objects/file-view'
+
+// Code-split every panel that isn't needed for first paint: the touch shell
+// (mutually exclusive with this desktop one), and the overlays that start
+// closed (command palette, calculator, settings, tutorial). Together these
+// pull in mathjs, the full settings surface and a second whole shell — the
+// biggest chunk of unused-on-load JS this page shipped.
+const MobileShell = dynamic(() => import('./mobile-shell').then((m) => m.MobileShell), { ssr: false })
+const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.CommandPalette), { ssr: false })
+const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
+const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
+const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
 
 function seedFirstRun() {
   const ws = useWorkspaceStore.getState()
@@ -243,7 +250,7 @@ export function WorkspaceShell() {
             · {institution.name}
           </span>
         )}
-        <span className="hidden text-muted-foreground/50 sm:inline">/</span>
+        <span aria-hidden className="hidden text-muted-foreground/50 sm:inline">/</span>
         {/* open pages ride in the header as tabs — boards, docs and PDFs side by side */}
         <TabsBar
           pageId={contentPageId}

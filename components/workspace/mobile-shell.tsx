@@ -7,6 +7,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
@@ -48,11 +49,8 @@ import { usePrefs } from '@/lib/store/preferences'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { NotificationCenter } from './notifications'
-import { SettingsDialog } from './settings-dialog'
 import { SyncStatus } from './sync-status'
-import { TutorialPanel } from './tutorial'
 import { UndoRedo } from './undo-redo'
-import { Calculator } from './calculator'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
 import { importPageInto } from '@/lib/store/import-page'
@@ -77,6 +75,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
+
+// Same reasoning as shell.tsx: these overlays start closed, so their code
+// (mathjs for the calculator, the full settings surface) shouldn't ride
+// along in the initial touch-shell chunk.
+const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
+const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
+const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
 
 type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'editor' }
 

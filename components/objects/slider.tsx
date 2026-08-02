@@ -49,6 +49,7 @@ export function SliderObject({ pageId, object }: ObjectRendererProps) {
 
       <div className="my-auto pt-1">
         <UISlider
+          aria-label={label}
           value={[Number.isFinite(currentValue) ? currentValue : min]}
           min={min}
           max={max > min ? max : min + 1}
