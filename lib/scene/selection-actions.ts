@@ -19,12 +19,14 @@ import {
   BringToFront,
   SendToBack,
   Trash2,
+  Zap,
 } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import { setClipboard, getClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { nextZ } from '@/lib/scene/factory'
 import { str, uid, type SceneObject } from '@/lib/scene/types'
+import { specsForGeometry } from '@/lib/behaviors/registry'
 
 export interface ActionCtx {
   pageId: string
@@ -153,6 +155,10 @@ export function registerSelectionActions(key: string, provider: ActionProvider):
 }
 
 const GROUP_ORDER: SelectionAction['group'][] = ['arrange', 'edit', 'convert', 'share']
+// Promoted order for a fresh, unconverted shape (§10): attaching its first
+// behavior is overwhelmingly the next thing done to it, so it leads instead
+// of sitting after generic ops. Same groups, 'convert' moved to the front.
+const PROMOTED_GROUP_ORDER: SelectionAction['group'][] = ['convert', 'arrange', 'edit', 'share']
 
 /** Everything the current selection can do, grouped and ordered for display.
  *  Empty array when nothing is selected. */
@@ -173,11 +179,31 @@ export function actionsForSelection(ctx: ActionCtx): SelectionAction[] {
     )
   }
 
+  // A lone, freshly-drawn shape with nothing attached yet and at least one
+  // eligible behavior: surface the conversion step itself, promoted to the
+  // top of the menu — the same state the Behaviors panel's empty-state
+  // hint ("Attach a behavior to make it real") already describes.
+  let promote = false
+  if (ctx.editing && ctx.ids.length === 1) {
+    const obj = useDocStore.getState().pages[ctx.pageId]?.objects[ctx.ids[0]]
+    if (obj && obj.behaviors.length === 0 && specsForGeometry(obj.geometry.kind).length > 0) {
+      promote = true
+      core.push({
+        id: 'convert-to-physics',
+        label: 'Convert to physics object',
+        icon: Zap,
+        group: 'convert',
+        run: openProperties,
+      })
+    }
+  }
+
   const extra = ctx.editing ? [...providers.values()].flatMap((p) => p(ctx)) : []
 
+  const groupOrder = promote ? PROMOTED_GROUP_ORDER : GROUP_ORDER
   return [...core, ...extra].sort(
     (a, b) =>
-      GROUP_ORDER.indexOf(a.group) - GROUP_ORDER.indexOf(b.group) ||
+      groupOrder.indexOf(a.group) - groupOrder.indexOf(b.group) ||
       (a.order ?? 0) - (b.order ?? 0)
   )
 }

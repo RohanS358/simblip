@@ -21,6 +21,7 @@ import {
   Zap,
   Box,
   BarChart3,
+  Ruler,
 } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
@@ -32,6 +33,7 @@ const QUICK_INSERT: { tool: Tool; icon: React.ComponentType<{ className?: string
   { tool: 'surface3d', icon: Box, label: '3D Graph' },
   { tool: 'chart', icon: BarChart3, label: 'Chart' },
   { tool: 'code', icon: Terminal, label: 'Code' },
+  { tool: 'measurement', icon: Ruler, label: 'Measurement' },
 ]
 
 const INTERACTIVE_TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -122,6 +124,10 @@ export function ToolsPanel() {
       {tool === 'table' || tool === 'graph' || tool === 'surface3d' || tool === 'chart' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
         <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
           Click the canvas to place · Esc to stop
+        </p>
+      ) : tool === 'measurement' ? (
+        <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
+          Click-drag across the canvas to measure · Esc to stop
         </p>
       ) : null}
     </div>

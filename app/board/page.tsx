@@ -791,7 +791,6 @@ function BoardSurface() {
 
           <div className="relative flex min-h-0 flex-1">
             <Dock
-              side="left"
               panels={['pages']}
               render={() => <Sidebar hideNotebook bottomRailContent={sidebarQrButton} />}
             />

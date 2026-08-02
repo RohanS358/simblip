@@ -29,7 +29,26 @@ function systemPrompt(pageContext?: { variables: { name: string; expr: string }[
     pageContext && pageContext.variables.length > 0
       ? `The page already has these variables — reuse them by name instead of redefining: ${pageContext.variables.map((v) => `${v.name}=${v.expr}`).join(', ')}.`
       : ''
-  return "only provide script"}
+  const pageState =
+    pageContext && pageContext.objectCount > 0
+      ? `The page already has ${pageContext.objectCount} object(s) on it — place new ones so they don't overlap what's there.`
+      : ''
+  return [
+    "You are SIMBLIP's simulation-building assistant. Build the user's request by calling the",
+    'provided placement tools (each one drops a real component — mass, spring, resistor, etc. —',
+    'exactly as if the user had drawn and attached behaviors to it by hand), then call `finish` once.',
+    existingVars,
+    pageState,
+    '',
+    'When you call `finish`, write `message` as a short, plain-language rationale in the language of',
+    "the lesson, not a changelog — say what you added and WHY, the way a teacher would explain it,",
+    'e.g. "I added a spring (k defaults to moderate stiffness) and a mass below it, with a ground so',
+    'it has something to rest against." One or two sentences. Never mention tool names or internal',
+    'IDs in that message.',
+  ]
+    .filter(Boolean)
+    .join('\n')
+}
 
 export async function POST(req: Request) {
   let body: unknown

@@ -189,7 +189,7 @@ function TracerToggle({
       aria-label={`Tracer: ${label}`}
       onClick={onClick}
       className={cn(
-        'flex flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors',
+        'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors',
         on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
       )}
       style={
@@ -199,9 +199,9 @@ function TracerToggle({
       }
     >
       <Icon className="h-3.5 w-3.5" />
-      <span className="flex items-center gap-1">
-        {label}
-        <span onPointerDown={(e) => e.stopPropagation()}>
+      <span className="flex min-w-0 max-w-full items-center gap-1">
+        <span className="truncate">{label}</span>
+        <span className="shrink-0" onPointerDown={(e) => e.stopPropagation()}>
           <InfoPopover description={hint} />
         </span>
       </span>
@@ -2146,7 +2146,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           {contentParams.map(([name, p]) => (
             <div key={name}>
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 font-mono text-[11.5px] text-muted-foreground">{name}</span>
+                <span className="w-14 shrink-0 truncate font-mono text-[11.5px] text-muted-foreground" title={name}>{name}</span>
                 <ExprInput
                   ariaLabel={`Parameter ${name}`}
                   value={p.expr}

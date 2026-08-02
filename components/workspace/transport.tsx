@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react'
-import { Play, Pause, StepBack, StepForward, RotateCcw, GripHorizontal } from 'lucide-react'
+import { Play, Pause, StepBack, StepForward, RotateCcw, GripHorizontal, Pin, PinOff } from 'lucide-react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
+import { useDocStore } from '@/lib/store/document'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { cn } from '@/lib/utils'
 import { useIsNarrow } from '@/hooks/use-mobile'
@@ -155,6 +156,10 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
   const time = useRuntimeStore((s) => s.time)
   const isPhone = useIsNarrow(767)
 
+  const pinned = useDocStore((s) => s.pinnedRuns[pageId])
+  const pinCurrentRun = useDocStore((s) => s.pinCurrentRun)
+  const clearPinnedRun = useDocStore((s) => s.clearPinnedRun)
+
   const btnSize = flat ? 'h-7 w-7' : 'h-9 w-9'
   const iconSize = flat ? 'h-3.5 w-3.5' : 'h-4 w-4'
 
@@ -251,6 +256,21 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
         onClick={stop}
       >
         <RotateCcw className={iconSize} />
+      </button>
+      <button
+        type="button"
+        aria-label={pinned ? 'Clear pinned run' : 'Pin this run — compare against the next one'}
+        title={pinned ? `Clear pinned run (${pinned.label})` : 'Pin this run — overlays as a dimmed trace on graphs'}
+        onPointerDown={(e) => e.stopPropagation()}
+        onPointerUp={(e) => e.stopPropagation()}
+        className={cn(
+          'flex items-center justify-center rounded-xl transition-colors',
+          btnSize,
+          pinned ? 'text-[var(--accent-amber)] hover:bg-accent' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        )}
+        onClick={() => (pinned ? clearPinnedRun(pageId) : pinCurrentRun(pageId))}
+      >
+        {pinned ? <PinOff className={iconSize} /> : <Pin className={iconSize} />}
       </button>
       <div className={cn('mx-1 w-px bg-border', flat ? 'h-4' : 'h-6')} />
       <span

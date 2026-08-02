@@ -69,6 +69,34 @@ function axisLockDelta(dx: number, dy: number): { dx: number; dy: number } {
   return { dx, dy }
 }
 
+/** Measurement tool: snap a point to the nearest object's center or edge
+ *  point (within SNAP px) so distances read against real geometry. */
+function snapMeasurePoint(pt: Vec2, objects: Record<string, SceneObject>, zoom: number): Vec2 {
+  const th = SNAP / zoom
+  let best: Vec2 | null = null
+  let bestD = th
+  for (const o of Object.values(objects)) {
+    const { x, y } = o.position
+    const { w, h } = o.size
+    const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v))
+    const candidates: Vec2[] = [
+      { x: x + w / 2, y: y + h / 2 },
+      { x: clamp(pt.x, x, x + w), y },
+      { x: clamp(pt.x, x, x + w), y: y + h },
+      { x, y: clamp(pt.y, y, y + h) },
+      { x: x + w, y: clamp(pt.y, y, y + h) },
+    ]
+    for (const c of candidates) {
+      const d = Math.hypot(c.x - pt.x, c.y - pt.y)
+      if (d < bestD) {
+        bestD = d
+        best = c
+      }
+    }
+  }
+  return best ?? pt
+}
+
 // Universal placement gestures: click spawns the default; dragging sizes
 // the object while placing it. Line-likes go point→point, circle-likes grow
 // by radius from the press point (their center), everything else stretches
@@ -718,7 +746,15 @@ export function InfiniteCanvas({
   // Touch state: live touch points, the two-finger pinch baseline, and the
   // long-press timer that stands in for right-click on touch screens.
   const touchesRef = useRef<Map<number, Vec2>>(new Map())
-  const pinchRef = useRef<{ dist: number; center: Vec2; viewport: Viewport } | null>(null)
+  const pinchRef = useRef<{
+    dist: number
+    center: Vec2
+    viewport: Viewport
+    startedAt: number
+    /** Set when both touches landed on the selected object (§11 ADD): the
+     *  whole gesture rotates it by twist instead of panning/zooming. */
+    rotate?: { id: string; startAngle: number; startRotation: number }
+  } | null>(null)
   const lastPenRef = useRef(0) // last stylus contact, for palm rejection
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
 
@@ -1117,9 +1153,10 @@ export function InfiniteCanvas({
       }
       // Transport hotkeys — mirror the Transport buttons' own disabled
       // conditions exactly, so a hotkey press is a no-op (not an error)
-      // wherever the corresponding button would be greyed out. 'r' falls
-      // through to the rect tool below in edit mode, same key, no conflict
-      // since Reset is only meaningful outside edit mode anyway.
+      // wherever the corresponding button would be greyed out. 'r' and 'e'
+      // fall through to the rect/eraser tools below in edit mode, same key,
+      // no conflict since Reset/step-forward are only meaningful once a run
+      // exists (stopped/paused) anyway.
       if (!mod) {
         const key = e.key.toLowerCase()
         const rt = useRuntimeStore.getState()
@@ -1136,15 +1173,9 @@ export function InfiniteCanvas({
           }
           return
         }
-        if (key === 'e') {
-          if (rt.mode !== 'running') {
-            e.preventDefault()
-            if (rt.mode === 'edit') {
-              play(pageId)
-              pause()
-            }
-            stepFrame()
-          }
+        if (key === 'e' && rt.mode === 'paused') {
+          e.preventDefault()
+          stepFrame()
           return
         }
         if (key === 'r' && rt.mode !== 'edit') {
@@ -1173,6 +1204,7 @@ export function InfiniteCanvas({
       const toolKeys: Record<string, Tool> = {
         v: 'select', p: 'pen', s: 'shaper', c: 'circle', r: 'rect', l: 'line',
         t: 'text', n: 'note', f: 'formula', g: 'graph', k: 'code', b: 'table',
+        e: 'eraser',
       }
       const t = toolKeys[e.key.toLowerCase()]
       if (t) store.setTool(t)
@@ -1446,6 +1478,8 @@ export function InfiniteCanvas({
           const snap = Math.round(ang / (Math.PI / 12)) * (Math.PI / 12)
           const len = Math.hypot(point.x - g.start.x, point.y - g.start.y)
           end = { x: g.start.x + len * Math.cos(snap), y: g.start.y + len * Math.sin(snap) }
+        } else if (g.placeTool === 'measurement') {
+          end = snapMeasurePoint(point, store.pages[pageId]?.objects ?? {}, g.startViewport.zoom)
         }
         updateStroke([
           [g.start.x, g.start.y],
@@ -1642,7 +1676,13 @@ export function InfiniteCanvas({
             ? () => def.create(g.start)
             : g.placeTool === 'line'
               ? () => createGeometry('line', g.start)
-              : null
+              : g.placeTool === 'measurement'
+                ? () => {
+                    const o = createGeometry('line', g.start)
+                    o.metadata.render = 'measurement'
+                    return o
+                  }
+                : null
           if (maker) {
             const a = g.start
             const b =
@@ -1941,6 +1981,13 @@ export function InfiniteCanvas({
       touches.set(e.pointerId, { x: e.clientX, y: e.clientY })
       const p = pinchRef.current
       if (!p || touches.size < 2) return
+      if (p.rotate) {
+        const [a, b] = [...touches.values()]
+        const angle = Math.atan2(b.y - a.y, b.x - a.x)
+        const deltaDeg = ((angle - p.rotate.startAngle) * 180) / Math.PI
+        useDocStore.getState().updateObject(pageId, p.rotate.id, { rotation: p.rotate.startRotation + deltaDeg })
+        return
+      }
       // Static doc sheets: two-finger pinch does nothing at all.
       if (locked) return
       // Zoom is locked — two-finger pan is still allowed (no zoom change).
@@ -1987,15 +2034,59 @@ export function InfiniteCanvas({
 
   const pinchBaseline = useCallback(() => {
     const [a, b] = [...touchesRef.current.values()]
+    let rotate: { id: string; startAngle: number; startRotation: number } | undefined
+    // Two-finger twist rotates the selected object instead of the canvas
+    // (§11 ADD) — but only when both fingers actually landed on it, so an
+    // ordinary pinch-zoom anywhere else on the page can't spuriously nudge
+    // whatever happens to be selected.
+    if (editing && !locked) {
+      const sel = useDocStore.getState().selection
+      const obj = sel.length === 1 ? useDocStore.getState().pages[pageId]?.objects[sel[0]] : undefined
+      if (obj) {
+        const wa = toCanvas(a.x, a.y)
+        const wb = toCanvas(b.x, b.y)
+        const pad = 24 / vpRef.current.zoom
+        const within = (p: Vec2) =>
+          p.x > obj.position.x - pad &&
+          p.x < obj.position.x + obj.size.w + pad &&
+          p.y > obj.position.y - pad &&
+          p.y < obj.position.y + obj.size.h + pad
+        if (within(wa) && within(wb)) {
+          useDocStore.getState().pushHistory(pageId)
+          rotate = { id: obj.id, startAngle: Math.atan2(b.y - a.y, b.x - a.x), startRotation: obj.rotation }
+        }
+      }
+    }
     pinchRef.current = {
       dist: Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1),
       center: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
       viewport: vpRef.current, // live — matches beginGesture; the store lags on purpose
+      startedAt: Date.now(),
+      rotate,
     }
-}, [])
+}, [pageId, editing, locked, toCanvas])
 
   const onPinchEnd = useCallback(
     (e: PointerEvent) => {
+      const p = pinchRef.current
+      // Two-finger tap = the touch equivalent of a right-click (§11 ADD):
+      // both fingers landed and lifted quickly with barely any spread/pan.
+      if (p && !p.rotate && touchesRef.current.size === 2) {
+        const [ta, tb] = [...touchesRef.current.values()]
+        const curDist = Math.hypot(tb.x - ta.x, tb.y - ta.y)
+        const curCenter = { x: (ta.x + tb.x) / 2, y: (ta.y + tb.y) / 2 }
+        const stillish =
+          Date.now() - p.startedAt < 400 &&
+          Math.abs(curDist - p.dist) < 16 &&
+          Math.hypot(curCenter.x - p.center.x, curCenter.y - p.center.y) < 16
+        if (stillish) {
+          const local = toLocal(curCenter.x, curCenter.y)
+          const objectId =
+            document.elementFromPoint(curCenter.x, curCenter.y)?.closest?.('[data-object-id]')?.getAttribute('data-object-id') ?? null
+          if (objectId) useDocStore.getState().setSelection([objectId])
+          setCtxMenu({ x: local.x, y: local.y, objectId })
+        }
+      }
       touchesRef.current.delete(e.pointerId)
       if (touchesRef.current.size >= 2) {
         pinchBaseline() // a finger lifted but two remain — re-anchor
@@ -2006,7 +2097,7 @@ export function InfiniteCanvas({
       window.removeEventListener('pointerup', onPinchEnd)
       window.removeEventListener('pointercancel', onPinchEnd)
     },
-    [onPinchMove, pinchBaseline]
+    [onPinchMove, pinchBaseline, toLocal]
   )
 
   useEffect(
@@ -2250,9 +2341,13 @@ export function InfiniteCanvas({
       })
       return
     }
-    if (tool === 'line') {
-      setStroke([[point.x, point.y]])
-      beginGesture('placeLine', e, { placeTool: tool })
+    if (tool === 'line' || tool === 'measurement') {
+      const start =
+        tool === 'measurement'
+          ? snapMeasurePoint(point, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
+          : point
+      setStroke([[start.x, start.y]])
+      beginGesture('placeLine', e, { placeTool: tool, start })
       return
     }
     beginGesture(tool === 'circle' ? 'placeRadius' : 'placeRect', e, { placeTool: tool })
@@ -2314,6 +2409,11 @@ export function InfiniteCanvas({
       }
       return // inspecting during Play is fine; moving is not
     }
+    // A submission-review's frozen base (UX masterplan §18): selectable so
+    // a teacher can still inspect it, never draggable. The store already
+    // rejects the mutation either way (patchObject) — this just skips the
+    // drag-then-snap-back visual lie.
+    if (store.pages[pageId]?.objects[id]?.metadata.locked) return
     store.pushHistory(pageId)
     beginGesture('move', e)
   }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
@@ -2323,7 +2423,7 @@ export function InfiniteCanvas({
     e.stopPropagation()
     const store = useDocStore.getState()
     const obj = store.pages[pageId]?.objects[id]
-    if (!obj) return
+    if (!obj || obj.metadata.locked) return
     store.pushHistory(pageId)
     beginGesture('resize', e, {
       resizeId: id,
@@ -2338,7 +2438,7 @@ export function InfiniteCanvas({
     e.stopPropagation()
     const store = useDocStore.getState()
     const obj = store.pages[pageId]?.objects[id]
-    if (!obj) return
+    if (!obj || obj.metadata.locked) return
     store.pushHistory(pageId)
     const center = {
       x: obj.position.x + obj.size.w / 2,
@@ -2911,6 +3011,8 @@ export function InfiniteCanvas({
           viewport is pinned to 1× above — so the pill would just be a
           meaningless "100%" badge, and with several such instances mounted
           at once (doc sheets, PDF pages) it was piling up one per instance. */}
+      
+
       {!locked && (isPhone ? zoomHud : true) && (() => {
         const locked = nbPrefs.lockZoom
         const LockIcon = locked ? Lock : LockOpen

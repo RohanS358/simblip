@@ -6,8 +6,9 @@
 // the physics instead of reading about it. Progress is sticky per course.
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
-import { Check, ChevronLeft, GraduationCap, X } from 'lucide-react'
+import { Check, ChevronLeft, Film, GraduationCap, X } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useRuntimeStore } from '@/lib/physics/world'
 import type { PageDoc, SceneObject } from '@/lib/scene/types'
@@ -18,6 +19,7 @@ interface Ctx {
   page: PageDoc | null
   tool: Tool
   played: boolean
+  pinned: boolean
 }
 
 interface Step {
@@ -36,6 +38,8 @@ const T = {
   components: '[aria-label^="Components"]',
   play: '[aria-label="Play"], [aria-label="Pause"]',
   inspector: '[aria-label="Toggle inspector"], [aria-label="Close inspector"]',
+  undo: '[aria-label="Undo"]',
+  pin: '[aria-label="Pin this run — compare against the next one"], [aria-label="Clear pinned run"]',
 }
 
 /** Pulsing ring pinned over the step's control; tracks it as layout moves. */
@@ -69,24 +73,49 @@ function StepHighlight({ selector }: { selector?: string }) {
   )
 }
 
+/** Beginner: never touched the app. Intermediate: comfortable placing and
+ *  connecting components, ready for tool-mastery and a new physics domain.
+ *  Advanced: fluent — the remaining domains are genuinely harder physics,
+ *  not harder UI. Purely a grouping/ordering label for the course picker;
+ *  nothing is ever locked, every course stays one tap away (§24/§27 of the
+ *  UX masterplan — no course should ever gate another). */
+type Tier = 'beginner' | 'intermediate' | 'advanced'
+
 interface Course {
   id: string
   title: string
   goal: string
+  tier: Tier
   steps: Step[]
 }
+
+const TIERS: { id: Tier; label: string }[] = [
+  { id: 'beginner', label: 'Beginner' },
+  { id: 'intermediate', label: 'Intermediate' },
+  { id: 'advanced', label: 'Advanced' },
+]
 
 const objs = (ctx: Ctx): SceneObject[] => (ctx.page ? Object.values(ctx.page.objects) : [])
 const hasB = (ctx: Ctx, type: string, n = 1) =>
   objs(ctx).filter((o) => o.behaviors.some((b) => b.enabled && b.type === type)).length >= n
 const hasSymbol = (ctx: Ctx, domain: string, n = 1) =>
   objs(ctx).filter((o) => o.geometry.kind === 'symbol' && o.geometry.domain === domain).length >= n
+/** Any numeric param anywhere whose expression is exactly one of the page's
+ *  variable names — i.e. the learner wired a variable into an object. */
+const usesAVariable = (ctx: Ctx) => {
+  const names = ctx.page?.variables.map((v) => v.name) ?? []
+  if (!names.length) return false
+  return objs(ctx).some((o) =>
+    o.behaviors.some((b) => Object.values(b.params).some((p) => p.kind === 'number' && names.includes(p.expr.trim())))
+  )
+}
 
 const COURSES: Course[] = [
   {
     id: 'basics',
     title: 'Notebook basics',
     goal: 'Draw, write and control the canvas.',
+    tier: 'beginner',
     steps: [
       { text: 'Pick the Pen (P) in the bottom dock and draw anything — a scribble is fine.', target: T.pen, check: (c) => objs(c).some((o) => o.geometry.kind === 'stroke') || c.tool === 'pen' },
       { text: 'Draw a rough circle slowly — sketch recognition turns it into a real circle.', target: T.pen, check: (c) => objs(c).some((o) => o.geometry.kind === 'circle') },
@@ -98,6 +127,7 @@ const COURSES: Course[] = [
     id: 'mechanics',
     title: 'Mechanics — spring–mass oscillator',
     goal: 'Build and run your first simulation.',
+    tier: 'beginner',
     steps: [
       { text: 'Open Components (the shapes icon) and place a Spring, then a Mass touching its lower end.', target: T.components, check: (c) => hasB(c, 'spring') && hasB(c, 'rigidBody') },
       { text: 'Place a Ground under everything so the world has a floor.', target: T.components, check: (c) => hasB(c, 'staticBody') },
@@ -107,9 +137,23 @@ const COURSES: Course[] = [
     ],
   },
   {
+    id: 'workflow',
+    title: 'Working faster — variables & shortcuts',
+    goal: 'Drive several objects from one shared number, and the moves that stop costing clicks.',
+    tier: 'intermediate',
+    steps: [
+      { text: 'Open Properties → Variables and add one — any name, any starting value.', target: T.inspector, check: (c) => (c.page?.variables.length ?? 0) >= 1 },
+      { text: 'Select an object with a physics behavior, then type your variable’s name into one of its numeric fields instead of a number.', target: T.inspector, check: usesAVariable },
+      { text: 'Change that variable’s value in the Variables tab — everything wired to it updates at once, even mid-simulation.', target: T.inspector },
+      { text: 'Select any object and duplicate it (Ctrl/Cmd+D) — same properties, ready to place again without rebuilding it.', target: T.components },
+      { text: 'Made a mess? Ctrl/Cmd+Z undoes, Shift+Ctrl/Cmd+Z redoes. Try it now.', target: T.undo },
+    ],
+  },
+  {
     id: 'circuits',
     title: 'Circuits — Ohm’s law loop',
     goal: 'A battery, a resistor and real Kirchhoff current.',
+    tier: 'intermediate',
     steps: [
       { text: 'From Components, place a Battery and a Resistor side by side.', target: T.components, check: (c) => hasSymbol(c, 'electrical', 2) },
       { text: 'Draw ink from terminal to terminal to wire them into a loop — ink that touches terminals conducts.', target: T.pen, check: (c) => hasB(c, 'wire') },
@@ -121,6 +165,7 @@ const COURSES: Course[] = [
     id: 'optics',
     title: 'Optics & quantum light — Young’s double slit',
     goal: 'Interference fringes, then photon-by-photon build-up.',
+    tier: 'advanced',
     steps: [
       { text: 'Place a Light Source (Optics section) — a coherent beam fires along its rotation.', target: T.components, check: (c) => hasB(c, 'lightSource') },
       { text: 'Place a Slit across the beam. Its defaults are already Young’s d = 40 µm double slit.', target: T.components, check: (c) => hasB(c, 'slit') },
@@ -133,6 +178,7 @@ const COURSES: Course[] = [
     id: 'waves',
     title: 'Waves — media & standing waves',
     goal: 'Propagation, loss and reflection.',
+    tier: 'advanced',
     steps: [
       { text: 'Place a Wave Source (Waves section) and press ▶ Play to watch the travelling wave.', target: T.components, check: (c) => hasB(c, 'waveSource') && c.played },
       { text: 'In the Inspector set σ > 0 — the envelope decays: a lossy medium. Large σ ⇒ conductor-like skin depth.', target: T.inspector, check: (c) => hasB(c, 'waveSource') },
@@ -144,11 +190,24 @@ const COURSES: Course[] = [
     id: 'quantum',
     title: 'Quantum — confinement & tunneling',
     goal: 'Wells, wavefunctions and barriers.',
+    tier: 'advanced',
     steps: [
       { text: 'Place a Quantum Well (Quantum section) — you see ψ, |ψ|² and the energy ladder.', target: T.components, check: (c) => hasB(c, 'quantumWell') },
       { text: 'Step n to 2, then 3 in the Inspector — nodes appear; En grows as n².', target: T.inspector, check: (c) => hasB(c, 'quantumWell') },
       { text: 'Narrow the well (smaller L): every level rises as 1/L² — confinement costs energy.', target: T.inspector, check: (c) => hasB(c, 'quantumWell') },
       { text: 'Place a Tunnel Barrier with E < V0. Transmission is NOT zero — sweep E and the width to map how tunneling decays.', target: T.components, check: (c) => hasB(c, 'tunnelBarrier') },
+    ],
+  },
+  {
+    id: 'teaching',
+    title: 'Teaching with SIMBLIP',
+    goal: 'The instructor moves — not more physics, the tools you use in front of a class.',
+    tier: 'advanced',
+    steps: [
+      { text: 'Press ? anywhere (not while typing) to open the keyboard shortcut cheat sheet — the fastest way to learn the bindings your students will pick up by watching you drive.' },
+      { text: 'Run a simulation, then change one parameter (e.g. a spring’s k) and run it again. Click the Pin icon next to Reset first: the earlier run overlays as a dimmed trace on any Graph reading that channel — a live "k=5 vs k=10" without a second page.', target: T.pin, check: (c) => c.pinned },
+      { text: 'On a room’s paired display, press Present on any page from its ⋯ menu — the room shows a frozen copy live; your master notebook is never touched, so you can keep editing it during class.' },
+      { text: 'In Assignments, open a submitted page and click "View copy" — it imports locked: you can draw or write feedback on top, but the student’s own work can’t be moved, resized or edited, ever.' },
     ],
   },
 ]
@@ -162,14 +221,26 @@ const loadProgress = (): Record<string, number> => {
   }
 }
 
-export function TutorialPanel({ pageId, onClose }: { pageId: string | null; onClose: () => void }) {
-  const [courseId, setCourseId] = useState<string | null>(null)
+export function TutorialPanel({
+  pageId,
+  onClose,
+  initialCourseId,
+}: {
+  pageId: string | null
+  onClose: () => void
+  /** Pre-select a course on mount — e.g. the first-run seed opens straight
+   *  into "basics" instead of the course list, since the seeded page was
+   *  built for exactly that course (shell.tsx's seedFirstRun). */
+  initialCourseId?: string
+}) {
+  const [courseId, setCourseId] = useState<string | null>(initialCourseId ?? null)
   const [progress, setProgress] = useState<Record<string, number>>({})
   const [played, setPlayed] = useState(false)
 
   const page = useDocStore((s) => (pageId ? s.pages[pageId] ?? null : null))
   const tool = useDocStore((s) => s.tool)
   const mode = useRuntimeStore((s) => s.mode)
+  const pinned = useDocStore((s) => (pageId ? Boolean(s.pinnedRuns[pageId]) : false))
 
   useEffect(() => setProgress(loadProgress()), [])
   useEffect(() => {
@@ -178,7 +249,7 @@ export function TutorialPanel({ pageId, onClose }: { pageId: string | null; onCl
 
   const course = COURSES.find((c) => c.id === courseId) ?? null
   const step = course ? Math.min(progress[course.id] ?? 0, course.steps.length) : 0
-  const ctx: Ctx = { page, tool, played }
+  const ctx: Ctx = { page, tool, played, pinned }
   const current = course?.steps[step]
   const passed = Boolean(current?.check?.(ctx))
 
@@ -225,32 +296,58 @@ export function TutorialPanel({ pageId, onClose }: { pageId: string | null; onCl
       </div>
 
       {!course ? (
-        <div className="space-y-1.5">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto no-scrollbar">
           <p className="pb-1 text-[12px] leading-relaxed text-muted-foreground">
             Guided experiments, done by you on this page. Each step watches your canvas and ticks
-            itself when it detects the setup.
+            itself when it detects the setup. Nothing is locked — jump to any tier any time.
           </p>
-          {COURSES.map((c) => {
-            const done = (progress[c.id] ?? 0) >= c.steps.length
+          <Link
+            href="/tutorial"
+            className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-[var(--accent-violet)] hover:text-foreground"
+          >
+            <Film className="h-3.5 w-3.5 shrink-0 text-[var(--accent-violet)]" />
+            New here? Watch the silent visual walkthrough first — no setup, nothing saved.
+          </Link>
+          {TIERS.map(({ id: tierId, label }) => {
+            const inTier = COURSES.filter((c) => c.tier === tierId)
+            if (!inTier.length) return null
             return (
-              <button
-                key={c.id}
-                type="button"
-                className="flex w-full items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors hover:bg-accent/50"
-                onClick={() => setCourseId(c.id)}
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[12.5px] font-semibold">{c.title}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">{c.goal}</span>
+              <div key={tierId} className="space-y-1.5">
+                <span className="block px-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  {label}
                 </span>
-                {done ? (
-                  <Check className="h-4 w-4 shrink-0 text-[var(--accent-mint)]" />
-                ) : (
-                  <span className="shrink-0 text-[10.5px] text-muted-foreground">
-                    {progress[c.id] ?? 0}/{c.steps.length}
-                  </span>
-                )}
-              </button>
+                {inTier.map((c) => {
+                  const done = (progress[c.id] ?? 0) >= c.steps.length
+                  const isFirstEver = c.id === 'basics' && !done && Object.keys(progress).length === 0
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      className="flex w-full items-center gap-2 rounded-xl border border-border/60 px-3 py-2 text-left transition-colors hover:bg-accent/50"
+                      onClick={() => setCourseId(c.id)}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-1.5">
+                          <span className="block truncate text-[12.5px] font-semibold">{c.title}</span>
+                          {isFirstEver && (
+                            <span className="shrink-0 rounded-full bg-[var(--accent-blue)]/15 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--accent-blue)]">
+                              Start here
+                            </span>
+                          )}
+                        </span>
+                        <span className="block truncate text-[11px] text-muted-foreground">{c.goal}</span>
+                      </span>
+                      {done ? (
+                        <Check className="h-4 w-4 shrink-0 text-[var(--accent-mint)]" />
+                      ) : (
+                        <span className="shrink-0 text-[10.5px] text-muted-foreground">
+                          {progress[c.id] ?? 0}/{c.steps.length}
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
             )
           })}
         </div>

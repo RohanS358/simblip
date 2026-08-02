@@ -263,16 +263,29 @@ function TeacherAssignments() {
       toast.error('No submitted content yet.')
       return
     }
+    // Annotation-over-a-locked-base (UX masterplan §18): every object the
+    // student actually submitted is stamped read-only on the way in, so
+    // "what they submitted" stays provably intact — feedback marks the
+    // teacher draws are ordinary new (unlocked) objects on the same page,
+    // never edits to these. lib/store/document.ts's patchObject/
+    // removeObjects are what actually enforce the lock.
+    const locked = {
+      ...sub.content,
+      objects: Object.fromEntries(
+        Object.entries(sub.content.objects).map(([id, o]) => [id, { ...o, metadata: { ...o.metadata, locked: 1 } }])
+      ),
+    }
     const pageId = importPageDoc({
       notebookName: 'Reviews',
       notebookEmoji: '🔍',
       sectionName: a.title,
       pageName: `${sub.student_name} — ${a.title}`,
-      content: sub.content,
+      content: locked,
       activate: true,
     })
     useWorkspaceStore.getState().setActivePage(pageId)
     router.push('/notebook')
+    toast.info('Submitted work is locked — draw or write to add feedback on top of it.')
   }
 
   return (

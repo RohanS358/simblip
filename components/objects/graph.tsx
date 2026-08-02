@@ -360,6 +360,31 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
     })
   }, [sourceIds, data, formulas, scope, xMin, xMax, xChannel])
 
+  // Pin this run (UX masterplan §14): a frozen A/B trace overlaid dimmed
+  // behind the live one, keyed and merged the same way `data` above is.
+  const pinnedRun = useDocStore((s) => s.pinnedRuns[pageId])
+  const pinnedRows = useMemo(() => {
+    if (!pinnedRun || sourceIds.length === 0) return []
+    const merged = new Map<number, Record<string, number>>()
+    for (const id of sourceIds) {
+      const samples = pinnedRun.samples[id]
+      if (!samples) continue
+      for (const s of decimate(samples, MAX_POINTS)) {
+        const t = Number(s.t.toFixed(3))
+        let row = merged.get(t)
+        if (!row) {
+          row = { t }
+          merged.set(t, row)
+        }
+        for (const [ch, v] of Object.entries(s.channels)) {
+          row[`${id}:${ch}`] = v
+          if (id === primaryId) row[ch] = v
+        }
+      }
+    }
+    return [...merged.values()].sort((a, b) => a.t - b.t)
+  }, [pinnedRun, sourceIds, primaryId])
+
   const multiSource = sourceIds.length > 1
   const nameOf = (id: string) => pageObjects?.[id]?.name ?? '?'
   const seriesLabel = (s: GraphSeries) => (multiSource ? `${nameOf(s.objectId)} · ${s.channel}` : s.channel)
@@ -731,6 +756,24 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
                   label={{ value: String(v), fontSize: 9, fill: 'var(--accent-rose)', position: 'top' }}
                 />
               ))}
+              {pinnedRows.length > 1 &&
+                panels.map((p) => (
+                  <Line
+                    key={`pin-${p.key}`}
+                    type={p.step ? 'stepAfter' : 'monotone'}
+                    data={pinnedRows}
+                    dataKey={p.key}
+                    name={`${p.name} (pinned)`}
+                    stroke={p.color}
+                    strokeOpacity={0.35}
+                    strokeWidth={1.5}
+                    strokeDasharray="2 3"
+                    dot={false}
+                    legendType="none"
+                    isAnimationActive={false}
+                    connectNulls
+                  />
+                ))}
               {panels.map((p) => (
                 <Line
                   key={p.key}

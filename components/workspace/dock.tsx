@@ -1,22 +1,25 @@
 'use client'
 
-// A dock column: hosts the workspace panel assigned to one side. Panels live
-// where they belong — Pages on the left, Inspector on the right — with no
-// swap/merge chrome; the old bar drew an ugly border and moved things nobody
-// wanted moved.
+// A dock column: hosts the workspace panel(s) stacked on the left rail.
+// Always exactly one panel today ('pages', the Sidebar) — this used to be
+// side-swappable and mergeable-into-tabs, with a second 'inspector' panel
+// that could dock independently; Properties absorbed into the rail (see
+// sidebar-sections.ts) retired that second panel, and nothing ever moved
+// sides again. Deleted the unused arrangement store (lib/store/layout.ts)
+// rather than keep flexibility with no second caller.
 //
 // Panel text size/spacing preferences apply here (CSS zoom + letter-spacing),
 // so the canvas keeps its own scale.
 
 import type { ReactNode } from 'react'
-import type { PanelId, Side } from '@/lib/store/layout'
 import { usePrefs } from '@/lib/store/preferences'
+
+export type PanelId = 'pages'
 
 export function Dock({
   panels,
   render,
 }: {
-  side: Side
   panels: PanelId[]
   render: (id: PanelId) => ReactNode
 }) {

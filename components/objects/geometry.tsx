@@ -12,6 +12,7 @@ import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
 import { getNumber, type ObjectRendererProps } from './types'
+import { pxToCmRounded } from '@/lib/scene/units'
 import {
   traceRays,
   screenPatterns,
@@ -953,11 +954,42 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           data-wire={flowable ? '' : undefined}
           d={d}
           fill="none"
-          stroke={optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
-          strokeWidth={optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
+          stroke={render === 'measurement' ? 'var(--accent-rose)' : optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
+          strokeWidth={render === 'measurement' ? 1.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
+          strokeDasharray={render === 'measurement' ? '5 4' : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
         />
+        {render === 'measurement' &&
+          (() => {
+            // Ruler ticks perpendicular to the line at each end, live
+            // distance label at the midpoint — a specialized line+label
+            // pairing (§8), not a new geometry kind or behavior.
+            const dx = b[0] - a[0]
+            const dy = b[1] - a[1]
+            const len = Math.hypot(dx, dy) || 1
+            const px = (-dy / len) * 6
+            const py = (dx / len) * 6
+            const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
+            const cm = pxToCmRounded(len)
+            return (
+              <g stroke="var(--accent-rose)" strokeWidth={1.5}>
+                <line x1={a[0] - px} y1={a[1] - py} x2={a[0] + px} y2={a[1] + py} />
+                <line x1={b[0] - px} y1={b[1] - py} x2={b[0] + px} y2={b[1] + py} />
+                <text
+                  x={mid.x}
+                  y={mid.y - 8}
+                  textAnchor="middle"
+                  fill="var(--accent-rose)"
+                  stroke="none"
+                  fontSize={11}
+                  fontWeight={600}
+                >
+                  {cm} cm
+                </text>
+              </g>
+            )
+          })()}
         {render === 'lens' && (
           <g stroke={optics!.color} strokeWidth={2} fill="none">
             <path d={`M${a[0] - 8} ${a[1] + 10} L${a[0]} ${a[1]} L${a[0] - 8} ${a[1] - 10}`} />

@@ -46,10 +46,16 @@ const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.C
 const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
 const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
 const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
+const EventLogPanel = dynamic(() => import('./event-log-panel').then((m) => m.EventLogPanel), { ssr: false })
 
-function seedFirstRun() {
+/** Returns true only on the account's actual first run (seeds a notebook),
+ *  so the caller can auto-open the tutorial exactly once, right where the
+ *  seeded page already primes its first course (see tutorial.tsx §basics —
+ *  UX masterplan §25: the best onboarding feature was previously off by
+ *  default and undiscovered on the one page built to showcase it). */
+function seedFirstRun(): boolean {
   const ws = useWorkspaceStore.getState()
-  if (ws.notebooks.length > 0) return
+  if (ws.notebooks.length > 0) return false
   const nbId = ws.addNotebook('My Notebook')
   const secId = ws.addSection(nbId, 'Physics')
   const pageId = ws.addPage(nbId, secId, 'Welcome')
@@ -96,6 +102,7 @@ function seedFirstRun() {
   doc.addObject(pageId, graph, { history: false })
 
   ws.setActivePage(pageId)
+  return true
 }
 
 export function WorkspaceShell() {
@@ -104,7 +111,9 @@ export function WorkspaceShell() {
   const [ready, setReady] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsTab, setSettingsTab] = useState<string | undefined>(undefined)
   const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [tutorialInitialCourse, setTutorialInitialCourse] = useState<string | undefined>(undefined)
   const { resolvedTheme, setTheme } = useTheme()
   const isMobile = useIsMobile()
 
@@ -181,7 +190,10 @@ export function WorkspaceShell() {
   useShareInbox()
 
   useEffect(() => {
-    seedFirstRun()
+    if (seedFirstRun()) {
+      setTutorialInitialCourse('basics')
+      setTutorialOpen(true)
+    }
     // Small screens: the canvas is the workspace — panels open on demand.
     if (window.matchMedia('(max-width: 767px)').matches)
       useWorkspaceStore.setState({ sidebarOpen: false, inspectorOpen: false })
@@ -199,12 +211,22 @@ export function WorkspaceShell() {
     stop()
   }, [activePageId])
 
-  // Global command palette.
+  // Global command palette, and '?' for the shortcuts cheat sheet (Gmail/
+  // Linear/Notion/Figma convention) — skipped while typing so a literal '?'
+  // in a note or formula isn't hijacked.
   useEffect(() => {
+    const isTyping = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setCommandOpen((o) => !o)
+        return
+      }
+      if (e.key === '?' && !isTyping(e.target)) {
+        e.preventDefault()
+        setSettingsTab('shortcuts')
+        setSettingsOpen(true)
       }
     }
     window.addEventListener('keydown', onKey)
@@ -226,7 +248,7 @@ export function WorkspaceShell() {
   // section, Properties included — the right Inspector dock retired when
   // Properties joined the rail). sidebarOpen only controls whether the
   // content PANE is expanded, handled inside Sidebar itself.
-  const leftDock = <Dock side="left" panels={['pages']} render={() => <Sidebar />} />
+  const leftDock = <Dock panels={['pages']} render={() => <Sidebar />} />
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
@@ -417,6 +439,8 @@ export function WorkspaceShell() {
                 <CanvasControls pageId={contentPageId} showTransport={false} />
               )}
               {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
+             
+              {contentPageId && <EventLogPanel pageId={contentPageId} />}
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
@@ -446,8 +470,21 @@ export function WorkspaceShell() {
         onOpenChange={setCommandOpen}
         onOpenSettings={() => setSettingsOpen(true)}
       />
-      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-      {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
+      <SettingsDialog
+        open={settingsOpen}
+        onOpenChange={(o) => {
+          setSettingsOpen(o)
+          if (!o) setSettingsTab(undefined)
+        }}
+        initialTab={settingsTab}
+      />
+      {tutorialOpen && (
+        <TutorialPanel
+          pageId={activePageId}
+          initialCourseId={tutorialInitialCourse}
+          onClose={() => setTutorialOpen(false)}
+        />
+      )}
     </div>
   )
 }

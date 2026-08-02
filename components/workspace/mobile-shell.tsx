@@ -403,7 +403,7 @@ export function MobileShell() {
               phone it starts collapsed to the rail (sidebarOpen is forced
               false below max-width:767px, same as the desktop shell), so it
               never eats into canvas space uninvited. */}
-          <Dock side="left" panels={['pages']} render={() => <Sidebar />} />
+          <Dock panels={['pages']} render={() => <Sidebar />} />
 
           <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
             {splitScreenObject && (

@@ -10,7 +10,8 @@
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",
-    "start": "next start"
+    "start": "next start",
+    "audit:contrast": "node scripts/accent-contrast-audit.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

@@ -10,7 +10,7 @@ import type { SceneObject, Variable, BehaviorType, NumericParam } from '@/lib/sc
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
-import { readBuffer } from '@/lib/physics/bus'
+import { readBuffer, type Sample } from '@/lib/physics/bus'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import * as archive from '@/lib/store/page-archive'
 import { dropBuffer } from '@/lib/physics/bus'
@@ -25,6 +25,7 @@ export type Tool =
   | 'circle'
   | 'rect'
   | 'line'
+  | 'measurement' // point-to-point ruler: a line tagged metadata.render='measurement'
   | 'shape' // placing a shape from the Shapes group (toolOption = shape id)
   | 'text'
   | 'note'
@@ -44,6 +45,15 @@ export interface Viewport {
   x: number
   y: number
   zoom: number
+}
+
+/** A frozen copy of every Graph source's buffer at the moment "Pin this
+ *  run" was pressed — one at a time, A/B not an experiment-management
+ *  system (UX masterplan §14). */
+export interface PinnedRun {
+  label: string
+  pinnedAt: number
+  samples: Record<string, Sample[]>
 }
 
 interface PageContent {
@@ -166,6 +176,10 @@ interface DocState {
   selection: string[]
   viewports: Record<string, Viewport>
   scopes: Record<string, Scope>
+  /** "Pin this run" (UX masterplan §14): one page-local A/B snapshot, keyed
+   *  like viewports/scopes rather than living in the synced PageDoc — it's
+   *  session scratch for comparing against, not part of the document. */
+  pinnedRuns: Record<string, PinnedRun | undefined>
 
   ensurePage: (pageId: string) => void
   /** Bring a page into memory from the archive (or create it). Idempotent. */
@@ -216,6 +230,10 @@ interface DocState {
   toggleInkAnnotate: () => void
   setSelection: (ids: string[]) => void
   setViewport: (pageId: string, vp: Viewport) => void
+  /** Freezes every Graph object's source buffer on this page into a named
+   *  snapshot, overwriting any previous pin (one at a time). */
+  pinCurrentRun: (pageId: string, label?: string) => void
+  clearPinnedRun: (pageId: string) => void
 }
 
 function patchObject(
@@ -227,6 +245,11 @@ function patchObject(
   const page = s.pages[pageId]
   const obj = page?.objects[objectId]
   if (!page || !obj) return {}
+  // Locked objects (submission-review's frozen base, UX masterplan §18) are
+  // read-only through every mutation path — move, resize, rotate, params,
+  // behaviors — since they all funnel through this one function. New marks
+  // added on top (ink, notes) are ordinary unlocked objects, unaffected.
+  if (obj.metadata.locked) return {}
   return {
     pages: {
       ...s.pages,
@@ -246,6 +269,7 @@ export const useDocStore = create<DocState>()(
       selection: [],
       viewports: {},
       scopes: {},
+      pinnedRuns: {},
 
       ensurePage: (pageId) => {
         const existing = get().pages[pageId]
@@ -406,7 +430,8 @@ export const useDocStore = create<DocState>()(
           const page = s.pages[pageId]
           if (!page) return s
           const objects = { ...page.objects }
-          for (const id of ids) delete objects[id]
+          const removable = ids.filter((id) => !objects[id]?.metadata.locked)
+          for (const id of removable) delete objects[id]
           return {
             pages: { ...s.pages, [pageId]: { ...page, objects } },
             selection: s.selection.filter((sid) => !ids.includes(sid)),
@@ -577,6 +602,46 @@ export const useDocStore = create<DocState>()(
       setSelection: (ids) => set({ selection: ids }),
       setViewport: (pageId, vp) =>
         set((s) => ({ viewports: { ...s.viewports, [pageId]: vp } })),
+      pinCurrentRun: (pageId, label) => {
+        const page = get().pages[pageId]
+        if (!page) return
+        const sourceIds = new Set<string>()
+        for (const o of Object.values(page.objects)) {
+          if (o.geometry.kind !== 'graph') continue
+          // Same param format as graph.tsx's parseSeries: "objId:ch;..."
+          // falling back to the legacy single sourceId param.
+          const seriesRaw = o.parameters.series
+          const series = seriesRaw?.kind === 'string' ? seriesRaw.value : ''
+          const entries = series
+            .split(';')
+            .map((c) => c.trim())
+            .filter(Boolean)
+          if (entries.length > 0) {
+            for (const entry of entries) {
+              const i = entry.indexOf(':')
+              if (i > 0) sourceIds.add(entry.slice(0, i))
+            }
+          } else {
+            const src = o.parameters.sourceId
+            const id = src?.kind === 'string' ? src.value : undefined
+            if (id) sourceIds.add(id)
+          }
+        }
+        const samples: Record<string, Sample[]> = {}
+        for (const id of sourceIds) {
+          const buf = readBuffer(id)
+          if (buf && buf.samples.length > 0) samples[id] = buf.samples.map((s) => ({ ...s, channels: { ...s.channels } }))
+        }
+        if (Object.keys(samples).length === 0) return
+        set((s) => ({
+          pinnedRuns: {
+            ...s.pinnedRuns,
+            [pageId]: { label: label ?? `Pinned @ ${new Date().toLocaleTimeString()}`, pinnedAt: Date.now(), samples },
+          },
+        }))
+      },
+      clearPinnedRun: (pageId) =>
+        set((s) => ({ pinnedRuns: { ...s.pinnedRuns, [pageId]: undefined } })),
     }),
     {
       name: 'simblip-documents-v2', // v2: entity/component scene model

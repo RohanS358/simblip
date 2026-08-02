@@ -24,6 +24,7 @@ import { useDocStore } from '@/lib/store/document'
 import { pushSample, notify, clearBuffer } from './bus'
 import { connectorPath } from '@/lib/render/connector-path'
 import { buildCircuit, stepCircuit, type Circuit } from '@/lib/circuit/engine'
+import { pushEvent, clearEvents } from './event-log'
 
 Matter.Common.setDecomp(decomp)
 
@@ -622,6 +623,24 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
     Matter.Events.on(engine, 'collisionStart', onTouch(true))
     Matter.Events.on(engine, 'collisionEnd', onTouch(false))
   }
+
+  // Accessible event log (UX masterplan §16 ADD): a screen-reader user has
+  // no way to notice a collision that's currently only a visual flash on
+  // the canvas. One line per newly-touching body pair — Matter only fires
+  // collisionStart once contact begins, and pushEvent's own per-pair
+  // cooldown covers the multi-contact-point / resolver-iteration case
+  // within a single instant, so a resting body doesn't spam the log.
+  Matter.Events.on(engine, 'collisionStart', (event: Matter.IEventCollision<Matter.Engine>) => {
+    for (const pair of event.pairs) {
+      const a = bodies.find((b) => b.body === pair.bodyA)
+      const b = bodies.find((b) => b.body === pair.bodyB)
+      if (!a || !b) continue
+      const nameA = page?.objects[a.objectId]?.name ?? 'Object'
+      const nameB = page?.objects[b.objectId]?.name ?? 'Object'
+      const pairKey = [a.objectId, b.objectId].sort().join(':')
+      pushEvent(pageId, w.t, `${nameA} collided with ${nameB} at t=${w.t.toFixed(2)}s`, pairKey)
+    }
+  })
 
   return w
 }
@@ -1308,6 +1327,7 @@ export function play(pageId: string, scopeId: string | null = null) {
   world = buildWorld(pageId, scopeId)
   for (const b of world.bodies) clearBuffer(b.objectId)
   for (const comp of world.circuit?.comps ?? []) clearBuffer(comp.id)
+  clearEvents(pageId)
   world.last = performance.now()
   world.raf = requestAnimationFrame(frame)
   rt.setMode('running')

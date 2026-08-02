@@ -43,16 +43,7 @@ import {
 import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
-
-const SHORTCUTS: Array<[string, string]> = [
-  ['Ctrl/⌘ K', 'Command palette & global search'],
-  ['V', 'Select tool'],
-  ['P', 'Pen (sketch recognition)'],
-  ['Space + drag', 'Pan the canvas'],
-  ['Ctrl/⌘ Z', 'Undo'],
-  ['Ctrl/⌘ ⇧ Z', 'Redo'],
-  ['Delete', 'Remove selection'],
-]
+import { SHORTCUTS, SHORTCUT_GROUPS } from '@/lib/shortcuts'
 
 function NotebookSettings() {
   const nb = usePrefs((s) => s.notebook)
@@ -432,7 +423,17 @@ function PackagesSettings() {
   )
 }
 
-export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+export function SettingsDialog({
+  open,
+  onOpenChange,
+  initialTab,
+}: {
+  open: boolean
+  onOpenChange: (o: boolean) => void
+  /** Jump straight to a tab (e.g. '?' opens straight to "shortcuts") instead
+   *  of always landing on Profile. */
+  initialTab?: string
+}) {
   const { theme, setTheme } = useTheme()
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -444,7 +445,7 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           <DialogTitle>Settings</DialogTitle>
           <DialogDescription>Your preferences on this device.</DialogDescription>
         </DialogHeader>
-        <Tabs defaultValue="profile" className="flex min-h-0 flex-1 flex-col">
+        <Tabs defaultValue={initialTab ?? 'profile'} className="flex min-h-0 flex-1 flex-col">
           {/* Six tabs no longer fit a fixed strip — let it scroll rather
               than squeeze the labels out of the dialog. */}
           <TabsList className="no-scrollbar w-full justify-start overflow-x-auto">
@@ -540,11 +541,18 @@ export function SettingsDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </TabsContent>
 
           <TabsContent value="shortcuts" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-            <div className="space-y-1.5">
-              {SHORTCUTS.map(([keys, what]) => (
-                <div key={keys} className="flex items-center justify-between text-[12.5px]">
-                  <span className="text-muted-foreground">{what}</span>
-                  <Kbd>{keys}</Kbd>
+            <div className="space-y-3">
+              {SHORTCUT_GROUPS.map((group) => (
+                <div key={group} className="space-y-1.5">
+                  <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    {group}
+                  </p>
+                  {SHORTCUTS.filter((s) => s.group === group).map((s, i) => (
+                    <div key={`${s.keys}-${i}`} className="flex items-center justify-between gap-3 text-[12.5px]">
+                      <span className="text-muted-foreground">{s.label}</span>
+                      <Kbd>{s.keys}</Kbd>
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

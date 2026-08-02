@@ -6,6 +6,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth/store'
 import { homeFor, type Role } from '@/lib/auth/types'
 
@@ -54,6 +55,7 @@ export function RequireAuth({
         <span className="text-[14px] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
+        {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         <span className="text-[12px] text-muted-foreground">
           {status === 'loading' ? 'Checking your session…' : 'Redirecting to sign in…'}
         </span>
