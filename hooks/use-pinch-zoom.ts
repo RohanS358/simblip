@@ -82,6 +82,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
       if (penActive.current) return
       const fingers = fingerTouches(e.touches)
       if (fingers.length !== 2) return
+      e.preventDefault() // claim the gesture before the browser starts page zoom/scroll
       rebaseline(fingers)
     }
 
@@ -113,7 +114,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
       else h.current.onEnd?.()
     }
 
-    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchstart', onTouchStart, { passive: false })
     el.addEventListener('touchmove', onTouchMove, { passive: false })
     el.addEventListener('touchend', onTouchEnd)
     el.addEventListener('touchcancel', onTouchEnd)

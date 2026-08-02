@@ -66,6 +66,10 @@ export interface GraphSnap {
   visited: boolean[] | null
   /** index into `visited` written at this exact step, for a "just visited" highlight */
   visitedNode: number | null
+  /** the node that was `visitedNode` the last time it was non-null, i.e. the
+   *  node visited immediately before this one — lets the view draw the edge
+   *  the traversal just walked. Null until a second node has been visited. */
+  prevVisitedNode: number | null
   /** contents of a `queue<int>`/`stack<int>` in front→back / bottom→top order, if one exists */
   queue: number[] | null
   queueKind: 'queue' | 'stack' | null
@@ -90,6 +94,9 @@ export interface TreeSnap {
   /** address written at this exact step, for a "just touched" highlight —
    *  mirrors GraphSnap's visitedNode. */
   touchedAddr: number | null
+  /** `touchedAddr` the last time it was non-null, i.e. the node touched
+   *  immediately before this one — mirrors GraphSnap's prevVisitedNode. */
+  prevTouchedAddr: number | null
 }
 
 export type StepKind =

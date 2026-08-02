@@ -92,6 +92,7 @@ function Sheet({
   sheetId,
   index,
   size,
+  maxW,
   active,
   canvasActive,
   mounted,
@@ -106,6 +107,10 @@ function Sheet({
   sheetId: string
   index: number
   size: { w: number; h: number }
+  /** Available width (px) for this sheet to shrink into on a narrow
+   *  viewport — see the `maxWidth` note on `style` below for why this has
+   *  to be a JS-computed pixel value rather than a CSS `100%`. */
+  maxW: number | undefined
   active: boolean
   /** Distinct from `active`: whether THIS sheet's InfiniteCanvas should
    *  answer to the keyboard. `active` also folds in `!bare` to suppress the
@@ -191,7 +196,21 @@ function Sheet({
         active &&
           'ring-1 ring-[var(--accent-blue)]/50 shadow-[0_2px_24px_color-mix(in_oklch,var(--accent-blue)_18%,transparent)]'
       )}
-      style={{ width: dims.w, maxWidth: '100%', aspectRatio: `${dims.w} / ${dims.h}` }}
+      style={{
+        width: dims.w,
+        // A CSS `100%` here can't clamp anything: this sheet's parent
+        // (contentRef) is `width: fit-content`, and a fit-content box that's
+        // only offset by `left` (no `right`) sizes itself from ITS
+        // children's own max-content width instead of the viewport —
+        // there's nothing for `100%` to resolve against but the sheet's own
+        // unclamped size, so on a narrow phone the page never shrank at all
+        // and just overflowed off-screen. maxW is the scroller's measured
+        // clientWidth (minus contentRef's padding), computed in DocView and
+        // passed down — a plain pixel number sidesteps that percentage
+        // circularity entirely.
+        maxWidth: maxW ? `${maxW}px` : '100%',
+        aspectRatio: `${dims.w} / ${dims.h}`,
+      }}
       onPointerDownCapture={onFocus}
     >
       {mounted ? (
@@ -272,6 +291,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const [naturalW, setNaturalW] = useState(0)
   const [viewW, setViewW] = useState(0)
   const [viewH, setViewH] = useState(0)
+  // contentRef's own horizontal padding (px-3 / sm:px-6) — subtracted from
+  // viewW below to get the actual room a sheet has to shrink into. Default
+  // matches px-3 (12px * 2) so the very first paint doesn't undershoot.
+  const [contentPadX, setContentPadX] = useState(24)
 
   // CSS `zoom` RESIZES THE LAYOUT BOX (it isn't a pure visual scale) — the
   // page reflows, scroll math gets confused, and any split-view drawing goes
@@ -317,6 +340,13 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     const ro = new ResizeObserver(() => {
       setViewW(el.clientWidth)
       setViewH(el.clientHeight)
+      // contentRef's own horizontal padding (px-3 / sm:px-6) eats into what
+      // a sheet can actually grow to — read it here too since this observer
+      // already re-fires on the resize that crosses the sm breakpoint.
+      if (contentRef.current) {
+        const cs = getComputedStyle(contentRef.current)
+        setContentPadX(parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight))
+      }
     })
     ro.observe(el)
     setViewW(el.clientWidth)
@@ -336,6 +366,9 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const stageH = Math.max(viewH, naturalH * zoom)
   const padLeft = (stageW - naturalW * zoom) / 2
   const padTop = (stageH - naturalH * zoom) / 2
+  // Passed to every Sheet as its `maxW` — see the comment on Sheet's style
+  // for why this has to be a plain pixel number rather than a CSS `100%`.
+  const maxSheetW = viewW ? Math.max(MIN_SHEET, viewW - contentPadX) : undefined
 
   // The toolbar/inspector need a target sheet from the moment the doc opens.
   useEffect(() => {
@@ -574,7 +607,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     <div className="relative h-full w-full">
       <div
         ref={scrollRef}
-        className="h-full w-full overflow-auto bg-muted/40"
+        className="no-scrollbar h-full w-full overflow-auto bg-muted/40"
         // Without this, a two-finger pinch here races the browser's own
         // native page-zoom on mobile/tablet (nothing in the viewport meta
         // disables it) instead of reaching usePinchZoom below — the native
@@ -604,6 +637,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 sheetId={sheetId}
                 index={i}
                 size={sizeOf(sheetId)}
+                maxW={maxSheetW}
                 active={!bare && activeSheetId === sheetId}
                 canvasActive={activeSheetId === sheetId}
                 mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}

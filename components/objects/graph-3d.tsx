@@ -77,7 +77,7 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
   const axisColorZ = useThemeColor(az.color)
   const derivColor = useThemeColor('var(--accent-mint)')
   const [scrubT, setScrubT] = useState(1)
-  const { ref: dprRef, dpr } = useSharpDpr<HTMLDivElement>()
+  const { ref: dprRef, dpr, cssScale } = useSharpDpr<HTMLDivElement>()
 
   const validRows = useMemo(
     () => rows.filter((r) => Number.isFinite(r[ax.key]) && Number.isFinite(r[ay.key]) && Number.isFinite(r[az.key])),
@@ -242,22 +242,36 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
           // layout has actually stopped moving.
           resize={{ scroll: false, debounce: 150 }}
         >
+          {/* drei's <Grid> fakes lying flat on the ground by swapping y/z in
+              its VERTEX SHADER (`localPosition = position.xzy`), not by
+              rotating the actual mesh — so as far as Three's CPU-side
+              Box3.setFromObject is concerned its geometry is still a plane in
+              the XY plane at z≈0. Nested inside <Bounds fit>, that made the
+              fit box think the grid spanned y ∈ [-5, 0] (its untransformed
+              local ±SIZE/2 extent, offset by position={[0,-SIZE/2,0]})
+              instead of its real footprint (a flat plane AT y=-SIZE/2,
+              spanning x/z) — inflating the box downward and skewing the fit.
+              The grid's footprint is already fully covered by the axis
+              lines/arrows below (they correctly reach ±SIZE/2 on every real
+              axis), so it loses nothing rendered outside <Bounds> instead,
+              sidestepping the bad box contribution entirely. */}
+          <Grid
+            args={[SIZE, SIZE]}
+            position={[0, -SIZE / 2, 0]}
+            cellColor={gridColor}
+            sectionColor={gridColor}
+            cellSize={SIZE / 10}
+            sectionSize={SIZE / 2}
+            fadeDistance={SIZE * 4}
+            infiniteGrid={false}
+          />
+
           {/* Bounds(fit, observe): see surface3d.tsx — re-frames camera
               distance to content on every container resize (including the
               fullscreen toggle), instead of leaving a fixed-FOV camera
               under-filling a much wider viewport. Distance-only along the
               current view direction, so manual orbit survives the refit. */}
           <Bounds fit clip observe margin={1.2}>
-            <Grid
-              args={[SIZE, SIZE]}
-              position={[0, -SIZE / 2, 0]}
-              cellColor={gridColor}
-              sectionColor={gridColor}
-              cellSize={SIZE / 10}
-              sectionSize={SIZE / 2}
-              fadeDistance={SIZE * 4}
-              infiniteGrid={false}
-            />
             {/* Conventional X/Y/Z axes through the data's centroid (the scaled
                 cube is always centered at the origin by construction), each
                 colored to match its source panel — a corner "bounding box"
@@ -329,7 +343,21 @@ export function Graph3D({ rows, axes, xChannel, deriv, integ, intA, intB }: Grap
             )}
           </Bounds>
 
-          <OrbitControls makeDefault target={[0, 0, 0]} enableDamping enablePan enableZoom enableRotate />
+          {/* rotateSpeed/panSpeed divided by cssScale: see
+              lib/render/use-sharp-dpr.ts — OrbitControls' angle-per-pixel
+              math never accounts for the board's own zoom, so uncorrected,
+              orbiting this widget got more sensitive the more the board was
+              zoomed in and sluggish zoomed out. */}
+          <OrbitControls
+            makeDefault
+            target={[0, 0, 0]}
+            enableDamping
+            enablePan
+            enableZoom
+            enableRotate
+            rotateSpeed={1 / cssScale}
+            panSpeed={1 / cssScale}
+          />
         </Canvas>
       </div>
 

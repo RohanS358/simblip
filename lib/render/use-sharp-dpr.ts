@@ -24,6 +24,20 @@
 // during the gesture, settle to sharp once idle" convention canvas.tsx's
 // paintViewport already uses for board pan/zoom — and only committed once
 // the ancestor's scale actually stops changing.
+//
+// The same ratio also reveals the ancestor's plain CSS scale factor, once
+// devicePixelRatio is divided back out — returned as `cssScale`. drei's
+// OrbitControls converts pointer movement to rotate/pan angles by dividing
+// by the canvas's CSS layout size (element.clientHeight/Width), which the
+// ancestor's `transform: scale()` never changes; only the REAL on-screen
+// distance the pointer has to travel changes. So at board zoom 2x, the same
+// physical drag crosses the widget "faster" in layout terms, and orbiting
+// gets twice as sensitive — worse the more the board is zoomed in, the
+// opposite the more it's zoomed out. Dividing rotateSpeed/panSpeed by
+// `cssScale` cancels that back out. This is deliberately NOT capped like
+// `dpr` is (that cap exists to bound GPU render-target cost, which doesn't
+// apply here) and updates on the same debounce, which is fine since a board
+// zoom gesture and an orbit-drag gesture don't normally run at once.
 
 import { useEffect, useRef, useState } from 'react'
 
@@ -36,6 +50,7 @@ export function useSharpDpr<T extends HTMLElement>() {
   const [dpr, setDpr] = useState(() =>
     typeof window === 'undefined' ? 1 : Math.min(window.devicePixelRatio || 1, FALLBACK_CAP)
   )
+  const [cssScale, setCssScale] = useState(1)
 
   useEffect(() => {
     const el = ref.current
@@ -50,11 +65,14 @@ export function useSharpDpr<T extends HTMLElement>() {
         }
         const box = entry?.devicePixelContentBoxSize?.[0]
         if (!box || el.clientWidth <= 0) return
-        const next = Math.min(ZOOM_CAP, Math.max(1, box.inlineSize / el.clientWidth))
+        const raw = box.inlineSize / el.clientWidth
+        const next = Math.min(ZOOM_CAP, Math.max(1, raw))
+        const nextCssScale = Math.max(0.01, raw / (window.devicePixelRatio || 1))
         if (settleTimer !== null) window.clearTimeout(settleTimer)
         settleTimer = window.setTimeout(() => {
           settleTimer = null
           setDpr((prev) => (Math.abs(prev - next) > 0.02 ? next : prev))
+          setCssScale((prev) => (Math.abs(prev - nextCssScale) > 0.01 ? nextCssScale : prev))
         }, SETTLE_MS)
       })
       ro.observe(el, { box: 'device-pixel-content-box' })
@@ -70,5 +88,5 @@ export function useSharpDpr<T extends HTMLElement>() {
     }
   }, [])
 
-  return { ref, dpr }
+  return { ref, dpr, cssScale }
 }

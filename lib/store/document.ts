@@ -599,6 +599,12 @@ export const useDocStore = create<DocState>()(
         }
         state.pages = {}
         state.scopes = {}
+        // Zoom is the one part of a persisted viewport that shouldn't
+        // survive a reload — landing back at whatever zoom you happened to
+        // leave a page at (often mid-gesture, e.g. a pinch that hadn't
+        // settled) reads as broken rather than restored. Pan position is
+        // still worth keeping; only reset the zoom factor.
+        for (const vp of Object.values(state.viewports)) vp.zoom = 1
       },
     }
   )

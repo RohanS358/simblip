@@ -227,9 +227,10 @@ interface SceneProps {
   probeU: number
   probeV: number
   dpr: number
+  cssScale: number
 }
 
-function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ, probeU, probeV, dpr }: SceneProps) {
+function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ, probeU, probeV, dpr, cssScale }: SceneProps) {
   const [ua, va] = baseAxes(dependent)
   // A static height-field plot reads best with real, multi-hue color
   // contrast (cool low → warm high) rather than the app's usual single-hue
@@ -350,17 +351,30 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
           instead of growing to use the extra room. It re-scales distance
           along the CURRENT view direction only, so a user's manual orbit
           survives the refit. */}
+      {/* drei's <Grid> fakes lying flat on the ground by swapping y/z in its
+          VERTEX SHADER (`localPosition = position.xzy`), not by rotating the
+          actual mesh — so its geometry is still, as far as Three's CPU-side
+          Box3.setFromObject is concerned, a plane in the XY plane at z≈0.
+          Nested inside <Bounds>, that made the fit's box think the grid
+          spanned y ∈ [-5, 0] (its untransformed local ±SIZE/2 extent, offset
+          by the mesh's own position={[0,-SIZE/2,0]}) instead of its real
+          footprint (a flat plane AT y=-SIZE/2, spanning x/z) — inflating the
+          box downward and skewing the fit. The grid's footprint is already
+          fully covered by the axis lines/arrows below (they correctly reach
+          ±SIZE/2 on every real axis), so it loses nothing to render outside
+          <Bounds> instead, sidestepping the bad box contribution entirely. */}
+      <DreiGrid
+        args={[SIZE, SIZE]}
+        position={[0, -SIZE / 2, 0]}
+        cellColor={gridColor}
+        sectionColor={gridColor}
+        cellSize={SIZE / 10}
+        sectionSize={SIZE / 2}
+        fadeDistance={SIZE * 4}
+        infiniteGrid={false}
+      />
+
       <Bounds fit clip observe margin={1.2}>
-        <DreiGrid
-          args={[SIZE, SIZE]}
-          position={[0, -SIZE / 2, 0]}
-          cellColor={gridColor}
-          sectionColor={gridColor}
-          cellSize={SIZE / 10}
-          sectionSize={SIZE / 2}
-          fadeDistance={SIZE * 4}
-          infiniteGrid={false}
-        />
         <Line points={[[-SIZE / 2, 0, 0], [0, 0, 0]]} color={axisColorU} lineWidth={1.5} />
         <arrowHelper args={[new THREE.Vector3(1, 0, 0), new THREE.Vector3(0, 0, 0), SIZE / 2, axisColorU, SIZE * 0.09, SIZE * 0.045]} />
         <Line points={[[0, -SIZE / 2, 0], [0, 0, 0]]} color={axisColorDep} lineWidth={1.5} />
@@ -412,7 +426,23 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
         )}
       </Bounds>
 
-      <OrbitControls makeDefault target={[0, 0, 0]} enableDamping enablePan enableZoom enableRotate />
+      {/* rotateSpeed/panSpeed divided by cssScale: OrbitControls converts
+          pointer-movement pixels to rotate/pan angle by dividing by the
+          canvas's CSS layout size, which board zoom (an ancestor
+          transform: scale()) never changes — only the real on-screen
+          distance a drag has to cover does. Left uncorrected, orbiting felt
+          more sensitive the more the board was zoomed in, and sluggish
+          zoomed out. See lib/render/use-sharp-dpr.ts. */}
+      <OrbitControls
+        makeDefault
+        target={[0, 0, 0]}
+        enableDamping
+        enablePan
+        enableZoom
+        enableRotate
+        rotateSpeed={1 / cssScale}
+        panSpeed={1 / cssScale}
+      />
 
       {/* Visual orbit gizmo — the small axis widget in the corner, same
           colors as the U/dependent/V axis triad. Drag it to orbit, click a
@@ -460,7 +490,7 @@ export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
 
   const [probeU, setProbeU] = useState(0)
   const [probeV, setProbeV] = useState(0)
-  const { ref: dprRef, dpr } = useSharpDpr<HTMLDivElement>()
+  const { ref: dprRef, dpr, cssScale } = useSharpDpr<HTMLDivElement>()
 
   const firstFormula = formulas[0]
   const firstIsExplicit = firstFormula !== undefined && !isImplicitExpr(firstFormula)
@@ -593,6 +623,7 @@ export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
             probeU={probeU}
             probeV={probeV}
             dpr={dpr}
+            cssScale={cssScale}
           />
         </div>
       ) : (

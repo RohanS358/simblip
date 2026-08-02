@@ -947,6 +947,11 @@ class Interp {
   callSeq = 0
   curChanged: number[] = []
   curReads: number[] = []
+  // Carried across steps (not reset per-step like curChanged/curReads) so
+  // snapshotGraph/snapshotTree can report the node visited/touched right
+  // before the current one — the "where did it just come from" highlight.
+  lastGraphVisitedNode: number | null = null
+  lastTreeTouchedAddr: number | null = null
   randState = 0x2f6e2b1
   // Raw stdin + a character cursor — NOT pre-split into whitespace tokens,
   // because getline() needs LINE boundaries, which a token split discards
@@ -1281,6 +1286,11 @@ class Interp {
       }
       break
     }
+    let prevVisitedNode: number | null = null
+    if (visitedNode !== null) {
+      if (this.lastGraphVisitedNode !== visitedNode) prevVisitedNode = this.lastGraphVisitedNode
+      this.lastGraphVisitedNode = visitedNode
+    }
 
     let queue: number[] | null = null
     let queueKind: 'queue' | 'stack' | null = null
@@ -1294,7 +1304,7 @@ class Interp {
       break
     }
 
-    return { nodeCount, edges, visited, visitedNode, queue, queueKind }
+    return { nodeCount, edges, visited, visitedNode, prevVisitedNode, queue, queueKind }
   }
 
   /** Finds a struct with (at least) two self-referential pointer fields —
@@ -1360,7 +1370,13 @@ class Interp {
       return { addr, label: labelOf(c.fields), left, right }
     }
     const root = walk(rootAddr)
-    return root ? { root, touchedAddr } : null
+    if (!root) return null
+    let prevTouchedAddr: number | null = null
+    if (touchedAddr !== null) {
+      if (this.lastTreeTouchedAddr !== touchedAddr) prevTouchedAddr = this.lastTreeTouchedAddr
+      this.lastTreeTouchedAddr = touchedAddr
+    }
+    return { root, touchedAddr, prevTouchedAddr }
   }
 
   // ── construction of storage from types ──

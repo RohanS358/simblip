@@ -84,32 +84,47 @@ export function DsaBstView({ step }: { step: TraceStep | null }) {
           : { width: layout.w, height: layout.h, className: 'min-h-full min-w-full' })}
       >
         {/* branches first, so nodes draw on top */}
-        {layout.placed.map((p) => (
-          <g key={`e${p.node.addr}`}>
-            {p.node.left && (
-              <line
-                x1={px(p.x)}
-                y1={py(p.y) + NODE_R - 2}
-                x2={px(layout.placed.find((q) => q.node.addr === p.node.left!.addr)?.x ?? p.x)}
-                y2={py(p.y + 1) - NODE_R + 2}
-                stroke="var(--border)"
-                strokeWidth={1.5}
-              />
-            )}
-            {p.node.right && (
-              <line
-                x1={px(p.x)}
-                y1={py(p.y) + NODE_R - 2}
-                x2={px(layout.placed.find((q) => q.node.addr === p.node.right!.addr)?.x ?? p.x)}
-                y2={py(p.y + 1) - NODE_R + 2}
-                stroke="var(--border)"
-                strokeWidth={1.5}
-              />
-            )}
-          </g>
-        ))}
+        {layout.placed.map((p) => {
+          // The parent-child link the traversal just walked, either
+          // direction (arriving at a child from its parent, or a step that
+          // reads back up to the parent) — same "just traveled" highlight
+          // as the graph view's edges.
+          const isTraveledEdge = (childAddr: number | undefined) =>
+            tree.prevTouchedAddr !== null &&
+            tree.touchedAddr !== null &&
+            childAddr !== undefined &&
+            ((p.node.addr === tree.prevTouchedAddr && childAddr === tree.touchedAddr) ||
+              (p.node.addr === tree.touchedAddr && childAddr === tree.prevTouchedAddr))
+          const leftTraveled = isTraveledEdge(p.node.left?.addr)
+          const rightTraveled = isTraveledEdge(p.node.right?.addr)
+          return (
+            <g key={`e${p.node.addr}`}>
+              {p.node.left && (
+                <line
+                  x1={px(p.x)}
+                  y1={py(p.y) + NODE_R - 2}
+                  x2={px(layout.placed.find((q) => q.node.addr === p.node.left!.addr)?.x ?? p.x)}
+                  y2={py(p.y + 1) - NODE_R + 2}
+                  stroke={leftTraveled ? 'var(--accent-amber)' : 'var(--border)'}
+                  strokeWidth={leftTraveled ? 2.5 : 1.5}
+                />
+              )}
+              {p.node.right && (
+                <line
+                  x1={px(p.x)}
+                  y1={py(p.y) + NODE_R - 2}
+                  x2={px(layout.placed.find((q) => q.node.addr === p.node.right!.addr)?.x ?? p.x)}
+                  y2={py(p.y + 1) - NODE_R + 2}
+                  stroke={rightTraveled ? 'var(--accent-amber)' : 'var(--border)'}
+                  strokeWidth={rightTraveled ? 2.5 : 1.5}
+                />
+              )}
+            </g>
+          )
+        })}
         {layout.placed.map((p) => {
           const isTouched = tree.touchedAddr === p.node.addr
+          const isPrev = tree.prevTouchedAddr === p.node.addr
           return (
             <g key={p.node.addr}>
               <circle
@@ -117,8 +132,9 @@ export function DsaBstView({ step }: { step: TraceStep | null }) {
                 cy={py(p.y)}
                 r={NODE_R}
                 fill={isTouched ? 'color-mix(in oklch, var(--accent-amber) 22%, var(--card))' : 'var(--card)'}
-                stroke={isTouched ? 'var(--accent-amber)' : 'var(--border)'}
-                strokeWidth={isTouched ? 2.5 : 1.5}
+                stroke={isTouched ? 'var(--accent-amber)' : isPrev ? 'var(--accent-blue)' : 'var(--border)'}
+                strokeWidth={isTouched ? 2.5 : isPrev ? 2 : 1.5}
+                strokeDasharray={isPrev ? '3 2' : undefined}
                 className="transition-[fill,stroke] duration-200"
               />
               <text

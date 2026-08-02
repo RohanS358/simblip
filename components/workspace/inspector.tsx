@@ -4,7 +4,7 @@
 // "Convert to physics object" = attaching a behavior here. Every numeric
 // field accepts an expression against the page's variable scope.
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { Link2, Maximize2, Plus, Trash2, Upload, X, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
@@ -34,6 +34,14 @@ import { num, str, type SceneObject } from '@/lib/scene/types'
 import { getString, getNumber } from '@/components/objects/types'
 import { getObjectParams } from '@/lib/scene/control-targets'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
+import {
+  parseFormula,
+  derivativeSteps,
+  integralSteps,
+  iteratedIntegralSteps,
+  laplaceSteps,
+  fourierSteps,
+} from '@/lib/formula/steps'
 import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
 import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
@@ -713,6 +721,132 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
           <span className="font-mono">1/2</span> is semiannual, <span className="font-mono">1/4</span> quarterly.
         </p>
       </div>
+    </div>
+  )
+}
+
+/** Formula card — d/dx, ∫dx, Laplace and Fourier actions live here instead
+ *  of on the card itself so the canvas stays uncluttered; the worked
+ *  solution still renders inside the card. */
+function FormulaOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const pushHistory = useDocStore((s) => s.pushHistory)
+  const latex = getStr(object, 'latex')
+  const solution = getStr(object, 'solution')
+
+  const parsed = useMemo(() => parseFormula(latex), [latex])
+  const boundedVars = parsed ? parsed.vars.filter((v) => parsed.bounds[v]) : []
+
+  const solve = (kind: 'd' | 'i' | 'ii' | 'L' | 'F', v?: string) => {
+    if (!parsed) return
+    pushHistory(pageId)
+    try {
+      const steps =
+        kind === 'd'
+          ? derivativeSteps(parsed, v!)
+          : kind === 'ii'
+            ? iteratedIntegralSteps(parsed)
+            : kind === 'L'
+              ? laplaceSteps(parsed, v!)
+              : kind === 'F'
+                ? fourierSteps(parsed, v!)
+                : integralSteps(parsed, v!)
+      setStringParam(pageId, object.id, 'solution', steps)
+    } catch {
+      setStringParam(pageId, object.id, 'solution', `\\text{could not solve — check the expression}`)
+    }
+  }
+
+  const ToolBtn = ({
+    label,
+    description,
+    onClick,
+  }: {
+    label: string
+    description: string
+    onClick: () => void
+  }) => (
+    <span className="flex items-center gap-0.5 rounded-lg border border-border/70 pl-0.5">
+      <button
+        type="button"
+        className="rounded-md px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        onClick={onClick}
+      >
+        {label}
+      </button>
+      <InfoPopover description={description} />
+    </span>
+  )
+
+  return (
+    <div className="space-y-1.5">
+      <SectionTitle>Calculus</SectionTitle>
+      {!parsed ? (
+        <p className="rounded-lg bg-accent/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
+          Write <span className="font-mono">f(x) = x^2 + 3*x, 10&lt;x&lt;20</span> on the card (bounds
+          optional, several variables → partials) to unlock solving.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1">
+            {parsed.vars.map((v) => (
+              <ToolBtn
+                key={`d${v}`}
+                label={parsed.vars.length > 1 ? `∂/∂${v}` : `d/d${v}`}
+                description={`Differentiate the expression with respect to ${v}.`}
+                onClick={() => solve('d', v)}
+              />
+            ))}
+            {parsed.vars.map((v) => (
+              <ToolBtn
+                key={`i${v}`}
+                label={`∫d${v}`}
+                description={
+                  parsed.bounds[v]
+                    ? `Compute a definite integral from ${parsed.bounds[v][0]} to ${parsed.bounds[v][1]} with respect to ${v}.`
+                    : `Compute an indefinite integral with respect to ${v}.`
+                }
+                onClick={() => solve('i', v)}
+              />
+            ))}
+            {boundedVars.length > 1 && (
+              <ToolBtn
+                label={boundedVars.length > 2 ? '∭' : '∬'}
+                description={`Compute an iterated integral over ${boundedVars.join(', ')}.`}
+                onClick={() => solve('ii')}
+              />
+            )}
+            {parsed.vars.map((v) => (
+              <ToolBtn
+                key={`L${v}`}
+                label={`L${parsed.vars.length > 1 ? `{${v}}` : ''}`}
+                description={`Compute the Laplace transform in ${v} to rewrite the expression in the frequency domain.`}
+                onClick={() => solve('L', v)}
+              />
+            ))}
+            {parsed.vars.map((v) => (
+              <ToolBtn
+                key={`F${v}`}
+                label={`F${parsed.vars.length > 1 ? `{${v}}` : ''}`}
+                description={`Compute the Fourier transform in ${v} to analyze the expression by frequency.`}
+                onClick={() => solve('F', v)}
+              />
+            ))}
+          </div>
+          {solution && (
+            <button
+              type="button"
+              className="flex items-center gap-1 text-[10.5px] text-muted-foreground transition-colors hover:text-[var(--accent-rose)]"
+              onClick={() => {
+                pushHistory(pageId)
+                setStringParam(pageId, object.id, 'solution', '')
+              }}
+            >
+              <X className="h-3 w-3" /> Clear solution
+            </button>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -1985,6 +2119,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           </p>
         </div>
       )}
+
+      {object.geometry.kind === 'formula' && <FormulaOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'graph' && (
         <GraphOptions pageId={pageId} object={object} bodies={bodies} />

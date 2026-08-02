@@ -42,6 +42,14 @@ function GraphSvg({ graph }: { graph: GraphSnap }) {
         const p1 = pts[e.a]
         const p2 = pts[e.b]
         if (!p1 || !p2) return null
+        // The edge just walked from prevVisitedNode → visitedNode, in
+        // either direction (an undirected edge doesn't care which way the
+        // traversal used it).
+        const isTraveled =
+          graph.prevVisitedNode !== null &&
+          graph.visitedNode !== null &&
+          ((e.a === graph.prevVisitedNode && e.b === graph.visitedNode) ||
+            (e.a === graph.visitedNode && e.b === graph.prevVisitedNode))
         // Shorten so the line/arrow ends at the node's rim, not its center.
         const dx = p2.x - p1.x
         const dy = p2.y - p1.y
@@ -59,9 +67,9 @@ function GraphSvg({ graph }: { graph: GraphSnap }) {
             y1={y1}
             x2={x2}
             y2={y2}
-            stroke="var(--muted-foreground)"
-            strokeOpacity={0.55}
-            strokeWidth={1.5}
+            stroke={isTraveled ? 'var(--accent-amber)' : 'var(--muted-foreground)'}
+            strokeOpacity={isTraveled ? 0.95 : 0.55}
+            strokeWidth={isTraveled ? 2.5 : 1.5}
             markerEnd={e.directed ? 'url(#dsa-graph-arrow)' : undefined}
           />
         )
@@ -69,6 +77,7 @@ function GraphSvg({ graph }: { graph: GraphSnap }) {
       {pts.map((p, i) => {
         const isVisited = graph.visited?.[i] === true
         const isCurrent = graph.visitedNode === i
+        const isPrev = graph.prevVisitedNode === i
         return (
           <g key={i}>
             <circle
@@ -76,8 +85,17 @@ function GraphSvg({ graph }: { graph: GraphSnap }) {
               cy={p.y}
               r={nodeR}
               fill={isVisited ? 'color-mix(in oklch, var(--accent-mint) 30%, var(--card))' : 'var(--card)'}
-              stroke={isCurrent ? 'var(--accent-amber)' : isVisited ? 'var(--accent-mint)' : 'var(--border)'}
-              strokeWidth={isCurrent ? 2.5 : 1.5}
+              stroke={
+                isCurrent
+                  ? 'var(--accent-amber)'
+                  : isPrev
+                    ? 'var(--accent-blue)'
+                    : isVisited
+                      ? 'var(--accent-mint)'
+                      : 'var(--border)'
+              }
+              strokeWidth={isCurrent ? 2.5 : isPrev ? 2 : 1.5}
+              strokeDasharray={isPrev ? '3 2' : undefined}
             />
             <text
               x={p.x}
@@ -155,6 +173,12 @@ export function DsaGraphView({ step }: { step: TraceStep | null }) {
             <span className="h-2 w-2 rounded-full border-2 border-[var(--accent-amber)]" />
             just written
           </span>
+          {graph.prevVisitedNode !== null && (
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full border-2 border-dashed border-[var(--accent-blue)]" />
+              visited before
+            </span>
+          )}
         </div>
       )}
       <FrontierStrip graph={graph} />

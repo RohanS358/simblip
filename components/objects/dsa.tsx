@@ -203,6 +203,7 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
 
       {/* ── body ── */}
       <div
+        ref={containerRef}
         className="flex min-h-0 flex-1"
         onPointerDown={(e) => {
           if (editing) e.stopPropagation()

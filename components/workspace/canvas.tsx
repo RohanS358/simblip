@@ -2461,16 +2461,15 @@ export function InfiniteCanvas({
       // editing text re-enables selection locally via select-text.
       className={cn(
         'relative h-full w-full select-none overflow-hidden',
-        // Passthrough + select: leave touch panning to the reader's scroller
-        // (object wrappers re-block it so they stay draggable) — everywhere
-        // else the canvas owns every touch itself.
-        !(passthrough && tool === 'select') && 'touch-none',
+        // Reader overlays must never block native pan on their empty areas;
+        // the object wrappers still re-block it where they need drag capture.
+        !passthrough && 'touch-none',
         !transparent && 'bg-background'
       )}
       style={{
         cursor: editing ? cursor : 'default',
         // Scroll yes, browser pinch-zoom no.
-        ...(passthrough && tool === 'select' ? { touchAction: 'pan-x pan-y' } : {}),
+        ...(passthrough ? { touchAction: 'pan-x pan-y' } : {}),
       }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}
