@@ -318,12 +318,18 @@ useLayoutEffect(() => {
   }, [])
 
   const [local, setLocal] = useState(() => getSessionFile(pageId))
+  const [hydrated, setHydrated] = useState(false)
   useEffect(() => {
     // After a reload the persisted copy lives in IndexedDB — hydrate it.
     let dead = false
-    void loadSessionFile(pageId).then((f) => {
-      if (!dead && f) setLocal(f)
-    })
+    void (async () => {
+      try {
+        const f = await loadSessionFile(pageId)
+        if (!dead && f) setLocal(f)
+      } finally {
+        if (!dead) setHydrated(true)
+      }
+    })()
     return () => {
       dead = true
     }
@@ -335,7 +341,7 @@ useLayoutEffect(() => {
   // Reading it also renews its 7-day retention window.
   const fileName = meta?.fileName
   useEffect(() => {
-    if (local || !meta?.fileUrl) return
+    if (local || !hydrated || !meta?.fileUrl) return
     let dead = false
     void (async () => {
       const url = await resolveSharedFile(meta.fileUrl!)
@@ -352,13 +358,14 @@ useLayoutEffect(() => {
         })
         setLocal(putSessionFile(pageId, f))
       } catch {
-        if (!dead) setSharedUrl(url) // stream it this time; cache on the next
+        // If the shared copy is missing, leave the reader empty instead of
+        // pinning a broken /api/files URL into the viewer.
       }
     })()
     return () => {
       dead = true
     }
-  }, [local, meta?.fileUrl, fileName, pageId])
+  }, [hydrated, local, meta?.fileUrl, fileName, pageId])
   const fileUrl = local?.url ?? sharedUrl
 
   // Keep the cloud seed alive: any device HOLDING the file (re-)uploads it

@@ -18,7 +18,7 @@ function buildCsp(nonce: string) {
     // domains, so img-src can't be pinned to 'self'.
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
-    `connect-src 'self'`,
+    `connect-src 'self' blob:`,
     `worker-src 'self' blob:`,
     `media-src 'self' blob:`,
     `manifest-src 'self'`,
