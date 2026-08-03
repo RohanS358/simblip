@@ -405,7 +405,12 @@ export function MobileShell() {
               never eats into canvas space uninvited. */}
           <Dock panels={['pages']} render={() => <Sidebar />} />
 
-          <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
+          {/* min-w-0: <main> is always flex-row, so without this the flex
+              item won't shrink below its content's width. That content is
+              a doc page (~800px), so on phone the scroll area stayed
+              page-width instead of the real viewport, breaking DocView's
+              zoom math. */}
+          <div className={cn('relative flex min-h-0 min-w-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
             {splitScreenObject && (
               <div
                 className={cn(
@@ -425,13 +430,13 @@ export function MobileShell() {
               const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
               if (!rightId) {
                 return (
-                  <div className="relative flex-1 min-h-0">
+                  <div className="relative flex-1 min-h-0 min-w-0">
                     <PageView pageId={leftId} />
                   </div>
                 )
               }
               return (
-                <div className={cn('relative flex min-h-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
+                <div className={cn('relative flex min-h-0 min-w-0 flex-1', isPhone ? 'flex-col' : 'flex-row')}>
                   <div
                     className={cn('relative min-h-0 min-w-0', activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25')}
                     style={isPhone ? { height: `${splitRatio * 100}%` } : { width: `${splitRatio * 100}%` }}
