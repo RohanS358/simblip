@@ -10,6 +10,22 @@
 
 import katex from 'katex'
 
+// Selection-scoped color/size tokens — the one thing per-line markdown can't
+// express with a bare delimiter (there's no bounded palette for "*"). Written
+// by the Properties panel as `[text]{color=blue}` / `[text]{size=l}` (Pandoc's
+// bracketed-span convention), read back here into an inline style built ONLY
+// from these fixed lookups — never from the captured token directly — so
+// arbitrary text can never inject a style attribute.
+export const TEXT_COLORS: Record<string, string> = {
+  default: 'var(--foreground)',
+  blue: 'var(--accent-blue)',
+  mint: 'var(--accent-mint)',
+  amber: 'var(--accent-amber)',
+  rose: 'var(--accent-rose)',
+  violet: 'var(--accent-violet)',
+}
+export const TEXT_SIZES: Record<string, number> = { s: 12, m: 15, l: 20, xl: 28 }
+
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
@@ -42,8 +58,17 @@ function inline(raw: string): string {
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/__([^_]+)__/g, '<strong>$1</strong>')
     .replace(/~~([^~]+)~~/g, '<del>$1</del>')
+    .replace(/==([^=]+)==/g, '<mark>$1</mark>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/(^|[^\w])_([^_]+)_(?!\w)/g, '$1<em>$2</em>')
+    .replace(
+      /\[([^\]]+)\]\{color=([a-z]+)\}/g,
+      (_, txt: string, id: string) => `<span style="color:${TEXT_COLORS[id] ?? 'inherit'}">${txt}</span>`
+    )
+    .replace(
+      /\[([^\]]+)\]\{size=([a-z]+)\}/g,
+      (_, txt: string, id: string) => `<span style="font-size:${TEXT_SIZES[id] ?? TEXT_SIZES.m}px">${txt}</span>`
+    )
     .replace(
       /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'

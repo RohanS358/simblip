@@ -26,7 +26,7 @@ import { openProperties } from '@/lib/store/sidebar-sections'
 import { setClipboard, getClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { nextZ } from '@/lib/scene/factory'
 import { str, uid, type SceneObject } from '@/lib/scene/types'
-import { specsForGeometry } from '@/lib/behaviors/registry'
+import { specsForGeometry, NO_BEHAVIOR_KINDS } from '@/lib/behaviors/registry'
 
 export interface ActionCtx {
   pageId: string
@@ -186,7 +186,12 @@ export function actionsForSelection(ctx: ActionCtx): SelectionAction[] {
   let promote = false
   if (ctx.editing && ctx.ids.length === 1) {
     const obj = useDocStore.getState().pages[ctx.pageId]?.objects[ctx.ids[0]]
-    if (obj && obj.behaviors.length === 0 && specsForGeometry(obj.geometry.kind).length > 0) {
+    if (
+      obj &&
+      obj.behaviors.length === 0 &&
+      !NO_BEHAVIOR_KINDS.includes(obj.geometry.kind) &&
+      specsForGeometry(obj.geometry.kind).length > 0
+    ) {
       promote = true
       core.push({
         id: 'convert-to-physics',
