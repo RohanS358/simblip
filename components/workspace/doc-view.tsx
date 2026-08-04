@@ -660,32 +660,40 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           </div>
         </div>
       </div>
+      {/* z-50, not z-30: CanvasControls floats the drawing toolbar at z-40
+          over this same area. On mobile it was rendering on top of both
+          the zoom HUD and the sorter below, hiding them. */}
       {zoomHud && !bare && (
-        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-50 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
           {Math.round(zoom * 100)}%
         </div>
       )}
       {sorterOpen && !bare && (
-        <DocSorter
-          sheets={sheets}
-          activeSheetId={activeSheetId}
-          onClose={() => setSorterOpen(false)}
-          onReorder={(next) => {
-            useWorkspaceStore.getState().updatePageMeta(pageId, { docPages: next })
-            // The mounted-sheet window is keyed by INDEX (visible), and a
-            // reorder just moved sheet-ids to different indices without
-            // re-firing their IntersectionObservers — reset it so the sheet
-            // that's actually near the viewport is what mounts.
-            setVisible(new Set([0]))
-          }}
-          onJump={(sheetId) => {
-            setActiveSheet(sheetId)
-            scrollRef.current?.querySelector<HTMLElement>(`[data-sheet="${sheetId}"]`)?.scrollIntoView({
-              behavior: 'smooth',
-              block: 'start',
-            })
-          }}
-        />
+        // inset-x-0 bottom-0, not inset-0: an inset-0 wrapper would cover
+        // the whole canvas and block clicks above the sorter, even though
+        // it paints nothing there.
+        <div className="absolute inset-x-0 bottom-0 z-50">
+          <DocSorter
+            sheets={sheets}
+            activeSheetId={activeSheetId}
+            onClose={() => setSorterOpen(false)}
+            onReorder={(next) => {
+              useWorkspaceStore.getState().updatePageMeta(pageId, { docPages: next })
+              // The mounted-sheet window is keyed by INDEX (visible), and a
+              // reorder just moved sheet-ids to different indices without
+              // re-firing their IntersectionObservers — reset it so the sheet
+              // that's actually near the viewport is what mounts.
+              setVisible(new Set([0]))
+            }}
+            onJump={(sheetId) => {
+              setActiveSheet(sheetId)
+              scrollRef.current?.querySelector<HTMLElement>(`[data-sheet="${sheetId}"]`)?.scrollIntoView({
+                behavior: 'smooth',
+                block: 'start',
+              })
+            }}
+          />
+        </div>
       )}
     </div>
   )

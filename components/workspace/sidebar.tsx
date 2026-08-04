@@ -22,7 +22,7 @@
 // scarce width, and a phone has height to spare — with the open section's
 // panel sliding up above it as a capped-height sheet, not sideways.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -110,23 +110,25 @@ export function Sidebar({
   // clear this bar — rail alone when collapsed, rail+panel when it's open
   // and taller — so the actual measured height is published live rather
   // than assuming a fixed rail thickness.
-  const barRef = useRef<HTMLElement>(null)
+  //
+  // State, not useRef: the ref is on the plain <aside> below, which fires
+  // reliably (see comment there). State lets this effect re-run once the
+  // node actually exists.
+  const [barEl, setBarEl] = useState<HTMLElement | null>(null)
   useEffect(() => {
-    if (!isPhone) {
+    if (!isPhone || !barEl) {
       useMobileNavBarStore.getState().setHeight(0)
       return
     }
-    const el = barRef.current
-    if (!el) return
-    const publish = () => useMobileNavBarStore.getState().setHeight(el.getBoundingClientRect().height)
+    const publish = () => useMobileNavBarStore.getState().setHeight(barEl.getBoundingClientRect().height)
     publish()
     const ro = new ResizeObserver(publish)
-    ro.observe(el)
+    ro.observe(barEl)
     return () => {
       ro.disconnect()
       useMobileNavBarStore.getState().setHeight(0)
     }
-  }, [isPhone])
+  }, [isPhone, barEl])
 
   // Which section shows when the pane is open — remembered even while
   // collapsed, so reopening lands back where you left it. Shared store (not
@@ -223,21 +225,25 @@ export function Sidebar({
   // mobile-shell.tsx) — a tablet keeps the desktop-shaped left rail below.
   if (isPhone) {
     return (
-      <fm.aside
-        ref={barRef}
-        initial={{ y: 16, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={motion}
-        className="glass-strong fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl border-t border-border/40 pb-[env(safe-area-inset-bottom)]"
-        aria-label="Sidebar"
-      >
-        {sidebarOpen && (
-          <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden border-b border-border/50">
-            <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
-          </div>
-        )}
-        {railNav}
-      </fm.aside>
+      // Ref goes on this plain <aside>, not on fm.div: motion.aside never
+      // forwards its ref to the DOM node, so height stayed stuck at 0 and
+      // CanvasControls's toolbar rendered on top of the rail. fm.div below
+      // only handles the entrance animation.
+      <aside ref={setBarEl} className="fixed inset-x-0 bottom-0 z-40" aria-label="Sidebar">
+        <fm.div
+          initial={{ y: 16, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={motion}
+          className="glass-strong flex flex-col rounded-t-2xl border-t border-border/40 pb-[env(safe-area-inset-bottom)]"
+        >
+          {sidebarOpen && (
+            <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden border-b border-border/50">
+              <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
+            </div>
+          )}
+          {railNav}
+        </fm.div>
+      </aside>
     )
   }
 
