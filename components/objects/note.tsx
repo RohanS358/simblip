@@ -2,16 +2,8 @@
 
 import type { ObjectRendererProps } from './types'
 import { FileObject } from './file-view'
-import { RichTextArea } from './text'
+import { RichTextArea, FILLS } from './text'
 import { cn } from '@/lib/utils'
-
-const FILLS: Record<string, string> = {
-  amber: 'bg-[color-mix(in_oklch,var(--accent-amber)_18%,var(--card))]',
-  mint: 'bg-[color-mix(in_oklch,var(--accent-mint)_18%,var(--card))]',
-  blue: 'bg-[color-mix(in_oklch,var(--accent-blue)_14%,var(--card))]',
-  violet: 'bg-[color-mix(in_oklch,var(--accent-violet)_14%,var(--card))]',
-  rose: 'bg-[color-mix(in_oklch,var(--accent-rose)_14%,var(--card))]',
-}
 
 export function NoteObject(props: ObjectRendererProps) {
   // Session document elements ride the note kind (HTML surface on canvas).

@@ -5,12 +5,46 @@
 // field accepts an expression against the page's variable scope.
 
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Link2, Maximize2, Plus, Trash2, Upload, X, Zap, ZapOff, Navigation2, Route, Weight } from 'lucide-react'
+import {
+  Link2,
+  Link,
+  Maximize2,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+  Zap,
+  ZapOff,
+  Navigation2,
+  Route,
+  Weight,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+  Bold,
+  Italic,
+  Strikethrough,
+  Highlighter,
+  Code,
+  Pilcrow,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  CheckSquare,
+  Quote,
+  ChevronDown,
+} from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
+import { FILLS } from '@/components/objects/text'
+import { TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
+import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
   serializeSeries as serializeChartSeries,
@@ -20,7 +54,7 @@ import {
   type Series as ChartDataSeries,
 } from '@/components/objects/chart'
 import { isBody } from '@/lib/behaviors/registry'
-import { specsForGeometry, behaviorSpec } from '@/lib/behaviors/registry'
+import { specsForGeometry, behaviorSpec, NO_BEHAVIOR_KINDS } from '@/lib/behaviors/registry'
 import { recommendedHeight } from '@/lib/circuit/engine'
 import {
   DropdownMenu,
@@ -1966,6 +2000,205 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
   )
 }
 
+const ALIGN_ICONS = { left: AlignLeft, center: AlignCenter, right: AlignRight, justify: AlignJustify } as const
+
+const TEXT_STYLES: { label: string; icon: typeof Pilcrow; prefix: string }[] = [
+  { label: 'Body', icon: Pilcrow, prefix: '' },
+  { label: 'Heading 1', icon: Heading1, prefix: '# ' },
+  { label: 'Heading 2', icon: Heading2, prefix: '## ' },
+  { label: 'Heading 3', icon: Heading3, prefix: '### ' },
+]
+
+/** Everything that used to live in a floating dock above the text box now
+ * lives here instead — one home for text controls, matching how every other
+ * object's options work. Format/color/size act on the LIVE SELECTION inside
+ * whichever text box is currently being edited (via useActiveTextEditor,
+ * bridged from components/objects/text.tsx — the panel can't reach the
+ * canvas's contentEditable any other way), so they only ever touch the
+ * highlighted text, never the whole box. Alignment/background stay box-wide
+ * — there's no per-paragraph tracking in the markdown model, and background
+ * is inherently a frame property, not a text one. */
+function TextOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const activeId = useActiveTextEditor((s) => s.objectId)
+  const handleRef = useActiveTextEditor((s) => s.handleRef)
+  const isActive = activeId === object.id
+  const bg = (object.metadata.color as string) ?? ''
+  const align = (object.metadata.align as string) ?? 'left'
+
+  const setMeta = (patch: Record<string, unknown>) =>
+    updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
+
+  const wrap = (before: string, after?: string) => handleRef?.current?.wrap(before, after)
+  const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
+
+  // preventDefault on pointerdown keeps the editor's selection alive while
+  // clicking a panel button — the panel is a different part of the DOM than
+  // the contentEditable, so without this the click would blur it first and
+  // collapse whatever text was selected.
+  const guard = (e: React.PointerEvent) => e.preventDefault()
+
+  const iconBtn = (label: string, Icon: typeof Bold, onClick: () => void) => (
+    <button
+      key={label}
+      type="button"
+      aria-label={label}
+      disabled={!isActive}
+      className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+      onPointerDown={guard}
+      onClick={onClick}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  )
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1.5">
+        <SectionTitle>Format selected text</SectionTitle>
+        <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Text style"
+                disabled={!isActive}
+                className="flex items-center gap-0.5 rounded-md px-1.5 py-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+                onPointerDown={guard}
+              >
+                <Pilcrow className="h-3.5 w-3.5" />
+                <ChevronDown className="h-2.5 w-2.5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="glass-strong w-36">
+              {TEXT_STYLES.map((s) => (
+                <DropdownMenuItem key={s.label} className="gap-2 text-[12px]" onSelect={() => prefixLine(s.prefix)}>
+                  <s.icon className="h-3.5 w-3.5" /> {s.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          {iconBtn('Bold (Ctrl+B)', Bold, () => wrap('**'))}
+          {iconBtn('Italic (Ctrl+I)', Italic, () => wrap('*'))}
+          {iconBtn('Strikethrough', Strikethrough, () => wrap('~~'))}
+          {iconBtn('Highlight', Highlighter, () => wrap('=='))}
+          {iconBtn('Inline code', Code, () => wrap('`'))}
+          {iconBtn('Link', Link, () => wrap('[', '](url)'))}
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          {iconBtn('Bullet list', List, () => prefixLine('- '))}
+          {iconBtn('Numbered list', ListOrdered, () => prefixLine('1. '))}
+          {iconBtn('Checklist', CheckSquare, () => prefixLine('- [ ] '))}
+          {iconBtn('Quote', Quote, () => prefixLine('> '))}
+        </div>
+        {!isActive && (
+          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+            Double-click into the text and select some — these apply to the selection, not the whole box.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Text color</SectionTitle>
+        <div className="flex flex-wrap gap-1.5">
+          {Object.entries(TEXT_COLORS).map(([id, value]) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={`Text color ${id}`}
+              disabled={!isActive}
+              className="h-6 w-6 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:pointer-events-none disabled:opacity-30"
+              style={{ background: value }}
+              onPointerDown={guard}
+              onClick={() => wrap('[', `]{color=${id}}`)}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Text size</SectionTitle>
+        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+          {(Object.keys(TEXT_SIZES) as (keyof typeof TEXT_SIZES)[]).map((s) => (
+            <button
+              key={s}
+              type="button"
+              aria-label={`Text size ${s}`}
+              disabled={!isActive}
+              className="flex flex-1 items-center justify-center rounded-md py-1 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
+              onPointerDown={guard}
+              onClick={() => wrap('[', `]{size=${s}}`)}
+            >
+              {s.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Alignment</SectionTitle>
+        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+          {(Object.keys(ALIGN_ICONS) as (keyof typeof ALIGN_ICONS)[]).map((a) => {
+            const Icon = ALIGN_ICONS[a]
+            return (
+              <button
+                key={a}
+                type="button"
+                aria-label={`Align ${a}`}
+                aria-pressed={align === a}
+                className={cn(
+                  'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
+                  align === a
+                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+                onClick={() => setMeta({ align: a })}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          Whole textbox — the markdown model doesn&apos;t track per-paragraph alignment yet.
+        </p>
+      </div>
+
+      <div className="space-y-1.5">
+        <SectionTitle>Background</SectionTitle>
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            aria-label="No background"
+            aria-pressed={!bg}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] text-muted-foreground',
+              !bg ? 'border-[var(--ring)]' : 'border-transparent'
+            )}
+            onClick={() => setMeta({ color: undefined })}
+          >
+            ×
+          </button>
+          {Object.keys(FILLS).map((id) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={`Background ${id}`}
+              aria-pressed={bg === id}
+              className={cn(
+                'h-6 w-6 rounded-full border-2',
+                FILLS[id],
+                bg === id ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+              )}
+              onClick={() => setMeta({ color: id })}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setParam = useDocStore((s) => s.setParam)
   const updateObject = useDocStore((s) => s.updateObject)
@@ -2120,6 +2353,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
+      {object.geometry.kind === 'text' && <TextOptions pageId={pageId} object={object} />}
+
       {object.geometry.kind === 'formula' && <FormulaOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'graph' && (
@@ -2163,7 +2398,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {!['note', 'text', 'formula', 'graph', 'surface3d', 'chart', 'cashflow', 'truthtable'].includes(object.geometry.kind) &&
+      {!NO_BEHAVIOR_KINDS.includes(object.geometry.kind) &&
         object.metadata.render !== 'system' && (
           <BehaviorsSection pageId={pageId} object={object} />
         )}

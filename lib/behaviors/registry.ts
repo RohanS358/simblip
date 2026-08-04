@@ -324,6 +324,17 @@ export function specsForGeometry(kind: GeometryKind): BehaviorSpec[] {
   return BEHAVIOR_SPECS.filter((s) => s.geometry.length === 0 || s.geometry.includes(kind))
 }
 
+// Pure content/widget cards — a formula, a text block, a data table. Behaviors
+// never make sense here (there's nothing to simulate), so the Properties
+// panel hides the whole Behaviors section for these kinds. `sensor`'s empty
+// geometry list (any kind) otherwise makes specsForGeometry() non-empty for
+// these too, which used to wrongly surface "Convert to physics object" for
+// e.g. a fresh text box — a dead end, since the panel it opens has nowhere to
+// show that behavior. Single source both call sites read, so they can't drift.
+export const NO_BEHAVIOR_KINDS: GeometryKind[] = [
+  'note', 'text', 'formula', 'graph', 'surface3d', 'chart', 'cashflow', 'truthtable',
+]
+
 export function createBehavior(type: BehaviorType): Behavior {
   const spec = behaviorSpec(type)
   const params: Record<string, ParamValue> = {}

@@ -605,6 +605,13 @@
   .markdown-view del {
     opacity: 0.6;
   }
+  .markdown-view mark,
+  .md-editor mark {
+    background: color-mix(in oklch, var(--accent-amber) 32%, transparent);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 0.15em;
+  }
 
   /* Live per-line markdown editor (editing mode) — each line is its own
      block; the line holding the caret shows raw source, every other line

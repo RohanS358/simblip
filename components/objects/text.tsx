@@ -10,48 +10,32 @@
 // as a minimum).
 
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
-import {
-  Bold,
-  Italic,
-  Strikethrough,
-  Code,
-  Heading2,
-  List,
-  ListOrdered,
-  CheckSquare,
-  Quote,
-  Link,
-} from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
+import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
-import { renderMarkdown, renderLineLive, htmlToMarkdownSource } from '@/lib/text/markdown'
+import { renderMarkdown, renderLineLive, htmlToMarkdownSource, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
 import { cn } from '@/lib/utils'
 
-// ── Legacy base styles (old docs formatted the whole box via params) ────────
-const BASE_COLORS: Record<string, string> = {
-  default: 'var(--foreground)',
-  blue: 'var(--accent-blue)',
-  mint: 'var(--accent-mint)',
-  amber: 'var(--accent-amber)',
-  rose: 'var(--accent-rose)',
-  violet: 'var(--accent-violet)',
-}
-const BASE_SIZES: Record<string, number> = { s: 12, m: 15, l: 20, xl: 28 }
-const BASE_HIGHLIGHTS: Record<string, string> = {
-  yellow: 'color-mix(in oklch, var(--accent-amber) 32%, transparent)',
-  mint: 'color-mix(in oklch, var(--accent-mint) 30%, transparent)',
-  blue: 'color-mix(in oklch, var(--accent-blue) 26%, transparent)',
-  rose: 'color-mix(in oklch, var(--accent-rose) 26%, transparent)',
+// Optional box-level background tint — shared with Note, which always shows
+// one; Text defaults to no fill (fully transparent) unless chosen in the
+// Properties panel's Text → Appearance section.
+export const FILLS: Record<string, string> = {
+  amber: 'bg-[color-mix(in_oklch,var(--accent-amber)_18%,var(--card))]',
+  mint: 'bg-[color-mix(in_oklch,var(--accent-mint)_18%,var(--card))]',
+  blue: 'bg-[color-mix(in_oklch,var(--accent-blue)_14%,var(--card))]',
+  violet: 'bg-[color-mix(in_oklch,var(--accent-violet)_14%,var(--card))]',
+  rose: 'bg-[color-mix(in_oklch,var(--accent-rose)_14%,var(--card))]',
 }
 
+// Legacy whole-box fallback — no control in the current UI writes fmtSize/
+// fmtColor anymore (color/size are selection-scoped now, see TEXT_COLORS/
+// TEXT_SIZES spans below), but old saved docs may still carry them.
 export function textFormatStyle(object: ObjectRendererProps['object']): CSSProperties {
+  const size = getString(object, 'fmtSize')
+  const color = getString(object, 'fmtColor')
   return {
-    fontWeight: getString(object, 'fmtBold') ? 700 : undefined,
-    fontStyle: getString(object, 'fmtItalic') ? 'italic' : undefined,
-    textDecoration: getString(object, 'fmtUnderline') ? 'underline' : undefined,
-    fontSize: BASE_SIZES[getString(object, 'fmtSize')] ?? BASE_SIZES.m,
-    color: BASE_COLORS[getString(object, 'fmtColor')] ?? BASE_COLORS.default,
-    background: BASE_HIGHLIGHTS[getString(object, 'fmtHighlight')],
+    fontSize: size ? (TEXT_SIZES[size] ?? TEXT_SIZES.m) : undefined,
+    color: color ? (TEXT_COLORS[color] ?? TEXT_COLORS.default) : undefined,
   }
 }
 
@@ -61,16 +45,11 @@ export function textFormatStyle(object: ObjectRendererProps['object']): CSSPrope
 // (click, arrow up/down, Enter, Backspace-at-column-0) need to move the
 // caret themselves, and only that one line's DOM gets rebuilt. ───────────
 
-interface EditorHandle {
-  wrap: (before: string, after?: string) => void
-  prefixLine: (prefix: string) => void
-}
-
 function useLiveMarkdownEditor(
   editorRef: React.RefObject<HTMLDivElement | null>,
   value: string,
   onChange: (next: string) => void,
-  handleRef: React.RefObject<EditorHandle | null>
+  handleRef: React.RefObject<TextEditorHandle | null>
 ) {
   const linesRef = useRef<string[]>(value.split('\n'))
   const activeRef = useRef<number>(-1)
@@ -220,6 +199,35 @@ function useLiveMarkdownEditor(
 
   const commit = () => onChange(linesRef.current.join('\n'))
 
+  /** Wraps the current selection (or inserts at the caret) with markdown
+   *  delimiters — bold, italic, highlight, a `[text]{color=..}` span… Named
+   *  (not just inlined into handleRef below) so both the Properties panel
+   *  AND this hook's own Ctrl+B/Ctrl+I handling can call it. */
+  const wrap = (before: string, after = before) => {
+    const i = activeRef.current
+    if (i < 0) return
+    const raw = linesRef.current[i] ?? ''
+    const span = selectionSpan()
+    const sameLineSpan = span && span.s.line === i && span.e.line === i ? span : null
+    const pos = caretPosition()
+    const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === i ? pos.offset : raw.length
+    const e = sameLineSpan ? sameLineSpan.e.offset : s
+    const next = raw.slice(0, s) + before + raw.slice(s, e) + after + raw.slice(e)
+    linesRef.current[i] = next
+    renderLineDom(i)
+    placeCaretAt(i, s + before.length + (e - s))
+    commit()
+  }
+
+  const prefixLine = (prefix: string) => {
+    const i = activeRef.current
+    if (i < 0) return
+    linesRef.current[i] = prefix + (linesRef.current[i] ?? '')
+    renderLineDom(i)
+    placeCaretAt(i, (linesRef.current[i] ?? '').length)
+    commit()
+  }
+
   const start = (initialLine?: number) => {
     rebuildAll()
     const idx = initialLine ?? linesRef.current.length - 1
@@ -245,6 +253,21 @@ function useLiveMarkdownEditor(
     e.stopPropagation()
     const idx = activeRef.current
     if (idx < 0) return
+
+    // Common formatting shortcuts — the floating dock is gone, so these (and
+    // the panel buttons) are the only way to apply a mark without typing the
+    // raw markdown delimiters yourself.
+    const mod = (e.ctrlKey || e.metaKey) && !e.altKey
+    if (mod && e.key.toLowerCase() === 'b') {
+      e.preventDefault()
+      wrap('**')
+      return
+    }
+    if (mod && e.key.toLowerCase() === 'i') {
+      e.preventDefault()
+      wrap('*')
+      return
+    }
 
     // Any selection (single- or multi-line, active line or not) that's
     // about to be mutated goes through the one path that can safely touch
@@ -336,78 +359,17 @@ function useLiveMarkdownEditor(
     }
   }
 
-  if (handleRef) {
-    ;(handleRef as React.MutableRefObject<EditorHandle | null>).current = {
-      wrap: (before, after = before) => {
-        const i = activeRef.current
-        if (i < 0) return
-        const raw = linesRef.current[i] ?? ''
-        const span = selectionSpan()
-        const sameLineSpan = span && span.s.line === i && span.e.line === i ? span : null
-        const pos = caretPosition()
-        const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === i ? pos.offset : raw.length
-        const e = sameLineSpan ? sameLineSpan.e.offset : s
-        const next = raw.slice(0, s) + before + raw.slice(s, e) + after + raw.slice(e)
-        linesRef.current[i] = next
-        renderLineDom(i)
-        placeCaretAt(i, s + before.length + (e - s))
-        commit()
-      },
-      prefixLine: (prefix) => {
-        const i = activeRef.current
-        if (i < 0) return
-        linesRef.current[i] = prefix + (linesRef.current[i] ?? '')
-        renderLineDom(i)
-        placeCaretAt(i, (linesRef.current[i] ?? '').length)
-        commit()
-      },
-    }
-  }
+  ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { wrap, prefixLine }
 
   return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste }
 }
 
-/** Floating toolbar — inserts markdown syntax at the caret in the active line. */
-function MarkdownToolBar({ handleRef }: { handleRef: React.RefObject<EditorHandle | null> }) {
-  // preventDefault on pointerdown keeps the editor's selection alive while
-  // clicking toolbar buttons — otherwise the click would collapse it.
-  const guard = (e: React.PointerEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }
-  const btn = (label: string, Icon: typeof Bold, action: (h: EditorHandle) => void) => (
-    <button
-      type="button"
-      aria-label={label}
-      className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-      onPointerDown={guard}
-      onClick={() => {
-        if (handleRef.current) action(handleRef.current)
-      }}
-    >
-      <Icon className="h-3.5 w-3.5" />
-    </button>
-  )
-
-  return (
-    <div
-      className="glass-strong absolute -top-10 left-0 z-50 flex items-center gap-0.5 rounded-lg px-1.5 py-1"
-      onPointerDown={(e) => e.stopPropagation()}
-    >
-      {btn('Bold', Bold, (h) => h.wrap('**'))}
-      {btn('Italic', Italic, (h) => h.wrap('*'))}
-      {btn('Strikethrough', Strikethrough, (h) => h.wrap('~~'))}
-      {btn('Inline code', Code, (h) => h.wrap('`'))}
-      <span className="mx-0.5 h-4 w-px bg-border" />
-      {btn('Heading', Heading2, (h) => h.prefixLine('## '))}
-      {btn('Bullet list', List, (h) => h.prefixLine('- '))}
-      {btn('Numbered list', ListOrdered, (h) => h.prefixLine('1. '))}
-      {btn('Checkbox', CheckSquare, (h) => h.prefixLine('- [ ] '))}
-      {btn('Quote', Quote, (h) => h.prefixLine('> '))}
-      {btn('Link', Link, (h) => h.wrap('[', '](url)'))}
-    </div>
-  )
-}
+// Whole-textbox alignment — the one box-level formatting knob left (see
+// TextOptions in inspector.tsx). Everything else (bold, color, size…) is
+// selection-scoped now, set via the panel or Ctrl+B/Ctrl+I and read straight
+// out of the markdown source, so there's no floating dock anymore.
+const ALIGNS = ['left', 'center', 'right', 'justify'] as const
+type Align = (typeof ALIGNS)[number]
 
 /** Shared markdown editor: live per-line preview while editing, full
  * block-level markdown otherwise. Wraps at box width, grows the box
@@ -435,9 +397,11 @@ export function RichTextArea({
   const removeObjects = useDocStore((s) => s.removeObjects)
   const pushHistory = useDocStore((s) => s.pushHistory)
   const setSelection = useDocStore((s) => s.setSelection)
+  const undo = useDocStore((s) => s.undo)
+  const redo = useDocStore((s) => s.redo)
   const editorRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<HTMLDivElement>(null)
-  const handleRef = useRef<EditorHandle | null>(null)
+  const handleRef = useRef<TextEditorHandle | null>(null)
   const focusedRef = useRef(false)
   // Guards the empty-box cleanup: only a box the caret actually reached can
   // be discarded, so a not-yet-selected fresh box never deletes itself.
@@ -480,6 +444,17 @@ export function RichTextArea({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, editing])
 
+  // Makes this box's format/prefixLine handle reachable from the Properties
+  // panel (see lib/store/text-editor.ts) while it's the one being edited —
+  // the panel lives in an entirely different part of the DOM, so this is the
+  // only way its buttons can reach the live selection.
+  useEffect(() => {
+    if (!editing) return
+    useActiveTextEditor.getState().set(object.id, handleRef)
+    return () => useActiveTextEditor.getState().clear(object.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, object.id])
+
   // Grow-only autosize: the width is the writing width; overflowing lines
   // wrap, and the box gets taller so nothing is ever clipped vertically.
   //
@@ -505,9 +480,6 @@ export function RichTextArea({
 
   return (
     <>
-      {/* Toolbar lives OUTSIDE the clipping wrapper below — it floats above
-          the box and overflow-hidden would swallow it. */}
-      {selected && editing && <MarkdownToolBar handleRef={handleRef} />}
       <div className="h-full w-full overflow-hidden" style={textFormatStyle(object)}>
         {editing ? (
           <div
@@ -539,7 +511,23 @@ export function RichTextArea({
               focusedRef.current = false
             }}
             onInput={editor.onInput}
-            onKeyDown={editor.onKeyDown}
+            onKeyDown={(e) => {
+              // The canvas's global Ctrl+Z/Ctrl+Y skip everything while
+              // typing (so single-letter tool shortcuts don't fire mid-
+              // sentence) — undo/redo need their own path here instead.
+              // History is pushed once per edit session (on focus, above),
+              // so this steps back to the pre-session snapshot, same
+              // granularity Ctrl+Z already has everywhere else in the app.
+              const mod = (e.ctrlKey || e.metaKey) && !e.altKey
+              if (mod && e.key.toLowerCase() === 'z') {
+                e.preventDefault()
+                e.stopPropagation()
+                if (e.shiftKey) redo(pageId)
+                else undo(pageId)
+                return
+              }
+              editor.onKeyDown(e)
+            }}
             onKeyUp={editor.onKeyUp}
             onClick={editor.onClick}
             onPaste={editor.onPaste}
@@ -577,11 +565,19 @@ export function TextObject(props: ObjectRendererProps) {
   // deletes itself if you click away without writing anything.
   const empty = getString(props.object, 'text').trim() === ''
   const fresh = useRef(empty).current
+  // Background is opt-in (Properties → Text → Appearance) — a plain box
+  // stays fully transparent, same as before this fill option existed.
+  const bg = props.object.metadata.color as string | undefined
+  const align = (props.object.metadata.align as Align | undefined) ?? 'left'
   return (
-    <div className="relative h-full w-full">
+    <div
+      className={cn('relative h-full w-full', bg && FILLS[bg] && cn(FILLS[bg], 'rounded-xl p-3 hairline shadow-sm'))}
+      style={{ textAlign: align }}
+    >
       <RichTextArea
         {...props}
         placeholder=""
+        padY={bg && FILLS[bg] ? 24 : 0}
         autoEdit={fresh}
         deleteWhenEmpty={fresh}
       />
