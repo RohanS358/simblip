@@ -49,20 +49,66 @@ export async function putFile(blob: Blob, name: string, mime: string, ownerId: s
   return id
 }
 
+type ManifestRow = {
+  id: string
+  owner_id: string
+  name: string
+  mime: string
+  size: number
+  sha256: string
+  blob_url: string
+  updated_at: string
+}
+
 /** Read a file: OPFS first (offline-first). Falls back to fetching the Blob
  *  copy (e.g. a new device that hasn't seeded this file locally yet) and
- *  re-seeds OPFS + manifest so the next read is local. */
+ *  re-seeds OPFS + manifest so the next read is local. A device that never
+ *  ran putFile() for this file has no local manifest entry at all — that's
+ *  the common case for "another device uploaded it" — so this doesn't gate
+ *  the network fetch on one existing; /api/storage/[id] resolves blob_url
+ *  server-side from simblip_file_manifest by owner_id, no client-known
+ *  cloudUrl required. Also backfills the local manifest row (via the
+ *  existing /api/pg gateway, same source uploadToCloud writes to) so a
+ *  "my files" list on this device isn't missing entries it never uploaded
+ *  itself. */
 export async function getFile(fileId: string): Promise<Blob | null> {
   const local = await opfs.readFile(fileId)
   if (local) return local
 
-  const entry = await manifest.getEntry(fileId)
-  if (!entry?.cloudUrl) return null
+  const token = getAccessToken()
+  if (!token) return null
   try {
-    const res = await fetch(`/api/storage/${fileId}`)
+    const res = await fetch(`/api/storage/${fileId}`, { headers: { Authorization: `Bearer ${token}` } })
     if (!res.ok) return null
     const blob = await res.blob()
     await opfs.writeFile(fileId, blob)
+
+    void fetch(`/api/pg/simblip_file_manifest?id=eq.${fileId}&select=*`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<ManifestRow[]>) : []))
+      .then(([row]) => {
+        if (!row) return
+        return manifest.putEntry({
+          id: row.id,
+          ownerId: row.owner_id,
+          name: row.name,
+          mime: row.mime,
+          size: row.size,
+          sha256: row.sha256,
+          createdAt: Date.parse(row.updated_at),
+          modifiedAt: Date.parse(row.updated_at),
+          syncStatus: 'synced',
+          cloudBackedUp: true,
+          cloudUrl: row.blob_url,
+        })
+      })
+      .catch(() => {
+        // best-effort — the file itself is already cached in OPFS, which is
+        // what matters; a missing manifest row just means this device's
+        // "my files" list won't show it until the next successful pull
+      })
+
     return blob
   } catch {
     return null
