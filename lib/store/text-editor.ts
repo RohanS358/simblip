@@ -1,29 +1,33 @@
 // Bridges the Properties panel to whichever text box is actively being
 // edited on the canvas, so panel controls (bold, highlight, color…) can
-// apply markdown formatting to the live selection inside that box's
-// contentEditable — the panel lives in a different part of the DOM tree
-// entirely, so it can't reach the editor any other way. Registered by
+// apply a style MARK (see lib/text/marks.ts — an offset range over the
+// text, never a delimiter character) to the live selection inside that
+// box's contentEditable — the panel lives in a different part of the DOM
+// tree entirely, so it can't reach the editor any other way. Registered by
 // RichTextArea (components/objects/text.tsx) while `editing` is true.
 
 import { create } from 'zustand'
+import type { MarkKind } from '@/lib/text/marks'
 
 export interface TextEditorHandle {
-  /** Wraps the current selection (or inserts at the caret) with markdown
-   *  delimiters — e.g. `wrap('**')` for bold, `wrap('[', ']{color=blue}')`
-   *  for a color span. Applies to the live selection only. */
-  wrap: (before: string, after?: string) => void
-  /** Prefixes the active LINE (heading, list marker, quote…). */
+  /** Toggles `kind` (bold/italic/underline/strike/highlight/code) over the
+   *  current selection — applying it again over the exact same range turns
+   *  it back off, the standard "click Bold on bold text" behavior. No-op on
+   *  a collapsed caret (nothing selected to mark) or a cross-line selection. */
+  toggleMark: (kind: MarkKind) => void
+  /** Prefixes the active LINE (heading, list marker, quote…) — block type
+   *  stays plain text on the line, unlike the inline marks above. */
   prefixLine: (prefix: string) => void
-  /** Applies a "pick one value" span (size/color/font) to the current
-   *  selection — unlike `wrap`, this replaces an existing span of the same
-   *  bracket syntax already covering the selection instead of nesting a new
-   *  one around it, and keeps the applied span selected afterward so
-   *  clicking a stepper/swatch repeatedly adjusts the SAME span instead of
-   *  wrapping empty text at a caret left over from the previous click.
-   *  If a selection was captured via snapshotSelection() and not yet
-   *  consumed, uses that instead of re-reading window.getSelection() live —
-   *  see snapshotSelection's doc comment for why. */
-  setSpan: (kind: 'size' | 'color' | 'font' | 'weight', value: string) => void
+  /** Applies an exclusive "pick one value" mark (size/color/font/weight) to
+   *  the current selection — clips/replaces any existing mark of the SAME
+   *  kind already covering the selection instead of stacking (so a later
+   *  size always wins over an earlier one on the same text), and keeps the
+   *  applied range selected afterward so clicking a stepper/swatch
+   *  repeatedly adjusts the SAME range. If a selection was captured via
+   *  snapshotSelection() and not yet consumed, uses that instead of
+   *  re-reading window.getSelection() live — see snapshotSelection's doc
+   *  comment for why. */
+  setSpan: (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string) => void
   /** Remembers the CURRENT live text selection so a later setSpan() call can
    *  use it even after focus has moved elsewhere. Needed for controls that
    *  must themselves take focus to work — the Size field's number input,

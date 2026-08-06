@@ -1,15 +1,17 @@
 'use client'
 
-// Live markdown text block, WYSIWYG-while-typing: every line renders
-// formatted, INCLUDING the one holding the caret — bold looks bold the
-// moment you apply it, not just after you click off the line. The active
-// line keeps its delimiters in the DOM (dimmed via .md-marker) instead of
-// hiding them, so **/[text]{...} markers are still visible/editable right
-// where they are, and — critically — the DOM text length still matches the
-// raw markdown length character-for-character, which is what every caret/
-// selection offset function below assumes. Click away entirely and the
-// whole block renders through the richer block-level renderer (real
-// <ul>/<pre>, not per-line).
+// Live text block with real formatting — WYSIWYG always, not just while
+// typing: bold/italic/underline/color/size/etc. are style RANGES over a
+// plain string (see lib/text/marks.ts), never markdown-delimiter characters
+// typed into the text itself. There is no "active line shows raw source"
+// mode anymore (the old model needed one to fake WYSIWYG-while-typing) —
+// every line, including the one holding the caret, renders fully formatted
+// at all times, because there is nothing to hide: the DOM never contains a
+// literal `**`/`++`/`[x]{k=v}` character to begin with. This mirrors how
+// canvas design tools (Fabric.js's Textbox/IText `styles` map, e.g. at
+// /home/diablo/Documents/GitHub/open-design in this workspace) represent
+// rich text — formatting as out-of-band per-character data, painted
+// directly, structurally unable to leak into the visible text.
 // The box width is the writing width — text wraps there — and the box
 // grows vertically to fit the content (grow-only; the user's height acts
 // as a minimum).
@@ -18,7 +20,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
-import { renderMarkdown, renderLineLive, renderLineActive, htmlToMarkdownSource, stripMarkdown, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
+import { renderMarkdown, renderEditorLine, htmlToMarkdownSource } from '@/lib/text/render'
+import { applyMark, shiftMarks, parse, serialize, TEXT_COLORS, TEXT_SIZES, type Mark, type MarkKind } from '@/lib/text/marks'
 import { cn } from '@/lib/utils'
 
 // Optional box-level background tint — shared with Note, which always shows
@@ -33,8 +36,8 @@ export const FILLS: Record<string, string> = {
 }
 
 // Legacy whole-box fallback — no control in the current UI writes fmtSize/
-// fmtColor anymore (color/size are selection-scoped now, see TEXT_COLORS/
-// TEXT_SIZES spans below), but old saved docs may still carry them.
+// fmtColor anymore (color/size are selection-scoped now, see the marks
+// model), but old saved docs may still carry them.
 export function textFormatStyle(object: ObjectRendererProps['object']): CSSProperties {
   const size = getString(object, 'fmtSize')
   const color = getString(object, 'fmtColor')
@@ -45,43 +48,49 @@ export function textFormatStyle(object: ObjectRendererProps['object']): CSSPrope
 }
 
 // ── Live per-line editor: one <div data-i> per source line inside a single
-// contentEditable root. The active (caret-holding) line stays plain raw
-// text so typing is native with zero caret math; only line SWITCHES
-// (click, arrow up/down, Enter, Backspace-at-column-0) need to move the
-// caret themselves, and only that one line's DOM gets rebuilt. ───────────
+// contentEditable root, all lines sharing one flat text+marks model (marks
+// are offsets into the FULL string, '\n'-joined lines included, so a mark
+// can be looked up for any line via that line's cumulative start offset).
+// Every line always renders fully formatted — there's no more "active line
+// stays raw" split, since there's no delimiter text that needs unhiding. ──
 
-function useLiveMarkdownEditor(
+function useLiveTextEditor(
   editorRef: React.RefObject<HTMLDivElement | null>,
   value: string,
   onChange: (next: string) => void,
   handleRef: React.RefObject<TextEditorHandle | null>
 ) {
-  const linesRef = useRef<string[]>(value.split('\n'))
+  const parsed = parse(value)
+  const linesRef = useRef<string[]>(parsed.text.split('\n'))
+  const marksRef = useRef<Mark[]>(parsed.marks)
   const activeRef = useRef<number>(-1)
   // See TextEditorHandle.snapshotSelection's doc comment — a selection
   // captured just before a panel control (the Size input) steals focus,
   // consumed by the next setSpan() call in place of live window.getSelection.
-  const snapshotRef = useRef<{
-    line: number
-    s: number
-    e: number
-  } | null>(null)
+  const snapshotRef = useRef<{ line: number; s: number; e: number } | null>(null)
+  // True right after a snapshot-driven setSpan() commits, until the next
+  // real click/selection inside the editor clears it — see snapshotSelection
+  // and setSpan's doc comments for why this exists (prevents a second panel
+  // edit on the same field from re-reading a stale DOM selection).
+  const snapshotFreshRef = useRef(false)
 
   const lineEl = (i: number) => editorRef.current?.children[i] as HTMLElement | undefined
+
+  /** Cumulative offset of line `i`'s first character in the flat joined
+   *  string (each '\n' between lines counts as one character). */
+  const lineStart = (i: number) => {
+    let start = 0
+    for (let k = 0; k < i; k++) start += linesRef.current[k].length + 1
+    return start
+  }
 
   const renderLineDom = (i: number) => {
     const el = lineEl(i)
     if (!el) return
     const raw = linesRef.current[i] ?? ''
-    if (i === activeRef.current) {
-      const { html, cls } = renderLineActive(raw)
-      el.innerHTML = html
-      el.className = cn('md-line md-line-active', cls)
-    } else {
-      const { html, cls } = renderLineLive(raw)
-      el.innerHTML = html
-      el.className = cn('md-line', cls)
-    }
+    const { html, cls } = renderEditorLine(raw, marksRef.current, lineStart(i))
+    el.innerHTML = html
+    el.className = cn('md-line', i === activeRef.current && 'md-line-active', cls)
   }
 
   const markEmpty = () => {
@@ -104,9 +113,10 @@ function useLiveMarkdownEditor(
     markEmpty()
   }
 
-/** Maps any (node, offset) inside the editor to {line, rawOffset} — offset
-   * is converted to RAW markdown space even for inactive (rendered) lines,
-   * via a proportional estimate against that line's shown-vs-raw length. */
+  /** Maps any (node, offset) inside the editor to {line, offset} — DOM text
+   *  length always equals the raw line length now (no hidden markers ever
+   *  inflate it, unlike the old model), so this is a direct Range-walk with
+   *  no shown-vs-raw proportional estimate needed for any line. */
   const posAt = (node: Node, nodeOffset: number): { line: number; offset: number } | null => {
     let n: Node | null = node
     let lineDiv: HTMLElement | null = null
@@ -122,24 +132,19 @@ function useLiveMarkdownEditor(
     const pre = document.createRange()
     pre.selectNodeContents(lineDiv)
     pre.setEnd(node, nodeOffset)
-    const shownOffset = pre.toString().length
-    if (line === activeRef.current) return { line, offset: shownOffset }
-    const shownLen = lineDiv.textContent?.length ?? 0
-    const rawLen = (linesRef.current[line] ?? '').length
-    const offset = shownLen > 0 ? Math.round((shownOffset / shownLen) * rawLen) : rawLen
-    return { line, offset }
+    return { line, offset: pre.toString().length }
   }
 
-  /** Collapsed caret position (line + raw offset), or null if there's a
-   * range selection or the caret isn't inside a line div. */
+  /** Collapsed caret position (line + offset), or null if there's a range
+   * selection or the caret isn't inside a line div. */
   const caretPosition = (): { line: number; offset: number } | null => {
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0 || !editorRef.current) return null
     return posAt(sel.anchorNode!, sel.anchorOffset)
   }
 
-  /** Normalized (start ≤ end) selection span in raw-line/offset space, or
-   * null if the selection is collapsed (a plain caret, no range). */
+  /** Normalized (start ≤ end) selection span in line/offset space, or null
+   * if the selection is collapsed (a plain caret, no range). */
   const selectionSpan = (): { s: { line: number; offset: number }; e: { line: number; offset: number } } | null => {
     const sel = window.getSelection()
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed || !editorRef.current) return null
@@ -150,16 +155,17 @@ function useLiveMarkdownEditor(
     return a.line < b.line || (a.line === b.line && a.offset <= b.offset) ? { s: a, e: b } : { s: b, e: a }
   }
 
-  /** Replaces everything between two raw positions with `text` (used for
-   * typing/pasting over a selection, Backspace/Delete on a range, and
-   * Enter with a selection) — the one path that can touch multiple lines
-   * at once, so it's also what keeps the line-array structurally sound
-   * against browser-native multi-line edits we didn't otherwise intend. */
-  const replaceRange = (
-    s: { line: number; offset: number },
-    e: { line: number; offset: number },
-    text: string
-  ) => {
+  /** Replaces everything between two line/offset positions with `text`
+   * (used for typing/pasting over a selection, Backspace/Delete on a range,
+   * and Enter with a selection) — the one path that can touch multiple
+   * lines at once. Marks are shifted for the delete-then-insert as two
+   * ordinary shiftMarks calls (a replace is just those two edits). */
+  const replaceRange = (s: { line: number; offset: number }, e: { line: number; offset: number }, text: string) => {
+    const globalStart = lineStart(s.line) + s.offset
+    const globalEnd = lineStart(e.line) + e.offset
+    if (globalEnd > globalStart) marksRef.current = shiftMarks(marksRef.current, globalStart, -(globalEnd - globalStart))
+    if (text.length > 0) marksRef.current = shiftMarks(marksRef.current, globalStart, text.length)
+
     const before = (linesRef.current[s.line] ?? '').slice(0, s.offset)
     const after = (linesRef.current[e.line] ?? '').slice(e.offset)
     const inserted = (before + text + after).split('\n')
@@ -176,10 +182,8 @@ function useLiveMarkdownEditor(
 
   /** Finds the (textNode, offset) that sits `targetOffset` characters into
    * el's full text content, walking every descendant text node in order —
-   * not just the first one. Plain-text lines are still just one text node
-   * (fast path below), but the active line can now be a tree of marker/
-   * strong/em spans (see renderLineActive), so the caret needs to be able
-   * to land inside any of them, not just the first. */
+   * not just the first one, since a formatted line is a tree of
+   * strong/em/span elements, not one text node. */
   const textNodeAt = (el: HTMLElement, targetOffset: number): { node: Text; offset: number } => {
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
     let consumed = 0
@@ -199,24 +203,24 @@ function useLiveMarkdownEditor(
     return { node: last, offset: last.textContent?.length ?? 0 }
   }
 
-  const placeCaretAt = (line: number, rawOffset: number) => {
+  const placeCaretAt = (line: number, offset: number) => {
     const el = lineEl(line)
     const sel = window.getSelection()
     if (!el || !sel) return
     const totalLen = el.textContent?.length ?? 0
-    const clamped = Math.max(0, Math.min(rawOffset, totalLen))
-    const { node, offset } = textNodeAt(el, clamped)
+    const clamped = Math.max(0, Math.min(offset, totalLen))
+    const { node, offset: nodeOffset } = textNodeAt(el, clamped)
     const range = document.createRange()
-    range.setStart(node, offset)
+    range.setStart(node, nodeOffset)
     range.collapse(true)
     sel.removeAllRanges()
     sel.addRange(range)
   }
 
   /** Same idea as placeCaretAt but selects a RANGE instead of collapsing —
-   *  used to keep a just-applied span selected so a follow-up panel action
+   *  used to keep a just-applied mark selected so a follow-up panel action
    *  (another size bump, a different color) still has something to act on. */
-  const selectRawRange = (line: number, startOffset: number, endOffset: number) => {
+  const selectRange = (line: number, startOffset: number, endOffset: number) => {
     const el = lineEl(line)
     const sel = window.getSelection()
     if (!el || !sel) return
@@ -232,32 +236,13 @@ function useLiveMarkdownEditor(
     sel.addRange(range)
   }
 
-  /** Swap the line the caret just left back to rendered, and the line it
-   * entered to raw — mapping the click/arrow-key offset proportionally
-   * since rendered text is shorter than its raw source. */
-  const activateLine = (newIdx: number, shownOffset: number) => {
-    const oldIdx = activeRef.current
-    if (oldIdx === newIdx) return
-    const el = lineEl(newIdx)
-    const shownLen = el?.textContent?.length ?? 0
-    const rawLen = (linesRef.current[newIdx] ?? '').length
-    const rawOffset = shownLen > 0 ? Math.round((shownOffset / shownLen) * rawLen) : rawLen
-    activeRef.current = newIdx
-    if (oldIdx >= 0) renderLineDom(oldIdx)
-    renderLineDom(newIdx)
-    placeCaretAt(newIdx, rawOffset)
-  }
-
-  /** Same swap as activateLine, but the offset is already in RAW space (as
-   * posAt/selectionSpan report it) — skips the shown→raw conversion so
-   * callers who already resolved a real offset don't get it double-mapped. */
-  const activateLineAtRaw = (newIdx: number, rawOffset: number) => {
+  const activateLine = (newIdx: number, offset: number) => {
     const oldIdx = activeRef.current
     if (oldIdx === newIdx) return
     activeRef.current = newIdx
     if (oldIdx >= 0) renderLineDom(oldIdx)
     renderLineDom(newIdx)
-    placeCaretAt(newIdx, rawOffset)
+    placeCaretAt(newIdx, offset)
   }
 
   const checkLineSwitch = () => {
@@ -266,58 +251,34 @@ function useLiveMarkdownEditor(
     activateLine(pos.line, pos.offset)
   }
 
-  const commit = () => onChange(linesRef.current.join('\n'))
+  const commit = () => onChange(serialize({ text: linesRef.current.join('\n'), marks: marksRef.current }))
 
-  /** Wraps the current selection (or inserts at the caret) with markdown
-   *  delimiters — bold, italic, highlight, a `[text]{color=..}` span… Named
-   *  (not just inlined into handleRef below) so both the Properties panel
-   *  AND this hook's own Ctrl+B/Ctrl+I handling can call it. Toggles off
-   *  instead of nesting when the selection is EXACTLY an existing span of
-   *  the same delimiter (the standard "click Bold on bold text" behavior) —
-   *  without this, re-clicking a mark on already-marked text produced
-   *  `****text****`, which the renderer can't parse back into clean nested
-   *  emphasis (stray literal `*` characters leak into the visible text). */
-  const wrap = (before: string, after = before) => {
-    // Resolve the selection/caret's real line BEFORE trusting activeRef —
-    // a selection made by double-click or a drag on a still-rendered line
-    // doesn't move the caret into that line on its own, so without this the
-    // wrap below silently targets whatever line was last active (often
-    // empty/unrelated) and drops in bare, unwrapped delimiters.
+  /** Toggles `kind` over the current selection (or does nothing on a
+   *  collapsed caret — there's no text to mark). Named (not just inlined
+   *  into handleRef below) so both the Properties panel AND this hook's own
+   *  Ctrl+B/Ctrl+I/Ctrl+U handling can call it. */
+  const toggleMark = (kind: MarkKind) => {
+    // Resolve the selection's real line BEFORE trusting activeRef — a
+    // selection made by clicking a still-inactive line doesn't move the
+    // caret into that line on its own.
     const span = selectionSpan()
-    const pos = caretPosition()
-    const targetLine = span?.s.line ?? pos?.line ?? activeRef.current
-    if (targetLine < 0) return
-    if (targetLine !== activeRef.current) {
-      const rawOffset = span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
-      activateLineAtRaw(targetLine, rawOffset)
+    if (!span || span.s.line !== span.e.line) {
+      // Cross-line selections aren't supported for inline marks (matches
+      // the old wrap()'s effective behavior — it only ever wrapped within
+      // one line's raw string too); collapsed caret has nothing to mark.
+      return
     }
+    const { line, offset: s } = span.s
+    const { offset: e } = span.e
+    if (line !== activeRef.current) activateLine(line, s)
     const i = activeRef.current
-    const raw = linesRef.current[i] ?? ''
-    const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
-    const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
-    const e = sameLineSpan ? sameLineSpan.e.offset : s
-
-    const selected = raw.slice(s, e)
-    const alreadyWrapped = before && selected.startsWith(before) && selected.endsWith(after) && selected.length >= before.length + after.length
-    const next = alreadyWrapped
-      ? raw.slice(0, s) + selected.slice(before.length, selected.length - after.length) + raw.slice(e)
-      : raw.slice(0, s) + before + selected + after + raw.slice(e)
-    linesRef.current[i] = next
+    const start = lineStart(i) + s
+    const end = lineStart(i) + e
+    marksRef.current = applyMark(marksRef.current, start, end, kind)
     renderLineDom(i)
-    // Past the closing delimiter too, not just the wrapped selection — typing
-    // right after applying a mark should continue as plain text, not land
-    // inside the mark before its closing **/]{...} (see WYSIWYG comment atop
-    // this file: the closing delimiter is now a real, typeable text run).
-    // Unwrapping instead lands right after the now-plain text, same as if
-    // the mark had never been there.
-    placeCaretAt(i, alreadyWrapped ? s + selected.length - before.length - after.length : s + before.length + selected.length + after.length)
+    placeCaretAt(i, e)
     commit()
   }
-
-  // True right after a snapshot-driven setSpan() commits, until the next
-  // real click/selection inside the editor clears it — see snapshotSelection
-  // and setSpan's doc comments for why this exists.
-  const snapshotFreshRef = useRef(false)
 
   /** Captures the live selection right now, before it's about to be lost —
    *  call this from a control's onFocus/onPointerDown, BEFORE the browser
@@ -330,17 +291,12 @@ function useLiveMarkdownEditor(
    *  No-ops if the snapshot is still "fresh" from the setSpan() call that
    *  just consumed it — re-clicking the SAME panel field (e.g. correcting a
    *  size from 23 to 29 without touching the canvas in between) fires this
-   *  again, but by then window.getSelection() no longer reflects the span
-   *  setSpan() just wrote: re-selecting it would have meant stealing real
-   *  focus back into the contentEditable (setSpan deliberately doesn't, see
-   *  its doc comment — that was its own since-fixed corruption bug), so the
-   *  DOM selection is simply stale here, not just "old." Overwriting the
-   *  fresh snapshot with that stale read sliced the wrong substring on the
-   *  next edit and corrupted the line (e.g. size 23 then 29 on the same
-   *  word produced `[[bet]{size=29}a]{size=23}`, mangling the raw text into
-   *  visibly leaked syntax). Only a genuine new click/selection — which
-   *  clears the fresh flag first, see start/activateLine* below — earns a
-   *  re-snapshot. */
+   *  again, but by then window.getSelection() no longer reflects the range
+   *  setSpan() just wrote (setSpan deliberately never re-selects into the
+   *  contentEditable for a snapshot-driven call — doing so steals focus
+   *  back from the panel field mid-edit, corrupting the next keystroke).
+   *  Only a genuine new click/selection — which clears the fresh flag
+   *  first, see activateLine/onClick/onKeyUp below — earns a re-snapshot. */
   const snapshotSelection = () => {
     if (snapshotFreshRef.current) return
     const span = selectionSpan()
@@ -352,16 +308,14 @@ function useLiveMarkdownEditor(
     }
   }
 
-  /** Applies a "pick one value" span (size/color/font) — unlike wrap(),
-   *  which always inserts a fresh bracket pair and leaves the caret PAST
-   *  it (fine for a toggle mark you then keep typing past), this replaces
-   *  an existing span of the same bracket syntax already covering the
-   *  selection, and reselects the result. Without that, a second stepper
-   *  click/swatch pick after the first had nothing left selected — the
-   *  caret was sitting right after the closing `}` — so it wrapped EMPTY
-   *  text at that caret instead of adjusting the span just applied,
-   *  producing junk like `[x]{size=16}[]{size=17}[]{size=18}`. */
-  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) => {
+  /** Applies an exclusive "pick one value" mark (size/color/font/weight) —
+   *  applyMark (lib/text/marks.ts) already clips/replaces any existing mark
+   *  of the SAME kind that overlaps the range, so re-picking a value never
+   *  stacks (user rule: a later size/color/etc always wins over an earlier
+   *  one on the same text). Reselects the applied range afterward so a
+   *  follow-up stepper click/swatch pick adjusts the SAME mark instead of
+   *  targeting whatever the caret happens to be on. */
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string) => {
     const snap = snapshotRef.current
     snapshotRef.current = null // one-shot — a stale snapshot from an earlier edit must never silently reapply
     const span = snap ? null : selectionSpan()
@@ -369,8 +323,8 @@ function useLiveMarkdownEditor(
     const targetLine = snap?.line ?? span?.s.line ?? pos?.line ?? activeRef.current
     if (targetLine < 0) return
     if (targetLine !== activeRef.current) {
-      const rawOffset = snap ? snap.s : span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
-      activateLineAtRaw(targetLine, rawOffset)
+      const offset = snap ? snap.s : span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
+      activateLine(targetLine, offset)
     }
     const i = activeRef.current
     const raw = linesRef.current[i] ?? ''
@@ -378,62 +332,33 @@ function useLiveMarkdownEditor(
     const s = snap ? snap.s : sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
     const e = snap ? snap.e : sameLineSpan ? sameLineSpan.e.offset : s
 
-    // Only unwrap a span of the SAME kind (picking a new color replaces the
-    // old color) — a span of a DIFFERENT kind (e.g. already-colored text
-    // getting a size applied) nests instead, so `[[text]{color=blue}]{size=l}`
-    // keeps both. renderMarkdown's per-kind regexes each only ever look at
-    // their own `{kind=...}` suffix and leave any other bracket pair alone,
-    // so this nested form renders as both styles at once — see markdown.ts.
-    const applyTo = (text: string) => {
-      const already = text.match(/^\[([\s\S]*)\]\{([a-z]+)=[a-z0-9.]+\}$/)
-      const inner = already ? already[1] : text
-      return already && already[2] === kind ? `[${inner}]{${kind}=${value}}` : `[${text}]{${kind}=${value}}`
-    }
-
     if (s === e) {
       // A collapsed caret (nothing dragged over) means "apply to the whole
-      // box" — Word/Docs behavior for a size/color field with no selection —
-      // instead of silently doing nothing. Wraps every non-empty line the
-      // same way the single-selection path below wraps one substring.
-      linesRef.current = linesRef.current.map((line) => (line.trim() === '' ? line : applyTo(line)))
-      activeRef.current = -1 // render everything inactive first — avoids a stale index landing on the wrong (now-shifted) line
+      // box" — Word/Docs behavior for a size/color field with no selection.
+      const fullStart = 0
+      const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
+      marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
       rebuildAll()
-      activeRef.current = i
-      renderLineDom(i)
-      placeCaretAt(i, (linesRef.current[i] ?? '').length)
+      placeCaretAt(i, raw.length)
       commit()
       return
     }
 
-    const spanText = applyTo(raw.slice(s, e))
-    linesRef.current[i] = raw.slice(0, s) + spanText + raw.slice(e)
+    const start = lineStart(i) + s
+    const end = lineStart(i) + e
+    marksRef.current = applyMark(marksRef.current, start, end, kind, value)
     renderLineDom(i)
-    // Re-selecting the applied span (so a follow-up swatch/stepper click
-    // adjusts the SAME span, see doc comment above) moves real browser
-    // Selection/focus into the contentEditable as a side effect — fine for a
-    // plain <button> trigger (nothing else wants focus), but actively
-    // harmful for a snapshot-based call: the Size <input> is what the user
-    // is still typing into, and stealing focus back into the editor mid-
-    // keystroke raced with its own Enter/blur handling and corrupted the
-    // line (a since-fixed bug — see applySize's onKeyDown in inspector.tsx).
-    // A snapshot-driven apply instead advances the SNAPSHOT itself to the
-    // new span's bounds (below) and leaves the live DOM selection alone.
-    if (!snap) selectRawRange(i, s, s + spanText.length)
+    // Re-selecting the applied range (so a follow-up swatch/stepper click
+    // adjusts the SAME range) moves real browser Selection/focus into the
+    // contentEditable as a side effect — fine for a plain <button> trigger
+    // (nothing else wants focus), but actively harmful for a snapshot-based
+    // call: the Size <input> is what the user is still typing into, and
+    // stealing focus back into the editor mid-keystroke corrupts the next
+    // edit. A snapshot-driven apply instead advances the SNAPSHOT itself to
+    // the edited range (below) and leaves the live DOM selection alone.
+    if (!snap) selectRange(i, s, e)
     else {
-      // Keep the snapshot valid for a follow-up snapshot-driven edit on the
-      // SAME field (e.g. correcting a size from 23 to 29 without ever
-      // touching the canvas in between). Without this, the snapshot was
-      // cleared above and never refilled, so a second edit fell back to
-      // re-reading window.getSelection() — which by now is stale (it still
-      // points at the OLD pre-edit range, since the DOM selection was
-      // deliberately left untouched just above) and no longer lines up with
-      // the line's new, longer content. Slicing raw.slice(s, e) against
-      // that stale range grabbed the wrong substring and wrapped garbage
-      // into a nested span (e.g. size 23 then 29 on the same word produced
-      // `[[bet]{size=29}a]{size=23}`, leaking raw syntax into the visible
-      // text). Advancing the snapshot to the just-written span's real
-      // bounds keeps every subsequent same-field edit correctly targeted.
-      snapshotRef.current = { line: i, s, e: s + spanText.length }
+      snapshotRef.current = { line: i, s, e }
       snapshotFreshRef.current = true
     }
     commit()
@@ -448,23 +373,28 @@ function useLiveMarkdownEditor(
   const BLOCK_PREFIX = /^(#{1,6}\s+|>\s?|\s*[-*+]\s+\[[ xX]\]\s+|\s*[-*+]\s+|\s*\d+\.\s+)/
 
   const prefixLine = (prefix: string) => {
-    // Same fix as wrap(): land on the line the user actually clicked/
-    // selected, not whatever line happened to be active already.
+    // Same fix as toggleMark: land on the line the user actually
+    // clicked/selected, not whatever line happened to be active already.
     const span = selectionSpan()
     const pos = caretPosition()
     const targetLine = span?.s.line ?? pos?.line ?? activeRef.current
     if (targetLine < 0) return
     if (targetLine !== activeRef.current) {
-      const rawOffset = span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
-      activateLineAtRaw(targetLine, rawOffset)
+      const offset = span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
+      activateLine(targetLine, offset)
     }
     const i = activeRef.current
     const raw = linesRef.current[i] ?? ''
     const existing = raw.match(BLOCK_PREFIX)?.[0] ?? ''
     const bare = raw.slice(existing.length)
     // Re-applying the exact same prefix (e.g. clicking Bullet on an already-
-    // bulleted line) toggles it off, matching wrap()'s toggle behavior;
-    // otherwise the old prefix is replaced, never stacked on top of.
+    // bulleted line) toggles it off, matching toggleMark's toggle behavior;
+    // otherwise the old prefix is replaced, never stacked on top of. The
+    // prefix itself is plain text (block type is a per-line attribute, not
+    // an inline mark — see marks.ts doc comment), so marks anywhere on this
+    // line need to shift by the prefix-length delta.
+    const delta = (existing === prefix ? '' : prefix).length - existing.length
+    if (delta !== 0) marksRef.current = shiftMarks(marksRef.current, lineStart(i), delta)
     const next = existing === prefix ? bare : prefix + bare
     linesRef.current[i] = next
     renderLineDom(i)
@@ -482,7 +412,9 @@ function useLiveMarkdownEditor(
 
   const syncExternal = (next: string) => {
     snapshotFreshRef.current = false
-    linesRef.current = next.split('\n')
+    const p = parse(next)
+    linesRef.current = p.text.split('\n')
+    marksRef.current = p.marks
     activeRef.current = -1
     rebuildAll()
   }
@@ -490,7 +422,31 @@ function useLiveMarkdownEditor(
   const onInput = () => {
     const idx = activeRef.current
     if (idx < 0) return
-    linesRef.current[idx] = lineEl(idx)?.textContent ?? ''
+    const el = lineEl(idx)
+    const nextText = el?.textContent ?? ''
+    const prevText = linesRef.current[idx] ?? ''
+    if (nextText !== prevText) {
+      // Diff the two strings at their common prefix/suffix to find the one
+      // edit point browsers actually make per keystroke (insert or delete a
+      // run of characters at the caret) — enough to keep marks aligned for
+      // normal typing; IME composition / multi-point edits fall back to
+      // "whole line changed, nothing preserved," same ceiling the old
+      // model had for anything beyond a single caret-driven edit.
+      let prefixLen = 0
+      while (prefixLen < prevText.length && prefixLen < nextText.length && prevText[prefixLen] === nextText[prefixLen]) prefixLen++
+      let suffixLen = 0
+      while (
+        suffixLen < prevText.length - prefixLen &&
+        suffixLen < nextText.length - prefixLen &&
+        prevText[prevText.length - 1 - suffixLen] === nextText[nextText.length - 1 - suffixLen]
+      ) suffixLen++
+      const removedLen = prevText.length - prefixLen - suffixLen
+      const insertedLen = nextText.length - prefixLen - suffixLen
+      const at = lineStart(idx) + prefixLen
+      if (removedLen > 0) marksRef.current = shiftMarks(marksRef.current, at, -removedLen)
+      if (insertedLen > 0) marksRef.current = shiftMarks(marksRef.current, at, insertedLen)
+      linesRef.current[idx] = nextText
+    }
     snapshotFreshRef.current = false // typing invalidates any pending panel snapshot
     markEmpty()
     commit()
@@ -502,22 +458,21 @@ function useLiveMarkdownEditor(
     if (idx < 0) return
 
     // Common formatting shortcuts — the floating dock is gone, so these (and
-    // the panel buttons) are the only way to apply a mark without typing the
-    // raw markdown delimiters yourself.
+    // the panel buttons) are the only way to apply a mark without a menu.
     const mod = (e.ctrlKey || e.metaKey) && !e.altKey
     if (mod && e.key.toLowerCase() === 'b') {
       e.preventDefault()
-      wrap('**')
+      toggleMark('bold')
       return
     }
     if (mod && e.key.toLowerCase() === 'i') {
       e.preventDefault()
-      wrap('*')
+      toggleMark('italic')
       return
     }
     if (mod && e.key.toLowerCase() === 'u') {
       e.preventDefault()
-      wrap('++')
+      toggleMark('underline')
       return
     }
 
@@ -552,6 +507,7 @@ function useLiveMarkdownEditor(
       const pos = caretPosition()
       const raw = linesRef.current[idx] ?? ''
       const at = pos && pos.line === idx ? Math.min(pos.offset, raw.length) : raw.length
+      marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + at, 1) // the new '\n' itself
       linesRef.current.splice(idx, 1, raw.slice(0, at), raw.slice(at))
       rebuildAll()
       activeRef.current = idx + 1
@@ -567,6 +523,7 @@ function useLiveMarkdownEditor(
         e.preventDefault()
         const prev = linesRef.current[idx - 1]
         const cur = linesRef.current[idx]
+        marksRef.current = shiftMarks(marksRef.current, lineStart(idx) - 1, -1) // the joined '\n'
         linesRef.current.splice(idx - 1, 2, prev + cur)
         rebuildAll()
         activeRef.current = idx - 1
@@ -582,6 +539,7 @@ function useLiveMarkdownEditor(
       if (pos && pos.line === idx && pos.offset === raw.length && idx < linesRef.current.length - 1) {
         e.preventDefault()
         const next = linesRef.current[idx + 1]
+        marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + raw.length, -1) // the joined '\n'
         linesRef.current.splice(idx, 2, raw + next)
         rebuildAll()
         activeRef.current = idx
@@ -604,38 +562,36 @@ function useLiveMarkdownEditor(
     replaceRange(at, end, text)
   }
 
-  /** Puts plain, delimiter-free text on the clipboard for the current
-   *  selection (or the whole line, on a collapsed caret) — otherwise
-   *  Selection.toString() reads the raw markdown source straight out of the
-   *  DOM, hidden markers included, since hiding them (see inlineActive) only
-   *  changes layout/paint, not text content. Google Docs never lets raw
-   *  markup leak into copy/paste; this is the same contract for our
-   *  markdown-backed editor. */
-  const onCopy = (e: React.ClipboardEvent) => {
-    const span = selectionSpan()
-    if (!span) return // collapsed caret — nothing selected, let the browser no-op as usual
-    e.preventDefault()
-    const { s, e: end } = span
-    const raw =
-      s.line === end.line
-        ? (linesRef.current[s.line] ?? '').slice(s.offset, end.offset)
-        : [
-            (linesRef.current[s.line] ?? '').slice(s.offset),
-            ...linesRef.current.slice(s.line + 1, end.line),
-            (linesRef.current[end.line] ?? '').slice(0, end.offset),
-          ].join('\n')
-    e.clipboardData.setData('text/plain', stripMarkdown(raw))
-  }
-
+  // Copy needs NO interception anymore: since the DOM never contains
+  // delimiter characters (there is no delimiter syntax in this model),
+  // native Selection.toString() is already exactly the plain text a copy
+  // should produce — the browser's default copy handler is left to run as
+  // usual (no onCopy prop wired in the JSX below). The old model needed to
+  // intercept copy specifically because its hidden markers were still real
+  // (if invisible) text nodes that toString() would include.
+  //
+  // Cut still needs interception (unlike copy): letting the browser's
+  // default cut run would delete the DOM content on its own, bypassing
+  // replaceRange entirely and leaving linesRef/marksRef silently out of
+  // sync with what's actually on screen (onInput only reacts to the ACTIVE
+  // line's own contentEditable input event, not to a cut the browser
+  // already performed, and a cut can span multiple lines the way Backspace-
+  // on-selection does too). preventDefault, write the selection's plain
+  // text to the clipboard ourselves (same value native cut would have
+  // used — the DOM has no delimiter characters to worry about, so
+  // Selection.toString() is already exactly right), then route the delete
+  // through the same replaceRange(..., '') a Backspace-on-selection uses.
   const onCut = (e: React.ClipboardEvent) => {
     const span = selectionSpan()
     if (!span) return
-    onCopy(e)
+    e.preventDefault()
+    const sel = window.getSelection()
+    if (sel) e.clipboardData.setData('text/plain', sel.toString())
     replaceRange(span.s, span.e, '')
   }
 
   // Any direct click or selection-moving key inside the editor means the
-  // user has moved on from whatever span the last snapshot-driven setSpan()
+  // user has moved on from whatever range the last snapshot-driven setSpan()
   // touched — the next panel edit needs a real re-snapshot, not the stale
   // one left over from before. See snapshotSelection's doc comment.
   const onClick = () => {
@@ -649,21 +605,23 @@ function useLiveMarkdownEditor(
     }
   }
 
-  ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { wrap, prefixLine, setSpan, snapshotSelection }
+  ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { toggleMark, prefixLine, setSpan, snapshotSelection }
 
-  return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste, onCopy, onCut }
+  return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste, onCut }
 }
 
 // Whole-textbox alignment — the one box-level formatting knob left (see
 // TextOptions in inspector.tsx). Everything else (bold, color, size…) is
-// selection-scoped now, set via the panel or Ctrl+B/Ctrl+I and read straight
-// out of the markdown source, so there's no floating dock anymore.
+// selection-scoped now, set via the panel or Ctrl+B/Ctrl+I and stored as
+// marks, so there's no floating dock anymore.
 const ALIGNS = ['left', 'center', 'right', 'justify'] as const
 type Align = (typeof ALIGNS)[number]
 
-/** Shared markdown editor: live per-line preview while editing, full
- * block-level markdown otherwise. Wraps at box width, grows the box
- * vertically to fit. */
+/** Shared text editor: live per-line preview while editing, full block-level
+ * render otherwise — both paths render through the same marks-aware
+ * function (lib/text/render.ts), so there's nothing that can look different
+ * between "editing" and "just clicked away." Wraps at box width, grows the
+ * box vertically to fit. */
 export function RichTextArea({
   pageId,
   object,
@@ -705,8 +663,9 @@ export function RichTextArea({
   // enters edit mode. Deselecting leaves edit mode.
   const [editing, setEditing] = useState(false)
   const value = htmlToMarkdownSource(getString(object, 'text'))
+  const stored = parse(value)
 
-  const editor = useLiveMarkdownEditor(
+  const editor = useLiveTextEditor(
     editorRef,
     value,
     (next) => setStringParam(pageId, object.id, 'text', next),
@@ -727,10 +686,11 @@ export function RichTextArea({
       editorRef.current?.blur()
       // An empty box was never really wanted — clean it up instead of
       // leaving an invisible object on the canvas.
-      if (deleteWhenEmpty && everFocusedRef.current && value.trim() === '')
+      if (deleteWhenEmpty && everFocusedRef.current && stored.text.trim() === '')
         removeObjects(pageId, [object.id])
     }
-  }, [selected, editing, deleteWhenEmpty, value, pageId, object.id, removeObjects])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, editing, deleteWhenEmpty, stored.text, pageId, object.id, removeObjects])
 
   // External changes (undo, sync, AI) land only while unfocused — never
   // clobber the caret mid-typing.
@@ -771,10 +731,10 @@ export function RichTextArea({
   }
   useLayoutEffect(fit) // content, editing mode, width and zoom changes all re-measure
 
-  const rendered = renderMarkdown(value)
-  // Properties → Text → Line spacing (box-level, like Alignment — the
-  // markdown model has no per-paragraph tracking). 1.625 matches Tailwind's
-  // leading-relaxed, the old fixed value, so unset boxes look unchanged.
+  const rendered = renderMarkdown(stored.text, stored.marks)
+  // Properties → Text → Line spacing (box-level, like Alignment). 1.625
+  // matches Tailwind's leading-relaxed, the old fixed value, so unset boxes
+  // look unchanged.
   const lineHeight = (object.metadata.lineHeight as number | undefined) ?? 1.625
   // Properties → Typography → Letter spacing, box-level like line height —
   // a percentage of font-size, same convention Figma's field uses.
@@ -835,7 +795,6 @@ export function RichTextArea({
             onKeyUp={editor.onKeyUp}
             onClick={editor.onClick}
             onPaste={editor.onPaste}
-            onCopy={editor.onCopy}
             onCut={editor.onCut}
             onPointerDown={(e) => e.stopPropagation()}
           />
@@ -858,8 +817,8 @@ export function RichTextArea({
               setSelection([object.id])
               requestAnimationFrame(() => editor.start())
             }}
-            // Rendered markdown is generated by our own escaping renderer
-            // (lib/text/markdown.ts) — never raw user HTML.
+            // Rendered HTML is generated by our own escaping renderer
+            // (lib/text/render.ts) — never raw user HTML.
             dangerouslySetInnerHTML={{ __html: rendered }}
           />
         )}

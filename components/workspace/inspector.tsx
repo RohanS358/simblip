@@ -41,8 +41,6 @@ import {
   Eye,
   EyeOff,
   RotateCw,
-  Radius,
-  Percent,
   FoldHorizontal,
   UnfoldHorizontal,
   AlignHorizontalJustifyStart,
@@ -58,7 +56,7 @@ import { useDocStore, type Viewport } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_WEIGHTS } from '@/lib/text/markdown'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
@@ -196,62 +194,6 @@ function ExprInput({
           onCommit(next)
         }
         e.stopPropagation()
-      }}
-    />
-  )
-}
-
-/** A 6-hex-digit color field — same "local draft, commit on blur/Enter"
- *  shape as ExprInput, needed for the same reason: a controlled input whose
- *  value comes straight from the store re-renders on every keystroke, and
- *  the old version here only ever called setMeta once the typed string hit
- *  exactly 6 hex chars — so every SHORTER intermediate keystroke re-rendered
- *  with the OLD stored value and snapped the field back to it, making it
- *  literally impossible to type a hex code by hand (only paste-in-one-go
- *  worked). Keeping the in-progress text local until it's complete (or the
- *  field loses focus) fixes that without needing a full 6 characters typed
- *  in a single keystroke event. */
-function HexInput({
-  value,
-  onCommit,
-  disabled,
-}: {
-  value: string
-  onCommit: (hex: string) => void
-  disabled?: boolean
-}) {
-  const [draft, setDraft] = useState(value.replace('#', '').toUpperCase())
-  useEffect(() => {
-    setDraft(value.replace('#', '').toUpperCase())
-  }, [value])
-
-  const commitIfComplete = (v: string) => {
-    if (v.length === 6) onCommit(`#${v}`)
-  }
-
-  return (
-    <input
-      type="text"
-      aria-label="Text color hex"
-      value={draft}
-      disabled={disabled}
-      maxLength={6}
-      className="w-full min-w-0 rounded-md border border-input bg-background/60 px-2 py-1 font-mono text-[12px] uppercase outline-none disabled:opacity-40"
-      onChange={(e) => {
-        const v = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6).toUpperCase()
-        setDraft(v)
-        commitIfComplete(v)
-      }}
-      onBlur={() => {
-        if (draft.length < 6) setDraft(value.replace('#', '').toUpperCase()) // incomplete edit — revert
-      }}
-      onKeyDown={(e) => {
-        e.stopPropagation()
-        if (e.key === 'Enter') e.currentTarget.blur()
-        if (e.key === 'Escape') {
-          setDraft(value.replace('#', '').toUpperCase())
-          e.currentTarget.blur()
-        }
       }}
     />
   )
@@ -2197,25 +2139,27 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const vAlign = (object.metadata.verticalAlign as string) ?? 'top'
   const resizing = (object.metadata.resizing as string) ?? 'fixed'
   const hidden = Boolean(object.metadata.hidden)
-  const opacity = (object.metadata.opacity as number | undefined) ?? 100
-  // Matches the fill box's old fixed rounded-xl (12px) — see text.tsx.
-  const cornerRadius = (object.metadata.cornerRadius as number | undefined) ?? 12
   const lineHeight = object.metadata.lineHeight as number | undefined
   const letterSpacing = (object.metadata.letterSpacing as number | undefined) ?? 0
-  // Fill = the text's own glyph color (real Figma semantics for a text
-  // layer), NOT the box background tint further down (a pre-existing,
-  // separate feature with no Figma equivalent for bare text — see Background).
-  const textColor = (object.metadata.textColor as string | undefined) ?? '#000000'
-  const fillOpacity = (object.metadata.fillOpacity as number | undefined) ?? 100
   const bg = (object.metadata.color as string) ?? ''
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
 
-  const wrap = (before: string, after?: string) => handleRef?.current?.wrap(before, after)
+  const toggleMark = (kind: MarkKind) => handleRef?.current?.toggleMark(kind)
   const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
   const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) =>
     handleRef?.current?.setSpan(kind, value)
+  // Link has no dedicated input field (a URL isn't a bounded palette the
+  // way color/size are) — window.prompt is the same lightweight pattern
+  // already used elsewhere in this panel tree (canvas.tsx's "rename" flows)
+  // for a single quick text value. Applies as an exclusive mark keyed by
+  // 'link' in setSpan's underlying applyMark, exactly like color/size/font/
+  // weight — see lib/text/marks.ts.
+  const applyLink = () => {
+    const url = window.prompt('Link URL')
+    if (url && url.trim()) handleRef?.current?.setSpan('link', url.trim())
+  }
   // Called from the Size input's onFocus, before the browser's native
   // focus-shift lands — see snapshotSelection's doc comment in
   // lib/store/text-editor.ts for why the Size field specifically needs this
@@ -2312,7 +2256,20 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
 
   return (
     <div className="space-y-3">
-      <PanelSection title="Position">
+      <PanelSection
+        title="Position"
+        right={
+          <button
+            type="button"
+            aria-label={hidden ? 'Show object' : 'Hide object'}
+            aria-pressed={hidden}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setMeta({ hidden: !hidden })}
+          >
+            {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        }
+      >
         <div>
           <FieldLabel>Alignment</FieldLabel>
           <div className="flex items-center gap-0.5 rounded-lg bg-accent/40 p-0.5">
@@ -2382,46 +2339,6 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
         </div>
       </PanelSection>
 
-      <PanelSection
-        title="Appearance"
-        right={
-          <button
-            type="button"
-            aria-label={hidden ? 'Show object' : 'Hide object'}
-            aria-pressed={hidden}
-            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => setMeta({ hidden: !hidden })}
-          >
-            {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-          </button>
-        }
-      >
-        <div className="grid grid-cols-2 gap-1.5">
-          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Percent className="h-3.5 w-3.5 shrink-0" />
-            <ExprInput
-              ariaLabel="Opacity"
-              value={String(opacity)}
-              onCommit={(v) => {
-                const n = Number(v)
-                if (Number.isFinite(n)) setMeta({ opacity: Math.min(100, Math.max(0, n)) })
-              }}
-            />
-          </label>
-          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Radius className="h-3.5 w-3.5 shrink-0" />
-            <ExprInput
-              ariaLabel="Corner radius"
-              value={String(cornerRadius)}
-              onCommit={(v) => {
-                const n = Number(v)
-                if (Number.isFinite(n)) setMeta({ cornerRadius: Math.max(0, n) })
-              }}
-            />
-          </label>
-        </div>
-      </PanelSection>
-
       <PanelSection title="Typography">
         <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
           <DropdownMenu>
@@ -2446,13 +2363,13 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             </DropdownMenuContent>
           </DropdownMenu>
           <span className="mx-0.5 h-4 w-px bg-border" />
-          {iconBtn('Bold (Ctrl+B)', Bold, () => wrap('**'))}
-          {iconBtn('Italic (Ctrl+I)', Italic, () => wrap('*'))}
-          {iconBtn('Underline (Ctrl+U)', Underline, () => wrap('++'))}
-          {iconBtn('Strikethrough', Strikethrough, () => wrap('~~'))}
-          {iconBtn('Highlight', Highlighter, () => wrap('=='))}
-          {iconBtn('Inline code', Code, () => wrap('`'))}
-          {iconBtn('Link', Link, () => wrap('[', '](url)'))}
+          {iconBtn('Bold (Ctrl+B)', Bold, () => toggleMark('bold'))}
+          {iconBtn('Italic (Ctrl+I)', Italic, () => toggleMark('italic'))}
+          {iconBtn('Underline (Ctrl+U)', Underline, () => toggleMark('underline'))}
+          {iconBtn('Strikethrough', Strikethrough, () => toggleMark('strike'))}
+          {iconBtn('Highlight', Highlighter, () => toggleMark('highlight'))}
+          {iconBtn('Inline code', Code, () => toggleMark('code'))}
+          {iconBtn('Link', Link, applyLink)}
           <span className="mx-0.5 h-4 w-px bg-border" />
           {iconBtn('Bullet list', List, () => prefixLine('- '))}
           {iconBtn('Numbered list', ListOrdered, () => prefixLine('1. '))}
@@ -2467,7 +2384,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
 
         <div>
           <FieldLabel>Selection color</FieldLabel>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {Object.entries(TEXT_COLORS).map(([id, value]) => (
               <button
                 key={id}
@@ -2480,6 +2397,29 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 onClick={() => setSpan('color', id)}
               />
             ))}
+            {/* Custom color — the browser's own color-wheel/eyedropper
+                picker for input[type=color], no custom UI needed. Routes
+                through the same snapshotSelection() the Size field uses:
+                opening the native picker steals focus from the
+                contentEditable the same way, so the live selection has to be
+                captured on pointerdown, before that happens. */}
+            <label
+              aria-label="Custom color"
+              className={cn(
+                'relative flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/60 text-muted-foreground transition-transform hover:scale-110 hover:text-foreground',
+                isActive ? 'cursor-pointer' : 'pointer-events-none opacity-30'
+              )}
+            >
+              <Plus className="h-3 w-3" />
+              <input
+                type="color"
+                aria-label="Custom text color"
+                disabled={!isActive}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                onPointerDown={snapshotSelection}
+                onChange={(e) => setSpan('color', e.target.value)}
+              />
+            </label>
           </div>
         </div>
 
@@ -2657,61 +2597,12 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
         </div>
       </PanelSection>
 
-      {/* One "Color" section for both properties this object has — they're
-          genuinely different (glyph color vs. a tint behind the whole box),
-          but two separately-titled sections that both amount to "pick a
-          color for this text" read as a confusing duplicate ("two fills").
-          Grouped with explicit sub-labels instead so it's one coherent
-          control with two clearly different rows, not two unrelated-looking
-          pickers. */}
-      <PanelSection title="Color" last>
+      {/* Not in the Figma reference — bare text has no parent frame to paint
+          a fill on there. Pre-existing, separate app feature: a tint behind
+          the whole box, not the text itself (glyph color is set per-
+          selection via Selection color above, not here). */}
+      <PanelSection title="Background" last>
         <div>
-          <FieldLabel>Text color</FieldLabel>
-          <div className="flex items-center gap-1.5">
-            <input
-              type="checkbox"
-              aria-label="Override text color"
-              checked={object.metadata.textColor !== undefined}
-              className="h-3.5 w-3.5 shrink-0 accent-[var(--accent-blue)]"
-              onChange={(e) => setMeta({ textColor: e.target.checked ? textColor : undefined })}
-            />
-            <input
-              type="color"
-              aria-label="Text color swatch"
-              value={textColor}
-              disabled={object.metadata.textColor === undefined}
-              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0 disabled:opacity-40"
-              onChange={(e) => setMeta({ textColor: e.target.value })}
-            />
-            <HexInput
-              value={textColor}
-              disabled={object.metadata.textColor === undefined}
-              onCommit={(hex) => setMeta({ textColor: hex })}
-            />
-            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
-              <ExprInput
-                ariaLabel="Text color opacity"
-                value={String(fillOpacity)}
-                onCommit={(v) => {
-                  const n = Number(v)
-                  if (Number.isFinite(n)) setMeta({ fillOpacity: Math.min(100, Math.max(0, n)) })
-                }}
-              />
-              <span className="shrink-0 text-[10px] opacity-60">%</span>
-            </label>
-          </div>
-          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
-            The glyphs themselves — off leaves them at the theme default.
-          </p>
-        </div>
-
-        {/* Not in the Figma reference — bare text has no parent frame to
-            paint a fill on there. Pre-existing, separate app feature (a
-            tint behind the whole box), kept using its original preset-
-            swatch mechanism, just re-labeled and re-homed next to Text
-            color instead of living in its own same-named-sounding section. */}
-        <div>
-          <FieldLabel>Background</FieldLabel>
           <div className="flex flex-wrap gap-1.5">
             <button
               type="button"
