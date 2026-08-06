@@ -18,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
-import { renderMarkdown, renderLineLive, renderLineActive, htmlToMarkdownSource, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
+import { renderMarkdown, renderLineLive, renderLineActive, htmlToMarkdownSource, stripMarkdown, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
 import { cn } from '@/lib/utils'
 
 // Optional box-level background tint — shared with Note, which always shows
@@ -271,7 +271,12 @@ function useLiveMarkdownEditor(
   /** Wraps the current selection (or inserts at the caret) with markdown
    *  delimiters — bold, italic, highlight, a `[text]{color=..}` span… Named
    *  (not just inlined into handleRef below) so both the Properties panel
-   *  AND this hook's own Ctrl+B/Ctrl+I handling can call it. */
+   *  AND this hook's own Ctrl+B/Ctrl+I handling can call it. Toggles off
+   *  instead of nesting when the selection is EXACTLY an existing span of
+   *  the same delimiter (the standard "click Bold on bold text" behavior) —
+   *  without this, re-clicking a mark on already-marked text produced
+   *  `****text****`, which the renderer can't parse back into clean nested
+   *  emphasis (stray literal `*` characters leak into the visible text). */
   const wrap = (before: string, after = before) => {
     // Resolve the selection/caret's real line BEFORE trusting activeRef —
     // a selection made by double-click or a drag on a still-rendered line
@@ -291,16 +296,28 @@ function useLiveMarkdownEditor(
     const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
     const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
     const e = sameLineSpan ? sameLineSpan.e.offset : s
-    const next = raw.slice(0, s) + before + raw.slice(s, e) + after + raw.slice(e)
+
+    const selected = raw.slice(s, e)
+    const alreadyWrapped = before && selected.startsWith(before) && selected.endsWith(after) && selected.length >= before.length + after.length
+    const next = alreadyWrapped
+      ? raw.slice(0, s) + selected.slice(before.length, selected.length - after.length) + raw.slice(e)
+      : raw.slice(0, s) + before + selected + after + raw.slice(e)
     linesRef.current[i] = next
     renderLineDom(i)
     // Past the closing delimiter too, not just the wrapped selection — typing
     // right after applying a mark should continue as plain text, not land
     // inside the mark before its closing **/]{...} (see WYSIWYG comment atop
     // this file: the closing delimiter is now a real, typeable text run).
-    placeCaretAt(i, s + before.length + (e - s) + after.length)
+    // Unwrapping instead lands right after the now-plain text, same as if
+    // the mark had never been there.
+    placeCaretAt(i, alreadyWrapped ? s + selected.length - before.length - after.length : s + before.length + selected.length + after.length)
     commit()
   }
+
+  // True right after a snapshot-driven setSpan() commits, until the next
+  // real click/selection inside the editor clears it — see snapshotSelection
+  // and setSpan's doc comments for why this exists.
+  const snapshotFreshRef = useRef(false)
 
   /** Captures the live selection right now, before it's about to be lost —
    *  call this from a control's onFocus/onPointerDown, BEFORE the browser
@@ -308,8 +325,24 @@ function useLiveMarkdownEditor(
    *  (and clears it once used) over live window.getSelection(), which by
    *  the time a text <input>'s onBlur/Enter fires no longer points at the
    *  contentEditable at all — focusing any real input collapses it there,
-   *  unlike a plain <button> click, which needs no focus to register. */
+   *  unlike a plain <button> click, which needs no focus to register.
+   *
+   *  No-ops if the snapshot is still "fresh" from the setSpan() call that
+   *  just consumed it — re-clicking the SAME panel field (e.g. correcting a
+   *  size from 23 to 29 without touching the canvas in between) fires this
+   *  again, but by then window.getSelection() no longer reflects the span
+   *  setSpan() just wrote: re-selecting it would have meant stealing real
+   *  focus back into the contentEditable (setSpan deliberately doesn't, see
+   *  its doc comment — that was its own since-fixed corruption bug), so the
+   *  DOM selection is simply stale here, not just "old." Overwriting the
+   *  fresh snapshot with that stale read sliced the wrong substring on the
+   *  next edit and corrupted the line (e.g. size 23 then 29 on the same
+   *  word produced `[[bet]{size=29}a]{size=23}`, mangling the raw text into
+   *  visibly leaked syntax). Only a genuine new click/selection — which
+   *  clears the fresh flag first, see start/activateLine* below — earns a
+   *  re-snapshot. */
   const snapshotSelection = () => {
+    if (snapshotFreshRef.current) return
     const span = selectionSpan()
     const pos = caretPosition()
     if (span) {
@@ -344,17 +377,75 @@ function useLiveMarkdownEditor(
     const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
     const s = snap ? snap.s : sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
     const e = snap ? snap.e : sameLineSpan ? sameLineSpan.e.offset : s
-    if (s === e) return // nothing selected — there's no text to size/color/font
 
-    const selected = raw.slice(s, e)
-    const already = selected.match(/^\[([\s\S]*)\]\{[a-z]+=[a-z0-9.]+\}$/)
-    const inner = already ? already[1] : selected
-    const spanText = `[${inner}]{${kind}=${value}}`
+    // Only unwrap a span of the SAME kind (picking a new color replaces the
+    // old color) — a span of a DIFFERENT kind (e.g. already-colored text
+    // getting a size applied) nests instead, so `[[text]{color=blue}]{size=l}`
+    // keeps both. renderMarkdown's per-kind regexes each only ever look at
+    // their own `{kind=...}` suffix and leave any other bracket pair alone,
+    // so this nested form renders as both styles at once — see markdown.ts.
+    const applyTo = (text: string) => {
+      const already = text.match(/^\[([\s\S]*)\]\{([a-z]+)=[a-z0-9.]+\}$/)
+      const inner = already ? already[1] : text
+      return already && already[2] === kind ? `[${inner}]{${kind}=${value}}` : `[${text}]{${kind}=${value}}`
+    }
+
+    if (s === e) {
+      // A collapsed caret (nothing dragged over) means "apply to the whole
+      // box" — Word/Docs behavior for a size/color field with no selection —
+      // instead of silently doing nothing. Wraps every non-empty line the
+      // same way the single-selection path below wraps one substring.
+      linesRef.current = linesRef.current.map((line) => (line.trim() === '' ? line : applyTo(line)))
+      activeRef.current = -1 // render everything inactive first — avoids a stale index landing on the wrong (now-shifted) line
+      rebuildAll()
+      activeRef.current = i
+      renderLineDom(i)
+      placeCaretAt(i, (linesRef.current[i] ?? '').length)
+      commit()
+      return
+    }
+
+    const spanText = applyTo(raw.slice(s, e))
     linesRef.current[i] = raw.slice(0, s) + spanText + raw.slice(e)
     renderLineDom(i)
-    selectRawRange(i, s, s + spanText.length)
+    // Re-selecting the applied span (so a follow-up swatch/stepper click
+    // adjusts the SAME span, see doc comment above) moves real browser
+    // Selection/focus into the contentEditable as a side effect — fine for a
+    // plain <button> trigger (nothing else wants focus), but actively
+    // harmful for a snapshot-based call: the Size <input> is what the user
+    // is still typing into, and stealing focus back into the editor mid-
+    // keystroke raced with its own Enter/blur handling and corrupted the
+    // line (a since-fixed bug — see applySize's onKeyDown in inspector.tsx).
+    // A snapshot-driven apply instead advances the SNAPSHOT itself to the
+    // new span's bounds (below) and leaves the live DOM selection alone.
+    if (!snap) selectRawRange(i, s, s + spanText.length)
+    else {
+      // Keep the snapshot valid for a follow-up snapshot-driven edit on the
+      // SAME field (e.g. correcting a size from 23 to 29 without ever
+      // touching the canvas in between). Without this, the snapshot was
+      // cleared above and never refilled, so a second edit fell back to
+      // re-reading window.getSelection() — which by now is stale (it still
+      // points at the OLD pre-edit range, since the DOM selection was
+      // deliberately left untouched just above) and no longer lines up with
+      // the line's new, longer content. Slicing raw.slice(s, e) against
+      // that stale range grabbed the wrong substring and wrapped garbage
+      // into a nested span (e.g. size 23 then 29 on the same word produced
+      // `[[bet]{size=29}a]{size=23}`, leaking raw syntax into the visible
+      // text). Advancing the snapshot to the just-written span's real
+      // bounds keeps every subsequent same-field edit correctly targeted.
+      snapshotRef.current = { line: i, s, e: s + spanText.length }
+      snapshotFreshRef.current = true
+    }
     commit()
   }
+
+  // Recognizes any existing block-level prefix a line can carry — heading,
+  // quote, checklist, bullet, numbered — so prefixLine (below) can swap ONE
+  // out for another instead of stacking them. Order matters: checklist's
+  // `- [ ] ` must be tried before plain bullet's `- `, since the latter is a
+  // strict prefix of the former and would otherwise match first and leave
+  // `[ ] ` behind as visible text.
+  const BLOCK_PREFIX = /^(#{1,6}\s+|>\s?|\s*[-*+]\s+\[[ xX]\]\s+|\s*[-*+]\s+|\s*\d+\.\s+)/
 
   const prefixLine = (prefix: string) => {
     // Same fix as wrap(): land on the line the user actually clicked/
@@ -368,13 +459,21 @@ function useLiveMarkdownEditor(
       activateLineAtRaw(targetLine, rawOffset)
     }
     const i = activeRef.current
-    linesRef.current[i] = prefix + (linesRef.current[i] ?? '')
+    const raw = linesRef.current[i] ?? ''
+    const existing = raw.match(BLOCK_PREFIX)?.[0] ?? ''
+    const bare = raw.slice(existing.length)
+    // Re-applying the exact same prefix (e.g. clicking Bullet on an already-
+    // bulleted line) toggles it off, matching wrap()'s toggle behavior;
+    // otherwise the old prefix is replaced, never stacked on top of.
+    const next = existing === prefix ? bare : prefix + bare
+    linesRef.current[i] = next
     renderLineDom(i)
-    placeCaretAt(i, (linesRef.current[i] ?? '').length)
+    placeCaretAt(i, next.length)
     commit()
   }
 
   const start = (initialLine?: number) => {
+    snapshotFreshRef.current = false
     rebuildAll()
     const idx = initialLine ?? linesRef.current.length - 1
     activateLine(idx, (linesRef.current[idx] ?? '').length)
@@ -382,6 +481,7 @@ function useLiveMarkdownEditor(
   }
 
   const syncExternal = (next: string) => {
+    snapshotFreshRef.current = false
     linesRef.current = next.split('\n')
     activeRef.current = -1
     rebuildAll()
@@ -391,6 +491,7 @@ function useLiveMarkdownEditor(
     const idx = activeRef.current
     if (idx < 0) return
     linesRef.current[idx] = lineEl(idx)?.textContent ?? ''
+    snapshotFreshRef.current = false // typing invalidates any pending panel snapshot
     markEmpty()
     commit()
   }
@@ -503,16 +604,54 @@ function useLiveMarkdownEditor(
     replaceRange(at, end, text)
   }
 
-  const onClick = () => checkLineSwitch()
+  /** Puts plain, delimiter-free text on the clipboard for the current
+   *  selection (or the whole line, on a collapsed caret) — otherwise
+   *  Selection.toString() reads the raw markdown source straight out of the
+   *  DOM, hidden markers included, since hiding them (see inlineActive) only
+   *  changes layout/paint, not text content. Google Docs never lets raw
+   *  markup leak into copy/paste; this is the same contract for our
+   *  markdown-backed editor. */
+  const onCopy = (e: React.ClipboardEvent) => {
+    const span = selectionSpan()
+    if (!span) return // collapsed caret — nothing selected, let the browser no-op as usual
+    e.preventDefault()
+    const { s, e: end } = span
+    const raw =
+      s.line === end.line
+        ? (linesRef.current[s.line] ?? '').slice(s.offset, end.offset)
+        : [
+            (linesRef.current[s.line] ?? '').slice(s.offset),
+            ...linesRef.current.slice(s.line + 1, end.line),
+            (linesRef.current[end.line] ?? '').slice(0, end.offset),
+          ].join('\n')
+    e.clipboardData.setData('text/plain', stripMarkdown(raw))
+  }
+
+  const onCut = (e: React.ClipboardEvent) => {
+    const span = selectionSpan()
+    if (!span) return
+    onCopy(e)
+    replaceRange(span.s, span.e, '')
+  }
+
+  // Any direct click or selection-moving key inside the editor means the
+  // user has moved on from whatever span the last snapshot-driven setSpan()
+  // touched — the next panel edit needs a real re-snapshot, not the stale
+  // one left over from before. See snapshotSelection's doc comment.
+  const onClick = () => {
+    snapshotFreshRef.current = false
+    checkLineSwitch()
+  }
   const onKeyUp = (e: React.KeyboardEvent) => {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(e.key)) {
+      snapshotFreshRef.current = false
       checkLineSwitch()
     }
   }
 
   ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { wrap, prefixLine, setSpan, snapshotSelection }
 
-  return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste }
+  return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste, onCopy, onCut }
 }
 
 // Whole-textbox alignment — the one box-level formatting knob left (see
@@ -696,6 +835,8 @@ export function RichTextArea({
             onKeyUp={editor.onKeyUp}
             onClick={editor.onClick}
             onPaste={editor.onPaste}
+            onCopy={editor.onCopy}
+            onCut={editor.onCut}
             onPointerDown={(e) => e.stopPropagation()}
           />
         ) : (

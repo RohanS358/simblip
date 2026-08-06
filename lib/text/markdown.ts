@@ -50,6 +50,112 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+/** Plain text with every markdown delimiter removed — what copy/paste should
+ * actually put on the clipboard (Google Docs never lets you copy the
+ * underlying markup, just the rendered text). Strips block prefixes
+ * (#, >, -, 1., [ ]) and inline emphasis/span syntax line by line; link text
+ * is kept, the URL is dropped. Not used for rendering — only for building the
+ * copy/cut payload in components/objects/text.tsx. */
+export function stripMarkdown(raw: string): string {
+  return raw
+    .split('\n')
+    .map((line) => {
+      let s = line
+        .replace(/^(#{1,6})\s+/, '')
+        .replace(/^>\s?/, '')
+        .replace(/^(\s*[-*+]\s+)\[( |x|X)\]\s+/, '')
+        .replace(/^\s*[-*+]\s+/, '')
+        .replace(/^\s*\d+\.\s+/, '')
+      s = s
+        .replace(/```(\w*)\s*/g, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\$(\S(?:[^$\n]*\S)?)\$/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/__([^_]+)__/g, '$1')
+        .replace(/~~([^~]+)~~/g, '$1')
+        .replace(/==([^=]+)==/g, '$1')
+        .replace(/\+\+([^+]+)\+\+/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/(^|[^\w])_([^_]+)_(?!\w)/g, '$1$2')
+      // Style spans nest (color wrapping size wrapping weight — see setSpan
+      // in text.tsx and renderStyleSpans above) so one pass only strips the
+      // outermost layer; repeat until nothing's left to strip.
+      let prev: string
+      do {
+        prev = s
+        s = s.replace(/\[([^\]]+)\]\{(?:color|size|font|weight)=[a-z0-9.]+\}/g, '$1')
+      } while (s !== prev)
+      s = s.replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '$1')
+      return s
+    })
+    .join('\n')
+}
+
+const SPAN_TAG: Record<string, (id: string, txt: string) => string> = {
+  color: (id, txt) => `<span style="color:${TEXT_COLORS[id] ?? 'inherit'}">${txt}</span>`,
+  size: (id, txt) => {
+    const preset = TEXT_SIZES[id]
+    const custom = preset === undefined ? Number(id) : NaN
+    const px = preset ?? (Number.isFinite(custom) ? Math.min(200, Math.max(6, custom)) : TEXT_SIZES.m)
+    return `<span style="font-size:${px}px">${txt}</span>`
+  },
+  font: (id, txt) => `<span style="font-family:${TEXT_FONTS[id] ?? 'inherit'}">${txt}</span>`,
+  weight: (id, txt) => `<span style="font-weight:${TEXT_WEIGHTS[id] ?? TEXT_WEIGHTS.regular}">${txt}</span>`,
+}
+const SPAN_SUFFIX = /^\{(color|size|font|weight)=([a-z0-9.]+)\}/
+
+/** Replaces every `[inner]{kind=value}` span with its styled tag, INCLUDING
+ * spans nested inside each other (color wrapping size wrapping weight, any
+ * order, any depth) — e.g. `[[text]{color=blue}]{size=l}` from stacking
+ * color then size on the same selection (see setSpan in text.tsx). A plain
+ * `[^\]]+` regex per kind (the previous approach) can't do this: it always
+ * stops at the FIRST `]`, so whichever kind's regex happens to run first
+ * against a nested pair either fails to match (if that first `]` isn't
+ * immediately followed by ITS OWN `{kind=...}`) or — worse — matches the
+ * WRONG span, consuming the outer bracket with the inner content and
+ * leaving the other span's syntax as literal leftover text (exactly the bug
+ * this replaced: `[[text]{size=24}]{color=blue}` rendered with `{color=...}`
+ * leaking through as plain text because the size regex ran second and
+ * misparsed across the outer boundary). Scanning with an explicit bracket-
+ * depth counter to find each `[`'s TRUE matching `]` — then recursing on
+ * the inner text before wrapping — makes this correct regardless of which
+ * kind is outermost or what order the styles were applied in. */
+function renderStyleSpans(s: string): string {
+  let out = ''
+  let i = 0
+  while (i < s.length) {
+    if (s[i] !== '[') {
+      out += s[i]
+      i++
+      continue
+    }
+    let depth = 1
+    let j = i + 1
+    while (j < s.length && depth > 0) {
+      if (s[j] === '[') depth++
+      else if (s[j] === ']') depth--
+      if (depth > 0) j++
+    }
+    // No matching close, or nothing after it — not a span, emit '[' as-is.
+    if (depth !== 0) {
+      out += s[i]
+      i++
+      continue
+    }
+    const suffixMatch = s.slice(j + 1).match(SPAN_SUFFIX)
+    if (!suffixMatch) {
+      out += s[i]
+      i++
+      continue
+    }
+    const inner = s.slice(i + 1, j)
+    const [full, kind, value] = suffixMatch
+    out += SPAN_TAG[kind](value, renderStyleSpans(inner))
+    i = j + 1 + full.length
+  }
+  return out
+}
+
 /** Inline spans within one block: code protected first, then emphasis/links. */
 function inline(raw: string): string {
   const codes: string[] = []
@@ -82,34 +188,10 @@ function inline(raw: string): string {
     .replace(/\+\+([^+]+)\+\+/g, '<u>$1</u>')
     .replace(/\*([^*]+)\*/g, '<em>$1</em>')
     .replace(/(^|[^\w])_([^_]+)_(?!\w)/g, '$1<em>$2</em>')
-    .replace(
-      /\[([^\]]+)\]\{color=([a-z]+)\}/g,
-      (_, txt: string, id: string) => `<span style="color:${TEXT_COLORS[id] ?? 'inherit'}">${txt}</span>`
-    )
-    .replace(
-      // Preset keyword (s/m/l/xl) OR a bare number for a custom size, e.g.
-      // {size=l} or {size=22} — either way the emitted px value is only ever
-      // built from TEXT_SIZES or a clamped Number(), never the raw token.
-      /\[([^\]]+)\]\{size=([a-z0-9.]+)\}/g,
-      (_, txt: string, id: string) => {
-        const preset = TEXT_SIZES[id]
-        const custom = preset === undefined ? Number(id) : NaN
-        const px = preset ?? (Number.isFinite(custom) ? Math.min(200, Math.max(6, custom)) : TEXT_SIZES.m)
-        return `<span style="font-size:${px}px">${txt}</span>`
-      }
-    )
-    .replace(
-      /\[([^\]]+)\]\{font=([a-z]+)\}/g,
-      (_, txt: string, id: string) => `<span style="font-family:${TEXT_FONTS[id] ?? 'inherit'}">${txt}</span>`
-    )
-    .replace(
-      /\[([^\]]+)\]\{weight=([a-z]+)\}/g,
-      (_, txt: string, id: string) => `<span style="font-weight:${TEXT_WEIGHTS[id] ?? TEXT_WEIGHTS.regular}">${txt}</span>`
-    )
-    .replace(
-      /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
-      '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
-    )
+  s = renderStyleSpans(s).replace(
+    /\[([^\]]+)\]\((https?:[^)\s]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
+  )
   return s.replace(/ (\d+) /g, (_, i: string) => codes[Number(i)])
 }
 
@@ -155,6 +237,44 @@ function inlineActive(raw: string): string {
     codes.push(`<span class="md-marker md-marker-hidden">${escapeHtml(delim)}</span>`)
     return ` ${codes.length - 1} `
   }
+  // Same bracket-depth scan as renderStyleSpans (see its doc comment for
+  // why a flat [^\]]+ regex can't handle nested spans), but emitting hidden
+  // marker placeholders around the `[` / `]{kind=value}` delimiters instead
+  // of dropping them, exactly like every other mark below.
+  const styleSpansActive = (str: string): string => {
+    let out = ''
+    let i = 0
+    while (i < str.length) {
+      if (str[i] !== '[') {
+        out += str[i]
+        i++
+        continue
+      }
+      let depth = 1
+      let j = i + 1
+      while (j < str.length && depth > 0) {
+        if (str[j] === '[') depth++
+        else if (str[j] === ']') depth--
+        if (depth > 0) j++
+      }
+      if (depth !== 0) {
+        out += str[i]
+        i++
+        continue
+      }
+      const suffixMatch = str.slice(j + 1).match(SPAN_SUFFIX)
+      if (!suffixMatch) {
+        out += str[i]
+        i++
+        continue
+      }
+      const inner = str.slice(i + 1, j)
+      const [full, kind, value] = suffixMatch
+      out += `${hidden('[')}${SPAN_TAG[kind](value, styleSpansActive(inner))}${hidden(`]${full.slice(1)}`)}`
+      i = j + 1 + full.length
+    }
+    return out
+  }
   s = s
     .replace(
       /\*\*([^*]+)\*\*/g,
@@ -184,30 +304,7 @@ function inlineActive(raw: string): string {
       /(^|[^\w])_([^_]+)_(?!\w)/g,
       (_, pre: string, txt: string) => `${pre}${hidden('_')}<em>${txt}</em>${hidden('_')}`
     )
-    .replace(
-      /\[([^\]]+)\]\{color=([a-z]+)\}/g,
-      (_, txt: string, id: string) =>
-        `${hidden('[')}<span style="color:${TEXT_COLORS[id] ?? 'inherit'}">${txt}</span>${hidden(`]{color=${id}}`)}`
-    )
-    .replace(
-      /\[([^\]]+)\]\{size=([a-z0-9.]+)\}/g,
-      (_, txt: string, id: string) => {
-        const preset = TEXT_SIZES[id]
-        const custom = preset === undefined ? Number(id) : NaN
-        const px = preset ?? (Number.isFinite(custom) ? Math.min(200, Math.max(6, custom)) : TEXT_SIZES.m)
-        return `${hidden('[')}<span style="font-size:${px}px">${txt}</span>${hidden(`]{size=${id}}`)}`
-      }
-    )
-    .replace(
-      /\[([^\]]+)\]\{font=([a-z]+)\}/g,
-      (_, txt: string, id: string) =>
-        `${hidden('[')}<span style="font-family:${TEXT_FONTS[id] ?? 'inherit'}">${txt}</span>${hidden(`]{font=${id}}`)}`
-    )
-    .replace(
-      /\[([^\]]+)\]\{weight=([a-z]+)\}/g,
-      (_, txt: string, id: string) =>
-        `${hidden('[')}<span style="font-weight:${TEXT_WEIGHTS[id] ?? TEXT_WEIGHTS.regular}">${txt}</span>${hidden(`]{weight=${id}}`)}`
-    )
+  s = styleSpansActive(s)
   return s.replace(/ (\d+) /g, (_, i: string) => codes[Number(i)])
 }
 

@@ -201,6 +201,62 @@ function ExprInput({
   )
 }
 
+/** A 6-hex-digit color field — same "local draft, commit on blur/Enter"
+ *  shape as ExprInput, needed for the same reason: a controlled input whose
+ *  value comes straight from the store re-renders on every keystroke, and
+ *  the old version here only ever called setMeta once the typed string hit
+ *  exactly 6 hex chars — so every SHORTER intermediate keystroke re-rendered
+ *  with the OLD stored value and snapped the field back to it, making it
+ *  literally impossible to type a hex code by hand (only paste-in-one-go
+ *  worked). Keeping the in-progress text local until it's complete (or the
+ *  field loses focus) fixes that without needing a full 6 characters typed
+ *  in a single keystroke event. */
+function HexInput({
+  value,
+  onCommit,
+  disabled,
+}: {
+  value: string
+  onCommit: (hex: string) => void
+  disabled?: boolean
+}) {
+  const [draft, setDraft] = useState(value.replace('#', '').toUpperCase())
+  useEffect(() => {
+    setDraft(value.replace('#', '').toUpperCase())
+  }, [value])
+
+  const commitIfComplete = (v: string) => {
+    if (v.length === 6) onCommit(`#${v}`)
+  }
+
+  return (
+    <input
+      type="text"
+      aria-label="Text color hex"
+      value={draft}
+      disabled={disabled}
+      maxLength={6}
+      className="w-full min-w-0 rounded-md border border-input bg-background/60 px-2 py-1 font-mono text-[12px] uppercase outline-none disabled:opacity-40"
+      onChange={(e) => {
+        const v = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6).toUpperCase()
+        setDraft(v)
+        commitIfComplete(v)
+      }}
+      onBlur={() => {
+        if (draft.length < 6) setDraft(value.replace('#', '').toUpperCase()) // incomplete edit — revert
+      }}
+      onKeyDown={(e) => {
+        e.stopPropagation()
+        if (e.key === 'Enter') e.currentTarget.blur()
+        if (e.key === 'Escape') {
+          setDraft(value.replace('#', '').toUpperCase())
+          e.currentTarget.blur()
+        }
+      }}
+    />
+  )
+}
+
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -2519,21 +2575,35 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 disabled={!isActive}
                 aria-label="Font size in pixels"
                 className="w-full min-w-0 border-0 bg-transparent text-[12px] font-mono outline-none disabled:opacity-30"
-                // Capturing on pointerdown/preventDefault (the `guard`
-                // pattern every other control here uses) can't save this
-                // field's selection — focusing a real <input> steals
-                // window.getSelection() out of the contentEditable no matter
-                // what pointerdown does. onFocus fires right as that
-                // happens, so it's the last moment the OLD selection is
-                // still readable — snapshotSelection() stashes it there for
-                // applySize()'s later setSpan() call to consume.
-                onFocus={snapshotSelection}
+                // Can't use the `guard` pattern every other control here
+                // uses (preventDefault on pointerdown) — that would block
+                // this field from ever taking focus, and you have to type
+                // into it. Instead, snapshot on pointerdown itself: that
+                // fires BEFORE the browser shifts focus into this input, so
+                // the contentEditable's selection is still live. onFocus is
+                // too late — it only fires once focus has already landed
+                // here, by which point focusing a real <input> has already
+                // collapsed window.getSelection() out of the
+                // contentEditable. snapshotSelection() stashes the
+                // selection for applySize()'s later setSpan() call to
+                // consume.
+                onPointerDown={snapshotSelection}
                 onChange={(e) => setSize(Number(e.target.value) || size)}
-                onBlur={() => applySize(size)}
+                // Single source of truth for committing: onBlur. Enter used to
+                // ALSO call applySize directly, so a real Enter keystroke ran
+                // setSpan() twice — once from this handler, once again when
+                // the resulting blur fired onBlur. setSpan()'s one-shot
+                // selection snapshot only covers the first call; the second
+                // call re-reads the LIVE selection, which by then points at
+                // the span setSpan() itself just selected inside the
+                // contentEditable (selectRawRange moves real DOM focus there
+                // as a side effect) — corrupting the line. Blurring on Enter
+                // routes through the same single commit onBlur already does.
                 onKeyDown={(e) => {
                   e.stopPropagation()
-                  if (e.key === 'Enter') applySize(size)
+                  if (e.key === 'Enter') e.currentTarget.blur()
                 }}
+                onBlur={() => applySize(size)}
               />
               <span className="shrink-0 text-[10px] text-muted-foreground">px</span>
             </div>
@@ -2613,16 +2683,10 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               className="h-6 w-6 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0 disabled:opacity-40"
               onChange={(e) => setMeta({ textColor: e.target.value })}
             />
-            <input
-              type="text"
-              aria-label="Text color hex"
-              value={textColor.replace('#', '').toUpperCase()}
+            <HexInput
+              value={textColor}
               disabled={object.metadata.textColor === undefined}
-              className="w-full min-w-0 rounded-md border border-input bg-background/60 px-2 py-1 font-mono text-[12px] uppercase outline-none disabled:opacity-40"
-              onChange={(e) => {
-                const v = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6)
-                if (v.length === 6) setMeta({ textColor: `#${v}` })
-              }}
+              onCommit={(hex) => setMeta({ textColor: hex })}
             />
             <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
               <ExprInput

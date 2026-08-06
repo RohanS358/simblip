@@ -634,33 +634,29 @@
   .md-editor .md-marker {
     color: var(--muted-foreground);
   }
-  /* Inline emphasis/span delimiters on the active line: pulled out of the
-     visual layout entirely instead of just dimmed, so a bold or colored run
-     reads as plain styled text with no leftover marker syntax while you're
-     editing it, matching the fully-rendered (non-active) view exactly.
-     Two things this is NOT, because both were tried and both broke:
-       - width:0/height:0/overflow:hidden LOOKS equivalent but silently
-         drops the text from Selection.toString() (what copy/paste actually
-         reads) in every engine tested, defeating "still copyable."
-       - negative letter-spacing/margin to visually collapse the run in
-         normal flow smears its glyphs across whatever text follows it on
-         the line (negative tracking doesn't stop cleanly at the span
-         boundary), so the rest of the line renders garbled.
-     position:absolute is the one combination that's actually both: the
-     node stays in the DOM in its original document-order position (so
-     Range/Selection — and the raw-offset math in text.tsx's posAt, which
-     also walks Range text, not layout) still see it and its full text),
-     but pulling it out of NORMAL FLOW means it takes zero space and can't
-     disturb any sibling's layout. line-height:0 collapses its own box so
-     it doesn't add a phantom line either. Block-level line prefixes
-     (quote, list, heading markers) intentionally do NOT get this treatment
-     — those stay visibly dimmed (.md-marker default above) because knowing
-     what kind of line you're on while editing it is useful, unlike a stray
-     emphasis marker. */
+  /* Inline emphasis/span delimiters on the active line: collapsed to zero
+     size instead of just dimmed, so a bold or colored run reads as plain
+     styled text with no leftover marker syntax while you're editing it,
+     matching the fully-rendered (non-active) view exactly. The node stays
+     in the DOM in its original document-order position (so the raw-offset
+     math in text.tsx's posAt, which walks Range text length, still sees its
+     full text) but width/height:0 + overflow:hidden collapses it to nothing
+     visually while staying in NORMAL FLOW — unlike position:absolute (tried
+     first), which yanks the marker out of flow and left it landing at an
+     undefined "static position" once the line wrapped, scattering stray
+     highlighted patches across the box on drag-select. Native
+     Selection.toString() truncating at a zero-size node (the reason
+     width/height:0 was passed over originally) no longer matters: copy/cut
+     below reads the raw markdown source directly, not the live selection.
+     Block-level line prefixes (quote, list, heading markers) intentionally
+     do NOT get this treatment — those stay visibly dimmed (.md-marker
+     default above) because knowing what kind of line you're on while
+     editing it is useful, unlike a stray emphasis marker. */
   .md-editor .md-line-active .md-marker.md-marker-hidden {
-    position: absolute;
-    line-height: 0;
-    color: transparent;
+    display: inline-block;
+    width: 0;
+    height: 0;
+    overflow: hidden;
     pointer-events: none;
   }
   .md-editor .md-h {
