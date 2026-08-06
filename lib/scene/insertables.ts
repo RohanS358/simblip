@@ -88,11 +88,25 @@ export function searchInsertables(query: string, limit = 40): Insertable[] {
   return scored.sort((a, b) => a.rank - b.rank).slice(0, limit).map((x) => x.it)
 }
 
-/** Drop an insertable onto a page, centred on `center` (page coordinates). */
+/** Drop an insertable onto a page, centred on `center` (page coordinates).
+ *  Two inserts in a row (viewport untouched) would otherwise land exactly on
+ *  top of each other — nudge diagonally until clear of whatever's already
+ *  sitting at that spot. */
 export function insertAt(pageId: string, item: Insertable, center: Vec2): SceneObject {
   const store = useDocStore.getState()
   const obj = item.create(center)
   obj.position = { x: center.x - obj.size.w / 2, y: center.y - obj.size.h / 2 }
+  const existing = Object.values(store.pages[pageId]?.objects ?? {})
+  const overlaps = (p: Vec2) =>
+    existing.some(
+      (o) =>
+        p.x < o.position.x + o.size.w &&
+        p.x + obj.size.w > o.position.x &&
+        p.y < o.position.y + o.size.h &&
+        p.y + obj.size.h > o.position.y
+    )
+  for (let i = 0; i < 40 && overlaps(obj.position); i++)
+    obj.position = { x: obj.position.x + 24, y: obj.position.y + 24 }
   store.pushHistory(pageId)
   store.addObject(pageId, obj)
   store.setSelection([obj.id])

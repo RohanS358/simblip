@@ -17,7 +17,7 @@ import { LibraryBig, Wand2, Lock, LockOpen, RotateCw, Maximize2, Minimize2 } fro
 import { toast } from 'sonner'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
-import type { SceneObject, Vec2 } from '@/lib/scene/types'
+import type { SceneObject, Vec2, GeometryKind } from '@/lib/scene/types'
 import { num } from '@/lib/scene/types'
 import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
@@ -276,6 +276,13 @@ interface Gesture {
   /** Hold-to-convert: when the pen last really moved (see HOLD_MS). */
   lastMoveAt?: number
   holdAnchor?: Vec2
+  /** The object actually pressed to start a 'move' gesture (unset on a
+   *  shift-click). A plain click — no drag — on a member of an existing
+   *  multi-selection narrows the selection down to just this object on
+   *  release; dragging keeps moving the whole group. Without this, clicking
+   *  one object left a stale multi-selection active and the header's
+   *  Delete/etc acted on all of it. */
+  clickedId?: string
 }
 
 // Draw-and-hold: freehand ink only upgrades into a component (spring,
@@ -555,6 +562,22 @@ const HANDLE_POS: Record<ResizeHandle, { left: string; top: string }> = {
 const CORNER_HANDLES: ResizeHandle[] = ['nw', 'ne', 'sw', 'se']
 const EDGE_HANDLES: ResizeHandle[] = ['n', 'e', 's', 'w']
 
+// Every other kind (Note, Formula, Graph, Table, Code…) already renders its
+// own rounded-xl card, so the soft rounded-xl + ring-offset selection halo
+// matches what's actually on screen. These kinds don't: raw shapes have no
+// wrapping card at all, and a plain (unfilled) Text box is just the glyphs —
+// a big soft rounded halo around a sharp-edged or edge-less object reads as
+// mismatched/chunky instead of precise. They get a thin ring flush against
+// the object's own bounding box instead.
+const SHARP_SELECTION_KINDS = new Set<GeometryKind>([
+  'circle',
+  'rect',
+  'polygon',
+  'line',
+  'stroke',
+  'symbol',
+])
+
 const ObjectView = memo(function ObjectView({
   pageId,
   object,
@@ -592,6 +615,23 @@ const ObjectView = memo(function ObjectView({
     COMPONENT_UI_KINDS.has(object.geometry.kind) && componentScale !== 1
       ? componentScale
       : undefined
+  // A filled Text box (Properties → Appearance) renders its own rounded-xl
+  // card, same as Note — it earns the soft halo. Bare text (the default) has
+  // no edge of its own to match, so it stays sharp like the raw shape kinds.
+  const sharp =
+    SHARP_SELECTION_KINDS.has(object.geometry.kind) ||
+    (object.geometry.kind === 'text' && !object.metadata.color)
+  // Properties → Layout → Resizing: "Hug contents" — the box shrinks to its
+  // widest line instead of wrapping at the stored width (RichTextArea's own
+  // `hug` prop switches its inner whitespace/width classes to match).
+  const hug = object.geometry.kind === 'text' && object.metadata.resizing === 'hug'
+  // Properties → Appearance: hidden/opacity affect only the rendered content
+  // (this inner div), never the selection ring/handles/dimension chip below
+  // — same as Figma, whose selection chrome stays fully visible regardless
+  // of the layer's own opacity, so a hidden-but-selected object can still be
+  // found and dragged back into view.
+  const objectHidden = Boolean(object.metadata.hidden)
+  const objectOpacity = (object.metadata.opacity as number | undefined) ?? 100
   return (
     // Outer wrapper: registered with the physics runtime, which drives its
     // transform during Play. Edit-time rotation lives on the inner div so the
@@ -606,7 +646,7 @@ const ObjectView = memo(function ObjectView({
       style={{
         left: object.position.x,
         top: object.position.y,
-        width: object.size.w || undefined,
+        width: hug ? 'fit-content' : object.size.w || undefined,
         height: object.size.h || undefined,
         zIndex: object.z,
         transformOrigin: 'center center',
@@ -618,13 +658,20 @@ const ObjectView = memo(function ObjectView({
     >
       <div
         className={cn(
-          'h-full w-full rounded-xl',
-          selected && !multiSelected && 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent'
+          'h-full w-full',
+          sharp ? 'rounded-none' : 'rounded-xl',
+          selected &&
+            !multiSelected &&
+            (sharp
+              ? 'ring-1 ring-inset ring-[var(--ring)]'
+              : 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent')
         )}
         style={{
           transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined,
           // CSS zoom scales fonts, padding, SVG labels and KaTeX together.
           zoom: uiScale,
+          opacity: objectHidden ? 0 : objectOpacity / 100,
+          pointerEvents: objectHidden ? 'none' : undefined,
         }}
       >
         <Renderer pageId={pageId} object={object} selected={selected} />
@@ -660,7 +707,10 @@ const ObjectView = memo(function ObjectView({
             </button>
           )}
           {resizable &&
-            [...CORNER_HANDLES, ...EDGE_HANDLES].map((h) => {
+            // Hugging text has no fixed width to drag — only height (n/s) is
+            // still a real, resizable dimension (a floor the content can
+            // grow past; see RichTextArea's autosize).
+            (hug ? EDGE_HANDLES.filter((h) => h === 'n' || h === 's') : [...CORNER_HANDLES, ...EDGE_HANDLES]).map((h) => {
               const edge = h.length === 1
               return (
                 <div key={h} className="absolute" style={HANDLE_POS[h]}>
@@ -701,6 +751,15 @@ const ObjectView = memo(function ObjectView({
                 <RotateCw className="h-3 w-3" strokeWidth={2.5} />
               </div>
               <div className="h-2.5 w-px bg-[var(--ring)] opacity-60" />
+            </div>
+          </div>
+          {/* Dimension chip below the selection, Figma-style. */}
+          <div className="absolute" style={{ left: '50%', top: '100%' }}>
+            <div
+              className="absolute whitespace-nowrap rounded-[4px] bg-[var(--ring)] px-1.5 py-0.5 font-sans text-[10.5px] font-medium text-white shadow-sm"
+              style={{ transform: `translate(-50%, 6px) scale(${chromeScale})`, transformOrigin: 'top center' }}
+            >
+              {Math.round(object.size.w)} × {Math.round(object.size.h)}
             </div>
           </div>
         </div>
@@ -1601,12 +1660,25 @@ export function InfiniteCanvas({
           if (el) el.style.transform = ''
         }
         if (dx !== 0 || dy !== 0) {
+          store.pushHistory(pageId) // pre-move snapshot — pushed lazily, only for a real move
           for (const [id, startPos] of g.objectStartPositions) {
             store.updateObject(pageId, id, {
               position: { x: startPos.x + dx, y: startPos.y + dy },
             })
           }
         }
+      }
+
+      // A plain click (no drag) on a member of an existing multi-selection:
+      // handleObjectPointerDown deliberately keeps the whole selection alive
+      // at pointerdown so a drag can move the group, but if it turns out
+      // nothing was dragged, narrow down to just the clicked object — same
+      // as clicking any other single object. Without this, the old
+      // multi-selection stayed active (invisibly, since nothing moved) and
+      // the next Delete/etc acted on all of it, not just what looked selected.
+      if (g.mode === 'move' && !g.moved && g.clickedId !== undefined) {
+        const cur = store.selection
+        if (cur.length !== 1 || cur[0] !== g.clickedId) store.setSelection([g.clickedId])
       }
 
       if (g.mode === 'marquee') {
@@ -1663,6 +1735,11 @@ export function InfiniteCanvas({
           if (sides) obj.geometry.points = regularPolygonPoints(sides, obj.size.w, obj.size.h)
           obj.z = topZ(pageId)
           store.addObject(pageId, obj)
+          // Newly placed object becomes the selection — resize/inspector
+          // affordances show immediately, and it's what Text's auto-edit
+          // (RichTextArea's `selected` gate) needs to actually stick instead
+          // of reverting itself before the caret lands.
+          store.setSelection([obj.id])
           store.setTool('select')
         }
       } else if (g.mode === 'placeLine') {
@@ -1703,6 +1780,7 @@ export function InfiniteCanvas({
             }
             obj.z = topZ(pageId)
             store.addObject(pageId, obj)
+            store.setSelection([obj.id])
             store.setTool('select')
           }
         }
@@ -2281,7 +2359,7 @@ export function InfiniteCanvas({
           maxY = Math.max(maxY, o.position.y + o.size.h)
         }
         if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
-          store.pushHistory(pageId)
+          // History push deferred to onPointerUp — see handleObjectPointerDown.
           beginGesture('move', e)
           return
         }
@@ -2414,8 +2492,12 @@ export function InfiniteCanvas({
     // rejects the mutation either way (patchObject) — this just skips the
     // drag-then-snap-back visual lie.
     if (store.pages[pageId]?.objects[id]?.metadata.locked) return
-    store.pushHistory(pageId)
-    beginGesture('move', e)
+    // History push is deferred to onPointerUp (only if the gesture actually
+    // moves something) — pushing here unconditionally meant every plain
+    // click on an object left a no-op snapshot on the undo stack, burying
+    // real edits under clicks and making Undo need far more presses than
+    // expected to reach them.
+    beginGesture('move', e, { clickedId: e.shiftKey ? undefined : id })
   }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
 
   const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: ResizeHandle) => {
@@ -2557,6 +2639,10 @@ export function InfiniteCanvas({
   return (
     <div
       ref={containerRef}
+      // Lets the Properties panel (a separate component tree) find this
+      // page's live viewport bounds on screen — see the Position → Alignment
+      // "align to visible canvas" buttons in inspector.tsx.
+      data-canvas-root={pageId}
       // select-none: mouse drags must marquee/move, never highlight text —
       // editing text re-enables selection locally via select-text.
       className={cn(

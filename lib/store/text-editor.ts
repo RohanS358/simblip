@@ -14,6 +14,26 @@ export interface TextEditorHandle {
   wrap: (before: string, after?: string) => void
   /** Prefixes the active LINE (heading, list marker, quote…). */
   prefixLine: (prefix: string) => void
+  /** Applies a "pick one value" span (size/color/font) to the current
+   *  selection — unlike `wrap`, this replaces an existing span of the same
+   *  bracket syntax already covering the selection instead of nesting a new
+   *  one around it, and keeps the applied span selected afterward so
+   *  clicking a stepper/swatch repeatedly adjusts the SAME span instead of
+   *  wrapping empty text at a caret left over from the previous click.
+   *  If a selection was captured via snapshotSelection() and not yet
+   *  consumed, uses that instead of re-reading window.getSelection() live —
+   *  see snapshotSelection's doc comment for why. */
+  setSpan: (kind: 'size' | 'color' | 'font' | 'weight', value: string) => void
+  /** Remembers the CURRENT live text selection so a later setSpan() call can
+   *  use it even after focus has moved elsewhere. Needed for controls that
+   *  must themselves take focus to work — the Size field's number input,
+   *  which you have to type into — because focusing any real <input>
+   *  collapses window.getSelection() out of the contentEditable, and no
+   *  amount of preventDefault on its own pointerdown stops that (unlike a
+   *  plain <button>, which never needs focus to register a click). Call this
+   *  on the input's onFocus/onPointerDown, BEFORE the browser's focus-shift
+   *  actually lands, then setSpan() on blur/Enter consumes and clears it. */
+  snapshotSelection: () => void
 }
 
 export const useActiveTextEditor = create<{

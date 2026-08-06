@@ -1,10 +1,15 @@
 'use client'
 
-// Live markdown text block, Obsidian-style: while editing, every line
-// renders formatted EXCEPT the one holding the caret, which shows raw
-// source — so bold/headings/lists appear as you write instead of only
-// after you click away. Click away entirely and the whole block renders
-// through the richer block-level renderer (real <ul>/<pre>, not per-line).
+// Live markdown text block, WYSIWYG-while-typing: every line renders
+// formatted, INCLUDING the one holding the caret — bold looks bold the
+// moment you apply it, not just after you click off the line. The active
+// line keeps its delimiters in the DOM (dimmed via .md-marker) instead of
+// hiding them, so **/[text]{...} markers are still visible/editable right
+// where they are, and — critically — the DOM text length still matches the
+// raw markdown length character-for-character, which is what every caret/
+// selection offset function below assumes. Click away entirely and the
+// whole block renders through the richer block-level renderer (real
+// <ul>/<pre>, not per-line).
 // The box width is the writing width — text wraps there — and the box
 // grows vertically to fit the content (grow-only; the user's height acts
 // as a minimum).
@@ -13,7 +18,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
-import { renderMarkdown, renderLineLive, htmlToMarkdownSource, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
+import { renderMarkdown, renderLineLive, renderLineActive, htmlToMarkdownSource, TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
 import { cn } from '@/lib/utils'
 
 // Optional box-level background tint — shared with Note, which always shows
@@ -53,6 +58,14 @@ function useLiveMarkdownEditor(
 ) {
   const linesRef = useRef<string[]>(value.split('\n'))
   const activeRef = useRef<number>(-1)
+  // See TextEditorHandle.snapshotSelection's doc comment — a selection
+  // captured just before a panel control (the Size input) steals focus,
+  // consumed by the next setSpan() call in place of live window.getSelection.
+  const snapshotRef = useRef<{
+    line: number
+    s: number
+    e: number
+  } | null>(null)
 
   const lineEl = (i: number) => editorRef.current?.children[i] as HTMLElement | undefined
 
@@ -61,8 +74,9 @@ function useLiveMarkdownEditor(
     if (!el) return
     const raw = linesRef.current[i] ?? ''
     if (i === activeRef.current) {
-      el.textContent = raw
-      el.className = 'md-line md-line-active'
+      const { html, cls } = renderLineActive(raw)
+      el.innerHTML = html
+      el.className = cn('md-line md-line-active', cls)
     } else {
       const { html, cls } = renderLineLive(raw)
       el.innerHTML = html
@@ -160,17 +174,60 @@ function useLiveMarkdownEditor(
     commit()
   }
 
+  /** Finds the (textNode, offset) that sits `targetOffset` characters into
+   * el's full text content, walking every descendant text node in order —
+   * not just the first one. Plain-text lines are still just one text node
+   * (fast path below), but the active line can now be a tree of marker/
+   * strong/em spans (see renderLineActive), so the caret needs to be able
+   * to land inside any of them, not just the first. */
+  const textNodeAt = (el: HTMLElement, targetOffset: number): { node: Text; offset: number } => {
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
+    let consumed = 0
+    let last: Text | null = null
+    for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+      const len = node.textContent?.length ?? 0
+      if (targetOffset <= consumed + len) return { node, offset: targetOffset - consumed }
+      consumed += len
+      last = node
+    }
+    // Ran past the end (or the line has no text nodes at all) — land at the
+    // end of the last one, creating an empty node first if there were none.
+    if (!last) {
+      last = document.createTextNode('')
+      el.appendChild(last)
+    }
+    return { node: last, offset: last.textContent?.length ?? 0 }
+  }
+
   const placeCaretAt = (line: number, rawOffset: number) => {
     const el = lineEl(line)
     const sel = window.getSelection()
     if (!el || !sel) return
-    if (!el.firstChild) el.appendChild(document.createTextNode(''))
-    const tn = el.firstChild!
-    const len = tn.textContent?.length ?? 0
-    const clamped = Math.max(0, Math.min(rawOffset, len))
+    const totalLen = el.textContent?.length ?? 0
+    const clamped = Math.max(0, Math.min(rawOffset, totalLen))
+    const { node, offset } = textNodeAt(el, clamped)
     const range = document.createRange()
-    range.setStart(tn, clamped)
+    range.setStart(node, offset)
     range.collapse(true)
+    sel.removeAllRanges()
+    sel.addRange(range)
+  }
+
+  /** Same idea as placeCaretAt but selects a RANGE instead of collapsing —
+   *  used to keep a just-applied span selected so a follow-up panel action
+   *  (another size bump, a different color) still has something to act on. */
+  const selectRawRange = (line: number, startOffset: number, endOffset: number) => {
+    const el = lineEl(line)
+    const sel = window.getSelection()
+    if (!el || !sel) return
+    const totalLen = el.textContent?.length ?? 0
+    const a = Math.max(0, Math.min(startOffset, totalLen))
+    const b = Math.max(0, Math.min(endOffset, totalLen))
+    const start = textNodeAt(el, a)
+    const end = textNodeAt(el, b)
+    const range = document.createRange()
+    range.setStart(start.node, start.offset)
+    range.setEnd(end.node, end.offset)
     sel.removeAllRanges()
     sel.addRange(range)
   }
@@ -191,6 +248,18 @@ function useLiveMarkdownEditor(
     placeCaretAt(newIdx, rawOffset)
   }
 
+  /** Same swap as activateLine, but the offset is already in RAW space (as
+   * posAt/selectionSpan report it) — skips the shown→raw conversion so
+   * callers who already resolved a real offset don't get it double-mapped. */
+  const activateLineAtRaw = (newIdx: number, rawOffset: number) => {
+    const oldIdx = activeRef.current
+    if (oldIdx === newIdx) return
+    activeRef.current = newIdx
+    if (oldIdx >= 0) renderLineDom(oldIdx)
+    renderLineDom(newIdx)
+    placeCaretAt(newIdx, rawOffset)
+  }
+
   const checkLineSwitch = () => {
     const pos = caretPosition()
     if (!pos || pos.line === activeRef.current) return
@@ -204,24 +273,101 @@ function useLiveMarkdownEditor(
    *  (not just inlined into handleRef below) so both the Properties panel
    *  AND this hook's own Ctrl+B/Ctrl+I handling can call it. */
   const wrap = (before: string, after = before) => {
-    const i = activeRef.current
-    if (i < 0) return
-    const raw = linesRef.current[i] ?? ''
+    // Resolve the selection/caret's real line BEFORE trusting activeRef —
+    // a selection made by double-click or a drag on a still-rendered line
+    // doesn't move the caret into that line on its own, so without this the
+    // wrap below silently targets whatever line was last active (often
+    // empty/unrelated) and drops in bare, unwrapped delimiters.
     const span = selectionSpan()
-    const sameLineSpan = span && span.s.line === i && span.e.line === i ? span : null
     const pos = caretPosition()
-    const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === i ? pos.offset : raw.length
+    const targetLine = span?.s.line ?? pos?.line ?? activeRef.current
+    if (targetLine < 0) return
+    if (targetLine !== activeRef.current) {
+      const rawOffset = span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
+      activateLineAtRaw(targetLine, rawOffset)
+    }
+    const i = activeRef.current
+    const raw = linesRef.current[i] ?? ''
+    const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
+    const s = sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
     const e = sameLineSpan ? sameLineSpan.e.offset : s
     const next = raw.slice(0, s) + before + raw.slice(s, e) + after + raw.slice(e)
     linesRef.current[i] = next
     renderLineDom(i)
-    placeCaretAt(i, s + before.length + (e - s))
+    // Past the closing delimiter too, not just the wrapped selection — typing
+    // right after applying a mark should continue as plain text, not land
+    // inside the mark before its closing **/]{...} (see WYSIWYG comment atop
+    // this file: the closing delimiter is now a real, typeable text run).
+    placeCaretAt(i, s + before.length + (e - s) + after.length)
+    commit()
+  }
+
+  /** Captures the live selection right now, before it's about to be lost —
+   *  call this from a control's onFocus/onPointerDown, BEFORE the browser
+   *  moves focus into that control. setSpan() below prefers this snapshot
+   *  (and clears it once used) over live window.getSelection(), which by
+   *  the time a text <input>'s onBlur/Enter fires no longer points at the
+   *  contentEditable at all — focusing any real input collapses it there,
+   *  unlike a plain <button> click, which needs no focus to register. */
+  const snapshotSelection = () => {
+    const span = selectionSpan()
+    const pos = caretPosition()
+    if (span) {
+      snapshotRef.current = { line: span.s.line, s: span.s.offset, e: span.e.offset }
+    } else if (pos) {
+      snapshotRef.current = { line: pos.line, s: pos.offset, e: pos.offset }
+    }
+  }
+
+  /** Applies a "pick one value" span (size/color/font) — unlike wrap(),
+   *  which always inserts a fresh bracket pair and leaves the caret PAST
+   *  it (fine for a toggle mark you then keep typing past), this replaces
+   *  an existing span of the same bracket syntax already covering the
+   *  selection, and reselects the result. Without that, a second stepper
+   *  click/swatch pick after the first had nothing left selected — the
+   *  caret was sitting right after the closing `}` — so it wrapped EMPTY
+   *  text at that caret instead of adjusting the span just applied,
+   *  producing junk like `[x]{size=16}[]{size=17}[]{size=18}`. */
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) => {
+    const snap = snapshotRef.current
+    snapshotRef.current = null // one-shot — a stale snapshot from an earlier edit must never silently reapply
+    const span = snap ? null : selectionSpan()
+    const pos = snap ? null : caretPosition()
+    const targetLine = snap?.line ?? span?.s.line ?? pos?.line ?? activeRef.current
+    if (targetLine < 0) return
+    if (targetLine !== activeRef.current) {
+      const rawOffset = snap ? snap.s : span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
+      activateLineAtRaw(targetLine, rawOffset)
+    }
+    const i = activeRef.current
+    const raw = linesRef.current[i] ?? ''
+    const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
+    const s = snap ? snap.s : sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
+    const e = snap ? snap.e : sameLineSpan ? sameLineSpan.e.offset : s
+    if (s === e) return // nothing selected — there's no text to size/color/font
+
+    const selected = raw.slice(s, e)
+    const already = selected.match(/^\[([\s\S]*)\]\{[a-z]+=[a-z0-9.]+\}$/)
+    const inner = already ? already[1] : selected
+    const spanText = `[${inner}]{${kind}=${value}}`
+    linesRef.current[i] = raw.slice(0, s) + spanText + raw.slice(e)
+    renderLineDom(i)
+    selectRawRange(i, s, s + spanText.length)
     commit()
   }
 
   const prefixLine = (prefix: string) => {
+    // Same fix as wrap(): land on the line the user actually clicked/
+    // selected, not whatever line happened to be active already.
+    const span = selectionSpan()
+    const pos = caretPosition()
+    const targetLine = span?.s.line ?? pos?.line ?? activeRef.current
+    if (targetLine < 0) return
+    if (targetLine !== activeRef.current) {
+      const rawOffset = span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
+      activateLineAtRaw(targetLine, rawOffset)
+    }
     const i = activeRef.current
-    if (i < 0) return
     linesRef.current[i] = prefix + (linesRef.current[i] ?? '')
     renderLineDom(i)
     placeCaretAt(i, (linesRef.current[i] ?? '').length)
@@ -266,6 +412,11 @@ function useLiveMarkdownEditor(
     if (mod && e.key.toLowerCase() === 'i') {
       e.preventDefault()
       wrap('*')
+      return
+    }
+    if (mod && e.key.toLowerCase() === 'u') {
+      e.preventDefault()
+      wrap('++')
       return
     }
 
@@ -359,7 +510,7 @@ function useLiveMarkdownEditor(
     }
   }
 
-  ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { wrap, prefixLine }
+  ;(handleRef as React.MutableRefObject<TextEditorHandle | null>).current = { wrap, prefixLine, setSpan, snapshotSelection }
 
   return { start, syncExternal, onInput, onKeyDown, onKeyUp, onClick, onPaste }
 }
@@ -383,6 +534,7 @@ export function RichTextArea({
   className,
   autoEdit = false,
   deleteWhenEmpty = false,
+  hug = false,
 }: ObjectRendererProps & {
   placeholder: string
   padY?: number
@@ -391,6 +543,10 @@ export function RichTextArea({
   autoEdit?: boolean
   /** A box that never received any text removes itself when you leave it. */
   deleteWhenEmpty?: boolean
+  /** Properties → Layout → Resizing: "Hug contents" — box width shrinks to
+   *  the widest line instead of wrapping at a fixed width (canvas.tsx renders
+   *  the outer box at `width: fit-content` to match). */
+  hug?: boolean
 }) {
   const setStringParam = useDocStore((s) => s.setStringParam)
   const updateObject = useDocStore((s) => s.updateObject)
@@ -477,10 +633,18 @@ export function RichTextArea({
   useLayoutEffect(fit) // content, editing mode, width and zoom changes all re-measure
 
   const rendered = renderMarkdown(value)
+  // Properties → Text → Line spacing (box-level, like Alignment — the
+  // markdown model has no per-paragraph tracking). 1.625 matches Tailwind's
+  // leading-relaxed, the old fixed value, so unset boxes look unchanged.
+  const lineHeight = (object.metadata.lineHeight as number | undefined) ?? 1.625
+  // Properties → Typography → Letter spacing, box-level like line height —
+  // a percentage of font-size, same convention Figma's field uses.
+  const letterSpacingPct = (object.metadata.letterSpacing as number | undefined) ?? 0
+  const letterSpacing = letterSpacingPct ? `${letterSpacingPct / 100}em` : undefined
 
   return (
     <>
-      <div className="h-full w-full overflow-hidden" style={textFormatStyle(object)}>
+      <div className={cn('h-full overflow-hidden', hug ? 'w-max' : 'w-full')} style={textFormatStyle(object)}>
         {editing ? (
           <div
             ref={editorRef}
@@ -494,11 +658,12 @@ export function RichTextArea({
             // which enables Google Handwriting Input and similar stylus IMEs.
             inputMode="text"
             className={cn(
-              'md-editor h-full w-full whitespace-pre-wrap break-words leading-relaxed outline-none',
+              'md-editor h-full outline-none',
+              hug ? 'w-max whitespace-pre' : 'w-full whitespace-pre-wrap break-words',
               'select-text cursor-text',
               className
             )}
-            style={{ touchAction: 'auto' }}
+            style={{ touchAction: 'auto', lineHeight, letterSpacing }}
             onFocus={() => {
               if (!focusedRef.current) {
                 focusedRef.current = true
@@ -539,10 +704,12 @@ export function RichTextArea({
             role="textbox"
             aria-label={placeholder || 'Text'}
             className={cn(
-              'markdown-view h-full w-full cursor-inherit whitespace-pre-wrap break-words leading-relaxed',
+              'markdown-view h-full cursor-inherit',
+              hug ? 'w-max whitespace-pre' : 'w-full whitespace-pre-wrap break-words',
               !rendered && 'text-muted-foreground/50',
               className
             )}
+            style={{ lineHeight, letterSpacing }}
             onDoubleClick={(e) => {
               // Double click = drop into the live per-line editor, caret at end.
               e.stopPropagation()
@@ -560,26 +727,61 @@ export function RichTextArea({
   )
 }
 
+const VERTICAL_ALIGN_CLASS: Record<string, string> = {
+  top: 'justify-start',
+  middle: 'justify-center',
+  bottom: 'justify-end',
+}
+
 export function TextObject(props: ObjectRendererProps) {
   // A brand-new text box (no text yet) opens focused and ready to type, and
   // deletes itself if you click away without writing anything.
   const empty = getString(props.object, 'text').trim() === ''
   const fresh = useRef(empty).current
-  // Background is opt-in (Properties → Text → Appearance) — a plain box
-  // stays fully transparent, same as before this fill option existed.
-  const bg = props.object.metadata.color as string | undefined
-  const align = (props.object.metadata.align as Align | undefined) ?? 'left'
+  const { metadata } = props.object
+  // Background tint is opt-in (Properties → Text → Appearance in the
+  // generic panel) — a plain box stays fully transparent unless chosen. Not
+  // exposed in the Figma-style panel below: bare text has no parent frame to
+  // paint one on in real Figma either, so there's nothing there to mirror.
+  const bg = metadata.color as string | undefined
+  const hasFill = Boolean(bg && FILLS[bg])
+  // Corner radius defaults to the fill box's old fixed rounded-xl (12px) so
+  // existing documents with a background don't jump to square the moment
+  // this became a user-editable value.
+  const cornerRadius = (metadata.cornerRadius as number | undefined) ?? 12
+  // Properties → Fill: the text's own glyph color, same as real Figma (a
+  // text layer's "Fill" IS its font color, not a background) — independent
+  // of the box tint above. Opacity < 100 blends toward the page background,
+  // same color-mix trick FILLS already uses above.
+  const textColor = metadata.textColor as string | undefined
+  const fillOpacity = (metadata.fillOpacity as number | undefined) ?? 100
+  const resolvedTextColor = textColor
+    ? fillOpacity < 100
+      ? `color-mix(in oklch, ${textColor} ${fillOpacity}%, var(--background))`
+      : textColor
+    : undefined
+  const align = (metadata.align as Align | undefined) ?? 'left'
+  const vAlign = (metadata.verticalAlign as string | undefined) ?? 'top'
+  // Properties → Layout → Resizing: "Hug contents" shrinks the box to the
+  // widest line instead of wrapping at the stored width.
+  const hug = metadata.resizing === 'hug'
   return (
     <div
-      className={cn('relative h-full w-full', bg && FILLS[bg] && cn(FILLS[bg], 'rounded-xl p-3 hairline shadow-sm'))}
-      style={{ textAlign: align }}
+      className={cn(
+        'relative flex h-full flex-col',
+        hug ? 'w-max' : 'w-full',
+        VERTICAL_ALIGN_CLASS[vAlign] ?? 'justify-start',
+        hasFill && cn(FILLS[bg as string], 'p-3 hairline shadow-sm')
+      )}
+      style={{ textAlign: align, color: resolvedTextColor, borderRadius: cornerRadius }}
     >
       <RichTextArea
         {...props}
         placeholder=""
-        padY={bg && FILLS[bg] ? 24 : 0}
+        padY={hasFill ? 24 : 0}
         autoEdit={fresh}
         deleteWhenEmpty={fresh}
+        hug={hug}
       />
     </div>
   )

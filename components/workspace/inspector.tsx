@@ -24,6 +24,7 @@ import {
   AlignJustify,
   Bold,
   Italic,
+  Underline,
   Strikethrough,
   Highlighter,
   Code,
@@ -36,14 +37,28 @@ import {
   CheckSquare,
   Quote,
   ChevronDown,
+  Type,
+  Eye,
+  EyeOff,
+  RotateCw,
+  Radius,
+  Percent,
+  FoldHorizontal,
+  UnfoldHorizontal,
+  AlignHorizontalJustifyStart,
+  AlignHorizontalJustifyCenter,
+  AlignHorizontalJustifyEnd,
+  AlignVerticalJustifyStart,
+  AlignVerticalJustifyCenter,
+  AlignVerticalJustifyEnd,
 } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
-import { useDocStore } from '@/lib/store/document'
+import { useDocStore, type Viewport } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES } from '@/lib/text/markdown'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_WEIGHTS } from '@/lib/text/markdown'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
@@ -192,6 +207,13 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   )
+}
+
+/** One self-contained control group, framed so it reads as its own module
+ *  instead of bleeding into the next — a ribbon of separate cards (font,
+ *  size, spacing…) rather than one long undifferentiated stack. */
+function OptionCard({ children }: { children: React.ReactNode }) {
+  return <div className="space-y-1.5 rounded-lg border border-border/50 bg-card/40 p-2.5">{children}</div>
 }
 
 const TRACER_PARAMS = [
@@ -2009,34 +2031,172 @@ const TEXT_STYLES: { label: string; icon: typeof Pilcrow; prefix: string }[] = [
   { label: 'Heading 3', icon: Heading3, prefix: '### ' },
 ]
 
-/** Everything that used to live in a floating dock above the text box now
- * lives here instead — one home for text controls, matching how every other
- * object's options work. Format/color/size act on the LIVE SELECTION inside
- * whichever text box is currently being edited (via useActiveTextEditor,
- * bridged from components/objects/text.tsx — the panel can't reach the
- * canvas's contentEditable any other way), so they only ever touch the
- * highlighted text, never the whole box. Alignment/background stay box-wide
- * — there's no per-paragraph tracking in the markdown model, and background
- * is inherently a frame property, not a text one. */
-function TextOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+/** A small gray field caption — Figma's own field labels ("Alignment",
+ *  "Position", "Resizing"…) inside each section. */
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return <p className="mb-1 text-[11px] text-muted-foreground">{children}</p>
+}
+
+/** A flat, divider-separated section — Figma's Design panel stacks Position/
+ *  Layout/Appearance/Typography/Fill this way (no individual card borders),
+ *  unlike the rest of this app's per-kind panels (see OptionCard above),
+ *  which the text panel deliberately departs from to match Figma exactly. */
+function PanelSection({
+  title,
+  right,
+  children,
+  last = false,
+}: {
+  title: string
+  right?: React.ReactNode
+  children: React.ReactNode
+  last?: boolean
+}) {
+  return (
+    <div className={cn('space-y-2.5 pb-3', !last && 'border-b border-border/60')}>
+      <div className="flex items-center justify-between">
+        <h3 className="text-[12.5px] font-semibold text-foreground">{title}</h3>
+        {right}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+const H_FRAME_ALIGN = [
+  { id: 'left' as const, edge: 'left' as const, Icon: AlignHorizontalJustifyStart },
+  { id: 'center' as const, edge: 'centerH' as const, Icon: AlignHorizontalJustifyCenter },
+  { id: 'right' as const, edge: 'right' as const, Icon: AlignHorizontalJustifyEnd },
+]
+const V_FRAME_ALIGN = [
+  { id: 'top' as const, edge: 'top' as const, Icon: AlignVerticalJustifyStart },
+  { id: 'middle' as const, edge: 'centerV' as const, Icon: AlignVerticalJustifyCenter },
+  { id: 'bottom' as const, edge: 'bottom' as const, Icon: AlignVerticalJustifyEnd },
+]
+type ViewportEdge = (typeof H_FRAME_ALIGN)[number]['edge'] | (typeof V_FRAME_ALIGN)[number]['edge']
+
+const V_TEXT_ALIGN = [
+  { id: 'top' as const, Icon: AlignVerticalJustifyStart },
+  { id: 'middle' as const, Icon: AlignVerticalJustifyCenter },
+  { id: 'bottom' as const, Icon: AlignVerticalJustifyEnd },
+]
+
+const WEIGHT_LABELS: Record<keyof typeof TEXT_WEIGHTS, string> = {
+  thin: 'Thin',
+  light: 'Light',
+  regular: 'Regular',
+  medium: 'Medium',
+  semibold: 'Semibold',
+  bold: 'Bold',
+  black: 'Black',
+}
+
+/** Position → Alignment: this canvas has no parent "frame" to align a layer
+ *  against (unlike Figma), so these align to the visible viewport instead —
+ *  the real, useful equivalent given what's actually on screen. Reads the
+ *  canvas's live on-screen rect via the data-canvas-root bridge (see
+ *  canvas.tsx) since the Properties panel lives in a separate component
+ *  tree with no ref of its own into it. */
+function alignObjectToViewport(
+  pageId: string,
+  object: SceneObject,
+  updateObject: ReturnType<typeof useDocStore.getState>['updateObject'],
+  viewport: Viewport,
+  edge: ViewportEdge
+) {
+  const root = Array.from(document.querySelectorAll('[data-canvas-root]')).find(
+    (el) => (el as HTMLElement).dataset.canvasRoot === pageId
+  ) as HTMLElement | undefined
+  const rect = root?.getBoundingClientRect()
+  if (!rect) return
+  const left = -viewport.x / viewport.zoom
+  const right = (rect.width - viewport.x) / viewport.zoom
+  const top = -viewport.y / viewport.zoom
+  const bottom = (rect.height - viewport.y) / viewport.zoom
+  const position = { ...object.position }
+  if (edge === 'left') position.x = left
+  else if (edge === 'centerH') position.x = (left + right) / 2 - object.size.w / 2
+  else if (edge === 'right') position.x = right - object.size.w
+  else if (edge === 'top') position.y = top
+  else if (edge === 'centerV') position.y = (top + bottom) / 2 - object.size.h / 2
+  else if (edge === 'bottom') position.y = bottom - object.size.h
+  updateObject(pageId, object.id, { position }, { history: true })
+}
+
+/** Text object's Properties panel, rebuilt to match Figma's Design panel
+ *  section-for-section (Position/Layout/Appearance/Typography/Fill) instead
+ *  of this app's usual generic Transform card + kind-specific options.
+ *  Format/color/weight/size act on the LIVE SELECTION inside whichever text
+ *  box is currently being edited (via useActiveTextEditor, bridged from
+ *  components/objects/text.tsx — the panel can't reach the canvas's
+ *  contentEditable any other way); everything else here is box-level. */
+function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObject }) {
   const updateObject = useDocStore((s) => s.updateObject)
+  const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
   const activeId = useActiveTextEditor((s) => s.objectId)
   const handleRef = useActiveTextEditor((s) => s.handleRef)
   const isActive = activeId === object.id
-  const bg = (object.metadata.color as string) ?? ''
+
   const align = (object.metadata.align as string) ?? 'left'
+  const vAlign = (object.metadata.verticalAlign as string) ?? 'top'
+  const resizing = (object.metadata.resizing as string) ?? 'fixed'
+  const hidden = Boolean(object.metadata.hidden)
+  const opacity = (object.metadata.opacity as number | undefined) ?? 100
+  // Matches the fill box's old fixed rounded-xl (12px) — see text.tsx.
+  const cornerRadius = (object.metadata.cornerRadius as number | undefined) ?? 12
+  const lineHeight = object.metadata.lineHeight as number | undefined
+  const letterSpacing = (object.metadata.letterSpacing as number | undefined) ?? 0
+  // Fill = the text's own glyph color (real Figma semantics for a text
+  // layer), NOT the box background tint further down (a pre-existing,
+  // separate feature with no Figma equivalent for bare text — see Background).
+  const textColor = (object.metadata.textColor as string | undefined) ?? '#000000'
+  const fillOpacity = (object.metadata.fillOpacity as number | undefined) ?? 100
+  const bg = (object.metadata.color as string) ?? ''
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
 
   const wrap = (before: string, after?: string) => handleRef?.current?.wrap(before, after)
   const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) =>
+    handleRef?.current?.setSpan(kind, value)
+  // Called from the Size input's onFocus, before the browser's native
+  // focus-shift lands — see snapshotSelection's doc comment in
+  // lib/store/text-editor.ts for why the Size field specifically needs this
+  // and Bold/color/etc's plain buttons don't.
+  const snapshotSelection = () => handleRef?.current?.snapshotSelection()
+
+  // Staged "last applied" values — same reasoning as the old size stepper:
+  // the markdown model wraps a NEW span per apply rather than tracking one
+  // live current value (a selection can already span several), so there's no
+  // true value to read back. These just remember what was last picked/typed.
+  const [font, setFont] = useState<keyof typeof TEXT_FONTS>('sans')
+  const [weight, setWeight] = useState<keyof typeof TEXT_WEIGHTS>('regular')
+  const [size, setSize] = useState(TEXT_SIZES.m)
+  const applySize = (n: number) => {
+    const clamped = Math.min(200, Math.max(6, Math.round(n)))
+    setSize(clamped)
+    setSpan('size', String(clamped))
+  }
 
   // preventDefault on pointerdown keeps the editor's selection alive while
   // clicking a panel button — the panel is a different part of the DOM than
   // the contentEditable, so without this the click would blur it first and
   // collapse whatever text was selected.
   const guard = (e: React.PointerEvent) => e.preventDefault()
+  // Same intent as guard, but for Radix DropdownMenuTrigger buttons (Font
+  // family, Weight) specifically: Radix's own trigger opens on POINTERDOWN
+  // via composeEventHandlers, which SKIPS its own open-toggle if the passed-
+  // in onPointerDown already called preventDefault() — so `guard` here would
+  // silently stop the menu from ever opening (confirmed against
+  // @radix-ui/react-dropdown-menu's source: DropdownMenuTrigger's
+  // onPointerDown composes ours first, and Radix's composeEventHandlers
+  // checks event.defaultPrevented before running the open-toggle). Guarding
+  // on mousedown instead still blocks the native focus-steal that would blur
+  // the contentEditable (focus shifts on mousedown, before pointerdown/
+  // click), but Radix never listens on mousedown at all, so it can't see —
+  // and can't be short-circuited by — this preventDefault.
+  const guardTrigger = (e: React.MouseEvent) => e.preventDefault()
 
   const iconBtn = (label: string, Icon: typeof Bold, onClick: () => void) => (
     <button
@@ -2052,10 +2212,161 @@ function TextOptions({ pageId, object }: { pageId: string; object: SceneObject }
     </button>
   )
 
+  /** A plain px field — X/Y/W/H all read/write object geometry directly (it's
+   *  already in px internally; unlike every other object kind, this panel
+   *  shows raw pixels rather than the app's usual cm display unit — Figma
+   *  parity, by explicit request). */
+  const pxField = (label: string, value: number, commit: (n: number) => void) => (
+    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+      <span className="w-3 shrink-0">{label}</span>
+      <ExprInput
+        ariaLabel={label}
+        value={String(Math.round(value))}
+        onCommit={(v) => {
+          const n = Number(v)
+          if (Number.isFinite(n)) commit(n)
+        }}
+      />
+    </label>
+  )
+
+  const segButton = (
+    key: string,
+    label: string,
+    pressed: boolean,
+    Icon: typeof Bold,
+    onClick: () => void
+  ) => (
+    <button
+      key={key}
+      type="button"
+      aria-label={label}
+      aria-pressed={pressed}
+      className={cn(
+        'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
+        pressed
+          ? 'bg-[var(--accent-blue)] text-primary-foreground'
+          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
+      onClick={onClick}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  )
+
   return (
     <div className="space-y-3">
-      <div className="space-y-1.5">
-        <SectionTitle>Format selected text</SectionTitle>
+      <PanelSection title="Position">
+        <div>
+          <FieldLabel>Alignment</FieldLabel>
+          <div className="flex items-center gap-0.5 rounded-lg bg-accent/40 p-0.5">
+            {H_FRAME_ALIGN.map(({ id, edge, Icon }) =>
+              segButton(id, `Align ${id} in view`, false, Icon, () =>
+                alignObjectToViewport(pageId, object, updateObject, viewport, edge)
+              )
+            )}
+            <span className="mx-0.5 h-4 w-px bg-border" />
+            {V_FRAME_ALIGN.map(({ id, edge, Icon }) =>
+              segButton(id, `Align ${id} in view`, false, Icon, () =>
+                alignObjectToViewport(pageId, object, updateObject, viewport, edge)
+              )
+            )}
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Position</FieldLabel>
+          <div className="grid grid-cols-2 gap-1.5">
+            {pxField('X', object.position.x, (n) =>
+              updateObject(pageId, object.id, { position: { ...object.position, x: n } }, { history: true })
+            )}
+            {pxField('Y', object.position.y, (n) =>
+              updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
+            )}
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Rotation</FieldLabel>
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <RotateCw className="h-3.5 w-3.5 shrink-0" />
+            <ExprInput
+              ariaLabel="Rotation"
+              value={String(Math.round(object.rotation * 100) / 100)}
+              onCommit={(v) => {
+                const n = Number(v)
+                if (Number.isFinite(n)) updateObject(pageId, object.id, { rotation: n }, { history: true })
+              }}
+            />
+            <span className="shrink-0 text-[10px] opacity-60">°</span>
+          </label>
+        </div>
+      </PanelSection>
+
+      <PanelSection title="Layout">
+        <div>
+          <FieldLabel>Resizing</FieldLabel>
+          <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+            {segButton('fixed', 'Fixed width', resizing === 'fixed', UnfoldHorizontal, () =>
+              setMeta({ resizing: 'fixed' })
+            )}
+            {segButton('hug', 'Hug contents', resizing === 'hug', FoldHorizontal, () =>
+              setMeta({ resizing: 'hug' })
+            )}
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Dimensions</FieldLabel>
+          <div className="grid grid-cols-2 gap-1.5">
+            {pxField('W', object.size.w, (n) =>
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
+            )}
+            {pxField('H', object.size.h, (n) =>
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
+            )}
+          </div>
+        </div>
+      </PanelSection>
+
+      <PanelSection
+        title="Appearance"
+        right={
+          <button
+            type="button"
+            aria-label={hidden ? 'Show object' : 'Hide object'}
+            aria-pressed={hidden}
+            className="rounded p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setMeta({ hidden: !hidden })}
+          >
+            {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+          </button>
+        }
+      >
+        <div className="grid grid-cols-2 gap-1.5">
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Percent className="h-3.5 w-3.5 shrink-0" />
+            <ExprInput
+              ariaLabel="Opacity"
+              value={String(opacity)}
+              onCommit={(v) => {
+                const n = Number(v)
+                if (Number.isFinite(n)) setMeta({ opacity: Math.min(100, Math.max(0, n)) })
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Radius className="h-3.5 w-3.5 shrink-0" />
+            <ExprInput
+              ariaLabel="Corner radius"
+              value={String(cornerRadius)}
+              onCommit={(v) => {
+                const n = Number(v)
+                if (Number.isFinite(n)) setMeta({ cornerRadius: Math.max(0, n) })
+              }}
+            />
+          </label>
+        </div>
+      </PanelSection>
+
+      <PanelSection title="Typography">
         <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2081,6 +2392,7 @@ function TextOptions({ pageId, object }: { pageId: string; object: SceneObject }
           <span className="mx-0.5 h-4 w-px bg-border" />
           {iconBtn('Bold (Ctrl+B)', Bold, () => wrap('**'))}
           {iconBtn('Italic (Ctrl+I)', Italic, () => wrap('*'))}
+          {iconBtn('Underline (Ctrl+U)', Underline, () => wrap('++'))}
           {iconBtn('Strikethrough', Strikethrough, () => wrap('~~'))}
           {iconBtn('Highlight', Highlighter, () => wrap('=='))}
           {iconBtn('Inline code', Code, () => wrap('`'))}
@@ -2096,105 +2408,279 @@ function TextOptions({ pageId, object }: { pageId: string; object: SceneObject }
             Double-click into the text and select some — these apply to the selection, not the whole box.
           </p>
         )}
-      </div>
 
-      <div className="space-y-1.5">
-        <SectionTitle>Text color</SectionTitle>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(TEXT_COLORS).map(([id, value]) => (
-            <button
-              key={id}
-              type="button"
-              aria-label={`Text color ${id}`}
-              disabled={!isActive}
-              className="h-6 w-6 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:pointer-events-none disabled:opacity-30"
-              style={{ background: value }}
-              onPointerDown={guard}
-              onClick={() => wrap('[', `]{color=${id}}`)}
-            />
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <SectionTitle>Text size</SectionTitle>
-        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
-          {(Object.keys(TEXT_SIZES) as (keyof typeof TEXT_SIZES)[]).map((s) => (
-            <button
-              key={s}
-              type="button"
-              aria-label={`Text size ${s}`}
-              disabled={!isActive}
-              className="flex flex-1 items-center justify-center rounded-md py-1 text-[11px] font-mono text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:pointer-events-none disabled:opacity-30"
-              onPointerDown={guard}
-              onClick={() => wrap('[', `]{size=${s}}`)}
-            >
-              {s.toUpperCase()}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-1.5">
-        <SectionTitle>Alignment</SectionTitle>
-        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
-          {(Object.keys(ALIGN_ICONS) as (keyof typeof ALIGN_ICONS)[]).map((a) => {
-            const Icon = ALIGN_ICONS[a]
-            return (
+        <div>
+          <FieldLabel>Selection color</FieldLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {Object.entries(TEXT_COLORS).map(([id, value]) => (
               <button
-                key={a}
+                key={id}
                 type="button"
-                aria-label={`Align ${a}`}
-                aria-pressed={align === a}
-                className={cn(
-                  'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
-                  align === a
-                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                )}
-                onClick={() => setMeta({ align: a })}
-              >
-                <Icon className="h-3.5 w-3.5" />
-              </button>
-            )
-          })}
+                aria-label={`Text color ${id}`}
+                disabled={!isActive}
+                className="h-5 w-5 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:pointer-events-none disabled:opacity-30"
+                style={{ background: value }}
+                onPointerDown={guard}
+                onClick={() => setSpan('color', id)}
+              />
+            ))}
+          </div>
         </div>
-        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
-          Whole textbox — the markdown model doesn&apos;t track per-paragraph alignment yet.
-        </p>
-      </div>
 
-      <div className="space-y-1.5">
-        <SectionTitle>Background</SectionTitle>
-        <div className="flex flex-wrap gap-1.5">
-          <button
-            type="button"
-            aria-label="No background"
-            aria-pressed={!bg}
-            className={cn(
-              'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] text-muted-foreground',
-              !bg ? 'border-[var(--ring)]' : 'border-transparent'
-            )}
-            onClick={() => setMeta({ color: undefined })}
-          >
-            ×
-          </button>
-          {Object.keys(FILLS).map((id) => (
-            <button
-              key={id}
-              type="button"
-              aria-label={`Background ${id}`}
-              aria-pressed={bg === id}
-              className={cn(
-                'h-6 w-6 rounded-full border-2',
-                FILLS[id],
-                bg === id ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
-              )}
-              onClick={() => setMeta({ color: id })}
-            />
-          ))}
+        <div>
+          <FieldLabel>Font family</FieldLabel>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label="Font family"
+                disabled={!isActive}
+                className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                onMouseDown={(e) => {
+                  guardTrigger(e)
+                  // Radix's DropdownMenuContent focuses itself the instant
+                  // it opens (so arrow keys work) — that's what actually
+                  // blurs the contentEditable and loses the selection here,
+                  // not the trigger click guardTrigger already covers. Same
+                  // fix as the Size input: snapshot now, consume it in
+                  // onSelect below.
+                  snapshotSelection()
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <Type className="h-3.5 w-3.5 text-muted-foreground" />
+                  {font.charAt(0).toUpperCase() + font.slice(1)}
+                </span>
+                <ChevronDown className="h-3 w-3 text-muted-foreground" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="glass-strong w-40">
+              {(Object.keys(TEXT_FONTS) as (keyof typeof TEXT_FONTS)[]).map((id) => (
+                <DropdownMenuItem
+                  key={id}
+                  className="text-[13px]"
+                  style={{ fontFamily: TEXT_FONTS[id] }}
+                  onSelect={() => {
+                    setFont(id)
+                    setSpan('font', id)
+                  }}
+                >
+                  {id.charAt(0).toUpperCase() + id.slice(1)}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
+
+        <div className="grid grid-cols-2 gap-1.5">
+          <div>
+            <FieldLabel>Weight</FieldLabel>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Font weight"
+                  disabled={!isActive}
+                  className="flex w-full items-center justify-between gap-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                  onMouseDown={(e) => {
+                    guardTrigger(e)
+                    snapshotSelection() // see Font family trigger's comment above
+                  }}
+                >
+                  {WEIGHT_LABELS[weight]}
+                  <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="glass-strong w-32">
+                {(Object.keys(TEXT_WEIGHTS) as (keyof typeof TEXT_WEIGHTS)[]).map((id) => (
+                  <DropdownMenuItem
+                    key={id}
+                    className="text-[12.5px]"
+                    style={{ fontWeight: TEXT_WEIGHTS[id] }}
+                    onSelect={() => {
+                      setWeight(id)
+                      setSpan('weight', id)
+                    }}
+                  >
+                    {WEIGHT_LABELS[id]}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <div>
+            <FieldLabel>Size</FieldLabel>
+            <div className="flex items-center gap-0.5 rounded-md border border-input bg-background/60 px-2 py-1">
+              <input
+                type="number"
+                min={6}
+                max={200}
+                value={size}
+                disabled={!isActive}
+                aria-label="Font size in pixels"
+                className="w-full min-w-0 border-0 bg-transparent text-[12px] font-mono outline-none disabled:opacity-30"
+                // Capturing on pointerdown/preventDefault (the `guard`
+                // pattern every other control here uses) can't save this
+                // field's selection — focusing a real <input> steals
+                // window.getSelection() out of the contentEditable no matter
+                // what pointerdown does. onFocus fires right as that
+                // happens, so it's the last moment the OLD selection is
+                // still readable — snapshotSelection() stashes it there for
+                // applySize()'s later setSpan() call to consume.
+                onFocus={snapshotSelection}
+                onChange={(e) => setSize(Number(e.target.value) || size)}
+                onBlur={() => applySize(size)}
+                onKeyDown={(e) => {
+                  e.stopPropagation()
+                  if (e.key === 'Enter') applySize(size)
+                }}
+              />
+              <span className="shrink-0 text-[10px] text-muted-foreground">px</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5">
+          <div>
+            <FieldLabel>Line height</FieldLabel>
+            <ExprInput
+              ariaLabel="Line height"
+              placeholder="Auto"
+              value={lineHeight !== undefined ? String(lineHeight) : ''}
+              onCommit={(v) => {
+                if (v.trim() === '') {
+                  setMeta({ lineHeight: undefined })
+                  return
+                }
+                const n = Number(v)
+                if (Number.isFinite(n)) setMeta({ lineHeight: Math.max(0.5, n) })
+              }}
+            />
+          </div>
+          <div>
+            <FieldLabel>Letter spacing</FieldLabel>
+            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <ExprInput
+                ariaLabel="Letter spacing"
+                value={String(letterSpacing)}
+                onCommit={(v) => {
+                  const n = Number(v)
+                  if (Number.isFinite(n)) setMeta({ letterSpacing: n })
+                }}
+              />
+              <span className="shrink-0 text-[10px] opacity-60">%</span>
+            </label>
+          </div>
+        </div>
+
+        <div>
+          <FieldLabel>Alignment</FieldLabel>
+          <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+            {(['left', 'center', 'right'] as const).map((a) =>
+              segButton(a, `Align text ${a}`, align === a, ALIGN_ICONS[a], () => setMeta({ align: a }))
+            )}
+            <span className="mx-0.5 h-4 w-px bg-border" />
+            {V_TEXT_ALIGN.map(({ id, Icon }) =>
+              segButton(id, `Align text ${id}`, vAlign === id, Icon, () => setMeta({ verticalAlign: id }))
+            )}
+          </div>
+        </div>
+      </PanelSection>
+
+      {/* One "Color" section for both properties this object has — they're
+          genuinely different (glyph color vs. a tint behind the whole box),
+          but two separately-titled sections that both amount to "pick a
+          color for this text" read as a confusing duplicate ("two fills").
+          Grouped with explicit sub-labels instead so it's one coherent
+          control with two clearly different rows, not two unrelated-looking
+          pickers. */}
+      <PanelSection title="Color" last>
+        <div>
+          <FieldLabel>Text color</FieldLabel>
+          <div className="flex items-center gap-1.5">
+            <input
+              type="checkbox"
+              aria-label="Override text color"
+              checked={object.metadata.textColor !== undefined}
+              className="h-3.5 w-3.5 shrink-0 accent-[var(--accent-blue)]"
+              onChange={(e) => setMeta({ textColor: e.target.checked ? textColor : undefined })}
+            />
+            <input
+              type="color"
+              aria-label="Text color swatch"
+              value={textColor}
+              disabled={object.metadata.textColor === undefined}
+              className="h-6 w-6 shrink-0 cursor-pointer rounded border border-input bg-transparent p-0 disabled:opacity-40"
+              onChange={(e) => setMeta({ textColor: e.target.value })}
+            />
+            <input
+              type="text"
+              aria-label="Text color hex"
+              value={textColor.replace('#', '').toUpperCase()}
+              disabled={object.metadata.textColor === undefined}
+              className="w-full min-w-0 rounded-md border border-input bg-background/60 px-2 py-1 font-mono text-[12px] uppercase outline-none disabled:opacity-40"
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^0-9a-fA-F]/g, '').slice(0, 6)
+                if (v.length === 6) setMeta({ textColor: `#${v}` })
+              }}
+            />
+            <label className="flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+              <ExprInput
+                ariaLabel="Text color opacity"
+                value={String(fillOpacity)}
+                onCommit={(v) => {
+                  const n = Number(v)
+                  if (Number.isFinite(n)) setMeta({ fillOpacity: Math.min(100, Math.max(0, n)) })
+                }}
+              />
+              <span className="shrink-0 text-[10px] opacity-60">%</span>
+            </label>
+          </div>
+          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
+            The glyphs themselves — off leaves them at the theme default.
+          </p>
+        </div>
+
+        {/* Not in the Figma reference — bare text has no parent frame to
+            paint a fill on there. Pre-existing, separate app feature (a
+            tint behind the whole box), kept using its original preset-
+            swatch mechanism, just re-labeled and re-homed next to Text
+            color instead of living in its own same-named-sounding section. */}
+        <div>
+          <FieldLabel>Background</FieldLabel>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              aria-label="No background"
+              aria-pressed={!bg}
+              className={cn(
+                'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] text-muted-foreground',
+                !bg ? 'border-[var(--ring)]' : 'border-transparent'
+              )}
+              onClick={() => setMeta({ color: undefined })}
+            >
+              ×
+            </button>
+            {Object.keys(FILLS).map((id) => (
+              <button
+                key={id}
+                type="button"
+                aria-label={`Background ${id}`}
+                aria-pressed={bg === id}
+                className={cn(
+                  'h-6 w-6 rounded-full border-2',
+                  FILLS[id],
+                  bg === id ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+                )}
+                onClick={() => setMeta({ color: id })}
+              />
+            ))}
+          </div>
+          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
+            A tint behind the whole box, not the text itself.
+          </p>
+        </div>
+      </PanelSection>
     </div>
   )
 }
@@ -2264,26 +2750,33 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </p>
       </div>
 
-      <div>
-        <SectionTitle>Transform</SectionTitle>
-        <div className="grid grid-cols-2 gap-1.5">
-          {cmField('X', object.position.x, (n) =>
-            updateObject(pageId, object.id, { position: { ...object.position, x: n } }, { history: true })
-          )}
-          {cmField('Y', object.position.y, (n) =>
-            updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
-          )}
-          {cmField('W', object.size.w, (n) =>
-            n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
-          )}
-          {cmField('H', object.size.h, (n) =>
-            n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
-          )}
-          {numField('Rot°', object.rotation, (n) =>
-            updateObject(pageId, object.id, { rotation: n }, { history: true })
-          )}
-        </div>
-      </div>
+      {/* Text gets its own Figma-style Position/Layout section instead (see
+          TextObjectPanel below) — raw px, alignment-to-viewport, and a
+          Resizing control this generic cm-based card doesn't have. */}
+      {object.geometry.kind !== 'text' && (
+        <OptionCard>
+          <SectionTitle>Transform</SectionTitle>
+          <div className="grid grid-cols-2 gap-1.5">
+            {cmField('X', object.position.x, (n) =>
+              updateObject(pageId, object.id, { position: { ...object.position, x: n } }, { history: true })
+            )}
+            {cmField('Y', object.position.y, (n) =>
+              updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
+            )}
+            {cmField('W', object.size.w, (n) =>
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
+            )}
+            {cmField('H', object.size.h, (n) =>
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
+            )}
+            <div className="col-span-2">
+              {numField('Rot°', object.rotation, (n) =>
+                updateObject(pageId, object.id, { rotation: n }, { history: true })
+              )}
+            </div>
+          </div>
+        </OptionCard>
+      )}
 
       {object.geometry.kind === 'symbol' && MODEL_OPTIONS[object.geometry.symbol ?? ''] && (
         <div className="space-y-1.5">
@@ -2353,7 +2846,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
         </div>
       )}
 
-      {object.geometry.kind === 'text' && <TextOptions pageId={pageId} object={object} />}
+      {object.geometry.kind === 'text' && <TextObjectPanel pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'formula' && <FormulaOptions pageId={pageId} object={object} />}
 

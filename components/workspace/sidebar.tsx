@@ -277,7 +277,7 @@ export function Sidebar({
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute -right-3 top-0 z-10 h-full w-4 touch-none cursor-col-resize border-l border-border/50 transition-all duration-150 hover:border-l-2 hover:border-sky-400 hover:shadow-[2px_0_2px_2px_rgba(56,189,248,0.5)]"
+            className="absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r border-border/50 transition-all duration-150 hover:border-r-2 hover:border-sky-400 hover:shadow-[-2px_0_2px_2px_rgba(56,189,248,0.5)]"
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)
