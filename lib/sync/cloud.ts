@@ -26,6 +26,8 @@ import {
   requeuePageDeletions,
 } from '@/lib/store/deleted-pages'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { migrateNotebooksToNodes } from '@/lib/store/migrate-tree'
+import type { Node } from '@/lib/scene/types'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { cloudConfigured } from '@/lib/data/db'
 
@@ -86,6 +88,8 @@ const upsert = (table: string, rows: unknown) =>
 
 async function pull(ws: string) {
   const [wsRes, pgRes] = await Promise.all([
+    // Column is still literally named `notebooks` in Postgres (db/schema.sql)
+    // — only the in-memory field was renamed to `nodes`, see lib/scene/types.ts.
     rest(`simblip_workspaces?id=eq.${ws}&select=notebooks,updated_at`),
     rest(`simblip_pages?workspace_id=eq.${ws}&select=id,content,viewport,updated_at`),
   ])
@@ -101,14 +105,16 @@ async function pull(ws: string) {
     Date.parse(wsRows[0].updated_at),
     ...pgRows.map((r) => Date.parse(r.updated_at))
   )
-  return { notebooks: wsRows[0].notebooks, pages: pgRows, newest }
+  return { nodes: wsRows[0].notebooks, pages: pgRows, newest }
 }
 
 async function pushWorkspace(ws: string) {
-  const { notebooks } = useWorkspaceStore.getState()
+  const { nodes } = useWorkspaceStore.getState()
   const institution = useAuthStore.getState().profile?.institution_id
   await upsert('simblip_workspaces', [
-    { id: ws, institution_id: institution, notebooks, updated_at: new Date().toISOString() },
+    // `notebooks` here is the DB column name, not the old field name — see
+    // the comment on pull() above.
+    { id: ws, institution_id: institution, notebooks: nodes, updated_at: new Date().toISOString() },
   ])
 }
 
@@ -212,7 +218,7 @@ export function startSync() {
   onPageDeleted(schedule)
 
   useWorkspaceStore.subscribe((s, prev) => {
-    if (s.notebooks === prev.notebooks) return
+    if (s.nodes === prev.nodes) return
     workspaceDirty = true
     schedule()
   })
@@ -225,7 +231,15 @@ export function startSync() {
       const remote = await pull(ws)
       const seen = Number(localStorage.getItem(seenKey(ws)) ?? 0)
       if (remote && remote.newest > seen) {
-        useWorkspaceStore.setState({ notebooks: remote.notebooks as never })
+        // A cloud pull writes `nodes` directly via setState, bypassing
+        // zustand's persist/rehydrate lifecycle entirely (this IS that
+        // lifecycle's network equivalent) — so the legacy-shape migration
+        // has to run here too, not just in workspace.ts's
+        // onRehydrateStorage. migrateNotebooksToNodes returns null if the
+        // remote data is already in the new Record shape (an old account
+        // still on the array shape is the only case that needs migrating).
+        const migrated = migrateNotebooksToNodes(remote.nodes) ?? (remote.nodes as Record<string, Node>)
+        useWorkspaceStore.setState({ nodes: migrated })
         // Land the pulled content in the ARCHIVE, not in memory — pulling a
         // whole notebook into the store would undo the lazy loading. Only
         // the page the user opens is hydrated (doc store ensurePage reads

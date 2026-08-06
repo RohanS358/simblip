@@ -109,8 +109,8 @@ export function PageThumbnail({ pageId, className }: Props) {
   // The preview must show what the page IS: a board previews its own
   // objects, a doc previews its first SHEET, and a PDF shows its actual
   // first page rendered from the locally cached file.
-  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId))
-  const kind = meta?.kind ?? 'board'
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
+  const kind = meta?.pageKind ?? 'board'
   const contentId = kind === 'doc' ? (meta?.docPages?.[0] ?? pageId) : pageId
 
   // Subscribe to *this* page's content (zustand will only re-render us when

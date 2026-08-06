@@ -62,7 +62,7 @@ export function AddPageDialog({
   onOpenChange,
   onCreated,
 }: {
-  target: { notebookId: string; sectionId: string } | null
+  target: { parentId: string } | null
   onOpenChange: (open: boolean) => void
   /** Extra post-create behavior a call site wants (mobile-shell navigates
    *  straight into the editor). addPage already sets activePageId, so
@@ -91,9 +91,7 @@ export function AddPageDialog({
 
   const createBoard = () => {
     if (!target) return
-    const id = useWorkspaceStore
-      .getState()
-      .addPage(target.notebookId, target.sectionId, name.trim() || 'Untitled Page', 'board')
+    const id = useWorkspaceStore.getState().addPageIn(target.parentId, name.trim() || 'Untitled Page', 'board')
     finish(id)
   }
 
@@ -101,9 +99,7 @@ export function AddPageDialog({
     if (!target) return
     const preset = DOC_PAGE_PRESETS.find((p) => p.id === presetId) ?? DOC_PAGE_PRESETS[0]
     const size = resolveDocPageSize(preset, preset.fixedOrientation ? 'landscape' : orientation)
-    const id = useWorkspaceStore
-      .getState()
-      .addPage(target.notebookId, target.sectionId, name.trim() || 'Untitled Doc', 'doc')
+    const id = useWorkspaceStore.getState().addPageIn(target.parentId, name.trim() || 'Untitled Doc', 'doc')
     useWorkspaceStore.getState().updatePageMeta(id, { docPageSize: size })
     finish(id)
   }
@@ -112,7 +108,7 @@ export function AddPageDialog({
     if (!target) return
     const id = useWorkspaceStore
       .getState()
-      .addPage(target.notebookId, target.sectionId, file.name.replace(/\.[^.]+$/, ''), 'pdf')
+      .addPageIn(target.parentId, file.name.replace(/\.[^.]+$/, ''), 'pdf')
     try {
       await attachPdfToPage(id, file, setConverting)
     } catch (err) {

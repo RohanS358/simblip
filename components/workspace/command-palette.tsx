@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf, descendantsOf } from '@/lib/store/workspace'
 import { searchInsertables, insertAt, viewportCenter } from '@/lib/scene/insertables'
 import { useAuthStore } from '@/lib/auth/store'
 import { listAssets } from '@/lib/data/library'
@@ -52,7 +52,7 @@ export function CommandPalette({
 }) {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
+  const nodes = useWorkspaceStore((s) => s.nodes)
   const profile = useAuthStore((s) => s.profile)
   const [assets, setAssets] = useState<LibraryAssetRow[]>([])
   const [query, setQuery] = useState('')
@@ -69,12 +69,18 @@ export function CommandPalette({
 
   const pages = useMemo(
     () =>
-      notebooks.flatMap((nb) =>
-        nb.sections.flatMap((sec) =>
-          sec.pages.map((p) => ({ ...p, path: `${nb.name} / ${sec.name}` }))
-        )
+      childrenOf(nodes, null).flatMap((nb) =>
+        descendantsOf(nodes, nb.id)
+          .filter((n) => n.kind === 'page')
+          .map((p) => {
+            // Breadcrumb of every ancestor folder's name, root notebook
+            // first — works for arbitrary depth, not just notebook/section.
+            const trail: string[] = []
+            for (let cur = nodes[p.parentId ?? '']; cur; cur = nodes[cur.parentId ?? '']) trail.unshift(cur.name)
+            return { ...p, path: trail.join(' / ') }
+          })
       ),
-    [notebooks]
+    [nodes]
   )
 
   const run = useCallback(
@@ -181,8 +187,8 @@ export function CommandPalette({
               run(() => {
                 const ws = useWorkspaceStore.getState()
                 const id = ws.addNotebook()
-                const sec = ws.addSection(id, 'Section 1')
-                ws.addPage(id, sec, 'Page 1')
+                const sec = ws.addFolder('Section 1', id)
+                ws.addPageIn(sec, 'Page 1')
               })
             }
           >

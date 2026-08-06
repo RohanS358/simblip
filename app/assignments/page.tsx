@@ -101,11 +101,8 @@ function StudentAssignments() {
 
   const openInNotebook = async (a: AssignmentRow) => {
     let pageId = links[a.id]
-    const exists =
-      pageId &&
-      useWorkspaceStore
-        .getState()
-        .notebooks.some((nb) => nb.sections.some((sec) => sec.pages.some((p) => p.id === pageId)))
+    const nodes = useWorkspaceStore.getState().nodes
+    const exists = pageId && pageId in nodes && nodes[pageId].kind === 'page'
     if (!exists) {
       pageId = importPageDoc({
         notebookName: 'Assignments',

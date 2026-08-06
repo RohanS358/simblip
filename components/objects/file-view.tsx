@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square, PanelRightClose, PanelRightOpen, Link, Link2Off } from 'lucide-react'
 import { toast } from 'sonner'
-import { getSessionFile, loadSessionFile, putSessionFile } from '@/lib/store/session-files'
+import { getSessionFile, loadSessionFile, putSessionFile } from '@/lib/store/ephemeral-storage'
 import { convertToPdf } from '@/lib/store/to-pdf'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'

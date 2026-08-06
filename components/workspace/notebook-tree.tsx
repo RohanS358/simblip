@@ -1,8 +1,13 @@
 'use client'
 
-// Notebook → Section → Page tree with desktop-grade context menus.
+// Notebook (folder) tree, arbitrary depth, with desktop-grade context menus.
 // Right-click anything for rename/duplicate/share/assign/present/export.
 // Double-click still renames inline; selection drives the active page.
+//
+// A "Notebook" is just a top-level FolderNode (parentId===null) — the tree
+// below it (sections, sub-folders, pages, files) nests to any depth, all
+// rendered by the SAME recursive TreeNode component instead of three fixed
+// JSX levels the way this file used to hardcode notebook->section->page.
 //
 // Self-contained on purpose: this is the "Notebook" entry in the shared
 // sidebar taxonomy (lib/store/sidebar-sections.ts) — the desktop rail, the
@@ -10,13 +15,15 @@
 // so notebook browsing works identically everywhere instead of each shell
 // reimplementing its own tree.
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import {
   BookOpen,
   ChevronRight,
   ClipboardList,
   Copy,
   Download,
+  File as FileIcon,
+  Folder,
   LibraryBig,
   MonitorPlay,
   Pencil,
@@ -24,7 +31,9 @@ import {
   Share2,
   Trash2,
 } from 'lucide-react'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useShallow } from 'zustand/react/shallow'
+import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
+import type { FileNode, FolderNode, Node, PageNode } from '@/lib/scene/types'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { importPageInto } from '@/lib/store/import-page'
@@ -47,6 +56,36 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
+
+/** Route a dropped/picked file into parentId — a PDF, or anything this app
+ *  can convert to one (pptx/docx/txt/md/csv), becomes a reader PAGE (paged
+ *  reading, per-page ink/notes — a genuinely richer experience worth
+ *  keeping as a page). Anything else (images, video, audio, arbitrary
+ *  files) becomes a raw FILE leaf instead of being force-converted or
+ *  silently failing — a real filesystem wouldn't reject a dropped .png.
+ *  Shared by the tree's drag-drop handler and the "Upload file…" menu item
+ *  so both take the same file through the same path. */
+export async function addFileToFolder(parentId: string, f: File) {
+  const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+  const isPdf = f.type === 'application/pdf' || ext === '.pdf'
+  const isConvertible = ['.pptx', '.docx', '.txt', '.md', '.csv'].includes(ext)
+  if (isPdf || isConvertible) {
+    const pageId = useWorkspaceStore.getState().addPageIn(parentId, f.name.replace(/\.[^.]+$/, ''), 'pdf')
+    const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
+    try {
+      await attachPdfToPage(pageId, f)
+    } catch {
+      // Conversion failed — the page still exists, empty; pdf-view's own
+      // dropzone can retry, same fallback add-page-dialog.tsx uses.
+    }
+    return
+  }
+  const { putFile } = await import('@/lib/storage/manager')
+  const { useAuthStore } = await import('@/lib/auth/store')
+  const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
+  const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
+  useWorkspaceStore.getState().addFile(parentId, f.name, fileId, f.type || 'application/octet-stream', f.size)
+}
 
 const SECTION_DOT: Record<string, string> = {
   blue: 'bg-[var(--accent-blue)]',
@@ -112,8 +151,233 @@ function InlineName({
   )
 }
 
+/** Shared handlers every tree row needs — passed down instead of re-derived
+ *  at each recursion level. */
+interface TreeHandlers {
+  activePageId: string | null
+  renaming: string | null
+  setRenaming: (id: string | null) => void
+  selectPage: (id: string) => void
+  duplicatePage: (parentId: string, page: PageRef) => void
+  setAddTarget: (t: { parentId: string } | null) => void
+  setShareFor: (p: PageRef | null) => void
+  setAssignFor: (p: PageRef | null) => void
+  setPresentFor: (p: PageRef | null) => void
+  setPublishFor: (p: PageRef | null) => void
+  staff: boolean
+  collapsed: Record<string, boolean>
+  toggleCollapsed: (id: string) => void
+  /** Opens the native file picker, uploading whatever's chosen into
+   *  parentId — same PDF-vs-raw-file routing the drag-drop handler uses. */
+  uploadFileTo: (parentId: string) => void
+}
+
+function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number; handlers: TreeHandlers }) {
+  const store = useWorkspaceStore
+  const children = useWorkspaceStore(useShallow((s) => childrenOf(s.nodes, node.id)))
+  const isNotebook = node.parentId === null
+  const isCollapsed = handlers.collapsed[node.id]
+
+  return (
+    <div className={cn(depth > 0 && 'ml-4', isNotebook ? 'mt-1.5' : 'mt-0.5')}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <div
+            className={cn(
+              'group flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-accent/50',
+              isNotebook ? 'text-[13px] font-semibold py-1.5' : 'gap-2 text-[12.5px] font-medium text-muted-foreground'
+            )}
+            // Drop a file straight onto any folder — see addFileToFolder's
+            // doc comment for the page-vs-raw-file routing rule.
+            onDragOver={(e) => {
+              if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+            }}
+            onDrop={(e) => {
+              const f = e.dataTransfer.files?.[0]
+              if (!f) return
+              e.preventDefault()
+              void addFileToFolder(node.id, f)
+            }}
+          >
+            <button
+              type="button"
+              aria-label={isCollapsed ? 'Expand folder' : 'Collapse folder'}
+              onClick={() => handlers.toggleCollapsed(node.id)}
+              className="text-muted-foreground"
+            >
+              <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', !isCollapsed && 'rotate-90')} />
+            </button>
+            {isNotebook ? (
+              <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
+            ) : (
+              <span className={cn('h-2 w-2 rounded-full', SECTION_DOT[node.color ?? 'blue'] ?? SECTION_DOT.blue)} />
+            )}
+            <InlineName
+              name={node.name}
+              className="flex-1"
+              editing={handlers.renaming === node.id}
+              onEditDone={() => handlers.setRenaming(null)}
+              onRename={(name) => store.getState().renameNode(node.id, name)}
+            />
+            <button
+              type="button"
+              aria-label="Add page"
+              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
+              onClick={(e) => {
+                e.stopPropagation()
+                handlers.setAddTarget({ parentId: node.id })
+              }}
+            >
+              <Plus className="h-3 w-3" />
+            </button>
+          </div>
+        </ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem onClick={() => store.getState().addFolder('New Folder', node.id)}>
+            <Folder className="h-4 w-4" /> New folder
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handlers.setAddTarget({ parentId: node.id })}>
+            <Plus className="h-4 w-4" /> Add page…
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handlers.uploadFileTo(node.id)}>
+            <FileIcon className="h-4 w-4" /> Upload file…
+          </ContextMenuItem>
+          <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
+            <Pencil className="h-4 w-4" /> Rename
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
+            <Trash2 className="h-4 w-4" /> Delete {isNotebook ? 'notebook' : 'folder'}
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+
+      {/* Children stay mounted; the grid row folds to 0fr so collapse
+          animates and re-clicks retarget mid-motion. */}
+      <div
+        className={cn(
+          'grid transition-[grid-template-rows] duration-200 ease-strong',
+          isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
+        )}
+      >
+        <div className="min-h-0 overflow-hidden">
+          {children.map((child) => (
+            <TreeNode key={child.id} node={child} depth={depth + 1} handlers={handlers} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; handlers: TreeHandlers }) {
+  const store = useWorkspaceStore
+  const KindIcon = KIND_ICON[node.pageKind ?? 'board']
+  const active = handlers.activePageId === node.id
+
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          className={cn(
+            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] transition-colors',
+            active
+              ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+          )}
+          style={{ marginLeft: `${depth * 16}px` }}
+          onClick={() => handlers.selectPage(node.id)}
+        >
+          <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <InlineName
+            name={node.name}
+            className="flex-1"
+            editing={handlers.renaming === node.id}
+            onEditDone={() => handlers.setRenaming(null)}
+            onRename={(name) => store.getState().renameNode(node.id, name)}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handlers.selectPage(node.id)}>
+          <BookOpen className="h-4 w-4" /> Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
+          <Pencil className="h-4 w-4" /> Rename
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => node.parentId && handlers.duplicatePage(node.parentId, node)}>
+          <Copy className="h-4 w-4" /> Duplicate
+        </ContextMenuItem>
+        {handlers.staff && (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem onClick={() => handlers.setShareFor(node)}>
+              <Share2 className="h-4 w-4" /> Share copy…
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handlers.setAssignFor(node)}>
+              <ClipboardList className="h-4 w-4" /> Assign…
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handlers.setPresentFor(node)}>
+              <MonitorPlay className="h-4 w-4" /> Present on room board…
+            </ContextMenuItem>
+            <ContextMenuItem onClick={() => handlers.setPublishFor(node)}>
+              <LibraryBig className="h-4 w-4" /> Add to library…
+            </ContextMenuItem>
+          </>
+        )}
+        <ContextMenuSeparator />
+        <ContextMenuItem onClick={() => exportPageJson(node)}>
+          <Download className="h-4 w-4" /> Export JSON
+        </ContextMenuItem>
+        <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
+          <Trash2 className="h-4 w-4" /> Delete page
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+
+/** A raw uploaded file, direct leaf of a folder (not wrapped in a page). */
+function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; handlers: TreeHandlers }) {
+  const store = useWorkspaceStore
+  return (
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          style={{ marginLeft: `${16 + depth * 16}px` }}
+        >
+          <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <InlineName
+            name={node.name}
+            className="flex-1"
+            editing={handlers.renaming === node.id}
+            onEditDone={() => handlers.setRenaming(null)}
+            onRename={(name) => store.getState().renameNode(node.id, name)}
+          />
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
+          <Pencil className="h-4 w-4" /> Rename
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
+          <Trash2 className="h-4 w-4" /> Delete file
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  )
+}
+
+function TreeNode({ node, depth, handlers }: { node: Node; depth: number; handlers: TreeHandlers }) {
+  if (node.kind === 'folder') return <FolderRow node={node} depth={depth} handlers={handlers} />
+  if (node.kind === 'page') return <PageRow node={node} depth={depth} handlers={handlers} />
+  return <FileRow node={node} depth={depth} handlers={handlers} />
+}
+
 export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
+  const roots = useWorkspaceStore(useShallow((s) => childrenOf(s.nodes, null)))
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const role = useAuthStore((s) => s.profile?.role ?? null)
   const store = useWorkspaceStore
@@ -124,18 +388,45 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
-  const [addTarget, setAddTarget] = useState<{ notebookId: string; sectionId: string } | null>(null)
+  const [addTarget, setAddTarget] = useState<{ parentId: string } | null>(null)
 
   const staff = can(role, 'share-pages')
 
-  const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
+  const duplicatePage = (parentId: string, page: PageRef) => {
     // Bundle-aware: duplicating a doc keeps its sheets, a PDF keeps its file.
-    importPageInto(nbId, secId, `${page.name} copy`, bundlePage(page.id), true)
+    importPageInto(parentId, parentId, `${page.name} copy`, bundlePage(page.id), true)
   }
 
   const selectPage = (id: string) => {
     store.getState().setActivePage(id)
     onSelectPage?.()
+  }
+
+  // One shared hidden <input type=file> for the whole tree — "Upload file…"
+  // stashes which folder to target, then triggers a click, since a context
+  // menu item can't open the native picker directly.
+  const uploadInputRef = useRef<HTMLInputElement>(null)
+  const uploadTargetRef = useRef<string | null>(null)
+  const uploadFileTo = (parentId: string) => {
+    uploadTargetRef.current = parentId
+    uploadInputRef.current?.click()
+  }
+
+  const handlers: TreeHandlers = {
+    activePageId,
+    renaming,
+    setRenaming,
+    selectPage,
+    duplicatePage,
+    setAddTarget,
+    setShareFor,
+    setAssignFor,
+    setPresentFor,
+    setPublishFor,
+    staff,
+    collapsed,
+    toggleCollapsed: (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] })),
+    uploadFileTo,
   }
 
   return (
@@ -150,8 +441,8 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
           className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           onClick={() => {
             const id = store.getState().addNotebook()
-            const sec = store.getState().addSection(id, 'Section 1')
-            store.getState().addPage(id, sec, 'Page 1')
+            const sec = store.getState().addFolder('Section 1', id)
+            store.getState().addPageIn(sec, 'Page 1')
           }}
         >
           <Plus className="h-3.5 w-3.5" />
@@ -159,213 +450,15 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
       </div>
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3">
-        {notebooks.length === 0 && (
+        {roots.length === 0 && (
           <p className="px-2 py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
             No notebooks yet.
             <br />
             Create one to start working.
           </p>
         )}
-        {notebooks.map((nb) => (
-          <div key={nb.id} className="mt-1.5">
-            <ContextMenu>
-              <ContextMenuTrigger asChild>
-                <div className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-semibold hover:bg-accent/50">
-                  <button
-                    type="button"
-                    aria-label={collapsed[nb.id] ? 'Expand notebook' : 'Collapse notebook'}
-                    onClick={() => setCollapsed((c) => ({ ...c, [nb.id]: !c[nb.id] }))}
-                    className="text-muted-foreground"
-                  >
-                    <ChevronRight
-                      className={cn('h-3.5 w-3.5 transition-transform', !collapsed[nb.id] && 'rotate-90')}
-                    />
-                  </button>
-                  <BookOpen className="h-3.5 w-3.5 text-muted-foreground" />
-                  <InlineName
-                    name={nb.name}
-                    className="flex-1 text-[13px]"
-                    editing={renaming === nb.id}
-                    onEditDone={() => setRenaming(null)}
-                    onRename={(name) => store.getState().renameNotebook(nb.id, name)}
-                  />
-                  <button
-                    type="button"
-                    aria-label="Add section"
-                    className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-                    onClick={() => store.getState().addSection(nb.id)}
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
-                </div>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onClick={() => store.getState().addSection(nb.id)}>
-                  <Plus className="h-4 w-4" /> New section
-                </ContextMenuItem>
-                <ContextMenuItem onClick={() => setRenaming(nb.id)}>
-                  <Pencil className="h-4 w-4" /> Rename
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNotebook(nb.id)}>
-                  <Trash2 className="h-4 w-4" /> Delete notebook
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
-
-            {/* Sections stay mounted; the grid row folds to 0fr so collapse
-                animates and re-clicks retarget mid-motion. */}
-            <div
-              className={cn(
-                'grid transition-[grid-template-rows] duration-200 ease-strong',
-                collapsed[nb.id] ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
-              )}
-            >
-              <div className="min-h-0 overflow-hidden">
-              {nb.sections.map((sec) => (
-                <div key={sec.id} className="ml-4 mt-0.5">
-                  <ContextMenu>
-                    <ContextMenuTrigger asChild>
-                      <div
-                        className="group flex items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] font-medium text-muted-foreground hover:bg-accent/50"
-                        // Drop a PDF/PPT straight onto a section — it becomes a
-                        // reader page (converted to PDF in the browser if needed).
-                        onDragOver={(e) => {
-                          if (e.dataTransfer.types.includes('Files')) e.preventDefault()
-                        }}
-                        onDrop={(e) => {
-                          const f = e.dataTransfer.files?.[0]
-                          if (!f) return
-                          e.preventDefault()
-                          void (async () => {
-                            const isPdf = f.type === 'application/pdf' || f.name.toLowerCase().endsWith('.pdf')
-                            let file = f
-                            if (!isPdf) {
-                              const { convertToPdf } = await import('@/lib/store/to-pdf')
-                              try {
-                                file = await convertToPdf(f)
-                              } catch {
-                                return
-                              }
-                            }
-                            const pageId = store
-                              .getState()
-                              .addPage(nb.id, sec.id, f.name.replace(/\.[^.]+$/, ''), 'pdf')
-                            const { putSessionFile } = await import('@/lib/store/session-files')
-                            putSessionFile(pageId, file)
-                          })()
-                        }}
-                      >
-                        <span className={cn('h-2 w-2 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
-                        <InlineName
-                          name={sec.name}
-                          className="flex-1"
-                          editing={renaming === sec.id}
-                          onEditDone={() => setRenaming(null)}
-                          onRename={(name) => store.getState().renameSection(nb.id, sec.id, name)}
-                        />
-                        {/* Every page kind, one click away — not hidden behind
-                            the right-click menu. */}
-                        <button
-                          type="button"
-                          aria-label="Add page"
-                          className="rounded p-0.5 opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setAddTarget({ notebookId: nb.id, sectionId: sec.id })
-                          }}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </ContextMenuTrigger>
-                    <ContextMenuContent>
-                      <ContextMenuItem onClick={() => setAddTarget({ notebookId: nb.id, sectionId: sec.id })}>
-                        <Plus className="h-4 w-4" /> Add page…
-                      </ContextMenuItem>
-                      <ContextMenuItem onClick={() => setRenaming(sec.id)}>
-                        <Pencil className="h-4 w-4" /> Rename
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem
-                        variant="destructive"
-                        onClick={() => store.getState().removeSection(nb.id, sec.id)}
-                      >
-                        <Trash2 className="h-4 w-4" /> Delete section
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-
-                  {sec.pages.map((page) => (
-                    <ContextMenu key={page.id}>
-                      <ContextMenuTrigger asChild>
-                        <div
-                          className={cn(
-                            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] transition-colors',
-                            activePageId === page.id
-                              ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
-                              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                          )}
-                          onClick={() => selectPage(page.id)}
-                        >
-                          {(() => {
-                            const KindIcon = KIND_ICON[page.kind ?? 'board']
-                            return <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                          })()}
-                          <InlineName
-                            name={page.name}
-                            className="flex-1"
-                            editing={renaming === page.id}
-                            onEditDone={() => setRenaming(null)}
-                            onRename={(name) => store.getState().renamePage(page.id, name)}
-                          />
-                        </div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem onClick={() => selectPage(page.id)}>
-                          <BookOpen className="h-4 w-4" /> Open
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => setRenaming(page.id)}>
-                          <Pencil className="h-4 w-4" /> Rename
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => duplicatePage(nb.id, sec.id, page)}>
-                          <Copy className="h-4 w-4" /> Duplicate
-                        </ContextMenuItem>
-                        {staff && (
-                          <>
-                            <ContextMenuSeparator />
-                            <ContextMenuItem onClick={() => setShareFor(page)}>
-                              <Share2 className="h-4 w-4" /> Share copy…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setAssignFor(page)}>
-                              <ClipboardList className="h-4 w-4" /> Assign…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setPresentFor(page)}>
-                              <MonitorPlay className="h-4 w-4" /> Present on room board…
-                            </ContextMenuItem>
-                            <ContextMenuItem onClick={() => setPublishFor(page)}>
-                              <LibraryBig className="h-4 w-4" /> Add to library…
-                            </ContextMenuItem>
-                          </>
-                        )}
-                        <ContextMenuSeparator />
-                        <ContextMenuItem onClick={() => exportPageJson(page)}>
-                          <Download className="h-4 w-4" /> Export JSON
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          variant="destructive"
-                          onClick={() => store.getState().removePage(page.id)}
-                        >
-                          <Trash2 className="h-4 w-4" /> Delete page
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  ))}
-                </div>
-              ))}
-              </div>
-            </div>
-          </div>
+        {roots.map((nb) => (
+          <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />
         ))}
       </div>
 
@@ -378,6 +471,17 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
         pageId={publishFor?.id ?? null}
       />
       <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={selectPage} />
+      <input
+        ref={uploadInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          const parentId = uploadTargetRef.current
+          e.target.value = '' // same file picked twice still fires onChange
+          if (f && parentId) void addFileToFolder(parentId, f)
+        }}
+      />
     </div>
   )
 }

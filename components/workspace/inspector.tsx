@@ -111,6 +111,9 @@ function ExprInput({
   placeholder,
   mono = true,
   scrubbable = true,
+  suffix,
+  disabled = false,
+  onPointerDownCapture,
 }: {
   value: string
   onCommit: (value: string) => void
@@ -119,6 +122,13 @@ function ExprInput({
   placeholder?: string
   mono?: boolean
   scrubbable?: boolean
+  /** Small unit label rendered inside the field, right-aligned (e.g. "px"). */
+  suffix?: string
+  disabled?: boolean
+  /** Fires before ExprInput's own drag-tracking starts — needed by fields
+   *  that must snapshot state (e.g. a live text selection elsewhere in the
+   *  DOM) before this input's own focus/pointer handling can run. */
+  onPointerDownCapture?: () => void
 }) {
   const [draft, setDraft] = useState(value)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -129,20 +139,24 @@ function ExprInput({
   }, [value])
 
   return (
-    <input
+    <div className="relative">
+      <input
       ref={inputRef}
       aria-label={ariaLabel}
       aria-invalid={Boolean(error)}
       placeholder={placeholder}
+      disabled={disabled}
       className={cn(
-        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)]',
+        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30',
         mono && 'font-mono',
         error ? 'border-[var(--accent-rose)]' : 'border-input',
-        scrubbable && 'cursor-ew-resize'
+        scrubbable && 'cursor-ew-resize',
+        suffix && 'pr-5'
       )}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onPointerDown={(e) => {
+        onPointerDownCapture?.()
         if (!scrubbable || e.button !== 0) return
         // Don't capture yet — capturing would steal the click that focuses
         // the field. We only take over once the pointer actually moves.
@@ -195,7 +209,13 @@ function ExprInput({
         }
         e.stopPropagation()
       }}
-    />
+      />
+      {suffix && (
+        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+          {suffix}
+        </span>
+      )}
+    </div>
   )
 }
 
@@ -2173,9 +2193,17 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const [font, setFont] = useState<keyof typeof TEXT_FONTS>('sans')
   const [weight, setWeight] = useState<keyof typeof TEXT_WEIGHTS>('regular')
   const [size, setSize] = useState(TEXT_SIZES.m)
-  const applySize = (n: number) => {
+  const applySize = (v: string) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return
     const clamped = Math.min(200, Math.max(6, Math.round(n)))
     setSize(clamped)
+    // Each commit (scrub tick, arrow nudge, or typed Enter/blur) re-snapshots
+    // first — snapshotSelection() no-ops if the last snapshot is still
+    // "fresh" (see its doc comment), so a drag's rapid-fire onCommit calls
+    // keep reapplying to the SAME captured range instead of each needing its
+    // own click.
+    snapshotSelection()
     setSpan('size', String(clamped))
   }
 
@@ -2506,47 +2534,26 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           </div>
           <div>
             <FieldLabel>Size</FieldLabel>
-            <div className="flex items-center gap-0.5 rounded-md border border-input bg-background/60 px-2 py-1">
-              <input
-                type="number"
-                min={6}
-                max={200}
-                value={size}
+            {/* Same scrubbable numeric field every other value in this panel
+                uses (drag = scrub, arrows = nudge, type = commit on blur/
+                Enter) — applySize() re-snapshots the text selection on every
+                commit (see its comment) so drag-scrubbing reapplies live to
+                the same captured range instead of needing a fresh click per
+                tick. Can't use the plain `guard` pattern (preventDefault on
+                pointerdown) other buttons use — this field must be able to
+                take focus so typing works — so the selection snapshot has to
+                happen via onPointerDownCapture, which fires before
+                ExprInput's own drag-tracking and before the browser's focus
+                shift collapses window.getSelection() out of the
+                contentEditable. */}
+              <ExprInput
+                ariaLabel="Font size in pixels"
+                value={String(size)}
+                suffix="px"
                 disabled={!isActive}
-                aria-label="Font size in pixels"
-                className="w-full min-w-0 border-0 bg-transparent text-[12px] font-mono outline-none disabled:opacity-30"
-                // Can't use the `guard` pattern every other control here
-                // uses (preventDefault on pointerdown) — that would block
-                // this field from ever taking focus, and you have to type
-                // into it. Instead, snapshot on pointerdown itself: that
-                // fires BEFORE the browser shifts focus into this input, so
-                // the contentEditable's selection is still live. onFocus is
-                // too late — it only fires once focus has already landed
-                // here, by which point focusing a real <input> has already
-                // collapsed window.getSelection() out of the
-                // contentEditable. snapshotSelection() stashes the
-                // selection for applySize()'s later setSpan() call to
-                // consume.
-                onPointerDown={snapshotSelection}
-                onChange={(e) => setSize(Number(e.target.value) || size)}
-                // Single source of truth for committing: onBlur. Enter used to
-                // ALSO call applySize directly, so a real Enter keystroke ran
-                // setSpan() twice — once from this handler, once again when
-                // the resulting blur fired onBlur. setSpan()'s one-shot
-                // selection snapshot only covers the first call; the second
-                // call re-reads the LIVE selection, which by then points at
-                // the span setSpan() itself just selected inside the
-                // contentEditable (selectRawRange moves real DOM focus there
-                // as a side effect) — corrupting the line. Blurring on Enter
-                // routes through the same single commit onBlur already does.
-                onKeyDown={(e) => {
-                  e.stopPropagation()
-                  if (e.key === 'Enter') e.currentTarget.blur()
-                }}
-                onBlur={() => applySize(size)}
+                onPointerDownCapture={isActive ? snapshotSelection : undefined}
+                onCommit={applySize}
               />
-              <span className="shrink-0 text-[10px] text-muted-foreground">px</span>
-            </div>
           </div>
         </div>
 

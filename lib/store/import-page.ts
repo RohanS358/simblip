@@ -6,7 +6,7 @@
 // returns the new page id. Object ids are re-minted so a delivered copy can
 // never collide with (or reference) anything of the sender's.
 
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { uid, type PageDoc, type SceneObject } from '@/lib/scene/types'
 import { stripBundle, type PageBundle } from '@/lib/store/page-bundle'
@@ -44,17 +44,16 @@ export function importPageDoc(input: {
 }): string {
   const ws = useWorkspaceStore.getState()
 
-  let notebook = ws.notebooks.find((n) => n.name === input.notebookName)
+  const notebook = childrenOf(ws.nodes, null).find((n) => n.name === input.notebookName)
   const nbId = notebook?.id ?? ws.addNotebook(input.notebookName)
   if (!notebook && input.notebookEmoji) {
     useWorkspaceStore.setState((s) => ({
-      notebooks: s.notebooks.map((n) => (n.id === nbId ? { ...n, emoji: input.notebookEmoji! } : n)),
+      nodes: s.nodes[nbId]?.kind === 'folder' ? { ...s.nodes, [nbId]: { ...s.nodes[nbId], emoji: input.notebookEmoji! } } : s.nodes,
     }))
   }
-  notebook = useWorkspaceStore.getState().notebooks.find((n) => n.id === nbId)!
 
-  const section = notebook.sections.find((sec) => sec.name === input.sectionName)
-  const secId = section?.id ?? ws.addSection(nbId, input.sectionName)
+  const section = childrenOf(useWorkspaceStore.getState().nodes, nbId).find((n) => n.name === input.sectionName)
+  const secId = section?.id ?? ws.addFolder(input.sectionName, nbId)
 
   return importPageInto(nbId, secId, input.pageName, input.content, input.activate)
 }

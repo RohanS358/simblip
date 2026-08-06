@@ -10,7 +10,17 @@
 // model is unchanged, only inline formatting moved to marks.
 
 import katex from 'katex'
-import { runsForLine, TEXT_COLORS, TEXT_FONTS, TEXT_WEIGHTS, resolveSizePx, type Mark, type Run } from './marks'
+import { runsForLine, splitIndent, TEXT_COLORS, TEXT_FONTS, TEXT_WEIGHTS, resolveSizePx, type Mark, type Run } from './marks'
+
+// How far one indent level pushes a line in, in em — used only by the
+// read-only render below (padding-left, a real tab-stop regardless of font
+// metrics). The LIVE editor renders indent as literal space characters
+// instead (see renderEditorLine's doc comment for why padding doesn't work
+// there); 2.2em approximates INDENT_UNIT's 8 literal spaces at a normal
+// 15px sans-serif size so the two views read as the same indent depth, even
+// though they're not pixel-identical for this one property the way
+// everything else in this file is.
+const INDENT_EM = 2.2
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -119,9 +129,33 @@ interface RenderedLine {
  *  needed so runsForLine can find which marks apply to this line. There is
  *  only ONE version of this now (the old model needed a separate "active"
  *  variant that kept delimiters dimly visible for the caret's line) — every
- *  line, including the one being typed on, renders through this. */
+ *  line, including the one being typed on, renders through this.
+ *
+ *  Indentation (Tab/Shift+Tab, see components/objects/text.tsx's indentLine)
+ *  is leading spaces on `raw` — unlike block prefixes, these are NOT
+ *  stripped out of the rendered text: they render as literal space
+ *  characters (white-space:pre-wrap already renders every other space
+ *  literally, so this costs nothing extra) rather than becoming a
+ *  padding-left on the line. That's deliberate: the live editor's whole
+ *  caret/selection model depends on DOM text length exactly matching
+ *  `raw.length` for every line (see posAt's doc comment) — stripping the
+ *  indent into a style property broke that invariant for every indented
+ *  line, silently dropping the indent the instant you typed into a
+ *  freshly-Tabbed empty line (the DOM's only child was a bare `<br>` with
+ *  zero text nodes for the browser to insert after, so `el.textContent`
+ *  came back with no leading spaces at all once real content landed, and
+ *  onInput's diff — which trusts the DOM as ground truth — happily
+ *  overwrote linesRef with that shorter, unindented string). Keeping the
+ *  spaces as real text sidesteps the whole class of bug. */
 export function renderEditorLine(raw: string, marks: Mark[], lineStart: number): RenderedLine {
-  if (raw.trim() === '') return { html: '<br>', cls: '' }
+  // Only a TRULY empty line (not just whitespace-only) takes the <br>
+  // placeholder shortcut — a line that's pure indentation (just Tabbed,
+  // nothing typed after it yet) has to render its spaces as real text
+  // nodes, or the DOM's only child is a bare <br> with nothing for the
+  // browser to insert after, and the next keystroke's onInput reads back
+  // zero leading spaces, silently dropping the indent (see indentLine's
+  // caller in components/objects/text.tsx for the full story).
+  if (raw === '') return { html: '<br>', cls: '' }
 
   const heading = raw.match(/^(#{1,6})(\s+)(.*)$/)
   if (heading) {
@@ -134,7 +168,7 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
   if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) {
     return { html: '<span class="md-marker">' + escapeHtml(raw) + '</span>', cls: 'md-hr' }
   }
-  const quote = raw.match(/^(>\s?)(.*)$/)
+  const quote = raw.match(/^(\s*>\s?)(.*)$/)
   if (quote) {
     const bodyStart = lineStart + quote[1].length
     return {
@@ -148,20 +182,26 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
     const bodyStart = lineStart + checkbox[1].length + 1 + 1 + checkbox[3].length
     return {
       html:
-        `<span class="md-marker">${escapeHtml(checkbox[1])}[${checkbox[2]}]${escapeHtml(checkbox[3])}</span>` +
+        `<span class="md-marker md-marker-check">${escapeHtml(checkbox[1])}[${escapeHtml(checkbox[2])}]${escapeHtml(checkbox[3])}</span>` +
         `<span class="${checked ? 'md-done' : ''}">${renderLine(checkbox[4], marks, bodyStart)}</span>`,
-      cls: 'md-li',
+      cls: `md-li${checked ? ' md-li-checked' : ''}`,
     }
   }
   const bullet = raw.match(/^(\s*[-*+]\s+)(.*)$/)
   if (bullet) {
     const bodyStart = lineStart + bullet[1].length
-    return { html: `<span class="md-marker">${escapeHtml(bullet[1])}</span>${renderLine(bullet[2], marks, bodyStart)}`, cls: 'md-li' }
+    return {
+      html: `<span class="md-marker md-marker-bullet">${escapeHtml(bullet[1])}</span>${renderLine(bullet[2], marks, bodyStart)}`,
+      cls: 'md-li',
+    }
   }
   const numbered = raw.match(/^(\s*\d+\.\s+)(.*)$/)
   if (numbered) {
     const bodyStart = lineStart + numbered[1].length
-    return { html: `<span class="md-marker">${escapeHtml(numbered[1])}</span>${renderLine(numbered[2], marks, bodyStart)}`, cls: 'md-li' }
+    return {
+      html: `<span class="md-marker md-marker-num">${escapeHtml(numbered[1])}</span>${renderLine(numbered[2], marks, bodyStart)}`,
+      cls: 'md-li',
+    }
   }
   return { html: renderLine(raw, marks, lineStart), cls: '' }
 }
@@ -179,12 +219,32 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
   const out: string[] = []
   let i = 0
   let offset = 0
-  let paragraph: { raw: string; start: number }[] = []
+  let paragraph: { raw: string; start: number; level: number }[] = []
   let listType: 'ul' | 'ol' | null = null
   let listItems: string[] = []
 
+  const padCss = (level: number) => (level > 0 ? `padding-left:${level * INDENT_EM}em` : '')
+  const padStyle = (level: number) => {
+    const css = padCss(level)
+    return css ? ` style="${css}"` : ''
+  }
+
+  // A plain (non-block-type) line still needs its OWN indent level — lines
+  // in one paragraph aren't all the same depth just because they're not
+  // headings/lists/quotes (see the fallback case at the end of the loop
+  // below). Each line becomes its own block-level span when indented so
+  // padding-left applies per-line instead of once for the whole <p>; a
+  // level-0 line renders exactly as before (no wrapper, joined by <br>).
   const flushParagraph = () => {
-    if (paragraph.length) out.push(`<p>${paragraph.map((l) => renderLine(l.raw, marks, l.start)).join('<br>')}</p>`)
+    if (paragraph.length)
+      out.push(
+        `<p>${paragraph
+          .map((l) => {
+            const html = renderLine(l.raw, marks, l.start)
+            return l.level > 0 ? `<span style="display:block;${padCss(l.level)}">${html}</span>` : html
+          })
+          .join('<br>')}</p>`
+      )
     paragraph = []
   }
   const flushList = () => {
@@ -196,8 +256,10 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
   while (i < lines.length) {
     const line = lines[i]
     const lineStart = offset
+    const { level, indent, rest } = splitIndent(line)
+    const bodyStart0 = lineStart + indent.length
 
-    const fence = line.match(/^```(\w*)\s*$/)
+    const fence = rest.match(/^```(\w*)\s*$/)
     if (fence) {
       flushParagraph()
       flushList()
@@ -223,19 +285,19 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
       continue
     }
 
-    const heading = line.match(/^(#{1,6})\s+(.*)$/)
+    const heading = rest.match(/^(#{1,6})\s+(.*)$/)
     if (heading) {
       flushParagraph()
       flushList()
-      const level = heading[1].length
-      const bodyStart = lineStart + line.length - heading[2].length
-      out.push(`<h${level}>${renderLine(heading[2], marks, bodyStart)}</h${level}>`)
+      const hLevel = heading[1].length
+      const bodyStart = bodyStart0 + rest.length - heading[2].length
+      out.push(`<h${hLevel}${padStyle(level)}>${renderLine(heading[2], marks, bodyStart)}</h${hLevel}>`)
       offset += line.length + 1
       i++
       continue
     }
 
-    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(line)) {
+    if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(rest)) {
       flushParagraph()
       flushList()
       out.push('<hr>')
@@ -244,26 +306,27 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
       continue
     }
 
-    const quote = line.match(/^>\s?(.*)$/)
+    const quote = rest.match(/^>\s?(.*)$/)
     if (quote) {
       flushParagraph()
       flushList()
-      const qlines: { raw: string; start: number }[] = [{ raw: quote[1], start: lineStart + line.length - quote[1].length }]
+      const qlines: { raw: string; start: number }[] = [{ raw: quote[1], start: bodyStart0 + rest.length - quote[1].length }]
       offset += line.length + 1
       i++
-      while (i < lines.length && /^>\s?/.test(lines[i])) {
-        const m = lines[i].match(/^>\s?(.*)$/)!
+      while (i < lines.length && /^>\s?/.test(splitIndent(lines[i]).rest)) {
+        const nextRest = splitIndent(lines[i]).rest
+        const m = nextRest.match(/^>\s?(.*)$/)!
         qlines.push({ raw: m[1], start: offset + lines[i].length - m[1].length })
         offset += lines[i].length + 1
         i++
       }
-      out.push(`<blockquote>${qlines.map((l) => renderLine(l.raw, marks, l.start)).join('<br>')}</blockquote>`)
+      out.push(`<blockquote${padStyle(level)}>${qlines.map((l) => renderLine(l.raw, marks, l.start)).join('<br>')}</blockquote>`)
       continue
     }
 
-    const checkbox = line.match(/^\s*[-*+]\s+\[( |x|X)\]\s+(.*)$/)
-    const bullet = !checkbox && line.match(/^\s*[-*+]\s+(.*)$/)
-    const numbered = line.match(/^\s*\d+\.\s+(.*)$/)
+    const checkbox = rest.match(/^[-*+]\s+\[( |x|X)\]\s+(.*)$/)
+    const bullet = !checkbox && rest.match(/^[-*+]\s+(.*)$/)
+    const numbered = rest.match(/^\d+\.\s+(.*)$/)
 
     if (checkbox) {
       flushParagraph()
@@ -272,9 +335,9 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
         listType = 'ul'
       }
       const checked = checkbox[1].toLowerCase() === 'x'
-      const bodyStart = lineStart + line.length - checkbox[2].length
+      const bodyStart = bodyStart0 + rest.length - checkbox[2].length
       listItems.push(
-        `<li class="task-item"><input type="checkbox" disabled${checked ? ' checked' : ''}/> ${renderLine(checkbox[2], marks, bodyStart)}</li>`
+        `<li class="task-item"${padStyle(level)}><input type="checkbox" disabled${checked ? ' checked' : ''}/> ${renderLine(checkbox[2], marks, bodyStart)}</li>`
       )
       offset += line.length + 1
       i++
@@ -286,8 +349,8 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
         flushList()
         listType = 'ul'
       }
-      const bodyStart = lineStart + line.length - bullet[1].length
-      listItems.push(`<li>${renderLine(bullet[1], marks, bodyStart)}</li>`)
+      const bodyStart = bodyStart0 + rest.length - bullet[1].length
+      listItems.push(`<li${padStyle(level)}>${renderLine(bullet[1], marks, bodyStart)}</li>`)
       offset += line.length + 1
       i++
       continue
@@ -298,15 +361,15 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
         flushList()
         listType = 'ol'
       }
-      const bodyStart = lineStart + line.length - numbered[1].length
-      listItems.push(`<li>${renderLine(numbered[1], marks, bodyStart)}</li>`)
+      const bodyStart = bodyStart0 + rest.length - numbered[1].length
+      listItems.push(`<li${padStyle(level)}>${renderLine(numbered[1], marks, bodyStart)}</li>`)
       offset += line.length + 1
       i++
       continue
     }
 
     flushList()
-    paragraph.push({ raw: line, start: lineStart })
+    paragraph.push({ raw: rest, start: bodyStart0, level })
     offset += line.length + 1
     i++
   }

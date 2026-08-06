@@ -21,7 +21,18 @@ import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
 import { renderMarkdown, renderEditorLine, htmlToMarkdownSource } from '@/lib/text/render'
-import { applyMark, shiftMarks, parse, serialize, TEXT_COLORS, TEXT_SIZES, type Mark, type MarkKind } from '@/lib/text/marks'
+import {
+  applyMark,
+  shiftMarks,
+  parse,
+  serialize,
+  splitIndent,
+  INDENT_UNIT,
+  TEXT_COLORS,
+  TEXT_SIZES,
+  type Mark,
+  type MarkKind,
+} from '@/lib/text/marks'
 import { cn } from '@/lib/utils'
 
 // Optional box-level background tint — shared with Note, which always shows
@@ -369,8 +380,11 @@ function useLiveTextEditor(
   // out for another instead of stacking them. Order matters: checklist's
   // `- [ ] ` must be tried before plain bullet's `- `, since the latter is a
   // strict prefix of the former and would otherwise match first and leave
-  // `[ ] ` behind as visible text.
-  const BLOCK_PREFIX = /^(#{1,6}\s+|>\s?|\s*[-*+]\s+\[[ xX]\]\s+|\s*[-*+]\s+|\s*\d+\.\s+)/
+  // `[ ] ` behind as visible text. Matched against the line's `rest` (post-
+  // indent, see splitIndent) — indentation is a separate per-line concern
+  // from block type, handled by indentLine below, so this never has to
+  // account for leading spaces itself.
+  const BLOCK_PREFIX = /^(#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+\.\s+)/
 
   const prefixLine = (prefix: string) => {
     // Same fix as toggleMark: land on the line the user actually
@@ -385,8 +399,9 @@ function useLiveTextEditor(
     }
     const i = activeRef.current
     const raw = linesRef.current[i] ?? ''
-    const existing = raw.match(BLOCK_PREFIX)?.[0] ?? ''
-    const bare = raw.slice(existing.length)
+    const { indent, rest } = splitIndent(raw)
+    const existing = rest.match(BLOCK_PREFIX)?.[0] ?? ''
+    const bare = rest.slice(existing.length)
     // Re-applying the exact same prefix (e.g. clicking Bullet on an already-
     // bulleted line) toggles it off, matching toggleMark's toggle behavior;
     // otherwise the old prefix is replaced, never stacked on top of. The
@@ -394,11 +409,51 @@ function useLiveTextEditor(
     // an inline mark — see marks.ts doc comment), so marks anywhere on this
     // line need to shift by the prefix-length delta.
     const delta = (existing === prefix ? '' : prefix).length - existing.length
-    if (delta !== 0) marksRef.current = shiftMarks(marksRef.current, lineStart(i), delta)
-    const next = existing === prefix ? bare : prefix + bare
+    if (delta !== 0) marksRef.current = shiftMarks(marksRef.current, lineStart(i) + indent.length, delta)
+    const next = indent + (existing === prefix ? bare : prefix + bare)
     linesRef.current[i] = next
     renderLineDom(i)
     placeCaretAt(i, next.length)
+    commit()
+  }
+
+  /** Tab/Shift+Tab — adds or removes one INDENT_UNIT of leading whitespace
+   *  on every line the current selection touches (a single line for a
+   *  collapsed caret, matching how Tab behaves in every code/text editor).
+   *  Caret/selection offsets are shifted by each touched line's own applied
+   *  delta (0 for a Shift+Tab on an already-unindented line) so indenting
+   *  mid-word doesn't jump the caret to the line start. */
+  const indentLine = (dir: 1 | -1) => {
+    const span = selectionSpan()
+    const pos = caretPosition()
+    const startLine = span?.s.line ?? pos?.line ?? activeRef.current
+    const endLine = span?.e.line ?? startLine
+    if (startLine < 0) return
+
+    const deltaForLine = new Map<number, number>()
+    for (let i = startLine; i <= endLine; i++) {
+      const raw = linesRef.current[i] ?? ''
+      const { indent, rest } = splitIndent(raw)
+      const nextIndent = dir > 0 ? indent + INDENT_UNIT : indent.slice(INDENT_UNIT.length)
+      const delta = nextIndent.length - indent.length
+      deltaForLine.set(i, delta)
+      if (delta === 0) continue
+      marksRef.current = shiftMarks(marksRef.current, lineStart(i), delta)
+      linesRef.current[i] = nextIndent + rest
+    }
+
+    activeRef.current = -1
+    rebuildAll()
+    activeRef.current = startLine
+    renderLineDom(startLine) // picks up the md-line-active class rebuildAll() just missed (it ran while activeRef was still -1)
+    if (span) {
+      const sDelta = deltaForLine.get(span.s.line) ?? 0
+      const eDelta = deltaForLine.get(span.e.line) ?? 0
+      selectRange(span.s.line, Math.max(0, span.s.offset + sDelta), Math.max(0, span.e.offset + eDelta))
+    } else if (pos) {
+      const delta = deltaForLine.get(pos.line) ?? 0
+      placeCaretAt(startLine, Math.max(0, pos.offset + delta))
+    }
     commit()
   }
 
@@ -475,6 +530,15 @@ function useLiveTextEditor(
       toggleMark('underline')
       return
     }
+    if (e.key === 'Tab') {
+      // Without preventDefault, Tab's default action is to move focus out of
+      // the contentEditable entirely (to the next focusable element on the
+      // page) — every text/code editor instead uses Tab for indent, which is
+      // what's implemented here.
+      e.preventDefault()
+      indentLine(e.shiftKey ? -1 : 1)
+      return
+    }
 
     // Any selection (single- or multi-line, active line or not) that's
     // about to be mutated goes through the one path that can safely touch
@@ -507,13 +571,20 @@ function useLiveTextEditor(
       const pos = caretPosition()
       const raw = linesRef.current[idx] ?? ''
       const at = pos && pos.line === idx ? Math.min(pos.offset, raw.length) : raw.length
+      // Carries the split line's indent level forward onto the new line
+      // (Tab on one line, Enter, keep typing at the same depth — no need to
+      // re-Tab every time) — unless the caret is still INSIDE the leading
+      // whitespace itself, where duplicating it would just double-indent.
+      const { indent } = splitIndent(raw)
+      const carry = at >= indent.length ? indent : ''
       marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + at, 1) // the new '\n' itself
-      linesRef.current.splice(idx, 1, raw.slice(0, at), raw.slice(at))
+      if (carry) marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + at + 1, carry.length)
+      linesRef.current.splice(idx, 1, raw.slice(0, at), carry + raw.slice(at))
       rebuildAll()
       activeRef.current = idx + 1
       renderLineDom(idx)
       renderLineDom(idx + 1)
-      placeCaretAt(idx + 1, 0)
+      placeCaretAt(idx + 1, carry.length)
       commit()
       return
     }

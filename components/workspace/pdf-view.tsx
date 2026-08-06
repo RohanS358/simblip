@@ -25,13 +25,10 @@
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import { getSessionFile, loadSessionFile, putSessionFile, getSessionBlob } from '@/lib/store/session-files'
-import { attachPdfToPage } from '@/lib/store/pdf-attach'
+import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
-import { resolveSharedFile } from '@/lib/data/session-upload'
-import { getAccessToken } from '@/lib/auth/store'
-import * as db from '@/lib/data/db'
+import { getFile } from '@/lib/storage/manager'
 import { uid } from '@/lib/scene/types'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
@@ -169,7 +166,7 @@ function PdfPage({
 }
 
 export function PdfView({ pageId }: { pageId: string }) {
-  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const [doc, setDoc] = useState<PdfDoc | null>(null)
   const [converting, setConverting] = useState<string | null>(null)
@@ -317,15 +314,29 @@ useLayoutEffect(() => {
     return () => ro.disconnect()
   }, [])
 
-  const [local, setLocal] = useState(() => getSessionFile(pageId))
+  const [local, setLocal] = useState<AttachedFile | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  // Resolve the page's file via OPFS + manifest (lib/storage/manager.ts),
+  // keyed off meta.fileUrl's `opfs:<fileId>` marker — offline-first: getFile
+  // checks this device's local OPFS copy before ever touching the network,
+  // and re-seeds OPFS from Vercel Blob (durable, cross-device) on a miss, so
+  // a second device opening this page for the first time still works. No
+  // separate "keep the cloud seed alive" dance needed anymore — Blob
+  // storage is already durable, unlike the old 7-day rolling /api/files seed
+  // this replaces.
+  const fileName = meta?.fileName
   useEffect(() => {
-    // After a reload the persisted copy lives in IndexedDB — hydrate it.
+    const fileId = meta?.fileUrl?.startsWith('opfs:') ? meta.fileUrl.slice('opfs:'.length) : null
+    if (!fileId) {
+      setHydrated(true)
+      return
+    }
     let dead = false
     void (async () => {
       try {
-        const f = await loadSessionFile(pageId)
-        if (!dead && f) setLocal(f)
+        const blob = await getFile(fileId)
+        if (!blob || dead) return
+        setLocal({ url: URL.createObjectURL(blob), name: fileName ?? 'document.pdf', mime: blob.type || 'application/pdf', fileId })
       } finally {
         if (!dead) setHydrated(true)
       }
@@ -333,77 +344,8 @@ useLayoutEffect(() => {
     return () => {
       dead = true
     }
-  }, [pageId])
-  // No local copy → this device has never seen the document. Pull it from
-  // the database (the notebook tree syncs meta.fileUrl across devices) and
-  // DOWNLOAD it into local storage, so from now on it opens offline here and
-  // the short-lived server copy only has to seed devices, not serve them.
-  // Reading it also renews its 7-day retention window.
-  const fileName = meta?.fileName
-  useEffect(() => {
-    if (local || !hydrated || !meta?.fileUrl) return
-    let dead = false
-    void (async () => {
-      const url = await resolveSharedFile(meta.fileUrl!)
-      if (!url || dead) return
-      try {
-        const res = await fetch(url)
-        // 404 = the server copy aged out with no device online to renew it —
-        // don't cache the error body as a "PDF".
-        if (!res.ok) throw new Error(String(res.status))
-        const blob = await res.blob()
-        if (dead) return
-        const f = new File([blob], fileName ?? 'document.pdf', {
-          type: blob.type || 'application/pdf',
-        })
-        setLocal(putSessionFile(pageId, f))
-      } catch {
-        // If the shared copy is missing, leave the reader empty instead of
-        // pinning a broken /api/files URL into the viewer.
-      }
-    })()
-    return () => {
-      dead = true
-    }
-  }, [hydrated, local, meta?.fileUrl, fileName, pageId])
+  }, [meta?.fileUrl, fileName])
   const fileUrl = local?.url ?? sharedUrl
-
-  // Keep the cloud seed alive: any device HOLDING the file (re-)uploads it
-  // when the server copy is missing — first attach, an upload that failed
-  // offline, or a copy that aged out of its 7-day window. A HEAD when the
-  // copy exists renews its retention clock. So the server only ever has to
-  // seed devices that haven't downloaded the document yet.
-  useEffect(() => {
-    if (!local || db.dbMode !== 'cloud') return
-    let dead = false
-    const path = `notebook/${pageId}`
-    void (async () => {
-      try {
-        const hasUrl = !!findPageMeta(useWorkspaceStore.getState().notebooks, pageId)?.fileUrl
-        if (hasUrl) {
-          const head = await fetch(`/api/files/${path}`, { method: 'HEAD' })
-          if (head.ok || head.status >= 500 || dead) return
-        }
-        const blob = await getSessionBlob(pageId)
-        if (!blob || dead) return
-        const res = await fetch(`/api/files/${path}`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${getAccessToken() ?? ''}`,
-            'Content-Type': 'application/pdf',
-          },
-          body: blob,
-        })
-        if (res.ok && !dead)
-          useWorkspaceStore.getState().updatePageMeta(pageId, { fileUrl: `/api/files/${path}` })
-      } catch {
-        // best-effort — the local copy is authoritative on this device
-      }
-    })()
-    return () => {
-      dead = true
-    }
-  }, [local, pageId])
 
   useEffect(() => {
     if (!fileUrl) return
@@ -432,7 +374,8 @@ useLayoutEffect(() => {
     }
     setLocal(stored)
     setRev((v) => v + 1)
-    // The keep-alive effect below sees the new local copy and uploads it.
+    // attachPdfToPage already wrote the file to OPFS + kicked off its
+    // background Blob upload — nothing else to do here.
   }
 
   const onCurrent = useCallback((n: number) => setCurrent(n), [])

@@ -14,7 +14,7 @@
 
 import * as db from './db'
 import { getAccessToken } from '@/lib/auth/store'
-import { getSessionBlob, loadSessionFile } from '@/lib/store/session-files'
+import { getSessionBlob, loadSessionFile } from '@/lib/store/ephemeral-storage'
 import type { PageDoc } from '@/lib/scene/types'
 
 const blobToDataUrl = (blob: Blob) =>

@@ -10,7 +10,7 @@ import { DocView } from './doc-view'
 import { PdfView } from './pdf-view'
 
 export function PageView({ pageId }: { pageId: string }) {
-  const kind = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId)?.kind ?? 'board')
+  const kind = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId)?.pageKind ?? 'board')
   // Keyed by pageId like InfiniteCanvas below: without it, switching tabs
   // updates props on the SAME DocView/PdfView instance instead of
   // remounting — their scroll position and zoom (both plain useState, tied

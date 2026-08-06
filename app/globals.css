@@ -657,8 +657,51 @@
     color: var(--muted-foreground);
   }
   .md-editor .md-li {
-    display: block;
+    display: flex;
+    align-items: baseline;
     padding-left: 0.2em;
+  }
+  /* The marker (e.g. "- ", "1. ", "- [ ] ") stays real, selectable,
+     backspace-able text — it has to, editing relies on caret offsets
+     matching raw text 1:1 — but it's font-size:0'd and given a glyph via
+     ::before, so it READS as a real list marker/checkbox instead of literal
+     dashes and brackets, matching the read-only view's actual
+     <li>/<input type=checkbox>. Numbered markers ("1. ") are left as
+     visible dimmed text instead, since the real number carries information
+     a glyph can't. */
+  .md-editor .md-marker-bullet,
+  .md-editor .md-marker-check {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Fixed rem width, not em — the real prefix text inside is font-size:0'd
+       (below), and 'em' on the SAME element would resolve against that zero,
+       collapsing the box to nothing (the bug this comment replaced: the
+       glyph's ::before computed a real "•" but its box was 1.4em of a
+       zeroed font-size = 0px wide, so nothing ever painted). */
+    width: 1.4rem;
+    font-size: 0;
+  }
+  .md-editor .md-marker-bullet::before,
+  .md-editor .md-marker-check::before {
+    font-size: 1rem;
+    line-height: 1;
+    color: var(--foreground);
+  }
+  .md-editor .md-marker-bullet::before {
+    content: '•';
+  }
+  .md-editor .md-marker-check::before {
+    content: '☐';
+  }
+  .md-editor .md-li-checked .md-marker-check::before {
+    content: '☑';
+    color: var(--muted-foreground);
+  }
+  .md-editor .md-marker-num {
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
   }
   .md-editor .md-hr {
     display: block;

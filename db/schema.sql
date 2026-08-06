@@ -258,6 +258,32 @@ create table if not exists simblip_session_files (
   created_at timestamptz not null default now()
 );
 
+-- ── File manifest (Vercel Blob metadata) ────────────────────────────────────
+-- Durable storage moved off Postgres bytea (see simblip_session_files above,
+-- and docs/deployment-cost-plan.md) to Vercel Blob. This table is the
+-- server-side mirror of each device's local manifest (lib/storage/manifest.ts)
+-- — "cloud stores metadata first, files second": a second device can list a
+-- user's files here and pull bytes from blob_url on demand, without ever
+-- routing file bytes through Postgres. NOT a sync queue and NOT a device
+-- registry (phase 2+) — just enough server-side truth for cross-device file
+-- discovery in sync-by-default mode.
+
+create table if not exists simblip_file_manifest (
+  id             text primary key,           -- = client manifest id (lib/storage/manifest-types.ts)
+  owner_id       uuid not null references simblip_profiles (id) on delete cascade,
+  institution_id uuid not null references simblip_institutions (id) on delete cascade,
+  name           text not null,
+  mime           text not null,
+  size           bigint not null,
+  sha256         text not null,
+  blob_url       text not null,              -- Vercel Blob public/read URL
+  created_at     timestamptz not null default now(),
+  updated_at     timestamptz not null default now()
+);
+
+create index if not exists simblip_file_manifest_owner_idx
+  on simblip_file_manifest (owner_id);
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migrating FROM a Supabase deployment (schema v2)?
 --   • RLS policies and the auth schema are gone — the /api/pg gateway

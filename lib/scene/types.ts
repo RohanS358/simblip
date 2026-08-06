@@ -137,11 +137,44 @@ export interface PageDoc {
  *  uploaded PDF/PPT you read and annotate. Older pages have no kind → board. */
 export type PageKind = 'board' | 'doc' | 'pdf'
 
-/** Tree metadata only — page content lives in the document store, keyed by id. */
-export interface PageMeta {
+/** The notebook/folder tree — Notebook -> Section -> Page used to be a fixed
+ *  2-level hierarchy; it's now arbitrary-depth folders that can contain
+ *  folders, pages, or raw uploaded files, like a real filesystem. A
+ *  "Notebook" is no longer a distinct type — it's just a FolderNode with
+ *  `parentId: null` (top-level), rendered specially in the UI (cover image,
+ *  emoji, notebook picker) because of that, not because it's a different
+ *  kind of thing. IDs are globally unique (see `uid()` below), so lookup
+ *  never needs a parent-scoped path — every consumer can go straight from an
+ *  id to its node via a flat map. */
+export type NodeKind = 'folder' | 'page' | 'file'
+
+interface NodeBase {
   id: string
+  /** null = top-level ("notebook"). */
+  parentId: string | null
   name: string
-  kind?: PageKind
+  /** Sibling sort key — replaces array-position ordering now that the tree
+   *  isn't stored as nested arrays. */
+  order: number
+}
+
+export interface FolderNode extends NodeBase {
+  kind: 'folder'
+  /** Only meaningful when parentId === null (was Notebook.emoji). */
+  emoji?: string
+  /** Cover image path (from /public/cover), only meaningful when
+   *  parentId === null (was Notebook.cover). */
+  cover?: string
+  /** Only meaningful when parentId !== null (was Section.color). */
+  color?: string
+}
+
+/** Tree metadata only — page content lives in the document store, keyed by id. */
+export interface PageNode extends NodeBase {
+  kind: 'page'
+  /** What this page IS: an infinite board, a paged document, or an uploaded
+   *  PDF/PPT you read and annotate. Older pages have no kind → board. */
+  pageKind?: PageKind
   /** doc: ordered content-page ids, one per sheet. */
   docPages?: string[]
   /** doc: per-sheet page size overrides (CSS px, A4 ratio by default), keyed by sheet id. */
@@ -163,12 +196,48 @@ export interface PageMeta {
   annotPages?: string[]
   /** pdf: id of the free-form notes doc opened beside the reader. */
   notesDocId?: string
-  /** pdf: shareable copy of the uploaded document (cloud/local db). */
+  /** pdf: shareable copy of the uploaded document — legacy attachment path
+   *  for pdf-kind pages created before file nodes existed (cloud/local db,
+   *  or `opfs:<manifestId>` once migrated). Prefer a FileNode leaf for new
+   *  uploads instead of wrapping them in a pdf-kind page. */
   fileUrl?: string
   fileName?: string
   fileMime?: string
 }
 
+/** A raw uploaded file as a direct tree leaf (PDF, image, etc.) — not
+ *  wrapped in a page. `fileId` resolves the actual blob via the OPFS +
+ *  manifest storage layer (lib/storage/manager.ts). */
+export interface FileNode extends NodeBase {
+  kind: 'file'
+  fileId: string
+  mime: string
+  size: number
+}
+
+export type Node = FolderNode | PageNode | FileNode
+
+/** @deprecated kept only for the one-time legacy-shape migration
+ *  (lib/store/migrate-tree.ts) — do not use in new code. */
+export interface PageMeta {
+  id: string
+  name: string
+  kind?: PageKind
+  docPages?: string[]
+  sheetSizes?: Record<string, { w: number; h: number }>
+  docPageSize?: { w: number; h: number }
+  docSubtitle?: string
+  docDate?: string
+  notesPages?: string[]
+  annotPages?: string[]
+  notesDocId?: string
+  fileUrl?: string
+  fileName?: string
+  fileMime?: string
+}
+
+/** @deprecated kept only for the one-time legacy-shape migration
+ *  (lib/store/migrate-tree.ts) — do not use in new code. */
 export interface Section {
   id: string
   name: string
@@ -176,11 +245,12 @@ export interface Section {
   pages: PageMeta[]
 }
 
+/** @deprecated kept only for the one-time legacy-shape migration
+ *  (lib/store/migrate-tree.ts) — do not use in new code. */
 export interface Notebook {
   id: string
   name: string
   emoji: string
-  /** Cover image path (from /public/cover) shown on notebook cards. */
   cover?: string
   sections: Section[]
 }

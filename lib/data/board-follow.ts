@@ -12,7 +12,7 @@
 import { toast } from 'sonner'
 import { getSession, subscribeBoardSessions } from './boards'
 import type { BoardSessionRow } from './types'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import type { PageKind } from '@/lib/scene/types'
 import {
@@ -31,18 +31,17 @@ const active = new Map<string, string>() // sessionId → local pageId (this tab
  *  stealing the user's current focus. */
 function createTargetPage(pageName: string, kind: PageKind): string {
   const ws = useWorkspaceStore.getState()
-  const nb = ws.notebooks.find((n) => n.name === 'Shared with me')
+  const nb = childrenOf(ws.nodes, null).find((n) => n.name === 'Shared with me')
   const nbId = nb?.id ?? ws.addNotebook('Shared with me')
   if (!nb) {
     useWorkspaceStore.setState((s) => ({
-      notebooks: s.notebooks.map((n) => (n.id === nbId ? { ...n, emoji: '📥' } : n)),
+      nodes: s.nodes[nbId]?.kind === 'folder' ? { ...s.nodes, [nbId]: { ...s.nodes[nbId], emoji: '📥' } } : s.nodes,
     }))
   }
-  const fresh = useWorkspaceStore.getState().notebooks.find((n) => n.id === nbId)!
-  const sec = fresh.sections.find((s) => s.name === 'Whiteboard')
-  const secId = sec?.id ?? ws.addSection(nbId, 'Whiteboard')
+  const sec = childrenOf(useWorkspaceStore.getState().nodes, nbId).find((n) => n.name === 'Whiteboard')
+  const secId = sec?.id ?? ws.addFolder('Whiteboard', nbId)
   const prevActive = useWorkspaceStore.getState().activePageId
-  const pageId = ws.addPage(nbId, secId, pageName, kind)
+  const pageId = ws.addPageIn(secId, pageName, kind)
   useWorkspaceStore.getState().setActivePage(prevActive)
   return pageId
 }

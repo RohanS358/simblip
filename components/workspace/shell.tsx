@@ -11,7 +11,7 @@ import dynamic from 'next/dynamic'
 import { GraduationCap, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
-import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta, childrenOf } from '@/lib/store/workspace'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
@@ -55,7 +55,7 @@ const EventLogPanel = dynamic(() => import('./event-log-panel').then((m) => m.Ev
  *  default and undiscovered on the one page built to showcase it). */
 function seedFirstRun(): boolean {
   const ws = useWorkspaceStore.getState()
-  if (ws.notebooks.length > 0) return false
+  if (childrenOf(ws.nodes, null).length > 0) return false
   const nbId = ws.addNotebook('My Notebook')
   const secId = ws.addSection(nbId, 'Physics')
   const pageId = ws.addPage(nbId, secId, 'Welcome')
@@ -147,7 +147,7 @@ export function WorkspaceShell() {
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const activeKind = useWorkspaceStore(
-    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+    (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
   // What the toolbar/transport/inspector actually operate on: boards act on
   // themselves, docs act on the focused SHEET, and PDF readers draw with the

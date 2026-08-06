@@ -18,7 +18,11 @@ function buildCsp(nonce: string) {
     // domains, so img-src can't be pinned to 'self'.
     `img-src 'self' data: blob: https:`,
     `font-src 'self' data:`,
-    `connect-src 'self' blob:`,
+    // Vercel Blob client uploads (lib/storage/manager.ts) talk to Vercel's
+    // API for token verification and directly to blob storage for the bytes
+    // themselves — both origins are outside 'self' by design (that's the
+    // whole point of client-direct upload, see upload-url/route.ts's comment).
+    `connect-src 'self' blob: https://vercel.com https://*.public.blob.vercel-storage.com`,
     `worker-src 'self' blob:`,
     `media-src 'self' blob:`,
     `manifest-src 'self'`,

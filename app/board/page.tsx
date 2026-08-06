@@ -44,7 +44,7 @@ import { useDockClearance } from '@/hooks/use-dock-clearance'
 import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
-import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
 import { usePrefs } from '@/lib/store/preferences'
 import {
   bundleMetaPatch,
@@ -84,7 +84,7 @@ import { cn } from '@/lib/utils'
 function pageHolding(mainId: string, objectId: string): string {
   const pages = useDocStore.getState().pages
   if (pages[mainId]?.objects[objectId]) return mainId
-  const meta = findPageMeta(useWorkspaceStore.getState().notebooks, mainId)
+  const meta = findPageMeta(useWorkspaceStore.getState().nodes, mainId)
   for (const id of [
     ...(meta?.docPages ?? []),
     ...(meta?.notesPages ?? []).filter(Boolean),
@@ -149,31 +149,36 @@ function applyRemote(cmd: RemoteCommand, pageId: string) {
 // teacher sent them, so edits round-trip back into the session bundle.
 const BOARD_NB = '__board-session'
 
+const BOARD_NB_SEC = `${BOARD_NB}-sec`
+
 function registerSessionPage(tempId: string, name: string, bundle: PageBundle) {
-  useWorkspaceStore.setState((s) => ({
-    notebooks: [
-      ...s.notebooks.filter((n) => n.name !== BOARD_NB),
-      {
-        id: BOARD_NB,
-        name: BOARD_NB,
-        emoji: '🖥️',
-        sections: [
-          {
-            id: `${BOARD_NB}-sec`,
-            name: 'Live',
-            color: 'blue',
-            pages: [{ id: tempId, name, ...(bundle.bundle ? bundleMetaPatch(bundle.bundle) : { kind: 'board' as const }) }],
-          },
-        ],
-      },
-    ],
-    activePageId: tempId,
-  }))
+  useWorkspaceStore.setState((s) => {
+    // Drop any previous board-session folder (by name — see BOARD_NB's
+    // comment) and rebuild it fresh, same "one live session at a time" model
+    // the old array-based version had.
+    const stale = childrenOf(s.nodes, null).find((n) => n.name === BOARD_NB)
+    const nodes = { ...s.nodes }
+    if (stale) {
+      delete nodes[stale.id]
+      descendantsOf(s.nodes, stale.id).forEach((n) => delete nodes[n.id])
+    }
+    nodes[BOARD_NB] = { id: BOARD_NB, parentId: null, kind: 'folder', name: BOARD_NB, emoji: '🖥️', order: 0 }
+    nodes[BOARD_NB_SEC] = { id: BOARD_NB_SEC, parentId: BOARD_NB, kind: 'folder', name: 'Live', color: 'blue', order: 0 }
+    nodes[tempId] = {
+      id: tempId,
+      parentId: BOARD_NB_SEC,
+      kind: 'page',
+      name,
+      order: 0,
+      ...(bundle.bundle ? bundleMetaPatch(bundle.bundle) : { pageKind: 'board' as const }),
+    }
+    return { nodes, activePageId: tempId }
+  })
   writeBundleContent(tempId, bundle)
 }
 
 function clearSessionPage(tempId: string) {
-  const meta = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)
+  const meta = findPageMeta(useWorkspaceStore.getState().nodes, tempId)
   const ids = [
     tempId,
     ...(meta?.docPages ?? []),
@@ -193,12 +198,20 @@ function clearSessionPage(tempId: string) {
     return { pages, scopes }
   })
   ids.forEach((id) => pageArchive.dropPage(id))
-  useWorkspaceStore.setState((s) => ({
-    notebooks: s.notebooks.filter((n) => n.name !== BOARD_NB),
-    activePageId: s.activePageId === tempId ? null : s.activePageId,
-    activeSheetId: null,
-    pdfToolsActive: false,
-  }))
+  useWorkspaceStore.setState((s) => {
+    const boardNb = childrenOf(s.nodes, null).find((n) => n.name === BOARD_NB)
+    const nodes = { ...s.nodes }
+    if (boardNb) {
+      delete nodes[boardNb.id]
+      descendantsOf(s.nodes, boardNb.id).forEach((n) => delete nodes[n.id])
+    }
+    return {
+      nodes,
+      activePageId: s.activePageId === tempId ? null : s.activePageId,
+      activeSheetId: null,
+      pdfToolsActive: false,
+    }
+  })
 }
 
 function timeAgo(iso: string): string {
@@ -330,10 +343,9 @@ function BoardSurface() {
 
   // Board identity. Also sweep any session page a crash left behind.
   useEffect(() => {
-    const leftover = useWorkspaceStore
-      .getState()
-      .notebooks.find((n) => n.name === BOARD_NB)
-      ?.sections[0]?.pages[0]?.id
+    const nodes = useWorkspaceStore.getState().nodes
+    const boardFolder = childrenOf(nodes, null).find((n) => n.kind === 'folder' && n.name === BOARD_NB)
+    const leftover = boardFolder ? descendantsOf(nodes, boardFolder.id).find((n) => n.kind === 'page')?.id : undefined
     if (leftover) clearSessionPage(leftover)
     void myBoard().then((res) => {
       if (res) {
@@ -528,7 +540,7 @@ function BoardSurface() {
   useEffect(() => {
     if (!session || !wsHandle?.connected) return
     const tempId = `board-${session.id}`
-    const kind = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)?.kind ?? 'board'
+    const kind = findPageMeta(useWorkspaceStore.getState().nodes, tempId)?.pageKind ?? 'board'
     if (kind !== 'board') return
     return useDocStore.subscribe((s, prev) => {
       if (s.pages[tempId] === prev.pages[tempId]) return
@@ -549,9 +561,9 @@ function BoardSurface() {
     if (!session) return
     const tempId = `board-${session.id}`
     let timer: ReturnType<typeof setTimeout> | null = null
-    const kindOf = () => findPageMeta(useWorkspaceStore.getState().notebooks, tempId)?.kind ?? 'board'
+    const kindOf = () => findPageMeta(useWorkspaceStore.getState().nodes, tempId)?.pageKind ?? 'board'
     const ownIds = () => {
-      const meta = findPageMeta(useWorkspaceStore.getState().notebooks, tempId)
+      const meta = findPageMeta(useWorkspaceStore.getState().nodes, tempId)
       return new Set([
         tempId,
         ...(meta?.docPages ?? []),
@@ -594,7 +606,7 @@ function BoardSurface() {
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const boardKind = useWorkspaceStore((s) =>
-    activeBoardPage ? (findPageMeta(s.notebooks, activeBoardPage)?.kind ?? 'board') : 'board'
+    activeBoardPage ? (findPageMeta(s.nodes, activeBoardPage)?.pageKind ?? 'board') : 'board'
   )
   const pdfToolsOn = boardKind === 'pdf' && pdfToolsActive
   const boardContentId =

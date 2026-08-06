@@ -13,7 +13,7 @@
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import * as archive from '@/lib/store/page-archive'
-import type { PageDoc, PageKind, PageMeta } from '@/lib/scene/types'
+import type { PageDoc, PageKind, PageNode } from '@/lib/scene/types'
 
 export interface BundleMeta {
   kind: PageKind
@@ -42,7 +42,7 @@ export function readContent(pageId: string): PageDoc {
   return useDocStore.getState().pages[pageId] ?? archive.readPage(pageId) ?? EMPTY
 }
 
-const sheetIdsOf = (meta: PageMeta): string[] => [
+const sheetIdsOf = (meta: PageNode): string[] => [
   ...(meta.docPages ?? []),
   ...(meta.notesPages ?? []).filter(Boolean),
   ...(meta.annotPages ?? []).filter(Boolean),
@@ -53,9 +53,9 @@ const sheetIdsOf = (meta: PageMeta): string[] => [
  *  NOT remapped here — receivers that need fresh ids (shares, assignments)
  *  remap on import; mirrors and board sessions keep them for round-trips. */
 export function bundlePage(pageId: string): PageBundle {
-  const meta = findPageMeta(useWorkspaceStore.getState().notebooks, pageId)
+  const meta = findPageMeta(useWorkspaceStore.getState().nodes, pageId)
   const content = readContent(pageId)
-  const kind = meta?.kind ?? 'board'
+  const kind = meta?.pageKind ?? 'board'
   if (!meta || kind === 'board') return { ...content }
 
   const sheets: Record<string, PageDoc> = {}
@@ -77,10 +77,10 @@ export function bundlePage(pageId: string): PageBundle {
   }
 }
 
-/** The PageMeta patch a bundle describes (ids kept as-is). */
-export function bundleMetaPatch(b: BundleMeta): Partial<PageMeta> {
+/** The PageNode patch a bundle describes (ids kept as-is). */
+export function bundleMetaPatch(b: BundleMeta): Partial<Omit<PageNode, 'id' | 'kind' | 'parentId'>> {
   return {
-    kind: b.kind,
+    pageKind: b.kind,
     docPages: b.docPages,
     sheetSizes: b.sheetSizes,
     notesPages: b.notesPages,

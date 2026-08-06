@@ -16,10 +16,24 @@ export function SyncStatus() {
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
   // Identity comes from the platform auth store — the engine follows it.
   const signedIn = useAuthStore((s) => s.status === 'authed')
+  const profileId = useAuthStore((s) => s.profile?.id)
 
   useEffect(() => {
     startSync()
   }, [])
+
+  // File storage bootstrap: retry any upload that didn't finish last
+  // session, and — once, per user — migrate PDFs still sitting in the old
+  // IndexedDB cache onto OPFS + manifest (lib/storage/migrate-session-files.ts).
+  // Needs a real profile id (the manifest's ownerId), so it waits for
+  // sign-in instead of running at the same unconditional mount startSync() does.
+  useEffect(() => {
+    if (!profileId) return
+    void import('@/lib/storage/manager').then(({ retrySyncQueue }) => retrySyncQueue())
+    void import('@/lib/storage/migrate-session-files').then(({ migrateSessionFilesToOpfs }) =>
+      migrateSessionFilesToOpfs(profileId)
+    )
+  }, [profileId])
 
   const view = !syncConfigured
     ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local mode — notebooks live in this browser. Configure the cloud database to sync.' }

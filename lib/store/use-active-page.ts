@@ -38,7 +38,7 @@ export function useLazyActivePage(activePageId: string | null) {
       for (const pageId of [s.activePageId, s.primaryPageId, s.splitPageId]) {
         if (!pageId) continue
         ids.add(pageId)
-        const meta = findPageMeta(s.notebooks, pageId)
+        const meta = findPageMeta(s.nodes, pageId)
         for (const sheet of meta?.docPages ?? []) ids.add(sheet)
         for (const note of meta?.notesPages ?? []) if (note) ids.add(note)
         // A PDF's on-page ink canvases are on screen the whole time the

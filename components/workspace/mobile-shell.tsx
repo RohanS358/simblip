@@ -5,7 +5,7 @@
 // & page list) → editor (full-bleed canvas, no sidebar, properties as a
 // bottom sheet, the top-right actions collapsed into one menu).
 
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -29,11 +29,13 @@ import {
   Share2,
   Sun,
   Trash2,
+  Upload,
   X,
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
-import { useWorkspaceStore, findPageMeta, findNotebookId } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
+import type { FolderNode, Node } from '@/lib/scene/types'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -67,6 +69,7 @@ import {
 } from './page-actions'
 import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
+import { addFileToFolder } from './notebook-tree'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -83,7 +86,11 @@ const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.S
 const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
 const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
 
-type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'editor' }
+// 'notebook' kept as a distinct kind from 'folder' only for the drawer's
+// "My Notebooks" highlight check below — both render through the SAME
+// drill-down folder view; a top-level tap and a sub-folder tap just push
+// different depths onto the same view.
+type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'editor' }
 
 const SECTION_DOT: Record<string, string> = {
   blue: 'bg-[var(--accent-blue)]',
@@ -100,6 +107,85 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
 
 const SHARED_NB = 'Shared with me'
 
+/** One row of the drawer's notebook tree — folders expand/collapse
+ *  recursively to any depth, pages open on tap. Deliberately minimal (no
+ *  context menus, no drag-drop) — that's what the full-screen folder view
+ *  and desktop's NotebookTree are for; the drawer is quick navigation. */
+function DrawerNavNode({
+  node,
+  depth,
+  nodes,
+  expanded,
+  onToggle,
+  activePageId,
+  onOpenPage,
+}: {
+  node: Node
+  depth: number
+  nodes: Record<string, Node>
+  expanded: Record<string, boolean>
+  onToggle: (id: string) => void
+  activePageId: string | null
+  onOpenPage: (id: string) => void
+}) {
+  if (node.kind === 'page') {
+    return (
+      <button
+        className={cn(
+          'flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px]',
+          activePageId === node.id
+            ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
+            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+        )}
+        style={{ marginLeft: `${12 + depth * 12}px` }}
+        onClick={() => onOpenPage(node.id)}
+      >
+        <span className="truncate">{node.name}</span>
+      </button>
+    )
+  }
+  if (node.kind === 'file') {
+    return (
+      <div
+        className="flex items-center gap-2 px-3 py-1 text-[13px] text-muted-foreground/70"
+        style={{ marginLeft: `${12 + depth * 12}px` }}
+      >
+        <span className="truncate">{node.name}</span>
+      </div>
+    )
+  }
+  const children = childrenOf(nodes, node.id)
+  const isOpen = expanded[node.id]
+  return (
+    <div className="ml-2">
+      <button
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+        style={depth > 0 ? { marginLeft: `${(depth - 1) * 12}px` } : undefined}
+        onClick={() => onToggle(node.id)}
+      >
+        <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isOpen && 'rotate-90')} />
+        {depth > 0 && (
+          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', SECTION_DOT[node.color ?? 'blue'] ?? SECTION_DOT.blue)} />
+        )}
+        <span className="truncate">{node.name}</span>
+      </button>
+      {isOpen &&
+        children.map((child) => (
+          <DrawerNavNode
+            key={child.id}
+            node={child}
+            depth={depth + 1}
+            nodes={nodes}
+            expanded={expanded}
+            onToggle={onToggle}
+            activePageId={activePageId}
+            onOpenPage={onOpenPage}
+          />
+        ))}
+    </div>
+  )
+}
+
 export function MobileShell() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
@@ -110,14 +196,22 @@ export function MobileShell() {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
-  const [addTarget, setAddTarget] = useState<{ notebookId: string; sectionId: string } | null>(null)
+  const [addTarget, setAddTarget] = useState<{ parentId: string } | null>(null)
+  // One shared hidden <input type=file>, same pattern notebook-tree.tsx
+  // uses — a tap can't open the native picker directly.
+  const uploadInputRef = useRef<HTMLInputElement>(null)
+  const uploadTargetRef = useRef<string | null>(null)
+  const uploadFileTo = (parentId: string) => {
+    uploadTargetRef.current = parentId
+    uploadInputRef.current?.click()
+  }
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [coverFor, setCoverFor] = useState<string | null>(null)
   const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({})
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
+  const nodes = useWorkspaceStore((s) => s.nodes)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
@@ -140,7 +234,7 @@ export function MobileShell() {
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const activeKind = useWorkspaceStore(
-    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+    (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
   // Docs: the tools act on the focused sheet; boards act on themselves; PDFs
   // draw with the same real tools, targeting the focused page/notes canvas.
@@ -155,18 +249,18 @@ export function MobileShell() {
 
   useShareInbox()
 
-  const notebook = view.kind === 'notebook' ? notebooks.find((n) => n.id === view.id) : null
-  const pageName = (() => {
-    for (const nb of notebooks)
-      for (const sec of nb.sections)
-        for (const p of sec.pages) if (p.id === activePageId) return p.name
-    return 'Page'
-  })()
-  // Where the editor's back button returns to — the notebook the open page
+  // 'notebook' and 'folder' views are the same drill-down screen at
+  // different depths — resolve whichever one is active to its FolderNode.
+  const currentFolder: FolderNode | null =
+    view.kind === 'notebook' || view.kind === 'folder'
+      ? ((nodes[view.id]?.kind === 'folder' ? nodes[view.id] : null) as FolderNode | null)
+      : null
+  const pageName = findPageMeta(nodes, activePageId)?.name ?? 'Page'
+  // Where the editor's back button returns to — the folder the open page
   // actually lives in, not always Home.
-  const activeNotebookId = findNotebookId(notebooks, activePageId)
+  const activeParentId = activePageId ? (nodes[activePageId]?.parentId ?? null) : null
   const goBackFromEditor = () =>
-    setView(activeNotebookId ? { kind: 'notebook', id: activeNotebookId } : { kind: 'home' })
+    setView(activeParentId ? { kind: 'folder', id: activeParentId } : { kind: 'home' })
 
   const openPage = (pageId: string) => {
     store.getState().setActivePage(pageId)
@@ -175,9 +269,9 @@ export function MobileShell() {
 
   const staff = can(profile?.role, 'share-pages')
 
-  const duplicatePage = (nbId: string, secId: string, page: PageRef) => {
+  const duplicatePage = (parentId: string, page: PageRef) => {
     // Bundle-aware: duplicating a doc keeps its sheets, a PDF keeps its file.
-    importPageInto(nbId, secId, `${page.name} copy`, bundlePage(page.id))
+    importPageInto(parentId, parentId, `${page.name} copy`, bundlePage(page.id))
     store.getState().setActivePage(null)
   }
 
@@ -193,6 +287,17 @@ export function MobileShell() {
         pageId={publishFor?.id ?? null}
       />
       <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />
+      <input
+        ref={uploadInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0]
+          const parentId = uploadTargetRef.current
+          e.target.value = ''
+          if (f && parentId) void addFileToFolder(parentId, f)
+        }}
+      />
     </>
   )
 
@@ -242,7 +347,7 @@ export function MobileShell() {
               <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
               <div className="flex w-full items-center gap-1">
                 <button
-                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' || view.kind === 'folder' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
                   onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
                 >
                   <BookOpen className="h-4 w-4" /> My Notebooks
@@ -256,44 +361,32 @@ export function MobileShell() {
                   <ChevronRight className={cn('h-4 w-4 transition-transform', navExpanded.__root && 'rotate-90')} />
                 </button>
               </div>
-              {/* The same notebook → section → page tree the desktop sidebar has. */}
-              {navExpanded.__root && notebooks.filter((n) => n.name !== SHARED_NB).map((nb) => (
-                <div key={nb.id} className="ml-2">
-                  <button
-                    className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
-                    onClick={() => setNavExpanded((x) => ({ ...x, [nb.id]: !x[nb.id] }))}
-                  >
-                    <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', navExpanded[nb.id] && 'rotate-90')} />
-                    <span className="truncate">{nb.name}</span>
-                  </button>
-                  {navExpanded[nb.id] &&
-                    nb.sections.map((sec) => (
-                      <div key={sec.id} className="ml-5">
-                        <div className="flex items-center gap-2 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-muted-foreground/60">
-                          <span className={cn('h-1.5 w-1.5 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
-                          {sec.name}
-                        </div>
-                        {sec.pages.map((p) => (
-                          <button
-                            key={p.id}
-                            className={cn('flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px]', activePageId === p.id ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
-                            onClick={() => { openPage(p.id); setDrawerOpen(false) }}
-                          >
-                            <span className="truncate">{p.name}</span>
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                </div>
-              ))}
+              {/* The same notebook tree the desktop sidebar has, to any
+                  depth — a folder expands to its own children recursively
+                  instead of a fixed notebook/section/page structure. */}
+              {navExpanded.__root &&
+                childrenOf(nodes, null)
+                  .filter((n) => n.name !== SHARED_NB)
+                  .map((nb) => (
+                    <DrawerNavNode
+                      key={nb.id}
+                      node={nb}
+                      depth={0}
+                      nodes={nodes}
+                      expanded={navExpanded}
+                      onToggle={(id) => setNavExpanded((x) => ({ ...x, [id]: !x[id] }))}
+                      activePageId={activePageId}
+                      onOpenPage={(id) => { openPage(id); setDrawerOpen(false) }}
+                    />
+                  ))}
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => {
                   // Open (or create) the notebook where shared copies land.
                   const ws = store.getState()
-                  const nb = ws.notebooks.find((n) => n.name === SHARED_NB)
+                  const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
                   const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-                  setView({ kind: 'notebook', id })
+                  setView({ kind: 'folder', id })
                   setDrawerOpen(false)
                 }}
               >
@@ -540,8 +633,19 @@ export function MobileShell() {
     )
   }
 
-  // ── Notebook (sections & pages) ───────────────────────────────────────────
-  if (view.kind === 'notebook' && notebook) {
+  // ── Folder (drill-down) ───────────────────────────────────────────────────
+  // One screen per folder, at any depth — a sub-folder is a tappable card
+  // that pushes a new 'folder' view instead of trying to render nested
+  // grids inline (which doesn't work past 2 levels on a phone screen).
+  // Top-level notebooks and sub-folders ("sections", or any folder a user
+  // creates inside another) render through this SAME screen.
+  if ((view.kind === 'notebook' || view.kind === 'folder') && currentFolder) {
+    const folder = currentFolder
+    const kids = childrenOf(nodes, folder.id)
+    const subFolders = kids.filter((n): n is FolderNode => n.kind === 'folder')
+    const pages = kids.filter((n) => n.kind === 'page')
+    const files = kids.filter((n) => n.kind === 'file')
+    const parentId = folder.parentId
     return (
       <div className="flex h-dvh flex-col bg-background">
         {drawer}
@@ -550,154 +654,177 @@ export function MobileShell() {
             type="button"
             aria-label="Back"
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-            onClick={() => setView({ kind: 'home' })}
+            onClick={() => setView(parentId ? { kind: 'folder', id: parentId } : { kind: 'home' })}
           >
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">
-            {notebook.name}
+            {folder.name}
           </span>
+          <button
+            type="button"
+            aria-label="New folder"
+            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+            onClick={() => store.getState().addFolder('New Folder', folder.id)}
+          >
+            <Plus className="h-4.5 w-4.5" />
+          </button>
           {appMenu}
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4">
-          {notebook.sections.map((sec) => (
-            <div key={sec.id} className="mb-6">
-              <div className="mb-3 flex items-center justify-between px-1">
-                <div className="flex items-center gap-2">
-                  <span className={cn('h-2.5 w-2.5 rounded-full', SECTION_DOT[sec.color] ?? SECTION_DOT.blue)} />
-                  <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
-                    {sec.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    aria-label={`Rename ${sec.name}`}
-                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
-                    onClick={() => {
-                      const name = window.prompt('Rename section', sec.name)
-                      if (name?.trim()) store.getState().renameSection(notebook.id, sec.id, name.trim())
-                    }}
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`New page in ${sec.name}`}
-                    className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
-                    onClick={() => setAddTarget({ notebookId: notebook.id, sectionId: sec.id })}
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                </div>
+          {subFolders.length > 0 && (
+            <div className="mb-6">
+              <div className="mb-3 flex items-center gap-2 px-1">
+                <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+                  Folders
+                </span>
               </div>
-              
-              {sec.pages.length === 0 ? (
-                <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[12px] text-muted-foreground">
-                  No pages yet.
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-                  {sec.pages.map((page) => (
-                    <fm.div
-                      key={page.id}
-                      whileTap={{ scale: 0.95 }}
-                      className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 shadow-sm"
-                      onClick={() => openPage(page.id)}
-                    >
-                      {/* Thumbnail takes the bulk of the card so the user can
-                          preview the page without opening it. */}
-                      <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-muted/40">
-                        <PageThumbnail pageId={page.id} className="absolute inset-0 p-1.5" />
-                        {(() => {
-                          const KindIcon = KIND_ICON[page.kind ?? 'board']
-                          return (
-                            <span className="absolute left-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground backdrop-blur-sm">
-                              <KindIcon className="h-3 w-3" />
-                            </span>
-                          )
-                        })()}
-                        <button
-                          type="button"
-                          aria-label={`Actions for ${page.name}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-100 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
-                        >
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <span className="flex h-6 w-6 items-center justify-center">
-                                <MoreVertical className="h-3.5 w-3.5" />
-                              </span>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-xl">
-                              <DropdownMenuItem onClick={() => openPage(page.id)}>
-                                <BookOpen className="h-4 w-4" /> Open
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  const name = window.prompt('Rename page', page.name)
-                                  if (name?.trim()) store.getState().renamePage(page.id, name.trim())
-                                }}
-                              >
-                                <Pencil className="h-4 w-4" /> Rename
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={(e) => {
-                                e.stopPropagation()
-                                duplicatePage(notebook.id, sec.id, page)
-                              }}>
-                                <Copy className="h-4 w-4" /> Duplicate
-                              </DropdownMenuItem>
-                              {staff && (
-                                <>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareFor(page) }}>
-                                    <Share2 className="h-4 w-4" /> Share copy…
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setAssignFor(page) }}>
-                                    <ClipboardList className="h-4 w-4" /> Assign…
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPresentFor(page) }}>
-                                    <MonitorPlay className="h-4 w-4" /> Present on room board…
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPublishFor(page) }}>
-                                    <LibraryBig className="h-4 w-4" /> Add to library…
-                                  </DropdownMenuItem>
-                                </>
-                              )}
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
-                                <Download className="h-4 w-4" /> Export JSON
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                variant="destructive"
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  if (window.confirm(`Delete page "${page.name}"?`)) {
-                                    store.getState().removePage(page.id)
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" /> Delete page
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </button>
-                      </div>
-                      <span className="mt-2 line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{page.name}</span>
-                    </fm.div>
-                  ))}
-                </div>
-              )}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {subFolders.map((sub) => (
+                  <fm.div
+                    key={sub.id}
+                    whileTap={{ scale: 0.95 }}
+                    className="flex items-center gap-2 rounded-2xl border border-border/40 bg-card px-3 py-3 shadow-sm"
+                    onClick={() => setView({ kind: 'folder', id: sub.id })}
+                  >
+                    <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
+                    <span className="truncate text-[13px] font-semibold">{sub.name}</span>
+                  </fm.div>
+                ))}
+              </div>
             </div>
-          ))}
-          <button
-            type="button"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border/60 bg-muted/20 px-4 py-4 text-[13px] font-bold text-muted-foreground active:bg-accent"
-            onClick={() => store.getState().addSection(notebook.id)}
-          >
-            <Plus className="h-4 w-4" /> New section
-          </button>
+          )}
+
+          <div className="mb-3 flex items-center justify-between px-1">
+            <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+              Pages
+            </span>
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                aria-label="Upload file"
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                onClick={() => uploadFileTo(folder.id)}
+              >
+                <Upload className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="New page"
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                onClick={() => setAddTarget({ parentId: folder.id })}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          {pages.length === 0 && files.length === 0 ? (
+            <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[12px] text-muted-foreground">
+              No pages yet.
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+              {pages.map((page) => (
+                <fm.div
+                  key={page.id}
+                  whileTap={{ scale: 0.95 }}
+                  className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 shadow-sm"
+                  onClick={() => openPage(page.id)}
+                >
+                  {/* Thumbnail takes the bulk of the card so the user can
+                      preview the page without opening it. */}
+                  <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-muted/40">
+                    <PageThumbnail pageId={page.id} className="absolute inset-0 p-1.5" />
+                    {(() => {
+                      const KindIcon = KIND_ICON[page.pageKind ?? 'board']
+                      return (
+                        <span className="absolute left-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground backdrop-blur-sm">
+                          <KindIcon className="h-3 w-3" />
+                        </span>
+                      )
+                    })()}
+                    <button
+                      type="button"
+                      aria-label={`Actions for ${page.name}`}
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-100 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
+                    >
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <span className="flex h-6 w-6 items-center justify-center">
+                            <MoreVertical className="h-3.5 w-3.5" />
+                          </span>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                          <DropdownMenuItem onClick={() => openPage(page.id)}>
+                            <BookOpen className="h-4 w-4" /> Open
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const name = window.prompt('Rename page', page.name)
+                              if (name?.trim()) store.getState().renameNode(page.id, name.trim())
+                            }}
+                          >
+                            <Pencil className="h-4 w-4" /> Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            duplicatePage(folder.id, page)
+                          }}>
+                            <Copy className="h-4 w-4" /> Duplicate
+                          </DropdownMenuItem>
+                          {staff && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setShareFor(page) }}>
+                                <Share2 className="h-4 w-4" /> Share copy…
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setAssignFor(page) }}>
+                                <ClipboardList className="h-4 w-4" /> Assign…
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPresentFor(page) }}>
+                                <MonitorPlay className="h-4 w-4" /> Present on room board…
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setPublishFor(page) }}>
+                                <LibraryBig className="h-4 w-4" /> Add to library…
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
+                            <Download className="h-4 w-4" /> Export JSON
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            variant="destructive"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (window.confirm(`Delete page "${page.name}"?`)) {
+                                store.getState().removeNode(page.id)
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" /> Delete page
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </button>
+                  </div>
+                  <span className="mt-2 line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{page.name}</span>
+                </fm.div>
+              ))}
+              {files.map((file) => (
+                <div
+                  key={file.id}
+                  className="flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
+                >
+                  <span className="line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{file.name}</span>
+                  <span className="text-[10px] text-muted-foreground">{file.mime}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </main>
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {pageDialogs}
@@ -731,14 +858,16 @@ export function MobileShell() {
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">
-          {notebooks.filter((nb) => nb.name !== SHARED_NB).map((nb) => {
-            const pages = nb.sections.reduce((n, s) => n + s.pages.length, 0)
+          {childrenOf(nodes, null)
+            .filter((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
+            .map((nb) => {
+            const pages = descendantsOf(nodes, nb.id).filter((n) => n.kind === 'page').length
             return (
               <fm.div
                 key={nb.id}
                 whileTap={{ scale: 0.95 }}
                 className="relative flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card shadow-sm"
-                onClick={() => setView({ kind: 'notebook', id: nb.id })}
+                onClick={() => setView({ kind: 'folder', id: nb.id })}
               >
                 {/* Cover image instead of an icon — pick one from /cover. */}
                 <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
@@ -795,10 +924,10 @@ export function MobileShell() {
             className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-border/60 bg-muted/20 p-4 text-muted-foreground"
             onClick={() => {
               const id = store.getState().addNotebook()
-              const sec = store.getState().addSection(id, 'Section 1')
-              store.getState().addPage(id, sec, 'Page 1')
+              const sec = store.getState().addFolder('Section 1', id)
+              store.getState().addPageIn(sec, 'Page 1')
               store.getState().setActivePage(null)
-              setView({ kind: 'notebook', id })
+              setView({ kind: 'folder', id })
             }}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-foreground">

@@ -27,7 +27,7 @@ export function TabsBar({
   const openTabs = useWorkspaceStore((s) => s.openTabs)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const splitPageId = useWorkspaceStore((s) => s.splitPageId)
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
+  const nodes = useWorkspaceStore((s) => s.nodes)
   const setActivePage = useWorkspaceStore((s) => s.setActivePage)
   const closeTab = useWorkspaceStore((s) => s.closeTab)
   const openSplit = useWorkspaceStore((s) => s.openSplit)
@@ -48,9 +48,9 @@ export function TabsBar({
     <div className="relative flex min-w-0 flex-1 items-center overflow-hidden">
       <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 pr-3">
         {openTabs.map((id) => {
-          const meta = findPageMeta(notebooks, id)
+          const meta = findPageMeta(nodes, id)
           if (!meta) return null
-          const Icon = KIND_ICON[meta.kind ?? 'board']
+          const Icon = KIND_ICON[meta.pageKind ?? 'board']
           const active = id === activePageId
           const inSplit = id === splitPageId
           return (

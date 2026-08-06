@@ -153,7 +153,7 @@ export function Sidebar({
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
   const activeKind = useWorkspaceStore(
-    (s) => findPageMeta(s.notebooks, s.activePageId)?.kind ?? 'board'
+    (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
   const contentPageId =
     activeKind === 'doc' || (activeKind === 'pdf' && pdfToolsActive)

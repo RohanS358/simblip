@@ -248,7 +248,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   logout: () => {
     // Tokens are stateless JWTs — signing out is dropping them client-side.
     // Attached documents live only until sign-out.
-    void import('@/lib/store/session-files').then(({ clearSessionFiles }) =>
+    void import('@/lib/store/ephemeral-storage').then(({ clearSessionFiles }) =>
       clearSessionFiles(localStorage.getItem(ACTIVE_USER_KEY))
     )
     stopRefreshLoop()

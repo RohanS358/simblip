@@ -38,6 +38,28 @@ export interface StoredText {
   marks: Mark[]
 }
 
+// Indentation is stored as literal leading spaces on a line (same "plain
+// text, no new data structure" approach block prefixes already use) — the
+// LIVE editor renders them as real space characters, not a padding-left (see
+// renderEditorLine's doc comment in lib/text/render.ts for why padding broke
+// the DOM/model invariant the whole caret system depends on). 8 spaces per
+// level, not 2 — thin runs of space glyphs at a normal 15px font size are
+// barely perceptible as an indent (2 spaces ≈ 4px, invisible next to a full
+// line-height), so the unit has to be wide enough to actually read as a
+// tab-stop using nothing but real character width.
+export const INDENT_UNIT = '        '
+
+/** Splits a line into its leading-indent spaces and the rest — indent is
+ *  always a whole number of INDENT_UNITs; a stray odd space at the end of
+ *  the run is left as part of the body rather than silently swallowed. */
+export function splitIndent(raw: string): { level: number; indent: string; rest: string } {
+  const m = raw.match(/^ */)
+  const spaces = m ? m[0].length : 0
+  const level = Math.floor(spaces / INDENT_UNIT.length)
+  const indent = INDENT_UNIT.repeat(level)
+  return { level, indent, rest: raw.slice(indent.length) }
+}
+
 const TOGGLE_KINDS = new Set<MarkKind>(['bold', 'italic', 'underline', 'strike', 'highlight', 'code'])
 export const isExclusiveKind = (kind: MarkKind): kind is ExclusiveMarkKind => !TOGGLE_KINDS.has(kind)
 

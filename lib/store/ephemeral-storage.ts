@@ -1,11 +1,23 @@
 'use client'
 
-// Session file store. Attached documents live as blob URLs in memory AND —
-// so they survive reloads on this device — as Blobs in IndexedDB, keyed per
-// signed-in user. They are wiped at sign-out (lib/auth/store.ts) and are
-// never written to the app database (the cloud copy in /api/files is a
-// separate, short-lived seed for OTHER devices — once a device has opened a
-// document it re-opens from here, offline, forever).
+// Ephemeral runtime file store — deliberately OUTSIDE the durable storage/
+// synchronization architecture (lib/storage/manager.ts's OPFS + manifest +
+// Vercel Blob system). This module's ONLY remaining caller is
+// components/objects/file-view.tsx's 'file' geometry kind: a document
+// dropped directly onto a canvas board, explicitly documented as
+// "session-only, never saved." That's a genuinely different storage
+// lifetime from a durable uploaded file (a pdf-kind notebook page, or a
+// folder-tree FileNode) — it dies with the session/sign-out by design, not
+// as a phase-1 gap, so it must never be folded into the persistent system.
+//
+// (Historically this module also served pdf-kind notebook pages — that
+// responsibility has moved to lib/storage/manager.ts; see
+// lib/store/pdf-attach.ts and lib/storage/migrate-session-files.ts.)
+//
+// Attached documents live as blob URLs in memory AND — so they survive
+// reloads on this device for the remainder of the session — as Blobs in
+// IndexedDB, keyed per signed-in user. They are wiped at sign-out
+// (lib/auth/store.ts) and are never written to the app database.
 //
 // IndexedDB replaced localStorage: data-URL persistence capped files at
 // ~4 MB and burned quota; Blobs in IDB have no such ceiling. Old
@@ -144,7 +156,7 @@ export async function loadSessionFile(objectId: string): Promise<SessionFile | n
   return entry
 }
 
-/** Raw blob for uploading (presentation sharing, cloud seeding). */
+/** Raw blob for uploading (presentation sharing). */
 export async function getSessionBlob(objectId: string): Promise<Blob | null> {
   const f = await loadSessionFile(objectId)
   if (!f) return null

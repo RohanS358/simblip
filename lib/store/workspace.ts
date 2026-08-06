@@ -1,16 +1,73 @@
 'use client'
 
-// Workspace tree: notebooks → sections → pages (metadata only).
+// Workspace tree: arbitrary-depth folders containing folders, pages, or raw
+// uploaded files (metadata only) — a "notebook" is just a folder with
+// parentId===null, see lib/scene/types.ts's Node union doc comment.
 // Content lives in the document store; splitting them keeps tree operations
 // cheap and gives undo/redo a clean per-page scope.
+//
+// The tree is stored FLAT (Record<string, Node>, id -> node), not as nested
+// children arrays: every existing consumer already looks nodes up by id, a
+// flat map makes that O(1) instead of O(depth), and reparenting a node
+// (moveNode) is a single field write instead of a splice-out/splice-in
+// across two parents. Rendering still needs parent->children groups — that's
+// a cheap filter over Object.values, not something that needs to live in the
+// persisted shape (see childrenOf below).
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { uid, type Notebook, type PageKind, type PageMeta } from '@/lib/scene/types'
+import { uid, type FileNode, type FolderNode, type Node, type PageKind, type PageNode } from '@/lib/scene/types'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
+import { migrateNotebooksToNodes } from '@/lib/store/migrate-tree'
+
+/** A node's direct parent lookup. */
+export function findNode(nodes: Record<string, Node>, id: string | null): Node | null {
+  return id ? (nodes[id] ?? null) : null
+}
+
+/** Direct children of a parent, sorted by `order`. parentId=null → top-level folders ("notebooks"). */
+export function childrenOf(nodes: Record<string, Node>, parentId: string | null): Node[] {
+  return Object.values(nodes)
+    .filter((n) => n.parentId === parentId)
+    .sort((a, b) => a.order - b.order)
+}
+
+/** Every descendant (folders, pages, files) under a node, depth-first. */
+export function descendantsOf(nodes: Record<string, Node>, id: string): Node[] {
+  const out: Node[] = []
+  const walk = (parentId: string) => {
+    for (const child of childrenOf(nodes, parentId)) {
+      out.push(child)
+      if (child.kind === 'folder') walk(child.id)
+    }
+  }
+  walk(id)
+  return out
+}
+
+/** Walk up to the top-level folder ("notebook") that owns a node. */
+export function topFolderOf(nodes: Record<string, Node>, id: string | null): FolderNode | null {
+  let cur = findNode(nodes, id)
+  while (cur && cur.parentId !== null) cur = findNode(nodes, cur.parentId)
+  return cur?.kind === 'folder' ? cur : null
+}
+
+const patchNode = (nodes: Record<string, Node>, id: string, patch: Record<string, unknown>): Record<string, Node> =>
+  nodes[id] ? { ...nodes, [id]: { ...nodes[id], ...patch } as Node } : nodes
+
+/** @deprecated Compat wrapper for call sites not yet migrated to findNode —
+ *  find a page's metadata anywhere in the tree by id. */
+export const findPageMeta = (nodes: Record<string, Node>, id: string | null): PageNode | null => {
+  const n = findNode(nodes, id)
+  return n?.kind === 'page' ? n : null
+}
+
+/** @deprecated Compat wrapper — which top-level folder ("notebook") owns a node. */
+export const findNotebookId = (nodes: Record<string, Node>, id: string | null): string | null =>
+  topFolderOf(nodes, id)?.id ?? null
 
 interface WorkspaceState {
-  notebooks: Notebook[]
+  nodes: Record<string, Node>
   activePageId: string | null
   /** Session tabs — every page currently open in the header tab strip. */
   openTabs: string[]
@@ -39,17 +96,45 @@ interface WorkspaceState {
   splitScreenDocumentId: string | null
   syncScroll: boolean
 
+  /** Create a top-level folder ("notebook"). */
+  addFolder: (name: string | undefined, parentId: string | null) => string
+  /** @deprecated thin wrapper for addFolder(name, null) — notebook UI copy. */
   addNotebook: (name?: string) => string
+  /** Generic rename — works on a folder, page, or file node. */
+  renameNode: (id: string, name: string) => void
+  /** @deprecated alias for renameNode. */
   renameNotebook: (id: string, name: string) => void
-  setNotebookCover: (id: string, cover: string | undefined) => void
-  removeNotebook: (id: string) => void
-  addSection: (notebookId: string, name?: string) => string
-  renameSection: (notebookId: string, id: string, name: string) => void
-  removeSection: (notebookId: string, id: string) => void
-  addPage: (notebookId: string, sectionId: string, name?: string, kind?: PageKind) => string
+  /** @deprecated alias for renameNode. */
   renamePage: (pageId: string, name: string) => void
+  /** Only valid on a top-level folder (parentId===null); no-ops otherwise. */
+  setFolderCover: (id: string, cover: string | undefined) => void
+  /** @deprecated alias for setFolderCover. */
+  setNotebookCover: (id: string, cover: string | undefined) => void
+  /** Recursive delete — a folder takes every descendant with it (pages'
+   *  content is cleaned up via forgetPage, files via deleteFiles). */
+  removeNode: (id: string) => void
+  /** @deprecated alias for removeNode. */
+  removeNotebook: (id: string) => void
+  /** @deprecated alias for removeNode. */
   removePage: (pageId: string) => void
-  updatePageMeta: (pageId: string, patch: Partial<Omit<PageMeta, 'id'>>) => void
+  /** Reparent a node. Refuses folder-into-own-subtree cycles and non-folder
+   *  targets. `order` sets sibling position; defaults to end-of-list. */
+  moveNode: (id: string, newParentId: string | null, order?: number) => void
+  /** @deprecated alias for addFolder(name, notebookId) — a Section IS a folder now. */
+  addSection: (notebookId: string, name?: string) => string
+  /** @deprecated alias for renameNode. */
+  renameSection: (notebookId: string, id: string, name: string) => void
+  /** @deprecated alias for removeNode. */
+  removeSection: (notebookId: string, id: string) => void
+  /** Create a page under parentId (one parentId now, not two). */
+  addPageIn: (parentId: string, name?: string, kind?: PageKind) => string
+  /** @deprecated alias for addPageIn(sectionId, name, kind) — sectionId is
+   *  already a valid parentId (a section IS a folder), notebookId is unused. */
+  addPage: (notebookId: string, sectionId: string, name?: string, kind?: PageKind) => string
+  /** Create a file-kind leaf under parentId. The manifest entry (fileId)
+   *  must already exist — call lib/storage/manager's putFile first. */
+  addFile: (parentId: string, name: string, fileId: string, mime: string, size: number) => string
+  updatePageMeta: (pageId: string, patch: Partial<Omit<PageNode, 'id' | 'kind' | 'parentId'>>) => void
   /** Append a fresh sheet to a doc page; returns its content-page id. */
   addDocSheet: (pageId: string) => string
   /** Content page for the notes linked to one PDF page (created on demand). */
@@ -73,39 +158,12 @@ interface WorkspaceState {
   setSyncScroll: (sync: boolean) => void
 }
 
-/** Find a page's metadata anywhere in the tree. */
-export function findPageMeta(notebooks: Notebook[], pageId: string | null): PageMeta | null {
-  if (!pageId) return null
-  for (const nb of notebooks)
-    for (const sec of nb.sections)
-      for (const p of sec.pages) if (p.id === pageId) return p
-  return null
-}
-
-/** Which notebook owns a page — same walk as findPageMeta, returns the id. */
-export function findNotebookId(notebooks: Notebook[], pageId: string | null): string | null {
-  if (!pageId) return null
-  for (const nb of notebooks)
-    for (const sec of nb.sections)
-      for (const p of sec.pages) if (p.id === pageId) return nb.id
-  return null
-}
-
-const patchPage = (notebooks: Notebook[], pageId: string, patch: Partial<PageMeta>): Notebook[] =>
-  notebooks.map((n) => ({
-    ...n,
-    sections: n.sections.map((sec) => ({
-      ...sec,
-      pages: sec.pages.map((p) => (p.id === pageId ? { ...p, ...patch } : p)),
-    })),
-  }))
-
 const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      notebooks: [],
+      nodes: {},
       activePageId: null,
       openTabs: [],
       primaryPageId: null,
@@ -124,173 +182,166 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       splitScreenDocumentId: null,
       syncScroll: false,
 
-      addNotebook: (name = 'Untitled Notebook') => {
+      addFolder: (name = 'New Folder', parentId) => {
         const id = uid()
-        set((s) => ({
-          notebooks: [...s.notebooks, { id, name, emoji: '📓', sections: [] }],
-        }))
-        return id
-      },
-
-      renameNotebook: (id, name) =>
-        set((s) => ({
-          notebooks: s.notebooks.map((n) => (n.id === id ? { ...n, name } : n)),
-        })),
-
-      setNotebookCover: (id, cover) =>
-        set((s) => ({
-          notebooks: s.notebooks.map((n) => (n.id === id ? { ...n, cover } : n)),
-        })),
-
-      removeNotebook: (id) =>
         set((s) => {
-          const nb = s.notebooks.find((n) => n.id === id)
-          const pageIds = nb?.sections.flatMap((sec) => sec.pages.map((p) => p.id)) ?? []
-          return {
-            notebooks: s.notebooks.filter((n) => n.id !== id),
-            activePageId: pageIds.includes(s.activePageId ?? '') ? null : s.activePageId,
+          const siblings = childrenOf(s.nodes, parentId)
+          const node: FolderNode = {
+            id,
+            parentId,
+            kind: 'folder',
+            name,
+            order: siblings.length,
+            ...(parentId === null
+              ? { emoji: '📓' }
+              : { color: SECTION_COLORS[siblings.length % SECTION_COLORS.length] }),
           }
-        }),
-
-      addSection: (notebookId, name = 'New Section') => {
-        const id = uid()
-        set((s) => ({
-          notebooks: s.notebooks.map((n) =>
-            n.id === notebookId
-              ? {
-                  ...n,
-                  sections: [
-                    ...n.sections,
-                    { id, name, color: SECTION_COLORS[n.sections.length % SECTION_COLORS.length], pages: [] },
-                  ],
-                }
-              : n
-          ),
-        }))
+          return { nodes: { ...s.nodes, [id]: node } }
+        })
         return id
       },
+      addNotebook: (name = 'Untitled Notebook') => get().addFolder(name, null),
 
-      renameSection: (notebookId, id, name) =>
-        set((s) => ({
-          notebooks: s.notebooks.map((n) =>
-            n.id === notebookId
-              ? { ...n, sections: n.sections.map((sec) => (sec.id === id ? { ...sec, name } : sec)) }
-              : n
-          ),
-        })),
+      renameNode: (id, name) => set((s) => ({ nodes: patchNode(s.nodes, id, { name }) })),
+      renameNotebook: (id, name) => get().renameNode(id, name),
+      renamePage: (pageId, name) => get().renameNode(pageId, name),
 
-      removeSection: (notebookId, id) =>
+      setFolderCover: (id, cover) =>
         set((s) => {
-          const nb = s.notebooks.find((n) => n.id === notebookId)
-          const pageIds = nb?.sections.find((sec) => sec.id === id)?.pages.map((p) => p.id) ?? []
-          return {
-            notebooks: s.notebooks.map((n) =>
-              n.id === notebookId ? { ...n, sections: n.sections.filter((sec) => sec.id !== id) } : n
-            ),
-            activePageId: pageIds.includes(s.activePageId ?? '') ? null : s.activePageId,
-          }
+          const n = s.nodes[id]
+          if (!n || n.kind !== 'folder' || n.parentId !== null) return s
+          return { nodes: patchNode(s.nodes, id, { cover }) }
         }),
+      setNotebookCover: (id, cover) => get().setFolderCover(id, cover),
 
-      addPage: (notebookId, sectionId, name = 'Untitled Page', kind = 'board') => {
-        const id = uid()
-        // A doc starts with one sheet; a board/pdf carries its own content.
-        const meta: PageMeta = { id, name, kind, ...(kind === 'doc' ? { docPages: [uid()] } : {}) }
-        set((s) => ({
-          notebooks: s.notebooks.map((n) =>
-            n.id === notebookId
-              ? {
-                  ...n,
-                  sections: n.sections.map((sec) =>
-                    sec.id === sectionId ? { ...sec, pages: [...sec.pages, meta] } : sec
-                  ),
-                }
-              : n
-          ),
-          activePageId: id,
-          openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
-        }))
-        return id
-      },
-
-      renamePage: (pageId, name) =>
-        set((s) => ({
-          notebooks: s.notebooks.map((n) => ({
-            ...n,
-            sections: n.sections.map((sec) => ({
-              ...sec,
-              pages: sec.pages.map((p) => (p.id === pageId ? { ...p, name } : p)),
-            })),
-          })),
-        })),
-
-      removePage: (pageId) => {
+      removeNode: (id) => {
         // Deleting a page is the ONE case where content should really go —
         // forgetPage drops it from memory, from the local archive, and
         // queues the cloud deletion. (Merely closing a page must never do
-        // this; see lib/store/deleted-pages.ts.) Docs/PDFs also own their
-        // sheets and per-page notes — those go with them.
-        const meta = findPageMeta(get().notebooks, pageId)
-        const contentIds = [pageId, ...(meta?.docPages ?? []), ...(meta?.notesPages ?? []).filter(Boolean)]
+        // this; see lib/store/deleted-pages.ts.) A deleted FOLDER takes
+        // every descendant with it (pages AND files), not just its direct
+        // children — this generalizes what removeNotebook/removeSection used
+        // to hand-roll as two different one/two-level flatMaps.
+        const nodes = get().nodes
+        const target = findNode(nodes, id)
+        if (!target) return
+        const toDelete = [target, ...(target.kind === 'folder' ? descendantsOf(nodes, id) : [])]
+        const pageNodes = toDelete.filter((n): n is PageNode => n.kind === 'page')
+        const contentIds = pageNodes.flatMap((p) => [p.id, ...(p.docPages ?? []), ...(p.notesPages ?? []).filter(Boolean)])
         void import('@/lib/store/document').then(({ useDocStore }) =>
-          contentIds.forEach((id) => useDocStore.getState().forgetPage(id))
+          contentIds.forEach((cid) => useDocStore.getState().forgetPage(cid))
         )
-        set((s) => ({
-          notebooks: s.notebooks.map((n) => ({
-            ...n,
-            sections: n.sections.map((sec) => ({
-              ...sec,
-              pages: sec.pages.filter((p) => p.id !== pageId),
-            })),
-          })),
-          activePageId: s.activePageId === pageId ? null : s.activePageId,
-          openTabs: s.openTabs.filter((t) => t !== pageId),
-          splitPageId: s.splitPageId === pageId ? null : s.splitPageId,
-          primaryPageId: s.primaryPageId === pageId ? null : s.primaryPageId,
-        }))
+        const fileIds = toDelete.filter((n): n is FileNode => n.kind === 'file').map((f) => f.fileId)
+        if (fileIds.length) void import('@/lib/storage/manager').then(({ deleteFiles }) => deleteFiles(fileIds))
+        const deleteSet = new Set(toDelete.map((n) => n.id))
+        set((s) => {
+          const nextNodes = { ...s.nodes }
+          deleteSet.forEach((did) => delete nextNodes[did])
+          return {
+            nodes: nextNodes,
+            activePageId: deleteSet.has(s.activePageId ?? '') ? null : s.activePageId,
+            openTabs: s.openTabs.filter((t) => !deleteSet.has(t)),
+            splitPageId: deleteSet.has(s.splitPageId ?? '') ? null : s.splitPageId,
+            primaryPageId: deleteSet.has(s.primaryPageId ?? '') ? null : s.primaryPageId,
+          }
+        })
+      },
+      removeNotebook: (id) => get().removeNode(id),
+      removePage: (pageId) => get().removeNode(pageId),
+
+      addSection: (notebookId, name = 'New Section') => get().addFolder(name, notebookId),
+      renameSection: (_notebookId, id, name) => get().renameNode(id, name),
+      removeSection: (_notebookId, id) => get().removeNode(id),
+
+      moveNode: (id, newParentId, order) => {
+        const nodes = get().nodes
+        const node = nodes[id]
+        if (!node) return
+        if (newParentId !== null) {
+          const target = nodes[newParentId]
+          if (!target || target.kind !== 'folder') return
+          // Cycle check: newParentId must not be `id` or any descendant of `id`.
+          let cur: string | null = newParentId
+          while (cur) {
+            if (cur === id) return
+            cur = nodes[cur]?.parentId ?? null
+          }
+        }
+        const siblingOrder = order ?? Math.max(0, ...childrenOf(nodes, newParentId).map((n) => n.order)) + 1
+        set((s) => ({ nodes: patchNode(s.nodes, id, { parentId: newParentId, order: siblingOrder }) }))
       },
 
-      updatePageMeta: (pageId, patch) =>
-        set((s) => ({ notebooks: patchPage(s.notebooks, pageId, patch) })),
+      addPageIn: (parentId, name = 'Untitled Page', kind = 'board') => {
+        const id = uid()
+        set((s) => {
+          const siblings = childrenOf(s.nodes, parentId)
+          // A doc starts with one sheet; a board/pdf carries its own content.
+          const node: PageNode = {
+            id,
+            parentId,
+            kind: 'page',
+            name,
+            pageKind: kind,
+            order: siblings.length,
+            ...(kind === 'doc' ? { docPages: [uid()] } : {}),
+          }
+          return {
+            nodes: { ...s.nodes, [id]: node },
+            activePageId: id,
+            openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
+          }
+        })
+        return id
+      },
+      addPage: (_notebookId, sectionId, name, kind) => get().addPageIn(sectionId, name, kind),
+
+      addFile: (parentId, name, fileId, mime, size) => {
+        const id = uid()
+        set((s) => {
+          const siblings = childrenOf(s.nodes, parentId)
+          const node: FileNode = { id, parentId, kind: 'file', name, fileId, mime, size, order: siblings.length }
+          return { nodes: { ...s.nodes, [id]: node } }
+        })
+        return id
+      },
+
+      updatePageMeta: (pageId, patch) => set((s) => ({ nodes: patchNode(s.nodes, pageId, patch) })),
 
       addDocSheet: (pageId) => {
         const sheetId = uid()
         set((s) => {
-          const meta = findPageMeta(s.notebooks, pageId)
-          return {
-            notebooks: patchPage(s.notebooks, pageId, {
-              docPages: [...(meta?.docPages ?? []), sheetId],
-            }),
-          }
+          const meta = findPageMeta(s.nodes, pageId)
+          return { nodes: patchNode(s.nodes, pageId, { docPages: [...(meta?.docPages ?? []), sheetId] }) }
         })
         return sheetId
       },
 
       ensureNotesPage: (pageId, pdfPage) => {
-        const meta = findPageMeta(get().notebooks, pageId)
+        const meta = findPageMeta(get().nodes, pageId)
         const existing = meta?.notesPages?.[pdfPage - 1]
         if (existing) return existing
         const noteId = uid()
         set((s) => {
-          const m = findPageMeta(s.notebooks, pageId)
+          const m = findPageMeta(s.nodes, pageId)
           const notes = [...(m?.notesPages ?? [])]
           while (notes.length < pdfPage) notes.push('')
           notes[pdfPage - 1] = noteId
-          return { notebooks: patchPage(s.notebooks, pageId, { notesPages: notes }) }
+          return { nodes: patchNode(s.nodes, pageId, { notesPages: notes }) }
         })
         return noteId
       },
 
       ensureAnnotPage: (pageId, pdfPage) => {
-        const meta = findPageMeta(get().notebooks, pageId)
+        const meta = findPageMeta(get().nodes, pageId)
         const existing = meta?.annotPages?.[pdfPage - 1]
         if (existing) return existing
         const annotId = uid()
         set((s) => {
-          const m = findPageMeta(s.notebooks, pageId)
+          const m = findPageMeta(s.nodes, pageId)
           const annots = [...(m?.annotPages ?? [])]
           while (annots.length < pdfPage) annots.push('')
           annots[pdfPage - 1] = annotId
-          return { notebooks: patchPage(s.notebooks, pageId, { annotPages: annots }) }
+          return { nodes: patchNode(s.nodes, pageId, { annotPages: annots }) }
         })
         return annotId
       },
@@ -385,6 +436,23 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setSplitScreenDocumentId: (id) => set({ splitScreenDocumentId: id }),
       setSyncScroll: (syncScroll) => set({ syncScroll }),
     }),
-    { name: 'simblip-workspace', storage: scopedJSONStorage }
+    {
+      name: 'simblip-workspace',
+      storage: scopedJSONStorage,
+      onRehydrateStorage: () => (state) => {
+        if (!state) return
+        // Old persisted blobs still have `notebooks` (an array); new ones
+        // have `nodes` (a Record) and no `notebooks` key at all.
+        const legacy = (state as unknown as { notebooks?: unknown }).notebooks
+        const migrated = migrateNotebooksToNodes(legacy)
+        if (migrated) {
+          state.nodes = migrated
+          // Drop the dead key so the next persisted write is clean — same
+          // "reset the old field after archiving it away" the doc-store
+          // migration does for its own legacy `pages` field.
+          delete (state as unknown as { notebooks?: unknown }).notebooks
+        }
+      },
+    }
   )
 )

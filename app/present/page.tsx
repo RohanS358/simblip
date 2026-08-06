@@ -23,7 +23,7 @@ import {
 import { toast } from 'sonner'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { PageShell } from '@/components/platform/page-shell'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf, descendantsOf } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import {
   endSession,
@@ -57,6 +57,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { cn } from '@/lib/utils'
 
 type Phase =
   | 'resolving'
@@ -80,13 +82,28 @@ function PresentController() {
   const [busy, setBusy] = useState(false)
   const [followPageId, setFollowPageId] = useState<string | null>(null)
 
-  const notebooks = useWorkspaceStore((s) => s.notebooks)
-  const [nbId, setNbId] = useState('')
-  const [secId, setSecId] = useState('')
+  const nodes = useWorkspaceStore((s) => s.nodes)
   const [pageId, setPageId] = useState('')
 
-  const notebook = useMemo(() => notebooks.find((n) => n.id === nbId), [notebooks, nbId])
-  const section = useMemo(() => notebook?.sections.find((s) => s.id === secId), [notebook, secId])
+  // Every page in the tree, labeled with its full folder breadcrumb — a
+  // single searchable list instead of a fixed notebook/section cascade,
+  // since folders now nest to arbitrary depth (no fixed number of pickers
+  // to render). Same "flatten to breadcrumb-labeled leaves" approach
+  // command-palette.tsx uses for its own page search.
+  const pickablePages = useMemo(
+    () =>
+      childrenOf(nodes, null).flatMap((nb) =>
+        descendantsOf(nodes, nb.id)
+          .filter((n) => n.kind === 'page')
+          .map((p) => {
+            const trail: string[] = []
+            for (let cur = nodes[p.parentId ?? '']; cur; cur = nodes[cur.parentId ?? '']) trail.unshift(cur.name)
+            return { id: p.id, name: p.name, path: trail.join(' / ') }
+          })
+      ),
+    [nodes]
+  )
+  const chosenPage = useMemo(() => pickablePages.find((p) => p.id === pageId), [pickablePages, pageId])
 
   // Entry: either a pairing scan or an existing session.
   useEffect(() => {
@@ -152,7 +169,7 @@ function PresentController() {
 
   const present = async () => {
     if (!board || !pageId) return
-    const page = section?.pages.find((p) => p.id === pageId)
+    const page = chosenPage
     if (!page) return
     setBusy(true)
     try {
@@ -243,42 +260,25 @@ function PresentController() {
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Notebook</Label>
-            <Select value={nbId} onValueChange={(v) => { setNbId(v); setSecId(''); setPageId('') }}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Notebook…" /></SelectTrigger>
-              <SelectContent>
-                {notebooks.map((n) => (
-                  <SelectItem key={n.id} value={n.id}>{n.emoji} {n.name}</SelectItem>
+            <Label className="text-[12px]">Page</Label>
+            <Command className="rounded-lg border border-input">
+              <CommandInput placeholder="Search pages…" />
+              <CommandList className="max-h-52">
+                <CommandEmpty>No pages found.</CommandEmpty>
+                {pickablePages.map((p) => (
+                  <CommandItem
+                    key={p.id}
+                    value={`${p.name} ${p.path}`}
+                    onSelect={() => setPageId(p.id)}
+                    className={cn(pageId === p.id && 'bg-accent')}
+                  >
+                    <span className="truncate">{p.name}</span>
+                    <span className="ml-auto truncate text-[11px] text-muted-foreground">{p.path}</span>
+                  </CommandItem>
                 ))}
-              </SelectContent>
-            </Select>
+              </CommandList>
+            </Command>
           </div>
-          {notebook && (
-            <div className="space-y-1.5">
-              <Label className="text-[12px]">Section</Label>
-              <Select value={secId} onValueChange={(v) => { setSecId(v); setPageId('') }}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Section…" /></SelectTrigger>
-                <SelectContent>
-                  {notebook.sections.map((s) => (
-                    <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-          {section && (
-            <div className="space-y-1.5">
-              <Label className="text-[12px]">Page</Label>
-              <Select value={pageId} onValueChange={setPageId}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Page…" /></SelectTrigger>
-                <SelectContent>
-                  {section.pages.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
           <Button className="w-full" disabled={!pageId || busy} onClick={() => void present()}>
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Present'}
           </Button>

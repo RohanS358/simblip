@@ -48,7 +48,7 @@ const MAX_ZOOM = 3
  *  shows today's date until someone picks a different one, without writing
  *  anything until they do. */
 function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: string }) {
-  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, docPageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, docPageId))
   const renamePage = useWorkspaceStore((s) => s.renamePage)
   const subtitle = meta?.docSubtitle ?? ''
   const dateVal = meta?.docDate ?? new Date().toISOString().slice(0, 10)
@@ -274,7 +274,7 @@ function Sheet({
 }
 
 export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
-  const meta = useWorkspaceStore((s) => findPageMeta(s.notebooks, pageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const addDocSheet = useWorkspaceStore((s) => s.addDocSheet)
   const setActiveSheet = useWorkspaceStore((s) => s.setActiveSheet)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
