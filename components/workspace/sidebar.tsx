@@ -272,12 +272,12 @@ export function Sidebar({
       >
         <div
           style={{ width: panelW }}
-          className="relative flex h-full min-h-0 flex-col rounded-r-2xl "
+          className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-r-2xl "
         >
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r border-border/50 transition-all duration-150 hover:border-r-2 hover:border-sky-400 hover:shadow-[-2px_0_2px_2px_rgba(56,189,248,0.5)]"
+            className="absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r border-border/50 transition-colors duration-150 hover:border-sky-400"
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)
