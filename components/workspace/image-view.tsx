@@ -66,7 +66,7 @@ export function ImageView({ pageId }: { pageId: string }) {
   return (
     <div className="flex h-full w-full items-center justify-center overflow-auto bg-muted/40 p-6">
       {!url ? (
-        <span className="text-[12px] text-muted-foreground">Loading…</span>
+        <span className="text-[0.75rem] text-muted-foreground">Loading…</span>
       ) : (
         <div
           ref={hostRef}

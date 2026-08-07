@@ -80,7 +80,7 @@ function ZoomGroup({
           <button
             type="button"
             aria-label="Zoom options"
-            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-[10.5px] tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-[0.65625rem] tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -130,7 +130,7 @@ export function PageControlsMenu({
       {showZoom && pdfDock && <Divider />}
       {pdfDock && (
         <div className="flex items-center gap-0.5">
-          <span className="mr-0.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
             {pdfDock.current}/{pdfDock.numPages}
           </span>
           <DockBtn
@@ -195,7 +195,7 @@ export function PageControlsMenu({
 
       {showPresentation && (
         <div className="flex items-center gap-0.5">
-          <span className="mr-0.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+          <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
             {presentationDock.current + 1}/{presentationDock.numSlides}
           </span>
           <DockBtn label="New slide" disabled={presentationDock.importing} onClick={presentationDock.addSlide}>

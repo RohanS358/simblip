@@ -101,7 +101,7 @@ function NotebookSettings() {
         <Slider
           aria-label="Interface UI scale"
           value={[nb.uiScale]}
-          min={0.1}
+          min={0.6}
           max={1.4}
           step={0.05}
           onValueChange={([v]) => setNb({ uiScale: v })}
@@ -174,7 +174,7 @@ function NotebookSettings() {
       />
 
       <div className="pt-1">
-        <p className="pb-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="pb-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Editing behavior
         </p>
         <div className="divide-y divide-border/60">
@@ -195,7 +195,7 @@ function NotebookSettings() {
 
       <button
         type="button"
-        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
         onClick={() => setNb({ ...DEFAULT_NOTEBOOK })}
       >
         Reset notebook to defaults
@@ -288,10 +288,10 @@ function MathSettings() {
   return (
     <div className="space-y-1">
       <div className="rounded-xl border border-border bg-card/60 p-2.5">
-        <p className="mb-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="mb-1.5 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Preview
         </p>
-        <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[12px]">
+        <div className="flex flex-wrap gap-x-4 gap-y-1 font-mono text-[0.75rem]">
           {samples.map((v) => (
             <span key={v}>{fmtNum(v)}</span>
           ))}
@@ -371,7 +371,7 @@ function MathSettings() {
 
       <button
         type="button"
-        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground hover:text-foreground"
+        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
         onClick={() => setMath({ ...DEFAULT_MATH })}
       >
         Reset math to defaults
@@ -387,11 +387,11 @@ function PackagesSettings() {
   return (
     <div className="space-y-3 pt-1">
       <div className="rounded-xl border border-border bg-card/60 p-3">
-        <div className="flex items-center gap-2 font-semibold text-[13px] text-foreground">
+        <div className="flex items-center gap-2 font-semibold text-[0.8125rem] text-foreground">
           <Package className="h-4 w-4 text-[var(--accent-blue)]" />
           Subject Component Packages
         </div>
-        <p className="mt-1 text-[11.5px] leading-normal text-muted-foreground">
+        <p className="mt-1 text-[0.71875rem] leading-normal text-muted-foreground">
           Toggle subject packages to enable or disable their components in the sidebar component panel, palette, dock, and search. Unlocked on this device.
         </p>
       </div>
@@ -403,12 +403,12 @@ function PackagesSettings() {
             <div key={pkg.id} className="flex items-center justify-between gap-3 py-2.5">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-[13px] font-medium text-foreground">{pkg.name}</span>
-                  <span className="rounded-full bg-accent/80 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  <span className="text-[0.8125rem] font-medium text-foreground">{pkg.name}</span>
+                  <span className="rounded-full bg-accent/80 px-2 py-0.5 text-[0.625rem] font-medium text-muted-foreground">
                     {pkg.price}
                   </span>
                 </div>
-                <p className="mt-0.5 text-[11.5px] leading-normal text-muted-foreground">{pkg.description}</p>
+                <p className="mt-0.5 text-[0.71875rem] leading-normal text-muted-foreground">{pkg.description}</p>
               </div>
               <Switch
                 checked={enabled}
@@ -462,7 +462,7 @@ export function SettingsDialog({
           <TabsContent value="profile" className="space-y-2 pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
             {profile && (
               <>
-                <div className="grid grid-cols-[110px_1fr] gap-y-2 text-[13px]">
+                <div className="grid grid-cols-[110px_1fr] gap-y-2 text-[0.8125rem]">
                   <span className="text-muted-foreground">Name</span>
                   <span className="font-medium">{profile.full_name}</span>
                   <span className="text-muted-foreground">Email</span>
@@ -478,7 +478,7 @@ export function SettingsDialog({
                     </>
                   )}
                 </div>
-                <p className="pt-1 text-[11.5px] text-muted-foreground">
+                <p className="pt-1 text-[0.71875rem] text-muted-foreground">
                   Profile details are managed by your institution admin.
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -532,7 +532,7 @@ export function SettingsDialog({
                 </Button>
               ))}
             </div>
-            <p className="pt-3 text-[11.5px] text-muted-foreground">
+            <p className="pt-3 text-[0.71875rem] text-muted-foreground">
               Sepia is warm paper for reading; Lily is soft pink and orange; Dim is a softer dark
               for lit rooms; Midnight is near-black for OLED screens; Contrast is high-visibility
               for accessibility. Theme and tint apply everywhere — the notebook, room boards and
@@ -544,11 +544,11 @@ export function SettingsDialog({
             <div className="space-y-3">
               {SHORTCUT_GROUPS.map((group) => (
                 <div key={group} className="space-y-1.5">
-                  <p className="text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  <p className="text-[0.65625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     {group}
                   </p>
                   {SHORTCUTS.filter((s) => s.group === group).map((s, i) => (
-                    <div key={`${s.keys}-${i}`} className="flex items-center justify-between gap-3 text-[12.5px]">
+                    <div key={`${s.keys}-${i}`} className="flex items-center justify-between gap-3 text-[0.78125rem]">
                       <span className="text-muted-foreground">{s.label}</span>
                       <Kbd>{s.keys}</Kbd>
                     </div>
@@ -558,7 +558,7 @@ export function SettingsDialog({
             </div>
           </TabsContent>
 
-          <TabsContent value="about" className="pt-3 text-[12.5px] leading-relaxed text-muted-foreground min-h-0 flex-1 overflow-y-auto pr-1">
+          <TabsContent value="about" className="pt-3 text-[0.78125rem] leading-relaxed text-muted-foreground min-h-0 flex-1 overflow-y-auto pr-1">
             <p>
               <span className="font-semibold text-foreground">SIMBLIP</span> — the engineering notebook
               that simulates. Enterprise education platform for engineering institutions.

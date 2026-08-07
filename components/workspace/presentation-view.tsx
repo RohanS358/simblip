@@ -78,7 +78,7 @@ function PresentOverlay({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <span className="font-mono text-[13px] tabular-nums">
+        <span className="font-mono text-[0.8125rem] tabular-nums">
           {i + 1} / {slides.length}
         </span>
         <button
@@ -209,7 +209,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
             )}
             style={{ backgroundColor: meta?.sheetColors?.[id] }}
           >
-            <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[9px] font-semibold text-white">
+            <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
               {i + 1}
             </span>
             {slides.length > 1 && (
@@ -245,7 +245,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           {importing ? (
             <div className="flex items-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-[12px]">Importing presentation…</span>
+              <span className="text-[0.75rem]">Importing presentation…</span>
             </div>
           ) : activeSlideId ? (
             <div

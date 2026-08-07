@@ -700,7 +700,7 @@ const ObjectView = memo(function ObjectView({
                 useWorkspaceStore.getState().setFullscreenObject(object.id)
               }}
               style={{ transform: `scale(${chromeScale})`, transformOrigin: 'bottom right' }}
-              className="pointer-events-auto absolute -top-8 right-0 flex items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-0.5 font-sans text-[10.5px] font-medium text-foreground shadow-md transition-transform hover:scale-105 hover:bg-accent select-none"
+              className="pointer-events-auto absolute -top-8 right-0 flex items-center gap-1 rounded-full border border-border bg-background/90 px-2 py-0.5 font-sans text-[0.65625rem] font-medium text-foreground shadow-md transition-transform hover:scale-105 hover:bg-accent select-none"
               title="Expand to Full Viewport Screen"
             >
               <Maximize2 className="h-3 w-3 text-[var(--accent-blue)]" /> Fullscreen
@@ -756,7 +756,7 @@ const ObjectView = memo(function ObjectView({
           {/* Dimension chip below the selection, Figma-style. */}
           <div className="absolute" style={{ left: '50%', top: '100%' }}>
             <div
-              className="absolute whitespace-nowrap rounded-[4px] bg-[var(--ring)] px-1.5 py-0.5 font-sans text-[10.5px] font-medium text-white shadow-sm"
+              className="absolute whitespace-nowrap rounded-[4px] bg-[var(--ring)] px-1.5 py-0.5 font-sans text-[0.65625rem] font-medium text-white shadow-sm"
               style={{ transform: `translate(-50%, 6px) scale(${chromeScale})`, transformOrigin: 'top center' }}
             >
               {Math.round(object.size.w)} × {Math.round(object.size.h)}
@@ -2974,7 +2974,7 @@ export function InfiniteCanvas({
             autoFocus
             aria-label="Component value or name"
             placeholder="100k · 9V · name"
-            className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-[12px] shadow-md outline-none placeholder:text-muted-foreground/50"
+            className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-[0.75rem] shadow-md outline-none placeholder:text-muted-foreground/50"
             style={{ left: quickLabel.x, top: quickLabel.y }}
             inputMode="text"
             onPointerDown={(e) => e.stopPropagation()}
@@ -3011,7 +3011,7 @@ export function InfiniteCanvas({
 
       {ctxMenu && (
         <div
-          className="glass-strong absolute z-50 w-48 rounded-xl p-1 text-[12.5px]"
+          className="glass-strong absolute z-50 w-48 rounded-xl p-1 text-[0.78125rem]"
           style={{ left: Math.min(ctxMenu.x, (containerRef.current?.clientWidth ?? 400) - 200), top: ctxMenu.y }}
           onPointerDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
@@ -3045,7 +3045,7 @@ export function InfiniteCanvas({
           const sy = o.position.y * viewport.zoom + viewport.y
           return (
             <div
-              className="glass-strong pointer-events-none absolute z-40 rounded-md px-1.5 py-0.5 font-mono text-[11px]"
+              className="glass-strong pointer-events-none absolute z-40 rounded-md px-1.5 py-0.5 font-mono text-[0.6875rem]"
               style={{ left: sx, top: Math.max(8, sy - 48), transform: 'translateX(-50%)' }}
             >
               {Math.round(o.rotation)}°
@@ -3054,7 +3054,7 @@ export function InfiniteCanvas({
         })()}
 
       {rotatingGroupAngle !== null && (
-        <div className="glass-strong pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--accent-blue)]/40 px-3 py-1 font-mono text-[12px] font-bold text-[var(--accent-blue)] shadow-lg">
+        <div className="glass-strong pointer-events-none fixed top-16 left-1/2 z-40 -translate-x-1/2 rounded-full border border-[var(--accent-blue)]/40 px-3 py-1 font-mono text-[0.75rem] font-bold text-[var(--accent-blue)] shadow-lg">
           Group Rotation: {rotatingGroupAngle}°
         </div>
       )}
@@ -3069,7 +3069,7 @@ export function InfiniteCanvas({
             <div className="flex items-center justify-between border-b border-border/60 pb-2 mb-3">
               <div className="flex items-center gap-2 min-w-0">
                 <span className="text-sm font-bold text-foreground truncate">{fsObj.name}</span>
-                <span className="rounded-full bg-accent/80 px-2.5 py-0.5 font-mono text-[10px] font-medium text-muted-foreground uppercase shrink-0">
+                <span className="rounded-full bg-accent/80 px-2.5 py-0.5 font-mono text-[0.625rem] font-medium text-muted-foreground uppercase shrink-0">
                   {fsObj.geometry.kind === 'rect' && fsObj.metadata?.render === 'system'
                     ? `${fsObj.metadata.domain} System Enclosure`
                     : fsObj.geometry.kind}
@@ -3078,7 +3078,7 @@ export function InfiniteCanvas({
               <button
                 type="button"
                 onClick={() => useWorkspaceStore.getState().setFullscreenObject(null)}
-                className="flex items-center gap-1.5 rounded-lg border border-border bg-accent/60 px-3 py-1.5 text-[12px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
+                className="flex items-center gap-1.5 rounded-lg border border-border bg-accent/60 px-3 py-1.5 text-[0.75rem] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground transition-colors shrink-0"
               >
                 <Minimize2 className="h-4 w-4 text-[var(--accent-blue)]" /> Exit Fullscreen
               </button>
@@ -3106,7 +3106,7 @@ export function InfiniteCanvas({
           <div
             ref={zoomPillRef}
             style={{ translate: `${zoomPillShift.x}px ${zoomPillShift.y}px` }}
-            className="glass absolute bottom-4 right-4 z-30 flex items-center gap-0.5 rounded-full pl-3 pr-1 py-1 font-mono text-[11px] text-muted-foreground transition-[translate,opacity] duration-200"
+            className="glass absolute bottom-4 right-4 z-30 flex items-center gap-0.5 rounded-full pl-3 pr-1 py-1 font-mono text-[0.6875rem] text-muted-foreground transition-[translate,opacity] duration-200"
           >
             <span className={cn(locked && 'text-foreground font-semibold')}>
               {Math.round(viewport.zoom * 100)}%
@@ -3176,7 +3176,7 @@ function SlashMenu({
         autoFocus
         aria-label="Insert a component"
         placeholder="Insert…"
-        className="w-full rounded-lg bg-transparent px-2 py-1.5 text-[13px] outline-none"
+        className="w-full rounded-lg bg-transparent px-2 py-1.5 text-[0.8125rem] outline-none"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onBlur={onClose}
@@ -3197,7 +3197,7 @@ function SlashMenu({
       />
       <div ref={listRef} className="no-scrollbar max-h-[236px] overflow-y-auto border-t border-border/60 pt-1">
         {results.length === 0 && (
-          <p className="px-2 py-3 text-center text-[12px] text-muted-foreground">Nothing matches.</p>
+          <p className="px-2 py-3 text-center text-[0.75rem] text-muted-foreground">Nothing matches.</p>
         )}
         {results.map((it, i) => (
           <button
@@ -3205,7 +3205,7 @@ function SlashMenu({
             type="button"
             data-i={i}
             className={cn(
-              'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[12.5px] transition-colors',
+              'flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-[0.78125rem] transition-colors',
               i === sel ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent/60'
             )}
             onPointerEnter={() => setSel(i)}
@@ -3216,7 +3216,7 @@ function SlashMenu({
             }}
           >
             <span className="min-w-0 flex-1 truncate">{it.label}</span>
-            <span className="shrink-0 text-[10.5px] opacity-60">{it.group}</span>
+            <span className="shrink-0 text-[0.65625rem] opacity-60">{it.group}</span>
           </button>
         ))}
       </div>

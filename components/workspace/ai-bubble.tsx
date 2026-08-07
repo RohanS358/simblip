@@ -82,7 +82,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
     <div className="glass-strong fixed bottom-20 right-4 z-50 flex w-80 max-w-[calc(100vw-2rem)] flex-col gap-2 rounded-2xl p-3">
       <div className="flex items-center gap-1.5">
         <Sparkles className="h-3.5 w-3.5 text-[var(--accent-violet)]" />
-        <span className="flex-1 text-[12.5px] font-semibold">Ask AI</span>
+        <span className="flex-1 text-[0.78125rem] font-semibold">Ask AI</span>
         <button
           type="button"
           aria-label="Close"
@@ -104,18 +104,18 @@ export function AiBubble({ pageId }: { pageId: string }) {
           }
         }}
         placeholder="A spring-mass system hanging from a fixed point…"
-        className="min-h-16 resize-none text-[12.5px]"
+        className="min-h-16 resize-none text-[0.78125rem]"
         disabled={loading}
       />
 
       {result && (
-        <div className="rounded-lg bg-accent/40 p-2 text-[11.5px] leading-relaxed">{result.message}</div>
+        <div className="rounded-lg bg-accent/40 p-2 text-[0.71875rem] leading-relaxed">{result.message}</div>
       )}
 
       <div className="flex items-center gap-2">
         <Button
           size="sm"
-          className="h-7 flex-1 text-[11.5px]"
+          className="h-7 flex-1 text-[0.71875rem]"
           onClick={() => void submit()}
           disabled={loading || !prompt.trim()}
         >
@@ -126,7 +126,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
           <Button
             size="sm"
             variant="outline"
-            className={cn('h-7 text-[11.5px]', 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
+            className={cn('h-7 text-[0.71875rem]', 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
             onClick={addToCanvas}
           >
             Add to canvas

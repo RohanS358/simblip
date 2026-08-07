@@ -219,7 +219,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
           <div
             className={cn(
               'group flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-accent/50',
-              isNotebook ? 'text-[13px] font-semibold py-1.5' : 'gap-2 text-[12.5px] font-medium text-muted-foreground'
+              isNotebook ? 'text-[0.8125rem] font-semibold py-1.5' : 'gap-2 text-[0.78125rem] font-medium text-muted-foreground'
             )}
             // Drop a file straight onto any folder — see addFileToFolder's
             // doc comment for the page-vs-raw-file routing rule.
@@ -349,7 +349,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] transition-colors',
+            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] transition-colors',
             active
               ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -437,7 +437,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           style={{ marginLeft: `${16 + depth * 16}px` }}
           onClick={() => handlers.openFile(node)}
         >
@@ -558,7 +558,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
-        <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Notebooks
         </span>
         <DropdownMenu>
@@ -591,7 +591,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {roots.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
-            <p className="text-[12px] leading-relaxed text-muted-foreground">
+            <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
               No notebooks yet.
               <br />
               Create one to start working.
@@ -599,7 +599,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[0.75rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => {
                   const id = store.getState().addNotebook()
                   const sec = store.getState().addFolder('Section 1', id)
@@ -610,7 +610,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
               </button>
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[0.75rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => store.getState().addFolder('New Folder', null)}
               >
                 New folder

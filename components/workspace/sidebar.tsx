@@ -212,7 +212,7 @@ export function Sidebar({
         (contentPageId ? (
           <InspectorPane pageId={contentPageId} />
         ) : (
-          <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+          <p className="py-6 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
             Open a page to inspect its objects and variables.
           </p>
         ))}

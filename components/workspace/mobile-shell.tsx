@@ -133,7 +133,7 @@ function DrawerNavNode({
     return (
       <button
         className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px]',
+          'flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[0.8125rem]',
           activePageId === node.id
             ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
             : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -148,7 +148,7 @@ function DrawerNavNode({
   if (node.kind === 'file') {
     return (
       <div
-        className="flex items-center gap-2 px-3 py-1 text-[13px] text-muted-foreground/70"
+        className="flex items-center gap-2 px-3 py-1 text-[0.8125rem] text-muted-foreground/70"
         style={{ marginLeft: `${12 + depth * 12}px` }}
       >
         <span className="truncate">{node.name}</span>
@@ -160,7 +160,7 @@ function DrawerNavNode({
   return (
     <div className="ml-2">
       <button
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[13px] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[0.8125rem] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
         style={depth > 0 ? { marginLeft: `${(depth - 1) * 12}px` } : undefined}
         onClick={() => onToggle(node.id)}
       >
@@ -337,8 +337,8 @@ export function MobileShell() {
                 {profile?.full_name?.charAt(0) || 'U'}
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[14px] font-bold text-foreground">{profile?.full_name || 'User'}</span>
-                <span className="truncate text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
+                <span className="truncate text-[0.875rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
+                <span className="truncate text-[0.6875rem] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
               </div>
               <button
                 type="button"
@@ -349,10 +349,10 @@ export function MobileShell() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
+              <div className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
               <div className="flex w-full items-center gap-1">
                 <button
-                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' || view.kind === 'folder' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
+                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' || view.kind === 'folder' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
                   onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
                 >
                   <BookOpen className="h-4 w-4" /> My Notebooks
@@ -385,7 +385,7 @@ export function MobileShell() {
                     />
                   ))}
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => {
                   // Open (or create) the notebook where shared copies land.
                   const ws = store.getState()
@@ -398,35 +398,35 @@ export function MobileShell() {
                 <Share2 className="h-4 w-4" /> Shared with me
               </button>
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
               >
                 <ClipboardList className="h-4 w-4" /> Assignments
               </button>
               {staff && (
                 <button
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
                 >
                   <GraduationCap className="h-4 w-4" /> Review
                 </button>
               )}
 
-              <div className="mt-6 mb-2 text-[10px] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
+              <div className="mt-6 mb-2 text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => { setTutorialOpen(true); setDrawerOpen(false) }}
               >
                 <MonitorPlay className="h-4 w-4" /> Tutorials
               </button>
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
               >
                 {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
               </button>
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 onClick={() => { setSettingsOpen(true); setDrawerOpen(false) }}
               >
                 <Settings className="h-4 w-4" /> Settings
@@ -434,7 +434,7 @@ export function MobileShell() {
             </div>
             <div className="border-t border-border/40 p-4">
               <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[14px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-destructive transition-colors hover:bg-destructive/10"
                 onClick={() => useAuthStore.getState().logout()}
               >
                 <LogOut className="h-4 w-4" /> Sign out
@@ -472,11 +472,11 @@ export function MobileShell() {
           ) : null}
           {/* The page title is what matters mid-edit — the wordmark only
               earns its pixels once the screen is tablet-sized. */}
-          <span className="hidden text-[14px] font-extrabold tracking-tight sm:inline">
+          <span className="hidden text-[0.875rem] font-extrabold tracking-tight sm:inline">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <span className="hidden text-muted-foreground/50 sm:inline">/</span>
-          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">{pageName}</span>
+          <span className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold">{pageName}</span>
           <SyncStatus />
           <NotificationCenter />
           <UndoRedo pageId={contentPageId ?? activePageId} />
@@ -613,7 +613,7 @@ export function MobileShell() {
               transition={spring}
             >
               <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-                <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Properties &amp; variables
                 </span>
                 <button
@@ -663,7 +663,7 @@ export function MobileShell() {
           >
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
-          <span className="min-w-0 flex-1 truncate text-[14px] font-semibold">
+          <span className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold">
             {folder.name}
           </span>
           <button
@@ -680,7 +680,7 @@ export function MobileShell() {
           {subFolders.length > 0 && (
             <div className="mb-6">
               <div className="mb-3 flex items-center gap-2 px-1">
-                <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+                <span className="text-[0.8125rem] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
                   Folders
                 </span>
               </div>
@@ -693,7 +693,7 @@ export function MobileShell() {
                     onClick={() => setView({ kind: 'folder', id: sub.id })}
                   >
                     <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{sub.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{sub.name}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <button
@@ -743,7 +743,7 @@ export function MobileShell() {
           )}
 
           <div className="mb-3 flex items-center justify-between px-1">
-            <span className="text-[13px] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+            <span className="text-[0.8125rem] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
               Pages
             </span>
             <div className="flex items-center gap-0.5">
@@ -767,7 +767,7 @@ export function MobileShell() {
           </div>
 
           {pages.length === 0 && files.length === 0 ? (
-            <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[12px] text-muted-foreground">
+            <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[0.75rem] text-muted-foreground">
               No pages yet.
             </div>
           ) : (
@@ -858,7 +858,7 @@ export function MobileShell() {
                       </DropdownMenu>
                     </button>
                   </div>
-                  <span className="mt-2 line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{page.name}</span>
+                  <span className="mt-2 line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{page.name}</span>
                 </fm.div>
               ))}
               {files.map((file) => (
@@ -906,8 +906,8 @@ export function MobileShell() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </button>
-                  <span className="line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{file.name}</span>
-                  <span className="text-[10px] text-muted-foreground">{file.mime}</span>
+                  <span className="line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{file.name}</span>
+                  <span className="text-[0.625rem] text-muted-foreground">{file.mime}</span>
                 </fm.div>
               ))}
             </div>
@@ -927,7 +927,7 @@ export function MobileShell() {
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
         {appMenu}
         <div className="flex-1" />
-        <span className="text-[15px] font-extrabold tracking-tight">
+        <span className="text-[0.9375rem] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
         <div className="flex-1 flex justify-end">
@@ -938,10 +938,10 @@ export function MobileShell() {
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
         {profile && (
           <div className="pb-6 pt-2">
-            <h1 className="text-[28px] font-black tracking-tight leading-none text-foreground drop-shadow-sm">
+            <h1 className="text-[1.75rem] font-black tracking-tight leading-none text-foreground drop-shadow-sm">
               Hello, {profile.full_name.split(' ')[0]}
             </h1>
-            <p className="mt-1.5 text-[14px] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
+            <p className="mt-1.5 text-[0.875rem] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">
@@ -998,8 +998,8 @@ export function MobileShell() {
                   </div>
                 </div>
                 <div className="flex flex-col p-3">
-                  <span className="line-clamp-2 text-[15px] font-bold tracking-tight">{nb.name}</span>
-                  <span className="mt-0.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight">{nb.name}</span>
+                  <span className="mt-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/80">
                     {pages} page{pages === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1020,7 +1020,7 @@ export function MobileShell() {
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-foreground">
               <Plus className="h-5 w-5" />
             </div>
-            <span className="text-[13px] font-bold">New notebook</span>
+            <span className="text-[0.8125rem] font-bold">New notebook</span>
           </fm.div>
         </div>
       </main>
@@ -1044,7 +1044,7 @@ export function MobileShell() {
               className="fixed inset-x-0 bottom-0 z-[80] rounded-t-2xl border-t border-border/40 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
             >
               <div className="mb-3 flex items-center justify-between">
-                <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Choose a cover
                 </span>
                 <button
@@ -1074,7 +1074,7 @@ export function MobileShell() {
               </div>
               <button
                 type="button"
-                className="mt-3 w-full rounded-xl border border-dashed border-border/60 py-2 text-[13px] font-medium text-muted-foreground active:bg-accent"
+                className="mt-3 w-full rounded-xl border border-dashed border-border/60 py-2 text-[0.8125rem] font-medium text-muted-foreground active:bg-accent"
                 onClick={() => {
                   store.getState().setNotebookCover(coverFor, undefined)
                   setCoverFor(null)

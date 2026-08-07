@@ -158,7 +158,7 @@ function PdfPage({
           </div>
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 right-2 z-20 rounded-md bg-black/35 px-1.5 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur-sm">
+      <span className="pointer-events-none absolute bottom-1.5 right-2 z-20 rounded-md bg-black/35 px-1.5 py-0.5 text-[0.625rem] font-medium text-white/90 backdrop-blur-sm">
         {n}
       </span>
     </div>
@@ -482,7 +482,7 @@ useLayoutEffect(() => {
     >
       {dragOver && (
         <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
-          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[12px] font-semibold shadow duration-150">
+          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[0.75rem] font-semibold shadow duration-150">
             Drop to open
           </span>
         </div>
@@ -490,7 +490,7 @@ useLayoutEffect(() => {
       {converting ? (
         <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-[12px]">{converting}</span>
+          <span className="text-[0.75rem]">{converting}</span>
         </div>
       ) : !doc ? (
         <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />
@@ -541,12 +541,12 @@ useLayoutEffect(() => {
                 linkedNoteId ? (
                   <div className="relative h-full w-full bg-background">
                     <InfiniteCanvas key={linkedNoteId} pageId={linkedNoteId} active={activeSheetId === linkedNoteId} />
-                    <span className="pointer-events-none absolute left-3 top-2 z-10 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="pointer-events-none absolute left-3 top-2 z-10 text-[0.65625rem] font-semibold uppercase tracking-wider text-muted-foreground">
                       Notes · page {current}
                     </span>
                   </div>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[12px] text-muted-foreground">
+                  <div className="flex h-full items-center justify-center text-[0.75rem] text-muted-foreground">
                     Preparing note page…
                   </div>
                 )
@@ -561,7 +561,7 @@ useLayoutEffect(() => {
       </div>
 
       {zoomHud && doc && (
-        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[11px] text-muted-foreground">
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[0.6875rem] text-muted-foreground">
           {Math.round(zoom * 100)}%
         </div>
       )}

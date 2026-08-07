@@ -128,7 +128,10 @@ export function WorkspaceShell() {
   // separately (see ObjectView / Calculator).
   const uiScale = usePrefs((s) => s.notebook.uiScale)
   useEffect(() => {
-    document.documentElement.style.fontSize = `${uiScale * 100}%`
+    // Below ~60% root font-size, the browser's minimum readable text size
+    // clamps rem-based text while icons/borders keep shrinking — mismatched,
+    // "hideous" layouts. Clamp here so any stale stored value self-heals too.
+    document.documentElement.style.fontSize = `${Math.max(0.6, uiScale) * 100}%`
     return () => {
       document.documentElement.style.fontSize = ''
     }
@@ -236,7 +239,7 @@ export function WorkspaceShell() {
   if (!ready) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
-        <span className="text-[13px] tracking-wide text-muted-foreground">SIMBLIP</span>
+        <span className="text-[0.8125rem] tracking-wide text-muted-foreground">SIMBLIP</span>
       </div>
     )
   }
@@ -264,11 +267,11 @@ export function WorkspaceShell() {
             className="h-5 w-5 rounded object-contain"
           />
         ) : null}
-        <span className="text-[14px] font-extrabold tracking-tight">
+        <span className="text-[0.875rem] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
         {institution && (
-          <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+          <span className="hidden truncate text-[0.75rem] text-muted-foreground sm:inline">
             · {institution.name}
           </span>
         )}
@@ -282,12 +285,12 @@ export function WorkspaceShell() {
           <button
             type="button"
             aria-label="Search (Ctrl+K)"
-            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[0.75rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
             onClick={() => setCommandOpen(true)}
           >
             <Search className="h-3.5 w-3.5" />
             Search
-            <Kbd className="text-[10px]">⌘K</Kbd>
+            <Kbd className="text-[0.625rem]">⌘K</Kbd>
           </button>
           <button
             type="button"
@@ -444,8 +447,8 @@ export function WorkspaceShell() {
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <p className="text-[15px] font-semibold">No page open</p>
-              <p className="max-w-64 text-[12.5px] leading-relaxed text-muted-foreground">
+              <p className="text-[0.9375rem] font-semibold">No page open</p>
+              <p className="max-w-64 text-[0.78125rem] leading-relaxed text-muted-foreground">
                 Pick a page in the sidebar, or create a notebook to start a new workspace.
               </p>
             </div>
@@ -453,7 +456,7 @@ export function WorkspaceShell() {
         </main>
       </div>
 
-      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[0.65625rem] text-muted-foreground">
         {profile && (
           <span className="font-medium">
             {profile.full_name} · {ROLE_LABEL[profile.role]}

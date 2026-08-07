@@ -134,11 +134,11 @@ export function PublishDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Title</Label>
+            <Label className="text-[0.75rem]">Title</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Spring–mass lab template" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Description</Label>
+            <Label className="text-[0.75rem]">Description</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -148,7 +148,7 @@ export function PublishDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Category</Label>
+              <Label className="text-[0.75rem]">Category</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -163,7 +163,7 @@ export function PublishDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[12px]">What to publish</Label>
+              <Label className="text-[0.75rem]">What to publish</Label>
               <Select value={scope} onValueChange={(v) => setScope(v as 'page' | 'selection')}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -178,7 +178,7 @@ export function PublishDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Tags (comma separated)</Label>
+            <Label className="text-[0.75rem]">Tags (comma separated)</Label>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="oscillation, lab, week-3" />
           </div>
         </div>
@@ -278,7 +278,7 @@ export function LibraryPanel({
     >
       <div className="flex items-center gap-2 px-3.5 pb-2 pt-3">
         <LibraryBig className="h-4 w-4 text-[var(--accent-blue)]" />
-        <span className="flex-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Institution Library
         </span>
         {canPublish && (
@@ -308,14 +308,14 @@ export function LibraryPanel({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search assets…"
-            className="h-8 pl-8 text-[12.5px]"
+            className="h-8 pl-8 text-[0.78125rem]"
           />
         </div>
         <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
           <button
             type="button"
             className={cn(
-              'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+              'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
               category === null ? 'bg-foreground text-background' : 'bg-accent text-muted-foreground hover:text-foreground'
             )}
             onClick={() => setCategory(null)}
@@ -327,7 +327,7 @@ export function LibraryPanel({
               key={c}
               type="button"
               className={cn(
-                'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium capitalize transition-colors',
+                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
                 category === c ? 'bg-foreground text-background' : 'bg-accent text-muted-foreground hover:text-foreground'
               )}
               onClick={() => setCategory(category === c ? null : c)}
@@ -340,7 +340,7 @@ export function LibraryPanel({
 
       <div className="no-scrollbar flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {filtered.length === 0 && (
-          <p className="px-2 py-8 text-center text-[12px] leading-relaxed text-muted-foreground">
+          <p className="px-2 py-8 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
             {assets.length === 0
               ? canPublish
                 ? 'The library is empty. Publish a page to start your institution’s collection.'
@@ -362,14 +362,14 @@ export function LibraryPanel({
                   <Shapes className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-violet)]" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1 truncate text-[13px] font-semibold">
+                  <p className="flex items-center gap-1 truncate text-[0.8125rem] font-semibold">
                     {a.title}
                     {a.approved && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[var(--accent-mint)]" />}
                   </p>
                   {a.description && (
-                    <p className="line-clamp-2 text-[11.5px] leading-snug text-muted-foreground">{a.description}</p>
+                    <p className="line-clamp-2 text-[0.71875rem] leading-snug text-muted-foreground">{a.description}</p>
                   )}
-                  <p className="mt-0.5 text-[10.5px] text-muted-foreground">
+                  <p className="mt-0.5 text-[0.65625rem] text-muted-foreground">
                     {a.uploader_name} · {objectCount} object{objectCount === 1 ? '' : 's'} ·{' '}
                     <span className="capitalize">{a.category.replace('-', ' ')}</span>
                   </p>
@@ -384,14 +384,14 @@ export function LibraryPanel({
                 </button>
               </div>
               <div className="mt-2 flex items-center gap-1.5">
-                <Button size="sm" className="h-6 px-2 text-[11px]" onClick={() => insert(a)}>
+                <Button size="sm" className="h-6 px-2 text-[0.6875rem]" onClick={() => insert(a)}>
                   {a.kind === 'page' ? 'Add as page' : 'Insert'}
                 </Button>
                 {canApprove && (
                   <Button
                     size="sm"
                     variant="outline"
-                    className="h-6 px-2 text-[11px]"
+                    className="h-6 px-2 text-[0.6875rem]"
                     onClick={() => void setApproved(a.id, !a.approved)}
                   >
                     {a.approved ? 'Unapprove' : 'Approve for students'}

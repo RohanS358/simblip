@@ -147,7 +147,7 @@ function ExprInput({
       placeholder={placeholder}
       disabled={disabled}
       className={cn(
-        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[12px] outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30',
+        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[0.75rem] outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30',
         mono && 'font-mono',
         error ? 'border-[var(--accent-rose)]' : 'border-input',
         scrubbable && 'cursor-ew-resize',
@@ -211,7 +211,7 @@ function ExprInput({
       }}
       />
       {suffix && (
-        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground">
+        <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[0.625rem] text-muted-foreground">
           {suffix}
         </span>
       )}
@@ -221,7 +221,7 @@ function ExprInput({
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+    <p className="mb-1.5 text-[0.65625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
       {children}
     </p>
   )
@@ -263,7 +263,7 @@ function TracerToggle({
       aria-label={`Tracer: ${label}`}
       onClick={onClick}
       className={cn(
-        'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[10px] font-medium transition-colors',
+        'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-[0.625rem] font-medium transition-colors',
         on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
       )}
       style={
@@ -297,7 +297,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
     <div>
       <SectionTitle>Behaviors</SectionTitle>
       {object.behaviors.length === 0 && (
-        <p className="mb-2 rounded-lg bg-accent/40 p-2 text-[11.5px] leading-relaxed text-muted-foreground">
+        <p className="mb-2 rounded-lg bg-accent/40 p-2 text-[0.71875rem] leading-relaxed text-muted-foreground">
           This is a drawing. Attach a behavior to make it real — a Rigid Body
           falls and collides, a Spring connects what it touches.
         </p>
@@ -311,14 +311,14 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
               <div className="flex items-center gap-1.5">
                 <span
                   className={cn(
-                    'flex-1 text-[12px] font-semibold',
+                    'flex-1 text-[0.75rem] font-semibold',
                     !b.enabled && 'text-muted-foreground line-through'
                   )}
                 >
                   {spec?.label ?? b.type}
                 </span>
                 {spec && !spec.live && (
-                  <span className="rounded bg-accent px-1 py-0.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                  <span className="rounded bg-accent px-1 py-0.5 text-[0.5625rem] uppercase tracking-wide text-muted-foreground">
                     solver soon
                   </span>
                 )}
@@ -342,7 +342,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
 
               {b.type === 'rigidBody' && (
                 <div className="mt-1.5 border-t border-border/50 pt-1.5">
-                  <p className="mb-1 text-[9.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <p className="mb-1 text-[0.59375rem] font-semibold uppercase tracking-wide text-muted-foreground">
                     Tracers · off by default
                   </p>
                   <div className="flex gap-1.5">
@@ -374,7 +374,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                   const on = p.value !== 0
                   return (
                     <div key={ps.name} className="mt-1.5 flex items-center gap-2">
-                      <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={ps.label}>
+                      <span className="w-20 shrink-0 truncate text-[0.6875rem] text-muted-foreground" title={ps.label}>
                         Collides
                       </span>
                       <button
@@ -384,7 +384,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                         aria-label={ps.label}
                         onClick={() => setBehaviorParam(pageId, object.id, b.id, ps.name, on ? '0' : '1')}
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                          'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
                           on
                             ? 'bg-[var(--accent-amber)]/20 text-[var(--accent-amber)]'
                             : 'bg-accent text-muted-foreground'
@@ -398,7 +398,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                 return (
                   <div key={ps.name} className="mt-1.5">
                     <div className="flex items-center gap-2">
-                      <span className="w-20 shrink-0 truncate text-[11px] text-muted-foreground" title={ps.label}>
+                      <span className="w-20 shrink-0 truncate text-[0.6875rem] text-muted-foreground" title={ps.label}>
                         {ps.label}
                       </span>
                       <ExprInput
@@ -407,12 +407,12 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                         error={p.error}
                         onCommit={(v) => setBehaviorParam(pageId, object.id, b.id, ps.name, v)}
                       />
-                      <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+                      <span className="w-14 shrink-0 truncate text-right font-mono text-[0.625rem] text-[var(--accent-amber)]">
                         {Number.isFinite(p.value) ? +p.value.toFixed(3) : '—'}
                       </span>
                     </div>
                     {p.error && (
-                      <p className="ml-[5.5rem] mt-0.5 text-[10px] text-[var(--accent-rose)]">{p.error}</p>
+                      <p className="ml-[5.5rem] mt-0.5 text-[0.625rem] text-[var(--accent-rose)]">{p.error}</p>
                     )}
                   </div>
                 )
@@ -427,7 +427,7 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[0.75rem] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
             >
               <Plus className="h-3.5 w-3.5" /> Add behavior
             </button>
@@ -439,15 +439,15 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                 className="flex-col items-start gap-0 py-2"
                 onClick={() => addBehavior(pageId, object.id, spec.type)}
               >
-                <span className="text-[12.5px] font-medium">
+                <span className="text-[0.78125rem] font-medium">
                   {spec.label}
                   {!spec.live && (
-                    <span className="ml-1.5 text-[9px] uppercase tracking-wide text-muted-foreground">
+                    <span className="ml-1.5 text-[0.5625rem] uppercase tracking-wide text-muted-foreground">
                       solver soon
                     </span>
                   )}
                 </span>
-                <span className="text-[11px] text-muted-foreground">{spec.hint}</span>
+                <span className="text-[0.6875rem] text-muted-foreground">{spec.hint}</span>
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
@@ -505,13 +505,13 @@ const splitList = (s: string) =>
     .filter(Boolean)
 
 const selectCls =
-  'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 text-[11.5px] outline-none focus:border-[var(--ring)]'
+  'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 text-[0.71875rem] outline-none focus:border-[var(--ring)]'
 
 function AddRowButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1 text-[11.5px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1 text-[0.71875rem] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
       onClick={onClick}
     >
       <Plus className="h-3 w-3" /> {label}
@@ -542,7 +542,7 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
   ) => {
     const chosen = picked(param)
     return items.length === 0 ? (
-      <p className="text-[11.5px] text-muted-foreground">{empty}</p>
+      <p className="text-[0.71875rem] text-muted-foreground">{empty}</p>
     ) : (
       <div className="space-y-1">
         {items.map((o) => {
@@ -553,7 +553,7 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
               type="button"
               role="switch"
               aria-checked={on}
-              className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-[12px] transition-colors"
+              className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-[0.75rem] transition-colors"
               style={{
                 borderColor: on ? color : 'var(--border)',
                 color: on ? 'var(--foreground)' : 'var(--muted-foreground)',
@@ -566,7 +566,7 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
                 style={{ background: on ? color : 'var(--border)' }}
               />
               <span className="min-w-0 flex-1 truncate">{o.name}</span>
-              <span className="shrink-0 font-mono text-[10px] opacity-60">
+              <span className="shrink-0 font-mono text-[0.625rem] opacity-60">
                 {o.geometry.symbol}
               </span>
             </button>
@@ -584,7 +584,7 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
         <SectionTitle>Inputs</SectionTitle>
         {list('inputs', sources, 'Add a logic Input or Switch to the circuit.', 'var(--chart-1)')}
         {nIn > MAX_INPUTS && (
-          <p className="text-[10.5px] text-[var(--accent-rose)]">
+          <p className="text-[0.65625rem] text-[var(--accent-rose)]">
             Too many inputs — {MAX_INPUTS} max ({1 << MAX_INPUTS} rows).
           </p>
         )}
@@ -595,7 +595,7 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
         {list('outputs', sinks, 'Add an Output, logic probe, LED or bulb.', 'var(--chart-2)')}
       </div>
 
-      <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+      <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
         Every combination of the chosen inputs is simulated on the real circuit
         {nIn > 0 && nIn <= MAX_INPUTS ? ` — ${1 << nIn} rows` : ''}. Rewire a gate and the table
         updates itself.
@@ -613,7 +613,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
     setStringParam(pageId, object.id, 'spec', JSON.stringify(next))
 
   const field =
-    'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 font-mono text-[11.5px] outline-none focus:border-[var(--ring)]'
+    'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 font-mono text-[0.71875rem] outline-none focus:border-[var(--ring)]'
 
   /** Year cell: keeps the raw text so "1/2" survives while you type. */
   const YearInput = ({ value, onCommit, label }: { value: number; onCommit: (v: number) => void; label: string }) => (
@@ -647,7 +647,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
     />
   )
   const Head = ({ children }: { children: React.ReactNode }) => (
-    <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+    <div className="grid grid-cols-[1fr_1fr_auto] items-center gap-1.5 text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
       {children}
     </div>
   )
@@ -707,7 +707,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
         {spec.annuities.map((a, idx) => (
           <div key={idx} className="space-y-1 rounded-xl border border-border/60 p-2">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              <span className="text-[0.625rem] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                 Series {idx + 1}
               </span>
               <button
@@ -721,7 +721,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <label className="space-y-0.5">
-                <span className="text-[10px] text-muted-foreground">Starting year</span>
+                <span className="text-[0.625rem] text-muted-foreground">Starting year</span>
                 <YearInput
                   label={`Annuity ${idx + 1} start`}
                   value={a.start}
@@ -731,7 +731,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
                 />
               </label>
               <label className="space-y-0.5">
-                <span className="text-[10px] text-muted-foreground">Time period (yrs)</span>
+                <span className="text-[0.625rem] text-muted-foreground">Time period (yrs)</span>
                 <YearInput
                   label={`Annuity ${idx + 1} periods`}
                   value={a.periods}
@@ -741,7 +741,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
                 />
               </label>
               <label className="space-y-0.5">
-                <span className="text-[10px] text-muted-foreground">Every (1, 1/2, 1/4)</span>
+                <span className="text-[0.625rem] text-muted-foreground">Every (1, 1/2, 1/4)</span>
                 <YearInput
                   label={`Annuity ${idx + 1} interval`}
                   value={a.every}
@@ -754,7 +754,7 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
                 />
               </label>
               <label className="space-y-0.5">
-                <span className="text-[10px] text-muted-foreground">Amount</span>
+                <span className="text-[0.625rem] text-muted-foreground">Amount</span>
                 <MoneyInput
                   label={`Annuity ${idx + 1} amount`}
                   value={a.amount}
@@ -777,20 +777,20 @@ function CashflowOptions({ pageId, object }: { pageId: string; object: SceneObje
       <div className="space-y-1.5">
         <SectionTitle>Salvage value</SectionTitle>
         <div className="flex items-center gap-2">
-          <span className="w-16 shrink-0 text-[11px] text-muted-foreground">Amount</span>
+          <span className="w-16 shrink-0 text-[0.6875rem] text-muted-foreground">Amount</span>
           <MoneyInput label="Salvage value" value={spec.salvage} onCommit={(salvage) => write({ ...spec, salvage })} />
         </div>
-        <p className="text-[10.5px] text-muted-foreground">Received at the end of the analysis horizon.</p>
+        <p className="text-[0.65625rem] text-muted-foreground">Received at the end of the analysis horizon.</p>
       </div>
 
       <div className="space-y-1.5">
         <SectionTitle>MARR</SectionTitle>
         <div className="flex items-center gap-2">
-          <span className="w-16 shrink-0 text-[11px] text-muted-foreground">Percentage</span>
+          <span className="w-16 shrink-0 text-[0.6875rem] text-muted-foreground">Percentage</span>
           <MoneyInput label="MARR percent" value={spec.marr} onCommit={(marr) => write({ ...spec, marr })} />
-          <span className="text-[11px] text-muted-foreground">%</span>
+          <span className="text-[0.6875rem] text-muted-foreground">%</span>
         </div>
-        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
           Discount rate for PW / FW / AW. Years accept fractions —{' '}
           <span className="font-mono">1/2</span> is semiannual, <span className="font-mono">1/4</span> quarterly.
         </p>
@@ -843,7 +843,7 @@ function FormulaOptions({ pageId, object }: { pageId: string; object: SceneObjec
     <span className="flex items-center gap-0.5 rounded-lg border border-border/70 pl-0.5">
       <button
         type="button"
-        className="rounded-md px-1.5 py-1 font-mono text-[11.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        className="rounded-md px-1.5 py-1 font-mono text-[0.71875rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
         onClick={onClick}
       >
         {label}
@@ -856,7 +856,7 @@ function FormulaOptions({ pageId, object }: { pageId: string; object: SceneObjec
     <div className="space-y-1.5">
       <SectionTitle>Calculus</SectionTitle>
       {!parsed ? (
-        <p className="rounded-lg bg-accent/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="rounded-lg bg-accent/40 p-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
           Write <span className="font-mono">f(x) = x^2 + 3*x, 10&lt;x&lt;20</span> on the card (bounds
           optional, several variables → partials) to unlock solving.
         </p>
@@ -910,7 +910,7 @@ function FormulaOptions({ pageId, object }: { pageId: string; object: SceneObjec
           {solution && (
             <button
               type="button"
-              className="flex items-center gap-1 text-[10.5px] text-muted-foreground transition-colors hover:text-[var(--accent-rose)]"
+              className="flex items-center gap-1 text-[0.65625rem] text-muted-foreground transition-colors hover:text-[var(--accent-rose)]"
               onClick={() => {
                 pushHistory(pageId)
                 setStringParam(pageId, object.id, 'solution', '')
@@ -992,7 +992,7 @@ function GraphOptions({
   )
 
   const rangeField = (name: string, label: string) => (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
       <span className="w-9 shrink-0">{label}</span>
       <ExprInput
         ariaLabel={`Graph ${label}`}
@@ -1011,7 +1011,7 @@ function GraphOptions({
       <div className="space-y-1.5">
         <SectionTitle>Series</SectionTitle>
         {series.length === 0 && (
-          <p className="rounded-lg bg-accent/40 p-2 text-[11px] leading-relaxed text-muted-foreground">
+          <p className="rounded-lg bg-accent/40 p-2 text-[0.6875rem] leading-relaxed text-muted-foreground">
             Each series plots one channel of one object — add several to
             compare objects on the same graph.
           </p>
@@ -1074,7 +1074,7 @@ function GraphOptions({
             }}
           />
         ) : (
-          <p className="text-[10.5px] text-muted-foreground">
+          <p className="text-[0.65625rem] text-muted-foreground">
             No physics objects yet — give something a Rigid Body behavior first.
           </p>
         )}
@@ -1083,7 +1083,7 @@ function GraphOptions({
       <div className="space-y-1.5">
         <SectionTitle>Layout</SectionTitle>
         <div className="flex items-center gap-2">
-          <span className="w-20 shrink-0 text-[11px] text-muted-foreground">Stacked</span>
+          <span className="w-20 shrink-0 text-[0.6875rem] text-muted-foreground">Stacked</span>
           <button
             type="button"
             role="switch"
@@ -1091,7 +1091,7 @@ function GraphOptions({
             aria-label="Stacked charts"
             onClick={() => set('stacked', getStr(object, 'stacked') === '1' ? '' : '1')}
             className={cn(
-              'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+              'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
               getStr(object, 'stacked') === '1'
                 ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]'
                 : 'bg-accent text-muted-foreground'
@@ -1099,13 +1099,13 @@ function GraphOptions({
           >
             {getStr(object, 'stacked') === '1' ? 'On' : 'Off'}
           </button>
-          <span className="text-[10.5px] text-muted-foreground">one mini chart per series</span>
+          <span className="text-[0.65625rem] text-muted-foreground">one mini chart per series</span>
         </div>
       </div>
 
       <div className="space-y-1.5">
         <SectionTitle>Axes</SectionTitle>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
           <span className="w-9 shrink-0">X axis</span>
           <select
             aria-label="Graph X axis channel"
@@ -1127,7 +1127,7 @@ function GraphOptions({
           {rangeField('yMin', 'Y min')}
           {rangeField('yMax', 'Y max')}
         </div>
-        <p className="text-[10.5px] text-muted-foreground">
+        <p className="text-[0.65625rem] text-muted-foreground">
           Blank = auto. Values can be expressions (e.g. <span className="font-mono">2*g</span>).
         </p>
       </div>
@@ -1136,7 +1136,7 @@ function GraphOptions({
         <SectionTitle>Formulas</SectionTitle>
         {editableList(formulas, writeFormulas, 'Formula')}
         <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'sin(t)'])} />
-        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
           Plotted as dashed lines. Can use page variables, <span className="font-mono">t</span> and the
           first series&apos; channels. Without a series, formulas plot over the X range. Calculus works
           too: <span className="font-mono">derivative(sin(t), t)</span>,{' '}
@@ -1157,7 +1157,7 @@ function GraphOptions({
           const write = (l: string[]) => set(name, l.join('; '))
           return (
             <div key={name} className="space-y-1">
-              <p className="text-[10.5px] text-muted-foreground">{label}</p>
+              <p className="text-[0.65625rem] text-muted-foreground">{label}</p>
               {editableList(list, write, label)}
               <AddRowButton label="Add line" onClick={() => write([...list, '0'])} />
             </div>
@@ -1204,7 +1204,7 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
   )
 
   const rangeField = (name: string, label: string, fallback: string) => (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
       <span className="w-8 shrink-0 font-mono">{label}</span>
       <ExprInput ariaLabel={`Range ${label}`} value={getStr(object, name)} placeholder={fallback} onCommit={(v) => set(name, v)} />
     </label>
@@ -1216,7 +1216,7 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
         <SectionTitle>Formulas</SectionTitle>
         {editableList(formulas, writeFormulas, 'Formula')}
         <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'x^2+y^2'])} />
-        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
           Explicit: <span className="font-mono">sin(x)*cos(y)</span> plots as a height field. Implicit
           equations work too — <span className="font-mono">x^2+y^2+z^2=25</span> (sphere) or{' '}
           <span className="font-mono">2*x+3*y+z=6</span> (plane) — solved for the dependent axis and
@@ -1235,12 +1235,12 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
           {rangeField('zMin', 'z min', '-5')}
           {rangeField('zMax', 'z max', '5')}
         </div>
-        <p className="text-[10.5px] text-muted-foreground">Values can be expressions (e.g. 2*r).</p>
+        <p className="text-[0.65625rem] text-muted-foreground">Values can be expressions (e.g. 2*r).</p>
       </div>
 
       <div className="space-y-1.5">
         <SectionTitle>Resolution</SectionTitle>
-        <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
           <span className="w-8 shrink-0 font-mono">grid</span>
           <ExprInput
             ariaLabel="Grid resolution"
@@ -1250,7 +1250,7 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
             onCommit={(v) => set('res', v)}
           />
         </label>
-        <p className="text-[10.5px] text-muted-foreground">Samples per axis, 8–60. Higher is smoother but slower.</p>
+        <p className="text-[0.65625rem] text-muted-foreground">Samples per axis, 8–60. Higher is smoother but slower.</p>
       </div>
     </div>
   )
@@ -1351,7 +1351,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
               title={label}
               onClick={() => set('chartType', id)}
               className={cn(
-                'flex flex-col items-center gap-0.5 rounded-md py-1.5 text-[9.5px]',
+                'flex flex-col items-center gap-0.5 rounded-md py-1.5 text-[0.59375rem]',
                 chartType === id
                   ? 'bg-[var(--accent-blue)]/10 text-[var(--accent-blue)]'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -1364,7 +1364,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
         </div>
         {(chartType === 'bar' || chartType === 'area') && (
           <div className="flex items-center gap-2 pt-0.5">
-            <span className="w-14 shrink-0 text-[11px] text-muted-foreground">Stacked</span>
+            <span className="w-14 shrink-0 text-[0.6875rem] text-muted-foreground">Stacked</span>
             <button
               type="button"
               role="switch"
@@ -1372,7 +1372,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
               aria-label="Stacked series"
               onClick={() => set('stacked', stacked ? '' : '1')}
               className={cn(
-                'rounded-full px-2 py-0.5 text-[10px] font-semibold transition-colors',
+                'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
                 stacked ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]' : 'bg-accent text-muted-foreground'
               )}
             >
@@ -1385,7 +1385,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <SectionTitle>Data</SectionTitle>
-          <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[10.5px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65625rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Upload className="h-3 w-3" /> Import CSV
             <input
               type="file"
@@ -1400,10 +1400,10 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
           </label>
         </div>
         <div className="max-h-64 overflow-auto rounded-md border border-border/60">
-          <table className="w-full border-collapse font-mono text-[10.5px]">
+          <table className="w-full border-collapse font-mono text-[0.65625rem]">
             <thead className="sticky top-0 z-10 bg-card">
               <tr className="bg-[var(--accent-blue)]/8">
-                <th className="min-w-[52px] border-b border-r border-border/50 px-1.5 py-1 text-left text-[10px] font-semibold text-muted-foreground">
+                <th className="min-w-[52px] border-b border-r border-border/50 px-1.5 py-1 text-left text-[0.625rem] font-semibold text-muted-foreground">
                   Label
                 </th>
                 {cols.map((s, c) => (
@@ -1491,7 +1491,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
           </table>
         </div>
         <AddRowButton label="Add row" onClick={addRow} />
-        <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+        <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
           CSV: header row (blank cell, then one column per series), then one row per label.
         </p>
       </div>
@@ -1521,7 +1521,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
       <SectionTitle>Slider Configuration</SectionTitle>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Label</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Label</label>
         <input
           type="text"
           value={label}
@@ -1533,12 +1533,12 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         />
       </div>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Target Type</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Target Type</label>
         <select
           value={targetType}
           onChange={(e) =>
@@ -1549,7 +1549,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         >
           <option value="variable">Page Variable</option>
           <option value="objectParam">Component Parameter</option>
@@ -1558,7 +1558,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       {targetType === 'objectParam' && (
         <div>
-          <label className="text-[11px] text-muted-foreground">Target Component</label>
+          <label className="text-[0.6875rem] text-muted-foreground">Target Component</label>
           <select
             value={targetObjectId}
             onChange={(e) =>
@@ -1569,7 +1569,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
           >
             <option value="">Select component…</option>
             {objects.map((o) => (
@@ -1582,7 +1582,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
       )}
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Target Parameter / Variable</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Target Parameter / Variable</label>
         <select
           value={targetParamName}
           onChange={(e) =>
@@ -1593,7 +1593,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         >
           <option value="">Select target…</option>
           {targetType === 'variable'
@@ -1612,7 +1612,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       <div className="grid grid-cols-3 gap-1.5">
         <div>
-          <label className="text-[10px] text-muted-foreground">Min</label>
+          <label className="text-[0.625rem] text-muted-foreground">Min</label>
           <input
             type="number"
             value={min}
@@ -1624,11 +1624,11 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
           />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground">Max</label>
+          <label className="text-[0.625rem] text-muted-foreground">Max</label>
           <input
             type="number"
             value={max}
@@ -1640,11 +1640,11 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
           />
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground">Step</label>
+          <label className="text-[0.625rem] text-muted-foreground">Step</label>
           <input
             type="number"
             value={step}
@@ -1656,7 +1656,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[11px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
           />
         </div>
       </div>
@@ -1685,7 +1685,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       <SectionTitle>Button Configuration</SectionTitle>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Label</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Label</label>
         <input
           type="text"
           value={label}
@@ -1697,12 +1697,12 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         />
       </div>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Action Type</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Action Type</label>
         <select
           value={actionType}
           onChange={(e) =>
@@ -1713,7 +1713,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         >
           <option value="set">Set Target Value</option>
           <option value="toggle">Toggle Flag (0 ↔ 1)</option>
@@ -1722,7 +1722,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       </div>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Target Type</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Target Type</label>
         <select
           value={targetType}
           onChange={(e) =>
@@ -1733,7 +1733,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         >
           <option value="variable">Page Variable</option>
           <option value="objectParam">Component Parameter</option>
@@ -1742,7 +1742,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       {targetType === 'objectParam' && (
         <div>
-          <label className="text-[11px] text-muted-foreground">Target Component</label>
+          <label className="text-[0.6875rem] text-muted-foreground">Target Component</label>
           <select
             value={targetObjectId}
             onChange={(e) =>
@@ -1753,7 +1753,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
           >
             <option value="">Select component…</option>
             {objects.map((o) => (
@@ -1766,7 +1766,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       )}
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Target Parameter / Variable</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Target Parameter / Variable</label>
         <select
           value={targetParamName}
           onChange={(e) =>
@@ -1777,7 +1777,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         >
           <option value="">Select target…</option>
           {targetType === 'variable'
@@ -1796,7 +1796,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       {actionType !== 'toggle' && (
         <div>
-          <label className="text-[11px] text-muted-foreground">Value to Set / Step</label>
+          <label className="text-[0.6875rem] text-muted-foreground">Value to Set / Step</label>
           <input
             type="number"
             value={targetValue}
@@ -1808,7 +1808,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] font-mono outline-none"
           />
         </div>
       )}
@@ -1846,7 +1846,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
       <SectionTitle>Trigger Condition</SectionTitle>
 
       <div>
-        <label className="text-[11px] text-muted-foreground">Label</label>
+        <label className="text-[0.6875rem] text-muted-foreground">Label</label>
         <input
           type="text"
           value={label}
@@ -1858,12 +1858,12 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
         />
       </div>
 
       <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Monitored Source</p>
+        <p className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground">Monitored Source</p>
         <select
           value={sourceType}
           onChange={(e) =>
@@ -1874,7 +1874,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
         >
           <option value="variable">Page Variable</option>
           <option value="objectParam">Component Parameter</option>
@@ -1891,7 +1891,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
           >
             <option value="">Select source component…</option>
             {objects.map((o) => (
@@ -1912,7 +1912,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
         >
           <option value="">Select monitored value…</option>
           {sourceType === 'variable'
@@ -1931,7 +1931,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
 
       <div className="grid grid-cols-2 gap-1.5">
         <div>
-          <label className="text-[10px] text-muted-foreground">Operator</label>
+          <label className="text-[0.625rem] text-muted-foreground">Operator</label>
           <select
             value={condition}
             onChange={(e) =>
@@ -1942,7 +1942,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] font-mono outline-none"
           >
             <option value=">">&gt; (Greater Than)</option>
             <option value="<">&lt; (Less Than)</option>
@@ -1953,7 +1953,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
           </select>
         </div>
         <div>
-          <label className="text-[10px] text-muted-foreground">Threshold Value</label>
+          <label className="text-[0.625rem] text-muted-foreground">Threshold Value</label>
           <input
             type="number"
             value={threshold}
@@ -1965,13 +1965,13 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] font-mono outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] font-mono outline-none"
           />
         </div>
       </div>
 
       <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Target Action</p>
+        <p className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground">Target Action</p>
         <select
           value={targetType}
           onChange={(e) =>
@@ -1982,7 +1982,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
         >
           <option value="variable">Page Variable</option>
           <option value="objectParam">Component Parameter</option>
@@ -1999,7 +1999,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
           >
             <option value="">Select target component…</option>
             {objects.map((o) => (
@@ -2020,7 +2020,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[11.5px] outline-none"
+          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.71875rem] outline-none"
         >
           <option value="">Select target value…</option>
           {targetType === 'variable'
@@ -2052,7 +2052,7 @@ const TEXT_STYLES: { label: string; icon: typeof Pilcrow; prefix: string }[] = [
 /** A small gray field caption — Figma's own field labels ("Alignment",
  *  "Position", "Resizing"…) inside each section. */
 function FieldLabel({ children }: { children: React.ReactNode }) {
-  return <p className="mb-1 text-[11px] text-muted-foreground">{children}</p>
+  return <p className="mb-1 text-[0.6875rem] text-muted-foreground">{children}</p>
 }
 
 /** A flat, divider-separated section — Figma's Design panel stacks Position/
@@ -2073,7 +2073,7 @@ function PanelSection({
   return (
     <div className={cn('space-y-2.5 pb-3', !last && 'border-b border-border/60')}>
       <div className="flex items-center justify-between">
-        <h3 className="text-[12.5px] font-semibold text-foreground">{title}</h3>
+        <h3 className="text-[0.78125rem] font-semibold text-foreground">{title}</h3>
         {right}
       </div>
       {children}
@@ -2245,7 +2245,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
    *  shows raw pixels rather than the app's usual cm display unit — Figma
    *  parity, by explicit request). */
   const pxField = (label: string, value: number, commit: (n: number) => void) => (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
       <span className="w-3 shrink-0">{label}</span>
       <ExprInput
         ariaLabel={label}
@@ -2327,7 +2327,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
         </div>
         <div>
           <FieldLabel>Rotation</FieldLabel>
-          <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
             <RotateCw className="h-3.5 w-3.5 shrink-0" />
             <ExprInput
               ariaLabel="Rotation"
@@ -2337,7 +2337,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 if (Number.isFinite(n)) updateObject(pageId, object.id, { rotation: n }, { history: true })
               }}
             />
-            <span className="shrink-0 text-[10px] opacity-60">°</span>
+            <span className="shrink-0 text-[0.625rem] opacity-60">°</span>
           </label>
         </div>
       </PanelSection>
@@ -2384,7 +2384,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             </DropdownMenuTrigger>
             <DropdownMenuContent className="glass-strong w-36">
               {TEXT_STYLES.map((s) => (
-                <DropdownMenuItem key={s.label} className="gap-2 text-[12px]" onSelect={() => prefixLine(s.prefix)}>
+                <DropdownMenuItem key={s.label} className="gap-2 text-[0.75rem]" onSelect={() => prefixLine(s.prefix)}>
                   <s.icon className="h-3.5 w-3.5" /> {s.label}
                 </DropdownMenuItem>
               ))}
@@ -2405,7 +2405,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           {iconBtn('Quote', Quote, () => prefixLine('> '))}
         </div>
         {!isActive && (
-          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
             Double-click into the text and select some — these apply to the selection, not the whole box.
           </p>
         )}
@@ -2459,7 +2459,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 type="button"
                 aria-label="Font family"
                 disabled={!isActive}
-                className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
                 onMouseDown={(e) => {
                   guardTrigger(e)
                   // Radix's DropdownMenuContent focuses itself the instant
@@ -2482,7 +2482,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               {(Object.keys(TEXT_FONTS) as (keyof typeof TEXT_FONTS)[]).map((id) => (
                 <DropdownMenuItem
                   key={id}
-                  className="text-[13px]"
+                  className="text-[0.8125rem]"
                   style={{ fontFamily: TEXT_FONTS[id] }}
                   onSelect={() => {
                     setFont(id)
@@ -2505,7 +2505,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                   type="button"
                   aria-label="Font weight"
                   disabled={!isActive}
-                  className="flex w-full items-center justify-between gap-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[12px] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+                  className="flex w-full items-center justify-between gap-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
                   onMouseDown={(e) => {
                     guardTrigger(e)
                     snapshotSelection() // see Font family trigger's comment above
@@ -2519,7 +2519,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 {(Object.keys(TEXT_WEIGHTS) as (keyof typeof TEXT_WEIGHTS)[]).map((id) => (
                   <DropdownMenuItem
                     key={id}
-                    className="text-[12.5px]"
+                    className="text-[0.78125rem]"
                     style={{ fontWeight: TEXT_WEIGHTS[id] }}
                     onSelect={() => {
                       setWeight(id)
@@ -2576,7 +2576,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           </div>
           <div>
             <FieldLabel>Letter spacing</FieldLabel>
-            <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+            <label className="flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
               <ExprInput
                 ariaLabel="Letter spacing"
                 value={String(letterSpacing)}
@@ -2585,7 +2585,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                   if (Number.isFinite(n)) setMeta({ letterSpacing: n })
                 }}
               />
-              <span className="shrink-0 text-[10px] opacity-60">%</span>
+              <span className="shrink-0 text-[0.625rem] opacity-60">%</span>
             </label>
           </div>
         </div>
@@ -2616,7 +2616,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               aria-label="No background"
               aria-pressed={!bg}
               className={cn(
-                'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] text-muted-foreground',
+                'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[0.625rem] text-muted-foreground',
                 !bg ? 'border-[var(--ring)]' : 'border-transparent'
               )}
               onClick={() => setMeta({ color: undefined })}
@@ -2638,7 +2638,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               />
             ))}
           </div>
-          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-[0.65625rem] leading-relaxed text-muted-foreground">
             A tint behind the whole box, not the text itself.
           </p>
         </div>
@@ -2667,7 +2667,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   )
   /** A plain number field (rotation, and anything unitless). */
   const numField = (label: string, value: number, commit: (n: number) => void) => (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
       {label}
       <ExprInput
         ariaLabel={label}
@@ -2683,7 +2683,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   /** A LENGTH field. The page's unit is the centimetre (10 px = 1 cm), so the
    *  user reads and types cm while geometry stays in pixels internally. */
   const cmField = (label: string, px: number, commitPx: (px: number) => void) => (
-    <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+    <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
       {label}
       <ExprInput
         ariaLabel={`${label} (cm)`}
@@ -2693,7 +2693,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           if (Number.isFinite(n)) commitPx(cmToPx(n))
         }}
       />
-      <span className="shrink-0 text-[10px] opacity-60">cm</span>
+      <span className="shrink-0 text-[0.625rem] opacity-60">cm</span>
     </label>
   )
 
@@ -2706,7 +2706,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           value={object.name}
           onCommit={(name) => name.trim() && updateObject(pageId, object.id, { name: name.trim() }, { history: true })}
         />
-        <p className="mt-1 text-[10.5px] uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="mt-1 text-[0.65625rem] uppercase tracking-[0.12em] text-muted-foreground">
           {object.geometry.kind}
           {object.geometry.symbol ? ` · ${object.geometry.symbol}` : ''}
         </p>
@@ -2745,7 +2745,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           <SectionTitle>Model</SectionTitle>
           <select
             aria-label="Component model"
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none focus:border-[var(--ring)]"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none focus:border-[var(--ring)]"
             value={
               object.parameters.inputs?.kind === 'number'
                 ? Math.round(object.parameters.inputs.value)
@@ -2773,7 +2773,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
               </option>
             ))}
           </select>
-          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
             Pins move to match — rewire connections after changing the model.
           </p>
         </div>
@@ -2784,7 +2784,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           <SectionTitle>System domain</SectionTitle>
           <select
             aria-label="System domain"
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[12px] outline-none focus:border-[var(--ring)]"
+            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none focus:border-[var(--ring)]"
             value={(object.metadata.domain as string) ?? 'electrical'}
             onChange={(e) =>
               updateObject(
@@ -2800,7 +2800,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
             <option value="electronics">Electronics</option>
             <option value="digital">Digital</option>
           </select>
-          <p className="text-[10.5px] leading-relaxed text-muted-foreground">
+          <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
             Doodles inside become this domain&apos;s components — zigzag →
             resistor, box → battery/gate, blob → bulb/BJT, lines → wires.
             Scribble a small mark near any part to write its value or name.
@@ -2836,18 +2836,18 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
           {contentParams.map(([name, p]) => (
             <div key={name}>
               <div className="flex items-center gap-2">
-                <span className="w-14 shrink-0 truncate font-mono text-[11.5px] text-muted-foreground" title={name}>{name}</span>
+                <span className="w-14 shrink-0 truncate font-mono text-[0.71875rem] text-muted-foreground" title={name}>{name}</span>
                 <ExprInput
                   ariaLabel={`Parameter ${name}`}
                   value={p.expr}
                   error={p.error}
                   onCommit={(v) => setParam(pageId, object.id, name, v)}
                 />
-                <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+                <span className="w-14 shrink-0 truncate text-right font-mono text-[0.625rem] text-[var(--accent-amber)]">
                   {Number.isFinite(p.value) ? +p.value.toFixed(3) : '—'}
                 </span>
               </div>
-              {p.error && <p className="ml-16 mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{p.error}</p>}
+              {p.error && <p className="ml-16 mt-0.5 text-[0.65625rem] text-[var(--accent-rose)]">{p.error}</p>}
             </div>
           ))}
         </div>
@@ -2900,7 +2900,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   return (
     <div className="space-y-1.5">
       {variables.length === 0 && (
-        <p className="py-4 text-center text-[12px] leading-relaxed text-muted-foreground">
+        <p className="py-4 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
           Variables are shared by every object on this page.
           <br />
           Try <span className="font-mono">g = 9.81</span>, then use{' '}
@@ -2927,7 +2927,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               error={v.error}
               onCommit={(expr) => updateVariable(pageId, v.id, { expr })}
             />
-            <span className="w-14 shrink-0 truncate text-right font-mono text-[10px] text-[var(--accent-amber)]">
+            <span className="w-14 shrink-0 truncate text-right font-mono text-[0.625rem] text-[var(--accent-amber)]">
               {v.error ? '—' : +v.value.toFixed(3)}
             </span>
             <button
@@ -2976,7 +2976,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               rows={3}
               spellCheck={false}
               aria-label={`Large formula editor for ${v.name}`}
-              className="mt-1 w-full resize-y rounded-md border border-input bg-background/80 px-2 py-1.5 font-mono text-[12px] leading-relaxed outline-none focus:border-[var(--ring)]"
+              className="mt-1 w-full resize-y rounded-md border border-input bg-background/80 px-2 py-1.5 font-mono text-[0.75rem] leading-relaxed outline-none focus:border-[var(--ring)]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur()
               }}
@@ -2996,7 +2996,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
                   setBindObj(e.target.value)
                   setBindCh('')
                 }}
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 py-1 text-[11.5px]"
+                className="min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 py-1 text-[0.71875rem]"
               >
                 <option value="">Component…</option>
                 {objectList.map((o) => (
@@ -3010,7 +3010,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
                 value={bindCh}
                 disabled={!bindObj}
                 onChange={(e) => setBindCh(e.target.value)}
-                className="w-24 rounded-md border border-border bg-background px-1.5 py-1 text-[11.5px]"
+                className="w-24 rounded-md border border-border bg-background px-1.5 py-1 text-[0.71875rem]"
               >
                 <option value="">Value…</option>
                 {bindObj &&
@@ -3023,7 +3023,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               <button
                 type="button"
                 disabled={!bindObj || !bindCh}
-                className="rounded-md border border-border px-2 py-1 text-[11.5px] font-semibold text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
+                className="rounded-md border border-border px-2 py-1 text-[0.71875rem] font-semibold text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
                 onClick={() => {
                   const o = pageObjects[bindObj]
                   if (!o) return
@@ -3040,18 +3040,18 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             </div>
           )}
           {binding === v.id && (
-            <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">
+            <p className="mt-0.5 text-[0.625rem] leading-snug text-muted-foreground">
               Live value from the simulation — combine several (edit the expression, e.g.{' '}
               <span className="font-mono">2*[A(V)]/[B(I)]</span>). Only objects that produce
               data are listed, each with its own outputs.
             </p>
           )}
-          {v.error && <p className="mt-0.5 text-[10.5px] text-[var(--accent-rose)]">{v.error}</p>}
+          {v.error && <p className="mt-0.5 text-[0.65625rem] text-[var(--accent-rose)]">{v.error}</p>}
         </div>
       ))}
       <button
         type="button"
-        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[12px] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
+        className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border py-1.5 text-[0.75rem] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground"
         onClick={() => addVariable(pageId)}
       >
         <Plus className="h-3.5 w-3.5" /> Add variable
@@ -3062,18 +3062,18 @@ function VariablesPanel({ pageId }: { pageId: string }) {
           <SectionTitle>System (engine defaults)</SectionTitle>
           {unsetSystem.map((sv) => (
             <div key={sv.name} className="flex items-center gap-1.5 py-0.5">
-              <span className="w-20 shrink-0 font-mono text-[11.5px] text-muted-foreground">{sv.name}</span>
+              <span className="w-20 shrink-0 font-mono text-[0.71875rem] text-muted-foreground">{sv.name}</span>
               <ExprInput
                 ariaLabel={`System variable ${sv.name}`}
                 value={sv.def}
                 onCommit={(expr) => addVariable(pageId, sv.name, expr)}
               />
-              <span className="w-28 shrink-0 truncate text-[10px] text-muted-foreground" title={sv.label}>
+              <span className="w-28 shrink-0 truncate text-[0.625rem] text-muted-foreground" title={sv.label}>
                 {sv.label}
               </span>
             </div>
           ))}
-          <p className="mt-1 text-[10.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-[0.65625rem] leading-relaxed text-muted-foreground">
             Edit a value to override it for this page — it becomes a normal
             variable above (delete it to restore the default).
           </p>
@@ -3095,10 +3095,10 @@ export function InspectorPane({ pageId }: { pageId: string }) {
   return (
     <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
       <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
-        <TabsTrigger value="properties" className="text-[12px]">
+        <TabsTrigger value="properties" className="text-[0.75rem]">
           Properties
         </TabsTrigger>
-        <TabsTrigger value="variables" className="text-[12px]">
+        <TabsTrigger value="variables" className="text-[0.75rem]">
           Variables
         </TabsTrigger>
       </TabsList>
@@ -3106,7 +3106,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
         {object ? (
           <ObjectProperties pageId={pageId} object={object} />
         ) : (
-          <p className="py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
+          <p className="py-6 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
             {selection.length > 1
               ? `${selection.length} objects selected`
               : 'Select an object — or draw one and give it a behavior.'}

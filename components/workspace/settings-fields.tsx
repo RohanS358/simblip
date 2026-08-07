@@ -23,10 +23,10 @@ export function Field({
     <div className="space-y-1.5 py-2">
       <div className="flex items-baseline justify-between gap-3">
         <div className="flex min-w-0 items-center gap-1.5">
-          <p className="text-[13px] font-medium">{label}</p>
+          <p className="text-[0.8125rem] font-medium">{label}</p>
           {hint && <InfoPopover description={hint} />}
         </div>
-        {value && <span className="font-mono text-[11px] text-muted-foreground">{value}</span>}
+        {value && <span className="font-mono text-[0.6875rem] text-muted-foreground">{value}</span>}
       </div>
       {children}
     </div>
@@ -49,7 +49,7 @@ export function PrefRow({
   return (
     <div className="flex items-center justify-between gap-4 py-2">
       <div className="flex items-center gap-1.5">
-        <p className="text-[13px] font-medium">{label}</p>
+        <p className="text-[0.8125rem] font-medium">{label}</p>
         <InfoPopover description={detail} />
       </div>
       <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
@@ -75,7 +75,7 @@ export function Choice<T extends string>({
           type="button"
           aria-pressed={value === o.id}
           className={cn(
-            'flex-1 rounded-md px-2 py-1 text-[12px] font-medium transition-colors',
+            'flex-1 rounded-md px-2 py-1 text-[0.75rem] font-medium transition-colors',
             value === o.id
               ? 'bg-background text-foreground shadow-sm'
               : 'text-muted-foreground hover:text-foreground'

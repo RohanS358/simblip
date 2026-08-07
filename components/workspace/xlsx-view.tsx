@@ -171,7 +171,7 @@ export function XlsxView({ pageId }: { pageId: string }) {
         {importing && (
           <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-background/80 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-[12px]">Importing spreadsheet…</span>
+            <span className="text-[0.75rem]">Importing spreadsheet…</span>
           </div>
         )}
         <div ref={containerRef} className="h-full w-full" />

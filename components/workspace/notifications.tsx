@@ -143,7 +143,7 @@ export function NotificationCenter() {
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-[9px] font-bold text-white">
+            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[var(--accent-rose)] px-1 text-[0.5625rem] font-bold text-white">
               {unread > 9 ? '9+' : unread}
             </span>
           )}
@@ -151,13 +151,13 @@ export function NotificationCenter() {
       </PopoverTrigger>
       <PopoverContent align="end" className="w-80 p-0">
         <div className="flex items-center justify-between border-b border-border/60 px-3 py-2">
-          <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             Notifications
           </span>
           {notices.length > 0 && (
             <button
               type="button"
-              className="text-[11px] text-muted-foreground hover:text-foreground"
+              className="text-[0.6875rem] text-muted-foreground hover:text-foreground"
               onClick={markAllRead}
             >
               Mark all read
@@ -168,7 +168,7 @@ export function NotificationCenter() {
           {notices.length === 0 && (
             <div className="flex flex-col items-center gap-2 px-4 py-8 text-center">
               <Inbox className="h-5 w-5 text-muted-foreground/50" />
-              <p className="text-[12px] text-muted-foreground">Nothing yet — you're all caught up.</p>
+              <p className="text-[0.75rem] text-muted-foreground">Nothing yet — you're all caught up.</p>
             </div>
           )}
           {notices.map((n) => (
@@ -187,8 +187,8 @@ export function NotificationCenter() {
             >
               <n.icon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--accent-blue)]" />
               <span className="min-w-0">
-                <span className="block truncate text-[12.5px] font-medium">{n.title}</span>
-                <span className="block text-[11px] text-muted-foreground">
+                <span className="block truncate text-[0.78125rem] font-medium">{n.title}</span>
+                <span className="block text-[0.6875rem] text-muted-foreground">
                   {n.detail} · {new Date(n.at).toLocaleString()}
                 </span>
               </span>

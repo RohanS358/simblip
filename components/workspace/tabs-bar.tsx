@@ -68,7 +68,7 @@ export function TabsBar({
                 e.dataTransfer.effectAllowed = 'move'
               }}
               className={cn(
-                'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-[12px] transition-colors',
+                'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-[0.75rem] transition-colors',
                 active
                   ? 'bg-accent text-foreground'
                   : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'

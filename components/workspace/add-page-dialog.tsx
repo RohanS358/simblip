@@ -281,8 +281,8 @@ export function AddPageDialog({
             {KIND_TILES.map((t) => (
               <Tile key={t.step} onClick={() => setStep(t.step)}>
                 <t.icon className="h-6 w-6 text-muted-foreground" />
-                <span className="text-[12.5px] font-semibold">{t.label}</span>
-                <span className="text-[10.5px] leading-tight text-muted-foreground">{t.hint}</span>
+                <span className="text-[0.78125rem] font-semibold">{t.label}</span>
+                <span className="text-[0.65625rem] leading-tight text-muted-foreground">{t.hint}</span>
               </Tile>
             ))}
           </div>
@@ -293,8 +293,8 @@ export function AddPageDialog({
             {DOC_KIND_TILES.map((t) => (
               <Tile key={t.step} onClick={() => setStep(t.step)}>
                 <t.icon className="h-6 w-6 text-muted-foreground" />
-                <span className="text-[12.5px] font-semibold">{t.label}</span>
-                <span className="text-[10.5px] leading-tight text-muted-foreground">{t.hint}</span>
+                <span className="text-[0.78125rem] font-semibold">{t.label}</span>
+                <span className="text-[0.65625rem] leading-tight text-muted-foreground">{t.hint}</span>
               </Tile>
             ))}
           </div>
@@ -303,7 +303,7 @@ export function AddPageDialog({
         {step === 'board' && (
           <>
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Name</Label>
+              <Label className="text-[0.75rem]">Name</Label>
               <Input
                 autoFocus
                 value={name}
@@ -321,7 +321,7 @@ export function AddPageDialog({
         {step === 'doc' && (
           <>
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Name</Label>
+              <Label className="text-[0.75rem]">Name</Label>
               <Input
                 autoFocus
                 value={name}
@@ -330,7 +330,7 @@ export function AddPageDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Page size</Label>
+              <Label className="text-[0.75rem]">Page size</Label>
               <div className="grid grid-cols-3 gap-3">
                 {DOC_PAGE_PRESETS.map((p) => {
                   const size = resolveDocPageSize(p, p.fixedOrientation ? 'landscape' : orientation)
@@ -340,7 +340,7 @@ export function AddPageDialog({
                         className="flex w-10 items-center justify-center rounded-[2px] border border-current text-muted-foreground/50"
                         style={{ aspectRatio: `${size.w} / ${size.h}` }}
                       />
-                      <span className="text-[12px] font-semibold">{p.label}</span>
+                      <span className="text-[0.75rem] font-semibold">{p.label}</span>
                     </Tile>
                   )
                 })}
@@ -348,7 +348,7 @@ export function AddPageDialog({
             </div>
             {!DOC_PAGE_PRESETS.find((p) => p.id === presetId)?.fixedOrientation && (
               <div className="flex items-center gap-2">
-                <Label className="text-[12px]">Orientation</Label>
+                <Label className="text-[0.75rem]">Orientation</Label>
                 <div className="flex overflow-hidden rounded-lg border border-border/60">
                   {(['portrait', 'landscape'] as const).map((o) => (
                     <button
@@ -356,7 +356,7 @@ export function AddPageDialog({
                       type="button"
                       onClick={() => setOrientation(o)}
                       className={cn(
-                        'px-2.5 py-1 text-[11.5px] font-medium capitalize transition-colors',
+                        'px-2.5 py-1 text-[0.71875rem] font-medium capitalize transition-colors',
                         orientation === o
                           ? 'bg-[var(--accent-blue)] text-white'
                           : 'text-muted-foreground hover:bg-accent'
@@ -369,12 +369,12 @@ export function AddPageDialog({
               </div>
             )}
             <div className="space-y-1.5">
-              <Label className="text-[12px]">Template</Label>
+              <Label className="text-[0.75rem]">Template</Label>
               <div className="grid grid-cols-4 gap-2">
                 {DOC_TEMPLATES.map((t) => (
                   <Tile key={t.id} onClick={() => void createDoc(t.id)}>
                     <FileText className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-[11.5px] font-semibold">{t.label}</span>
+                    <span className="text-[0.71875rem] font-semibold">{t.label}</span>
                   </Tile>
                 ))}
               </div>
@@ -384,12 +384,12 @@ export function AddPageDialog({
 
         {step === 'pptx' && (
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Template</Label>
+            <Label className="text-[0.75rem]">Template</Label>
             <div className="grid grid-cols-3 gap-3">
               {PPTX_TEMPLATES.map((t) => (
                 <Tile key={t.id} onClick={() => void createPptx(t.id)}>
                   <PresentationIcon className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-[12.5px] font-semibold">{t.label}</span>
+                  <span className="text-[0.78125rem] font-semibold">{t.label}</span>
                 </Tile>
               ))}
             </div>
@@ -398,12 +398,12 @@ export function AddPageDialog({
 
         {step === 'xlsx' && (
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Template</Label>
+            <Label className="text-[0.75rem]">Template</Label>
             <div className="grid grid-cols-3 gap-3">
               {XLSX_TEMPLATES.map((t) => (
                 <Tile key={t.id} onClick={() => void createXlsx(t.id)}>
                   <FileSpreadsheet className="h-6 w-6 text-muted-foreground" />
-                  <span className="text-[12.5px] font-semibold">{t.label}</span>
+                  <span className="text-[0.78125rem] font-semibold">{t.label}</span>
                 </Tile>
               ))}
             </div>

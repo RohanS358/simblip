@@ -50,7 +50,7 @@ export function ToolsPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col p-2.5 overflow-y-auto">
-      <span className="px-1 pb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      <span className="px-1 pb-1.5 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
         Tools
       </span>
 
@@ -58,7 +58,7 @@ export function ToolsPanel() {
         type="button"
         aria-pressed={calcOpen}
         className={cn(
-          'flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
+          'flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors',
           calcOpen
             ? 'border-[var(--accent-violet)] bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
             : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -69,7 +69,7 @@ export function ToolsPanel() {
         {calcOpen ? 'Close calculator' : 'Open calculator'}
       </button>
 
-      <span className="px-1 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
+      <span className="px-1 pb-1 pt-4 text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
         Interactive Controls
       </span>
       <div className="space-y-1">
@@ -81,7 +81,7 @@ export function ToolsPanel() {
               type="button"
               aria-pressed={active}
               className={cn(
-                'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
+                'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors',
                 active
                   ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                   : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -95,7 +95,7 @@ export function ToolsPanel() {
         })}
       </div>
 
-      <span className="px-1 pb-1 pt-4 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
+      <span className="px-1 pb-1 pt-4 text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">
         Quick insert
       </span>
       <div className="space-y-1">
@@ -107,7 +107,7 @@ export function ToolsPanel() {
               type="button"
               aria-pressed={active}
               className={cn(
-                'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[13px] font-medium transition-colors',
+                'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors',
                 active
                   ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                   : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -122,11 +122,11 @@ export function ToolsPanel() {
       </div>
 
       {tool === 'table' || tool === 'graph' || tool === 'surface3d' || tool === 'chart' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
-        <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
+        <p className="mt-3 px-1 text-center text-[0.6875rem] text-muted-foreground">
           Click the canvas to place · Esc to stop
         </p>
       ) : tool === 'measurement' ? (
-        <p className="mt-3 px-1 text-center text-[11px] text-muted-foreground">
+        <p className="mt-3 px-1 text-center text-[0.6875rem] text-muted-foreground">
           Click-drag across the canvas to measure · Esc to stop
         </p>
       ) : null}

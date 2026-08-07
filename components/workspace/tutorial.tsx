@@ -282,7 +282,7 @@ export function TutorialPanel({
         ) : (
           <GraduationCap className="h-4 w-4 text-[var(--accent-blue)]" />
         )}
-        <span className="flex-1 truncate text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+        <span className="flex-1 truncate text-[0.75rem] font-bold uppercase tracking-[0.1em] text-muted-foreground">
           {course ? course.title : 'Learn SIMBLIP'}
         </span>
         <button
@@ -297,13 +297,13 @@ export function TutorialPanel({
 
       {!course ? (
         <div className="max-h-[60vh] space-y-3 overflow-y-auto no-scrollbar">
-          <p className="pb-1 text-[12px] leading-relaxed text-muted-foreground">
+          <p className="pb-1 text-[0.75rem] leading-relaxed text-muted-foreground">
             Guided experiments, done by you on this page. Each step watches your canvas and ticks
             itself when it detects the setup. Nothing is locked — jump to any tier any time.
           </p>
           <Link
             href="/tutorial"
-            className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-[12px] text-muted-foreground transition-colors hover:border-[var(--accent-violet)] hover:text-foreground"
+            className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-[0.75rem] text-muted-foreground transition-colors hover:border-[var(--accent-violet)] hover:text-foreground"
           >
             <Film className="h-3.5 w-3.5 shrink-0 text-[var(--accent-violet)]" />
             New here? Watch the silent visual walkthrough first — no setup, nothing saved.
@@ -313,7 +313,7 @@ export function TutorialPanel({
             if (!inTier.length) return null
             return (
               <div key={tierId} className="space-y-1.5">
-                <span className="block px-0.5 text-[10.5px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <span className="block px-0.5 text-[0.65625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   {label}
                 </span>
                 {inTier.map((c) => {
@@ -328,19 +328,19 @@ export function TutorialPanel({
                     >
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
-                          <span className="block truncate text-[12.5px] font-semibold">{c.title}</span>
+                          <span className="block truncate text-[0.78125rem] font-semibold">{c.title}</span>
                           {isFirstEver && (
-                            <span className="shrink-0 rounded-full bg-[var(--accent-blue)]/15 px-1.5 py-0.5 text-[9.5px] font-bold uppercase tracking-wide text-[var(--accent-blue)]">
+                            <span className="shrink-0 rounded-full bg-[var(--accent-blue)]/15 px-1.5 py-0.5 text-[0.59375rem] font-bold uppercase tracking-wide text-[var(--accent-blue)]">
                               Start here
                             </span>
                           )}
                         </span>
-                        <span className="block truncate text-[11px] text-muted-foreground">{c.goal}</span>
+                        <span className="block truncate text-[0.6875rem] text-muted-foreground">{c.goal}</span>
                       </span>
                       {done ? (
                         <Check className="h-4 w-4 shrink-0 text-[var(--accent-mint)]" />
                       ) : (
-                        <span className="shrink-0 text-[10.5px] text-muted-foreground">
+                        <span className="shrink-0 text-[0.65625rem] text-muted-foreground">
                           {progress[c.id] ?? 0}/{c.steps.length}
                         </span>
                       )}
@@ -354,8 +354,8 @@ export function TutorialPanel({
       ) : step >= course.steps.length ? (
         <div className="py-3 text-center">
           <Check className="mx-auto h-6 w-6 text-[var(--accent-mint)]" />
-          <p className="mt-1 text-[13px] font-semibold">Experiment complete!</p>
-          <Button size="sm" variant="outline" className="mt-2 h-7 text-[12px]" onClick={() => setStep(course.id, 0)}>
+          <p className="mt-1 text-[0.8125rem] font-semibold">Experiment complete!</p>
+          <Button size="sm" variant="outline" className="mt-2 h-7 text-[0.75rem]" onClick={() => setStep(course.id, 0)}>
             Restart
           </Button>
         </div>
@@ -372,12 +372,12 @@ export function TutorialPanel({
               />
             ))}
           </div>
-          <p className="min-h-16 text-[12.5px] leading-relaxed">{current?.text}</p>
+          <p className="min-h-16 text-[0.78125rem] leading-relaxed">{current?.text}</p>
           <div className="mt-2 flex items-center gap-2">
             {current?.check && (
               <span
                 className={cn(
-                  'flex items-center gap-1 text-[11px] font-semibold',
+                  'flex items-center gap-1 text-[0.6875rem] font-semibold',
                   passed ? 'text-[var(--accent-mint)]' : 'text-muted-foreground'
                 )}
               >
@@ -386,13 +386,13 @@ export function TutorialPanel({
             )}
             <div className="flex-1" />
             {step > 0 && (
-              <Button size="sm" variant="ghost" className="h-7 text-[12px]" onClick={() => setStep(course.id, step - 1)}>
+              <Button size="sm" variant="ghost" className="h-7 text-[0.75rem]" onClick={() => setStep(course.id, step - 1)}>
                 Back
               </Button>
             )}
             <Button
               size="sm"
-              className="h-7 text-[12px]"
+              className="h-7 text-[0.75rem]"
               variant={current?.check && !passed ? 'outline' : 'default'}
               onClick={() => setStep(course.id, step + 1)}
             >

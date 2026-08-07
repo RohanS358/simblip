@@ -276,7 +276,7 @@ export function Transport({ pageId, flat = false }: { pageId: string; flat?: boo
       <span
         className={cn(
           'text-right font-mono tabular-nums',
-          flat ? 'min-w-14 pr-1 text-[10.5px]' : 'min-w-16 pr-2 text-[11.5px]',
+          flat ? 'min-w-14 pr-1 text-[0.65625rem]' : 'min-w-16 pr-2 text-[0.71875rem]',
           mode === 'edit' ? 'text-muted-foreground' : 'text-[var(--accent-mint)]'
         )}
       >

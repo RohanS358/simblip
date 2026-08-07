@@ -38,7 +38,7 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
       <DropdownMenuTrigger asChild>
         <button type="button" aria-label="Account menu" className="rounded-full transition-opacity hover:opacity-80">
           <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] text-[10px] font-bold">
+            <AvatarFallback className="bg-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] text-[0.625rem] font-bold">
               {initials(profile.full_name)}
             </AvatarFallback>
           </Avatar>
@@ -46,9 +46,9 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>
-          <span className="block text-[13px] font-semibold">{profile.full_name}</span>
-          <span className="block text-[11px] font-normal text-muted-foreground">{profile.email}</span>
-          <span className="mt-1 inline-block rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="block text-[0.8125rem] font-semibold">{profile.full_name}</span>
+          <span className="block text-[0.6875rem] font-normal text-muted-foreground">{profile.email}</span>
+          <span className="mt-1 inline-block rounded-md bg-accent px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground">
             {ROLE_LABEL[profile.role]}
             {institution ? ` · ${institution.name}` : ''}
           </span>
@@ -70,8 +70,8 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
           </DropdownMenuItem>
         )}
         {onOpenSettings && (
-          <DropdownMenuItem onClick={onOpenSettings}>
-            <Settings className="h-4 w-4" /> Settings
+          <DropdownMenuItem onClick={onOpenSettings} className="gap-1.5">
+            <Settings className="h-4 w-4 scale-125" /> Settings
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

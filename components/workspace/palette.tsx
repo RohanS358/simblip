@@ -74,7 +74,7 @@ export function Palette() {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search components…"
-          className="h-8 pl-8 text-[12.5px]"
+          className="h-8 pl-8 text-[0.78125rem]"
         />
       </div>
 
@@ -82,7 +82,7 @@ export function Palette() {
         <button
           type="button"
           className={cn(
-            'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+            'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
             (domain === null || !currentDomainValid)
               ? 'bg-foreground text-background'
               : 'bg-accent text-muted-foreground hover:text-foreground'
@@ -96,7 +96,7 @@ export function Palette() {
             key={d.id}
             type="button"
             className={cn(
-              'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors',
+              'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
               domain === d.id
                 ? 'bg-foreground text-background'
                 : 'bg-accent text-muted-foreground hover:text-foreground'
@@ -120,7 +120,7 @@ export function Palette() {
               // the icon is what makes a part recognizable at a glance; the
               // accent border/tint on top of that just marks "armed."
               className={cn(
-                'flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-[11.5px] transition-colors',
+                'flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-[0.71875rem] transition-colors',
                 armed
                   ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                   : 'border-border/60 text-muted-foreground hover:border-border hover:bg-accent/40 hover:text-foreground'
@@ -140,7 +140,7 @@ export function Palette() {
                   domains together — otherwise the selected pill already
                   says which one this is. "symbol" always matters, though. */}
               {(domain === null || !c.live) && (
-                <span className="text-[9px] uppercase tracking-wide opacity-60">
+                <span className="text-[0.5625rem] uppercase tracking-wide opacity-60">
                   {[domain === null ? DOMAIN_LABEL[c.domain as DomainId] : null, !c.live ? 'symbol' : null]
                     .filter(Boolean)
                     .join(' · ')}
@@ -150,13 +150,13 @@ export function Palette() {
           )
         })}
         {filtered.length === 0 && (
-          <p className="col-span-3 py-6 text-center text-[12px] text-muted-foreground">
+          <p className="col-span-3 py-6 text-center text-[0.75rem] text-muted-foreground">
             No components match “{query}”.
           </p>
         )}
       </div>
       {tool === 'place' && (
-        <p className="mt-2 text-center text-[11px] text-muted-foreground">
+        <p className="mt-2 text-center text-[0.6875rem] text-muted-foreground">
           Click the canvas to place · Esc to stop
         </p>
       )}

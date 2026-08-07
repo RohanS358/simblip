@@ -152,7 +152,7 @@ function ToolButton({
       </TooltipTrigger>
       <TooltipContent side="top" className="text-xs">
         {label}
-        {shortcut && <span className="ml-1.5 font-mono text-[10px] opacity-60">{shortcut}</span>}
+        {shortcut && <span className="ml-1.5 font-mono text-[0.625rem] opacity-60">{shortcut}</span>}
       </TooltipContent>
     </Tooltip>
   )
@@ -292,7 +292,7 @@ export function Toolbar({
         <>
           <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Pen
               </span>
               <button
@@ -460,7 +460,7 @@ export function Toolbar({
           >
             <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
             {selection.length > 1 && (
-              <span className="shrink-0 px-0.5 font-mono text-[11px] text-muted-foreground">
+              <span className="shrink-0 px-0.5 font-mono text-[0.6875rem] text-muted-foreground">
                 {selection.length}×
               </span>
             )}

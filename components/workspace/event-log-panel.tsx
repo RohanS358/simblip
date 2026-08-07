@@ -40,7 +40,7 @@ export function EventLogPanel({ pageId }: { pageId: string }) {
             type="button"
             aria-label={`Simulation event log, ${events.length} event${events.length === 1 ? '' : 's'}`}
             onClick={() => setOpen(true)}
-            className="glass fixed bottom-4 left-4 z-30 flex h-6 items-center gap-1 rounded-full px-2 text-[10px] text-muted-foreground transition-colors hover:text-foreground"
+            className="glass fixed bottom-4 left-4 z-30 flex h-6 items-center gap-1 rounded-full px-2 text-[0.625rem] text-muted-foreground transition-colors hover:text-foreground"
           >
             <Ear className="h-3 w-3" />
             {events.length}
@@ -50,7 +50,7 @@ export function EventLogPanel({ pageId }: { pageId: string }) {
         <div className="glass-strong fixed bottom-4 left-4 z-30 flex max-h-48 w-64 flex-col gap-1 rounded-xl p-2">
           <div className="flex items-center gap-1.5">
             <Ear className="h-3 w-3 text-muted-foreground" />
-            <span className="flex-1 text-[11px] font-semibold">Event log</span>
+            <span className="flex-1 text-[0.6875rem] font-semibold">Event log</span>
             <button
               type="button"
               aria-label="Close event log"
@@ -60,7 +60,7 @@ export function EventLogPanel({ pageId }: { pageId: string }) {
               <X className="h-3 w-3" />
             </button>
           </div>
-          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto font-mono text-[10.5px] text-muted-foreground">
+          <div className="min-h-0 flex-1 space-y-0.5 overflow-y-auto font-mono text-[0.65625rem] text-muted-foreground">
             {events.length === 0 && <p>No events yet — press Play.</p>}
             {[...events].reverse().map((e, i) => (
               <p key={events.length - i} className={cn(i === 0 && 'text-foreground')}>
