@@ -56,14 +56,6 @@ async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
   return { emuPerPxX: cx / SIMBLIP_SLIDE_W_PX, emuPerPxY: cy / SIMBLIP_SLIDE_H_PX }
 }
 
-function emuToPxX(v: string | null, scale: SlideScale): number {
-  return v ? Math.round(Number(v) / scale.emuPerPxX) : 0
-}
-
-function emuToPxY(v: string | null, scale: SlideScale): number {
-  return v ? Math.round(Number(v) / scale.emuPerPxY) : 0
-}
-
 /** Point sizes (fonts, line thickness) are ABSOLUTE physical measurements
  *  in OOXML — a 24pt title is 24pt regardless of slide size, unlike shape
  *  positions which are already slide-relative. But SIMBLIP forces every
@@ -151,12 +143,19 @@ async function loadBgFillStyles(zip: JSZip, theme: Record<string, string>): Prom
  *  color that actually matters is the schemeClr override inside bgRef). */
 function bgRefColor(bgRef: Element | null, bgFillStyles: (string | undefined)[], theme: Record<string, string>): string | undefined {
   if (!bgRef) return undefined
-  const idx = Number(bgRef.getAttribute('idx'))
-  const fromList = Number.isFinite(idx) && idx >= 1 && idx <= bgFillStyles.length ? bgFillStyles[idx - 1] : undefined
-  if (fromList) return fromList
+  // <p:bgRef idx="N"> selects which fill STYLE the theme's bgFillStyleLst
+  // defines (solid/gradient/pattern) — the actual COLOR for this specific
+  // background is bgRef's own <a:schemeClr> child, which overrides
+  // whatever placeholder color the theme's abstract fill definition used.
+  // Checking the fill-list first (as an earlier version of this code did)
+  // resolved the theme's generic/placeholder color instead of the color
+  // this particular background reference actually specifies — silently
+  // wrong or missing backgrounds on most real bgRef-based templates.
   const scheme = firstChild(bgRef, 'a:schemeClr')
   const val = scheme?.getAttribute('val')
-  return val ? (theme[val] ?? undefined) : undefined
+  if (val && theme[val]) return theme[val]
+  const idx = Number(bgRef.getAttribute('idx'))
+  return Number.isFinite(idx) && idx >= 1 && idx <= bgFillStyles.length ? bgFillStyles[idx - 1] : undefined
 }
 
 /** <a:srgbClr val="RRGGBB"/> or <a:schemeClr val="..."/>. Scheme colors
@@ -288,15 +287,89 @@ function shapeText(
 
 // ── Shape geometry: position/size + fill/border ────────────────────────────
 
-function shapeBox(sp: Element, scale: SlideScale): { x: number; y: number; w: number; h: number } {
+/** A shape/picture's own <a:xfrm><a:off>/<a:ext>, still in raw EMUs (not yet
+ *  converted to px) — the value needed BEFORE composing through any parent
+ *  group's transform. Falls back to a nonzero default box only once fully
+ *  resolved (groupTransform below), not here, since a group-nested child's
+ *  raw 0,0 is often legitimately its correct group-relative position. */
+function rawOffExt(sp: Element): { x: number; y: number; w: number; h: number } | null {
   const xfrm = firstChild(sp, 'a:xfrm')
   const off = firstChild(xfrm, 'a:off')
   const ext = firstChild(xfrm, 'a:ext')
+  if (!off || !ext) return null
   return {
-    x: emuToPxX(off?.getAttribute('x') ?? null, scale) || 40,
-    y: emuToPxY(off?.getAttribute('y') ?? null, scale) || 40,
-    w: emuToPxX(ext?.getAttribute('cx') ?? null, scale) || 320,
-    h: emuToPxY(ext?.getAttribute('cy') ?? null, scale) || 48,
+    x: Number(off.getAttribute('x') ?? 0),
+    y: Number(off.getAttribute('y') ?? 0),
+    w: Number(ext.getAttribute('cx') ?? 0),
+    h: Number(ext.getAttribute('cy') ?? 0),
+  }
+}
+
+/** A <p:grpSp>'s own composed EMU-space transform: on-slide position/size
+ *  (<a:off>/<a:ext>, same space as its parent) plus the "child coordinate
+ *  space" (<a:chOff>/<a:chExt>) each child's own off/ext is expressed in —
+ *  which can differ from the group's actual on-slide size if it was
+ *  resized after grouping. A child's true position is groupOff + (childOff
+ *  - chOff) * (groupExt / chExt). Nested groups compose by chaining this
+ *  mapping — see groupChildToSlideEmu. */
+interface GroupXfrm {
+  offX: number
+  offY: number
+  extW: number
+  extH: number
+  chOffX: number
+  chOffY: number
+  chExtW: number
+  chExtH: number
+}
+
+function groupXfrmOf(grpSp: Element): GroupXfrm | null {
+  const xfrm = firstChild(firstChild(grpSp, 'p:grpSpPr'), 'a:xfrm')
+  const off = firstChild(xfrm, 'a:off')
+  const ext = firstChild(xfrm, 'a:ext')
+  const chOff = firstChild(xfrm, 'a:chOff')
+  const chExt = firstChild(xfrm, 'a:chExt')
+  if (!off || !ext) return null
+  return {
+    offX: Number(off.getAttribute('x') ?? 0),
+    offY: Number(off.getAttribute('y') ?? 0),
+    extW: Number(ext.getAttribute('cx') ?? 0),
+    extH: Number(ext.getAttribute('cy') ?? 0),
+    chOffX: Number(chOff?.getAttribute('x') ?? off.getAttribute('x') ?? 0),
+    chOffY: Number(chOff?.getAttribute('y') ?? off.getAttribute('y') ?? 0),
+    chExtW: Number(chExt?.getAttribute('cx') ?? ext.getAttribute('cx') ?? 0),
+    chExtH: Number(chExt?.getAttribute('cy') ?? ext.getAttribute('cy') ?? 0),
+  }
+}
+
+/** Maps one shape's raw (childOff/childExt-space) EMU box through a chain
+ *  of ancestor group transforms (outermost first) into slide-absolute
+ *  EMUs. Empty chain = already slide-absolute (top-level shape). */
+function mapThroughGroups(
+  box: { x: number; y: number; w: number; h: number },
+  groupChain: GroupXfrm[]
+): { x: number; y: number; w: number; h: number } {
+  let { x, y, w, h } = box
+  for (const g of groupChain) {
+    const sx = g.chExtW !== 0 ? g.extW / g.chExtW : 1
+    const sy = g.chExtH !== 0 ? g.extH / g.chExtH : 1
+    x = g.offX + (x - g.chOffX) * sx
+    y = g.offY + (y - g.chOffY) * sy
+    w = w * sx
+    h = h * sy
+  }
+  return { x, y, w, h }
+}
+
+function shapeBox(sp: Element, scale: SlideScale, groupChain: GroupXfrm[] = []): { x: number; y: number; w: number; h: number } {
+  const raw = rawOffExt(sp)
+  if (!raw) return { x: 40, y: 40, w: 320, h: 48 }
+  const abs = mapThroughGroups(raw, groupChain)
+  return {
+    x: Math.round(abs.x / scale.emuPerPxX) || 40,
+    y: Math.round(abs.y / scale.emuPerPxY) || 40,
+    w: Math.round(abs.w / scale.emuPerPxX) || 320,
+    h: Math.round(abs.h / scale.emuPerPxY) || 48,
   }
 }
 
@@ -487,7 +560,8 @@ async function pictureObject(
   zip: JSZip,
   assets: SlideAssets,
   ownerId: string,
-  scale: SlideScale
+  scale: SlideScale,
+  groupChain: GroupXfrm[] = []
 ): Promise<SceneObject | null> {
   const blipFill = firstChild(pic, 'p:blipFill')
   const blip = firstChild(blipFill, 'a:blip')
@@ -513,7 +587,7 @@ async function pictureObject(
   const bytes = await zipEntry.async('blob')
   const fileId = await putFile(bytes, target!.split('/').pop() ?? 'image', mime, ownerId)
 
-  const box = shapeBox(pic, scale)
+  const box = shapeBox(pic, scale, groupChain)
   const obj = baseObject('picture', { x: box.x, y: box.y })
   obj.size = { w: box.w, h: box.h }
   obj.geometry.src = `opfs:${fileId}`
@@ -543,50 +617,66 @@ async function shapesToObjects(
     if (unitPoints) shape.geometry.points = unitPoints.map(([ux, uy]) => [ux * box.w, uy * box.h])
   }
 
-  for (const child of Array.from(spTree.children)) {
-    if (child.tagName === 'p:pic') {
-      const obj = await pictureObject(child, zip, assets, ownerId, scale)
-      if (obj) objects.push(obj)
-      continue
-    }
-    if (child.tagName !== 'p:sp') continue
-    const box = shapeBox(child, scale)
-    const line = shapeText(child, theme, placeholderStyles, scale)
-    const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme, scale)
-    const hasVisibleShape = !!(fillColor || strokeColor)
+  // PowerPoint groups (<p:grpSp>) nest shapes/pictures under their own
+  // composed transform (see mapThroughGroups) — a slide's real content
+  // isn't only spTree's DIRECT children, and a picture inside any group
+  // (very common: a photo grouped with a caption, or anything copy-pasted
+  // in as a group) was previously invisible to this importer entirely,
+  // since only top-level children were ever scanned.
+  const walkChildren = async (parent: Element, groupChain: GroupXfrm[]) => {
+    for (const child of Array.from(parent.children)) {
+      if (child.tagName === 'p:grpSp') {
+        const gx = groupXfrmOf(child)
+        const nextChain = gx ? [...groupChain, gx] : groupChain
+        await walkChildren(child, nextChain)
+        continue
+      }
+      if (child.tagName === 'p:pic') {
+        const obj = await pictureObject(child, zip, assets, ownerId, scale, groupChain)
+        if (obj) objects.push(obj)
+        continue
+      }
+      if (child.tagName !== 'p:sp') continue
+      const box = shapeBox(child, scale, groupChain)
+      const line = shapeText(child, theme, placeholderStyles, scale)
+      const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme, scale)
+      const hasVisibleShape = !!(fillColor || strokeColor)
 
-    if (line) {
-      const obj = baseObject('text', { x: box.x, y: box.y })
-      obj.size = { w: box.w, h: box.h }
-      obj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
-      if (line.align) obj.metadata.align = line.align
-      if (line.verticalAlign) obj.metadata.verticalAlign = line.verticalAlign
-      objects.push(obj)
-      // A text box that ALSO has an explicit fill/border (a filled
-      // rectangle with a caption, common in title/callout shapes) gets a
-      // companion shape object behind it, since SIMBLIP's text object has
-      // no fill/border of its own — matches what the slide visually shows
-      // even though it's two SceneObjects instead of PowerPoint's one.
-      if (hasVisibleShape) {
+      if (line) {
+        const obj = baseObject('text', { x: box.x, y: box.y })
+        obj.size = { w: box.w, h: box.h }
+        obj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
+        if (line.align) obj.metadata.align = line.align
+        if (line.verticalAlign) obj.metadata.verticalAlign = line.verticalAlign
+        objects.push(obj)
+        // A text box that ALSO has an explicit fill/border (a filled
+        // rectangle with a caption, common in title/callout shapes) gets a
+        // companion shape object behind it, since SIMBLIP's text object has
+        // no fill/border of its own — matches what the slide visually shows
+        // even though it's two SceneObjects instead of PowerPoint's one.
+        if (hasVisibleShape) {
+          const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
+          shape.size = { w: box.w, h: box.h }
+          shape.z = obj.z - 1
+          applyPolygonPoints(shape, child, box)
+          if (fillColor) shape.metadata.fillColor = fillColor
+          if (strokeColor) shape.metadata.strokeColor = strokeColor
+          if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
+          objects.push(shape)
+        }
+      } else if (hasVisibleShape) {
         const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
         shape.size = { w: box.w, h: box.h }
-        shape.z = obj.z - 1
         applyPolygonPoints(shape, child, box)
         if (fillColor) shape.metadata.fillColor = fillColor
         if (strokeColor) shape.metadata.strokeColor = strokeColor
         if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
         objects.push(shape)
       }
-    } else if (hasVisibleShape) {
-      const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
-      shape.size = { w: box.w, h: box.h }
-      applyPolygonPoints(shape, child, box)
-      if (fillColor) shape.metadata.fillColor = fillColor
-      if (strokeColor) shape.metadata.strokeColor = strokeColor
-      if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
-      objects.push(shape)
     }
   }
+
+  await walkChildren(spTree, [])
 
   return { objects, background: await slideBackground(doc, zip, slideName, theme, bgFillStyles) }
 }

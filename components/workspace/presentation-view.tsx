@@ -64,7 +64,7 @@ function PresentOverlay({
             className="relative aspect-video w-full max-w-[1400px] overflow-hidden rounded-md bg-white shadow-2xl"
             style={{ backgroundColor: sheetColors?.[slideId] }}
           >
-            <InfiniteCanvas key={slideId} pageId={slideId} locked passthrough viewer active={false} />
+            <InfiniteCanvas key={slideId} pageId={slideId} locked transparent passthrough viewer active={false} />
           </div>
         )}
       </div>
@@ -262,7 +262,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
               className="relative aspect-video w-full max-w-[960px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
               style={{ backgroundColor: meta?.sheetColors?.[activeSlideId] }}
             >
-              <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked passthrough active />
+              <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
             </div>
           ) : null}
         </div>
