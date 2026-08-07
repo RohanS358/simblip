@@ -2547,7 +2547,15 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             aria-expanded={fontOpen}
             disabled={!isActive}
             className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-            onPointerDown={guard}
+            onPointerDown={(e) => {
+              guard(e)
+              // Same reason Weight's trigger snapshots: opening the list is
+              // a state change (fontOpen), and by the time a list item
+              // fires its own click, window.getSelection() may no longer
+              // reflect the range that was live when this button was
+              // pressed — capture it now, setSpan consumes it once.
+              snapshotSelection()
+            }}
             onClick={() => setFontOpen((v) => !v)}
           >
             <span className="flex items-center gap-1.5">
