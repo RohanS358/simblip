@@ -157,7 +157,7 @@ export function WorkspaceShell() {
   // real board dock too — targeting whichever page/notes canvas is focused.
   const pdfToolsOn = activeKind === 'pdf' && pdfToolsActive
   const contentPageId =
-    activeKind === 'doc' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
+    activeKind === 'doc' || activeKind === 'pptx' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
   // Width of the legacy in-board document split pane (item: resizable).
   const [docSplitW, setDocSplitW] = useState(0.5)
   const [tabDropSide, setTabDropSide] = useState<'left' | 'right' | null>(null)

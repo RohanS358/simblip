@@ -100,6 +100,51 @@ async function loadTheme(zip: JSZip): Promise<Record<string, string>> {
   return result
 }
 
+/** A fill node's own color — <a:solidFill> children read the same way
+ *  solidFillColor reads a container's <a:solidFill> child, just one level
+ *  shallower (the node passed in already IS the <a:solidFill>, not its
+ *  parent). <a:gradFill>/<a:noFill>/other fill kinds return undefined —
+ *  gradients aren't reproducible as a single flat background color. */
+function fillNodeColor(fillNode: Element, theme: Record<string, string>): string | undefined {
+  if (fillNode.tagName !== 'a:solidFill') return undefined
+  const srgb = firstChild(fillNode, 'a:srgbClr')
+  if (srgb) return `#${srgb.getAttribute('val')}`
+  const scheme = firstChild(fillNode, 'a:schemeClr')
+  const val = scheme?.getAttribute('val')
+  return val ? theme[val] : undefined
+}
+
+/** ppt/theme/theme1.xml's <a:bgFillStyleLst> — the indexed (1-based) fill
+ *  list a slide/layout/master <p:bgRef idx="N"> points into. Most real
+ *  PowerPoint templates set their background this way (a theme-level fill
+ *  reference) rather than a literal <p:bgPr><a:solidFill> on every slide,
+ *  so resolving only the latter silently lost the deck's real background
+ *  on nearly every real-world template. */
+async function loadBgFillStyles(zip: JSZip, theme: Record<string, string>): Promise<(string | undefined)[]> {
+  const themeFile = zip.files['ppt/theme/theme1.xml']
+  if (!themeFile) return []
+  const xml = await themeFile.async('text')
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const lst = doc.getElementsByTagName('a:bgFillStyleLst')[0]
+  if (!lst) return []
+  return Array.from(lst.children).map((fill) => fillNodeColor(fill, theme))
+}
+
+/** <p:bgRef idx="N"><a:schemeClr .../></p:bgRef> — the common real-world
+ *  background pattern: a theme fill-list index plus a scheme color that
+ *  tints it. Falls back to the schemeClr's own direct resolution if the
+ *  fill-list lookup comes up empty (some decks reference an index but the
+ *  color that actually matters is the schemeClr override inside bgRef). */
+function bgRefColor(bgRef: Element | null, bgFillStyles: (string | undefined)[], theme: Record<string, string>): string | undefined {
+  if (!bgRef) return undefined
+  const idx = Number(bgRef.getAttribute('idx'))
+  const fromList = Number.isFinite(idx) && idx >= 1 && idx <= bgFillStyles.length ? bgFillStyles[idx - 1] : undefined
+  if (fromList) return fromList
+  const scheme = firstChild(bgRef, 'a:schemeClr')
+  const val = scheme?.getAttribute('val')
+  return val ? (theme[val] ?? undefined) : undefined
+}
+
 /** <a:srgbClr val="RRGGBB"/> or <a:schemeClr val="..."/>. Scheme colors
  *  resolve against the deck's real theme when passed; a hardcoded guess
  *  table covers slots the theme lookup misses (theme.xml absent/malformed).
@@ -384,13 +429,24 @@ async function loadPlaceholderStyles(
  *  decks set the background once on the layout/master and never repeat it
  *  per-slide, so slide-only lookup silently lost the deck's real
  *  background on every slide that didn't override it. */
+/** A <p:bg> can set its color either directly (<p:bgPr><a:solidFill>) or by
+ *  reference into the theme's fill list (<p:bgRef idx="N">) — the latter is
+ *  how most real PowerPoint templates actually do it, so both are checked. */
+function bgColorOf(doc: Document, bgFillStyles: (string | undefined)[], theme: Record<string, string>): string | undefined {
+  const bg = doc.getElementsByTagName('p:bg')[0] ?? null
+  const direct = solidFillColor(firstChild(bg, 'p:bgPr'), theme)
+  if (direct) return direct
+  return bgRefColor(firstChild(bg, 'p:bgRef'), bgFillStyles, theme)
+}
+
 async function slideBackground(
   doc: Document,
   zip: JSZip,
   slideName: string,
-  theme: Record<string, string>
+  theme: Record<string, string>,
+  bgFillStyles: (string | undefined)[]
 ): Promise<string | undefined> {
-  const own = solidFillColor(firstChild(doc.getElementsByTagName('p:bg')[0] ?? null, 'p:bgPr'), theme)
+  const own = bgColorOf(doc, bgFillStyles, theme)
   if (own) return own
 
   const { layoutTarget, masterTarget } = await resolveLayoutMasterPaths(zip, slideName)
@@ -400,7 +456,7 @@ async function slideBackground(
     if (!file) continue
     const xml = await file.async('text')
     const inheritedDoc = new DOMParser().parseFromString(xml, 'application/xml')
-    const bg = solidFillColor(firstChild(inheritedDoc.getElementsByTagName('p:bg')[0] ?? null, 'p:bgPr'), theme)
+    const bg = bgColorOf(inheritedDoc, bgFillStyles, theme)
     if (bg) return bg
   }
   return undefined
@@ -451,7 +507,8 @@ async function shapesToObjects(
   ownerId: string,
   slideName: string,
   theme: Record<string, string>,
-  scale: SlideScale
+  scale: SlideScale,
+  bgFillStyles: (string | undefined)[]
 ): Promise<{ objects: SceneObject[]; background?: string }> {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const spTree = doc.getElementsByTagName('p:spTree')[0]
@@ -511,7 +568,7 @@ async function shapesToObjects(
     }
   }
 
-  return { objects, background: await slideBackground(doc, zip, slideName, theme) }
+  return { objects, background: await slideBackground(doc, zip, slideName, theme, bgFillStyles) }
 }
 
 /** Text/note boxes import at PowerPoint's stored width, which can be
@@ -557,11 +614,12 @@ export async function importPptx(blob: Blob, ownerId: string): Promise<ImportedS
   if (slideFiles.length === 0) throw new Error('No slides found in this presentation.')
 
   const [theme, scale] = await Promise.all([loadTheme(zip), loadSlideScale(zip)])
+  const bgFillStyles = await loadBgFillStyles(zip, theme)
   const results: ImportedSlide[] = []
   for (const name of slideFiles) {
     const slideName = name.slice(name.lastIndexOf('/') + 1, -4) // "slide1"
     const [xml, assets] = await Promise.all([zip.files[name].async('text'), loadSlideRels(zip, slideName)])
-    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme, scale)
+    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme, scale, bgFillStyles)
     widenNarrowTextBoxes(objects)
     results.push({ objects, background })
   }

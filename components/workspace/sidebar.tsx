@@ -156,7 +156,7 @@ export function Sidebar({
     (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
   const contentPageId =
-    activeKind === 'doc' || (activeKind === 'pdf' && pdfToolsActive)
+    activeKind === 'doc' || activeKind === 'pptx' || (activeKind === 'pdf' && pdfToolsActive)
       ? (activeSheetId ?? activePageId)
       : activePageId
 

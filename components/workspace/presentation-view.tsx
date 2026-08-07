@@ -172,6 +172,16 @@ export function PresentationView({ pageId }: { pageId: string }) {
 
   const activeSlideId = slides[current]
 
+  // sidebar.tsx's Inspector reads activeSheetId (not activePageId) for doc/
+  // pptx pages — a Presentation's real content lives in the per-slide
+  // docPages entry, not the presentation container page itself. Without
+  // this, selecting an object on a slide looked up its page under the
+  // wrong id and the Inspector always rendered empty.
+  useEffect(() => {
+    useWorkspaceStore.getState().setActiveSheet(activeSlideId ?? null)
+    return () => useWorkspaceStore.getState().setActiveSheet(null)
+  }, [activeSlideId])
+
   // Toolbar buttons (Present/Export/New slide) publish to the shared
   // tab-bar dock instead of floating their own chrome — same pattern
   // doc-view.tsx/pdf-view.tsx use. The slide-thumbnail rail stays inline
