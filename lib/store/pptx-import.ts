@@ -213,10 +213,26 @@ function shapeFillAndBorder(
 
 /** <a:prstGeom prst="..."/> — mapped onto SIMBLIP's 3 real geometry kinds
  *  (rect/circle/polygon); anything unrecognized defaults to rect, since a
- *  labeled box is a closer visual match than dropping the shape entirely. */
-function geometryKindOf(sp: Element): 'rect' | 'circle' {
+ *  labeled box is a closer visual match than dropping the shape entirely.
+ *  Points are relative to the shape's own bbox, matching how 'polygon'
+ *  geometry.points are interpreted elsewhere in the app (relative to
+ *  position, within size). */
+function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' {
   const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
-  return prst === 'ellipse' ? 'circle' : 'rect'
+  if (prst === 'ellipse') return 'circle'
+  if (prst === 'triangle') return 'polygon'
+  if (prst === 'rightArrow' || prst === 'leftArrow' || prst === 'upArrow' || prst === 'downArrow') return 'polygon'
+  return 'rect'
+}
+
+/** Unit-bbox point sets (0-1 range, scaled by box w/h at call site) for the
+ *  polygon prst shapes geometryKindOf recognizes. */
+const PRST_POLYGON_POINTS: Record<string, number[][]> = {
+  triangle: [[0.5, 0], [1, 1], [0, 1]],
+  rightArrow: [[0, 0.25], [0.6, 0.25], [0.6, 0], [1, 0.5], [0.6, 1], [0.6, 0.75], [0, 0.75]],
+  leftArrow: [[1, 0.25], [0.4, 0.25], [0.4, 0], [0, 0.5], [0.4, 1], [0.4, 0.75], [1, 0.75]],
+  upArrow: [[0.25, 1], [0.25, 0.4], [0, 0.4], [0.5, 0], [1, 0.4], [0.75, 0.4], [0.75, 1]],
+  downArrow: [[0.25, 0], [0.25, 0.6], [0, 0.6], [0.5, 1], [1, 0.6], [0.75, 0.6], [0.75, 0]],
 }
 
 // ── Per-slide extraction ────────────────────────────────────────────────────
@@ -360,6 +376,13 @@ async function shapesToObjects(
   const objects: SceneObject[] = []
   const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme)
 
+  const applyPolygonPoints = (shape: SceneObject, sp: Element, box: { w: number; h: number }) => {
+    if (shape.geometry.kind !== 'polygon') return
+    const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
+    const unitPoints = prst ? PRST_POLYGON_POINTS[prst] : undefined
+    if (unitPoints) shape.geometry.points = unitPoints.map(([ux, uy]) => [ux * box.w, uy * box.h])
+  }
+
   for (const child of Array.from(spTree.children)) {
     if (child.tagName === 'p:pic') {
       const obj = await pictureObject(child, zip, assets, ownerId)
@@ -386,6 +409,7 @@ async function shapesToObjects(
         const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
         shape.size = { w: box.w, h: box.h }
         shape.z = obj.z - 1
+        applyPolygonPoints(shape, child, box)
         if (fillColor) shape.metadata.fillColor = fillColor
         if (strokeColor) shape.metadata.strokeColor = strokeColor
         if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
@@ -394,6 +418,7 @@ async function shapesToObjects(
     } else if (hasVisibleShape) {
       const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
       shape.size = { w: box.w, h: box.h }
+      applyPolygonPoints(shape, child, box)
       if (fillColor) shape.metadata.fillColor = fillColor
       if (strokeColor) shape.metadata.strokeColor = strokeColor
       if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
@@ -402,6 +427,30 @@ async function shapesToObjects(
   }
 
   return { objects, background: slideBackground(doc, theme) }
+}
+
+/** Text/note boxes import at PowerPoint's stored width, which can be
+ *  narrower than SIMBLIP's own font stack renders the same text at —
+ *  height self-corrects on first mount (text.tsx's grow-only fit()), but
+ *  width does not. Widen any box whose longest unbroken word doesn't fit
+ *  its stored width, using canvas measureText (no DOM mount required, so
+ *  this can run right after import instead of waiting for first render). */
+function widenNarrowTextBoxes(objects: SceneObject[]): void {
+  const canvas = document.createElement('canvas')
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  for (const obj of objects) {
+    if (obj.geometry.kind !== 'text' && obj.geometry.kind !== 'note') continue
+    const raw = obj.parameters.text
+    const text = raw?.kind === 'string' ? raw.value : ''
+    if (!text) continue
+    const words = text.replace(/\n/g, ' ').split(' ').filter(Boolean)
+    if (words.length === 0) continue
+    ctx.font = '14px sans-serif' // matches the app's default body text size — see components/objects/text.tsx
+    const longestWordPx = Math.max(...words.map((w) => ctx.measureText(w).width))
+    const minWidth = Math.ceil(longestWordPx) + 24 // padX, matches note.tsx's own padY-style content padding
+    if (obj.size.w < minWidth) obj.size = { ...obj.size, w: minWidth }
+  }
 }
 
 export interface ImportedSlide {
@@ -428,6 +477,7 @@ export async function importPptx(blob: Blob, ownerId: string): Promise<ImportedS
     const slideName = name.slice(name.lastIndexOf('/') + 1, -4) // "slide1"
     const [xml, assets] = await Promise.all([zip.files[name].async('text'), loadSlideRels(zip, slideName)])
     const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme)
+    widenNarrowTextBoxes(objects)
     results.push({ objects, background })
   }
   return results
