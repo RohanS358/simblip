@@ -46,6 +46,7 @@ const KIND_FILL: Record<GeometryKind, string> = {
   slider: 'fill-[var(--accent-blue)]/20 stroke-[var(--accent-blue)]',
   button: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
   trigger: 'fill-[var(--accent-amber)]/20 stroke-[var(--accent-amber)]',
+  picture: 'fill-foreground/15 stroke-foreground/30',
 }
 
 function ShapeForObj({ obj }: { obj: SceneObject }) {

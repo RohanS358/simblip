@@ -35,7 +35,7 @@ import {
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
-import type { FolderNode, Node } from '@/lib/scene/types'
+import type { FileNode, FolderNode, Node } from '@/lib/scene/types'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -70,6 +70,7 @@ import {
 import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
 import { addFileToFolder } from './notebook-tree'
+import { openFile as openFileNode } from './open-file'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -265,6 +266,10 @@ export function MobileShell() {
   const openPage = (pageId: string) => {
     store.getState().setActivePage(pageId)
     setView({ kind: 'editor' })
+  }
+
+  const openFile = (node: FileNode) => {
+    if (openFileNode(node)) setView({ kind: 'editor' })
   }
 
   const staff = can(profile?.role, 'share-pages')
@@ -688,7 +693,49 @@ export function MobileShell() {
                     onClick={() => setView({ kind: 'folder', id: sub.id })}
                   >
                     <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
-                    <span className="truncate text-[13px] font-semibold">{sub.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-[13px] font-semibold">{sub.name}</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${sub.name}`}
+                          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const name = window.prompt('Rename folder', sub.name)
+                            if (name?.trim()) store.getState().renameNode(sub.id, name.trim())
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const colors = Object.keys(SECTION_DOT)
+                            const next = colors[(colors.indexOf(sub.color ?? 'blue') + 1) % colors.length]
+                            store.getState().setFolderColor(sub.id, next)
+                          }}
+                        >
+                          <span className={cn('h-3.5 w-3.5 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} /> Choose color
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (window.confirm(`Delete folder "${sub.name}"?`)) store.getState().removeNode(sub.id)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </fm.div>
                 ))}
               </div>
@@ -815,13 +862,53 @@ export function MobileShell() {
                 </fm.div>
               ))}
               {files.map((file) => (
-                <div
+                <fm.div
                   key={file.id}
-                  className="flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
+                  whileTap={{ scale: 0.95 }}
+                  className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
+                  onClick={() => openFile(file)}
                 >
+                  <button
+                    type="button"
+                    aria-label={`Actions for ${file.name}`}
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground backdrop-blur-sm hover:bg-background hover:text-foreground"
+                  >
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <span className="flex h-6 w-6 items-center justify-center">
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </span>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                        <DropdownMenuItem onClick={() => openFile(file)}>
+                          <BookOpen className="h-4 w-4" /> Open
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const name = window.prompt('Rename file', file.name)
+                            if (name?.trim()) store.getState().renameNode(file.id, name.trim())
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" /> Rename
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          variant="destructive"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            if (window.confirm(`Delete file "${file.name}"?`)) store.getState().removeNode(file.id)
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" /> Delete file
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </button>
                   <span className="line-clamp-2 px-0.5 text-[12px] font-bold leading-tight tracking-tight">{file.name}</span>
                   <span className="text-[10px] text-muted-foreground">{file.mime}</span>
-                </div>
+                </fm.div>
               ))}
             </div>
           )}

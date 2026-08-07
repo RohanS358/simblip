@@ -110,6 +110,9 @@ interface WorkspaceState {
   setFolderCover: (id: string, cover: string | undefined) => void
   /** @deprecated alias for setFolderCover. */
   setNotebookCover: (id: string, cover: string | undefined) => void
+  /** Only valid on a non-top-level folder ("section", parentId!==null); the
+   *  dot color shown in NotebookTree/mobile-shell. No-ops otherwise. */
+  setFolderColor: (id: string, color: string) => void
   /** Recursive delete — a folder takes every descendant with it (pages'
    *  content is cleaned up via forgetPage, files via deleteFiles). */
   removeNode: (id: string) => void
@@ -135,7 +138,13 @@ interface WorkspaceState {
    *  must already exist — call lib/storage/manager's putFile first. */
   addFile: (parentId: string, name: string, fileId: string, mime: string, size: number) => string
   updatePageMeta: (pageId: string, patch: Partial<Omit<PageNode, 'id' | 'kind' | 'parentId'>>) => void
-  /** Append a fresh sheet to a doc page; returns its content-page id. */
+  /** Link a FileNode to its lazily-created viewer/editor page — see
+   *  FileNode.pageId and components/workspace/open-file.ts. */
+  setFilePageId: (fileNodeId: string, pageId: string) => void
+  /** Append a fresh sheet to a doc/pptx page; returns its content-page id.
+   *  pptx pages ("slides") use the same docPages array as doc ("sheets") —
+   *  a presentation IS a doc, just rendered as a slide deck instead of a
+   *  scrolling document (see presentation-view.tsx). */
   addDocSheet: (pageId: string) => string
   /** Content page for the notes linked to one PDF page (created on demand). */
   ensureNotesPage: (pageId: string, pdfPage: number) => string
@@ -158,7 +167,7 @@ interface WorkspaceState {
   setSyncScroll: (sync: boolean) => void
 }
 
-const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
+export const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
 
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
@@ -214,6 +223,13 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         }),
       setNotebookCover: (id, cover) => get().setFolderCover(id, cover),
 
+      setFolderColor: (id, color) =>
+        set((s) => {
+          const n = s.nodes[id]
+          if (!n || n.kind !== 'folder' || n.parentId === null) return s
+          return { nodes: patchNode(s.nodes, id, { color }) }
+        }),
+
       removeNode: (id) => {
         // Deleting a page is the ONE case where content should really go —
         // forgetPage drops it from memory, from the local archive, and
@@ -227,12 +243,22 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         if (!target) return
         const toDelete = [target, ...(target.kind === 'folder' ? descendantsOf(nodes, id) : [])]
         const pageNodes = toDelete.filter((n): n is PageNode => n.kind === 'page')
-        const contentIds = pageNodes.flatMap((p) => [p.id, ...(p.docPages ?? []), ...(p.notesPages ?? []).filter(Boolean)])
+        const contentIds = pageNodes.flatMap((p) => [
+          p.id,
+          ...(p.docPages ?? []), // doc sheets AND pptx slides — same field
+          ...(p.notesPages ?? []).filter(Boolean),
+          ...(p.imageAnnotPageId ? [p.imageAnnotPageId] : []),
+        ])
         void import('@/lib/store/document').then(({ useDocStore }) =>
           contentIds.forEach((cid) => useDocStore.getState().forgetPage(cid))
         )
         const fileIds = toDelete.filter((n): n is FileNode => n.kind === 'file').map((f) => f.fileId)
         if (fileIds.length) void import('@/lib/storage/manager').then(({ deleteFiles }) => deleteFiles(fileIds))
+        // xlsx content lives outside useDocStore (see file-page-content.ts) —
+        // clean it up here too, same as contentIds above does for scene-object pages.
+        void import('@/lib/store/file-page-content').then(({ useFilePageContentStore }) =>
+          pageNodes.forEach((p) => useFilePageContentStore.getState().forgetContent(p.id))
+        )
         const deleteSet = new Set(toDelete.map((n) => n.id))
         set((s) => {
           const nextNodes = { ...s.nodes }
@@ -306,6 +332,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       },
 
       updatePageMeta: (pageId, patch) => set((s) => ({ nodes: patchNode(s.nodes, pageId, patch) })),
+      setFilePageId: (fileNodeId, pageId) => set((s) => ({ nodes: patchNode(s.nodes, fileNodeId, { pageId }) })),
 
       addDocSheet: (pageId) => {
         const sheetId = uid()

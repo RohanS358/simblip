@@ -13,6 +13,7 @@ export function PdfDropzone({
   onFile,
   converting,
   openingLabel,
+  accept = '.pdf,.pptx,.ppt,.docx,.txt,.md',
 }: {
   onFile: (file: File) => void
   /** Non-null while a dropped/picked file is being converted to PDF —
@@ -21,6 +22,8 @@ export function PdfDropzone({
   /** Shown instead of the normal prompt copy while a file is already known
    *  and just needs to finish loading (pdf-view.tsx's "Opening…" case). */
   openingLabel?: string | null
+  /** Native file picker filter — defaults to the PDF-page's original set. */
+  accept?: string
 }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -78,7 +81,7 @@ export function PdfDropzone({
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,.pptx,.ppt,.docx,.txt,.md"
+        accept={accept}
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]

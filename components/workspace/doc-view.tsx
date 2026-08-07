@@ -2,7 +2,13 @@
 
 // Doc page: a scrollable stack of A4-proportioned SHEETS, each one a full
 // infinite-canvas surface — same objects, behaviors, simulations and tools as
-// a board, but paginated like a document and exportable to PDF.
+// a board, but paginated like a document and exportable to PDF or .docx.
+// This is also the Word-file role: opening an uploaded .docx (open-file.ts
+// routes it here) imports its paragraphs as text objects on these same
+// sheets — see the docx-import.ts effect below. Presentation
+// (presentation-view.tsx) is a SEPARATE component built on this same
+// docPages/sheet-of-SceneObjects engine, laid out as a slide deck instead
+// of a scrolling document — this file itself has no slide-mode branch.
 //
 // Unlike a board, a sheet is STATIC: it doesn't pan or zoom internally (wheel/
 // pinch on the canvas do nothing) — a page is a fixed piece of paper, not an
@@ -103,6 +109,7 @@ function Sheet({
   onRemove,
   onResize,
   removable,
+  bgColor,
 }: {
   sheetId: string
   index: number
@@ -127,6 +134,10 @@ function Sheet({
   onRemove: () => void
   onResize: (w: number, h: number) => void
   removable: boolean
+  /** Per-sheet background override (e.g. a pptx slide's <p:bg> solid fill)
+   *  — an explicit CSS color string, or undefined for the default white/
+   *  dark-neutral. */
+  bgColor?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [live, setLive] = useState<{ w: number; h: number } | null>(null)
@@ -198,6 +209,7 @@ function Sheet({
       )}
       style={{
         width: dims.w,
+        backgroundColor: bgColor,
         // A CSS `100%` here can't clamp anything: this sheet's parent
         // (contentRef) is `width: fit-content`, and a fit-content box that's
         // only offset by `left` (no `right`) sizes itself from ITS
@@ -281,6 +293,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const sheets = meta?.docPages ?? []
   const [visible, setVisible] = useState<Set<number>>(() => new Set([0]))
   const [exporting, setExporting] = useState(false)
+  const [exportingDocx, setExportingDocx] = useState(false)
   const [sorterOpen, setSorterOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
   // Transient zoom readout — same language as the board's zoom pill.
@@ -295,6 +308,47 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // viewW below to get the actual room a sheet has to shrink into. Default
   // matches px-3 (12px * 2) so the very first paint doesn't undershoot.
   const [contentPadX, setContentPadX] = useState(24)
+
+  // A doc page opened from an uploaded .docx (open-file.ts routes .docx to
+  // this same 'doc' kind — Document absorbed the Word-file role) starts
+  // with the one default empty sheet addPageIn always seeds. First open:
+  // replace that blank sheet with the imported content instead.
+  const importedRef = useRef(false)
+  const fileUrl = meta?.fileUrl
+  useEffect(() => {
+    if (importedRef.current) return
+    const fileId = fileUrl?.startsWith('opfs:') ? fileUrl.slice('opfs:'.length) : null
+    if (!fileId) return
+    importedRef.current = true
+    void (async () => {
+      try {
+        const { getFile } = await import('@/lib/storage/manager')
+        const blob = await getFile(fileId)
+        if (!blob) return
+        const { importDocx } = await import('@/lib/store/docx-import')
+        const sheetObjectSets = await importDocx(blob)
+        const { useDocStore } = await import('@/lib/store/document')
+        const staleSheetId = sheets[0] // the blank default sheet, if unused
+        const staleIsEmpty =
+          staleSheetId && Object.keys(useDocStore.getState().pages[staleSheetId]?.objects ?? {}).length === 0
+        const newIds: string[] = []
+        for (const objects of sheetObjectSets) {
+          const sheetId = addDocSheet(pageId)
+          for (const obj of objects) useDocStore.getState().addObject(sheetId, obj)
+          newIds.push(sheetId)
+        }
+        if (staleIsEmpty && staleSheetId) {
+          useWorkspaceStore.getState().updatePageMeta(pageId, {
+            docPages: [...newIds, ...sheets.slice(1)],
+          })
+          useDocStore.getState().forgetPage(staleSheetId)
+        }
+      } catch {
+        toast.error('Could not read this document — starting blank.')
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fileUrl, pageId])
 
   // CSS `zoom` RESIZES THE LAYOUT BOX (it isn't a pure visual scale) — the
   // page reflows, scroll math gets confused, and any split-view drawing goes
@@ -569,6 +623,29 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     }
   }
 
+  const exportDocxFile = async () => {
+    if (!sheets.length || exportingDocx) return
+    setExportingDocx(true)
+    try {
+      const [{ exportDocx }, docs] = await Promise.all([
+        import('@/lib/store/docx-export'),
+        Promise.resolve(useDocStore.getState().pages),
+      ])
+      const sheetObjects = sheets.map((id) => docs[id]?.objects ?? {})
+      const blob = await exportDocx(sheetObjects)
+      const a = document.createElement('a')
+      a.href = URL.createObjectURL(blob)
+      a.download = `${meta?.name ?? 'document'}.docx`
+      a.click()
+      URL.revokeObjectURL(a.href)
+      toast.success('Exported to .docx')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Word export failed')
+    } finally {
+      setExportingDocx(false)
+    }
+  }
+
   const removeSheet = (sheetId: string) => {
     const nextSizes = { ...(meta?.sheetSizes ?? {}) }
     delete nextSizes[sheetId]
@@ -592,16 +669,18 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     useDocDockStore.getState().set({
       zoom,
       exporting,
+      exportingDocx,
       setZoom: (z) => zoomAtCenter(z / zoom),
       fitWidth,
       fitHeight,
       exportPdf: () => void exportPdf(),
+      exportDocx: () => void exportDocxFile(),
       sorterOpen,
       toggleSorter: () => setSorterOpen((v) => !v),
     })
     return () => useDocDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bare, zoom, exporting, naturalW, naturalH, viewW, viewH, sorterOpen, activeSheetId])
+  }, [bare, zoom, exporting, exportingDocx, naturalW, naturalH, viewW, viewH, sorterOpen, activeSheetId])
 
   return (
     <div className="relative h-full w-full">
@@ -648,6 +727,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 onRemove={() => removeSheet(sheetId)}
                 onResize={(w, h) => resizeSheet(sheetId, w, h)}
                 removable={sheets.length > 1}
+                bgColor={meta?.sheetColors?.[sheetId]}
               />
             ))}
             <button

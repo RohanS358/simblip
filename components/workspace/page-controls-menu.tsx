@@ -4,19 +4,21 @@
 // tabs-bar.tsx), laid out inline as bare buttons rather than tucked behind a
 // menu or wrapped in a floating pill. Up to three groups, whichever apply:
 // zoom, then the current page's own controls (the PDF reader's page/notes/
-// file controls, published by PdfView via usePdfDockStore — or the doc page
-// kind's Export PDF, published by DocView via useDocDockStore), then the
-// simulation Transport (rightmost). A page is either 'pdf' or 'doc', never
-// both, so only one of the two docks is ever populated at once. None of
-// this floats over the canvas anymore, so reading/exporting/simulating
-// doesn't cost any canvas space.
+// file controls via usePdfDockStore, the doc page kind's Export PDF/.docx
+// via useDocDockStore, or the presentation kind's Present/Export/New slide
+// via usePresentationDockStore), then the simulation Transport (rightmost).
+// A page is exactly one of 'pdf'/'doc'/'pptx', never more than one, so only
+// one of the three docks is ever populated at once. None of this floats
+// over the canvas anymore, so reading/exporting/simulating doesn't cost any
+// canvas space.
 
 import {
   Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
-  NotebookPen, ZoomIn, ZoomOut,
+  NotebookPen, Play, Plus, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
+import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { HoldableMergedTransport } from './transport'
 import {
@@ -105,14 +107,16 @@ export function PageControlsMenu({
 }) {
   const pdfDock = usePdfDockStore((s) => s.dock)
   const docDock = useDocDockStore((s) => s.dock)
+  const presentationDock = usePresentationDockStore((s) => s.dock)
   const isFloating = useTransportDockStore((s) => s.floating)
 
   const showPdf = !!pdfDock
   const showDoc = !!docDock
+  const showPresentation = !!presentationDock
   const showSim = showTransport && !!pageId && !isFloating
   const showZoom = showPdf || showDoc
 
-  if (!showPdf && !showDoc && !showSim) return null
+  if (!showPdf && !showDoc && !showPresentation && !showSim) return null
 
   return (
     <div className="flex shrink-0 items-center pr-1">
@@ -175,10 +179,50 @@ export function PageControlsMenu({
               <FileDown className="h-3.5 w-3.5" />
             )}
           </DockBtn>
+          <DockBtn
+            label={docDock.exportingDocx ? 'Exporting…' : 'Export .docx'}
+            disabled={docDock.exportingDocx}
+            onClick={docDock.exportDocx}
+          >
+            {docDock.exportingDocx ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </DockBtn>
         </div>
       )}
 
-      {(showPdf || showDoc) && showSim && <Divider />}
+      {showPresentation && (
+        <div className="flex items-center gap-0.5">
+          <span className="mr-0.5 shrink-0 font-mono text-[11px] tabular-nums text-muted-foreground">
+            {presentationDock.current + 1}/{presentationDock.numSlides}
+          </span>
+          <DockBtn label="New slide" disabled={presentationDock.importing} onClick={presentationDock.addSlide}>
+            <Plus className="h-3.5 w-3.5" />
+          </DockBtn>
+          <DockBtn
+            label={presentationDock.exporting ? 'Exporting…' : 'Export .pptx'}
+            disabled={presentationDock.exporting || presentationDock.importing}
+            onClick={presentationDock.exportPptx}
+          >
+            {presentationDock.exporting ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Download className="h-3.5 w-3.5" />
+            )}
+          </DockBtn>
+          <DockBtn
+            label="Present"
+            disabled={presentationDock.importing || presentationDock.numSlides === 0}
+            onClick={presentationDock.present}
+          >
+            <Play className="h-3.5 w-3.5" />
+          </DockBtn>
+        </div>
+      )}
+
+      {(showPdf || showDoc || showPresentation) && showSim && <Divider />}
       {showSim && <HoldableMergedTransport pageId={pageId!} />}
     </div>
   )

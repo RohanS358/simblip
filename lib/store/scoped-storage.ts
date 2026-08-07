@@ -24,6 +24,8 @@ export const scopedJSONStorage = createJSONStorage(() => ({
 export async function rehydrateUserStores() {
   const { useWorkspaceStore } = await import('@/lib/store/workspace')
   const { useDocStore } = await import('@/lib/store/document')
+  const { useFilePageContentStore } = await import('@/lib/store/file-page-content')
   await useWorkspaceStore.persist.rehydrate()
   await useDocStore.persist.rehydrate()
+  await useFilePageContentStore.persist.rehydrate()
 }

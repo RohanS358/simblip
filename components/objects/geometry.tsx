@@ -57,19 +57,42 @@ export function pointsToPath(points: number[][]): string {
   return d
 }
 
-function bodyFill(obj: SceneObject): { fill: string; stroke: string } {
+function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth: number } {
+  // Explicit per-object color (set by the Properties panel's shape-fill
+  // control, or a pptx import reproducing a slide shape's <a:solidFill>/
+  // <a:ln>) wins over the behavior-derived defaults below — a shape with a
+  // physics body attached AND an explicit color keeps its chosen color; the
+  // physics-state tint is only ever a fallback for shapes that never had
+  // one set.
+  const fillColor = obj.metadata.fillColor as string | undefined
+  const strokeColor = obj.metadata.strokeColor as string | undefined
+  const strokeWidth = (obj.metadata.strokeWidth as number | undefined) ?? 2
+  if (fillColor || strokeColor) {
+    const kind = isBody(obj.behaviors)
+    const fallback =
+      kind === 'dynamic'
+        ? 'color-mix(in oklch, var(--accent-blue) 22%, var(--card))'
+        : kind === 'static'
+          ? 'color-mix(in oklch, var(--muted-foreground) 18%, var(--card))'
+          : 'transparent'
+    const strokeFallback =
+      kind === 'dynamic' ? 'var(--accent-blue)' : kind === 'static' ? 'var(--muted-foreground)' : 'var(--foreground)'
+    return { fill: fillColor ?? fallback, stroke: strokeColor ?? strokeFallback, strokeWidth }
+  }
   const kind = isBody(obj.behaviors)
   if (kind === 'dynamic')
     return {
       fill: 'color-mix(in oklch, var(--accent-blue) 22%, var(--card))',
       stroke: 'var(--accent-blue)',
+      strokeWidth,
     }
   if (kind === 'static')
     return {
       fill: 'color-mix(in oklch, var(--muted-foreground) 18%, var(--card))',
       stroke: 'var(--muted-foreground)',
+      strokeWidth,
     }
-  return { fill: 'transparent', stroke: 'var(--foreground)' }
+  return { fill: 'transparent', stroke: 'var(--foreground)', strokeWidth }
 }
 
 // Dependent sources render as a diamond (vs. a circle for independent
@@ -534,7 +557,7 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
 export function GeometryObject({ pageId, object, selected }: ObjectRendererProps) {
   const { kind, points } = object.geometry
   const { w, h } = object.size
-  const { fill, stroke } = bodyFill(object)
+  const { fill, stroke, strokeWidth: bodyStrokeWidth } = bodyFill(object)
   const render = object.metadata.render as string | undefined
   const connector = connectorBehavior(object.behaviors)
   const hasHeat = object.behaviors.some((b) => b.enabled && b.type === 'heatSource')
@@ -1201,7 +1224,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const d = pts.length >= 3 ? `M ${pts.map((p) => `${p[0]} ${p[1]}`).join(' L ')} Z` : ''
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
-        <path d={d} fill={fill} stroke={stroke} strokeWidth={2} strokeLinejoin="round" />
+        <path d={d} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} strokeLinejoin="round" />
       </svg>
     )
   }
@@ -1311,7 +1334,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
                   : fill
           }
           stroke={render === 'charge' ? chargeColor : stroke}
-          strokeWidth={2}
+          strokeWidth={special || render === 'light-source' || render === 'charge' ? 2 : bodyStrokeWidth}
         />
         {render === 'hinge' && (
           <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 6} fill="var(--foreground)" />
@@ -1351,7 +1374,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // rect
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label={object.name}>
-      <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : 8} fill={fill} stroke={stroke} strokeWidth={2} />
+      <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : 8} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} />
       {render === 'ground' && (
         <g stroke={stroke} strokeWidth={1} opacity={0.6}>
           {Array.from({ length: Math.max(2, Math.floor(w / 26)) }, (_, i) => (

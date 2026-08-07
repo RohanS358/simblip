@@ -24,6 +24,7 @@ import { GridTableObject } from './grid-table'
 import { SliderObject } from './slider'
 import { ButtonObject } from './button'
 import { TriggerObject } from './trigger'
+import { PictureObject } from './picture'
 
 const FormulaObject = dynamic(() => import('./formula').then((m) => m.FormulaObject), { ssr: false })
 const GraphObject = dynamic(() => import('./graph').then((m) => m.GraphObject), { ssr: false })
@@ -52,4 +53,5 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   truthtable: TruthTableObject,
   code: CodeObject,
   dsa: DsaObject,
+  picture: PictureObject,
 }

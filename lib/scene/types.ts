@@ -54,6 +54,7 @@ export type GeometryKind =
   | 'symbol' // schematic symbol (resistor, gate, hinge…)
   | 'code' // code editor / IDE for SimScript
   | 'dsa' // DSA Lab — C++ IDE + line-by-line algorithm visualizer
+  | 'picture' // static raster image placed on the canvas (opfs:<fileId> src) — not the whole-page 'image' PageKind
 
 export interface Geometry {
   kind: GeometryKind
@@ -63,6 +64,9 @@ export interface Geometry {
   symbol?: string
   /** symbol: domain it belongs to ('mechanics' | 'electrical' | …) */
   domain?: string
+  /** picture: `opfs:<fileId>` resolving via lib/storage/manager.ts, same
+   *  convention PageNode.fileUrl already uses. */
+  src?: string
 }
 
 // ── Behaviors (components in the Unity sense) ───────────────────────────────
@@ -133,9 +137,13 @@ export interface PageDoc {
   variables: Variable[]
 }
 
-/** What a notebook page IS: an infinite board, a paged document, or an
- *  uploaded PDF/PPT you read and annotate. Older pages have no kind → board. */
-export type PageKind = 'board' | 'doc' | 'pdf'
+/** What a notebook page IS: an infinite board, a paged document (also the
+ *  Word-file/.docx role — exports to both .pdf and .docx), a presentation
+ *  (same sheet-of-SceneObjects engine as doc, laid out as a slide deck +
+ *  Present mode instead of a scrolling document), an uploaded PDF you read
+ *  and annotate, an uploaded image you view and annotate, or an editable
+ *  spreadsheet. Older pages have no kind → board. */
+export type PageKind = 'board' | 'doc' | 'pdf' | 'image' | 'xlsx' | 'pptx'
 
 /** The notebook/folder tree — Notebook -> Section -> Page used to be a fixed
  *  2-level hierarchy; it's now arbitrary-depth folders that can contain
@@ -179,6 +187,10 @@ export interface PageNode extends NodeBase {
   docPages?: string[]
   /** doc: per-sheet page size overrides (CSS px, A4 ratio by default), keyed by sheet id. */
   sheetSizes?: Record<string, { w: number; h: number }>
+  /** doc/pptx: per-sheet background color override (CSS color string),
+   *  keyed by sheet id — a pptx slide's <p:bg> solid fill reproduces here.
+   *  Unset sheets keep the default white/dark-neutral. */
+  sheetColors?: Record<string, string>
   /** doc: page size chosen at creation (see lib/scene/doc-page-sizes.ts) — the
    *  default every NEW sheet gets until individually resized. A sheetSizes
    *  entry always overrides this for that sheet. */
@@ -196,13 +208,20 @@ export interface PageNode extends NodeBase {
   annotPages?: string[]
   /** pdf: id of the free-form notes doc opened beside the reader. */
   notesDocId?: string
-  /** pdf: shareable copy of the uploaded document — legacy attachment path
-   *  for pdf-kind pages created before file nodes existed (cloud/local db,
-   *  or `opfs:<manifestId>` once migrated). Prefer a FileNode leaf for new
-   *  uploads instead of wrapping them in a pdf-kind page. */
+  /** pdf/image/xlsx/pptx: the source file, `opfs:<fileId>` resolving via
+   *  lib/storage/manager.ts. For pdf this is a legacy attachment path for
+   *  pages created before file nodes existed — prefer a FileNode leaf for
+   *  new uploads. For image/xlsx/pptx this is how the page's companion
+   *  FileNode (see FileNode.pageId) hands off its bytes for import on
+   *  first open. */
   fileUrl?: string
   fileName?: string
   fileMime?: string
+  /** image: id of the single ink overlay page (like one annotPages slot,
+   *  but an image is always one page — no array needed). */
+  imageAnnotPageId?: string
+  /** xlsx: spreadsheet grid JSON (x-data-spreadsheet's own sheet format). */
+  xlsxContent?: unknown
 }
 
 /** A raw uploaded file as a direct tree leaf (PDF, image, etc.) — not
@@ -213,6 +232,11 @@ export interface FileNode extends NodeBase {
   fileId: string
   mime: string
   size: number
+  /** Lazily created on first open (see components/workspace/open-file.ts) —
+   *  the viewer/editor PageNode this file's content is imported into.
+   *  Subsequent opens reuse it instead of re-importing. Absent until first
+   *  opened, or for mime types with no viewer (stays a plain tree leaf). */
+  pageId?: string
 }
 
 export type Node = FolderNode | PageNode | FileNode

@@ -15,7 +15,7 @@
 // so notebook browsing works identically everywhere instead of each shell
 // reimplementing its own tree.
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   BookOpen,
   ChevronRight,
@@ -38,6 +38,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
+import { openFile as openFileNode } from './open-file'
 import { KIND_ICON } from './tabs-bar'
 import {
   AssignDialog,
@@ -55,20 +56,29 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
-/** Route a dropped/picked file into parentId — a PDF, or anything this app
- *  can convert to one (pptx/docx/txt/md/csv), becomes a reader PAGE (paged
- *  reading, per-page ink/notes — a genuinely richer experience worth
- *  keeping as a page). Anything else (images, video, audio, arbitrary
- *  files) becomes a raw FILE leaf instead of being force-converted or
- *  silently failing — a real filesystem wouldn't reject a dropped .png.
- *  Shared by the tree's drag-drop handler and the "Upload file…" menu item
- *  so both take the same file through the same path. */
+/** Route a dropped/picked file into parentId — a PDF, or plain text/markdown/
+ *  csv this app can flatten into one, becomes a reader PAGE (paged reading,
+ *  per-page ink/notes — a genuinely richer experience worth keeping as a
+ *  page for formats with no editable model of their own). pptx/docx/xlsx
+ *  become a raw FILE leaf like anything else — opening one (open-file.ts)
+ *  creates a real editable doc/xlsx/presentation-kind page on first click,
+ *  instead of pre-flattening to a read-only PDF. Anything else (images,
+ *  video, audio, arbitrary files) also becomes a raw FILE leaf instead of
+ *  being force-converted or silently failing — a real filesystem wouldn't reject
+ *  a dropped .png. Shared by the tree's drag-drop handler and the "Upload
+ *  file…" menu item so both take the same file through the same path. */
 export async function addFileToFolder(parentId: string, f: File) {
   const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
   const isPdf = f.type === 'application/pdf' || ext === '.pdf'
-  const isConvertible = ['.pptx', '.docx', '.txt', '.md', '.csv'].includes(ext)
+  const isConvertible = ['.txt', '.md', '.csv'].includes(ext)
   if (isPdf || isConvertible) {
     const pageId = useWorkspaceStore.getState().addPageIn(parentId, f.name.replace(/\.[^.]+$/, ''), 'pdf')
     const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
@@ -111,10 +121,31 @@ function InlineName({
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(name)
   const active = editing || editingExternal
+  const inputRef = useRef<HTMLInputElement>(null)
+  // Not autoFocus: when rename is entered via the context menu's "Rename"
+  // item, Radix returns focus to the menu's trigger row asynchronously as
+  // its menu unmounts — sometimes in the same tick this input mounts,
+  // sometimes a frame or two later (its own cleanup timing, not ours) — so
+  // a single requestAnimationFrame isn't reliably late enough to win the
+  // race every time. Re-asserting focus for a few frames covers whichever
+  // tick Radix's focus-return lands on, without an indefinite retry loop.
+  useEffect(() => {
+    if (!active) return
+    let frame = 0
+    let raf = 0
+    const tick = () => {
+      const el = inputRef.current
+      if (!el || document.activeElement === el) return
+      el.focus()
+      if (++frame < 5) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [active])
   if (active) {
     return (
       <input
-        autoFocus
+        ref={inputRef}
         aria-label="Rename"
         className={cn('w-full rounded bg-accent/60 px-1 outline-none', className)}
         value={draft}
@@ -170,6 +201,9 @@ interface TreeHandlers {
   /** Opens the native file picker, uploading whatever's chosen into
    *  parentId — same PDF-vs-raw-file routing the drag-drop handler uses. */
   uploadFileTo: (parentId: string) => void
+  /** Opens a raw uploaded file as a tab, lazily creating its viewer/editor
+   *  page on first open — see open-file.ts. No-ops for an unsupported mime. */
+  openFile: (node: FileNode) => void
 }
 
 function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number; handlers: TreeHandlers }) {
@@ -219,17 +253,52 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               onEditDone={() => handlers.setRenaming(null)}
               onRename={(name) => store.getState().renameNode(node.id, name)}
             />
-            <button
-              type="button"
-              aria-label="Add page"
-              className="rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent group-hover:opacity-100"
-              onClick={(e) => {
-                e.stopPropagation()
-                handlers.setAddTarget({ parentId: node.id })
-              }}
-            >
-              <Plus className="h-3 w-3" />
-            </button>
+            <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+              <button
+                type="button"
+                aria-label="New folder"
+                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  store.getState().addFolder('New Folder', node.id)
+                }}
+              >
+                <Folder className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label="Add page"
+                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handlers.setAddTarget({ parentId: node.id })
+                }}
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label="Rename"
+                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  handlers.setRenaming(node.id)
+                }}
+              >
+                <Pencil className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label={`Delete ${isNotebook ? 'notebook' : 'folder'}`}
+                className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  store.getState().removeNode(node.id)
+                }}
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
@@ -296,6 +365,30 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
+          <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              aria-label="Rename"
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation()
+                handlers.setRenaming(node.id)
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              aria-label="Delete page"
+              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation()
+                store.getState().removeNode(node.id)
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
@@ -346,6 +439,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
         <div
           className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[12.5px] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           style={{ marginLeft: `${16 + depth * 16}px` }}
+          onClick={() => handlers.openFile(node)}
         >
           <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <InlineName
@@ -355,9 +449,36 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
+          <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              type="button"
+              aria-label="Rename"
+              className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+              onClick={(e) => {
+                e.stopPropagation()
+                handlers.setRenaming(node.id)
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+            <button
+              type="button"
+              aria-label="Delete file"
+              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              onClick={(e) => {
+                e.stopPropagation()
+                store.getState().removeNode(node.id)
+              }}
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
+        <ContextMenuItem onClick={() => handlers.openFile(node)}>
+          <BookOpen className="h-4 w-4" /> Open
+        </ContextMenuItem>
         <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
           <Pencil className="h-4 w-4" /> Rename
         </ContextMenuItem>
@@ -402,6 +523,10 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
     onSelectPage?.()
   }
 
+  const openFile = (node: FileNode) => {
+    if (openFileNode(node)) onSelectPage?.()
+  }
+
   // One shared hidden <input type=file> for the whole tree — "Upload file…"
   // stashes which folder to target, then triggers a click, since a context
   // menu item can't open the native picker directly.
@@ -427,6 +552,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
     collapsed,
     toggleCollapsed: (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] })),
     uploadFileTo,
+    openFile,
   }
 
   return (
@@ -435,27 +561,62 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
         <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Notebooks
         </span>
-        <button
-          type="button"
-          aria-label="New notebook"
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={() => {
-            const id = store.getState().addNotebook()
-            const sec = store.getState().addFolder('Section 1', id)
-            store.getState().addPageIn(sec, 'Page 1')
-          }}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Add"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onClick={() => {
+                const id = store.getState().addNotebook()
+                const sec = store.getState().addFolder('Section 1', id)
+                store.getState().addPageIn(sec, 'Page 1')
+              }}
+            >
+              <BookOpen className="h-4 w-4" /> New notebook
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => store.getState().addFolder('New Folder', null)}>
+              <Folder className="h-4 w-4" /> New folder
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3">
         {roots.length === 0 && (
-          <p className="px-2 py-6 text-center text-[12px] leading-relaxed text-muted-foreground">
-            No notebooks yet.
-            <br />
-            Create one to start working.
-          </p>
+          <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              No notebooks yet.
+              <br />
+              Create one to start working.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => {
+                  const id = store.getState().addNotebook()
+                  const sec = store.getState().addFolder('Section 1', id)
+                  store.getState().addPageIn(sec, 'Page 1')
+                }}
+              >
+                New notebook
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                onClick={() => store.getState().addFolder('New Folder', null)}
+              >
+                New folder
+              </button>
+            </div>
+          </div>
         )}
         {roots.map((nb) => (
           <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />

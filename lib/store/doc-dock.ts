@@ -11,11 +11,13 @@ import { create } from 'zustand'
 export interface DocDockState {
   zoom: number
   exporting: boolean
+  exportingDocx: boolean
   setZoom: (zoom: number) => void
   /** Zoom so the page's full width (or height) fills the viewport. */
   fitWidth: () => void
   fitHeight: () => void
   exportPdf: () => void
+  exportDocx: () => void
   sorterOpen: boolean
   toggleSorter: () => void
 }
