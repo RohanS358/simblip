@@ -53,6 +53,7 @@ import {
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Viewport } from '@/lib/store/document'
+import { usePageSwatches } from '@/lib/store/page-swatches'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
@@ -2163,6 +2164,11 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const lineHeight = object.metadata.lineHeight as number | undefined
   const letterSpacing = (object.metadata.letterSpacing as number | undefined) ?? 0
   const bg = (object.metadata.color as string) ?? ''
+  // Custom background colors, shared across every text box on this same
+  // content page/slide — added via the "+" swatch below, kept even after
+  // the box that added one no longer uses it.
+  const swatches = usePageSwatches((s) => s.swatches[pageId] ?? [])
+  const addSwatch = (hex: string) => usePageSwatches.getState().add(pageId, hex)
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
@@ -2192,6 +2198,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   // live current value (a selection can already span several), so there's no
   // true value to read back. These just remember what was last picked/typed.
   const [font, setFont] = useState<keyof typeof TEXT_FONTS>('sans')
+  const [fontOpen, setFontOpen] = useState(false)
   const [weight, setWeight] = useState<keyof typeof TEXT_WEIGHTS>('regular')
   const [size, setSize] = useState(TEXT_SIZES.m)
   const applySize = (v: string) => {
@@ -2368,7 +2375,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
         </div>
       </PanelSection>
 
-      <PanelSection title="Typography">
+      <PanelSection title="Typography" last>
         <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2452,49 +2459,126 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           </div>
         </div>
 
+        {/* Not in the Figma reference — bare text has no parent frame to
+            paint a fill on there. Pre-existing, separate app feature: a
+            tint behind the whole box, not the text itself (glyph color is
+            Selection color above, not here). Kept right below it since both
+            are "pick a color" controls. */}
+        <div>
+          <FieldLabel>Background</FieldLabel>
+          <div className="flex flex-wrap gap-1.5">
+            <button
+              type="button"
+              aria-label="No background"
+              aria-pressed={!bg}
+              className={cn(
+                'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[0.625rem] text-muted-foreground',
+                !bg ? 'border-[var(--ring)]' : 'border-transparent'
+              )}
+              onClick={() => setMeta({ color: undefined })}
+            >
+              ×
+            </button>
+            {Object.keys(FILLS).map((id) => (
+              <button
+                key={id}
+                type="button"
+                aria-label={`Background ${id}`}
+                aria-pressed={bg === id}
+                className={cn(
+                  'h-6 w-6 rounded-full border-2',
+                  FILLS[id],
+                  bg === id ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+                )}
+                onClick={() => setMeta({ color: id })}
+              />
+            ))}
+            {swatches.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                aria-label={`Background ${hex}`}
+                aria-pressed={bg === hex}
+                className={cn(
+                  'h-6 w-6 rounded-full border-2',
+                  bg === hex ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+                )}
+                style={{ background: hex }}
+                onClick={() => setMeta({ color: hex })}
+              />
+            ))}
+            {/* Same native input[type=color] picker as Selection color —
+                the value it returns is always a hex string. Added colors
+                are remembered as a swatch shared by every text box on this
+                page/slide, not just applied once. */}
+            <label
+              aria-label="Custom background color"
+              className="relative flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-dashed border-muted-foreground/60 text-muted-foreground transition-transform hover:scale-110 hover:text-foreground"
+            >
+              <Plus className="h-3 w-3" />
+              <input
+                type="color"
+                aria-label="Custom background color"
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                onChange={(e) => {
+                  setMeta({ color: e.target.value })
+                  addSwatch(e.target.value)
+                }}
+              />
+            </label>
+          </div>
+          <p className="mt-1 text-[0.65625rem] leading-relaxed text-muted-foreground">
+            A tint behind the whole box, not the text itself.
+          </p>
+        </div>
+
         <div>
           <FieldLabel>Font family</FieldLabel>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                aria-label="Font family"
-                disabled={!isActive}
-                className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-                onMouseDown={(e) => {
-                  guardTrigger(e)
-                  // Radix's DropdownMenuContent focuses itself the instant
-                  // it opens (so arrow keys work) — that's what actually
-                  // blurs the contentEditable and loses the selection here,
-                  // not the trigger click guardTrigger already covers. Same
-                  // fix as the Size input: snapshot now, consume it in
-                  // onSelect below.
-                  snapshotSelection()
-                }}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Type className="h-3.5 w-3.5 text-muted-foreground" />
-                  {TEXT_FONT_LABELS[font]}
-                </span>
-                <ChevronDown className="h-3 w-3 text-muted-foreground" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="glass-strong max-h-72 w-44 overflow-y-auto">
+          {/* Expands IN PLACE (a plain conditional render, no portal) rather
+              than a floating Radix popup — Radix's portal-positioned content
+              can render detached from its trigger whenever an ancestor
+              scales via CSS zoom (Panel text size), since the two no longer
+              share a coordinate space the portal's position math accounts
+              for. An in-place list can never misposition: it's just the
+              next sibling in normal flow. */}
+          <button
+            type="button"
+            aria-label="Font family"
+            aria-expanded={fontOpen}
+            disabled={!isActive}
+            className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
+            onPointerDown={guard}
+            onClick={() => setFontOpen((v) => !v)}
+          >
+            <span className="flex items-center gap-1.5">
+              <Type className="h-3.5 w-3.5 text-muted-foreground" />
+              {TEXT_FONT_LABELS[font]}
+            </span>
+            <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', fontOpen && 'rotate-180')} />
+          </button>
+          {fontOpen && (
+            <div className="mt-1 max-h-52 overflow-y-auto rounded-md border border-input bg-background/95 p-1">
               {(Object.keys(TEXT_FONTS) as (keyof typeof TEXT_FONTS)[]).map((id) => (
-                <DropdownMenuItem
+                <button
                   key={id}
-                  className="text-[0.8125rem]"
+                  type="button"
+                  className={cn(
+                    'block w-full rounded-md px-2 py-1.5 text-left text-[0.8125rem] transition-colors hover:bg-accent',
+                    id === font && 'bg-accent'
+                  )}
                   style={{ fontFamily: TEXT_FONTS[id] }}
-                  onSelect={() => {
+                  onPointerDown={guard}
+                  onClick={() => {
                     setFont(id)
                     setSpan('font', id)
+                    setFontOpen(false)
                   }}
                 >
                   {TEXT_FONT_LABELS[id]}
-                </DropdownMenuItem>
+                </button>
               ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-1.5">
@@ -2602,46 +2686,6 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               segButton(id, `Align text ${id}`, vAlign === id, Icon, () => setMeta({ verticalAlign: id }))
             )}
           </div>
-        </div>
-      </PanelSection>
-
-      {/* Not in the Figma reference — bare text has no parent frame to paint
-          a fill on there. Pre-existing, separate app feature: a tint behind
-          the whole box, not the text itself (glyph color is set per-
-          selection via Selection color above, not here). */}
-      <PanelSection title="Background" last>
-        <div>
-          <div className="flex flex-wrap gap-1.5">
-            <button
-              type="button"
-              aria-label="No background"
-              aria-pressed={!bg}
-              className={cn(
-                'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[0.625rem] text-muted-foreground',
-                !bg ? 'border-[var(--ring)]' : 'border-transparent'
-              )}
-              onClick={() => setMeta({ color: undefined })}
-            >
-              ×
-            </button>
-            {Object.keys(FILLS).map((id) => (
-              <button
-                key={id}
-                type="button"
-                aria-label={`Background ${id}`}
-                aria-pressed={bg === id}
-                className={cn(
-                  'h-6 w-6 rounded-full border-2',
-                  FILLS[id],
-                  bg === id ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
-                )}
-                onClick={() => setMeta({ color: id })}
-              />
-            ))}
-          </div>
-          <p className="mt-1 text-[0.65625rem] leading-relaxed text-muted-foreground">
-            A tint behind the whole box, not the text itself.
-          </p>
         </div>
       </PanelSection>
     </div>

@@ -2,23 +2,21 @@
 
 // The per-page controls — sit at the right edge of the tab bar (see
 // tabs-bar.tsx), laid out inline as bare buttons rather than tucked behind a
-// menu or wrapped in a floating pill. Up to three groups, whichever apply:
+// menu or wrapped in a floating pill. Up to two groups, whichever apply:
 // zoom, then the current page's own controls (the PDF reader's page/notes/
-// file controls via usePdfDockStore, the doc page kind's Export PDF/.docx
-// via useDocDockStore, or the presentation kind's Present/Export/New slide
-// via usePresentationDockStore), then the simulation Transport (rightmost).
-// A page is exactly one of 'pdf'/'doc'/'pptx', never more than one, so only
-// one of the three docks is ever populated at once. None of this floats
-// over the canvas anymore, so reading/exporting/simulating doesn't cost any
-// canvas space.
+// file controls via usePdfDockStore, or the doc page kind's Export PDF/.docx
+// via useDocDockStore), then the simulation Transport (rightmost). The
+// presentation kind's own controls (zoom/transition/slides/present) live in
+// their own bar below presentation-view.tsx's slide rail instead — full
+// labels, not icon-only, since that page kind has enough controls to want
+// the room a dedicated bar gives them.
 
 import {
   Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
-  NotebookPen, Play, Plus, Sparkles, ZoomIn, ZoomOut,
+  NotebookPen, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
-import { usePresentationDockStore, type SlideTransition } from '@/lib/store/presentation-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { HoldableMergedTransport } from './transport'
 import {
@@ -98,41 +96,6 @@ function ZoomGroup({
   )
 }
 
-const TRANSITION_LABELS: Record<SlideTransition, string> = {
-  none: 'None',
-  fade: 'Fade',
-  slide: 'Slide',
-}
-
-function TransitionPicker({
-  transition, setTransition,
-}: {
-  transition: SlideTransition
-  setTransition: (t: SlideTransition) => void
-}) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          aria-label="Slide transition"
-          title="Slide transition"
-          className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-        >
-          <Sparkles className="h-3.5 w-3.5" />
-          <span className="text-[0.65625rem]">{TRANSITION_LABELS[transition]}</span>
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="center" className="w-32">
-        {(Object.keys(TRANSITION_LABELS) as SlideTransition[]).map((t) => (
-          <DropdownMenuItem key={t} onClick={() => setTransition(t)}>
-            {TRANSITION_LABELS[t]}
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  )
-}
 
 export function PageControlsMenu({
   pageId,
@@ -143,16 +106,14 @@ export function PageControlsMenu({
 }) {
   const pdfDock = usePdfDockStore((s) => s.dock)
   const docDock = useDocDockStore((s) => s.dock)
-  const presentationDock = usePresentationDockStore((s) => s.dock)
   const isFloating = useTransportDockStore((s) => s.floating)
 
   const showPdf = !!pdfDock
   const showDoc = !!docDock
-  const showPresentation = !!presentationDock
   const showSim = showTransport && !!pageId && !isFloating
-  const showZoom = showPdf || showDoc || showPresentation
+  const showZoom = showPdf || showDoc
 
-  if (!showPdf && !showDoc && !showPresentation && !showSim) return null
+  if (!showPdf && !showDoc && !showSim) return null
 
   return (
     <div className="flex shrink-0 items-center pr-1">
@@ -229,50 +190,7 @@ export function PageControlsMenu({
         </div>
       )}
 
-      {showPresentation && (
-        <ZoomGroup
-          zoom={presentationDock.zoom}
-          setZoom={presentationDock.setZoom}
-          fitWidth={presentationDock.fitWidth}
-          fitHeight={presentationDock.fitWidth}
-        />
-      )}
-
-      {showPresentation && (
-        <TransitionPicker transition={presentationDock.transition} setTransition={presentationDock.setTransition} />
-      )}
-
-      {showPresentation && (
-        <div className="flex items-center gap-0.5">
-          <Divider />
-          <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
-            {presentationDock.current + 1}/{presentationDock.numSlides}
-          </span>
-          <DockBtn label="New slide" disabled={presentationDock.importing} onClick={presentationDock.addSlide}>
-            <Plus className="h-3.5 w-3.5" />
-          </DockBtn>
-          <DockBtn
-            label={presentationDock.exporting ? 'Exporting…' : 'Export .pptx'}
-            disabled={presentationDock.exporting || presentationDock.importing}
-            onClick={presentationDock.exportPptx}
-          >
-            {presentationDock.exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-          </DockBtn>
-          <DockBtn
-            label="Present"
-            disabled={presentationDock.importing || presentationDock.numSlides === 0}
-            onClick={presentationDock.present}
-          >
-            <Play className="h-3.5 w-3.5" />
-          </DockBtn>
-        </div>
-      )}
-
-      {(showPdf || showDoc || showPresentation) && showSim && <Divider />}
+      {(showPdf || showDoc) && showSim && <Divider />}
       {showSim && <HoldableMergedTransport pageId={pageId!} />}
     </div>
   )

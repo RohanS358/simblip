@@ -15,11 +15,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
-import { Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight,
+  ZoomIn, ZoomOut, Sparkles, Download, MonitorPlay,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
-import { usePresentationDockStore, type SlideTransition } from '@/lib/store/presentation-dock'
+import type { SlideTransition } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
 import { PageThumbnail } from './page-thumbnail'
 import { cn } from '@/lib/utils'
@@ -386,33 +389,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
     return () => window.removeEventListener('simblip-remote-pptx', onRemote)
   }, [slides.length])
 
-  // Toolbar buttons (Present/Export/New slide) publish to the shared
-  // tab-bar dock instead of floating their own chrome — same pattern
-  // doc-view.tsx/pdf-view.tsx use. The slide-thumbnail rail stays inline
-  // here (page-navigation UI, not a toolbar control), matching how PdfView
-  // keeps its own page thumbnails/notes pane inline while only its button
-  // controls move to the dock.
-  useEffect(() => {
-    usePresentationDockStore.getState().set({
-      current,
-      numSlides: slides.length,
-      exporting,
-      importing,
-      zoom,
-      setZoom,
-      fitWidth,
-      transition,
-      setTransition,
-      present: () => setPresenting(true),
-      exportPptx: () => void exportPptx(),
-      addSlide: () => {
-        useWorkspaceStore.getState().addDocSheet(pageId)
-        setCurrent(slides.length)
-      },
-    })
-    return () => usePresentationDockStore.getState().set(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, slides.length, exporting, importing, pageId, zoom, transition])
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -506,6 +482,82 @@ export function PresentationView({ pageId }: { pageId: string }) {
         >
           <Plus className="h-5 w-5" />
         </button>
+      </div>
+
+      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-border/60 bg-muted/20 px-3 py-2">
+        <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
+          <button
+            type="button"
+            aria-label="Zoom out"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setZoom(zoom - 0.1)}
+          >
+            <ZoomOut className="h-3.5 w-3.5" />
+          </button>
+          <span className="min-w-11 shrink-0 text-center font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            type="button"
+            aria-label="Zoom in"
+            className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={() => setZoom(zoom + 0.1)}
+          >
+            <ZoomIn className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className="shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={fitWidth}
+          >
+            Fit width
+          </button>
+        </div>
+
+        <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
+          <Sparkles className="ml-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          {(['none', 'fade', 'slide'] as SlideTransition[]).map((t) => (
+            <button
+              key={t}
+              type="button"
+              aria-pressed={transition === t}
+              className={cn(
+                'shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
+                transition === t
+                  ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+              onClick={() => setTransition(t)}
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+          Slide {current + 1} of {slides.length}
+        </span>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            type="button"
+            disabled={exporting || importing}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-[0.75rem] font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => void exportPptx()}
+          >
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            {exporting ? 'Exporting…' : 'Export PowerPoint'}
+          </button>
+          <button
+            type="button"
+            disabled={importing || slides.length === 0}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-3 py-1.5 text-[0.75rem] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => setPresenting(true)}
+          >
+            <MonitorPlay className="h-3.5 w-3.5" />
+            Present
+          </button>
+        </div>
       </div>
 
       {presenting && (

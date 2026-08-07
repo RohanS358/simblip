@@ -703,6 +703,7 @@ export function RichTextArea({
   autoEdit = false,
   deleteWhenEmpty = false,
   hug = false,
+  fillHeight = true,
 }: ObjectRendererProps & {
   placeholder: string
   padY?: number
@@ -715,6 +716,12 @@ export function RichTextArea({
    *  the widest line instead of wrapping at a fixed width (canvas.tsx renders
    *  the outer box at `width: fit-content` to match). */
   hug?: boolean
+  /** Note (the only other caller) always fills its card top-to-bottom, no
+   *  vertical-alignment concept. TextObject needs this OFF whenever
+   *  vertical align isn't 'top': a 100%-height flex child leaves the
+   *  parent's justify-content nothing to distribute, so middle/bottom
+   *  alignment silently did nothing. */
+  fillHeight?: boolean
 }) {
   const setStringParam = useDocStore((s) => s.setStringParam)
   const updateObject = useDocStore((s) => s.updateObject)
@@ -814,7 +821,7 @@ export function RichTextArea({
 
   return (
     <>
-      <div className={cn('h-full overflow-hidden', hug ? 'w-max' : 'w-full')} style={textFormatStyle(object)}>
+      <div className={cn(fillHeight ? 'h-full' : 'shrink-0', 'overflow-hidden', hug ? 'w-max' : 'w-full')} style={textFormatStyle(object)}>
         {editing ? (
           <div
             ref={editorRef}
@@ -915,7 +922,12 @@ export function TextObject(props: ObjectRendererProps) {
   // exposed in the Figma-style panel below: bare text has no parent frame to
   // paint one on in real Figma either, so there's nothing there to mirror.
   const bg = metadata.color as string | undefined
-  const hasFill = Boolean(bg && FILLS[bg])
+  // A named palette id (FILLS key) applies as a Tailwind class; a custom
+  // hex color (from the Background "+" swatch) has no class and applies
+  // via inline style instead — both count as "has a fill" for the padding/
+  // corner-radius/shadow treatment below.
+  const bgIsHex = Boolean(bg && bg.startsWith('#'))
+  const hasFill = Boolean(bg && (FILLS[bg] || bgIsHex))
   // Corner radius defaults to the fill box's old fixed rounded-xl (12px) so
   // existing documents with a background don't jump to square the moment
   // this became a user-editable value.
@@ -942,9 +954,14 @@ export function TextObject(props: ObjectRendererProps) {
         'relative flex h-full flex-col',
         hug ? 'w-max' : 'w-full',
         VERTICAL_ALIGN_CLASS[vAlign] ?? 'justify-start',
-        hasFill && cn(FILLS[bg as string], 'p-3 hairline shadow-sm')
+        hasFill && cn(!bgIsHex && FILLS[bg as string], 'p-3 hairline shadow-sm')
       )}
-      style={{ textAlign: align, color: resolvedTextColor, borderRadius: cornerRadius }}
+      style={{
+        textAlign: align,
+        color: resolvedTextColor,
+        borderRadius: cornerRadius,
+        backgroundColor: bgIsHex ? bg : undefined,
+      }}
     >
       <RichTextArea
         {...props}
@@ -953,6 +970,7 @@ export function TextObject(props: ObjectRendererProps) {
         autoEdit={fresh}
         deleteWhenEmpty={fresh}
         hug={hug}
+        fillHeight={vAlign === 'top'}
       />
     </div>
   )
