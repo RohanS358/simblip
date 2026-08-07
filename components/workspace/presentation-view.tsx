@@ -14,14 +14,23 @@
 // Export walks the slide object trees back into a real .pptx via pptxgenjs.
 
 import { useEffect, useRef, useState } from 'react'
-import { Plus, Trash2, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
 import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
+import { PageThumbnail } from './page-thumbnail'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { uid } from '@/lib/scene/types'
+import {
+  ContextMenu,
+  ContextMenuTrigger,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+} from '@/components/ui/context-menu'
 
 function PresentOverlay({
   slides,
@@ -102,6 +111,19 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [presenting, setPresenting] = useState(false)
+  // A pure CSS view scale on the rendered slide frame — same model as
+  // doc-view.tsx's zoom (transform: scale(zoom)), NOT the canvas's own
+  // internal viewport zoom (InfiniteCanvas keeps that permanently locked
+  // to 1 for doc/pptx sheets — see canvas.tsx's `locked` effect — so
+  // object positions always mean the same on-slide px regardless of how
+  // zoomed-in the user's VIEW of the slide currently is).
+  const [zoom, setZoomRaw] = useState(1)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const setZoom = (z: number) => setZoomRaw(Math.min(3, Math.max(0.25, z)))
+  const fitWidth = () => {
+    const w = stageRef.current?.clientWidth
+    if (w) setZoom(Math.min(3, Math.max(0.25, (w - 48) / 960)))
+  }
   const importedRef = useRef(false)
 
   const fileUrl = meta?.fileUrl
@@ -150,6 +172,97 @@ export function PresentationView({ pageId }: { pageId: string }) {
     setCurrent((c) => Math.max(0, Math.min(c, slides.length - 2)))
   }
 
+  // Deep-clones every SceneObject onto a fresh sheet id (fresh object ids
+  // too — two objects sharing an id across pages would corrupt selection/
+  // history, which are keyed by id alone) and inserts it right after the
+  // source slide, matching every real presentation tool's "Duplicate slide".
+  const duplicateSlide = async (slideId: string) => {
+    const { useDocStore } = await import('@/lib/store/document')
+    const sourceObjects = useDocStore.getState().pages[slideId]?.objects ?? {}
+    const newId = useWorkspaceStore.getState().addDocSheet(pageId)
+    for (const obj of Object.values(sourceObjects)) {
+      useDocStore.getState().addObject(newId, { ...obj, id: uid() }, { history: false })
+    }
+    const bg = meta?.sheetColors?.[slideId]
+    const sourceIdx = slides.indexOf(slideId)
+    // addDocSheet appends newId at the end of docPages — move it to sit
+    // right after its source instead.
+    const reordered = slides.slice()
+    reordered.splice(sourceIdx + 1, 0, newId)
+    useWorkspaceStore.getState().updatePageMeta(pageId, {
+      docPages: reordered,
+      sheetColors: bg ? { ...meta?.sheetColors, [newId]: bg } : meta?.sheetColors,
+    })
+    setCurrent(sourceIdx + 1)
+  }
+
+  const reorderSlides = (next: string[]) => {
+    useWorkspaceStore.getState().updatePageMeta(pageId, { docPages: next })
+    const activeId = slides[current]
+    const nextIdx = next.indexOf(activeId)
+    if (nextIdx !== -1) setCurrent(nextIdx)
+  }
+
+  // Pointer-based drag-reorder — same interaction model as doc-sorter.tsx's
+  // filmstrip (raw Pointer Events, not HTML5 DnD, for unified mouse/touch/
+  // pen support): nearest-tile-by-X, since the rail is a horizontal strip.
+  const railRef = useRef<HTMLDivElement>(null)
+  const [dragOrder, setDragOrder] = useState<string[] | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const dragOrderRef = useRef<string[]>(slides)
+
+  const onTilePointerDown = (slideId: string) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return
+    const drag = { moved: false }
+    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    dragOrderRef.current = slides
+
+    const move = (ev: PointerEvent) => {
+      if (!drag.moved) {
+        if (Math.abs(ev.clientX - startX) < 4) return
+        drag.moved = true
+        setDraggingId(slideId)
+        setDragOrder(slides)
+      }
+      const rail = railRef.current
+      if (!rail) return
+      const tiles = Array.from(rail.querySelectorAll<HTMLElement>('[data-slide-tile]'))
+      let nearestIdx = 0
+      let nearestDist = Infinity
+      tiles.forEach((el, i) => {
+        const r = el.getBoundingClientRect()
+        const d = Math.abs(ev.clientX - (r.left + r.width / 2))
+        if (d < nearestDist) {
+          nearestDist = d
+          nearestIdx = i
+        }
+      })
+      setDragOrder((prev) => {
+        const cur = prev ?? slides
+        const from = cur.indexOf(slideId)
+        if (from === -1 || from === nearestIdx) return prev
+        const next = cur.slice()
+        next.splice(from, 1)
+        next.splice(nearestIdx, 0, slideId)
+        dragOrderRef.current = next
+        return next
+      })
+    }
+    const up = () => {
+      window.removeEventListener('pointermove', move)
+      window.removeEventListener('pointerup', up)
+      setDraggingId(null)
+      setDragOrder(null)
+      if (drag.moved) reorderSlides(dragOrderRef.current)
+      else setCurrent(slides.indexOf(slideId))
+    }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }
+
+  const displayedSlides = dragOrder ?? slides
+
   const exportPptx = async () => {
     setExporting(true)
     try {
@@ -194,6 +307,9 @@ export function PresentationView({ pageId }: { pageId: string }) {
       numSlides: slides.length,
       exporting,
       importing,
+      zoom,
+      setZoom,
+      fitWidth,
       present: () => setPresenting(true),
       exportPptx: () => void exportPptx(),
       addSlide: () => {
@@ -203,44 +319,90 @@ export function PresentationView({ pageId }: { pageId: string }) {
     })
     return () => usePresentationDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, slides.length, exporting, importing, pageId])
+  }, [current, slides.length, exporting, importing, pageId, zoom])
 
   return (
-    <div className="flex h-full w-full">
-      <div className="flex w-40 shrink-0 flex-col gap-2 overflow-y-auto border-r border-border/60 bg-muted/30 p-2">
-        {slides.map((id, i) => (
-          <button
-            key={id}
-            type="button"
-            onClick={() => setCurrent(i)}
-            className={cn(
-              'group relative aspect-video w-full shrink-0 overflow-hidden rounded-md border bg-white text-left',
-              i === current ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30' : 'border-border/60'
-            )}
-            style={{ backgroundColor: meta?.sheetColors?.[id] }}
+    <div className="flex h-full w-full flex-col">
+      <div ref={stageRef} className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-muted/40 p-6">
+        {importing ? (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-[0.75rem]">Importing presentation…</span>
+          </div>
+        ) : activeSlideId ? (
+          <div
+            className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+            style={{
+              width: 960,
+              height: 540,
+              transform: `scale(${zoom})`,
+              backgroundColor: meta?.sheetColors?.[activeSlideId],
+            }}
           >
-            <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
-              {i + 1}
-            </span>
-            {slides.length > 1 && (
-              <span
-                role="button"
-                aria-label="Delete slide"
-                className="absolute right-1 top-1 z-10 rounded bg-black/40 p-0.5 text-white opacity-0 hover:bg-destructive group-hover:opacity-100"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  removeSlide(id)
-                }}
-              >
-                <Trash2 className="h-3 w-3" />
-              </span>
-            )}
-          </button>
-        ))}
+            <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
+          </div>
+        ) : null}
+      </div>
+
+      <div
+        ref={railRef}
+        className="flex h-24 shrink-0 items-center gap-2 overflow-x-auto border-t border-border/60 bg-muted/30 p-2"
+      >
+        {displayedSlides.map((id) => {
+          const i = slides.indexOf(id)
+          return (
+            <ContextMenu key={id}>
+              <ContextMenuTrigger asChild>
+                <button
+                  type="button"
+                  data-slide-tile
+                  onPointerDown={onTilePointerDown(id)}
+                  className={cn(
+                    'group relative aspect-video h-full shrink-0 touch-none cursor-grab overflow-hidden rounded-md border bg-white text-left active:cursor-grabbing',
+                    i === current ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30' : 'border-border/60',
+                    draggingId === id && 'opacity-70'
+                  )}
+                  style={{ backgroundColor: meta?.sheetColors?.[id] }}
+                >
+                  <PageThumbnail pageId={id} className="pointer-events-none absolute inset-0 h-full w-full" />
+                  <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
+                    {i + 1}
+                  </span>
+                  {slides.length > 1 && (
+                    <span
+                      role="button"
+                      aria-label="Delete slide"
+                      className="absolute right-1 top-1 z-10 rounded bg-black/40 p-0.5 text-white opacity-0 hover:bg-destructive group-hover:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        removeSlide(id)
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </span>
+                  )}
+                </button>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={() => void duplicateSlide(id)}>
+                  <Copy className="h-4 w-4" /> Duplicate slide
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  variant="destructive"
+                  disabled={slides.length <= 1}
+                  onClick={() => removeSlide(id)}
+                >
+                  <Trash2 className="h-4 w-4" /> Delete slide
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
+          )
+        })}
         <Button
           variant="outline"
           size="sm"
-          className="shrink-0"
+          className="h-full shrink-0"
           onClick={() => {
             useWorkspaceStore.getState().addDocSheet(pageId)
             setCurrent(slides.length)
@@ -248,24 +410,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
         >
           <Plus className="h-3.5 w-3.5" /> Slide
         </Button>
-      </div>
-
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1 items-center justify-center bg-muted/40 p-6">
-          {importing ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-5 w-5 animate-spin" />
-              <span className="text-[0.75rem]">Importing presentation…</span>
-            </div>
-          ) : activeSlideId ? (
-            <div
-              className="relative aspect-video w-full max-w-[960px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
-              style={{ backgroundColor: meta?.sheetColors?.[activeSlideId] }}
-            >
-              <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
-            </div>
-          ) : null}
-        </div>
       </div>
 
       {presenting && (

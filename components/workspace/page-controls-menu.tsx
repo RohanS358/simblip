@@ -114,7 +114,7 @@ export function PageControlsMenu({
   const showDoc = !!docDock
   const showPresentation = !!presentationDock
   const showSim = showTransport && !!pageId && !isFloating
-  const showZoom = showPdf || showDoc
+  const showZoom = showPdf || showDoc || showPresentation
 
   if (!showPdf && !showDoc && !showPresentation && !showSim) return null
 
@@ -194,7 +194,17 @@ export function PageControlsMenu({
       )}
 
       {showPresentation && (
+        <ZoomGroup
+          zoom={presentationDock.zoom}
+          setZoom={presentationDock.setZoom}
+          fitWidth={presentationDock.fitWidth}
+          fitHeight={presentationDock.fitWidth}
+        />
+      )}
+
+      {showPresentation && (
         <div className="flex items-center gap-0.5">
+          <Divider />
           <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
             {presentationDock.current + 1}/{presentationDock.numSlides}
           </span>

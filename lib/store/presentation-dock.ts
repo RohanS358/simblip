@@ -13,6 +13,10 @@ export interface PresentationDockState {
   numSlides: number
   exporting: boolean
   importing: boolean
+  zoom: number
+  setZoom: (zoom: number) => void
+  /** Zoom so the slide's full width fills the available viewport. */
+  fitWidth: () => void
   present: () => void
   exportPptx: () => void
   addSlide: () => void
