@@ -101,7 +101,7 @@ function NotebookSettings() {
         <Slider
           aria-label="Interface UI scale"
           value={[nb.uiScale]}
-          min={0.8}
+          min={0.1}
           max={1.4}
           step={0.05}
           onValueChange={([v]) => setNb({ uiScale: v })}
