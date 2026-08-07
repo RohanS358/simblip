@@ -555,15 +555,20 @@ async function slideBackground(
   return undefined
 }
 
-async function pictureObject(
-  pic: Element,
+/** Resolves a <a:blip> element (found under either a <p:pic>'s own
+ *  <p:blipFill> or a plain shape's <p:spPr><a:blipFill> — Canva-exported
+ *  decks commonly use the latter: a picture as a shape's FILL rather than
+ *  a dedicated <p:pic> element, which the old <p:pic>-only lookup never
+ *  saw at all) into stored bytes, writing them to OPFS and returning the
+ *  opfs: src string. Null if there's no resolvable embedded image (e.g. a
+ *  linked-not-embedded r:link image, out of scope — no local bytes exist
+ *  for those without a network fetch). */
+async function blipToOpfsSrc(
+  blipFill: Element | null,
   zip: JSZip,
   assets: SlideAssets,
-  ownerId: string,
-  scale: SlideScale,
-  groupChain: GroupXfrm[] = []
-): Promise<SceneObject | null> {
-  const blipFill = firstChild(pic, 'p:blipFill')
+  ownerId: string
+): Promise<string | null> {
   const blip = firstChild(blipFill, 'a:blip')
   // r:embed's namespace URI is fixed by the OOXML spec regardless of which
   // local prefix a given file declares for it — getAttributeNS is the
@@ -586,11 +591,24 @@ async function pictureObject(
     ] ?? 'image/png'
   const bytes = await zipEntry.async('blob')
   const fileId = await putFile(bytes, target!.split('/').pop() ?? 'image', mime, ownerId)
+  return `opfs:${fileId}`
+}
+
+async function pictureObject(
+  pic: Element,
+  zip: JSZip,
+  assets: SlideAssets,
+  ownerId: string,
+  scale: SlideScale,
+  groupChain: GroupXfrm[] = []
+): Promise<SceneObject | null> {
+  const src = await blipToOpfsSrc(firstChild(pic, 'p:blipFill'), zip, assets, ownerId)
+  if (!src) return null
 
   const box = shapeBox(pic, scale, groupChain)
   const obj = baseObject('picture', { x: box.x, y: box.y })
   obj.size = { w: box.w, h: box.h }
-  obj.geometry.src = `opfs:${fileId}`
+  obj.geometry.src = src
   return obj
 }
 
@@ -637,6 +655,35 @@ async function shapesToObjects(
         continue
       }
       if (child.tagName !== 'p:sp') continue
+
+      // Canva-exported decks (and some PowerPoint shapes) commonly use a
+      // picture as a shape's FILL (<p:spPr><a:blipFill>) instead of a
+      // dedicated <p:pic> element — invisible to the p:pic-only check
+      // above, which is why images from these decks imported as nothing
+      // at all. Any text on the shape still layers on top as usual.
+      const spPr = firstChild(child, 'p:spPr')
+      const shapeBlipFill = firstChild(spPr, 'a:blipFill')
+      if (shapeBlipFill) {
+        const src = await blipToOpfsSrc(shapeBlipFill, zip, assets, ownerId)
+        if (src) {
+          const box = shapeBox(child, scale, groupChain)
+          const pictureObj = baseObject('picture', { x: box.x, y: box.y })
+          pictureObj.size = { w: box.w, h: box.h }
+          pictureObj.geometry.src = src
+          objects.push(pictureObj)
+          const line = shapeText(child, theme, placeholderStyles, scale)
+          if (line) {
+            const textObj = baseObject('text', { x: box.x, y: box.y })
+            textObj.size = { w: box.w, h: box.h }
+            textObj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
+            if (line.align) textObj.metadata.align = line.align
+            if (line.verticalAlign) textObj.metadata.verticalAlign = line.verticalAlign
+            objects.push(textObj)
+          }
+          continue
+        }
+      }
+
       const box = shapeBox(child, scale, groupChain)
       const line = shapeText(child, theme, placeholderStyles, scale)
       const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme, scale)
