@@ -19,13 +19,49 @@ import { baseObject } from '@/lib/scene/factory'
 import { str, type SceneObject } from '@/lib/scene/types'
 import { serialize, type Mark, type MarkKind } from '@/lib/text/marks'
 
-// Slide XML coordinates are EMUs (914400 per inch); a 960px-wide slide at
-// PPT_W_IN=10in (pptx-export.ts) matches a standard 10in-wide 16:9 deck.
-const EMU_PER_PX = 9525 // 914400 / 96dpi
+// Slide XML coordinates are EMUs (914400 per inch). SIMBLIP's own slide
+// canvas is a FIXED 960×540px frame (PPT_W_IN×PPT_H_IN in pptx-export.ts,
+// 10in×5.625in at 96dpi) regardless of what size the source deck actually
+// declares — PowerPoint's current default is 13.333×7.5in widescreen, and
+// plenty of real decks are the older 10×7.5in 4:3. Importing with a FIXED
+// EMU-per-px divisor (assuming every deck matches SIMBLIP's own 960×540)
+// silently mispositioned/mis-scaled everything whenever the source deck's
+// real size differed — the actual cause of "positions are all wrong".
+// EMU_PER_PX_X/Y below are computed per-deck from the real <p:sldSz> in
+// ppt/presentation.xml (loadSlideSize), so every position/size scales to
+// fit the fixed 960×540 target frame no matter the source aspect ratio.
+const SIMBLIP_SLIDE_W_PX = 960
+const SIMBLIP_SLIDE_H_PX = 540
 const PT_TO_PX = 96 / 72 // OOXML font sizes are in points (sz="2400" = 24pt, hundredths of a point)
 
-function emuToPx(v: string | null): number {
-  return v ? Math.round(Number(v) / EMU_PER_PX) : 0
+interface SlideScale {
+  emuPerPxX: number
+  emuPerPxY: number
+}
+
+const DEFAULT_SLIDE_SCALE: SlideScale = { emuPerPxX: 9525, emuPerPxY: 9525 } // 914400 / 96dpi, matches a 10in×5.625in deck
+
+/** <p:sldSz cx="..." cy="..."/> from ppt/presentation.xml, in EMUs — the
+ *  source deck's real slide dimensions. Falls back to DEFAULT_SLIDE_SCALE
+ *  (assumes a 10in×5.625in deck, SIMBLIP's own canonical size) if missing. */
+async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
+  const file = zip.files['ppt/presentation.xml']
+  if (!file) return DEFAULT_SLIDE_SCALE
+  const xml = await file.async('text')
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const sldSz = doc.getElementsByTagName('p:sldSz')[0]
+  const cx = Number(sldSz?.getAttribute('cx'))
+  const cy = Number(sldSz?.getAttribute('cy'))
+  if (!Number.isFinite(cx) || !Number.isFinite(cy) || cx <= 0 || cy <= 0) return DEFAULT_SLIDE_SCALE
+  return { emuPerPxX: cx / SIMBLIP_SLIDE_W_PX, emuPerPxY: cy / SIMBLIP_SLIDE_H_PX }
+}
+
+function emuToPxX(v: string | null, scale: SlideScale): number {
+  return v ? Math.round(Number(v) / scale.emuPerPxX) : 0
+}
+
+function emuToPxY(v: string | null, scale: SlideScale): number {
+  return v ? Math.round(Number(v) / scale.emuPerPxY) : 0
 }
 
 // ── XML helpers ──────────────────────────────────────────────────────────
@@ -141,11 +177,14 @@ function paragraphToLine(p: Element, theme: Record<string, string>): { text: str
   return { text, marks }
 }
 
+const ALGN_TO_ALIGN: Record<string, 'left' | 'center' | 'right'> = { l: 'left', ctr: 'center', r: 'right', just: 'left' }
+const ANCHOR_TO_VALIGN: Record<string, 'top' | 'middle' | 'bottom'> = { t: 'top', ctr: 'middle', b: 'bottom' }
+
 function shapeText(
   sp: Element,
   theme: Record<string, string>,
   placeholderStyles: Map<string, { color?: string; sizePx?: number }>
-): { text: string; marks: Mark[] } | null {
+): { text: string; marks: Mark[]; align?: 'left' | 'center' | 'right'; verticalAlign?: 'top' | 'middle' | 'bottom' } | null {
   const txBody = firstChild(sp, 'p:txBody')
   if (!txBody) return null
   const paragraphs = directChildren(txBody, 'a:p')
@@ -175,20 +214,29 @@ function shapeText(
     if (!hasSize && phStyle.sizePx) marks.push({ start: 0, end: text.length, kind: 'size', value: String(phStyle.sizePx) })
   }
 
-  return { text, marks }
+  // Horizontal alignment is per-paragraph in OOXML (<a:pPr algn="...">) but
+  // SIMBLIP's text object aligns the whole box — the first paragraph's
+  // value wins, matching how a title/body placeholder sets it once.
+  // Vertical alignment is the shape's own <a:bodyPr anchor="...">.
+  const firstAlgn = firstChild(paragraphs[0], 'a:pPr')?.getAttribute('algn')
+  const align = firstAlgn ? ALGN_TO_ALIGN[firstAlgn] : undefined
+  const anchor = firstChild(txBody, 'a:bodyPr')?.getAttribute('anchor')
+  const verticalAlign = anchor ? ANCHOR_TO_VALIGN[anchor] : undefined
+
+  return { text, marks, align, verticalAlign }
 }
 
 // ── Shape geometry: position/size + fill/border ────────────────────────────
 
-function shapeBox(sp: Element): { x: number; y: number; w: number; h: number } {
+function shapeBox(sp: Element, scale: SlideScale): { x: number; y: number; w: number; h: number } {
   const xfrm = firstChild(sp, 'a:xfrm')
   const off = firstChild(xfrm, 'a:off')
   const ext = firstChild(xfrm, 'a:ext')
   return {
-    x: emuToPx(off?.getAttribute('x') ?? null) || 40,
-    y: emuToPx(off?.getAttribute('y') ?? null) || 40,
-    w: emuToPx(ext?.getAttribute('cx') ?? null) || 320,
-    h: emuToPx(ext?.getAttribute('cy') ?? null) || 48,
+    x: emuToPxX(off?.getAttribute('x') ?? null, scale) || 40,
+    y: emuToPxY(off?.getAttribute('y') ?? null, scale) || 40,
+    w: emuToPxX(ext?.getAttribute('cx') ?? null, scale) || 320,
+    h: emuToPxY(ext?.getAttribute('cy') ?? null, scale) || 48,
   }
 }
 
@@ -207,7 +255,10 @@ function shapeFillAndBorder(
   const lineNoFill = firstChild(ln, 'a:noFill') !== null
   const strokeColor = lineNoFill ? undefined : (solidFillColor(ln, theme) ?? undefined)
   const w = ln?.getAttribute('w') // EMUs
-  const strokeWidth = w ? Math.max(0.5, Math.round((Number(w) / EMU_PER_PX) * 10) / 10) : undefined
+  // Line thickness stays on the fixed 96dpi EMU basis (not the per-deck
+  // slide scale) — a 2pt border should render as a thin line regardless of
+  // whether the source deck is a small or large slide canvas.
+  const strokeWidth = w ? Math.max(0.5, Math.round((Number(w) / DEFAULT_SLIDE_SCALE.emuPerPxX) * 10) / 10) : undefined
   return { fillColor, strokeColor, strokeWidth }
 }
 
@@ -263,24 +314,46 @@ async function loadSlideRels(zip: JSZip, slideName: string): Promise<SlideAssets
  *  which is why most real decks have no per-run styling at all. Returns a
  *  map from "<type>:<idx>" (matching a slide shape's <p:ph type idx>) to
  *  the resolved color/size, checked layout-first then master. */
-async function loadPlaceholderStyles(
+/** A slide's layout path (from its own .rels) and that layout's master path
+ *  (from the layout's .rels) — the inheritance chain every slide-level
+ *  "falls back to the layout, then the master" lookup needs (placeholder
+ *  text styling, and now slide background). */
+async function resolveLayoutMasterPaths(
   zip: JSZip,
-  slideName: string,
-  theme: Record<string, string>
-): Promise<Map<string, { color?: string; sizePx?: number }>> {
-  const result = new Map<string, { color?: string; sizePx?: number }>()
+  slideName: string
+): Promise<{ layoutTarget?: string; masterTarget?: string }> {
   const slideRelsPath = `ppt/slides/_rels/${slideName}.rels`
   const slideRelsFile = zip.files[slideRelsPath]
-  if (!slideRelsFile) return result
+  if (!slideRelsFile) return {}
   const relsXml = await slideRelsFile.async('text')
   const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml')
   const layoutRel = Array.from(relsDoc.getElementsByTagName('Relationship')).find((r) =>
     (r.getAttribute('Type') ?? '').endsWith('/slideLayout')
   )
   const layoutTarget = layoutRel?.getAttribute('Target')?.replace(/^\.\.\//, 'ppt/')
+  if (!layoutTarget || !zip.files[layoutTarget]) return {}
+
+  const layoutName = layoutTarget.slice(layoutTarget.lastIndexOf('/') + 1)
+  const layoutRelsPath = `ppt/slideLayouts/_rels/${layoutName}.rels`
+  const layoutRelsFile = zip.files[layoutRelsPath]
+  if (!layoutRelsFile) return { layoutTarget }
+  const layoutRelsXml = await layoutRelsFile.async('text')
+  const layoutRelsDoc = new DOMParser().parseFromString(layoutRelsXml, 'application/xml')
+  const masterRel = Array.from(layoutRelsDoc.getElementsByTagName('Relationship')).find((r) =>
+    (r.getAttribute('Type') ?? '').endsWith('/slideMaster')
+  )
+  const masterTarget = masterRel?.getAttribute('Target')?.replace(/^\.\.\//, 'ppt/')
+  return { layoutTarget, masterTarget }
+}
+
+async function loadPlaceholderStyles(
+  zip: JSZip,
+  slideName: string,
+  theme: Record<string, string>
+): Promise<Map<string, { color?: string; sizePx?: number }>> {
+  const result = new Map<string, { color?: string; sizePx?: number }>()
+  const { layoutTarget, masterTarget } = await resolveLayoutMasterPaths(zip, slideName)
   if (!layoutTarget) return result
-  const layoutFile = zip.files[layoutTarget]
-  if (!layoutFile) return result
 
   const readPlaceholders = async (path: string) => {
     const file = zip.files[path]
@@ -301,35 +374,44 @@ async function loadPlaceholderStyles(
   }
 
   await readPlaceholders(layoutTarget)
-
-  const layoutName = layoutTarget.slice(layoutTarget.lastIndexOf('/') + 1)
-  const layoutRelsPath = `ppt/slideLayouts/_rels/${layoutName}.rels`
-  const layoutRelsFile = zip.files[layoutRelsPath]
-  if (layoutRelsFile) {
-    const layoutRelsXml = await layoutRelsFile.async('text')
-    const layoutRelsDoc = new DOMParser().parseFromString(layoutRelsXml, 'application/xml')
-    const masterRel = Array.from(layoutRelsDoc.getElementsByTagName('Relationship')).find((r) =>
-      (r.getAttribute('Type') ?? '').endsWith('/slideMaster')
-    )
-    const masterTarget = masterRel?.getAttribute('Target')?.replace(/^\.\.\//, 'ppt/')
-    if (masterTarget) await readPlaceholders(masterTarget)
-  }
+  if (masterTarget) await readPlaceholders(masterTarget)
 
   return result
 }
 
-/** Slide background: <p:bg><p:bgPr><a:solidFill>. */
-function slideBackground(doc: Document, theme: Record<string, string>): string | undefined {
-  const bg = doc.getElementsByTagName('p:bg')[0]
-  const bgPr = firstChild(bg ?? null, 'p:bgPr')
-  return solidFillColor(bgPr, theme) ?? undefined
+/** Slide background: <p:bg><p:bgPr><a:solidFill>, checked on the slide
+ *  itself first, then its layout, then the layout's master — most real
+ *  decks set the background once on the layout/master and never repeat it
+ *  per-slide, so slide-only lookup silently lost the deck's real
+ *  background on every slide that didn't override it. */
+async function slideBackground(
+  doc: Document,
+  zip: JSZip,
+  slideName: string,
+  theme: Record<string, string>
+): Promise<string | undefined> {
+  const own = solidFillColor(firstChild(doc.getElementsByTagName('p:bg')[0] ?? null, 'p:bgPr'), theme)
+  if (own) return own
+
+  const { layoutTarget, masterTarget } = await resolveLayoutMasterPaths(zip, slideName)
+  for (const path of [layoutTarget, masterTarget]) {
+    if (!path) continue
+    const file = zip.files[path]
+    if (!file) continue
+    const xml = await file.async('text')
+    const inheritedDoc = new DOMParser().parseFromString(xml, 'application/xml')
+    const bg = solidFillColor(firstChild(inheritedDoc.getElementsByTagName('p:bg')[0] ?? null, 'p:bgPr'), theme)
+    if (bg) return bg
+  }
+  return undefined
 }
 
 async function pictureObject(
   pic: Element,
   zip: JSZip,
   assets: SlideAssets,
-  ownerId: string
+  ownerId: string,
+  scale: SlideScale
 ): Promise<SceneObject | null> {
   const blipFill = firstChild(pic, 'p:blipFill')
   const blip = firstChild(blipFill, 'a:blip')
@@ -355,7 +437,7 @@ async function pictureObject(
   const bytes = await zipEntry.async('blob')
   const fileId = await putFile(bytes, target!.split('/').pop() ?? 'image', mime, ownerId)
 
-  const box = shapeBox(pic)
+  const box = shapeBox(pic, scale)
   const obj = baseObject('picture', { x: box.x, y: box.y })
   obj.size = { w: box.w, h: box.h }
   obj.geometry.src = `opfs:${fileId}`
@@ -368,7 +450,8 @@ async function shapesToObjects(
   assets: SlideAssets,
   ownerId: string,
   slideName: string,
-  theme: Record<string, string>
+  theme: Record<string, string>,
+  scale: SlideScale
 ): Promise<{ objects: SceneObject[]; background?: string }> {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const spTree = doc.getElementsByTagName('p:spTree')[0]
@@ -385,12 +468,12 @@ async function shapesToObjects(
 
   for (const child of Array.from(spTree.children)) {
     if (child.tagName === 'p:pic') {
-      const obj = await pictureObject(child, zip, assets, ownerId)
+      const obj = await pictureObject(child, zip, assets, ownerId, scale)
       if (obj) objects.push(obj)
       continue
     }
     if (child.tagName !== 'p:sp') continue
-    const box = shapeBox(child)
+    const box = shapeBox(child, scale)
     const line = shapeText(child, theme, placeholderStyles)
     const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme)
     const hasVisibleShape = !!(fillColor || strokeColor)
@@ -399,6 +482,8 @@ async function shapesToObjects(
       const obj = baseObject('text', { x: box.x, y: box.y })
       obj.size = { w: box.w, h: box.h }
       obj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
+      if (line.align) obj.metadata.align = line.align
+      if (line.verticalAlign) obj.metadata.verticalAlign = line.verticalAlign
       objects.push(obj)
       // A text box that ALSO has an explicit fill/border (a filled
       // rectangle with a caption, common in title/callout shapes) gets a
@@ -426,7 +511,7 @@ async function shapesToObjects(
     }
   }
 
-  return { objects, background: slideBackground(doc, theme) }
+  return { objects, background: await slideBackground(doc, zip, slideName, theme) }
 }
 
 /** Text/note boxes import at PowerPoint's stored width, which can be
@@ -471,12 +556,12 @@ export async function importPptx(blob: Blob, ownerId: string): Promise<ImportedS
     })
   if (slideFiles.length === 0) throw new Error('No slides found in this presentation.')
 
-  const theme = await loadTheme(zip)
+  const [theme, scale] = await Promise.all([loadTheme(zip), loadSlideScale(zip)])
   const results: ImportedSlide[] = []
   for (const name of slideFiles) {
     const slideName = name.slice(name.lastIndexOf('/') + 1, -4) // "slide1"
     const [xml, assets] = await Promise.all([zip.files[name].async('text'), loadSlideRels(zip, slideName)])
-    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme)
+    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme, scale)
     widenNarrowTextBoxes(objects)
     results.push({ objects, background })
   }

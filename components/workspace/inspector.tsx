@@ -76,6 +76,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import { num, str, type SceneObject, type GeometryKind } from '@/lib/scene/types'
 import { getString, getNumber } from '@/components/objects/types'
@@ -2735,18 +2736,20 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
           <span className="shrink-0 text-[0.625rem] opacity-60">px</span>
         </label>
       )}
-      <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
-        Opacity
-        <ExprInput
-          ariaLabel="Opacity"
-          value={String(opacity)}
-          onCommit={(v) => {
-            const n = Number(v)
-            if (Number.isFinite(n)) setMeta({ opacity: Math.min(100, Math.max(0, Math.round(n))) })
-          }}
+      <div>
+        <div className="flex items-center justify-between text-[0.6875rem] text-muted-foreground">
+          <span>Opacity</span>
+          <span className="tabular-nums">{opacity}%</span>
+        </div>
+        <Slider
+          aria-label="Opacity"
+          value={[opacity]}
+          min={0}
+          max={100}
+          step={1}
+          onValueChange={([v]) => setMeta({ opacity: v })}
         />
-        <span className="shrink-0 text-[0.625rem] opacity-60">%</span>
-      </label>
+      </div>
       <button
         type="button"
         aria-pressed={hidden}

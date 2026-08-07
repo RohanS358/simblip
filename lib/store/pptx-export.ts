@@ -128,7 +128,9 @@ export async function exportPptx(
       const { text, marks } = parse(raw)
       if (!text) continue
       const runs = marksToTextProps(text, marks)
-      slide.addText(runs as never, { x, y, w, h, fontSize: 14, valign: 'top' })
+      const align = (obj.metadata.align as 'left' | 'center' | 'right' | undefined) ?? 'left'
+      const valign = (obj.metadata.verticalAlign as 'top' | 'middle' | 'bottom' | undefined) ?? 'top'
+      slide.addText(runs as never, { x, y, w, h, fontSize: 14, align, valign })
     }
   }
 
