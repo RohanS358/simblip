@@ -21,7 +21,6 @@ import { getFile } from '@/lib/storage/manager'
 import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
 import { PageThumbnail } from './page-thumbnail'
-import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
 import {
@@ -399,17 +398,17 @@ export function PresentationView({ pageId }: { pageId: string }) {
             </ContextMenu>
           )
         })}
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-full shrink-0"
+        <button
+          type="button"
+          aria-label="Add slide"
+          className="flex aspect-video h-full shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 text-muted-foreground/50 transition-colors hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
           onClick={() => {
             useWorkspaceStore.getState().addDocSheet(pageId)
             setCurrent(slides.length)
           }}
         >
-          <Plus className="h-3.5 w-3.5" /> Slide
-        </Button>
+          <Plus className="h-5 w-5" />
+        </button>
       </div>
 
       {presenting && (
