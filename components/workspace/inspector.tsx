@@ -56,7 +56,7 @@ import { useDocStore, type Viewport } from '@/lib/store/document'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
@@ -2474,12 +2474,12 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               >
                 <span className="flex items-center gap-1.5">
                   <Type className="h-3.5 w-3.5 text-muted-foreground" />
-                  {font.charAt(0).toUpperCase() + font.slice(1)}
+                  {TEXT_FONT_LABELS[font]}
                 </span>
                 <ChevronDown className="h-3 w-3 text-muted-foreground" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="glass-strong w-40">
+            <DropdownMenuContent className="glass-strong max-h-72 w-44 overflow-y-auto">
               {(Object.keys(TEXT_FONTS) as (keyof typeof TEXT_FONTS)[]).map((id) => (
                 <DropdownMenuItem
                   key={id}
@@ -2490,7 +2490,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                     setSpan('font', id)
                   }}
                 >
-                  {id.charAt(0).toUpperCase() + id.slice(1)}
+                  {TEXT_FONT_LABELS[id]}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

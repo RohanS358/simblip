@@ -400,6 +400,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
   // every few seconds, and a button that answers late feels broken.
   const [flips, setFlips] = useState<Record<string, boolean>>({})
   const doc = (session.edited ?? session.snapshot) as PageBundle | null
+  const isPresentation = doc?.bundle?.kind === 'pptx'
   // Docs/PDFs keep their objects on sheets — flatten so the remote sees them.
   const objects = Object.values(doc ? flattenBundleObjects(doc) : {}) as SceneObject[]
   const files = objects.filter((o) => o.metadata?.render === 'file')
@@ -497,6 +498,20 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
                 )}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {isPresentation && (
+        <div className="space-y-1.5">
+          <Label className="text-[12px]">Slides — {session.page_name}</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant="outline" size="sm" onClick={() => send({ kind: 'pptx', dir: -1 })}>
+              <ChevronLeft className="h-4 w-4" /> Previous
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => send({ kind: 'pptx', dir: 1 })}>
+              Next <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       )}

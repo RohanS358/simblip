@@ -14,11 +14,11 @@
 
 import {
   Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
-  NotebookPen, Play, Plus, ZoomIn, ZoomOut,
+  NotebookPen, Play, Plus, Sparkles, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
-import { usePresentationDockStore } from '@/lib/store/presentation-dock'
+import { usePresentationDockStore, type SlideTransition } from '@/lib/store/presentation-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { HoldableMergedTransport } from './transport'
 import {
@@ -95,6 +95,42 @@ function ZoomGroup({
         <ZoomIn className="h-3.5 w-3.5" />
       </DockBtn>
     </div>
+  )
+}
+
+const TRANSITION_LABELS: Record<SlideTransition, string> = {
+  none: 'None',
+  fade: 'Fade',
+  slide: 'Slide',
+}
+
+function TransitionPicker({
+  transition, setTransition,
+}: {
+  transition: SlideTransition
+  setTransition: (t: SlideTransition) => void
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Slide transition"
+          title="Slide transition"
+          className="flex h-7 shrink-0 items-center gap-1 rounded-lg px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+          <span className="text-[0.65625rem]">{TRANSITION_LABELS[transition]}</span>
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="center" className="w-32">
+        {(Object.keys(TRANSITION_LABELS) as SlideTransition[]).map((t) => (
+          <DropdownMenuItem key={t} onClick={() => setTransition(t)}>
+            {TRANSITION_LABELS[t]}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -200,6 +236,10 @@ export function PageControlsMenu({
           fitWidth={presentationDock.fitWidth}
           fitHeight={presentationDock.fitWidth}
         />
+      )}
+
+      {showPresentation && (
+        <TransitionPicker transition={presentationDock.transition} setTransition={presentationDock.setTransition} />
       )}
 
       {showPresentation && (

@@ -8,6 +8,8 @@
 
 import { create } from 'zustand'
 
+export type SlideTransition = 'none' | 'fade' | 'slide'
+
 export interface PresentationDockState {
   current: number
   numSlides: number
@@ -17,6 +19,8 @@ export interface PresentationDockState {
   setZoom: (zoom: number) => void
   /** Zoom so the slide's full width fills the available viewport. */
   fitWidth: () => void
+  transition: SlideTransition
+  setTransition: (t: SlideTransition) => void
   present: () => void
   exportPptx: () => void
   addSlide: () => void

@@ -115,6 +115,9 @@ function applyRemote(cmd: RemoteCommand, pageId: string) {
         new CustomEvent('simblip-remote-pdf', { detail: { dir: cmd.dir ?? 1, objectId: cmd.objectId } })
       )
       break
+    case 'pptx':
+      window.dispatchEvent(new CustomEvent('simblip-remote-pptx', { detail: { dir: cmd.dir ?? 1 } }))
+      break
     case 'select':
       doc.setSelection(cmd.objectId ? [cmd.objectId] : [])
       break

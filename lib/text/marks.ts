@@ -76,13 +76,54 @@ export const TEXT_COLORS: Record<string, string> = {
   violet: 'var(--accent-violet)',
 }
 export const TEXT_SIZES: Record<string, number> = { s: 12, m: 15, l: 20, xl: 28 }
-// Web-safe stacks only — sans/mono are this app's own loaded fonts (see
-// globals.css --font-sans/--font-mono), serif/comic need no @font-face at all.
+// Web-safe stacks only — no @font-face, no network fetch, every browser on
+// every OS already has each of these (or a close-enough match via the
+// trailing generic). `sans`/`mono` are this app's own loaded fonts (see
+// globals.css --font-sans/--font-mono) and stay first/default.
 export const TEXT_FONTS: Record<string, string> = {
   sans: 'var(--font-sans)',
   serif: 'Georgia, "Times New Roman", serif',
   mono: 'var(--font-mono)',
   comic: '"Comic Sans MS", "Comic Sans", cursive',
+  arial: 'Arial, Helvetica, sans-serif',
+  helvetica: 'Helvetica, Arial, sans-serif',
+  verdana: 'Verdana, Geneva, sans-serif',
+  tahoma: 'Tahoma, Geneva, sans-serif',
+  trebuchet: '"Trebuchet MS", sans-serif',
+  garamond: 'Garamond, "Apple Garamond", serif',
+  palatino: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
+  bookman: '"Bookman Old Style", serif',
+  timesNewRoman: '"Times New Roman", Times, serif',
+  courier: '"Courier New", Courier, monospace',
+  consolas: 'Consolas, "Lucida Console", monospace',
+  impact: 'Impact, Haettenschweiler, sans-serif',
+  copperplate: 'Copperplate, "Copperplate Gothic Light", serif',
+  brushScript: '"Brush Script MT", cursive',
+  papyrus: 'Papyrus, fantasy',
+}
+// Display labels — TEXT_FONTS keys aren't all simple single words
+// (timesNewRoman, brushScript), so a bare capitalize-first-letter would
+// render "TimesNewRoman" instead of "Times New Roman".
+export const TEXT_FONT_LABELS: Record<keyof typeof TEXT_FONTS, string> = {
+  sans: 'Sans',
+  serif: 'Serif',
+  mono: 'Mono',
+  comic: 'Comic Sans',
+  arial: 'Arial',
+  helvetica: 'Helvetica',
+  verdana: 'Verdana',
+  tahoma: 'Tahoma',
+  trebuchet: 'Trebuchet MS',
+  garamond: 'Garamond',
+  palatino: 'Palatino',
+  bookman: 'Bookman',
+  timesNewRoman: 'Times New Roman',
+  courier: 'Courier New',
+  consolas: 'Consolas',
+  impact: 'Impact',
+  copperplate: 'Copperplate',
+  brushScript: 'Brush Script',
+  papyrus: 'Papyrus',
 }
 // Figma-style named weight steps — distinct from the toggle 'bold' mark
 // (always 700); this lets the panel's Weight dropdown pick any CSS weight.

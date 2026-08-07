@@ -14,11 +14,12 @@
 // Export walks the slide object trees back into a real .pptx via pptxgenjs.
 
 import { useEffect, useRef, useState } from 'react'
+import { motion as fm, AnimatePresence } from 'framer-motion'
 import { Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
-import { usePresentationDockStore } from '@/lib/store/presentation-dock'
+import { usePresentationDockStore, type SlideTransition } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
 import { PageThumbnail } from './page-thumbnail'
 import { cn } from '@/lib/utils'
@@ -31,28 +32,92 @@ import {
   ContextMenuSeparator,
 } from '@/components/ui/context-menu'
 
+// Variants keyed by direction (1 = advancing, -1 = going back) so "slide"
+// always animates the new slide in from the direction you're moving toward,
+// matching how every real presentation tool's slide transition works.
+const SLIDE_VARIANTS = {
+  initial: (dir: 1 | -1) => ({ x: dir > 0 ? '100%' : '-100%', opacity: 1 }),
+  animate: { x: '0%', opacity: 1 },
+  exit: (dir: 1 | -1) => ({ x: dir > 0 ? '-100%' : '100%', opacity: 1 }),
+}
+const FADE_VARIANTS = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+}
+
+function TransitionSlide({
+  transition,
+  dir,
+  slideKey,
+  className,
+  style,
+  children,
+}: {
+  transition: SlideTransition
+  dir: 1 | -1
+  slideKey: string
+  className?: string
+  style?: React.CSSProperties
+  children: React.ReactNode
+}) {
+  if (transition === 'none') {
+    return (
+      <div className={className} style={style}>
+        {children}
+      </div>
+    )
+  }
+  const variants = transition === 'slide' ? SLIDE_VARIANTS : FADE_VARIANTS
+  return (
+    <AnimatePresence mode="wait" custom={dir} initial={false}>
+      <fm.div
+        key={slideKey}
+        custom={dir}
+        variants={variants}
+        initial="initial"
+        animate="animate"
+        exit="exit"
+        transition={{ duration: 0.28, ease: [0.4, 0, 0.2, 1] }}
+        className={className}
+        style={style}
+      >
+        {children}
+      </fm.div>
+    </AnimatePresence>
+  )
+}
+
 function PresentOverlay({
   slides,
   startAt,
   onClose,
   sheetColors,
+  transition,
 }: {
   slides: string[]
   startAt: number
   onClose: () => void
   sheetColors?: Record<string, string>
+  transition: SlideTransition
 }) {
   const [i, setI] = useState(startAt)
+  const [dir, setDir] = useState<1 | -1>(1)
+  const go = (next: number) => {
+    setDir(next > i ? 1 : -1)
+    setI(next)
+  }
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowRight' || e.key === ' ') setI((v) => Math.min(slides.length - 1, v + 1))
-      if (e.key === 'ArrowLeft') setI((v) => Math.max(0, v - 1))
+      if (e.key === 'ArrowRight' || e.key === ' ') go(Math.min(slides.length - 1, i + 1))
+      if (e.key === 'ArrowLeft') go(Math.max(0, i - 1))
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [slides.length, onClose])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, onClose, i])
 
   const slideId = slides[i]
 
@@ -66,14 +131,17 @@ function PresentOverlay({
       >
         <X className="h-5 w-5" />
       </button>
-      <div className="flex flex-1 items-center justify-center p-8">
+      <div className="relative flex flex-1 items-center justify-center overflow-hidden p-8">
         {slideId && (
-          <div
+          <TransitionSlide
+            transition={transition}
+            dir={dir}
+            slideKey={slideId}
             className="relative aspect-video w-full max-w-[1400px] overflow-hidden rounded-md bg-white shadow-2xl"
             style={{ backgroundColor: sheetColors?.[slideId] }}
           >
             <InfiniteCanvas key={slideId} pageId={slideId} locked transparent passthrough viewer active={false} />
-          </div>
+          </TransitionSlide>
         )}
       </div>
       <div className="flex items-center justify-center gap-4 pb-6 text-white">
@@ -82,7 +150,7 @@ function PresentOverlay({
           aria-label="Previous slide"
           className="rounded-full p-2 hover:bg-white/10 disabled:opacity-30"
           disabled={i === 0}
-          onClick={() => setI((v) => Math.max(0, v - 1))}
+          onClick={() => go(Math.max(0, i - 1))}
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -94,7 +162,7 @@ function PresentOverlay({
           aria-label="Next slide"
           className="rounded-full p-2 hover:bg-white/10 disabled:opacity-30"
           disabled={i === slides.length - 1}
-          onClick={() => setI((v) => Math.min(slides.length - 1, v + 1))}
+          onClick={() => go(Math.min(slides.length - 1, i + 1))}
         >
           <ChevronRight className="h-5 w-5" />
         </button>
@@ -122,6 +190,17 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const fitWidth = () => {
     const w = stageRef.current?.clientWidth
     if (w) setZoom(Math.min(3, Math.max(0.25, (w - 48) / 960)))
+  }
+  // How the active slide animates in on change — applies both to the main
+  // stage (board remote / manual rail clicks) and the fullscreen Present
+  // overlay, so a board audience sees the same transition the presenter set.
+  const [transition, setTransition] = useState<SlideTransition>('none')
+  const [stageDir, setStageDir] = useState<1 | -1>(1)
+  const goToSlide = (next: number) => {
+    setCurrent((c) => {
+      setStageDir(next >= c ? 1 : -1)
+      return next
+    })
   }
   const importedRef = useRef(false)
 
@@ -254,7 +333,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
       setDraggingId(null)
       setDragOrder(null)
       if (drag.moved) reorderSlides(dragOrderRef.current)
-      else setCurrent(slides.indexOf(slideId))
+      else goToSlide(slides.indexOf(slideId))
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
@@ -294,6 +373,19 @@ export function PresentationView({ pageId }: { pageId: string }) {
     return () => useWorkspaceStore.getState().setActiveSheet(null)
   }, [activeSlideId])
 
+  // Teacher's phone remote (board presentations) — same pattern as
+  // file-view.tsx's simblip-remote-pdf listener, one custom event per page
+  // kind since a board session mounts exactly one page kind at a time.
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const d = (e as CustomEvent).detail as { dir: number }
+      setStageDir(d.dir > 0 ? 1 : -1)
+      setCurrent((c) => Math.max(0, Math.min(slides.length - 1, c + d.dir)))
+    }
+    window.addEventListener('simblip-remote-pptx', onRemote)
+    return () => window.removeEventListener('simblip-remote-pptx', onRemote)
+  }, [slides.length])
+
   // Toolbar buttons (Present/Export/New slide) publish to the shared
   // tab-bar dock instead of floating their own chrome — same pattern
   // doc-view.tsx/pdf-view.tsx use. The slide-thumbnail rail stays inline
@@ -309,6 +401,8 @@ export function PresentationView({ pageId }: { pageId: string }) {
       zoom,
       setZoom,
       fitWidth,
+      transition,
+      setTransition,
       present: () => setPresenting(true),
       exportPptx: () => void exportPptx(),
       addSlide: () => {
@@ -318,7 +412,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
     })
     return () => usePresentationDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [current, slides.length, exporting, importing, pageId, zoom])
+  }, [current, slides.length, exporting, importing, pageId, zoom, transition])
 
   return (
     <div className="flex h-full w-full flex-col">
@@ -330,15 +424,18 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </div>
         ) : activeSlideId ? (
           <div
-            className="relative shrink-0 overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
-            style={{
-              width: 960,
-              height: 540,
-              transform: `scale(${zoom})`,
-              backgroundColor: meta?.sheetColors?.[activeSlideId],
-            }}
+            className="relative shrink-0 overflow-hidden rounded-md"
+            style={{ width: 960, height: 540, transform: `scale(${zoom})` }}
           >
-            <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
+            <TransitionSlide
+              transition={transition}
+              dir={stageDir}
+              slideKey={activeSlideId}
+              className="absolute inset-0 shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+              style={{ backgroundColor: meta?.sheetColors?.[activeSlideId] }}
+            >
+              <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
+            </TransitionSlide>
           </div>
         ) : null}
       </div>
@@ -417,6 +514,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           startAt={current}
           onClose={() => setPresenting(false)}
           sheetColors={meta?.sheetColors}
+          transition={transition}
         />
       )}
     </div>
