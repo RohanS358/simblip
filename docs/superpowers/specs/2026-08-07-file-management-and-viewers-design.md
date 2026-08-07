@@ -13,6 +13,33 @@ Two related gaps in SIMBLIP's file/folder system:
    rename/delete/properties menu but never gave sub-folders ("sections") the
    same menu — they're inert nav tiles. Files (`FileNode` leaves) are inert
    everywhere: no click-to-open on desktop or mobile.
+
+   Live-tested in the browser against the real desktop tree (2026-08-07):
+   right-click *does* open a working context menu with the expected items
+   (`notebook-tree.tsx`'s `FolderRow`/`PageRow`/`FileRow` all already have
+   full `ContextMenu`s — the earlier static-code read undercounted this).
+   But clicking "Rename" from that menu is itself broken: the inline
+   `<input>` mounts in the DOM at the correct position (confirmed via
+   `getBoundingClientRect`/computed style — visible, correctly placed,
+   correct value) but never actually receives focus (`document.activeElement`
+   stays `<body>`) — a focus-stealing race where Radix's context-menu-close
+   returns focus to the trigger row right as the freshly-mounted
+   `autoFocus` `<input>` (`InlineName`, notebook-tree.tsx:98-152) tries to
+   grab it. Net effect: the box is there but unusable — visually looks like
+   "nothing happened." This is the concrete bug behind "right click doesn't
+   really function."
+
+   Separately, and regardless of the above bug: relying on right-click (or
+   long-press) as the *only* way to discover that rename/delete/properties
+   exist is bad discoverability — desktop already has a working precedent
+   for this in the same file (`FolderRow`'s "Add page" `+` button,
+   notebook-tree.tsx:222-232, `opacity-0` → `group-hover:opacity-100`).
+   Every row (folder, page, file) should surface its available actions as
+   hover-revealed icon buttons, with the context menu staying as a secondary
+   path for power users, not the only path.
+
+
+
 2. **No viewer/editor exists for uploaded files by kind.** `FileNode`s
    (images, docx, xlsx, pptx, etc.) have no rendering path once uploaded to
    the persisted folder tree. The only existing renderers are: the ephemeral,
@@ -23,7 +50,18 @@ Two related gaps in SIMBLIP's file/folder system:
 
 ## Part A — Folder/Section Management Fixes
 
-### A1. Desktop: add a standalone "New Folder" affordance
+### A0. Fix the rename-input focus race (desktop, all row kinds)
+
+`InlineName`'s `<input autoFocus ...>` (notebook-tree.tsx:116-138) loses the
+focus race against Radix's `ContextMenu` returning focus to its trigger on
+close, when rename is entered via the context menu's "Rename" item. Fix by
+deferring the focus grab a tick past Radix's own close-focus-return (e.g.
+`requestAnimationFrame`/a microtask before calling `.focus()` explicitly,
+rather than relying on the native `autoFocus` attribute racing the browser's
+own focus-restoration timing). Verify against all three row kinds
+(`FolderRow`, `PageRow`, `FileRow`) since all three share `InlineName`.
+
+### A1. Desktop: hover-revealed action icons + standalone "New Folder"
 
 `components/workspace/notebook-tree.tsx`'s header "+" button currently only
 creates a full notebook (`addNotebook()` + default section + page,
@@ -37,6 +75,15 @@ Add:
 - Both options also available from the empty-state CTA ("No notebooks yet",
   notebook-tree.tsx:452-459), which today offers no folder-creation path at
   all.
+- Hover-revealed action icons on every row (`FolderRow`, `PageRow`,
+  `FileRow`), extending the existing `opacity-0`/`group-hover:opacity-100`
+  pattern `FolderRow`'s "Add page" button already uses
+  (notebook-tree.tsx:222-232) rather than introducing a new hover mechanism.
+  Icon set per row kind mirrors what's already in that row's context menu
+  (e.g. folder rows get New folder / Add page / Upload file / Rename /
+  Delete as icons, not just the existing lone "+"). The context menu stays
+  as-is for users who prefer right-click; hover icons make the same actions
+  discoverable without needing to know right-click exists.
 
 No store changes needed — `addFolder` already supports a `null` parent
 (top-level) per `lib/store/workspace.ts:100,185`.
