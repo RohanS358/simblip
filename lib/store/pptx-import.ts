@@ -42,11 +42,33 @@ function directChildren(el: Element, tag: string): Element[] {
   return Array.from(el.children).filter((c) => c.tagName === tag)
 }
 
-/** <a:srgbClr val="RRGGBB"/> or <a:schemeClr val="..."/> (falls back to a
- *  reasonable default since resolving a theme's actual scheme colors would
- *  need parsing ppt/theme/theme1.xml too — out of scope for a best-effort
- *  importer). Returns a CSS hex string or null if no fill is specified. */
-function solidFillColor(container: Element | null): string | null {
+/** Real <a:clrScheme> from ppt/theme/theme1.xml, keyed by the same scheme
+ *  slot names solidFillColor's SCHEME_FALLBACK guesses at — dk1/lt1/dk2/lt2/
+ *  accent1-6/hlink/folHlink. Falls back to an empty map (callers keep using
+ *  SCHEME_FALLBACK) if the theme file is missing or malformed. */
+async function loadTheme(zip: JSZip): Promise<Record<string, string>> {
+  const themeFile = zip.files['ppt/theme/theme1.xml']
+  if (!themeFile) return {}
+  const xml = await themeFile.async('text')
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const clrScheme = doc.getElementsByTagName('a:clrScheme')[0]
+  if (!clrScheme) return {}
+  const result: Record<string, string> = {}
+  for (const child of Array.from(clrScheme.children)) {
+    const slot = child.tagName.replace('a:', '')
+    const srgb = firstChild(child, 'a:srgbClr')
+    const sysClr = firstChild(child, 'a:sysClr')
+    const val = srgb?.getAttribute('val') ?? sysClr?.getAttribute('lastClr')
+    if (val) result[slot] = `#${val}`
+  }
+  return result
+}
+
+/** <a:srgbClr val="RRGGBB"/> or <a:schemeClr val="..."/>. Scheme colors
+ *  resolve against the deck's real theme when passed; a hardcoded guess
+ *  table covers slots the theme lookup misses (theme.xml absent/malformed).
+ *  Returns a CSS hex string or null if no fill is specified. */
+function solidFillColor(container: Element | null, theme: Record<string, string> = {}): string | null {
   const fill = firstChild(container, 'a:solidFill')
   if (!fill) return null
   const srgb = firstChild(fill, 'a:srgbClr')
@@ -54,8 +76,8 @@ function solidFillColor(container: Element | null): string | null {
   const scheme = firstChild(fill, 'a:schemeClr')
   if (scheme) {
     const val = scheme.getAttribute('val')
-    // Reasonable stand-ins for the common scheme slots — real theme
-    // resolution would read ppt/theme/theme1.xml's <a:clrScheme>.
+    if (!val) return null
+    if (theme[val]) return theme[val]
     const SCHEME_FALLBACK: Record<string, string> = {
       dk1: '#000000',
       lt1: '#ffffff',
@@ -68,7 +90,7 @@ function solidFillColor(container: Element | null): string | null {
       accent5: '#5b9bd5',
       accent6: '#70ad47',
     }
-    return val ? (SCHEME_FALLBACK[val] ?? '#808080') : null
+    return SCHEME_FALLBACK[val] ?? '#808080'
   }
   return null
 }
@@ -77,7 +99,7 @@ function solidFillColor(container: Element | null): string | null {
 
 const BULLET_MARK_KINDS: MarkKind[] = ['bold', 'italic', 'underline', 'strike']
 
-function runMarks(rPr: Element | null, start: number, end: number): Mark[] {
+function runMarks(rPr: Element | null, start: number, end: number, theme: Record<string, string>): Mark[] {
   if (!rPr || end <= start) return []
   const marks: Mark[] = []
   if (rPr.getAttribute('b') === '1') marks.push({ start, end, kind: 'bold' })
@@ -89,7 +111,7 @@ function runMarks(rPr: Element | null, start: number, end: number): Mark[] {
     const px = Math.round((Number(sz) / 100) * PT_TO_PX)
     if (Number.isFinite(px) && px > 0) marks.push({ start, end, kind: 'size', value: String(px) })
   }
-  const color = solidFillColor(rPr)
+  const color = solidFillColor(rPr, theme)
   if (color) marks.push({ start, end, kind: 'color', value: color })
   return marks
 }
@@ -98,7 +120,7 @@ function runMarks(rPr: Element | null, start: number, end: number): Mark[] {
  *  prefix per the app's existing literal-prefix convention, see
  *  components/objects/text.tsx's BLOCK_PREFIX) + marks at the right
  *  offsets (shifted past the prefix). */
-function paragraphToLine(p: Element): { text: string; marks: Mark[] } {
+function paragraphToLine(p: Element, theme: Record<string, string>): { text: string; marks: Mark[] } {
   const pPr = firstChild(p, 'a:pPr')
   const buChar = firstChild(pPr, 'a:buChar')
   const buAutoNum = firstChild(pPr, 'a:buAutoNum')
@@ -114,12 +136,16 @@ function paragraphToLine(p: Element): { text: string; marks: Mark[] } {
     if (!t) continue
     const start = text.length
     text += t
-    marks.push(...runMarks(firstChild(r, 'a:rPr'), start, text.length))
+    marks.push(...runMarks(firstChild(r, 'a:rPr'), start, text.length, theme))
   }
   return { text, marks }
 }
 
-function shapeText(sp: Element): { text: string; marks: Mark[] } | null {
+function shapeText(
+  sp: Element,
+  theme: Record<string, string>,
+  placeholderStyles: Map<string, { color?: string; sizePx?: number }>
+): { text: string; marks: Mark[] } | null {
   const txBody = firstChild(sp, 'p:txBody')
   if (!txBody) return null
   const paragraphs = directChildren(txBody, 'a:p')
@@ -128,12 +154,28 @@ function shapeText(sp: Element): { text: string; marks: Mark[] } | null {
   const marks: Mark[] = []
   paragraphs.forEach((p, i) => {
     if (i > 0) text += '\n'
-    const line = paragraphToLine(p)
+    const line = paragraphToLine(p, theme)
     const offset = text.length
     text += line.text
     marks.push(...line.marks.map((m) => ({ ...m, start: m.start + offset, end: m.end + offset })))
   })
-  return text.trim().length > 0 ? { text, marks } : null
+  if (text.trim().length === 0) return null
+
+  // A run with no explicit color/size inherits from its placeholder's
+  // definition in the slide layout (and from there the slide master) —
+  // real PowerPoint behavior for title/body text, which is why most real
+  // decks carry no per-run styling at all.
+  const ph = sp.getElementsByTagName('p:ph')[0]
+  const phKey = ph ? `${ph.getAttribute('type') ?? 'body'}:${ph.getAttribute('idx') ?? '0'}` : undefined
+  const phStyle = phKey ? placeholderStyles.get(phKey) : undefined
+  if (phStyle) {
+    const hasColor = marks.some((m) => m.kind === 'color')
+    const hasSize = marks.some((m) => m.kind === 'size')
+    if (!hasColor && phStyle.color) marks.push({ start: 0, end: text.length, kind: 'color', value: phStyle.color })
+    if (!hasSize && phStyle.sizePx) marks.push({ start: 0, end: text.length, kind: 'size', value: String(phStyle.sizePx) })
+  }
+
+  return { text, marks }
 }
 
 // ── Shape geometry: position/size + fill/border ────────────────────────────
@@ -150,11 +192,20 @@ function shapeBox(sp: Element): { x: number; y: number; w: number; h: number } {
   }
 }
 
-function shapeFillAndBorder(sp: Element): { fillColor?: string; strokeColor?: string; strokeWidth?: number } {
+function shapeFillAndBorder(
+  sp: Element,
+  theme: Record<string, string>
+): { fillColor?: string; strokeColor?: string; strokeWidth?: number } {
   const spPr = firstChild(sp, 'p:spPr')
-  const fillColor = solidFillColor(spPr) ?? undefined
+  // <a:noFill/> is an explicit "definitely no fill" distinct from "no fill
+  // specified" — both currently produce no fill (no fallback-fill logic
+  // exists), but keeping the distinction explicit avoids a future fallback
+  // misfiring on shapes that were deliberately made transparent.
+  const explicitNoFill = firstChild(spPr, 'a:noFill') !== null
+  const fillColor = explicitNoFill ? undefined : (solidFillColor(spPr, theme) ?? undefined)
   const ln = firstChild(spPr, 'a:ln')
-  const strokeColor = solidFillColor(ln) ?? undefined
+  const lineNoFill = firstChild(ln, 'a:noFill') !== null
+  const strokeColor = lineNoFill ? undefined : (solidFillColor(ln, theme) ?? undefined)
   const w = ln?.getAttribute('w') // EMUs
   const strokeWidth = w ? Math.max(0.5, Math.round((Number(w) / EMU_PER_PX) * 10) / 10) : undefined
   return { fillColor, strokeColor, strokeWidth }
@@ -190,11 +241,72 @@ async function loadSlideRels(zip: JSZip, slideName: string): Promise<SlideAssets
   return { rels }
 }
 
+/** A slide run with no explicit color/size inherits from its placeholder's
+ *  definition in the slide LAYOUT, and from there the slide MASTER if the
+ *  layout also has none — real PowerPoint behavior for title/body text,
+ *  which is why most real decks have no per-run styling at all. Returns a
+ *  map from "<type>:<idx>" (matching a slide shape's <p:ph type idx>) to
+ *  the resolved color/size, checked layout-first then master. */
+async function loadPlaceholderStyles(
+  zip: JSZip,
+  slideName: string,
+  theme: Record<string, string>
+): Promise<Map<string, { color?: string; sizePx?: number }>> {
+  const result = new Map<string, { color?: string; sizePx?: number }>()
+  const slideRelsPath = `ppt/slides/_rels/${slideName}.rels`
+  const slideRelsFile = zip.files[slideRelsPath]
+  if (!slideRelsFile) return result
+  const relsXml = await slideRelsFile.async('text')
+  const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml')
+  const layoutRel = Array.from(relsDoc.getElementsByTagName('Relationship')).find((r) =>
+    (r.getAttribute('Type') ?? '').endsWith('/slideLayout')
+  )
+  const layoutTarget = layoutRel?.getAttribute('Target')?.replace(/^\.\.\//, 'ppt/')
+  if (!layoutTarget) return result
+  const layoutFile = zip.files[layoutTarget]
+  if (!layoutFile) return result
+
+  const readPlaceholders = async (path: string) => {
+    const file = zip.files[path]
+    if (!file) return
+    const xml = await file.async('text')
+    const doc = new DOMParser().parseFromString(xml, 'application/xml')
+    for (const sp of Array.from(doc.getElementsByTagName('p:sp'))) {
+      const ph = sp.getElementsByTagName('p:ph')[0]
+      if (!ph) continue
+      const key = `${ph.getAttribute('type') ?? 'body'}:${ph.getAttribute('idx') ?? '0'}`
+      if (result.has(key)) continue // slide layout wins over master — first pass through wins
+      const rPr = sp.getElementsByTagName('a:defRPr')[0] ?? sp.getElementsByTagName('a:rPr')[0] ?? null
+      const color = solidFillColor(rPr, theme) ?? undefined
+      const sz = rPr?.getAttribute('sz')
+      const sizePx = sz ? Math.round((Number(sz) / 100) * PT_TO_PX) : undefined
+      result.set(key, { color, sizePx })
+    }
+  }
+
+  await readPlaceholders(layoutTarget)
+
+  const layoutName = layoutTarget.slice(layoutTarget.lastIndexOf('/') + 1)
+  const layoutRelsPath = `ppt/slideLayouts/_rels/${layoutName}.rels`
+  const layoutRelsFile = zip.files[layoutRelsPath]
+  if (layoutRelsFile) {
+    const layoutRelsXml = await layoutRelsFile.async('text')
+    const layoutRelsDoc = new DOMParser().parseFromString(layoutRelsXml, 'application/xml')
+    const masterRel = Array.from(layoutRelsDoc.getElementsByTagName('Relationship')).find((r) =>
+      (r.getAttribute('Type') ?? '').endsWith('/slideMaster')
+    )
+    const masterTarget = masterRel?.getAttribute('Target')?.replace(/^\.\.\//, 'ppt/')
+    if (masterTarget) await readPlaceholders(masterTarget)
+  }
+
+  return result
+}
+
 /** Slide background: <p:bg><p:bgPr><a:solidFill>. */
-function slideBackground(doc: Document): string | undefined {
+function slideBackground(doc: Document, theme: Record<string, string>): string | undefined {
   const bg = doc.getElementsByTagName('p:bg')[0]
   const bgPr = firstChild(bg ?? null, 'p:bgPr')
-  return solidFillColor(bgPr) ?? undefined
+  return solidFillColor(bgPr, theme) ?? undefined
 }
 
 async function pictureObject(
@@ -238,12 +350,15 @@ async function shapesToObjects(
   xml: string,
   zip: JSZip,
   assets: SlideAssets,
-  ownerId: string
+  ownerId: string,
+  slideName: string,
+  theme: Record<string, string>
 ): Promise<{ objects: SceneObject[]; background?: string }> {
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   const spTree = doc.getElementsByTagName('p:spTree')[0]
   if (!spTree) return { objects: [] }
   const objects: SceneObject[] = []
+  const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme)
 
   for (const child of Array.from(spTree.children)) {
     if (child.tagName === 'p:pic') {
@@ -253,8 +368,8 @@ async function shapesToObjects(
     }
     if (child.tagName !== 'p:sp') continue
     const box = shapeBox(child)
-    const line = shapeText(child)
-    const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child)
+    const line = shapeText(child, theme, placeholderStyles)
+    const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme)
     const hasVisibleShape = !!(fillColor || strokeColor)
 
     if (line) {
@@ -286,7 +401,7 @@ async function shapesToObjects(
     }
   }
 
-  return { objects, background: slideBackground(doc) }
+  return { objects, background: slideBackground(doc, theme) }
 }
 
 export interface ImportedSlide {
@@ -307,11 +422,12 @@ export async function importPptx(blob: Blob, ownerId: string): Promise<ImportedS
     })
   if (slideFiles.length === 0) throw new Error('No slides found in this presentation.')
 
+  const theme = await loadTheme(zip)
   const results: ImportedSlide[] = []
   for (const name of slideFiles) {
     const slideName = name.slice(name.lastIndexOf('/') + 1, -4) // "slide1"
     const [xml, assets] = await Promise.all([zip.files[name].async('text'), loadSlideRels(zip, slideName)])
-    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId)
+    const { objects, background } = await shapesToObjects(xml, zip, assets, ownerId, slideName, theme)
     results.push({ objects, background })
   }
   return results
