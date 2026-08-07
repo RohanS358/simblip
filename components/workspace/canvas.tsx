@@ -789,6 +789,7 @@ export function InfiniteCanvas({
   transparent,
   passthrough,
   active = true,
+  viewer,
 }: {
   pageId: string
   locked?: boolean
@@ -810,6 +811,11 @@ export function InfiniteCanvas({
    *  position to it (autoFocus scrolls the focused input into view). A lone
    *  board/page-view mounts exactly one instance, so the default is fine. */
   active?: boolean
+  /** Presentation slideshow viewer: no selection, no resize chrome, no name
+   *  labels — clicks route straight to object interactivity (buttons,
+   *  triggers, switches). Distinct from `locked`, which only freezes pan/
+   *  zoom and leaves selection live. Only PresentOverlay sets this. */
+  viewer?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
@@ -2454,6 +2460,21 @@ export function InfiniteCanvas({
     setCtxMenu(null)
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if ((tool !== 'select' && editing) || e.button !== 0) return
+    if (viewer) {
+      e.stopPropagation()
+      const store = useDocStore.getState()
+      const obj = store.pages[pageId]?.objects[id]
+      const sym = obj?.geometry.kind === 'symbol' ? obj.geometry.symbol : undefined
+      const param = sym === 'switch' ? 'closed' : sym === 'input' ? 'value' : undefined
+      if (obj && param) {
+        const p = obj.parameters[param]
+        const cur = p?.kind === 'number' ? p.value : sym === 'switch' ? 1 : 0
+        const next = cur >= 0.5 ? '0' : '1'
+        if (p) store.setParam(pageId, id, param, next)
+        else store.updateObject(pageId, id, { parameters: { ...obj.parameters, [param]: num(next) } })
+      }
+      return
+    }
     e.stopPropagation()
     const store = useDocStore.getState()
     if (e.pointerType === 'touch' && touchMeasureMode && selection.length === 1 && selection[0] !== id) {
@@ -2752,8 +2773,9 @@ export function InfiniteCanvas({
               key={obj.id}
               pageId={pageId}
               object={obj}
-              selected={isSelected}
+              selected={viewer ? false : isSelected}
               multiSelected={isMulti}
+              showLabel={!viewer}
               chromeScale={isSelected && !isMulti ? 1 / viewport.zoom : undefined}
               onPointerDown={handleObjectPointerDown}
               onResizeStart={handleResizeStart}

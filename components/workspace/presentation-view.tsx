@@ -64,7 +64,7 @@ function PresentOverlay({
             className="relative aspect-video w-full max-w-[1400px] overflow-hidden rounded-md bg-white shadow-2xl"
             style={{ backgroundColor: sheetColors?.[slideId] }}
           >
-            <InfiniteCanvas key={slideId} pageId={slideId} locked passthrough active={false} />
+            <InfiniteCanvas key={slideId} pageId={slideId} locked passthrough viewer active={false} />
           </div>
         )}
       </div>
