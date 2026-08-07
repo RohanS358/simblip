@@ -10,6 +10,14 @@
 
 import { create } from 'zustand'
 
+// A stable empty-array reference for pages with no swatches yet — a fresh
+// `[]` literal returned from a selector on every call breaks
+// useSyncExternalStore's reference-equality check (getSnapshot must return
+// the same reference when nothing changed), which React surfaces as an
+// infinite-loop error. Exported so callers' selectors can fall back to this
+// SAME reference instead of writing their own `?? []`.
+export const EMPTY_SWATCHES: string[] = []
+
 interface PageSwatchesStore {
   swatches: Record<string, string[]>
   add: (pageId: string, hex: string) => void

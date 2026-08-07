@@ -53,7 +53,7 @@ import {
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Viewport } from '@/lib/store/document'
-import { usePageSwatches } from '@/lib/store/page-swatches'
+import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
@@ -2167,7 +2167,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   // Custom background colors, shared across every text box on this same
   // content page/slide — added via the "+" swatch below, kept even after
   // the box that added one no longer uses it.
-  const swatches = usePageSwatches((s) => s.swatches[pageId] ?? [])
+  const swatches = usePageSwatches((s) => s.swatches[pageId] ?? EMPTY_SWATCHES)
   const addSwatch = (hex: string) => usePageSwatches.getState().add(pageId, hex)
 
   const setMeta = (patch: Record<string, unknown>) =>
