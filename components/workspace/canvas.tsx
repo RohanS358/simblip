@@ -584,6 +584,7 @@ const ObjectView = memo(function ObjectView({
   selected,
   multiSelected,
   chromeScale = 1,
+  showLabel = true,
   onPointerDown,
   onResizeStart,
   onRotateStart,
@@ -599,6 +600,8 @@ const ObjectView = memo(function ObjectView({
    *  same size ON SCREEN at every zoom. Only passed while selected, so
    *  unselected objects never re-render on zoom. */
   chromeScale?: number
+  /** Custom-name label above the object. Off in presentation viewer mode. */
+  showLabel?: boolean
   onPointerDown: (e: React.PointerEvent, id: string) => void
   onResizeStart: (e: React.PointerEvent, id: string, corner: ResizeHandle) => void
   onRotateStart: (e: React.PointerEvent, id: string) => void
@@ -610,6 +613,10 @@ const ObjectView = memo(function ObjectView({
   const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const Renderer = OBJECT_RENDERERS[object.geometry.kind]
   if (!Renderer) return null
+  // autoName() (lib/scene/factory.ts) always produces "<Base> <counter>" —
+  // every auto-generated name ends in a space + digits, so anything that
+  // doesn't is one the user typed.
+  const isCustomName = !/ \d+$/.test(object.name)
   const resizable = !['line', 'stroke', 'polygon'].includes(object.geometry.kind)
   const uiScale =
     COMPONENT_UI_KINDS.has(object.geometry.kind) && componentScale !== 1
@@ -762,6 +769,14 @@ const ObjectView = memo(function ObjectView({
               {Math.round(object.size.w)} × {Math.round(object.size.h)}
             </div>
           </div>
+        </div>
+      )}
+      {isCustomName && showLabel && (
+        <div
+          className="pointer-events-none absolute -top-5 left-0 max-w-full truncate rounded bg-background/90 px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground shadow-sm"
+          style={{ transform: chromeScale ? `scale(${chromeScale})` : undefined, transformOrigin: 'bottom left' }}
+        >
+          {object.name}
         </div>
       )}
     </div>
