@@ -57,7 +57,7 @@ export function pointsToPath(points: number[][]): string {
   return d
 }
 
-function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth: number } {
+function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth: number; cornerRadius: number } {
   // Explicit per-object color (set by the Properties panel's shape-fill
   // control, or a pptx import reproducing a slide shape's <a:solidFill>/
   // <a:ln>) wins over the behavior-derived defaults below — a shape with a
@@ -67,6 +67,7 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
   const fillColor = obj.metadata.fillColor as string | undefined
   const strokeColor = obj.metadata.strokeColor as string | undefined
   const strokeWidth = (obj.metadata.strokeWidth as number | undefined) ?? 2
+  const cornerRadius = (obj.metadata.cornerRadius as number | undefined) ?? 8
   if (fillColor || strokeColor) {
     const kind = isBody(obj.behaviors)
     const fallback =
@@ -77,7 +78,7 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
           : 'transparent'
     const strokeFallback =
       kind === 'dynamic' ? 'var(--accent-blue)' : kind === 'static' ? 'var(--muted-foreground)' : 'var(--foreground)'
-    return { fill: fillColor ?? fallback, stroke: strokeColor ?? strokeFallback, strokeWidth }
+    return { fill: fillColor ?? fallback, stroke: strokeColor ?? strokeFallback, strokeWidth, cornerRadius }
   }
   const kind = isBody(obj.behaviors)
   if (kind === 'dynamic')
@@ -85,14 +86,16 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
       fill: 'color-mix(in oklch, var(--accent-blue) 22%, var(--card))',
       stroke: 'var(--accent-blue)',
       strokeWidth,
+      cornerRadius,
     }
   if (kind === 'static')
     return {
       fill: 'color-mix(in oklch, var(--muted-foreground) 18%, var(--card))',
       stroke: 'var(--muted-foreground)',
       strokeWidth,
+      cornerRadius,
     }
-  return { fill: 'transparent', stroke: 'var(--foreground)', strokeWidth }
+  return { fill: 'transparent', stroke: 'var(--foreground)', strokeWidth, cornerRadius }
 }
 
 // Dependent sources render as a diamond (vs. a circle for independent
@@ -557,7 +560,7 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
 export function GeometryObject({ pageId, object, selected }: ObjectRendererProps) {
   const { kind, points } = object.geometry
   const { w, h } = object.size
-  const { fill, stroke, strokeWidth: bodyStrokeWidth } = bodyFill(object)
+  const { fill, stroke, strokeWidth: bodyStrokeWidth, cornerRadius } = bodyFill(object)
   const render = object.metadata.render as string | undefined
   const connector = connectorBehavior(object.behaviors)
   const hasHeat = object.behaviors.some((b) => b.enabled && b.type === 'heatSource')
@@ -1374,7 +1377,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // rect
   return (
     <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label={object.name}>
-      <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : 8} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} />
+      <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : cornerRadius} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} />
       {render === 'ground' && (
         <g stroke={stroke} strokeWidth={1} opacity={0.6}>
           {Array.from({ length: Math.max(2, Math.floor(w / 26)) }, (_, i) => (
@@ -1389,7 +1392,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           y={1.5}
           width={w - 3}
           height={h - 3}
-          rx={render === 'ground' ? 3 : 8}
+          rx={render === 'ground' ? 3 : cornerRadius}
           stroke="none"
           style={{ opacity: 0, transition: 'opacity 200ms linear' }}
         />

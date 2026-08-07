@@ -77,7 +77,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { cn } from '@/lib/utils'
-import { num, str, type SceneObject } from '@/lib/scene/types'
+import { num, str, type SceneObject, type GeometryKind } from '@/lib/scene/types'
 import { getString, getNumber } from '@/components/objects/types'
 import { getObjectParams } from '@/lib/scene/control-targets'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
@@ -2647,6 +2647,119 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   )
 }
 
+const SHAPE_KINDS = new Set<GeometryKind>(['rect', 'circle', 'polygon', 'line'])
+
+function AppearanceSection({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const kind = object.geometry.kind
+  const isShape = SHAPE_KINDS.has(kind)
+  const isPicture = kind === 'picture'
+  const hasFill = isShape && kind !== 'line'
+  const hasStroke = isShape || isPicture
+  const hasCornerRadius = kind === 'rect' || isPicture
+  const hidden = Boolean(object.metadata.hidden)
+  const opacity = (object.metadata.opacity as number | undefined) ?? 100
+  const fillColor = (object.metadata.fillColor as string | undefined) ?? ''
+  const strokeColor = (object.metadata.strokeColor as string | undefined) ?? ''
+  const strokeWidth = (object.metadata.strokeWidth as number | undefined) ?? 2
+  const cornerRadius = (object.metadata.cornerRadius as number | undefined) ?? 8
+
+  const setMeta = (patch: Record<string, unknown>) =>
+    updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
+
+  const colorField = (label: string, value: string, commit: (hex: string) => void, clear: () => void) => (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          aria-label={`No ${label.toLowerCase()}`}
+          aria-pressed={!value}
+          className={cn(
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded-full border-2 text-[0.625rem] text-muted-foreground',
+            !value ? 'border-[var(--ring)]' : 'border-transparent'
+          )}
+          onClick={clear}
+        >
+          ×
+        </button>
+        <label
+          aria-label={`Custom ${label.toLowerCase()}`}
+          className="relative h-6 w-6 shrink-0 cursor-pointer rounded-full border border-border"
+          style={{ background: value || 'repeating-conic-gradient(#8883 0% 25%, transparent 0% 50%) 0/8px 8px' }}
+        >
+          <input
+            type="color"
+            aria-label={`Custom ${label.toLowerCase()}`}
+            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+            value={value || '#000000'}
+            onChange={(e) => commit(e.target.value)}
+          />
+        </label>
+      </div>
+    </div>
+  )
+
+  return (
+    <OptionCard>
+      <SectionTitle>Appearance</SectionTitle>
+      <div className="grid grid-cols-2 gap-1.5">
+        {hasFill && colorField('Fill', fillColor, (hex) => setMeta({ fillColor: hex }), () => setMeta({ fillColor: undefined }))}
+        {hasStroke && colorField('Stroke', strokeColor, (hex) => setMeta({ strokeColor: hex }), () => setMeta({ strokeColor: undefined }))}
+      </div>
+      {hasStroke && (
+        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
+          Stroke width
+          <ExprInput
+            ariaLabel="Stroke width"
+            value={String(strokeWidth)}
+            onCommit={(v) => {
+              const n = Number(v)
+              if (Number.isFinite(n) && n >= 0) setMeta({ strokeWidth: n })
+            }}
+          />
+          <span className="shrink-0 text-[0.625rem] opacity-60">px</span>
+        </label>
+      )}
+      {hasCornerRadius && (
+        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
+          Corner radius
+          <ExprInput
+            ariaLabel="Corner radius"
+            value={String(cornerRadius)}
+            onCommit={(v) => {
+              const n = Number(v)
+              if (Number.isFinite(n) && n >= 0) setMeta({ cornerRadius: n })
+            }}
+          />
+          <span className="shrink-0 text-[0.625rem] opacity-60">px</span>
+        </label>
+      )}
+      <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
+        Opacity
+        <ExprInput
+          ariaLabel="Opacity"
+          value={String(opacity)}
+          onCommit={(v) => {
+            const n = Number(v)
+            if (Number.isFinite(n)) setMeta({ opacity: Math.min(100, Math.max(0, Math.round(n))) })
+          }}
+        />
+        <span className="shrink-0 text-[0.625rem] opacity-60">%</span>
+      </label>
+      <button
+        type="button"
+        aria-pressed={hidden}
+        className="flex w-full items-center justify-between rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent"
+        onClick={() => setMeta({ hidden: !hidden })}
+      >
+        {hidden ? 'Hidden' : 'Visible'}
+        {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+      </button>
+    </OptionCard>
+  )
+}
+
 function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setParam = useDocStore((s) => s.setParam)
   const updateObject = useDocStore((s) => s.updateObject)
@@ -2738,6 +2851,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
             </div>
           </div>
         </OptionCard>
+      )}
+
+      {object.geometry.kind !== 'text' && (
+        <AppearanceSection pageId={pageId} object={object} />
       )}
 
       {object.geometry.kind === 'symbol' && MODEL_OPTIONS[object.geometry.symbol ?? ''] && (
