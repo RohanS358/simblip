@@ -26,3 +26,4 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+docs/superpowers/plans/2026-08-07-shape-properties-and-pptx-fidelity.md
