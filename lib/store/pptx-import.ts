@@ -17,7 +17,7 @@
 import JSZip from 'jszip'
 import { baseObject } from '@/lib/scene/factory'
 import { str, type SceneObject } from '@/lib/scene/types'
-import { serialize, type Mark, type MarkKind } from '@/lib/text/marks'
+import { serialize, parse, resolveSizePx, type Mark, type MarkKind } from '@/lib/text/marks'
 
 // Slide XML coordinates are EMUs (914400 per inch). SIMBLIP's own slide
 // canvas is a FIXED 960×540px frame (PPT_W_IN×PPT_H_IN in pptx-export.ts,
@@ -62,6 +62,20 @@ function emuToPxX(v: string | null, scale: SlideScale): number {
 
 function emuToPxY(v: string | null, scale: SlideScale): number {
   return v ? Math.round(Number(v) / scale.emuPerPxY) : 0
+}
+
+/** Point sizes (fonts, line thickness) are ABSOLUTE physical measurements
+ *  in OOXML — a 24pt title is 24pt regardless of slide size, unlike shape
+ *  positions which are already slide-relative. But SIMBLIP forces every
+ *  deck onto the SAME fixed 960×540px frame, so a deck physically larger
+ *  than our canonical 10×5.625in (e.g. 13.333×7.5in widescreen) has its
+ *  geometry shrunk to fit — point sizes must shrink by that same factor or
+ *  text ends up relatively too big for its now-smaller box (text not
+ *  fitting). Uses the Y axis: point size is fundamentally a vertical/line
+ *  measure, and X/Y scale can differ when the source aspect ratio isn't
+ *  exactly SIMBLIP's 16:9. */
+function ptScaleFactor(scale: SlideScale): number {
+  return DEFAULT_SLIDE_SCALE.emuPerPxY / scale.emuPerPxY
 }
 
 // ── XML helpers ──────────────────────────────────────────────────────────
@@ -180,7 +194,7 @@ function solidFillColor(container: Element | null, theme: Record<string, string>
 
 const BULLET_MARK_KINDS: MarkKind[] = ['bold', 'italic', 'underline', 'strike']
 
-function runMarks(rPr: Element | null, start: number, end: number, theme: Record<string, string>): Mark[] {
+function runMarks(rPr: Element | null, start: number, end: number, theme: Record<string, string>, scale: SlideScale): Mark[] {
   if (!rPr || end <= start) return []
   const marks: Mark[] = []
   if (rPr.getAttribute('b') === '1') marks.push({ start, end, kind: 'bold' })
@@ -189,7 +203,7 @@ function runMarks(rPr: Element | null, start: number, end: number, theme: Record
   if (u && u !== 'none') marks.push({ start, end, kind: 'underline' })
   const sz = rPr.getAttribute('sz') // hundredths of a point
   if (sz) {
-    const px = Math.round((Number(sz) / 100) * PT_TO_PX)
+    const px = Math.round((Number(sz) / 100) * PT_TO_PX * ptScaleFactor(scale))
     if (Number.isFinite(px) && px > 0) marks.push({ start, end, kind: 'size', value: String(px) })
   }
   const color = solidFillColor(rPr, theme)
@@ -201,7 +215,7 @@ function runMarks(rPr: Element | null, start: number, end: number, theme: Record
  *  prefix per the app's existing literal-prefix convention, see
  *  components/objects/text.tsx's BLOCK_PREFIX) + marks at the right
  *  offsets (shifted past the prefix). */
-function paragraphToLine(p: Element, theme: Record<string, string>): { text: string; marks: Mark[] } {
+function paragraphToLine(p: Element, theme: Record<string, string>, scale: SlideScale): { text: string; marks: Mark[] } {
   const pPr = firstChild(p, 'a:pPr')
   const buChar = firstChild(pPr, 'a:buChar')
   const buAutoNum = firstChild(pPr, 'a:buAutoNum')
@@ -217,7 +231,7 @@ function paragraphToLine(p: Element, theme: Record<string, string>): { text: str
     if (!t) continue
     const start = text.length
     text += t
-    marks.push(...runMarks(firstChild(r, 'a:rPr'), start, text.length, theme))
+    marks.push(...runMarks(firstChild(r, 'a:rPr'), start, text.length, theme, scale))
   }
   return { text, marks }
 }
@@ -228,7 +242,8 @@ const ANCHOR_TO_VALIGN: Record<string, 'top' | 'middle' | 'bottom'> = { t: 'top'
 function shapeText(
   sp: Element,
   theme: Record<string, string>,
-  placeholderStyles: Map<string, { color?: string; sizePx?: number }>
+  placeholderStyles: Map<string, { color?: string; sizePx?: number }>,
+  scale: SlideScale
 ): { text: string; marks: Mark[]; align?: 'left' | 'center' | 'right'; verticalAlign?: 'top' | 'middle' | 'bottom' } | null {
   const txBody = firstChild(sp, 'p:txBody')
   if (!txBody) return null
@@ -238,7 +253,7 @@ function shapeText(
   const marks: Mark[] = []
   paragraphs.forEach((p, i) => {
     if (i > 0) text += '\n'
-    const line = paragraphToLine(p, theme)
+    const line = paragraphToLine(p, theme, scale)
     const offset = text.length
     text += line.text
     marks.push(...line.marks.map((m) => ({ ...m, start: m.start + offset, end: m.end + offset })))
@@ -287,7 +302,8 @@ function shapeBox(sp: Element, scale: SlideScale): { x: number; y: number; w: nu
 
 function shapeFillAndBorder(
   sp: Element,
-  theme: Record<string, string>
+  theme: Record<string, string>,
+  scale: SlideScale
 ): { fillColor?: string; strokeColor?: string; strokeWidth?: number } {
   const spPr = firstChild(sp, 'p:spPr')
   // <a:noFill/> is an explicit "definitely no fill" distinct from "no fill
@@ -300,10 +316,13 @@ function shapeFillAndBorder(
   const lineNoFill = firstChild(ln, 'a:noFill') !== null
   const strokeColor = lineNoFill ? undefined : (solidFillColor(ln, theme) ?? undefined)
   const w = ln?.getAttribute('w') // EMUs
-  // Line thickness stays on the fixed 96dpi EMU basis (not the per-deck
-  // slide scale) — a 2pt border should render as a thin line regardless of
-  // whether the source deck is a small or large slide canvas.
-  const strokeWidth = w ? Math.max(0.5, Math.round((Number(w) / DEFAULT_SLIDE_SCALE.emuPerPxX) * 10) / 10) : undefined
+  // Border thickness is a fixed physical measurement, same as font size —
+  // scale it the same way (ptScaleFactor) so a deck forced to shrink/grow
+  // to fit SIMBLIP's fixed 960×540 frame doesn't end up with relatively
+  // too-thick or too-thin borders.
+  const strokeWidth = w
+    ? Math.max(0.5, Math.round((Number(w) / DEFAULT_SLIDE_SCALE.emuPerPxX) * ptScaleFactor(scale) * 10) / 10)
+    : undefined
   return { fillColor, strokeColor, strokeWidth }
 }
 
@@ -394,7 +413,8 @@ async function resolveLayoutMasterPaths(
 async function loadPlaceholderStyles(
   zip: JSZip,
   slideName: string,
-  theme: Record<string, string>
+  theme: Record<string, string>,
+  scale: SlideScale
 ): Promise<Map<string, { color?: string; sizePx?: number }>> {
   const result = new Map<string, { color?: string; sizePx?: number }>()
   const { layoutTarget, masterTarget } = await resolveLayoutMasterPaths(zip, slideName)
@@ -413,7 +433,7 @@ async function loadPlaceholderStyles(
       const rPr = sp.getElementsByTagName('a:defRPr')[0] ?? sp.getElementsByTagName('a:rPr')[0] ?? null
       const color = solidFillColor(rPr, theme) ?? undefined
       const sz = rPr?.getAttribute('sz')
-      const sizePx = sz ? Math.round((Number(sz) / 100) * PT_TO_PX) : undefined
+      const sizePx = sz ? Math.round((Number(sz) / 100) * PT_TO_PX * ptScaleFactor(scale)) : undefined
       result.set(key, { color, sizePx })
     }
   }
@@ -514,7 +534,7 @@ async function shapesToObjects(
   const spTree = doc.getElementsByTagName('p:spTree')[0]
   if (!spTree) return { objects: [] }
   const objects: SceneObject[] = []
-  const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme)
+  const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme, scale)
 
   const applyPolygonPoints = (shape: SceneObject, sp: Element, box: { w: number; h: number }) => {
     if (shape.geometry.kind !== 'polygon') return
@@ -531,8 +551,8 @@ async function shapesToObjects(
     }
     if (child.tagName !== 'p:sp') continue
     const box = shapeBox(child, scale)
-    const line = shapeText(child, theme, placeholderStyles)
-    const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme)
+    const line = shapeText(child, theme, placeholderStyles, scale)
+    const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme, scale)
     const hasVisibleShape = !!(fillColor || strokeColor)
 
     if (line) {
@@ -584,11 +604,18 @@ function widenNarrowTextBoxes(objects: SceneObject[]): void {
   for (const obj of objects) {
     if (obj.geometry.kind !== 'text' && obj.geometry.kind !== 'note') continue
     const raw = obj.parameters.text
-    const text = raw?.kind === 'string' ? raw.value : ''
-    if (!text) continue
+    const rawText = raw?.kind === 'string' ? raw.value : ''
+    if (!rawText) continue
+    const { text, marks } = parse(rawText)
     const words = text.replace(/\n/g, ' ').split(' ').filter(Boolean)
     if (words.length === 0) continue
-    ctx.font = '14px sans-serif' // matches the app's default body text size — see components/objects/text.tsx
+    // Measure at the LARGEST size mark actually present (a title's size
+    // mark, if any) — using a hardcoded default here would under-widen any
+    // box whose text imported at a larger size than the app default,
+    // reintroducing the same clipping this pass exists to fix.
+    const sizeMarks = marks.filter((m) => m.kind === 'size' && m.value)
+    const fontPx = sizeMarks.length > 0 ? Math.max(...sizeMarks.map((m) => resolveSizePx(m.value!))) : 14
+    ctx.font = `${fontPx}px sans-serif`
     const longestWordPx = Math.max(...words.map((w) => ctx.measureText(w).width))
     const minWidth = Math.ceil(longestWordPx) + 24 // padX, matches note.tsx's own padY-style content padding
     if (obj.size.w < minWidth) obj.size = { ...obj.size, w: minWidth }
