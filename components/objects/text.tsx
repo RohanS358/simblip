@@ -888,6 +888,20 @@ export function RichTextArea({
               className
             )}
             style={{ lineHeight, letterSpacing }}
+            onClick={(e) => {
+              // A click on an ALREADY-selected box starts editing directly —
+              // select, then click again, same total clicks as a double-
+              // click but not timing-dependent (a double-click that lands a
+              // beat too slow just reselects instead of entering edit mode,
+              // which is what made this feel like it took "a lot of
+              // clicks"). The object's first click (not yet selected) still
+              // only selects, via the canvas wrapper's own pointerdown —
+              // this handler no-ops until selected is already true.
+              if (!selected) return
+              e.stopPropagation()
+              setEditing(true)
+              requestAnimationFrame(() => editor.start())
+            }}
             onDoubleClick={(e) => {
               // Double click = drop into the live per-line editor, caret at end.
               e.stopPropagation()
