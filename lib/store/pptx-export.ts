@@ -101,14 +101,21 @@ export async function exportPptx(
         const fillColor = obj.metadata.fillColor as string | undefined
         const strokeColor = obj.metadata.strokeColor as string | undefined
         const strokeWidth = obj.metadata.strokeWidth as number | undefined
+        const cornerRadius = obj.metadata.cornerRadius as number | undefined
+        const opacity = obj.metadata.opacity as number | undefined
         if (fillColor || strokeColor) {
           slide.addShape(obj.geometry.kind === 'circle' ? 'ellipse' : 'rect', {
             x,
             y,
             w,
             h,
-            fill: fillColor ? { color: toHex(fillColor) } : { type: 'none' },
+            // pptxgenjs transparency is 0-100 where 100 is fully transparent
+            // — inverse of this app's opacity metadata (100 = fully opaque).
+            fill: fillColor
+              ? { color: toHex(fillColor), transparency: opacity !== undefined ? 100 - opacity : undefined }
+              : { type: 'none' },
             line: strokeColor ? { color: toHex(strokeColor), width: strokeWidth ?? 1 } : { type: 'none' },
+            rectRadius: obj.geometry.kind === 'rect' && cornerRadius ? inches(cornerRadius) : undefined,
           })
         }
         continue
