@@ -27,7 +27,7 @@ export interface TextEditorHandle {
    *  snapshotSelection() and not yet consumed, uses that instead of
    *  re-reading window.getSelection() live — see snapshotSelection's doc
    *  comment for why. */
-  setSpan: (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string) => void
+  setSpan: (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string, wholeBox?: boolean) => void
   /** Remembers the CURRENT live text selection so a later setSpan() call can
    *  use it even after focus has moved elsewhere. Needed for controls that
    *  must themselves take focus to work — the Size field's number input,

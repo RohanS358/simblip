@@ -326,7 +326,23 @@ function useLiveTextEditor(
    *  one on the same text). Reselects the applied range afterward so a
    *  follow-up stepper click/swatch pick adjusts the SAME mark instead of
    *  targeting whatever the caret happens to be on. */
-  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string) => {
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string, wholeBox = false) => {
+    if (wholeBox) {
+      // Font family always applies to the whole box, never a selection —
+      // the selection-snapshot path (below) needs the browser's live
+      // Selection to still point inside the contentEditable at the moment
+      // this fires, which a panel button one DOM layer away can't
+      // guarantee reliably enough to be worth the inconsistency (a font
+      // pick that silently no-ops depending on click timing is worse than
+      // one that's always whole-box, matching how Background/no-selection
+      // Selection-color already behave).
+      const fullStart = 0
+      const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
+      marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
+      rebuildAll()
+      commit()
+      return
+    }
     const snap = snapshotRef.current
     snapshotRef.current = null // one-shot — a stale snapshot from an earlier edit must never silently reapply
     const span = snap ? null : selectionSpan()

@@ -124,6 +124,27 @@ function PresentOverlay({
 
   const slideId = slides[i]
 
+  // The slide's own content is positioned in SIMBLIP's fixed 960x540
+  // coordinate space (see pptx-import.ts's SIMBLIP_SLIDE_W/H_PX and the
+  // main stage's own `width: 960, height: 540` box) — the frame here must
+  // stay a literal 960x540 box and get scaled down/up via CSS transform to
+  // fit the fullscreen viewport, the same way the main stage does with
+  // `zoom`. Letting the frame's own CSS width stretch responsively
+  // (the previous w-full max-w-[1400px]) kept objects at their correct
+  // relative positions but in a box far bigger than the space they were
+  // laid out for — everything clustered top-left with dead space around it.
+  const [frameScale, setFrameScale] = useState(1)
+  useEffect(() => {
+    const compute = () => {
+      const availW = window.innerWidth - 64 // matches the p-8 padding below
+      const availH = window.innerHeight - 200 // header/footer chrome
+      setFrameScale(Math.min(availW / 960, availH / 540))
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
+  }, [])
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
       <button
@@ -136,15 +157,20 @@ function PresentOverlay({
       </button>
       <div className="relative flex flex-1 items-center justify-center overflow-hidden p-8">
         {slideId && (
-          <TransitionSlide
-            transition={transition}
-            dir={dir}
-            slideKey={slideId}
-            className="relative aspect-video w-full max-w-[1400px] overflow-hidden rounded-md bg-white shadow-2xl"
-            style={{ backgroundColor: sheetColors?.[slideId] }}
+          <div
+            className="relative shrink-0 overflow-hidden rounded-md shadow-2xl"
+            style={{ width: 960, height: 540, transform: `scale(${frameScale})` }}
           >
-            <InfiniteCanvas key={slideId} pageId={slideId} locked transparent passthrough viewer active={false} />
-          </TransitionSlide>
+            <TransitionSlide
+              transition={transition}
+              dir={dir}
+              slideKey={slideId}
+              className="absolute inset-0 bg-white"
+              style={{ backgroundColor: sheetColors?.[slideId] }}
+            >
+              <InfiniteCanvas key={slideId} pageId={slideId} locked transparent passthrough viewer active={false} />
+            </TransitionSlide>
+          </div>
         )}
       </div>
       <div className="flex items-center justify-center gap-4 pb-6 text-white">

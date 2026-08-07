@@ -2175,8 +2175,8 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
 
   const toggleMark = (kind: MarkKind) => handleRef?.current?.toggleMark(kind)
   const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
-  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) =>
-    handleRef?.current?.setSpan(kind, value)
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string, wholeBox?: boolean) =>
+    handleRef?.current?.setSpan(kind, value, wholeBox)
   // Link has no dedicated input field (a URL isn't a bounded palette the
   // way color/size are) — window.prompt is the same lightweight pattern
   // already used elsewhere in this panel tree (canvas.tsx's "rename" flows)
@@ -2547,15 +2547,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             aria-expanded={fontOpen}
             disabled={!isActive}
             className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-            onPointerDown={(e) => {
-              guard(e)
-              // Same reason Weight's trigger snapshots: opening the list is
-              // a state change (fontOpen), and by the time a list item
-              // fires its own click, window.getSelection() may no longer
-              // reflect the range that was live when this button was
-              // pressed — capture it now, setSpan consumes it once.
-              snapshotSelection()
-            }}
+            onPointerDown={guard}
             onClick={() => setFontOpen((v) => !v)}
           >
             <span className="flex items-center gap-1.5">
@@ -2578,7 +2570,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                   onPointerDown={guard}
                   onClick={() => {
                     setFont(id)
-                    setSpan('font', id)
+                    setSpan('font', id, true)
                     setFontOpen(false)
                   }}
                 >
@@ -2601,7 +2593,14 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                   className="flex w-full items-center justify-between gap-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
                   onMouseDown={(e) => {
                     guardTrigger(e)
-                    snapshotSelection() // see Font family trigger's comment above
+                    // Opening the dropdown is a Radix state change — by the
+                    // time an item's onSelect fires, window.getSelection()
+                    // may no longer reflect what was live when this button
+                    // was pressed, so capture it now; setSpan consumes it
+                    // once. (Font family used to have this same comment —
+                    // it now always applies whole-box instead, see its own
+                    // setSpan(..., true) call.)
+                    snapshotSelection()
                   }}
                 >
                   {WEIGHT_LABELS[weight]}
