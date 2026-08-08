@@ -2,7 +2,17 @@ import React from 'react'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import localFont from 'next/font/local'
-import { JetBrains_Mono } from 'next/font/google'
+import {
+  JetBrains_Mono,
+  Roboto,
+  Open_Sans,
+  Lato,
+  Montserrat,
+  Merriweather,
+  Playfair_Display,
+  Nunito,
+  Raleway,
+} from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
@@ -31,6 +41,21 @@ const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-jetbrains',
 })
+
+// ── Opt-in typography fonts ─────────────────────────────────────────────────
+// preload:false → no <link rel="preload"> is added to the document head.
+// The browser only fetches a font file when it encounters text that uses it
+// (via font-family in CSS), so these are zero-cost until a user actually
+// applies one to a text object. display:'swap' keeps text readable (FOUT)
+// while the file arrives instead of hiding it (FOIT).
+const roboto = Roboto({ subsets: ['latin'], weight: ['300','400','500','700','900'], variable: '--font-roboto', preload: false, display: 'swap' })
+const openSans = Open_Sans({ subsets: ['latin'], variable: '--font-open-sans', preload: false, display: 'swap' })
+const lato = Lato({ subsets: ['latin'], weight: ['300','400','700','900'], variable: '--font-lato', preload: false, display: 'swap' })
+const montserrat = Montserrat({ subsets: ['latin'], variable: '--font-montserrat', preload: false, display: 'swap' })
+const merriweather = Merriweather({ subsets: ['latin'], weight: ['300','400','700','900'], variable: '--font-merriweather', preload: false, display: 'swap' })
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair', preload: false, display: 'swap' })
+const nunito = Nunito({ subsets: ['latin'], variable: '--font-nunito', preload: false, display: 'swap' })
+const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', preload: false, display: 'swap' })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
   
@@ -120,7 +145,19 @@ export default async function RootLayout({
 
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${jakarta.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body className={[
+          jakarta.variable,
+          jetbrainsMono.variable,
+          roboto.variable,
+          openSans.variable,
+          lato.variable,
+          montserrat.variable,
+          merriweather.variable,
+          playfair.variable,
+          nunito.variable,
+          raleway.variable,
+          'font-sans antialiased',
+        ].join(' ')}>
         <ThemeProvider
           attribute="class"
           defaultTheme="system"

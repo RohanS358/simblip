@@ -76,55 +76,92 @@ export const TEXT_COLORS: Record<string, string> = {
   violet: 'var(--accent-violet)',
 }
 export const TEXT_SIZES: Record<string, number> = { s: 12, m: 15, l: 20, xl: 28 }
-// Web-safe stacks only — no @font-face, no network fetch, every browser on
-// every OS already has each of these (or a close-enough match via the
-// trailing generic). `sans`/`mono` are this app's own loaded fonts (see
-// globals.css --font-sans/--font-mono) and stay first/default.
+// Font stacks: web-safe OS fonts first (zero latency), then Google Fonts
+// loaded via CSS variables injected by next/font/google in app/layout.tsx
+// with preload:false — they cost nothing until actually applied to text.
 export const TEXT_FONTS: Record<string, string> = {
-  sans: 'var(--font-sans)',
-  serif: 'Georgia, "Times New Roman", serif',
-  mono: 'var(--font-mono)',
-  comic: '"Comic Sans MS", "Comic Sans", cursive',
-  arial: 'Arial, Helvetica, sans-serif',
-  helvetica: 'Helvetica, Arial, sans-serif',
-  verdana: 'Verdana, Geneva, sans-serif',
-  tahoma: 'Tahoma, Geneva, sans-serif',
-  trebuchet: '"Trebuchet MS", sans-serif',
-  garamond: 'Garamond, "Apple Garamond", serif',
-  palatino: '"Palatino Linotype", Palatino, "Book Antiqua", serif',
-  bookman: '"Bookman Old Style", serif',
+  // ── App defaults ──────────────────────────────────────────────────────
+  sans:         'var(--font-sans)',
+  mono:         'var(--font-mono)',
+
+  // ── Google Fonts (popular modern picks) ──────────────────────────────
+  roboto:       'var(--font-roboto), Roboto, sans-serif',
+  openSans:     'var(--font-open-sans), "Open Sans", sans-serif',
+  lato:         'var(--font-lato), Lato, sans-serif',
+  montserrat:   'var(--font-montserrat), Montserrat, sans-serif',
+  nunito:       'var(--font-nunito), Nunito, sans-serif',
+  raleway:      'var(--font-raleway), Raleway, sans-serif',
+  merriweather: 'var(--font-merriweather), Merriweather, serif',
+  playfair:     'var(--font-playfair), "Playfair Display", serif',
+
+  // ── Web-safe Sans-serif ───────────────────────────────────────────────
+  arial:        'Arial, Helvetica, sans-serif',
+  helvetica:    'Helvetica, Arial, sans-serif',
+  verdana:      'Verdana, Geneva, sans-serif',
+  tahoma:       'Tahoma, Geneva, sans-serif',
+  trebuchet:    '"Trebuchet MS", sans-serif',
+  impact:       'Impact, Haettenschweiler, sans-serif',
+
+  // ── Web-safe Serif ────────────────────────────────────────────────────
   timesNewRoman: '"Times New Roman", Times, serif',
-  courier: '"Courier New", Courier, monospace',
-  consolas: 'Consolas, "Lucida Console", monospace',
-  impact: 'Impact, Haettenschweiler, sans-serif',
-  copperplate: 'Copperplate, "Copperplate Gothic Light", serif',
-  brushScript: '"Brush Script MT", cursive',
-  papyrus: 'Papyrus, fantasy',
+  georgia:      'Georgia, "Times New Roman", serif',
+  garamond:     'Garamond, "Apple Garamond", serif',
+  palatino:     '"Palatino Linotype", Palatino, "Book Antiqua", serif',
+  bookman:      '"Bookman Old Style", serif',
+  copperplate:  'Copperplate, "Copperplate Gothic Light", serif',
+
+  // ── Web-safe Monospace ────────────────────────────────────────────────
+  courier:      '"Courier New", Courier, monospace',
+  consolas:     'Consolas, "Lucida Console", monospace',
+
+  // ── Decorative / Fun ─────────────────────────────────────────────────
+  comic:        '"Comic Sans MS", "Comic Sans", cursive',
+  brushScript:  '"Brush Script MT", cursive',
+  papyrus:      'Papyrus, fantasy',
 }
-// Display labels — TEXT_FONTS keys aren't all simple single words
-// (timesNewRoman, brushScript), so a bare capitalize-first-letter would
-// render "TimesNewRoman" instead of "Times New Roman".
+
+// Display labels shown in the font picker dropdown
 export const TEXT_FONT_LABELS: Record<keyof typeof TEXT_FONTS, string> = {
-  sans: 'Sans',
-  serif: 'Serif',
-  mono: 'Mono',
-  comic: 'Comic Sans',
-  arial: 'Arial',
-  helvetica: 'Helvetica',
-  verdana: 'Verdana',
-  tahoma: 'Tahoma',
-  trebuchet: 'Trebuchet MS',
-  garamond: 'Garamond',
-  palatino: 'Palatino',
-  bookman: 'Bookman',
+  sans:          'Sans (App)',
+  mono:          'Mono (App)',
+  roboto:        'Roboto',
+  openSans:      'Open Sans',
+  lato:          'Lato',
+  montserrat:    'Montserrat',
+  nunito:        'Nunito',
+  raleway:       'Raleway',
+  merriweather:  'Merriweather',
+  playfair:      'Playfair Display',
+  arial:         'Arial',
+  helvetica:     'Helvetica',
+  verdana:       'Verdana',
+  tahoma:        'Tahoma',
+  trebuchet:     'Trebuchet MS',
+  impact:        'Impact',
   timesNewRoman: 'Times New Roman',
-  courier: 'Courier New',
-  consolas: 'Consolas',
-  impact: 'Impact',
-  copperplate: 'Copperplate',
-  brushScript: 'Brush Script',
-  papyrus: 'Papyrus',
+  georgia:       'Georgia',
+  garamond:      'Garamond',
+  palatino:      'Palatino',
+  bookman:       'Bookman',
+  copperplate:   'Copperplate',
+  courier:       'Courier New',
+  consolas:      'Consolas',
+  comic:         'Comic Sans',
+  brushScript:   'Brush Script',
+  papyrus:       'Papyrus',
 }
+
+/** Groups for the font picker UI — each group has a label and an ordered list
+ *  of TEXT_FONTS keys. The inspector renders a non-selectable divider between
+ *  groups so users can find fonts by category at a glance. */
+export const FONT_GROUPS: { label: string; keys: (keyof typeof TEXT_FONTS)[] }[] = [
+  { label: 'App', keys: ['sans', 'mono'] },
+  { label: 'Google Fonts', keys: ['roboto', 'openSans', 'lato', 'montserrat', 'nunito', 'raleway', 'merriweather', 'playfair'] },
+  { label: 'Sans-serif', keys: ['arial', 'helvetica', 'verdana', 'tahoma', 'trebuchet', 'impact'] },
+  { label: 'Serif', keys: ['timesNewRoman', 'georgia', 'garamond', 'palatino', 'bookman', 'copperplate'] },
+  { label: 'Monospace', keys: ['courier', 'consolas'] },
+  { label: 'Decorative', keys: ['comic', 'brushScript', 'papyrus'] },
+]
 // Figma-style named weight steps — distinct from the toggle 'bold' mark
 // (always 700); this lets the panel's Weight dropdown pick any CSS weight.
 export const TEXT_WEIGHTS: Record<string, number> = {

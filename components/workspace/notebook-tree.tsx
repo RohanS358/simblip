@@ -476,11 +476,12 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
         <div
           className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           style={{ marginLeft: `${16 + depth * 16}px` }}
-          // Dragging a file chip: if it has a pageId already open, use that for
-          // split-screen; also tag as a node so folders can reparent it.
+          // also tag as a node so folders can reparent it.
           draggable
           onDragStart={(e) => {
-            if (node.pageId) e.dataTransfer.setData('application/x-simblip-tab', node.pageId)
+            // File nodes only support tree-reparenting (simblip-node), NOT
+            // canvas tab-drop (simblip-tab). Opening a file belongs to the
+            // click handler; dragging should only move it within the tree.
             e.dataTransfer.setData('application/x-simblip-node', JSON.stringify({ id: node.id, kind: 'file' }))
             e.dataTransfer.effectAllowed = 'move'
             e.stopPropagation()
@@ -636,14 +637,30 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
 
       <div
         className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3"
-        // Global root drop zone: external files dropped anywhere in the tree
+        // Global root drop zone: files dropped anywhere in the tree
         // (not on a specific folder) fall into the first root notebook if any.
+        // Internal node drags that miss a folder row move the node to the root.
         onDragOver={(e) => {
-          if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+          const hasFile = e.dataTransfer.types.includes('Files')
+          const hasNode = e.dataTransfer.types.includes('application/x-simblip-node')
+          if (hasFile || hasNode) e.preventDefault()
         }}
         onDrop={(e) => {
           // Only handle if the target is the root scroll area itself
           // (folder rows stop propagation, so this only fires for misses).
+          // Internal node move: reparent to the first root notebook/folder.
+          const nodeData = e.dataTransfer.getData('application/x-simblip-node')
+          if (nodeData) {
+            e.preventDefault()
+            try {
+              const { id: draggedId } = JSON.parse(nodeData) as { id: string; kind: string }
+              const firstRoot = roots[0]
+              if (firstRoot && draggedId !== firstRoot.id) {
+                store.getState().moveNode(draggedId, firstRoot.id)
+              }
+            } catch { /* ignore bad JSON */ }
+            return
+          }
           const f = e.dataTransfer.files?.[0]
           if (!f) return
           const firstRoot = roots[0]

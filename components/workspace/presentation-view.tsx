@@ -13,7 +13,7 @@
 // open (lib/store/pptx-import.ts) — best-effort fidelity, not pixel-perfect.
 // Export walks the slide object trees back into a real .pptx via pptxgenjs.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
   Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight,
@@ -217,9 +217,23 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const setZoom = (z: number) => setZoomRaw(Math.min(3, Math.max(0.25, z)))
   const fitWidth = () => {
-    const w = stageRef.current?.clientWidth
-    if (w) setZoom(Math.min(3, Math.max(0.25, (w - 48) / 960)))
+    const el = stageRef.current
+    if (el) {
+      const scaleW = (el.clientWidth - 48) / 960
+      const scaleH = (el.clientHeight - 48) / 540
+      setZoom(Math.min(3, Math.max(0.25, Math.min(scaleW, scaleH))))
+    }
   }
+
+  // Auto-fit on initial mount so the presentation fills the stage viewport cleanly.
+  useLayoutEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    const scaleW = (el.clientWidth - 48) / 960
+    const scaleH = (el.clientHeight - 48) / 540
+    setZoomRaw(Math.min(3, Math.max(0.25, Math.min(scaleW, scaleH))))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   // How the active slide animates in on change — applies both to the main
   // stage (board remote / manual rail clicks) and the fullscreen Present
   // overlay, so a board audience sees the same transition the presenter set.
@@ -317,6 +331,8 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const [dragOrder, setDragOrder] = useState<string[] | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const dragOrderRef = useRef<string[]>(slides)
+  // Index of the gap between slides where '+' button is hovered (0 = before first, n = after last)
+  const [hoverGap, setHoverGap] = useState<number | null>(null)
 
   const onTilePointerDown = (slideId: string) => (e: React.PointerEvent) => {
     if (e.button !== 0) return
@@ -369,6 +385,18 @@ export function PresentationView({ pageId }: { pageId: string }) {
   }
 
   const displayedSlides = dragOrder ?? slides
+
+  /** Insert a blank slide at position `afterIndex` (0 = prepend, n = append after slide n-1) */
+  const insertSlideAt = (afterIndex: number) => {
+    const newId = useWorkspaceStore.getState().addDocSheet(pageId)
+    const current = useWorkspaceStore.getState()
+    const updatedSlides = [...slides]
+    // addDocSheet appends to the end; reorder to the desired position
+    updatedSlides.splice(afterIndex, 0, newId)
+    useWorkspaceStore.getState().updatePageMeta(pageId, { docPages: updatedSlides })
+    setCurrent(afterIndex)
+    setHoverGap(null)
+  }
 
   const exportPptx = async () => {
     setExporting(true)
@@ -426,14 +454,20 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </div>
         ) : activeSlideId ? (
           <div
-            className="relative shrink-0 overflow-hidden rounded-md"
-            style={{ width: 960, height: 540, transform: `scale(${zoom})` }}
+            className="relative shrink-0 overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+            style={{
+              width: 960,
+              height: 540,
+              transform: `scale(${zoom})`,
+              transformOrigin: 'center center',
+              margin: `${Math.max(0, (540 * (zoom - 1)) / 2)}px ${Math.max(0, (960 * (zoom - 1)) / 2)}px`,
+            }}
           >
             <TransitionSlide
               transition={transition}
               dir={stageDir}
               slideKey={activeSlideId}
-              className="absolute inset-0 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+              className="absolute inset-0 bg-white"
               style={{ backgroundColor: meta?.sheetColors?.[activeSlideId] }}
             >
               <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
@@ -444,63 +478,91 @@ export function PresentationView({ pageId }: { pageId: string }) {
 
       <div
         ref={railRef}
-        className="flex h-24 shrink-0 items-center gap-2 overflow-x-auto border-t border-border/60 bg-muted/30 p-2"
+        className="flex h-24 shrink-0 items-center gap-0 overflow-x-auto border-t border-border/60 bg-muted/30 p-2"
+        onMouseLeave={() => setHoverGap(null)}
       >
-        {displayedSlides.map((id) => {
+        {displayedSlides.map((id, tileIdx) => {
           const i = slides.indexOf(id)
           return (
-            <ContextMenu key={id}>
-              <ContextMenuTrigger asChild>
-                <button
-                  type="button"
-                  data-slide-tile
-                  onPointerDown={onTilePointerDown(id)}
-                  className={cn(
-                    'group relative aspect-video h-full shrink-0 touch-none cursor-grab overflow-hidden rounded-md border bg-white text-left active:cursor-grabbing',
-                    i === current ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30' : 'border-border/60',
-                    draggingId === id && 'opacity-70'
-                  )}
-                  style={{ backgroundColor: meta?.sheetColors?.[id] }}
-                >
-                  <PageThumbnail pageId={id} className="pointer-events-none absolute inset-0 h-full w-full" />
-                  <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
-                    {i + 1}
-                  </span>
-                  {slides.length > 1 && (
-                    <span
-                      role="button"
-                      aria-label="Delete slide"
-                      className="absolute right-1 top-1 z-10 rounded bg-black/40 p-0.5 text-white opacity-0 hover:bg-destructive group-hover:opacity-100"
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        removeSlide(id)
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
+            <div key={id} className="flex items-center h-full">
+              {/* Gap before this tile — shows '+' on hover */}
+              <div
+                className="relative flex items-center justify-center h-full"
+                style={{ width: 18 }}
+                onMouseEnter={() => setHoverGap(tileIdx)}
+              >
+                {hoverGap === tileIdx && !draggingId && (
+                  <button
+                    type="button"
+                    aria-label={`Insert slide at position ${tileIdx + 1}`}
+                    className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
+                    style={{ width: 20, height: 20 }}
+                    onClick={() => insertSlideAt(tileIdx)}
+                  >
+                    <Plus className="h-3 w-3" strokeWidth={3} />
+                  </button>
+                )}
+              </div>
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
+                  <button
+                    type="button"
+                    data-slide-tile
+                    onPointerDown={onTilePointerDown(id)}
+                    onMouseEnter={() => setHoverGap(null)}
+                    className={cn(
+                      'group relative aspect-video h-full shrink-0 touch-none cursor-grab overflow-hidden rounded-md border bg-white text-left active:cursor-grabbing',
+                      i === current ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30' : 'border-border/60',
+                      draggingId === id && 'opacity-70'
+                    )}
+                    style={{ backgroundColor: meta?.sheetColors?.[id] }}
+                  >
+                    <PageThumbnail pageId={id} className="pointer-events-none absolute inset-0 h-full w-full" />
+                    <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
+                      {i + 1}
                     </span>
-                  )}
-                </button>
-              </ContextMenuTrigger>
-              <ContextMenuContent>
-                <ContextMenuItem onClick={() => void duplicateSlide(id)}>
-                  <Copy className="h-4 w-4" /> Duplicate slide
-                </ContextMenuItem>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  variant="destructive"
-                  disabled={slides.length <= 1}
-                  onClick={() => removeSlide(id)}
-                >
-                  <Trash2 className="h-4 w-4" /> Delete slide
-                </ContextMenuItem>
-              </ContextMenuContent>
-            </ContextMenu>
+                  </button>
+                </ContextMenuTrigger>
+                <ContextMenuContent>
+                  <ContextMenuItem onClick={() => void duplicateSlide(id)}>
+                    <Copy className="h-4 w-4" /> Duplicate slide
+                  </ContextMenuItem>
+                  <ContextMenuSeparator />
+                  <ContextMenuItem
+                    variant="destructive"
+                    disabled={slides.length <= 1}
+                    onClick={() => removeSlide(id)}
+                  >
+                    <Trash2 className="h-4 w-4" /> Delete slide
+                  </ContextMenuItem>
+                </ContextMenuContent>
+              </ContextMenu>
+            </div>
           )
         })}
+        {/* Gap after the last slide */}
+        <div
+          className="relative flex items-center justify-center h-full"
+          style={{ width: 18 }}
+          onMouseEnter={() => setHoverGap(displayedSlides.length)}
+        >
+          {hoverGap === displayedSlides.length && !draggingId && (
+            <button
+              type="button"
+              aria-label="Insert slide at end"
+              className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
+              style={{ width: 20, height: 20 }}
+              onClick={() => insertSlideAt(displayedSlides.length)}
+            >
+              <Plus className="h-3 w-3" strokeWidth={3} />
+            </button>
+          )}
+        </div>
         <button
           type="button"
           aria-label="Add slide"
           className="flex aspect-video h-full shrink-0 items-center justify-center rounded-md border border-dashed border-border/60 text-muted-foreground/50 transition-colors hover:border-[var(--accent-blue)] hover:text-[var(--accent-blue)]"
+          onMouseEnter={() => setHoverGap(null)}
           onClick={() => {
             useWorkspaceStore.getState().addDocSheet(pageId)
             setCurrent(slides.length)

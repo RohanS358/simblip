@@ -140,7 +140,7 @@ export function AddPageDialog({
     finish(id)
   }
 
-  const [webUrl, setWebUrl] = useState('https://en.wikipedia.org/wiki/Physics')
+  const [webUrl, setWebUrl] = useState('https://www.google.com')
 
   const createWeb = () => {
     if (!target) return

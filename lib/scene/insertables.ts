@@ -141,22 +141,28 @@ async function measureImage(blob: Blob): Promise<{ w: number; h: number }> {
   }
 }
 
-/** Upload an image blob and drop it onto a page as a picture object,
+/** Upload an image or video blob and drop it onto a page as a picture object,
  *  centered on `center` — the paste/drop-image equivalent of insertAt. */
 export async function insertImage(pageId: string, blob: Blob, name: string, center: Vec2): Promise<SceneObject> {
+  const isVideo = blob.type.startsWith('video/')
   const [{ putFile }, { useAuthStore }, { w, h }] = await Promise.all([
     import('@/lib/storage/manager'),
     import('@/lib/auth/store'),
-    measureImage(blob),
+    isVideo ? Promise.resolve({ w: 480, h: 270 }) : measureImage(blob),
   ])
   const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
-  const fileId = await putFile(blob, name, blob.type || 'image/png', ownerId)
+  const fileId = await putFile(blob, name, blob.type || (isVideo ? 'video/mp4' : 'image/png'), ownerId)
 
   const obj = baseObject('picture', { x: center.x - w / 2, y: center.y - h / 2 }, name)
   obj.size = { w, h }
   obj.geometry.src = `opfs:${fileId}`
+  if (isVideo) obj.metadata.isVideo = true
 
   const store = useDocStore.getState()
+  const existingObjects = Object.values(store.pages[pageId]?.objects ?? {})
+  const maxZ = existingObjects.reduce((max, o) => Math.max(max, o.z ?? 0), 0)
+  obj.z = maxZ + 1
+
   store.pushHistory(pageId)
   store.addObject(pageId, obj)
   store.setSelection([obj.id])

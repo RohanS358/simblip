@@ -73,6 +73,15 @@ export async function listByStatus(status: SyncStatus): Promise<FileManifestEntr
   })
 }
 
+export async function listAllEntries(): Promise<FileManifestEntry[]> {
+  const db = await openDb()
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE).objectStore(STORE).getAll()
+    req.onsuccess = () => resolve((req.result as FileManifestEntry[]) ?? [])
+    req.onerror = () => reject(req.error)
+  })
+}
+
 export async function listByOwner(ownerId: string): Promise<FileManifestEntry[]> {
   const db = await openDb()
   return new Promise((resolve, reject) => {

@@ -191,6 +191,11 @@ interface DocState {
   unloadPagesExcept: (keepIds: string[]) => void
   /** Real deletion: forget the content everywhere (memory + archive). */
   forgetPage: (pageId: string) => void
+  /** Scan a (loaded) page's objects and return all `opfs:<id>` file-IDs
+   *  embedded in picture geometry.src — used by workspace.ts to schedule
+   *  OPFS cleanup before the page is evicted via forgetPage. Returns [] when
+   *  the page is not in memory (already evicted or never loaded). */
+  collectPageOpfsRefs: (pageId: string) => string[]
   pushHistory: (pageId: string) => void
   undo: (pageId: string) => void
   redo: (pageId: string) => void
@@ -344,6 +349,16 @@ export const useDocStore = create<DocState>()(
           lastPushAt.delete(pageId)
           return { pages: nextPages, scopes: nextScopes, viewports: nextViewports }
         })
+      },
+
+      collectPageOpfsRefs: (pageId) => {
+        // Check in-memory store first; fall back to the localStorage archive
+        // for pages that were evicted from memory before the delete triggered.
+        const page = get().pages[pageId] ?? archive.readPage(pageId)
+        if (!page) return []
+        return Object.values(page.objects)
+          .filter((o) => typeof o.geometry.src === 'string' && o.geometry.src.startsWith('opfs:'))
+          .map((o) => o.geometry.src!.slice('opfs:'.length))
       },
 
       pushHistory: (pageId) => {

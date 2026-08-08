@@ -79,7 +79,7 @@ function useLiveTextEditor(
   // See TextEditorHandle.snapshotSelection's doc comment — a selection
   // captured just before a panel control (the Size input) steals focus,
   // consumed by the next setSpan() call in place of live window.getSelection.
-  const snapshotRef = useRef<{ line: number; s: number; e: number } | null>(null)
+  const snapshotRef = useRef<{ s: { line: number; offset: number }; e: { line: number; offset: number } } | null>(null)
   // True right after a snapshot-driven setSpan() commits, until the next
   // real click/selection inside the editor clears it — see snapshotSelection
   // and setSpan's doc comments for why this exists (prevents a second panel
@@ -232,15 +232,17 @@ function useLiveTextEditor(
   /** Same idea as placeCaretAt but selects a RANGE instead of collapsing —
    *  used to keep a just-applied mark selected so a follow-up panel action
    *  (another size bump, a different color) still has something to act on. */
-  const selectRange = (line: number, startOffset: number, endOffset: number) => {
-    const el = lineEl(line)
+  const selectRange = (sLine: number, sOffset: number, eLine: number, eOffset: number) => {
+    const startEl = lineEl(sLine)
+    const endEl = lineEl(eLine)
     const sel = window.getSelection()
-    if (!el || !sel) return
-    const totalLen = el.textContent?.length ?? 0
-    const a = Math.max(0, Math.min(startOffset, totalLen))
-    const b = Math.max(0, Math.min(endOffset, totalLen))
-    const start = textNodeAt(el, a)
-    const end = textNodeAt(el, b)
+    if (!startEl || !endEl || !sel) return
+    const startLen = startEl.textContent?.length ?? 0
+    const endLen = endEl.textContent?.length ?? 0
+    const a = Math.max(0, Math.min(sOffset, startLen))
+    const b = Math.max(0, Math.min(eOffset, endLen))
+    const start = textNodeAt(startEl, a)
+    const end = textNodeAt(endEl, b)
     const range = document.createRange()
     range.setStart(start.node, start.offset)
     range.setEnd(end.node, end.offset)
@@ -314,9 +316,9 @@ function useLiveTextEditor(
     const span = selectionSpan()
     const pos = caretPosition()
     if (span) {
-      snapshotRef.current = { line: span.s.line, s: span.s.offset, e: span.e.offset }
+      snapshotRef.current = { s: span.s, e: span.e }
     } else if (pos) {
-      snapshotRef.current = { line: pos.line, s: pos.offset, e: pos.offset }
+      snapshotRef.current = { s: pos, e: pos }
     }
   }
 
@@ -329,14 +331,6 @@ function useLiveTextEditor(
    *  targeting whatever the caret happens to be on. */
   const setSpan = (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string, wholeBox = false) => {
     if (wholeBox) {
-      // Font family always applies to the whole box, never a selection —
-      // the selection-snapshot path (below) needs the browser's live
-      // Selection to still point inside the contentEditable at the moment
-      // this fires, which a panel button one DOM layer away can't
-      // guarantee reliably enough to be worth the inconsistency (a font
-      // pick that silently no-ops depending on click timing is worse than
-      // one that's always whole-box, matching how Background/no-selection
-      // Selection-color already behave).
       const fullStart = 0
       const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
       marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
@@ -348,45 +342,41 @@ function useLiveTextEditor(
     snapshotRef.current = null // one-shot — a stale snapshot from an earlier edit must never silently reapply
     const span = snap ? null : selectionSpan()
     const pos = snap ? null : caretPosition()
-    const targetLine = snap?.line ?? span?.s.line ?? pos?.line ?? activeRef.current
-    if (targetLine < 0) return
-    if (targetLine !== activeRef.current) {
-      const offset = snap ? snap.s : span ? span.s.offset : (pos?.offset ?? (linesRef.current[targetLine] ?? '').length)
-      activateLine(targetLine, offset)
-    }
-    const i = activeRef.current
-    const raw = linesRef.current[i] ?? ''
-    const sameLineSpan = span && span.s.line === targetLine && span.e.line === targetLine ? span : null
-    const s = snap ? snap.s : sameLineSpan ? sameLineSpan.s.offset : pos && pos.line === targetLine ? pos.offset : raw.length
-    const e = snap ? snap.e : sameLineSpan ? sameLineSpan.e.offset : s
 
-    if (s === e) {
-      // A collapsed caret (nothing dragged over) means "apply to the whole
+    const sLoc = snap ? snap.s : span ? span.s : pos
+    const eLoc = snap ? snap.e : span ? span.e : pos
+
+    if (!sLoc || !eLoc) return
+
+    if (sLoc.line !== activeRef.current && sLoc.line >= 0) {
+      activateLine(sLoc.line, sLoc.offset)
+    }
+
+    const start = lineStart(sLoc.line) + sLoc.offset
+    const end = lineStart(eLoc.line) + eLoc.offset
+
+    if (start === end) {
+      // Collapsed caret (nothing dragged over) means "apply to the whole
       // box" — Word/Docs behavior for a size/color field with no selection.
       const fullStart = 0
       const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
       marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
       rebuildAll()
-      placeCaretAt(i, raw.length)
+      placeCaretAt(sLoc.line, sLoc.offset)
       commit()
       return
     }
 
-    const start = lineStart(i) + s
-    const end = lineStart(i) + e
     marksRef.current = applyMark(marksRef.current, start, end, kind, value)
-    renderLineDom(i)
-    // Re-selecting the applied range (so a follow-up swatch/stepper click
-    // adjusts the SAME range) moves real browser Selection/focus into the
-    // contentEditable as a side effect — fine for a plain <button> trigger
-    // (nothing else wants focus), but actively harmful for a snapshot-based
-    // call: the Size <input> is what the user is still typing into, and
-    // stealing focus back into the editor mid-keystroke corrupts the next
-    // edit. A snapshot-driven apply instead advances the SNAPSHOT itself to
-    // the edited range (below) and leaves the live DOM selection alone.
-    if (!snap) selectRange(i, s, e)
-    else {
-      snapshotRef.current = { line: i, s, e }
+    if (sLoc.line === eLoc.line) {
+      renderLineDom(sLoc.line)
+    } else {
+      rebuildAll()
+    }
+
+    selectRange(sLoc.line, sLoc.offset, eLoc.line, eLoc.offset)
+    if (snap) {
+      snapshotRef.current = snap
       snapshotFreshRef.current = true
     }
     commit()
@@ -466,7 +456,7 @@ function useLiveTextEditor(
     if (span) {
       const sDelta = deltaForLine.get(span.s.line) ?? 0
       const eDelta = deltaForLine.get(span.e.line) ?? 0
-      selectRange(span.s.line, Math.max(0, span.s.offset + sDelta), Math.max(0, span.e.offset + eDelta))
+      selectRange(span.s.line, Math.max(0, span.s.offset + sDelta), span.e.line, Math.max(0, span.e.offset + eDelta))
     } else if (pos) {
       const delta = deltaForLine.get(pos.line) ?? 0
       placeCaretAt(startLine, Math.max(0, pos.offset + delta))

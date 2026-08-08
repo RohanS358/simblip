@@ -695,7 +695,7 @@ export function MobileShell() {
                 </div>
               )
             })()}
-            {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
+            {(activeKind !== 'pdf' || pdfToolsOn) && activeKind !== 'web' && contentPageId && (
               <CanvasControls pageId={contentPageId} showTransport={false} />
             )}
             {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}

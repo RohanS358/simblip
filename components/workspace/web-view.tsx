@@ -42,7 +42,7 @@ export function WebView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
 
-  const initialUrl = meta?.webUrl || 'https://en.wikipedia.org/wiki/Physics'
+  const initialUrl = meta?.webUrl || 'https://www.google.com'
   const [url, setUrl] = useState(initialUrl)
   const [inputUrl, setInputUrl] = useState(initialUrl)
   const [history, setHistory] = useState<string[]>(meta?.webHistory || [initialUrl])
@@ -78,10 +78,11 @@ export function WebView({ pageId }: { pageId: string }) {
 
   const formattedUrl = (u: string) => {
     const trimmed = u.trim()
+    if (!trimmed) return 'https://www.google.com/search?igu=1'
     if (/^https?:\/\//i.test(trimmed)) return trimmed
     if (/^www\./i.test(trimmed)) return `https://${trimmed}`
-    // If not a URL, treat as search query on Wikipedia / DuckDuckGo
-    return `https://en.wikipedia.org/w/index.php?search=${encodeURIComponent(trimmed)}`
+    if (trimmed.includes('.') && !trimmed.includes(' ')) return `https://${trimmed}`
+    return `https://www.google.com/search?igu=1&q=${encodeURIComponent(trimmed)}`
   }
 
   const navigateTo = (newUrl: string) => {
@@ -257,36 +258,26 @@ export function WebView({ pageId }: { pageId: string }) {
             <BookOpen className="h-3.5 w-3.5" />
             {viewMode === 'live' ? 'Reader' : 'Live'}
           </Button>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+            title="Open in new tab"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            Open
+          </Button>
         </div>
       </div>
 
-      {/* Bookmarks Bar */}
-      <div className="flex h-8 shrink-0 items-center gap-1.5 border-b border-border/40 bg-muted/10 px-3 overflow-x-auto no-scrollbar text-xs">
-        <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/60 mr-1">
-          Quick Nav:
-        </span>
-        {DEFAULT_BOOKMARKS.map((bm) => (
-          <button
-            key={bm.url}
-            type="button"
-            onClick={() => navigateTo(bm.url)}
-            className={cn(
-              'shrink-0 rounded-md px-2 py-0.5 text-[0.6875rem] transition-colors',
-              url === bm.url
-                ? 'bg-accent text-foreground font-medium'
-                : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-            )}
-          >
-            {bm.title}
-          </button>
-        ))}
-      </div>
-
       {/* Main Web Page Content & Pen Annotation Viewport */}
-      <div className="relative flex flex-1 min-h-0 min-w-0 justify-center overflow-hidden bg-muted/20">
+      <div className="relative flex flex-1 min-h-0 min-w-0 overflow-hidden bg-background">
         <div
           ref={hostRef}
-          className="relative h-full w-full max-w-5xl bg-white dark:bg-zinc-900 shadow-lg overflow-y-auto"
+          className="relative h-full w-full bg-white dark:bg-zinc-900 overflow-y-auto"
         >
           {viewMode === 'reader' && meta?.webCachedHtml ? (
             <div

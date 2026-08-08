@@ -13,12 +13,16 @@ import type { ObjectRendererProps } from './types'
 export function PictureObject({ object }: ObjectRendererProps) {
   const src = object.geometry.src
   const [url, setUrl] = useState<string | null>(null)
+  const [isVideo, setIsVideo] = useState<boolean>(Boolean(object.metadata?.isVideo))
 
   useEffect(() => {
     if (!src) {
       setUrl(null)
       return
     }
+    const isVidExt = /\.(mp4|webm|mov|m4v|avi)($|\?)/i.test(src)
+    if (isVidExt) setIsVideo(true)
+
     if (!src.startsWith('opfs:')) {
       setUrl(src)
       return
@@ -29,6 +33,7 @@ export function PictureObject({ object }: ObjectRendererProps) {
     void (async () => {
       const blob = await getFile(fileId)
       if (!blob || dead) return
+      if (blob.type.startsWith('video/')) setIsVideo(true)
       createdUrl = URL.createObjectURL(blob)
       setUrl(createdUrl)
     })()
@@ -36,10 +41,25 @@ export function PictureObject({ object }: ObjectRendererProps) {
       dead = true
       if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
-  }, [src])
+  }, [src, object.metadata?.isVideo])
 
   if (!url) {
     return <div className="h-full w-full rounded-md bg-muted/40" />
+  }
+
+  if (isVideo) {
+    return (
+      <video
+        src={url}
+        controls
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="h-full w-full select-none rounded-md"
+        style={{ objectFit: 'fill' }}
+      />
+    )
   }
 
   return (
@@ -47,7 +67,8 @@ export function PictureObject({ object }: ObjectRendererProps) {
     <img
       src={url}
       alt={object.name}
-      className="h-full w-full select-none rounded-md object-fill"
+      className="h-full w-full select-none rounded-md"
+      style={{ objectFit: 'fill' }}
       draggable={false}
     />
   )

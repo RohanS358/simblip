@@ -81,6 +81,22 @@ export function FileObject({ object }: ObjectRendererProps) {
   useEffect(() => {
     if (local || !sharedUrl) return
     let dead = false
+    if (sharedUrl.startsWith('opfs:')) {
+      const fileId = sharedUrl.slice('opfs:'.length)
+      void import('@/lib/storage/manager').then(({ getFile }) => getFile(fileId)).then((blob) => {
+        if (!dead && blob) {
+          const createdUrl = URL.createObjectURL(blob)
+          setShared({
+            url: createdUrl,
+            name: (object.metadata.fileName as string) ?? object.name ?? 'Document',
+            mime: blob.type || (object.metadata.fileMime as string) || 'application/pdf',
+          })
+        }
+      })
+      return () => {
+        dead = true
+      }
+    }
     void import('@/lib/data/session-upload').then(({ resolveSharedFile }) =>
       resolveSharedFile(sharedUrl).then((url) => {
         if (!dead && url)
@@ -94,7 +110,7 @@ export function FileObject({ object }: ObjectRendererProps) {
     return () => {
       dead = true
     }
-  }, [local, sharedUrl, object.metadata.fileName, object.metadata.fileMime])
+  }, [local, sharedUrl, object.name, object.metadata.fileName, object.metadata.fileMime])
 
   /** Attach a file. Anything that isn't already a PDF or an image is
    *  converted to PDF in the browser first, so the viewer only ever

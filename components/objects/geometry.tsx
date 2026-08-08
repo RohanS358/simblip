@@ -66,8 +66,9 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
   // one set.
   const fillColor = obj.metadata.fillColor as string | undefined
   const strokeColor = obj.metadata.strokeColor as string | undefined
-  const strokeWidth = (obj.metadata.strokeWidth as number | undefined) ?? 2
-  const cornerRadius = (obj.metadata.cornerRadius as number | undefined) ?? 8
+  const strokeWidth = (obj.metadata.strokeWidth as number | undefined) ?? (strokeColor ? 2 : 0)
+  const cornerRadius = (obj.metadata.cornerRadius as number | undefined) ?? 0
+
   if (fillColor || strokeColor) {
     const kind = isBody(obj.behaviors)
     const fallback =
@@ -77,25 +78,42 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
           ? 'color-mix(in oklch, var(--muted-foreground) 18%, var(--card))'
           : 'transparent'
     const strokeFallback =
-      kind === 'dynamic' ? 'var(--accent-blue)' : kind === 'static' ? 'var(--muted-foreground)' : 'var(--foreground)'
-    return { fill: fillColor ?? fallback, stroke: strokeColor ?? strokeFallback, strokeWidth, cornerRadius }
+      kind === 'dynamic'
+        ? 'var(--accent-blue)'
+        : kind === 'static'
+          ? 'var(--muted-foreground)'
+          : strokeColor
+            ? 'var(--foreground)'
+            : 'none'
+    return {
+      fill: fillColor ?? fallback,
+      stroke: strokeColor ?? strokeFallback,
+      strokeWidth,
+      cornerRadius: (obj.metadata.cornerRadius as number | undefined) ?? (kind ? 8 : 0),
+    }
   }
+
   const kind = isBody(obj.behaviors)
   if (kind === 'dynamic')
     return {
       fill: 'color-mix(in oklch, var(--accent-blue) 22%, var(--card))',
       stroke: 'var(--accent-blue)',
-      strokeWidth,
-      cornerRadius,
+      strokeWidth: (obj.metadata.strokeWidth as number | undefined) ?? 2,
+      cornerRadius: (obj.metadata.cornerRadius as number | undefined) ?? 8,
     }
   if (kind === 'static')
     return {
       fill: 'color-mix(in oklch, var(--muted-foreground) 18%, var(--card))',
       stroke: 'var(--muted-foreground)',
-      strokeWidth,
-      cornerRadius,
+      strokeWidth: (obj.metadata.strokeWidth as number | undefined) ?? 2,
+      cornerRadius: (obj.metadata.cornerRadius as number | undefined) ?? 8,
     }
-  return { fill: 'transparent', stroke: 'var(--foreground)', strokeWidth, cornerRadius }
+  return {
+    fill: 'transparent',
+    stroke: 'var(--foreground)',
+    strokeWidth: (obj.metadata.strokeWidth as number | undefined) ?? 2,
+    cornerRadius: (obj.metadata.cornerRadius as number | undefined) ?? 8,
+  }
 }
 
 // Dependent sources render as a diamond (vs. a circle for independent

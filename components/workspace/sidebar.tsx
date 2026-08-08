@@ -38,6 +38,7 @@ import {
 import { NotebookTree } from './notebook-tree'
 import { Palette } from './palette'
 import { ToolsPanel } from './tools-panel'
+import { UploadsPanel } from './uploads-panel'
 import { LibraryPanel } from './library-panel'
 import { InspectorPane } from './inspector'
 import { cn } from '@/lib/utils'
@@ -205,6 +206,9 @@ export function Sidebar({
       {activeSection === 'notebook' && <NotebookTree />}
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
+      {activeSection === 'uploads' && (
+        <UploadsPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
+      )}
       {activeSection === 'library' && (
         <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
       )}

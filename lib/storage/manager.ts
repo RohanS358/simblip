@@ -35,6 +35,14 @@ async function sha256(blob: Blob): Promise<string> {
  *  see this file's header. Returns the manifest id to hang a FileNode.fileId
  *  (lib/scene/types.ts) off of. */
 export async function putFile(blob: Blob, name: string, mime: string, ownerId: string): Promise<string> {
+  const hash = await sha256(blob)
+  try {
+    const all = await manifest.listAllEntries()
+    const existing = all.find((e) => e.sha256 === hash)
+    if (existing) return existing.id
+  } catch {
+    // best effort lookup — proceed with store if error
+  }
   const id = uid()
   await opfs.writeFile(id, blob)
   const entry: FileManifestEntry = {
@@ -43,7 +51,7 @@ export async function putFile(blob: Blob, name: string, mime: string, ownerId: s
     name,
     mime,
     size: blob.size,
-    sha256: await sha256(blob),
+    sha256: hash,
     createdAt: Date.now(),
     modifiedAt: Date.now(),
     syncStatus: 'local-only',

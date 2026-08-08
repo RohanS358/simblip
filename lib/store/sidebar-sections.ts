@@ -10,11 +10,11 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { BookOpen, LibraryBig, Shapes, SlidersHorizontal, Wrench } from 'lucide-react'
+import { BookOpen, FolderUp, LibraryBig, Shapes, SlidersHorizontal, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 
-export type SidebarSectionId = 'notebook' | 'components' | 'tools' | 'library' | 'properties'
+export type SidebarSectionId = 'notebook' | 'components' | 'tools' | 'uploads' | 'library' | 'properties'
 
 export interface SidebarSectionMeta {
   id: SidebarSectionId
@@ -26,6 +26,7 @@ export const SIDEBAR_SECTIONS: SidebarSectionMeta[] = [
   { id: 'notebook', label: 'Notebook', icon: BookOpen },
   { id: 'components', label: 'Components', icon: Shapes },
   { id: 'tools', label: 'Tools', icon: Wrench },
+  { id: 'uploads', label: 'Uploads', icon: FolderUp },
   { id: 'library', label: 'Library', icon: LibraryBig },
   { id: 'properties', label: 'Properties', icon: SlidersHorizontal },
 ]

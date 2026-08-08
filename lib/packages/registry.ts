@@ -128,3 +128,17 @@ export function getPackageByDomain(domain: string): ComponentPackage | undefined
 export function getPackageById(id: string): ComponentPackage | undefined {
   return COMPONENT_PACKAGES.find((p) => p.id === id || p.domain === id)
 }
+
+export function isPackageAccessible(
+  packageDomainOrId: string,
+  allowedPackages?: string[] | null
+): boolean {
+  if (!allowedPackages || allowedPackages.length === 0) return true
+  const pkg = getPackageById(packageDomainOrId) ?? getPackageByDomain(packageDomainOrId)
+  if (!pkg) return true
+  return (
+    allowedPackages.includes(pkg.id) ||
+    allowedPackages.includes(pkg.domain) ||
+    allowedPackages.includes(pkg.name)
+  )
+}

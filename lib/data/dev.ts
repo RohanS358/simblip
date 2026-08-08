@@ -256,3 +256,20 @@ export async function setMembership(input: {
   }
   await db.removeWhere('room_members', { room_id: input.roomId, profile_id: input.profileId })
 }
+
+export async function updateInstitutionPackages(institutionId: string, packages: string[]): Promise<void> {
+  requirePlatformAdmin()
+  const insts = await listInstitutions()
+  const inst = insts.find((i) => i.id === institutionId)
+  const currentSettings = (inst?.settings as Record<string, unknown> | undefined) ?? {}
+  await db.update('institutions', institutionId, {
+    settings: { ...currentSettings, package_access: packages },
+  })
+}
+
+export async function updateProfilePackages(profileId: string, packages: string[]): Promise<void> {
+  requirePlatformAdmin()
+  await db.update('profiles', profileId, {
+    package_access: packages,
+  })
+}

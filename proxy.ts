@@ -26,6 +26,7 @@ function buildCsp(nonce: string) {
     `worker-src 'self' blob:`,
     `media-src 'self' blob:`,
     `manifest-src 'self'`,
+    `frame-src 'self' https: http: data: blob:`,
     `frame-ancestors 'self'`,
     `object-src 'none'`,
     `base-uri 'self'`,

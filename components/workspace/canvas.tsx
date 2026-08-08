@@ -30,6 +30,7 @@ import {
   copySelection,
   cutSelection,
   pasteClipboard,
+  duplicateObjects,
   topZ,
   type SelectionAction,
 } from '@/lib/scene/selection-actions'
@@ -764,7 +765,7 @@ const ObjectView = memo(function ObjectView({
           {/* Dimension chip below the selection, Figma-style. */}
           <div className="absolute" style={{ left: '50%', top: '100%' }}>
             <div
-              className="absolute whitespace-nowrap rounded-[4px] bg-[var(--ring)] px-1.5 py-0.5 font-sans text-[0.65625rem] font-medium text-white shadow-sm"
+              className="absolute whitespace-nowrap rounded-full bg-[var(--ring)] px-2 py-0.5 font-mono text-[0.65rem] font-medium text-white shadow-sm"
               style={{ transform: `translate(-50%, 6px) scale(${chromeScale})`, transformOrigin: 'top center' }}
             >
               {Math.round(object.size.w)} × {Math.round(object.size.h)}
@@ -772,9 +773,9 @@ const ObjectView = memo(function ObjectView({
           </div>
         </div>
       )}
-      {isCustomName && showLabel && (
+      {isCustomName && showLabel && object.metadata.labelVisible === true && (
         <div
-          className="pointer-events-none absolute -top-5 left-0 max-w-full truncate rounded bg-background/90 px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground shadow-sm"
+          className="pointer-events-none absolute -top-5 left-0 max-w-full truncate rounded-none bg-foreground/80 px-1.5 py-0.5 text-[0.6rem] font-medium text-background shadow-sm"
           style={{ transform: chromeScale ? `scale(${chromeScale})` : undefined, transformOrigin: 'bottom left' }}
         >
           {object.name}
@@ -1217,6 +1218,11 @@ export function InfiniteCanvas({
         cutSelection(pageId)
         return
       }
+      if (mod && e.key.toLowerCase() === 'd' && !locked) {
+        e.preventDefault()
+        if (store.selection.length > 0) duplicateObjects(pageId, store.selection)
+        return
+      }
       // Ctrl+V itself is handled by the window-level 'paste' listener below,
       // not here — preventDefault() on this keydown would suppress the
       // browser's native paste event too, which is the only way it ever
@@ -1314,7 +1320,10 @@ export function InfiniteCanvas({
         const at = lastPointerRef.current
           ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
           : viewportCenter(pageId)
-        void insertImage(pageId, blob, 'Pasted image', at)
+        // Use a counter-style name so it won't be treated as a custom label
+        // (isCustomName checks for trailing " <digits>"; 'Picture 1' matches).
+        const pictureCount = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {}).filter((o) => o.geometry.kind === 'picture').length + 1
+        void insertImage(pageId, blob, `Picture ${pictureCount}`, at)
         return
       }
 
@@ -1655,13 +1664,18 @@ export function InfiniteCanvas({
           w = Math.max(16, g.resizeStart.w * k)
           h = Math.max(16, g.resizeStart.h * k)
         }
-        store.updateObject(pageId, g.resizeId, {
-          size: { w, h },
-          position: {
-            x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
-            y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
+        store.updateObject(
+          pageId,
+          g.resizeId,
+          {
+            size: { w, h },
+            position: {
+              x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
+              y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
+            },
           },
-        })
+          { history: false }
+        )
       } else if (g.mode === 'rotate' && g.rotateId && g.rotateCenter) {
         const angle = Math.atan2(point.y - g.rotateCenter.y, point.x - g.rotateCenter.x)
         let deg =
@@ -1723,6 +1737,7 @@ export function InfiniteCanvas({
         guideRaf.current = null
       }
       if (g?.mode === 'pan') commitViewport() // the store has been lagging on purpose
+      if (g?.mode === 'resize') useDocStore.getState().pushHistory(pageId)
       if (!g) return
       const store = useDocStore.getState()
       setLiveDragOffset(null)
@@ -2769,7 +2784,9 @@ export function InfiniteCanvas({
         e.dataTransfer.dropEffect = 'copy'
       }}
       onDrop={(e) => {
-        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+        const files = Array.from(e.dataTransfer.files).filter(
+          (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
+        )
         if (!files.length) return
         e.preventDefault()
         const at = toCanvas(e.clientX, e.clientY)

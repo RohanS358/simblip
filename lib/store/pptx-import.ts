@@ -37,23 +37,118 @@ const PT_TO_PX = 96 / 72 // OOXML font sizes are in points (sz="2400" = 24pt, hu
 interface SlideScale {
   emuPerPxX: number
   emuPerPxY: number
+  /** EMU offset to subtract from slide-space X before dividing by emuPerPxX.
+   *  Non-zero when the content lives inside a top-level group that is
+   *  translated away from (0,0) on the physical slide (e.g. portrait slides
+   *  exported from Canva where a 16:9 content block sits in the lower half). */
+  slideOffsetX: number
+  slideOffsetY: number
 }
 
-const DEFAULT_SLIDE_SCALE: SlideScale = { emuPerPxX: 9525, emuPerPxY: 9525 } // 914400 / 96dpi, matches a 10in×5.625in deck
+const DEFAULT_SLIDE_SCALE: SlideScale = { emuPerPxX: 9525, emuPerPxY: 9525, slideOffsetX: 0, slideOffsetY: 0 }
 
-/** <p:sldSz cx="..." cy="..."/> from ppt/presentation.xml, in EMUs — the
- *  source deck's real slide dimensions. Falls back to DEFAULT_SLIDE_SCALE
- *  (assumes a 10in×5.625in deck, SIMBLIP's own canonical size) if missing. */
+/** Determines the effective slide viewport (position + size) in raw EMU space,
+ *  accounting for portrait-declared slides where the actual 16:9 content sits
+ *  inside a translated top-level group (common in Canva/Figma/Google Slides
+ *  exports). Returns a SlideScale with uniform emuPerPx for X and Y plus
+ *  slideOffsetX/Y so shapeBox can subtract the group's origin before dividing. */
 async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
-  const file = zip.files['ppt/presentation.xml']
-  if (!file) return DEFAULT_SLIDE_SCALE
-  const xml = await file.async('text')
-  const doc = new DOMParser().parseFromString(xml, 'application/xml')
-  const sldSz = doc.getElementsByTagName('p:sldSz')[0]
-  const cx = Number(sldSz?.getAttribute('cx'))
-  const cy = Number(sldSz?.getAttribute('cy'))
-  if (!Number.isFinite(cx) || !Number.isFinite(cy) || cx <= 0 || cy <= 0) return DEFAULT_SLIDE_SCALE
-  return { emuPerPxX: cx / SIMBLIP_SLIDE_W_PX, emuPerPxY: cy / SIMBLIP_SLIDE_H_PX }
+  // ── 1. Declared slide dimensions from presentation.xml ──────────────────
+  const presFile = zip.files['ppt/presentation.xml']
+  let declaredW = 0
+  let declaredH = 0
+  if (presFile) {
+    const xml = await presFile.async('text')
+    const doc = new DOMParser().parseFromString(xml, 'application/xml')
+    const sldSz = doc.getElementsByTagName('p:sldSz')[0]
+    declaredW = Number(sldSz?.getAttribute('cx') ?? 0)
+    declaredH = Number(sldSz?.getAttribute('cy') ?? 0)
+  }
+
+  // ── 2. Scan first slide for the main top-level content group ────────────
+  // Many decks (Canva, Figma, Google Slides portrait exports) put a single
+  // large <p:grpSp> as the top-level content container. Its on-slide off/ext
+  // defines the REAL viewport we should map to 960×540. We try the first
+  // slide; if there's no group, we fall back to the declared dimensions.
+  const slideFiles = Object.keys(zip.files)
+    .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
+    .sort((a, b) => {
+      const na = Number(a.match(/slide(\d+)/)?.[1] ?? 0)
+      const nb = Number(b.match(/slide(\d+)/)?.[1] ?? 0)
+      return na - nb
+    })
+
+  let bestGroupOffX = 0
+  let bestGroupOffY = 0
+  let bestGroupExtW = 0
+  let bestGroupExtH = 0
+
+  // Match the grpSpPr transform of the outermost groups in a slide.
+  // Pattern: <p:grpSpPr><a:xfrm...><a:off x=".." y=".."/><a:ext cx=".." cy=".."/>
+  const grpRe = /<p:grpSpPr>\s*<a:xfrm[^>]*>\s*<a:off x="(\d+)" y="(\d+)"[^>]*\/>\s*<a:ext cx="(\d+)" cy="(\d+)"/g
+
+  for (const name of slideFiles.slice(0, 3)) {
+    const xml = await zip.files[name].async('text')
+    // Reset per slide — we want the LARGEST on-slide group (content area)
+    let maxArea = 0
+    let m: RegExpExecArray | null
+    grpRe.lastIndex = 0
+    while ((m = grpRe.exec(xml)) !== null) {
+      const offX = Number(m[1])
+      const offY = Number(m[2])
+      const extW = Number(m[3])
+      const extH = Number(m[4])
+      // Skip the spTree's own nvGrpSpPr (ext=0) and tiny decorative groups.
+      if (extW < 1000000 || extH < 1000000) continue
+      const area = extW * extH
+      if (area > maxArea) {
+        maxArea = area
+        bestGroupOffX = offX
+        bestGroupOffY = offY
+        bestGroupExtW = extW
+        bestGroupExtH = extH
+      }
+    }
+    // Stop after first slide that has a usable group.
+    if (bestGroupExtW > 0) break
+  }
+
+  // ── 3. Choose the effective canvas viewport ──────────────────────────────
+  let viewOffX = 0
+  let viewOffY = 0
+  let viewW = declaredW
+  let viewH = declaredH
+
+  if (bestGroupExtW > 0) {
+    // Use the content group's on-slide bounding box as the viewport.
+    viewOffX = bestGroupOffX
+    viewOffY = bestGroupOffY
+    viewW    = bestGroupExtW
+    viewH    = bestGroupExtH
+  } else if (declaredW <= 0 || declaredH <= 0) {
+    // No group and no declared size — fall back.
+    return DEFAULT_SLIDE_SCALE
+  }
+
+  // Clamp to at least 10"×5.625" (standard widescreen minimum)
+  viewW = Math.max(viewW, 9144000)
+  viewH = Math.max(viewH, 5143500)
+
+  // Enforce 16:9 if aspect ratio is clearly wrong (portrait, etc.)
+  const aspect = viewW / viewH
+  if (aspect < 1.2 || aspect > 2.2) {
+    viewH = Math.round(viewW / (16 / 9))
+  }
+
+  // Uniform scale: same factor for X and Y (preserves proportions)
+  const emuPerPx = Math.max(viewW / SIMBLIP_SLIDE_W_PX, viewH / SIMBLIP_SLIDE_H_PX)
+
+  return {
+    emuPerPxX: emuPerPx,
+    emuPerPxY: emuPerPx,
+    slideOffsetX: viewOffX,
+    slideOffsetY: viewOffY,
+  }
 }
 
 /** Point sizes (fonts, line thickness) are ABSOLUTE physical measurements
@@ -365,11 +460,17 @@ function shapeBox(sp: Element, scale: SlideScale, groupChain: GroupXfrm[] = []):
   const raw = rawOffExt(sp)
   if (!raw) return { x: 40, y: 40, w: 320, h: 48 }
   const abs = mapThroughGroups(raw, groupChain)
+  // Subtract the slide-space content-area origin so that objects placed
+  // inside a translated top-level group map to canvas (0,0) correctly.
+  const canvasX = Math.round((abs.x - scale.slideOffsetX) / scale.emuPerPxX)
+  const canvasY = Math.round((abs.y - scale.slideOffsetY) / scale.emuPerPxY)
+  const w = Math.round(abs.w / scale.emuPerPxX)
+  const h = Math.round(abs.h / scale.emuPerPxY)
   return {
-    x: Math.round(abs.x / scale.emuPerPxX) || 40,
-    y: Math.round(abs.y / scale.emuPerPxY) || 40,
-    w: Math.round(abs.w / scale.emuPerPxX) || 320,
-    h: Math.round(abs.h / scale.emuPerPxY) || 48,
+    x: Number.isFinite(canvasX) ? canvasX : 40,
+    y: Number.isFinite(canvasY) ? canvasY : 40,
+    w: w > 0 ? w : 320,
+    h: h > 0 ? h : 48,
   }
 }
 
@@ -620,9 +721,19 @@ async function blipToOpfsSrc(
   const { putFile } = await import('@/lib/storage/manager')
   const ext = target.slice(target.lastIndexOf('.')).toLowerCase()
   const mime =
-    { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.bmp': 'image/bmp', '.svg': 'image/svg+xml' }[
-      ext
-    ] ?? 'image/png'
+    {
+      '.png': 'image/png',
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.svg': 'image/svg+xml',
+      '.mp4': 'video/mp4',
+      '.webm': 'video/webm',
+      '.mov': 'video/quicktime',
+      '.m4v': 'video/mp4',
+      '.avi': 'video/x-msvideo',
+    }[ext] ?? (ext.includes('mp4') || ext.includes('video') ? 'video/mp4' : 'image/png')
   const bytes = await zipEntry.async('blob')
   const fileId = await putFile(bytes, target.split('/').pop() ?? 'image', mime, ownerId)
   return `opfs:${fileId}`
@@ -754,6 +865,19 @@ async function shapesToObjects(
         if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
         objects.push(shape)
       }
+    }
+  }
+
+  const bg = doc.getElementsByTagName('p:bg')[0] ?? null
+  const bgBlipFill = firstChild(firstChild(bg, 'p:bgPr'), 'a:blipFill')
+  if (bgBlipFill) {
+    const bgSrc = await blipToOpfsSrc(bgBlipFill, zip, assets, ownerId)
+    if (bgSrc) {
+      const bgPic = baseObject('picture', { x: 0, y: 0 })
+      bgPic.size = { w: SIMBLIP_SLIDE_W_PX, h: SIMBLIP_SLIDE_H_PX }
+      bgPic.geometry.src = bgSrc
+      bgPic.z = -9999
+      objects.push(bgPic)
     }
   }
 

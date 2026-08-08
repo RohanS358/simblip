@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BadgeCheck, Building2, Loader2, Lock, Plus, RefreshCw, School, Shield, UserRound, Users, Wrench } from 'lucide-react'
+import { BadgeCheck, Building2, Loader2, Lock, Package, Plus, RefreshCw, School, Shield, Trash2, UserRound, Users, Wrench } from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { PageShell } from '@/components/platform/page-shell'
 import { Button } from '@/components/ui/button'
@@ -16,6 +16,7 @@ import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
 import { getDbMode } from '@/lib/data/db'
 import type { BoardRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from '@/lib/data/types'
+import { COMPONENT_PACKAGES } from '@/lib/packages/registry'
 import {
   createAccount,
   createBoard,
@@ -27,6 +28,8 @@ import {
   listProfiles,
   listRooms,
   setMembership,
+  updateInstitutionPackages,
+  updateProfilePackages,
 } from '@/lib/data/dev'
 
 function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string; value: string | number }) {
@@ -71,7 +74,44 @@ export default function DevPage() {
   const [membershipRoomId, setMembershipRoomId] = useState('')
   const [membershipProfileId, setMembershipProfileId] = useState('')
   const [membershipRole, setMembershipRole] = useState<'teacher' | 'student'>('student')
+  const [pkgTargetType, setPkgTargetType] = useState<'institution' | 'profile'>('institution')
+  const [selectedPkgInstId, setSelectedPkgInstId] = useState('')
+  const [selectedPkgProfileId, setSelectedPkgProfileId] = useState('')
+  const [selectedPackages, setSelectedPackages] = useState<string[]>(COMPONENT_PACKAGES.map((p) => p.domain))
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (pkgTargetType === 'institution') {
+      const targetInst = institutions.find((i) => i.id === selectedPkgInstId)
+      const settings = (targetInst?.settings as Record<string, unknown> | undefined) ?? {}
+      const allowed = (settings.package_access as string[] | undefined) ?? COMPONENT_PACKAGES.map((p) => p.domain)
+      setSelectedPackages(allowed)
+    } else {
+      const targetProf = profiles.find((p) => p.id === selectedPkgProfileId)
+      const allowed = (targetProf?.package_access as string[] | undefined) ?? COMPONENT_PACKAGES.map((p) => p.domain)
+      setSelectedPackages(allowed)
+    }
+  }, [pkgTargetType, selectedPkgInstId, selectedPkgProfileId, institutions, profiles])
+
+  const savePackageAccess = async () => {
+    setBusy(true)
+    try {
+      if (pkgTargetType === 'institution') {
+        if (!selectedPkgInstId) return
+        await updateInstitutionPackages(selectedPkgInstId, selectedPackages)
+        toast.success('Updated institution package access')
+      } else {
+        if (!selectedPkgProfileId) return
+        await updateProfilePackages(selectedPkgProfileId, selectedPackages)
+        toast.success('Updated profile package access')
+      }
+      refresh()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save package access')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   const refresh = useCallback(() => {
     void listInstitutions().then((rows) => {
@@ -258,6 +298,7 @@ export default function DevPage() {
               <TabsTrigger value="accounts">Accounts</TabsTrigger>
               <TabsTrigger value="rooms">Rooms</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
+              <TabsTrigger value="packages">Package Access</TabsTrigger>
             </TabsList>
 
             <TabsContent value="enrollment">
@@ -399,6 +440,110 @@ export default function DevPage() {
                 </CardContent>
               </Card>
             </TabsContent>
+
+            <TabsContent value="packages">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Package className="h-4 w-4" /> Package Access Controls
+                  </CardTitle>
+                  <CardDescription>
+                    Configure which subject & component packages are accessible for an institution or user profile.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label>Target Type</Label>
+                      <Select
+                        value={pkgTargetType}
+                        onValueChange={(val) => setPkgTargetType(val as 'institution' | 'profile')}
+                      >
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="institution">Institution-wide</SelectItem>
+                          <SelectItem value="profile">Individual User Profile</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {pkgTargetType === 'institution' ? (
+                      <div className="space-y-1.5">
+                        <Label>Institution</Label>
+                        <Select value={selectedPkgInstId} onValueChange={setSelectedPkgInstId}>
+                          <SelectTrigger><SelectValue placeholder="Pick an institution" /></SelectTrigger>
+                          <SelectContent>
+                            {institutions.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>{item.name}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <Label>Profile</Label>
+                        <Select value={selectedPkgProfileId} onValueChange={setSelectedPkgProfileId}>
+                          <SelectTrigger><SelectValue placeholder="Pick a profile" /></SelectTrigger>
+                          <SelectContent>
+                            {profiles.map((item) => (
+                              <SelectItem key={item.id} value={item.id}>{item.full_name} ({item.email})</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 border-t border-border/60 pt-3">
+                    <Label className="text-[13px]">Available Packages</Label>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      {COMPONENT_PACKAGES.map((pkg) => {
+                        const isChecked = selectedPackages.includes(pkg.domain) || selectedPackages.includes(pkg.id)
+                        return (
+                          <label
+                            key={pkg.id}
+                            className="glass flex items-start gap-2.5 rounded-xl p-3 hover:bg-accent/40 cursor-pointer transition-colors"
+                          >
+                            <Checkbox
+                              checked={isChecked}
+                              onCheckedChange={(checked) => {
+                                if (checked) {
+                                  setSelectedPackages((prev) => [...prev, pkg.domain])
+                                } else {
+                                  setSelectedPackages((prev) =>
+                                    prev.filter((id) => id !== pkg.domain && id !== pkg.id)
+                                  )
+                                }
+                              }}
+                              className="mt-0.5"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[12px] font-semibold">{pkg.name}</p>
+                              <p className="line-clamp-2 text-[10px] text-muted-foreground">{pkg.description}</p>
+                            </div>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={() => void savePackageAccess()}
+                      disabled={busy || (pkgTargetType === 'institution' ? !selectedPkgInstId : !selectedPkgProfileId)}
+                    >
+                      <BadgeCheck className="h-4 w-4" /> Save Package Access
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setSelectedPackages(COMPONENT_PACKAGES.map((p) => p.domain))}
+                    >
+                      Select All
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
           </Tabs>
 
           <Card>
@@ -421,8 +566,70 @@ export default function DevPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Storage GC card */}
+          <StorageGcCard />
         </div>
       </PageShell>
     </RequireAuth>
+  )
+}
+
+function StorageGcCard() {
+  const [result, setResult] = useState<{ total: number; deleted: number; deletedIds: string[] } | null>(null)
+  const [running, setRunning] = useState(false)
+
+  const runGc = async () => {
+    setRunning(true)
+    setResult(null)
+    try {
+      const { useWorkspaceStore } = await import('@/lib/store/workspace')
+      const { runStorageGc } = await import('@/lib/storage/gc')
+      const nodes = useWorkspaceStore.getState().nodes
+      const res = await runStorageGc(nodes)
+      setResult(res)
+      if (res.deleted > 0) {
+        toast.success(`GC: freed ${res.deleted} orphaned file${res.deleted === 1 ? '' : 's'} from OPFS`)
+      } else {
+        toast.success('GC: storage is clean — no orphans found')
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'GC failed')
+    } finally {
+      setRunning(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Trash2 className="h-4 w-4" /> Storage Garbage Collector
+        </CardTitle>
+        <CardDescription>
+          Scan OPFS local storage for blobs no longer referenced by any document, pptx,
+          image, or upload. Deletes orphans to reclaim space.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button onClick={() => void runGc()} disabled={running}>
+          {running ? <><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</> : 'Run Storage GC'}
+        </Button>
+        {result && (
+          <div className="glass rounded-2xl p-4 text-[12px] space-y-1">
+            <p><span className="text-foreground font-semibold">Total OPFS files:</span> {result.total}</p>
+            <p><span className="text-foreground font-semibold">Orphans deleted:</span> {result.deleted}</p>
+            {result.deletedIds.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-muted-foreground">View deleted IDs</summary>
+                <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+                  {result.deletedIds.map((id) => <li key={id}>{id}</li>)}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }

@@ -302,11 +302,39 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           ...(p.notesPages ?? []).filter(Boolean),
           ...(p.imageAnnotPageId ? [p.imageAnnotPageId] : []),
         ])
-        void import('@/lib/store/document').then(({ useDocStore }) =>
-          contentIds.forEach((cid) => useDocStore.getState().forgetPage(cid))
-        )
-        const fileIds = toDelete.filter((n): n is FileNode => n.kind === 'file').map((f) => f.fileId)
-        if (fileIds.length) void import('@/lib/storage/manager').then(({ deleteFiles }) => deleteFiles(fileIds))
+
+        // ── OPFS cleanup ───────────────────────────────────────────────────
+        // 1. FileNode direct blobs (e.g. raw uploaded files in the tree)
+        const fileNodeIds = toDelete.filter((n): n is FileNode => n.kind === 'file').map((f) => f.fileId)
+
+        // 2. PageNode.fileUrl source files ('opfs:<id>') — the original
+        //    pptx/pdf/image binary that backs the page viewer/importer.
+        const pageSourceFileIds = pageNodes
+          .map((p) => p.fileUrl)
+          .filter((u): u is string => typeof u === 'string' && u.startsWith('opfs:'))
+          .map((u) => u.slice('opfs:'.length))
+
+        // 3. Embedded picture objects inside page content ('opfs:<id>' in
+        //    geometry.src). Must be collected NOW before forgetPage evicts
+        //    the pages from the doc store's in-memory map.
+        void import('@/lib/store/document').then(({ useDocStore }) => {
+          const docStore = useDocStore.getState()
+
+          const embeddedImageIds = contentIds.flatMap((cid) =>
+            docStore.collectPageOpfsRefs(cid)
+          )
+
+          // Batch-delete all OPFS blobs + manifest entries + cloud copies.
+          const allFileIds = [...new Set([...fileNodeIds, ...pageSourceFileIds, ...embeddedImageIds])]
+          if (allFileIds.length) {
+            void import('@/lib/storage/manager').then(({ deleteFiles }) => deleteFiles(allFileIds))
+          }
+
+          // Evict page content from memory + archive + cloud index.
+          contentIds.forEach((cid) => docStore.forgetPage(cid))
+        })
+        // ───────────────────────────────────────────────────────────────────
+
         // xlsx content lives outside useDocStore (see file-page-content.ts) —
         // clean it up here too, same as contentIds above does for scene-object pages.
         void import('@/lib/store/file-page-content').then(({ useFilePageContentStore }) =>

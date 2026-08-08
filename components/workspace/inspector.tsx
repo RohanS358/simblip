@@ -59,7 +59,8 @@ import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, parse, applyMark, serialize, type MarkKind } from '@/lib/text/marks'
+import { htmlToMarkdownSource } from '@/lib/text/render'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
@@ -2176,10 +2177,31 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
 
-  const toggleMark = (kind: MarkKind) => handleRef?.current?.toggleMark(kind)
+  const toggleMark = (kind: MarkKind) => {
+    if (handleRef?.current) {
+      handleRef.current.toggleMark(kind)
+    } else {
+      const raw = htmlToMarkdownSource(getString(object, 'text'))
+      const parsed = parse(raw)
+      const fullEnd = Math.max(0, parsed.text.length)
+      const newMarks = applyMark(parsed.marks, 0, fullEnd, kind)
+      const next = serialize({ text: parsed.text, marks: newMarks })
+      useDocStore.getState().setStringParam(pageId, object.id, 'text', next)
+    }
+  }
   const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
-  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string, wholeBox?: boolean) =>
-    handleRef?.current?.setSpan(kind, value, wholeBox)
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string, wholeBox?: boolean) => {
+    if (handleRef?.current) {
+      handleRef.current.setSpan(kind, value, wholeBox)
+    } else {
+      const raw = htmlToMarkdownSource(getString(object, 'text'))
+      const parsed = parse(raw)
+      const fullEnd = Math.max(0, parsed.text.length)
+      const newMarks = applyMark(parsed.marks, 0, fullEnd, kind, value)
+      const next = serialize({ text: parsed.text, marks: newMarks })
+      useDocStore.getState().setStringParam(pageId, object.id, 'text', next)
+    }
+  }
   // Link has no dedicated input field (a URL isn't a bounded palette the
   // way color/size are) — window.prompt is the same lightweight pattern
   // already used elsewhere in this panel tree (canvas.tsx's "rename" flows)
@@ -2542,9 +2564,11 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             type="button"
             aria-label="Font family"
             aria-expanded={fontOpen}
-            disabled={!isActive}
             className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-            onPointerDown={guard}
+            onMouseDown={(e) => {
+              guardTrigger(e)
+              snapshotSelection()
+            }}
             onClick={() => setFontOpen((v) => !v)}
           >
             <span className="flex items-center gap-1.5">
@@ -2554,25 +2578,33 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', fontOpen && 'rotate-180')} />
           </button>
           {fontOpen && (
-            <div className="mt-1 max-h-52 overflow-y-auto rounded-md border border-input bg-background/95 p-1">
-              {(Object.keys(TEXT_FONTS) as (keyof typeof TEXT_FONTS)[]).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  className={cn(
-                    'block w-full rounded-md px-2 py-1.5 text-left text-[0.8125rem] transition-colors hover:bg-accent',
-                    id === font && 'bg-accent'
-                  )}
-                  style={{ fontFamily: TEXT_FONTS[id] }}
-                  onPointerDown={guard}
-                  onClick={() => {
-                    setFont(id)
-                    setSpan('font', id, true)
-                    setFontOpen(false)
-                  }}
-                >
-                  {TEXT_FONT_LABELS[id]}
-                </button>
+            <div className="mt-1 max-h-64 overflow-y-auto rounded-md border border-input bg-background/95 p-1">
+              {FONT_GROUPS.map((group) => (
+                <div key={group.label}>
+                  {/* Group header — non-interactive divider */}
+                  <div className="px-2 pb-0.5 pt-2 text-[0.6rem] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 first:pt-1">
+                    {group.label}
+                  </div>
+                  {group.keys.map((id) => (
+                    <button
+                      key={id}
+                      type="button"
+                      className={cn(
+                        'block w-full rounded-md px-2 py-1.5 text-left text-[0.8125rem] transition-colors hover:bg-accent',
+                        id === font && 'bg-accent'
+                      )}
+                      style={{ fontFamily: TEXT_FONTS[id] }}
+                      onPointerDown={guard}
+                      onClick={() => {
+                        setFont(id)
+                        setSpan('font', id)
+                        setFontOpen(false)
+                      }}
+                    >
+                      {TEXT_FONT_LABELS[id]}
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           )}
@@ -2870,17 +2902,37 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
   return (
     <div className="space-y-4">
       <div>
-        <ExprInput
-          ariaLabel="Object name"
-          mono={false}
-          value={object.name}
-          onCommit={(name) => name.trim() && updateObject(pageId, object.id, { name: name.trim() }, { history: true })}
-        />
+        <div className="flex items-stretch gap-1">
+          <div className="flex-1">
+            <ExprInput
+              ariaLabel="Object name"
+              mono={false}
+              value={object.name}
+              onCommit={(name) => name.trim() && updateObject(pageId, object.id, { name: name.trim() }, { history: true })}
+            />
+          </div>
+          {/* Eye button: toggle label visibility above the object on the canvas */}
+          <button
+            type="button"
+            title={object.metadata.labelVisible ? 'Hide label' : 'Show label'}
+            aria-pressed={Boolean(object.metadata.labelVisible)}
+            onClick={() =>
+              updateObject(pageId, object.id, { metadata: { ...object.metadata, labelVisible: !object.metadata.labelVisible } }, { history: false })
+            }
+            className="flex items-center justify-center rounded-md border border-input bg-background/60 px-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            {object.metadata.labelVisible
+              ? <Eye className="h-3.5 w-3.5" />
+              : <EyeOff className="h-3.5 w-3.5" />
+            }
+          </button>
+        </div>
         <p className="mt-1 text-[0.65625rem] uppercase tracking-[0.12em] text-muted-foreground">
           {object.geometry.kind}
           {object.geometry.symbol ? ` · ${object.geometry.symbol}` : ''}
         </p>
       </div>
+
 
       {/* Text gets its own Figma-style Position/Layout section instead (see
           TextObjectPanel below) — raw px, alignment-to-viewport, and a
