@@ -433,7 +433,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
               transition={transition}
               dir={stageDir}
               slideKey={activeSlideId}
-              className="absolute inset-0 shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+              className="absolute inset-0 bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
               style={{ backgroundColor: meta?.sheetColors?.[activeSlideId] }}
             >
               <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />

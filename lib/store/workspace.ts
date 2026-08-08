@@ -52,6 +52,18 @@ export function topFolderOf(nodes: Record<string, Node>, id: string | null): Fol
   return cur?.kind === 'folder' ? cur : null
 }
 
+/** A content-page id (a board's own id, or one doc/pptx sheet inside
+ *  docPages[]) back to the tree PageNode id that owns it — "the whole
+ *  document" for things like the custom-color palette, which should survive
+ *  switching slides/sheets instead of resetting per-sheet. A board's content
+ *  id already IS its PageNode id, so this is the identity for that case. */
+export function ownerPageOf(nodes: Record<string, Node>, contentPageId: string): string {
+  for (const n of Object.values(nodes)) {
+    if (n.kind === 'page' && n.docPages?.includes(contentPageId)) return n.id
+  }
+  return contentPageId
+}
+
 const patchNode = (nodes: Record<string, Node>, id: string, patch: Record<string, unknown>): Record<string, Node> =>
   nodes[id] ? { ...nodes, [id]: { ...nodes[id], ...patch } as Node } : nodes
 

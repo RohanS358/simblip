@@ -6,8 +6,7 @@
 // behaviour lives here and only here: stability, smoothness, sensitivity,
 // thickness, colour (basic + custom), style and scribble-to-erase.
 
-import { useRef } from 'react'
-import { Plus, X } from 'lucide-react'
+import { X } from 'lucide-react'
 import { Slider } from '@/components/ui/slider'
 import { inkPath } from '@/components/objects/ink'
 import {
@@ -21,6 +20,7 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { useIsTouchDevice } from '@/hooks/use-mobile'
 import { cn } from '@/lib/utils'
 import { Field, Choice, PrefRow } from './settings-fields'
+import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 
 /** Live preview: the same renderer the canvas uses, over a fixed sample
  *  stroke with rising pressure — so every slider shows its real effect. */
@@ -70,7 +70,6 @@ function Swatch({
 export function PenSettings() {
   const pen = usePrefs((s) => s.pen)
   const setPen = usePrefs((s) => s.setPen)
-  const colorInputRef = useRef<HTMLInputElement>(null)
   const style = PEN_STYLES[pen.style] ?? PEN_STYLES.ink
   const pressureStyle = style.pressure
   const isTouchDevice = useIsTouchDevice()
@@ -200,29 +199,18 @@ export function PenSettings() {
               }
             />
           ))}
-          <button
-            type="button"
-            aria-label="Add custom colour"
-            className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-border text-muted-foreground hover:text-foreground"
-            onClick={() => colorInputRef.current?.click()}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-          <input
-            ref={colorInputRef}
-            type="color"
-            aria-hidden
-            tabIndex={-1}
-            className="pointer-events-none absolute h-0 w-0 opacity-0"
-            onChange={(e) => {
-              const c = e.target.value
+          <HexColorSwatchPicker
+            label="Add custom colour"
+            size="md"
+            initial={pen.color}
+            onCommit={(c) =>
               setPen({
                 color: c,
                 customColors: pen.customColors.includes(c)
                   ? pen.customColors
                   : [...pen.customColors, c].slice(-12),
               })
-            }}
+            }
           />
         </div>
       </Field>

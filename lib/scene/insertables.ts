@@ -5,7 +5,7 @@
 // and the canvas "/" menu read from here, so a new component shows up in
 // both without touching either.
 
-import { COMPONENTS, createGeometry } from './factory'
+import { COMPONENTS, createGeometry, baseObject } from './factory'
 import { useDocStore } from '@/lib/store/document'
 import type { SceneObject, Vec2 } from './types'
 
@@ -119,4 +119,46 @@ export function viewportCenter(pageId: string): Vec2 {
   const w = typeof window === 'undefined' ? 1200 : window.innerWidth
   const h = typeof window === 'undefined' ? 800 : window.innerHeight
   return { x: (w / 2 - v.x) / v.zoom, y: (h / 2 - v.y) / v.zoom }
+}
+
+/** Natural pixel size of an image blob, capped to something sane for a
+ *  freshly-pasted object so a 6000px phone photo doesn't fill the whole
+ *  page — same idea as every other app's "paste image" default size. */
+async function measureImage(blob: Blob): Promise<{ w: number; h: number }> {
+  const url = URL.createObjectURL(blob)
+  try {
+    const { w, h } = await new Promise<{ w: number; h: number }>((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight })
+      img.onerror = reject
+      img.src = url
+    })
+    const MAX = 480
+    const scale = Math.min(1, MAX / Math.max(w, h))
+    return { w: Math.round(w * scale) || MAX, h: Math.round(h * scale) || MAX }
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+/** Upload an image blob and drop it onto a page as a picture object,
+ *  centered on `center` — the paste/drop-image equivalent of insertAt. */
+export async function insertImage(pageId: string, blob: Blob, name: string, center: Vec2): Promise<SceneObject> {
+  const [{ putFile }, { useAuthStore }, { w, h }] = await Promise.all([
+    import('@/lib/storage/manager'),
+    import('@/lib/auth/store'),
+    measureImage(blob),
+  ])
+  const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
+  const fileId = await putFile(blob, name, blob.type || 'image/png', ownerId)
+
+  const obj = baseObject('picture', { x: center.x - w / 2, y: center.y - h / 2 }, name)
+  obj.size = { w, h }
+  obj.geometry.src = `opfs:${fileId}`
+
+  const store = useDocStore.getState()
+  store.pushHistory(pageId)
+  store.addObject(pageId, obj)
+  store.setSelection([obj.id])
+  return obj
 }

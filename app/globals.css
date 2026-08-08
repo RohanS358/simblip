@@ -750,3 +750,25 @@
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite !important;
   }
 }
+
+/* react-colorful (hex-color-swatch-picker.tsx): a shorter rectangle instead
+   of the library's default 200x200 square, and a slimmer hue rail — the
+   compact proportions every other panel in this app's popovers already use. */
+.hex-swatch-picker .react-colorful {
+  width: 100%;
+  height: 120px;
+}
+.hex-swatch-picker .react-colorful__saturation {
+  border-radius: 6px;
+  border-bottom: none;
+}
+.hex-swatch-picker .react-colorful__hue {
+  height: 12px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+.hex-swatch-picker .react-colorful__hue-pointer,
+.hex-swatch-picker .react-colorful__saturation-pointer {
+  width: 14px;
+  height: 14px;
+}

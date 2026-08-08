@@ -53,6 +53,8 @@ import {
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Viewport } from '@/lib/store/document'
+import { useWorkspaceStore, ownerPageOf, findPageMeta } from '@/lib/store/workspace'
+import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
@@ -2164,11 +2166,12 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const lineHeight = object.metadata.lineHeight as number | undefined
   const letterSpacing = (object.metadata.letterSpacing as number | undefined) ?? 0
   const bg = (object.metadata.color as string) ?? ''
-  // Custom background colors, shared across every text box on this same
-  // content page/slide — added via the "+" swatch below, kept even after
-  // the box that added one no longer uses it.
-  const swatches = usePageSwatches((s) => s.swatches[pageId] ?? EMPTY_SWATCHES)
-  const addSwatch = (hex: string) => usePageSwatches.getState().add(pageId, hex)
+  // Custom colors, shared across the WHOLE document (every sheet/slide, not
+  // just this one) — added via any "+" swatch picker below, kept even after
+  // whatever added one no longer uses it.
+  const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, pageId))
+  const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
+  const addSwatch = (hex: string) => usePageSwatches.getState().add(documentId, hex)
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
@@ -2433,29 +2436,34 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 onClick={() => setSpan('color', id)}
               />
             ))}
-            {/* Custom color — the browser's own color-wheel/eyedropper
-                picker for input[type=color], no custom UI needed. Routes
-                through the same snapshotSelection() the Size field uses:
-                opening the native picker steals focus from the
-                contentEditable the same way, so the live selection has to be
-                captured on pointerdown, before that happens. */}
-            <label
-              aria-label="Custom color"
-              className={cn(
-                'relative flex h-5 w-5 items-center justify-center rounded-full border border-dashed border-muted-foreground/60 text-muted-foreground transition-transform hover:scale-110 hover:text-foreground',
-                isActive ? 'cursor-pointer' : 'pointer-events-none opacity-30'
-              )}
-            >
-              <Plus className="h-3 w-3" />
-              <input
-                type="color"
-                aria-label="Custom text color"
+            {swatches.map((hex) => (
+              <button
+                key={hex}
+                type="button"
+                aria-label={`Text color ${hex}`}
                 disabled={!isActive}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                onPointerDown={snapshotSelection}
-                onChange={(e) => setSpan('color', e.target.value)}
+                className="h-5 w-5 rounded-full border-2 border-transparent transition-transform hover:scale-110 disabled:pointer-events-none disabled:opacity-30"
+                style={{ background: hex }}
+                onPointerDown={guard}
+                onClick={() => setSpan('color', hex)}
               />
-            </label>
+            ))}
+            {/* Custom color — opens BEFORE the popover to capture the live
+                selection, same reasoning the Size field's snapshotSelection
+                uses: any UI stealing focus from the contentEditable would
+                otherwise collapse the selection first. Committed colors join
+                the same document-wide swatch palette as Background. */}
+            {isActive && (
+              <span onPointerDown={snapshotSelection}>
+                <HexColorSwatchPicker
+                  label="Custom text color"
+                  onCommit={(hex) => {
+                    setSpan('color', hex)
+                    addSwatch(hex)
+                  }}
+                />
+              </span>
+            )}
           </div>
         </div>
 
@@ -2507,25 +2515,14 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 onClick={() => setMeta({ color: hex })}
               />
             ))}
-            {/* Same native input[type=color] picker as Selection color —
-                the value it returns is always a hex string. Added colors
-                are remembered as a swatch shared by every text box on this
-                page/slide, not just applied once. */}
-            <label
-              aria-label="Custom background color"
-              className="relative flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-dashed border-muted-foreground/60 text-muted-foreground transition-transform hover:scale-110 hover:text-foreground"
-            >
-              <Plus className="h-3 w-3" />
-              <input
-                type="color"
-                aria-label="Custom background color"
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                onChange={(e) => {
-                  setMeta({ color: e.target.value })
-                  addSwatch(e.target.value)
-                }}
-              />
-            </label>
+            <HexColorSwatchPicker
+              label="Custom background color"
+              size="md"
+              onCommit={(hex) => {
+                setMeta({ color: hex })
+                addSwatch(hex)
+              }}
+            />
           </div>
           <p className="mt-1 text-[0.65625rem] leading-relaxed text-muted-foreground">
             A tint behind the whole box, not the text itself.
@@ -2715,6 +2712,8 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
   const strokeColor = (object.metadata.strokeColor as string | undefined) ?? ''
   const strokeWidth = (object.metadata.strokeWidth as number | undefined) ?? 2
   const cornerRadius = (object.metadata.cornerRadius as number | undefined) ?? 8
+  const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, pageId))
+  const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
@@ -2735,19 +2734,23 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
         >
           ×
         </button>
-        <label
-          aria-label={`Custom ${label.toLowerCase()}`}
-          className="relative h-6 w-6 shrink-0 cursor-pointer rounded-full border border-border"
-          style={{ background: value || 'repeating-conic-gradient(#8883 0% 25%, transparent 0% 50%) 0/8px 8px' }}
-        >
-          <input
-            type="color"
-            aria-label={`Custom ${label.toLowerCase()}`}
-            className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            value={value || '#000000'}
-            onChange={(e) => commit(e.target.value)}
-          />
-        </label>
+        <HexColorSwatchPicker
+          label={`Custom ${label.toLowerCase()}`}
+          initial={value || '#000000'}
+          documentSwatches={swatches}
+          onCommit={(hex) => {
+            commit(hex)
+            usePageSwatches.getState().add(documentId, hex)
+          }}
+          trigger={
+            <button
+              type="button"
+              aria-label={`Custom ${label.toLowerCase()}`}
+              className="h-6 w-6 shrink-0 rounded-full border border-border"
+              style={{ background: value || 'repeating-conic-gradient(#8883 0% 25%, transparent 0% 50%) 0/8px 8px' }}
+            />
+          }
+        />
       </div>
     </div>
   )
@@ -3254,6 +3257,98 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   )
 }
 
+// Neutral page-fill defaults — deliberately not TEXT_COLORS's accent hues: a
+// page background wants paper/dark-canvas tones, matching what PowerPoint/
+// Slides offer for "Set Background Color".
+const PAGE_BG_COLORS: Record<string, string> = {
+  white: '#ffffff',
+  cream: '#faf7f0',
+  gray: '#e5e5e5',
+  charcoal: '#27272a',
+  black: '#000000',
+}
+
+/** Doc/pptx only: the current sheet's own background color, editable right
+ *  in the Properties panel's empty state (nothing selected) — a document's
+ *  background is a property of the PAGE, not of any object on it, so it has
+ *  no object to attach a control to otherwise. Boards have no such per-page
+ *  fill (they're an infinite canvas, not a sheet), so this renders nothing
+ *  for that page kind. */
+function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
+  const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, contentPageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, documentId))
+  const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
+
+  if (meta?.pageKind !== 'doc' && meta?.pageKind !== 'pptx') return null
+
+  const value = meta.sheetColors?.[contentPageId]
+  const setValue = (color: string | undefined) => {
+    const next = { ...meta.sheetColors }
+    if (color) next[contentPageId] = color
+    else delete next[contentPageId]
+    useWorkspaceStore.getState().updatePageMeta(documentId, { sheetColors: next })
+  }
+  const addSwatch = (hex: string) => usePageSwatches.getState().add(documentId, hex)
+
+  return (
+    <PanelSection title="Background">
+      <div className="flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          aria-label="Default background"
+          aria-pressed={!value}
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-full border-2 text-[0.625rem] text-muted-foreground',
+            !value ? 'border-[var(--ring)]' : 'border-transparent'
+          )}
+          onClick={() => setValue(undefined)}
+        >
+          ×
+        </button>
+        {Object.entries(PAGE_BG_COLORS).map(([id, hex]) => (
+          <button
+            key={id}
+            type="button"
+            aria-label={`Background ${id}`}
+            aria-pressed={value === hex}
+            className={cn(
+              'h-6 w-6 rounded-full border-2',
+              value === hex ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+            )}
+            style={{ background: hex, boxShadow: id === 'white' ? 'inset 0 0 0 1px var(--border)' : undefined }}
+            onClick={() => setValue(hex)}
+          />
+        ))}
+        {swatches.map((hex) => (
+          <button
+            key={hex}
+            type="button"
+            aria-label={`Background ${hex}`}
+            aria-pressed={value === hex}
+            className={cn(
+              'h-6 w-6 rounded-full border-2',
+              value === hex ? 'scale-110 border-[var(--ring)]' : 'border-transparent'
+            )}
+            style={{ background: hex }}
+            onClick={() => setValue(hex)}
+          />
+        ))}
+        <HexColorSwatchPicker
+          label="Custom background color"
+          size="md"
+          onCommit={(hex) => {
+            setValue(hex)
+            addSwatch(hex)
+          }}
+        />
+      </div>
+      <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
+        {meta.pageKind === 'pptx' ? "This slide's background." : "This page's background."}
+      </p>
+    </PanelSection>
+  )
+}
+
 /** The Properties/Variables tabs without any panel shell — hosted by the
  *  left rail's Properties section on desktop and by Inspector (the phone
  *  drawer's floating card) below. */
@@ -3277,11 +3372,14 @@ export function InspectorPane({ pageId }: { pageId: string }) {
         {object ? (
           <ObjectProperties pageId={pageId} object={object} />
         ) : (
-          <p className="py-6 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
-            {selection.length > 1
-              ? `${selection.length} objects selected`
-              : 'Select an object — or draw one and give it a behavior.'}
-          </p>
+          <div className="space-y-3">
+            <PageBackgroundPanel contentPageId={pageId} />
+            <p className="py-6 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
+              {selection.length > 1
+                ? `${selection.length} objects selected`
+                : 'Select an object — or draw one and give it a behavior.'}
+            </p>
+          </div>
         )}
       </TabsContent>
       <TabsContent value="variables" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">

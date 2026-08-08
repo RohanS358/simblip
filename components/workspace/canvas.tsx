@@ -20,7 +20,7 @@ import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2, GeometryKind } from '@/lib/scene/types'
 import { num } from '@/lib/scene/types'
 import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
-import { searchInsertables, insertAt, type Insertable } from '@/lib/scene/insertables'
+import { searchInsertables, insertAt, insertImage, viewportCenter, type Insertable } from '@/lib/scene/insertables'
 import { hasClipboard } from '@/lib/store/clipboard'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import {
@@ -1294,13 +1294,36 @@ export function InfiniteCanvas({
       if (e.key === 'Alt') setAltHeld(false)
     }
     const onBlur = () => setAltHeld(false)
+    // OS clipboard paste of an actual image (screenshot, copied file, image
+    // copied from a browser tab) — distinct from Ctrl+V above, which is
+    // SIMBLIP's own object clipboard (lib/store/clipboard.ts, a JS
+    // variable, never touches navigator.clipboard). Both listen for the same
+    // keypress but through different browser mechanisms, so they don't
+    // conflict: this one only fires when the OS clipboard actually holds
+    // image bytes, which the object-clipboard path never has.
+    const onPaste = (e: ClipboardEvent) => {
+      if (!active || isTyping(e.target)) return
+      const items = e.clipboardData?.items
+      if (!items) return
+      const fileItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+      if (!fileItem) return
+      const blob = fileItem.getAsFile()
+      if (!blob) return
+      e.preventDefault()
+      const at = lastPointerRef.current
+        ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
+        : viewportCenter(pageId)
+      void insertImage(pageId, blob, 'Pasted image', at)
+    }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
+    window.addEventListener('paste', onPaste)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
+      window.removeEventListener('paste', onPaste)
     }
   }, [pageId, toCanvas, toLocal, active])
 
@@ -2706,6 +2729,20 @@ export function InfiniteCanvas({
         handleBackgroundPointerDown(e)
       }}
       onContextMenu={handleContextMenu}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes('Files')) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'copy'
+      }}
+      onDrop={(e) => {
+        const files = Array.from(e.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+        if (!files.length) return
+        e.preventDefault()
+        const at = toCanvas(e.clientX, e.clientY)
+        files.forEach((f, i) =>
+          void insertImage(pageId, f, f.name, { x: at.x + i * 24, y: at.y + i * 24 })
+        )
+      }}
       role="application"
       aria-label="Infinite canvas"
     >
