@@ -4,9 +4,9 @@
 // Mounting the shell boots both cloud notebook sync and device presence.
 
 import { useEffect, useState } from 'react'
-import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Check, Loader2 } from 'lucide-react'
+import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Loader2, RotateCw } from 'lucide-react'
 import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/cloud'
-import { startDevicePresence, useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
+import { startDevicePresence, useDevicesStore, refreshDevices, performHeartbeat, type DeviceRow } from '@/lib/sync/devices'
 import { pushFilesToDevice } from '@/lib/sync/device-file-sync'
 import { useAuthStore } from '@/lib/auth/store'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -24,6 +24,7 @@ export function SyncStatus() {
   const others = useDevicesStore((s) => s.others)
   const [syncingTargetId, setSyncingTargetId] = useState<string | null>(null)
   const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
+  const [refreshing, setRefreshing] = useState(false)
 
   useEffect(() => {
     startSync()
@@ -36,6 +37,15 @@ export function SyncStatus() {
       migrateSessionFilesToOpfs(profileId)
     )
   }, [profileId])
+
+  const handleManualRefresh = async () => {
+    setRefreshing(true)
+    try {
+      await performHeartbeat()
+    } finally {
+      setRefreshing(false)
+    }
+  }
 
   const handlePushToDevice = async (device: DeviceRow) => {
     setSyncingTargetId(device.id)
@@ -70,7 +80,7 @@ export function SyncStatus() {
   const Icon = view.icon
 
   return (
-    <Popover>
+    <Popover onOpenChange={(open) => { if (open) void handleManualRefresh() }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -98,7 +108,18 @@ export function SyncStatus() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <span className="text-[0.75rem] font-semibold text-foreground">Active Online Devices</span>
-            <span className="text-[0.6875rem] font-mono text-muted-foreground">{others.length} online</span>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label="Refresh active devices"
+                onClick={() => void handleManualRefresh()}
+                disabled={refreshing}
+                className="p-1 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-50"
+              >
+                <RotateCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
+              </button>
+              <span className="text-[0.6875rem] font-mono text-muted-foreground">{others.length} online</span>
+            </div>
           </div>
 
           {others.length === 0 ? (
@@ -106,7 +127,7 @@ export function SyncStatus() {
               <Laptop className="mx-auto h-5 w-5 text-muted-foreground/50" />
               <p className="mt-1.5 text-[0.75rem] font-medium text-foreground">No other active devices</p>
               <p className="mt-0.5 text-[0.6875rem] text-muted-foreground leading-normal">
-                Open SIMBLIP in another browser or device to share files over temporary cloud transfer.
+                Make sure SIMBLIP is open on your second device and signed in to the same account.
               </p>
             </div>
           ) : (
@@ -155,4 +176,5 @@ export function SyncStatus() {
     </Popover>
   )
 }
+
 
