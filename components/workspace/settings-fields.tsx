@@ -75,14 +75,14 @@ export function Choice<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="flex flex-wrap sm:flex-nowrap gap-1 rounded-lg bg-accent/40 p-1 border border-border/30">
+    <div className="flex flex-wrap sm:flex-nowrap items-center gap-1 rounded-lg bg-accent/40 p-1 border border-border/30 max-w-full overflow-x-auto">
       {options.map((o) => (
         <button
           key={o.id}
           type="button"
           aria-pressed={value === o.id}
           className={cn(
-            'flex-1 min-w-[64px] whitespace-nowrap rounded-md px-2.5 py-1 text-[0.75rem] font-medium transition-all duration-150',
+            'flex-1 shrink-0 min-w-fit whitespace-nowrap rounded-md px-3 py-1 text-[0.75rem] font-medium transition-all duration-150',
             value === o.id
               ? 'bg-background text-foreground shadow-xs font-semibold'
               : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
@@ -140,7 +140,7 @@ export function ObsidianPrefRow({
         <p className="text-[0.84375rem] font-medium text-foreground">{label}</p>
         {detail && <p className="text-[0.75rem] text-muted-foreground leading-relaxed mt-0.5">{detail}</p>}
       </div>
-      <div className="shrink-0 flex items-center justify-end gap-2.5 pt-0.5 sm:pt-0 self-start sm:self-center">
+      <div className="shrink-0 flex items-center justify-end gap-2.5 pt-0.5 sm:pt-0 self-start sm:self-center max-w-full">
         {action ?? children}
       </div>
     </div>

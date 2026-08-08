@@ -110,7 +110,7 @@ async function pull(ws: string) {
 
 async function pushWorkspace(ws: string) {
   const { nodes } = useWorkspaceStore.getState()
-  const institution = useAuthStore.getState().profile?.institution_id
+  const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
   await upsert('simblip_workspaces', [
     // `notebooks` here is the DB column name, not the old field name — see
     // the comment on pull() above.
@@ -120,7 +120,7 @@ async function pushWorkspace(ws: string) {
 
 async function pushPages(ws: string, pageIds: string[]) {
   const { pages, viewports } = useDocStore.getState()
-  const institution = useAuthStore.getState().profile?.institution_id
+  const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
   const rows = pageIds
     .map((id) => {
       // A page edited and then closed is no longer in memory — read its

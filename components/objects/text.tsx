@@ -26,6 +26,7 @@ import {
   shiftMarks,
   parse,
   serialize,
+  htmlToStoredText,
   splitIndent,
   INDENT_UNIT,
   TEXT_COLORS,
@@ -641,12 +642,26 @@ function useLiveTextEditor(
     e.preventDefault()
     const idx = activeRef.current
     if (idx < 0) return
-    const text = e.clipboardData.getData('text/plain')
+    const plainText = e.clipboardData.getData('text/plain')
+    const htmlText = e.clipboardData.getData('text/html')
     const span = selectionSpan()
     const pos = caretPosition()
     const at = span?.s ?? pos ?? { line: idx, offset: (linesRef.current[idx] ?? '').length }
     const end = span?.e ?? at
-    replaceRange(at, end, text)
+    if (htmlText && htmlText.includes('<')) {
+      const stored = htmlToStoredText(htmlText, plainText)
+      replaceRange(at, end, stored.text)
+      if (stored.marks.length > 0) {
+        const offset = lineStart(at.line) + at.offset
+        for (const m of stored.marks) {
+          marksRef.current = applyMark(marksRef.current, m.start + offset, m.end + offset, m.kind, m.value)
+        }
+        rebuildAll()
+        commit()
+      }
+    } else {
+      replaceRange(at, end, plainText)
+    }
   }
 
   // Copy needs NO interception anymore: since the DOM never contains

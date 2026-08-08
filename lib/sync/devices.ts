@@ -41,6 +41,7 @@ function deviceLabel(): string {
 }
 
 async function touch(ownerId: string, institutionId: string) {
+  const instId = institutionId || 'inst-platform'
   const token = getAccessToken()
   try {
     const res = await fetch('/api/pg/simblip_devices', {
@@ -54,7 +55,7 @@ async function touch(ownerId: string, institutionId: string) {
         {
           id: deviceId(),
           owner_id: ownerId,
-          institution_id: institutionId,
+          institution_id: instId,
           label: deviceLabel(),
           last_seen_at: new Date().toISOString(),
         },
@@ -66,7 +67,7 @@ async function touch(ownerId: string, institutionId: string) {
     await db.insert<db.Row>('devices', {
       id: deviceId(),
       owner_id: ownerId,
-      institution_id: institutionId,
+      institution_id: instId,
       label: deviceLabel(),
       last_seen_at: new Date().toISOString(),
     }).catch(() => {})

@@ -18,7 +18,8 @@ import { toast } from 'sonner'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2, GeometryKind } from '@/lib/scene/types'
-import { num } from '@/lib/scene/types'
+import { num, str } from '@/lib/scene/types'
+import { htmlToStoredText, serialize } from '@/lib/text/marks'
 import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { searchInsertables, insertAt, insertImage, viewportCenter, type Insertable } from '@/lib/scene/insertables'
 import { hasClipboard } from '@/lib/store/clipboard'
@@ -33,7 +34,7 @@ import {
   type SelectionAction,
 } from '@/lib/scene/selection-actions'
 import { useWorkspaceStore } from '@/lib/store/workspace'
-import { createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
+import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { applyAnnotation } from '@/lib/scene/annotate'
@@ -1316,6 +1317,33 @@ export function InfiniteCanvas({
         void insertImage(pageId, blob, 'Pasted image', at)
         return
       }
+
+      const plainText = e.clipboardData?.getData('text/plain') ?? ''
+      const htmlText = e.clipboardData?.getData('text/html') ?? ''
+      const textToPaste = plainText || (htmlText ? htmlText.replace(/<[^>]+>/g, '') : '')
+
+      if (!locked && textToPaste.trim()) {
+        e.preventDefault()
+        const at = lastPointerRef.current
+          ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
+          : viewportCenter(pageId)
+        const stored = htmlToStoredText(htmlText, plainText)
+        const obj = baseObject('text', at)
+        obj.parameters.text = str(serialize(stored))
+
+        const lines = stored.text.split('\n')
+        const maxLineLen = Math.max(...lines.map((l) => l.length), 1)
+        const w = Math.min(700, Math.max(280, maxLineLen * 9 + 40))
+        const h = Math.max(50, lines.length * 26 + 24)
+        obj.size = { w, h }
+
+        const docStore = useDocStore.getState()
+        docStore.pushHistory(pageId)
+        docStore.addObject(pageId, obj)
+        docStore.setSelection([obj.id])
+        return
+      }
+
       if (!locked && hasClipboard()) {
         e.preventDefault()
         pasteClipboard(pageId)

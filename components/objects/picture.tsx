@@ -15,19 +15,26 @@ export function PictureObject({ object }: ObjectRendererProps) {
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    const fileId = src?.startsWith('opfs:') ? src.slice('opfs:'.length) : null
-    if (!fileId) {
+    if (!src) {
       setUrl(null)
       return
     }
+    if (!src.startsWith('opfs:')) {
+      setUrl(src)
+      return
+    }
+    const fileId = src.slice('opfs:'.length)
     let dead = false
+    let createdUrl: string | null = null
     void (async () => {
       const blob = await getFile(fileId)
       if (!blob || dead) return
-      setUrl(URL.createObjectURL(blob))
+      createdUrl = URL.createObjectURL(blob)
+      setUrl(createdUrl)
     })()
     return () => {
       dead = true
+      if (createdUrl) URL.revokeObjectURL(createdUrl)
     }
   }, [src])
 

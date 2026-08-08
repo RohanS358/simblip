@@ -541,7 +541,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
         </div>
 
         <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
-          <Sparkles className="ml-1.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           {(['none', 'fade', 'slide'] as SlideTransition[]).map((t) => (
             <button
               key={t}

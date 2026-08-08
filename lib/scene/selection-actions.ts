@@ -62,12 +62,32 @@ export function topZ(pageId: string): number {
   return Math.max(max + 1, nextZ())
 }
 
+import { parse } from '@/lib/text/marks'
+
 export function copySelection(pageId: string) {
   const store = useDocStore.getState()
   const objs = store.selection
     .map((id) => store.pages[pageId]?.objects[id])
     .filter((o): o is SceneObject => Boolean(o))
-  if (objs.length > 0) setClipboard(objs)
+  if (objs.length > 0) {
+    setClipboard(objs)
+    const textPieces = objs
+      .map((o) => {
+        const raw = o.parameters?.text?.value ?? ''
+        if (typeof raw === 'string' && raw.trim()) {
+          try {
+            return parse(raw).text
+          } catch {
+            return raw
+          }
+        }
+        return ''
+      })
+      .filter(Boolean)
+    if (textPieces.length > 0 && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(textPieces.join('\n\n')).catch(() => {})
+    }
+  }
 }
 
 export function cutSelection(pageId: string) {

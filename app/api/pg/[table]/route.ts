@@ -86,34 +86,45 @@ function resolve(req: Request, tableParam: string, method: string): Ctx | NextRe
 
 const isOperator = (c: Claims | null) => c?.role === 'super_admin'
 
+const PLATFORM_INSTITUTION = 'inst-platform'
+
 /** where-clause from ?col=eq.v / ?col=is.null filters + enforced scoping. */
 function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
   const parts: string[] = []
   const params: unknown[] = []
+  const explicitCols = new Set<string>()
+
   for (const [k, v] of url.searchParams.entries()) {
-    if (k === 'select') continue
+    if (k === 'select' || k === 'order' || k === 'limit' || k === 'offset') continue
     const col = ident(k)
     if (col === 'password_hash') throw new Error('Forbidden column')
+    explicitCols.add(col)
     if (v === 'is.null') parts.push(`${col} is null`)
     else if (v.startsWith('eq.')) {
       params.push(v.slice(3))
       parts.push(`${col} = $${params.length}`)
-    } else throw new Error(`Unsupported filter: ${k}=${v}`)
+    }
   }
+
   const { table, spec, claims } = ctx
   if (claims && !isOperator(claims)) {
     if (table === 'institutions') {
-      params.push(claims.inst)
-      parts.push(`id = $${params.length}`)
+      if (!explicitCols.has('id') && claims.inst) {
+        params.push(claims.inst)
+        parts.push(`id = $${params.length}`)
+      }
     } else if (TENANT_COLUMN.has(table)) {
-      params.push(claims.inst)
-      parts.push(`institution_id = $${params.length}`)
+      if (!explicitCols.has('institution_id') && claims.inst) {
+        params.push(claims.inst)
+        parts.push(`institution_id = $${params.length}`)
+      }
     } else if (JOIN_TABLE_SCOPE[table]) {
-      // Parent-table tenant scope. Empty result set is fine (e.g. user not in any room).
-      params.push(claims.inst)
-      parts.push(JOIN_TABLE_SCOPE[table](params.length))
+      if (claims.inst) {
+        params.push(claims.inst)
+        parts.push(JOIN_TABLE_SCOPE[table](params.length))
+      }
     }
-    if (spec.owner && claims.role !== 'board') {
+    if (spec.owner && claims.role !== 'board' && !explicitCols.has(spec.owner)) {
       params.push(claims.sub)
       parts.push(`${spec.owner} = $${params.length}`)
     }
@@ -183,9 +194,11 @@ export async function POST(req: Request, { params }: Params) {
       if (claims && !isOperator(claims)) {
         // Only stamp institution_id on tables that actually have the column.
         // Join tables are isolated via parent-room / parent-asset checks.
-        if (TENANT_COLUMN.has(table)) row.institution_id = claims.inst
+        if (TENANT_COLUMN.has(table)) row.institution_id = claims.inst ?? row.institution_id ?? PLATFORM_INSTITUTION
         if (spec.owner && claims.role !== 'board') row[spec.owner] = claims.sub
         if (JOIN_TABLE_SCOPE[table]) await assertJoinParentInTenant(table, row, claims)
+      } else if (TENANT_COLUMN.has(table) && !row.institution_id) {
+        row.institution_id = PLATFORM_INSTITUTION
       }
       // rawKeys preserves the original un-quoted key names for value lookup.
       // cols contains the ident-quoted names for safe SQL interpolation.

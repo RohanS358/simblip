@@ -431,16 +431,35 @@ interface SlideAssets {
 }
 
 async function loadSlideRels(zip: JSZip, slideName: string): Promise<SlideAssets> {
-  const relsPath = `ppt/slides/_rels/${slideName}.rels`
   const rels = new Map<string, string>()
-  const relsFile = zip.files[relsPath]
+  const relsFiles = [
+    `ppt/slides/_rels/${slideName}.xml.rels`,
+    `ppt/slides/_rels/${slideName}.rels`,
+  ]
+  let relsFile: JSZip.JSZipObject | undefined
+  for (const p of relsFiles) {
+    if (zip.files[p]) {
+      relsFile = zip.files[p]
+      break
+    }
+  }
   if (!relsFile) return { rels }
   const xml = await relsFile.async('text')
   const doc = new DOMParser().parseFromString(xml, 'application/xml')
   for (const rel of Array.from(doc.getElementsByTagName('Relationship'))) {
     const id = rel.getAttribute('Id')
     const target = rel.getAttribute('Target')
-    if (id && target) rels.set(id, target.replace(/^\.\.\//, 'ppt/'))
+    if (id && target) {
+      let resolved = target
+      if (target.startsWith('../')) {
+        resolved = 'ppt/' + target.slice(3)
+      } else if (!target.startsWith('/') && !target.startsWith('ppt/')) {
+        resolved = 'ppt/slides/' + target
+      } else if (target.startsWith('/')) {
+        resolved = target.slice(1)
+      }
+      rels.set(id, resolved)
+    }
   }
   return { rels }
 }
@@ -459,8 +478,17 @@ async function resolveLayoutMasterPaths(
   zip: JSZip,
   slideName: string
 ): Promise<{ layoutTarget?: string; masterTarget?: string }> {
-  const slideRelsPath = `ppt/slides/_rels/${slideName}.rels`
-  const slideRelsFile = zip.files[slideRelsPath]
+  const slideRelsFiles = [
+    `ppt/slides/_rels/${slideName}.xml.rels`,
+    `ppt/slides/_rels/${slideName}.rels`,
+  ]
+  let slideRelsFile: JSZip.JSZipObject | undefined
+  for (const p of slideRelsFiles) {
+    if (zip.files[p]) {
+      slideRelsFile = zip.files[p]
+      break
+    }
+  }
   if (!slideRelsFile) return {}
   const relsXml = await slideRelsFile.async('text')
   const relsDoc = new DOMParser().parseFromString(relsXml, 'application/xml')
@@ -570,27 +598,33 @@ async function blipToOpfsSrc(
   ownerId: string
 ): Promise<string | null> {
   const blip = firstChild(blipFill, 'a:blip')
-  // r:embed's namespace URI is fixed by the OOXML spec regardless of which
-  // local prefix a given file declares for it — getAttributeNS is the
-  // spec-correct lookup. Falls back to the (near-universal) literal "r:embed"
-  // attribute name in case a slide's DOMParser namespace resolution comes up
-  // empty for any reason — cheap insurance, not the primary path.
   const rId =
     blip?.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'embed') ??
     blip?.getAttribute('r:embed') ??
     undefined
   const target = rId ? assets.rels.get(rId) : undefined
-  const zipEntry = target ? zip.files[target] : undefined
+  if (!target) return null
+
+  let zipEntry = zip.files[target]
+  if (!zipEntry) {
+    const filename = target.split('/').pop()?.toLowerCase()
+    if (filename) {
+      const match = Object.keys(zip.files).find(
+        (k) => k.toLowerCase().endsWith('/' + filename) || k.toLowerCase() === filename
+      )
+      if (match) zipEntry = zip.files[match]
+    }
+  }
   if (!zipEntry) return null
 
   const { putFile } = await import('@/lib/storage/manager')
-  const ext = target!.slice(target!.lastIndexOf('.')).toLowerCase()
+  const ext = target.slice(target.lastIndexOf('.')).toLowerCase()
   const mime =
-    { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.bmp': 'image/bmp' }[
+    { '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.bmp': 'image/bmp', '.svg': 'image/svg+xml' }[
       ext
     ] ?? 'image/png'
   const bytes = await zipEntry.async('blob')
-  const fileId = await putFile(bytes, target!.split('/').pop() ?? 'image', mime, ownerId)
+  const fileId = await putFile(bytes, target.split('/').pop() ?? 'image', mime, ownerId)
   return `opfs:${fileId}`
 }
 

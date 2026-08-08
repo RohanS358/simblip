@@ -403,3 +403,95 @@ export function migrateLegacyMarkdown(raw: string): StoredText {
   })
   return { text, marks }
 }
+
+/** Parses pasted HTML or plain text into StoredText (text + style marks),
+ *  preserving formatting (bold, italic, underline, strike, links, headings, etc). */
+export function htmlToStoredText(html: string, fallbackPlain?: string): StoredText {
+  if (typeof DOMParser === 'undefined' || !html || !html.includes('<')) {
+    const raw = fallbackPlain ?? html ?? ''
+    return parse(raw)
+  }
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html')
+    let text = ''
+    const marks: Mark[] = []
+
+    function walk(node: Node, activeMarks: { kind: MarkKind; value?: string }[]) {
+      if (node.nodeType === 3) { // Text node
+        const val = node.nodeValue ?? ''
+        if (!val) return
+        const start = text.length
+        text += val
+        const end = text.length
+        for (const am of activeMarks) {
+          marks.push(
+            am.value !== undefined
+              ? { start, end, kind: am.kind, value: am.value }
+              : { start, end, kind: am.kind }
+          )
+        }
+        return
+      }
+
+      if (node.nodeType === 1) { // Element node
+        const el = node as HTMLElement
+        const tag = el.tagName.toLowerCase()
+        if (['script', 'style', 'meta', 'head'].includes(tag)) return
+
+        const newActive = [...activeMarks]
+        let isBlock = ['p', 'div', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'li', 'tr', 'blockquote'].includes(tag)
+
+        if (tag === 'b' || tag === 'strong') newActive.push({ kind: 'bold' })
+        else if (tag === 'i' || tag === 'em') newActive.push({ kind: 'italic' })
+        else if (tag === 'u') newActive.push({ kind: 'underline' })
+        else if (tag === 's' || tag === 'del' || tag === 'strike') newActive.push({ kind: 'strike' })
+        else if (tag === 'mark') newActive.push({ kind: 'highlight' })
+        else if (tag === 'code') newActive.push({ kind: 'code' })
+        else if (tag === 'a') {
+          const href = el.getAttribute('href')
+          if (href) newActive.push({ kind: 'link', value: href })
+        }
+
+        const color = el.style?.color
+        if (color) newActive.push({ kind: 'color', value: color })
+        const fontSize = el.style?.fontSize
+        if (fontSize) {
+          const pxMatch = fontSize.match(/^(\d+(?:\.\d+)?)px$/i)
+          if (pxMatch) newActive.push({ kind: 'size', value: pxMatch[1] })
+        }
+
+        if (/^h[1-6]$/.test(tag)) {
+          const level = Number(tag[1])
+          const prefix = '#'.repeat(level) + ' '
+          if (text.length > 0 && !text.endsWith('\n')) text += '\n'
+          text += prefix
+          isBlock = false
+        } else if (tag === 'li') {
+          if (text.length > 0 && !text.endsWith('\n')) text += '\n'
+          text += '- '
+          isBlock = false
+        } else if (tag === 'br') {
+          text += '\n'
+        } else if (isBlock && text.length > 0 && !text.endsWith('\n')) {
+          text += '\n'
+        }
+
+        for (const child of Array.from(el.childNodes)) {
+          walk(child, newActive)
+        }
+
+        if (isBlock && text.length > 0 && !text.endsWith('\n')) {
+          text += '\n'
+        }
+      }
+    }
+
+    walk(doc.body, [])
+    if (!text.trim() && fallbackPlain) {
+      return parse(fallbackPlain)
+    }
+    return { text, marks }
+  } catch {
+    return parse(fallbackPlain ?? html)
+  }
+}
