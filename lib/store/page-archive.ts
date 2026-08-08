@@ -47,9 +47,21 @@ export function writePage(pageId: string, content: PageDoc): void {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(key(pageId), JSON.stringify(content))
-  } catch {
-    // Quota exceeded — the cloud sync is still the durable copy, and the
-    // page stays resident in memory, so nothing is lost right now.
+  } catch (e) {
+    if (!(e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'))) return
+    // Evict the oldest page archives to make room, then retry once.
+    try {
+      const prefix = userPrefix()
+      const pageKeys: string[] = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i)
+        if (k && k.startsWith(prefix) && k !== key(pageId)) pageKeys.push(k)
+      }
+      pageKeys.slice(0, Math.min(10, pageKeys.length)).forEach((k) => localStorage.removeItem(k))
+      localStorage.setItem(key(pageId), JSON.stringify(content))
+    } catch {
+      // Still over quota — silently drop; cloud sync is the durable copy.
+    }
   }
 }
 

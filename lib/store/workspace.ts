@@ -603,6 +603,25 @@ export const useWorkspaceStore = create<WorkspaceState>()(
     {
       name: 'simblip-workspace',
       storage: scopedJSONStorage,
+      // Strip heavy web-cache blobs before persisting — webCachedHtml can be
+      // 100s of KB per page, and with many web pages open the workspace key
+      // blows past localStorage's 5 MB quota. The reader-mode cache is just
+      // a convenience that can be re-fetched; stripping it never loses work.
+      partialize: (state) => ({
+        ...state,
+        nodes: Object.fromEntries(
+          Object.entries(state.nodes).map(([id, node]) => {
+            if (node.kind !== 'page') return [id, node]
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { webCachedHtml: _html, webCachedText: _text, webHistory: _hist, ...rest } = node as PageNode & {
+              webCachedHtml?: unknown
+              webCachedText?: unknown
+              webHistory?: unknown
+            }
+            return [id, rest]
+          })
+        ),
+      }),
       onRehydrateStorage: () => (state) => {
         if (!state) return
         // Old persisted blobs still have `notebooks` (an array); new ones

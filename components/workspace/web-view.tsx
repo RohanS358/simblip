@@ -294,10 +294,10 @@ export function WebView({ pageId }: { pageId: string }) {
           ) : (
             <iframe
               key={url}
-              src={url}
+              src={`/api/web-proxy?url=${encodeURIComponent(url)}`}
               title={meta?.name || 'Web Browser'}
               className="h-full w-full border-0 bg-white"
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+              sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             />
           )}
 
