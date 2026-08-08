@@ -82,7 +82,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
-import { num, str, type SceneObject, type GeometryKind } from '@/lib/scene/types'
+import { num, str, type SceneObject, type GeometryKind, type Variable } from '@/lib/scene/types'
 import { getString, getNumber } from '@/components/objects/types'
 import { getObjectParams } from '@/lib/scene/control-targets'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
@@ -464,6 +464,13 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
 
 const GRAPH_CHANNELS = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
 
+// Stable fallbacks (never recreated per render) so Zustand selectors always
+// return the same reference — an inline `?? {}`/`?? []` rebuilds a fresh
+// snapshot every render and trips useSyncExternalStore's bailout (React #185).
+const EMPTY_OBJECTS: Record<string, SceneObject> = Object.freeze({})
+const EMPTY_VARIABLES: Variable[] = Object.freeze([]) as unknown as Variable[]
+const FALLBACK_VIEWPORT: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 })
+
 // Component models: symbols whose pin layout is selectable. The chosen
 // input count lives in an `inputs` param; terminals, glyph and solver all
 // follow it (lib/circuit/engine.ts terminalsOf).
@@ -529,7 +536,7 @@ function AddRowButton({ label, onClick }: { label: string; onClick: () => void }
  *  combination (lib/circuit/truth-table.ts). */
 function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
   const setStringParam = useDocStore((s) => s.setStringParam)
-  const pageObjects = useDocStore((s) => s.pages[pageId]?.objects) ?? {}
+  const pageObjects = useDocStore((s) => s.pages[pageId]?.objects ?? EMPTY_OBJECTS)
   const { sources, sinks } = truthCandidates(Object.values(pageObjects))
 
   const picked = (param: 'inputs' | 'outputs') => splitList(getStr(object, param))
@@ -2155,7 +2162,7 @@ function alignObjectToViewport(
  *  contentEditable any other way); everything else here is box-level. */
 function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObject }) {
   const updateObject = useDocStore((s) => s.updateObject)
-  const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
+  const viewport = useDocStore((s) => s.viewports[pageId] ?? FALLBACK_VIEWPORT)
   const activeId = useActiveTextEditor((s) => s.objectId)
   const handleRef = useActiveTextEditor((s) => s.handleRef)
   const isActive = activeId === object.id
@@ -3096,13 +3103,13 @@ const SYSTEM_VARS = [
 ]
 
 function VariablesPanel({ pageId }: { pageId: string }) {
-  const variables = useDocStore((s) => s.pages[pageId]?.variables) ?? []
+  const variables = useDocStore((s) => s.pages[pageId]?.variables ?? EMPTY_VARIABLES)
   const addVariable = useDocStore((s) => s.addVariable)
   const updateVariable = useDocStore((s) => s.updateVariable)
   const removeVariable = useDocStore((s) => s.removeVariable)
 
   const unsetSystem = SYSTEM_VARS.filter((sv) => !variables.some((v) => v.name === sv.name))
-  const pageObjects = useDocStore((st) => st.pages[pageId]?.objects) ?? {}
+  const pageObjects = useDocStore((st) => st.pages[pageId]?.objects ?? EMPTY_OBJECTS)
   // Component-value binding: pick an object + one of its live channels and a
   // [Name(channel)] token is appended to the expression — no typing needed.
   const [binding, setBinding] = useState<string | null>(null)

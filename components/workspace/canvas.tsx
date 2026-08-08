@@ -54,6 +54,7 @@ import { penActive } from '@/lib/pointer/pen-active'
 import { cn } from '@/lib/utils'
 
 const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
+const FALLBACK_VIEWPORT: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 })
 /** The grid layer is inset by this much so translating it never exposes an
  *  edge. The offset must be folded into the modulo below or the dots drift
  *  against the objects at any zoom ≠ 1 — that was the "parallax". */
@@ -842,7 +843,7 @@ export function InfiniteCanvas({
 
   const objects = useDocStore((s) => s.pages[pageId]?.objects)
   const page = useDocStore((s) => s.pages[pageId])
-  const viewport = useDocStore((s) => s.viewports[pageId]) ?? { x: 0, y: 0, zoom: 1 }
+  const viewport = useDocStore((s) => s.viewports[pageId] ?? FALLBACK_VIEWPORT)
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const pen = usePrefs((s) => s.pen)
