@@ -28,7 +28,13 @@ interface StoredSession {
   accessToken?: string
   refreshToken?: string
   expiresAt?: number // epoch seconds
+  lastOnline?: number // epoch seconds; last time a token grant actually reached the server
 }
+
+/** Offline grace period: stay signed in this long past the last successful
+ *  server contact, even once the access token has expired, so a dead network
+ *  doesn't force a re-login mid-session. */
+const OFFLINE_GRACE_SECONDS = 60 * 60 * 24
 
 export type AuthStatus = 'loading' | 'anon' | 'authed'
 
@@ -76,15 +82,26 @@ interface TokenResponse {
   user: { id: string }
 }
 
+/** Thrown when the server was reached and explicitly rejected the request —
+ *  as opposed to a network/fetch failure, which throws plain Error. Only this
+ *  should ever force a sign-out. */
+class AuthRejectedError extends Error {}
+
 async function tokenGrant(body: unknown): Promise<TokenResponse> {
-  const res = await fetch('/api/auth', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  let res: Response
+  try {
+    res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  } catch (err) {
+    // Network failure (offline, DNS, timeout) — not a rejection.
+    throw err instanceof Error ? err : new Error('Network error')
+  }
   if (!res.ok) {
     const detail = (await res.json().catch(() => null)) as { msg?: string } | null
-    throw new Error(detail?.msg ?? `Sign-in failed (${res.status})`)
+    throw new AuthRejectedError(detail?.msg ?? `Sign-in failed (${res.status})`)
   }
   return (await res.json()) as TokenResponse
 }
@@ -94,6 +111,7 @@ const adoptTokens = (t: TokenResponse): StoredSession => ({
   accessToken: t.access_token,
   refreshToken: t.refresh_token,
   expiresAt: Math.floor(Date.now() / 1000) + t.expires_in,
+  lastOnline: Math.floor(Date.now() / 1000),
 })
 
 async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | null> {
@@ -104,8 +122,14 @@ async function refreshIfNeeded(session: StoredSession): Promise<StoredSession | 
     const next = adoptTokens(await tokenGrant({ grant: 'refresh', refresh_token: session.refreshToken }))
     saveSession(next)
     return next
-  } catch {
-    return null
+  } catch (err) {
+    if (err instanceof AuthRejectedError) return null // server said no — sign out for real
+    // Offline or unreachable: keep the session alive on its last known-good
+    // state until OFFLINE_GRACE_SECONDS since we last actually talked to the
+    // server, rather than logging out on every dropped connection.
+    const lastOnline = session.lastOnline ?? 0
+    if (Date.now() / 1000 - lastOnline > OFFLINE_GRACE_SECONDS) return null
+    return session
   }
 }
 
