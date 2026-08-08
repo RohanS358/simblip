@@ -10,6 +10,11 @@ import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+
+// Stable empty reference — returning a fresh `{}` from a Zustand selector on
+// every render trips useSyncExternalStore's identity check and crashes the
+// component tree with React #185 ("Maximum update depth exceeded").
+const EMPTY_PACKAGES: Record<string, boolean> = Object.freeze({})
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as VisuallyHiddenPrimitive from '@radix-ui/react-visually-hidden'
 import { cn } from '@/lib/utils'
