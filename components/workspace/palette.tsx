@@ -23,6 +23,9 @@ import { Input } from '@/components/ui/input'
 import { ComponentIcon } from './component-icons'
 import { cn } from '@/lib/utils'
 
+// Stable empty reference — see components/objects/table.tsx.
+const EMPTY_PACKAGES: Record<string, unknown> = Object.freeze({})
+
 const DOMAINS = [
   { id: 'mechanics', label: 'Mechanics' },
   { id: 'electrical', label: 'Electrical' },
@@ -46,7 +49,7 @@ const DOMAIN_LABEL: Record<DomainId, string> = Object.fromEntries(
  *  narrowing the same list together. See docs/ui-simplification-plan.md
  *  (Components section should search/section like the Library). */
 export function Palette() {
-  const packages = usePrefs((s) => s.packages) ?? {}
+  const packages = usePrefs((s) => s.packages ?? EMPTY_PACKAGES)
   const [domain, setDomain] = useState<DomainId | null>(null)
   const [query, setQuery] = useState('')
   const tool = useDocStore((s) => s.tool)

@@ -13,6 +13,11 @@
 // already usable.
 
 import { useMemo } from 'react'
+
+// Stable empty reference. Returning a fresh `{}` from a Zustand selector on
+// every render trips useSyncExternalStore's identity check and crashes the
+// component tree with React #185 ("Maximum update depth exceeded").
+const EMPTY_SCOPE: Scope = Object.freeze({}) as Scope
 import { Plus, TableProperties, X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { evalExpr, type Scope } from '@/lib/formula/engine'
@@ -72,7 +77,7 @@ function serializeData(rows: string[][]): string {
 
 export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
-  const scope: Scope = useDocStore((s) => s.scopes[pageId]) ?? {}
+  const scope: Scope = useDocStore((s) => s.scopes[pageId] ?? EMPTY_SCOPE)
 
   const headerStr = getString(object, 'headers', 'A;B;C')
   const dataStr = getString(object, 'data', '')

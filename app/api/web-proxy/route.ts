@@ -20,6 +20,11 @@ const STRIP_RESPONSE_HEADERS = new Set([
   'cross-origin-opener-policy',
   'cross-origin-embedder-policy',
   'cross-origin-resource-policy',
+  // fetch() already decompresses the body when we call arrayBuffer() — if we
+  // forward these headers the browser tries to decompress again and fails with
+  // ERR_CONTENT_DECODING_FAILED.
+  'content-encoding',
+  'transfer-encoding',
 ])
 
 export async function GET(req: NextRequest) {

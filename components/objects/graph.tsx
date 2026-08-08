@@ -31,6 +31,9 @@ import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { getString, type ObjectRendererProps } from './types'
 
+// Stable empty scope reference — see components/objects/table.tsx.
+const EMPTY_SCOPE: Scope = Object.freeze({}) as Scope
+
 // three.js only loads once a graph object actually switches to 3D view.
 const Graph3D = dynamic(() => import('./graph-3d').then((m) => m.Graph3D), { ssr: false })
 
@@ -269,7 +272,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   const integAxis: 'x' | 'y' = getString(object, 'integAxis') === 'y' ? 'y' : 'x'
   const [hoverX, setHoverX] = useState<number | null>(null)
   usePrefs((s) => s.math) // re-render when precision/notation changes
-  const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
+  const scope = useDocStore((s) => s.scopes[pageId] ?? EMPTY_SCOPE)
   const pageObjects = useDocStore((s) => s.pages[pageId]?.objects)
   const setStringParam = useDocStore((s) => s.setStringParam)
 

@@ -40,6 +40,9 @@ import {
 import { GRAPH_COLORS } from './graph'
 import { getString, type ObjectRendererProps } from './types'
 
+// Stable empty scope reference — see components/objects/table.tsx.
+const EMPTY_SCOPE: Scope = Object.freeze({}) as Scope
+
 const SIZE = 5 // display cube extent per axis, scene units
 const DEFAULT_RES = 28
 
@@ -466,7 +469,7 @@ function Surface3DScene({ formulas, dependent, bounds, res, scope, deriv, integ,
 
 export function Surface3DObject({ pageId, object }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
-  const scope = useDocStore((s) => s.scopes[pageId]) ?? {}
+  const scope = useDocStore((s) => s.scopes[pageId] ?? EMPTY_SCOPE)
   usePrefs((s) => s.math)
 
   const formulasStr = getString(object, 'formulas', 'sin(x)*cos(y)')

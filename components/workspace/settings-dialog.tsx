@@ -640,7 +640,7 @@ function MathSettings() {
 }
 
 function PackagesSettings() {
-  const packages = usePrefs((s) => s.packages) ?? {}
+  const packages = usePrefs((s) => s.packages ?? EMPTY_PACKAGES)
   const setPackage = usePrefs((s) => s.setPackage)
 
   return (
