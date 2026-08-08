@@ -31,8 +31,13 @@ import {
   TableProperties,
   Blocks,
   X,
+  GripHorizontal,
+  GripVertical,
+  FileText,
+  ChevronDown,
+  Wrench,
 } from 'lucide-react'
-import { Fragment, useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Tool } from '@/lib/store/document'
@@ -42,10 +47,19 @@ import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useSlashMenuStore } from '@/lib/store/slash-menu'
-import { uid, type SceneObject } from '@/lib/scene/types'
+import { uid, type SceneObject, type PageNode } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { Transport } from './transport'
 import { cn } from '@/lib/utils'
 import { useDockRect } from '@/hooks/use-dock-clearance'
+import { useSidebarSection } from '@/lib/store/sidebar-sections'
 
 const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
@@ -92,8 +106,6 @@ const OvalIcon = () => (
   </svg>
 )
 
-// The Shapes group: everything that used to be a standalone dock tool plus
-// the full regular-polygon family. `id` rides in toolOption ('shape' tool).
 const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'line', label: 'Line / Beam', icon: <Minus className="h-4 w-4" /> },
   { id: 'circle', label: 'Circle', icon: <Circle className="h-4 w-4" /> },
@@ -121,9 +133,6 @@ function ToolButton({
   label: string
   shortcut?: string
   accent?: string
-  /** Button footprint — shrunk to 'h-8 w-8' on mobile so the dock's fixed
-   *  track (see canvas-controls.tsx) fits more tools before it has to
-   *  scroll. */
   size?: string
   onClick?: () => void
   onDoubleClick?: () => void
@@ -158,65 +167,192 @@ function ToolButton({
   )
 }
 
+function DockPageMenu() {
+  const activePageId = useWorkspaceStore((s) => s.activePageId)
+  const nodes = useWorkspaceStore((s) => s.nodes)
+  const setActivePage = useWorkspaceStore((s) => s.setActivePage)
+  const activeMeta = findPageMeta(nodes, activePageId)
+
+  const allPages = useMemo(() => {
+    return Object.values(nodes).filter((n): n is PageNode => n.kind === 'page')
+  }, [nodes])
+
+  if (!activePageId) return null
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
+          title="Current Page"
+        >
+          <FileText className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+          <span className="max-w-[100px] truncate">{activeMeta?.name ?? 'Untitled'}</span>
+          <ChevronDown className="h-3 w-3 text-muted-foreground" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48 max-h-64 overflow-y-auto">
+        {allPages.map((p) => (
+          <DropdownMenuItem
+            key={p.id}
+            onClick={() => setActivePage(p.id)}
+            className={cn('text-xs', p.id === activePageId && 'font-bold text-[var(--accent-blue)]')}
+          >
+            <FileText className="mr-2 h-3.5 w-3.5" />
+            <span className="truncate">{p.name || 'Untitled'}</span>
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function DockToolsMenu() {
+  const setSection = useSidebarSection((s) => s.setSection)
+  const togglePanel = useWorkspaceStore((s) => s.togglePanel)
+  const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
+
+  const handleOpenTools = () => {
+    setSection('tools')
+    if (!sidebarOpen) togglePanel('sidebar')
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleOpenTools}
+      className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
+      title="Open Tools & Components Panel"
+    >
+      <Wrench className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
+      <span>Tools</span>
+    </button>
+  )
+}
+
 export function Toolbar({
   pageId,
   edge = false,
 }: {
   pageId?: string
-  /** A phone's bottom edge is a fixed piece of chrome, not a floating
-   *  control — when true (see canvas-controls.tsx) the dock stretches full
-   *  width, flush with both edges, instead of the centered floating pill it
-   *  is everywhere else. */
   edge?: boolean
 }) {
   const motion = useSpring()
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
-  // Contextual segment: whatever the current selection can do, straight from
-  // the selection-actions pipeline (lib/scene/selection-actions.ts). The dock
-  // is where element actions live — nothing floats over the canvas anymore.
   const selection = useDocStore((s) => s.selection)
   const editing = useRuntimeStore((s) => s.mode) === 'edit'
   const selActions = pageId && selection.length > 0
     ? actionsForSelection({ pageId, ids: selection, editing })
     : []
-  // Keep the last non-empty list rendered while the segment folds shut, so
-  // deselecting collapses smoothly instead of blinking the buttons away.
   const lastActionsRef = useRef(selActions)
   if (selActions.length > 0) lastActionsRef.current = selActions
   const segActions = selActions.length > 0 ? selActions : lastActionsRef.current
-  // Lasso only earns a dock slot on touch: a mouse already gets multi-select
-  // for free (drag the Select tool over empty space) — a finger doesn't
-  // reliably find "empty space" in a crowded diagram, so touch needs an
-  // explicit tool that circles objects without ever grabbing one.
   const isMobile = useIsMobile()
 
-  // Pen settings popover: the ONE control surface for the pen. Opens on
-  // double-click (or by tapping the already-active pen — the touch
-  // equivalent). The old hover thickness flyout is gone on purpose: every
-  // pen control lives in the settings panel, nowhere else.
   const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
-  const dockPref = usePrefs((s) => s.notebook.dock)
-  // A side dock (left/right) claims a slice of the SCARCE axis on a phone —
-  // its own width, permanently, out of a ~375px screen. A phone has plenty
-  // of height to spare instead, so the side preference only applies on
-  // desktop; on mobile every dock renders along the bottom regardless of
-  // what's saved in prefs (top stays top — it already costs height, not
-  // width, same as bottom).
-  const dock = isMobile && (dockPref === 'left' || dockPref === 'right') ? 'bottom' : dockPref
-  const vertical = dock === 'left' || dock === 'right'
-  // Smaller footprint on mobile so more tools fit before the pill's own
-  // overflow-x-auto has to kick in (see canvas-controls.tsx for why the
-  // track itself is capped to the viewport in the first place).
-  const btnSize = isMobile ? 'h-8 w-8' : 'h-9 w-9'
-  const iconSize = isMobile ? 'h-3.5 w-3.5' : 'h-4 w-4'
+
+  const dockPrefsState = usePrefs((s) => s.dock)
+  const setDock = usePrefs((s) => s.setDock)
+  const dockSide = isMobile && (dockPrefsState.fixedSide === 'left' || dockPrefsState.fixedSide === 'right')
+    ? 'bottom'
+    : dockPrefsState.fixedSide
+  const vertical = dockSide === 'left' || dockSide === 'right'
+
+  // Draggable positioning state
+  const isDraggable = dockPrefsState.positionMode === 'draggable' && !isMobile
+  const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
+
+  const defaultX = typeof window !== 'undefined' ? Math.max(20, (window.innerWidth - 600) / 2) : 200
+  const defaultY = typeof window !== 'undefined' ? window.innerHeight - 100 : 600
+  const posX = dockPrefsState.dragPosition?.x ?? defaultX
+  const posY = dockPrefsState.dragPosition?.y ?? defaultY
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    if (e.button !== 0 || !isDraggable) return
+    e.stopPropagation()
+    const target = e.currentTarget as HTMLElement
+    target.setPointerCapture(e.pointerId)
+    dragRef.current = {
+      startX: e.clientX,
+      startY: e.clientY,
+      posX,
+      posY,
+    }
+  }
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    const dx = e.clientX - dragRef.current.startX
+    const dy = e.clientY - dragRef.current.startY
+    const maxW = typeof window !== 'undefined' ? window.innerWidth - 100 : 1000
+    const maxH = typeof window !== 'undefined' ? window.innerHeight - 60 : 800
+    const newX = Math.max(10, Math.min(maxW, dragRef.current.posX + dx))
+    const newY = Math.max(10, Math.min(maxH, dragRef.current.posY + dy))
+    setDock({ dragPosition: { x: newX, y: newY } })
+  }
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!dragRef.current) return
+    dragRef.current = null
+  }
+
+  // Sizing styles
+  const sizeMode = isMobile ? 'compact' : dockPrefsState.size
+  const btnSize = sizeMode === 'compact' ? 'h-7 w-7' : sizeMode === 'large' ? 'h-11 w-11' : 'h-9 w-9'
+  const iconSize = sizeMode === 'compact' ? 'h-3.5 w-3.5' : sizeMode === 'large' ? 'h-5 w-5' : 'h-4 w-4'
+  const paddingClass = sizeMode === 'compact' ? 'p-1 gap-0.5' : sizeMode === 'large' ? 'p-2 gap-1.5' : 'p-1.5 gap-1'
+
+  // Shape styles
+  const shapeClass =
+    dockPrefsState.shape === 'sharp'
+      ? 'rounded-lg'
+      : dockPrefsState.shape === 'soft'
+        ? 'rounded-2xl'
+        : 'rounded-full'
+
+  // Color theme styles
+  const colorThemeClass =
+    dockPrefsState.colorTheme === 'translucent'
+      ? 'bg-background/50 backdrop-blur-sm border border-border/40 shadow-lg'
+      : dockPrefsState.colorTheme === 'solid'
+        ? 'bg-card border border-border shadow-md text-card-foreground'
+        : dockPrefsState.colorTheme === 'accent-tinted'
+          ? 'bg-[var(--accent-blue)]/15 border border-[var(--accent-blue)]/30 backdrop-blur-md shadow-xl text-foreground'
+          : dockPrefsState.colorTheme === 'dark-glass'
+            ? 'bg-zinc-900/90 text-zinc-100 backdrop-blur-lg border border-zinc-700/60 shadow-2xl'
+            : 'glass-strong' // default glass
+
+  // Autohide opacity effect
+  const [idle, setIdle] = useState(false)
+  const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  useEffect(() => {
+    if (!dockPrefsState.autohide) {
+      setIdle(false)
+      return
+    }
+    const resetTimer = () => {
+      setIdle(false)
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+      idleTimer.current = setTimeout(() => setIdle(true), 3500)
+    }
+    window.addEventListener('pointermove', resetTimer)
+    resetTimer()
+    return () => {
+      window.removeEventListener('pointermove', resetTimer)
+      if (idleTimer.current) clearTimeout(idleTimer.current)
+    }
+  }, [dockPrefsState.autohide])
+
   const penFlyoutClass =
-    dock === 'bottom'
+    dockSide === 'bottom'
       ? 'bottom-full left-1/2 mb-2 -translate-x-1/2'
-      : dock === 'top'
+      : dockSide === 'top'
         ? 'left-1/2 top-full mt-2 -translate-x-1/2'
-        : dock === 'left'
+        : dockSide === 'left'
           ? 'left-full top-1/2 ml-2 -translate-y-1/2'
           : 'right-full top-1/2 mr-2 -translate-y-1/2'
   const toolOption = useDocStore((s) => s.toolOption)
@@ -234,10 +370,6 @@ export function Toolbar({
     return () => window.removeEventListener('pointerdown', handleClickOutside)
   }, [showPen])
 
-  // The dock announces where it is: its measured rect goes into the shared
-  // store so floating neighbours (zoom pill, transport, reader controls) can
-  // slide out of its way instead of guessing. The same measurement drives
-  // the scroll-edge fades that show a clipped dock has more tools.
   const pillRef = useRef<HTMLDivElement>(null)
   const publishRef = useRef<() => void>(() => {})
   const [fades, setFades] = useState({ start: false, end: false })
@@ -246,8 +378,8 @@ export function Toolbar({
     if (!el) return
     const publish = () => {
       const r = el.getBoundingClientRect()
-      useDockRect.getState().set({ side: dock, left: r.left, top: r.top, right: r.right, bottom: r.bottom })
-      const horizontal = dock === 'top' || dock === 'bottom'
+      useDockRect.getState().set({ side: dockSide, left: r.left, top: r.top, right: r.right, bottom: r.bottom })
+      const horizontal = dockSide === 'top' || dockSide === 'bottom'
       const pos = horizontal ? el.scrollLeft : el.scrollTop
       const max = horizontal ? el.scrollWidth - el.clientWidth : el.scrollHeight - el.clientHeight
       setFades((f) => {
@@ -265,7 +397,7 @@ export function Toolbar({
       window.removeEventListener('resize', publish)
       useDockRect.getState().set(null)
     }
-  }, [dock])
+  }, [dockSide])
 
   const fadeMask =
     fades.start || fades.end
@@ -274,48 +406,37 @@ export function Toolbar({
         }, ${fades.end ? 'black calc(100% - 24px), transparent' : 'black'})`
       : undefined
 
-  return (
-    <fm.div
-      initial={{ y: 24, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={motion}
-      onAnimationComplete={() => publishRef.current()}
-      // No self-positioning here anymore — CanvasControls places this in a
-      // dedicated grid track for the current dock side, so it can never
-      // land on top of the transport. min-w/h-0 lets it actually shrink to
-      // that track instead of blowing out the grid (the flex default is
-      // min-width/height:auto, i.e. "never smaller than my content").
-      className={cn('flex min-h-0 min-w-0', edge ? 'w-full' : vertical ? 'max-h-full' : 'max-w-full')}
-    >
-      <div ref={toolbarRef} className={cn('relative flex min-h-0 min-w-0', edge && 'w-full')}>
+  const isExtended = dockPrefsState.layoutMode === 'extended'
+
+  const content = (
+    <div ref={toolbarRef} className={cn('relative flex min-h-0 min-w-0', edge && 'w-full')}>
       {showPen && (
-        <>
-          <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
-            <div className="mb-1 flex items-center justify-between">
-              <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                Pen
-              </span>
-              <button
-                type="button"
-                aria-label="Close"
-                className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                onClick={() => setShowPen(false)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <PenSettings />
+        <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
+          <div className="mb-1 flex items-center justify-between">
+            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+              Pen
+            </span>
+            <button
+              type="button"
+              aria-label="Close"
+              className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+              onClick={() => setShowPen(false)}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
           </div>
-        </>
+          <PenSettings />
+        </div>
       )}
 
       {showShapes && (
-        <div className={cn("glass-strong absolute z-50 grid grid-cols-5 gap-1 rounded-2xl p-1.5", penFlyoutClass)}>
+        <div className={cn('glass-strong absolute z-50 grid grid-cols-5 gap-1 rounded-2xl p-1.5', penFlyoutClass)}>
           {SHAPES.map((sh) => (
             <ToolButton
               key={sh.id}
               active={tool === 'shape' && toolOption === sh.id}
               label={sh.label}
+              size={btnSize}
               onClick={() => {
                 setTool('shape', sh.id)
                 setShowShapes(false)
@@ -327,171 +448,230 @@ export function Toolbar({
         </div>
       )}
 
-      {/* Inner pill owns the scrolling so the flyouts above never clip; the
-          fade mask marks whichever end still has tools out of view. */}
       <div
         ref={pillRef}
         onScroll={() => publishRef.current()}
         style={fadeMask ? { maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         className={cn(
-          'glass-strong no-scrollbar flex min-h-0 min-w-0',
-          isMobile ? 'gap-0.5 p-1' : 'gap-1 p-1.5',
+          'no-scrollbar flex min-h-0 min-w-0 transition-all duration-200',
+          colorThemeClass,
+          paddingClass,
           vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto',
-          // Flush with the screen edges above the phone's nav bar, not a
-          // floating pill — same rounded-top-only shape as that bar (see
-          // sidebar.tsx) rather than fully rounded.
-          edge ? 'w-full justify-center rounded-t-2xl border-t border-border/40' : 'rounded-2xl'
+          edge
+            ? dockSide === 'bottom'
+              ? 'w-full justify-center rounded-none border-t border-border/50 shadow-2xl'
+              : dockSide === 'top'
+                ? 'w-full justify-center rounded-none border-b border-border/50 shadow-2xl'
+                : dockSide === 'left'
+                  ? 'h-full flex-col justify-center rounded-none border-r border-border/50 shadow-2xl'
+                  : 'h-full flex-col justify-center rounded-none border-l border-border/50 shadow-2xl'
+            : shapeClass,
+          idle && 'opacity-30 hover:opacity-100'
         )}
       >
-      {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
-        t === 'pen' ? (
-          <ToolButton
-            key={t}
-            active={tool === 'pen'}
-            label={`${label} — double-click for pen settings`}
-            shortcut={key}
-            size={btnSize}
-            onClick={() => (tool === 'pen' ? setShowPen(true) : setTool('pen'))}
-            onDoubleClick={() => setShowPen(true)}
+        {isDraggable && (
+          <div
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            className="flex shrink-0 items-center justify-center cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground px-0.5"
+            title="Drag dock to move"
           >
-            <Icon className={iconSize} />
-          </ToolButton>
-        ) : t === 'select' ? (
-          <Fragment key={t}>
-            <ToolButton active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
+            {vertical ? <GripVertical className="h-4 w-4" /> : <GripHorizontal className="h-4 w-4" />}
+          </div>
+        )}
+
+        {isExtended && (dockPrefsState.showToolsMenu ?? true) && (
+          <>
+            <DockToolsMenu />
+            <div className={cn('shrink-0 bg-border/60', vertical ? 'my-1 h-px w-6' : 'mx-1 h-5 w-px')} />
+          </>
+        )}
+
+        {isExtended && dockPrefsState.showPageMenu && pageId && (
+          <>
+            <DockPageMenu />
+            <div className={cn('shrink-0 bg-border/60', vertical ? 'my-1 h-px w-6' : 'mx-1 h-5 w-px')} />
+          </>
+        )}
+
+        {isExtended && dockPrefsState.showTransport && pageId && (
+          <>
+            <div className="flex items-center shrink-0">
+              <Transport pageId={pageId} flat />
+            </div>
+            <div className={cn('shrink-0 bg-border/60', vertical ? 'my-1 h-px w-6' : 'mx-1 h-5 w-px')} />
+          </>
+        )}
+
+        {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
+          t === 'pen' ? (
+            <ToolButton
+              key={t}
+              active={tool === 'pen'}
+              label={`${label} — double-click for pen settings`}
+              shortcut={key}
+              size={btnSize}
+              onClick={() => (tool === 'pen' ? setShowPen(true) : setTool('pen'))}
+              onDoubleClick={() => setShowPen(true)}
+            >
               <Icon className={iconSize} />
             </ToolButton>
-            {isMobile && (
-              <ToolButton
-                active={tool === 'lasso'}
-                label="Lasso — drag over objects to select several, without moving them"
-                size={btnSize}
-                onClick={() => setTool('lasso')}
-              >
-                <LassoSelect className={iconSize} />
+          ) : t === 'select' ? (
+            <Fragment key={t}>
+              <ToolButton active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
+                <Icon className={iconSize} />
               </ToolButton>
-            )}
-          </Fragment>
-        ) : (
-          <ToolButton key={t} active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
-            <Icon className={iconSize} />
-          </ToolButton>
-        )
-      )}
+              {isMobile && (
+                <ToolButton
+                  active={tool === 'lasso'}
+                  label="Lasso — drag over objects to select several"
+                  size={btnSize}
+                  onClick={() => setTool('lasso')}
+                >
+                  <LassoSelect className={iconSize} />
+                </ToolButton>
+              )}
+            </Fragment>
+          ) : (
+            <ToolButton key={t} active={tool === t} label={label} shortcut={key} size={btnSize} onClick={() => setTool(t)}>
+              <Icon className={iconSize} />
+            </ToolButton>
+          )
+        )}
 
-      <ToolButton
-        active={showShapes || tool === 'shape'}
-        label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
-        size={btnSize}
-        onClick={() => setShowShapes((v) => !v)}
-      >
-        <ShapesGroupIcon />
-      </ToolButton>
-
-      {/* Touch has no physical "/" key — this opens the same quick-insert
-          search desktop gets from the keyboard shortcut (see canvas.tsx's
-          SlashMenu + lib/store/slash-menu.ts), a faster path than the
-          Components sidebar's arm-then-tap-canvas flow. Tablets need this
-          exactly as much as phones — gated on touch capability, not width. */}
-      {isMobile && pageId && (
         <ToolButton
-          active={false}
-          label="Insert a component — search everything you can add"
+          active={showShapes || tool === 'shape'}
+          label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
           size={btnSize}
-          onClick={() => useSlashMenuStore.getState().open(pageId)}
+          onClick={() => setShowShapes((v) => !v)}
         >
-          <Blocks className={iconSize} />
+          <ShapesGroupIcon />
         </ToolButton>
-      )}
 
-      {pageId && (
-        <>
-          <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
+        {isMobile && pageId && (
           <ToolButton
             active={false}
-            label="Document — attach a PDF/image for this session (never saved to the cloud)"
+            label="Insert a component"
             size={btnSize}
-            onClick={() => {
-              // Drop a session-document element at the viewport center.
-              const doc = useDocStore.getState()
-              const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-              const cx = (window.innerWidth / 2 - v.x) / v.zoom
-              const cy = (window.innerHeight / 2 - v.y) / v.zoom
-              const obj: SceneObject = {
-                id: uid(),
-                name: 'Document',
-                geometry: { kind: 'note' },
-                position: { x: cx - 240, y: cy - 170 },
-                size: { w: 480, h: 340 },
-                rotation: 0,
-                z: 0,
-                behaviors: [],
-                parameters: {},
-                metadata: { render: 'file' },
-              }
-              doc.addObject(pageId, obj)
-              doc.setSelection([obj.id])
-              doc.setTool('select')
-            }}
+            onClick={() => useSlashMenuStore.getState().open(pageId)}
           >
-            <Paperclip className={iconSize} />
+            <Blocks className={iconSize} />
           </ToolButton>
-        </>
-      )}
+        )}
 
-      {/* Selection actions — fold out of the pill while something is
-          selected (grid 0fr↔1fr, a width/height transition that retargets
-          mid-motion if the selection changes under it). */}
-      {pageId && (
-        <div
-          className={cn(
-            'grid min-w-0 shrink-0 transition-[grid-template-columns,grid-template-rows] duration-200 ease-strong',
-            vertical
-              ? selActions.length > 0 ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
-              : selActions.length > 0 ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'
-          )}
-        >
+        {pageId && (
+          <>
+            <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
+            <ToolButton
+              active={false}
+              label="Document — attach a PDF/image"
+              size={btnSize}
+              onClick={() => {
+                const doc = useDocStore.getState()
+                const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+                const cx = (window.innerWidth / 2 - v.x) / v.zoom
+                const cy = (window.innerHeight / 2 - v.y) / v.zoom
+                const obj: SceneObject = {
+                  id: uid(),
+                  name: 'Document',
+                  geometry: { kind: 'note' },
+                  position: { x: cx - 240, y: cy - 170 },
+                  size: { w: 480, h: 340 },
+                  rotation: 0,
+                  z: 0,
+                  behaviors: [],
+                  parameters: {},
+                  metadata: { render: 'file' },
+                }
+                doc.addObject(pageId, obj)
+                doc.setSelection([obj.id])
+                doc.setTool('select')
+              }}
+            >
+              <Paperclip className={iconSize} />
+            </ToolButton>
+          </>
+        )}
+
+        {pageId && (
           <div
             className={cn(
-              'flex min-h-0 min-w-0 items-center overflow-hidden',
-              vertical && 'flex-col',
-              isMobile ? 'gap-0.5' : 'gap-1'
+              'grid min-w-0 shrink-0 transition-[grid-template-columns,grid-template-rows] duration-200 ease-strong',
+              vertical
+                ? selActions.length > 0 ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]'
+                : selActions.length > 0 ? 'grid-cols-[1fr]' : 'grid-cols-[0fr]'
             )}
           >
-            <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
-            {selection.length > 1 && (
-              <span className="shrink-0 px-0.5 font-mono text-[0.6875rem] text-muted-foreground">
-                {selection.length}×
-              </span>
-            )}
-            {segActions.map((a) => (
-              <Tooltip key={a.id}>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label={a.label}
-                    onClick={a.run}
-                    className={cn(
-                      'flex shrink-0 items-center justify-center rounded-xl transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
-                      btnSize,
-                      a.danger
-                        ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
-                        : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                    )}
-                  >
-                    <a.icon className={iconSize} />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-xs">
-                  {a.label}
-                </TooltipContent>
-              </Tooltip>
-            ))}
+            <div
+              className={cn(
+                'flex min-h-0 min-w-0 items-center overflow-hidden',
+                vertical && 'flex-col',
+                isMobile ? 'gap-0.5' : 'gap-1'
+              )}
+            >
+              <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
+              {selection.length > 1 && (
+                <span className="shrink-0 px-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+                  {selection.length}×
+                </span>
+              )}
+              {segActions.map((a) => (
+                <Tooltip key={a.id}>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={a.label}
+                      onClick={a.run}
+                      className={cn(
+                        'flex shrink-0 items-center justify-center rounded-xl transition-[color,background-color,box-shadow,transform] duration-150 ease-out active:scale-[0.97]',
+                        btnSize,
+                        a.danger
+                          ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
+                          : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                      )}
+                    >
+                      <a.icon className={iconSize} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="text-xs">
+                    {a.label}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
-      </div>
+    </div>
+  )
+
+  if (isDraggable) {
+    return (
+      <fm.div
+        style={{ left: `${posX}px`, top: `${posY}px` }}
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={motion}
+        onAnimationComplete={() => publishRef.current()}
+        className="pointer-events-auto fixed z-50 select-none touch-none"
+      >
+        {content}
+      </fm.div>
+    )
+  }
+
+  return (
+    <fm.div
+      initial={{ y: 24, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={motion}
+      onAnimationComplete={() => publishRef.current()}
+      className={cn('flex min-h-0 min-w-0', edge ? 'w-full' : vertical ? 'max-h-full' : 'max-w-full')}
+    >
+      {content}
     </fm.div>
   )
 }
+

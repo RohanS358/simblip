@@ -67,45 +67,48 @@ export function Palette() {
   const currentDomainValid = domain === null || packages[domain] !== false
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-2.5" aria-label="Component palette">
-      <div className="relative mb-2">
-        <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search components…"
-          className="h-8 pl-8 text-[0.78125rem]"
-        />
-      </div>
+    <div className="flex h-full min-h-0 flex-col px-2.5 py-1" aria-label="Component palette">
+      {/* Sticky Header: Search Bar & Domain Filters */}
+      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40 mb-2 space-y-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search components…"
+            className="h-8 pl-8 text-[0.78125rem]"
+          />
+        </div>
 
-      <div className="no-scrollbar mb-2 flex items-center gap-1 overflow-x-auto">
-        <button
-          type="button"
-          className={cn(
-            'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
-            (domain === null || !currentDomainValid)
-              ? 'bg-foreground text-background'
-              : 'bg-accent text-muted-foreground hover:text-foreground'
-          )}
-          onClick={() => setDomain(null)}
-        >
-          All
-        </button>
-        {activeDomains.map((d) => (
+        <div className="no-scrollbar flex items-center gap-1 overflow-x-auto">
           <button
-            key={d.id}
             type="button"
             className={cn(
               'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
-              domain === d.id
-                ? 'bg-foreground text-background'
+              (domain === null || !currentDomainValid)
+                ? 'bg-foreground text-background font-semibold'
                 : 'bg-accent text-muted-foreground hover:text-foreground'
             )}
-            onClick={() => setDomain(d.id)}
+            onClick={() => setDomain(null)}
           >
-            {d.label}
+            All
           </button>
-        ))}
+          {activeDomains.map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className={cn(
+                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+                domain === d.id
+                  ? 'bg-foreground text-background font-semibold'
+                  : 'bg-accent text-muted-foreground hover:text-foreground'
+              )}
+              onClick={() => setDomain(d.id)}
+            >
+              {d.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="no-scrollbar grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto">

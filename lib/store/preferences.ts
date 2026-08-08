@@ -110,14 +110,53 @@ export const DEFAULT_PACKAGES: Record<string, boolean> = {
   dsa: true,
 }
 
-interface PrefsState {
+export type DockPositionMode = 'fixed' | 'draggable'
+export type DockLayoutMode = 'compact' | 'extended'
+export type DockContainerStyle = 'floating' | 'fixed-bar' | 'sundial'
+export type DockShape = 'pill' | 'soft' | 'sharp'
+export type DockColorTheme = 'glass' | 'translucent' | 'solid' | 'accent-tinted' | 'dark-glass'
+export type DockSize = 'compact' | 'normal' | 'large'
+
+export interface DockPrefs {
+  positionMode: DockPositionMode
+  fixedSide: DockSide
+  dragPosition: { x: number; y: number } | null
+  layoutMode: DockLayoutMode
+  containerStyle: DockContainerStyle
+  shape: DockShape
+  colorTheme: DockColorTheme
+  size: DockSize
+  autohide: boolean
+  showTransport: boolean
+  showPageMenu: boolean
+  showToolsMenu: boolean
+}
+
+export const DEFAULT_DOCK_PREFS: DockPrefs = {
+  positionMode: 'fixed',
+  fixedSide: 'bottom',
+  dragPosition: null,
+  layoutMode: 'compact',
+  containerStyle: 'floating',
+  shape: 'pill',
+  colorTheme: 'glass',
+  size: 'normal',
+  autohide: false,
+  showTransport: true,
+  showPageMenu: true,
+  showToolsMenu: true,
+}
+
+export interface PrefsState {
   pen: PenPrefs
   notebook: NotebookPrefs
+  dock: DockPrefs
   math: MathPrefs
   appearance: AppearancePrefs
   packages: Record<string, boolean>
   setPen: (p: Partial<PenPrefs>) => void
   setNotebook: (p: Partial<NotebookPrefs>) => void
+  setDock: (p: Partial<DockPrefs>) => void
   setMath: (p: Partial<MathPrefs>) => void
   setAppearance: (p: Partial<AppearancePrefs>) => void
   setPackage: (id: string, enabled: boolean) => void
@@ -183,6 +222,7 @@ export const usePrefs = create<PrefsState>()(
     (set) => ({
       pen: { ...DEFAULT_PEN },
       notebook: { ...DEFAULT_NOTEBOOK },
+      dock: { ...DEFAULT_DOCK_PREFS },
       math: { ...DEFAULT_MATH },
       appearance: { ...DEFAULT_APPEARANCE },
       packages: { ...DEFAULT_PACKAGES },
@@ -196,7 +236,19 @@ export const usePrefs = create<PrefsState>()(
             ...(p.size !== undefined ? { size: Math.min(16, Math.max(0.5, p.size)) } : {}),
           },
         })),
-      setNotebook: (p) => set((s) => ({ notebook: { ...s.notebook, ...p } })),
+      setNotebook: (p) =>
+        set((s) => {
+          const nextNb = { ...s.notebook, ...p }
+          // keep notebook.dock synced with dock.fixedSide if modified via setNotebook
+          const nextDock = p.dock ? { ...s.dock, fixedSide: p.dock } : s.dock
+          return { notebook: nextNb, dock: nextDock }
+        }),
+      setDock: (p) =>
+        set((s) => {
+          const nextDock = { ...s.dock, ...p }
+          const nextNb = p.fixedSide ? { ...s.notebook, dock: p.fixedSide } : s.notebook
+          return { dock: nextDock, notebook: nextNb }
+        }),
       setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
       setAppearance: (p) => set((s) => ({ appearance: { ...s.appearance, ...p } })),
       setPackage: (id, enabled) =>
@@ -211,6 +263,7 @@ export const usePrefs = create<PrefsState>()(
         set({
           pen: { ...DEFAULT_PEN },
           notebook: { ...DEFAULT_NOTEBOOK },
+          dock: { ...DEFAULT_DOCK_PREFS },
           math: { ...DEFAULT_MATH },
           appearance: { ...DEFAULT_APPEARANCE },
           packages: { ...DEFAULT_PACKAGES },
@@ -218,17 +271,19 @@ export const usePrefs = create<PrefsState>()(
     }),
     {
       name: 'simblip-preferences', // device-wide, not per user
-      version: 2,
-      // Sanitise whatever localStorage hands back: clamp every pen number
-      // into its slider range (NaN/out-of-range values from older builds
-      // made the ink renderer misbehave) and map retired styles onto the
-      // current set.
+      version: 3,
+      // Sanitise whatever localStorage hands back
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Record<string, unknown>
         const pen = (s.pen ?? {}) as Record<string, unknown>
+        const nb = (s.notebook ?? {}) as Record<string, unknown>
+        const dock = (s.dock ?? {}) as Record<string, unknown>
         const num = (v: unknown, d: number, lo: number, hi: number) =>
           typeof v === 'number' && Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d
         const style = pen.style as string
+
+        const initialFixedSide = (dock.fixedSide as DockSide) ?? (nb.dock as DockSide) ?? DEFAULT_DOCK_PREFS.fixedSide
+
         s.pen = {
           ...DEFAULT_PEN,
           ...pen,
@@ -244,6 +299,13 @@ export const usePrefs = create<PrefsState>()(
             ? pen.customColors.filter((c): c is string => typeof c === 'string').slice(0, 12)
             : [],
         }
+
+        s.dock = {
+          ...DEFAULT_DOCK_PREFS,
+          ...dock,
+          fixedSide: initialFixedSide,
+        }
+
         return s as unknown as PrefsState
       },
     }
@@ -253,3 +315,5 @@ export const usePrefs = create<PrefsState>()(
 /** Non-reactive reads for hot paths (these run per pointer event / per frame). */
 export const penPrefs = (): PenPrefs => usePrefs.getState().pen
 export const mathPrefs = (): MathPrefs => usePrefs.getState().math
+export const dockPrefs = (): DockPrefs => usePrefs.getState().dock
+

@@ -276,65 +276,68 @@ export function LibraryPanel({
       }
       aria-label="Institution library"
     >
-      <div className="flex items-center gap-2 px-3.5 pb-2 pt-3">
-        <LibraryBig className="h-4 w-4 text-[var(--accent-blue)]" />
-        <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          Institution Library
-        </span>
-        {canPublish && (
-          <button
-            type="button"
-            aria-label="Publish current page to library"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => setPublishOpen(true)}
-          >
-            <Upload className="h-3.5 w-3.5" />
-          </button>
-        )}
-        <button
-          type="button"
-          aria-label="Close library"
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-          onClick={onClose}
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-
-      <div className="px-3 pb-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search assets…"
-            className="h-8 pl-8 text-[0.78125rem]"
-          />
-        </div>
-        <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
-          <button
-            type="button"
-            className={cn(
-              'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
-              category === null ? 'bg-foreground text-background' : 'bg-accent text-muted-foreground hover:text-foreground'
-            )}
-            onClick={() => setCategory(null)}
-          >
-            All
-          </button>
-          {LIBRARY_CATEGORIES.map((c) => (
+      {/* Sticky Header: Library Title, Search Bar & Category Filters */}
+      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40">
+        <div className="flex items-center gap-2 px-3.5 pb-2 pt-2">
+          <LibraryBig className="h-4 w-4 text-[var(--accent-blue)]" />
+          <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            Institution Library
+          </span>
+          {canPublish && (
             <button
-              key={c}
+              type="button"
+              aria-label="Publish current page to library"
+              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              onClick={() => setPublishOpen(true)}
+            >
+              <Upload className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Close library"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={onClose}
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        <div className="px-3">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search assets…"
+              className="h-8 pl-8 text-[0.78125rem]"
+            />
+          </div>
+          <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
+            <button
               type="button"
               className={cn(
-                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
-                category === c ? 'bg-foreground text-background' : 'bg-accent text-muted-foreground hover:text-foreground'
+                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+                category === null ? 'bg-foreground text-background font-semibold' : 'bg-accent text-muted-foreground hover:text-foreground'
               )}
-              onClick={() => setCategory(category === c ? null : c)}
+              onClick={() => setCategory(null)}
             >
-              {c.replace('-', ' ')}
+              All
             </button>
-          ))}
+            {LIBRARY_CATEGORIES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                className={cn(
+                  'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
+                  category === c ? 'bg-foreground text-background font-semibold' : 'bg-accent text-muted-foreground hover:text-foreground'
+                )}
+                onClick={() => setCategory(category === c ? null : c)}
+              >
+                {c.replace('-', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

@@ -83,12 +83,22 @@ interface WorkspaceState {
   activePageId: string | null
   /** Session tabs — every page currently open in the header tab strip. */
   openTabs: string[]
-  /** Left pane while split (falls back to activePageId when not split). */
+
+  // ── Multi-pane grid (1–4 panes) ─────────────────────────────────────────
+  /** Page IDs currently displayed in the grid. 1 = full canvas, 2 = side by
+   *  side, 3 = left + right column (top/bottom), 4 = 2×2. Length capped at 4. */
+  panes: string[]
+  /** Which pane index (0-based) currently has keyboard / tool focus. */
+  activePaneIndex: number
+
+  // ── Legacy 2-pane compat aliases (derived from panes[]) ─────────────────
+  /** @deprecated Use panes[0] — Left pane while split (falls back to activePageId when not split). */
   primaryPageId: string | null
-  /** Second split-screen pane (a page id), or null for single view. */
+  /** @deprecated Use panes[1] — Second split-screen pane, or null for single view. */
   splitPageId: string | null
   /** Width fraction of the FIRST pane when split. */
   splitRatio: number
+
   /** Doc pages: the sheet (content page) the tools currently target. */
   activeSheetId: string | null
   /** PDF reader: true while a document is loaded — the shell keeps the real
@@ -164,9 +174,19 @@ interface WorkspaceState {
   ensureAnnotPage: (pageId: string, pdfPage: number) => string
   setActivePage: (id: string | null) => void
   closeTab: (id: string) => void
+  /** Add a page as a new pane (up to 4). Replaces openSplit for new code. */
+  addPane: (id: string) => void
+  /** Remove the pane at index. */
+  removePane: (index: number) => void
+  /** Set focused pane by index. */
+  setActivePane: (index: number) => void
+  /** Move a pane from one index to another. */
+  movePaneTo: (fromIndex: number, toIndex: number) => void
+  /** @deprecated Use addPane(id) instead. */
   openSplit: (id: string) => void
   /** Snap-assist: a tab dragged onto the left or right half of the canvas. */
   dropTab: (id: string, side: 'left' | 'right') => void
+  /** @deprecated Use removePane(index) instead. */
   closeSplit: (keep?: 'primary' | 'split') => void
   setSplitRatio: (f: number) => void
   setActiveSheet: (id: string | null) => void
@@ -181,12 +201,33 @@ interface WorkspaceState {
 
 export const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
 
+/** Clamp pane count 1–4 and deduplicate while preserving order. */
+function dedupePanes(panes: string[]): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const id of panes) {
+    if (!seen.has(id)) { seen.add(id); out.push(id) }
+  }
+  return out.slice(0, 4)
+}
+
+/** Derive the legacy compat aliases from panes[]. */
+function panesAliases(panes: string[], activePaneIndex: number) {
+  return {
+    primaryPageId: panes[0] ?? null,
+    splitPageId: panes[1] ?? null,
+    activePageId: panes[activePaneIndex] ?? panes[0] ?? null,
+  }
+}
+
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
       nodes: {},
       activePageId: null,
       openTabs: [],
+      panes: [],
+      activePaneIndex: 0,
       primaryPageId: null,
       splitPageId: null,
       splitRatio: 0.5,
@@ -275,12 +316,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => {
           const nextNodes = { ...s.nodes }
           deleteSet.forEach((did) => delete nextNodes[did])
+          const nextPanes = s.panes.filter((p) => !deleteSet.has(p))
+          const nextActivePaneIndex = Math.min(s.activePaneIndex, Math.max(0, nextPanes.length - 1))
           return {
             nodes: nextNodes,
-            activePageId: deleteSet.has(s.activePageId ?? '') ? null : s.activePageId,
             openTabs: s.openTabs.filter((t) => !deleteSet.has(t)),
-            splitPageId: deleteSet.has(s.splitPageId ?? '') ? null : s.splitPageId,
-            primaryPageId: deleteSet.has(s.primaryPageId ?? '') ? null : s.primaryPageId,
+            panes: nextPanes,
+            activePaneIndex: nextActivePaneIndex,
+            ...panesAliases(nextPanes, nextActivePaneIndex),
           }
         })
       },
@@ -323,10 +366,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             order: siblings.length,
             ...(kind === 'doc' ? { docPages: [uid()] } : {}),
           }
+          const openTabs = s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id]
+          // New page always opens as the sole focused pane (replaces active slot).
+          const panes = s.panes.length === 0 ? [id] : s.panes.map((p, i) => i === s.activePaneIndex ? id : p)
+          const activePaneIndex = s.activePaneIndex
           return {
             nodes: { ...s.nodes, [id]: node },
-            activePageId: id,
-            openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
+            openTabs,
+            panes,
+            activePaneIndex,
+            ...panesAliases(panes, activePaneIndex),
           }
         })
         return id
@@ -388,72 +437,120 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setActivePage: (id) =>
         set((s) => {
           const openTabs = id && !s.openTabs.includes(id) ? [...s.openTabs, id] : s.openTabs
-          // Split open and a page picked that isn't in either pane: it replaces
-          // whichever pane currently has focus, so the split survives browsing.
-          if (s.splitPageId && id && id !== s.splitPageId && id !== s.primaryPageId) {
-            if (s.activePageId === s.splitPageId)
-              return { activePageId: id, splitPageId: id, openTabs }
-            return { activePageId: id, primaryPageId: id, openTabs }
+          if (!id) return { activePageId: null, openTabs }
+          // If the page is already in a pane, focus that pane.
+          const existingPaneIdx = s.panes.indexOf(id)
+          if (existingPaneIdx !== -1) {
+            return { activePaneIndex: existingPaneIdx, openTabs,
+              ...panesAliases(s.panes, existingPaneIdx) }
           }
-          return { activePageId: id, ...(s.splitPageId ? {} : { primaryPageId: id }), openTabs }
+          // Otherwise replace the currently focused pane's page.
+          const panes = s.panes.length === 0
+            ? [id]
+            : s.panes.map((p, i) => i === s.activePaneIndex ? id : p)
+          const activePaneIndex = s.activePaneIndex
+          return { openTabs, panes, activePaneIndex, ...panesAliases(panes, activePaneIndex) }
         }),
 
       closeTab: (id) =>
         set((s) => {
           const openTabs = s.openTabs.filter((t) => t !== id)
           const fallback = openTabs[openTabs.length - 1] ?? null
+          const nextPanes = s.panes.filter((p) => p !== id)
+          const nextActivePaneIndex = Math.min(s.activePaneIndex, Math.max(0, nextPanes.length - 1))
+          // If no panes left but fallback tab exists, show it.
+          const finalPanes = nextPanes.length === 0 && fallback ? [fallback] : nextPanes
+          const finalActiveIdx = nextPanes.length === 0 && fallback ? 0 : nextActivePaneIndex
           return {
             openTabs,
-            splitPageId: s.splitPageId === id ? null : s.splitPageId,
-            primaryPageId: s.primaryPageId === id ? fallback : s.primaryPageId,
-            activePageId: s.activePageId === id ? fallback : s.activePageId,
+            panes: finalPanes,
+            activePaneIndex: finalActiveIdx,
+            ...panesAliases(finalPanes, finalActiveIdx),
           }
         }),
 
-      openSplit: (id) =>
+      addPane: (id) =>
         set((s) => {
-          // Left pane keeps what you were on; the new page opens on the right.
-          const primary =
-            s.activePageId && s.activePageId !== id
-              ? s.activePageId
-              : (s.openTabs.find((t) => t !== id) ?? null)
-          if (!primary) return { activePageId: id, primaryPageId: id, openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id] }
-          return {
-            splitPageId: id,
-            primaryPageId: primary,
-            activePageId: id,
-            openTabs: s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id],
+          if (s.panes.length >= 4) return s
+          const openTabs = s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id]
+          // Don't add a duplicate — just focus it.
+          if (s.panes.includes(id)) {
+            const idx = s.panes.indexOf(id)
+            return { openTabs, activePaneIndex: idx,
+              ...panesAliases(s.panes, idx) }
           }
+          const panes = dedupePanes([...s.panes, id])
+          const activePaneIndex = panes.length - 1
+          return { openTabs, panes, activePaneIndex, ...panesAliases(panes, activePaneIndex) }
         }),
+
+      removePane: (index) =>
+        set((s) => {
+          if (s.panes.length <= 1) return s
+          const nextPanes = s.panes.filter((_, i) => i !== index)
+          const nextActivePaneIndex = Math.min(s.activePaneIndex, nextPanes.length - 1)
+          return { panes: nextPanes, activePaneIndex: nextActivePaneIndex,
+            ...panesAliases(nextPanes, nextActivePaneIndex) }
+        }),
+
+      setActivePane: (index) =>
+        set((s) => {
+          const clamped = Math.max(0, Math.min(index, s.panes.length - 1))
+          return { activePaneIndex: clamped, ...panesAliases(s.panes, clamped) }
+        }),
+
+      movePaneTo: (fromIndex, toIndex) =>
+        set((s) => {
+          if (fromIndex === toIndex) return s
+          const next = [...s.panes]
+          const [moved] = next.splice(fromIndex, 1)
+          next.splice(toIndex, 0, moved)
+          const activePaneIndex = toIndex
+          return { panes: next, activePaneIndex, ...panesAliases(next, activePaneIndex) }
+        }),
+
+      // ── Legacy compat wrappers ──────────────────────────────────────────
+      openSplit: (id) => get().addPane(id),
 
       dropTab: (id, side) =>
         set((s) => {
           const openTabs = s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id]
-          const left = s.primaryPageId ?? s.activePageId
-          if (side === 'right') {
-            if (s.splitPageId === id) return { openTabs, activePageId: id } // already there
-            if (left === id) {
-              // The current page dragged right: whatever sat in the split (or
-              // the next tab) becomes the left pane.
-              const other = s.splitPageId ?? openTabs.find((t) => t !== id) ?? null
-              if (!other) return { openTabs }
-              return { openTabs, primaryPageId: other, splitPageId: id, activePageId: id }
+          if (s.panes.length <= 1) {
+            // Currently single pane — split into left/right.
+            const current = s.panes[0] ?? null
+            if (!current || current === id) {
+              const panes = [id]
+              return { openTabs, panes, activePaneIndex: 0, ...panesAliases(panes, 0) }
             }
-            return { openTabs, primaryPageId: left, splitPageId: id, activePageId: id }
+            const panes = side === 'right' ? [current, id] : [id, current]
+            const activePaneIndex = side === 'right' ? 1 : 0
+            return { openTabs, panes, activePaneIndex, ...panesAliases(panes, activePaneIndex) }
           }
-          // side === 'left'
-          if (s.splitPageId === id) {
-            // Right pane dragged left → the panes swap.
-            return { openTabs, primaryPageId: id, splitPageId: left, activePageId: id }
+          // Already split: move/add to target slot.
+          if (s.panes.includes(id)) {
+            const idx = s.panes.indexOf(id)
+            const target = side === 'right' ? Math.min(s.panes.length - 1, 1) : 0
+            if (idx === target) return { openTabs, activePaneIndex: idx,
+              ...panesAliases(s.panes, idx) }
+            const next = [...s.panes]
+            const [moved] = next.splice(idx, 1)
+            next.splice(target, 0, moved)
+            return { openTabs, panes: next, activePaneIndex: target, ...panesAliases(next, target) }
           }
-          if (!s.splitPageId) return { openTabs, activePageId: id, primaryPageId: id }
-          return { openTabs, primaryPageId: id, activePageId: id }
+          const target = side === 'right' ? Math.min(s.panes.length, 1) : 0
+          const next = [...s.panes]
+          next.splice(target, 0, id)
+          const panes = dedupePanes(next)
+          return { openTabs, panes, activePaneIndex: target, ...panesAliases(panes, target) }
         }),
 
-      closeSplit: (keep?: 'primary' | 'split') =>
+      closeSplit: (keep?) =>
         set((s) => {
-          const id = keep === 'split' ? s.splitPageId : (s.primaryPageId ?? s.activePageId)
-          return { splitPageId: null, primaryPageId: id, activePageId: id }
+          if (s.panes.length <= 1) return s
+          const keepIdx = keep === 'split' ? 1 : 0
+          const id = s.panes[keepIdx] ?? s.panes[0]
+          const panes = [id]
+          return { panes, activePaneIndex: 0, ...panesAliases(panes, 0) }
         }),
 
       setSplitRatio: (f) => set({ splitRatio: Math.min(0.8, Math.max(0.2, f)) }),
@@ -490,6 +587,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           // "reset the old field after archiving it away" the doc-store
           // migration does for its own legacy `pages` field.
           delete (state as unknown as { notebooks?: unknown }).notebooks
+        }
+        // Rehydrate: if panes is missing/empty but primaryPageId exists,
+        // reconstruct panes from the legacy two-slot model.
+        if (!state.panes || state.panes.length === 0) {
+          const primary = state.primaryPageId
+          const split = state.splitPageId
+          if (primary && split && primary !== split) state.panes = [primary, split]
+          else if (primary) state.panes = [primary]
+          else if (state.activePageId) state.panes = [state.activePageId]
+          state.activePaneIndex = 0
         }
       },
     }

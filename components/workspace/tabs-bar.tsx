@@ -1,10 +1,10 @@
 'use client'
 
 // Header tab strip — every open board/doc/PDF is a tab, browser-style.
-// Click focuses, × closes, the split icon opens a tab beside the current one.
+// Click focuses, × closes, the split icon adds the tab as a new pane (up to 4).
 // Scrolls horizontally when crowded, so it degrades gracefully on tablets.
 
-import { Columns2, FileText, Layout, BookOpen, Image as ImageIcon, Sheet, Presentation, X } from 'lucide-react'
+import { Columns2, FileText, Layout, BookOpen, Image as ImageIcon, Sheet, Presentation, Globe, X } from 'lucide-react'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import type { PageKind } from '@/lib/scene/types'
 import { PageControlsMenu } from './page-controls-menu'
@@ -17,6 +17,7 @@ export const KIND_ICON: Record<PageKind, typeof Layout> = {
   image: ImageIcon,
   xlsx: Sheet,
   pptx: Presentation,
+  web: Globe,
 }
 
 export function TabsBar({
@@ -29,12 +30,15 @@ export function TabsBar({
 }) {
   const openTabs = useWorkspaceStore((s) => s.openTabs)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
-  const splitPageId = useWorkspaceStore((s) => s.splitPageId)
+  const panes = useWorkspaceStore((s) => s.panes)
   const nodes = useWorkspaceStore((s) => s.nodes)
   const setActivePage = useWorkspaceStore((s) => s.setActivePage)
   const closeTab = useWorkspaceStore((s) => s.closeTab)
-  const openSplit = useWorkspaceStore((s) => s.openSplit)
-  const closeSplit = useWorkspaceStore((s) => s.closeSplit)
+  const addPane = useWorkspaceStore((s) => s.addPane)
+  const removePane = useWorkspaceStore((s) => s.removePane)
+
+  const paneCount = panes.length
+  const atMaxPanes = paneCount >= 4
 
   // Pinned outside the scrollable tab strip so it never scrolls away with
   // the tabs — always reachable at the right edge.
@@ -55,7 +59,9 @@ export function TabsBar({
           if (!meta) return null
           const Icon = KIND_ICON[meta.pageKind ?? 'board']
           const active = id === activePageId
-          const inSplit = id === splitPageId
+          // A tab is "in a pane" if it appears somewhere in the panes array.
+          const paneIdx = panes.indexOf(id)
+          const inPane = paneIdx !== -1
           return (
             <div
               key={id}
@@ -71,7 +77,7 @@ export function TabsBar({
                 'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-[0.75rem] transition-colors',
                 active
                   ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                  : 'bg-muted/60 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
               )}
             >
               <button
@@ -80,20 +86,46 @@ export function TabsBar({
                 title={meta.name}
                 onClick={() => setActivePage(id)}
               >
-                <Icon className={cn('h-3.5 w-3.5 shrink-0', inSplit && 'text-[var(--accent-blue)]')} />
+                <Icon className={cn('h-3.5 w-3.5 shrink-0', inPane && paneCount > 1 && 'text-[var(--accent-blue)]')} />
                 <span className="truncate">{meta.name}</span>
               </button>
+              {/* Add-to-pane button: opens this tab in a new split pane (up to 4).
+                  Shows pane count badge when multiple panes are open.
+                  Disabled (muted, no-op) when already at 4 panes. */}
               <button
                 type="button"
-                aria-label={inSplit ? 'Close split' : 'Open in split screen'}
-                title={inSplit ? 'Close split' : 'Open in split screen'}
+                aria-label={
+                  atMaxPanes
+                    ? 'Maximum 4 panes open'
+                    : inPane && paneCount > 1
+                      ? `In pane ${paneIdx + 1} of ${paneCount} — close pane`
+                      : 'Open in new pane'
+                }
+                title={
+                  atMaxPanes
+                    ? 'Maximum 4 panes'
+                    : inPane && paneCount > 1
+                      ? `Pane ${paneIdx + 1} — click to close`
+                      : 'Open beside'
+                }
                 className={cn(
-                  'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:block [@media(pointer:coarse)]:block',
-                  inSplit ? 'block text-[var(--accent-blue)]' : 'text-muted-foreground'
+                  'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:flex [@media(pointer:coarse)]:flex items-center gap-0.5',
+                  inPane && paneCount > 1 ? 'flex text-[var(--accent-blue)]' : 'text-muted-foreground',
+                  atMaxPanes && 'opacity-40 cursor-not-allowed'
                 )}
-                onClick={() => (inSplit ? closeSplit('primary') : openSplit(id))}
+                onClick={() => {
+                  if (atMaxPanes) return
+                  if (inPane && paneCount > 1) {
+                    removePane(paneIdx)
+                  } else {
+                    addPane(id)
+                  }
+                }}
               >
                 <Columns2 className="h-3 w-3" />
+                {paneCount > 1 && inPane && (
+                  <span className="text-[0.625rem] font-semibold leading-none">{paneIdx + 1}</span>
+                )}
               </button>
               <button
                 type="button"

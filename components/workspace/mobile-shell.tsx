@@ -5,7 +5,7 @@
 // & page list) → editor (full-bleed canvas, no sidebar, properties as a
 // bottom sheet, the top-right actions collapsed into one menu).
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -260,17 +260,138 @@ export function MobileShell() {
   // Where the editor's back button returns to — the folder the open page
   // actually lives in, not always Home.
   const activeParentId = activePageId ? (nodes[activePageId]?.parentId ?? null) : null
-  const goBackFromEditor = () =>
-    setView(activeParentId ? { kind: 'folder', id: activeParentId } : { kind: 'home' })
+  const goBackFromEditor = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      window.history.back()
+    } else {
+      setView(activeParentId ? { kind: 'folder', id: activeParentId } : { kind: 'home' })
+    }
+  }
+
+  const pushHistory = (tag: string) => {
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ simblip: true, tag, ts: Date.now() }, '')
+    }
+  }
+
+  const navigateToView = (nextView: View) => {
+    pushHistory(nextView.kind)
+    setView(nextView)
+  }
+
+  const openDrawer = () => {
+    pushHistory('drawer')
+    setDrawerOpen(true)
+  }
+
+  const openSettings = () => {
+    pushHistory('settings')
+    setSettingsOpen(true)
+  }
+
+  const openTutorial = () => {
+    pushHistory('tutorial')
+    setTutorialOpen(true)
+  }
 
   const openPage = (pageId: string) => {
+    pushHistory('editor')
     store.getState().setActivePage(pageId)
     setView({ kind: 'editor' })
   }
 
   const openFile = (node: FileNode) => {
-    if (openFileNode(node)) setView({ kind: 'editor' })
+    if (openFileNode(node)) {
+      pushHistory('editor')
+      setView({ kind: 'editor' })
+    }
   }
+
+  // Mobile hardware/gesture back button handler: closes open drawers/modals/overlays first,
+  // then unwinds nested views (editor -> folder -> home) instead of closing the browser app.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (!window.history.state?.simblip) {
+      window.history.replaceState({ simblip: true, tag: 'root' }, '')
+    }
+
+    const onPopState = () => {
+      // 1. Close overlays in priority order
+      if (drawerOpen) {
+        setDrawerOpen(false)
+        return
+      }
+      if (settingsOpen) {
+        setSettingsOpen(false)
+        return
+      }
+      if (tutorialOpen) {
+        setTutorialOpen(false)
+        return
+      }
+      if (shareFor) {
+        setShareFor(null)
+        return
+      }
+      if (assignFor) {
+        setAssignFor(null)
+        return
+      }
+      if (presentFor) {
+        setPresentFor(null)
+        return
+      }
+      if (publishFor) {
+        setPublishFor(null)
+        return
+      }
+      if (addTarget) {
+        setAddTarget(null)
+        return
+      }
+      if (inspectorOpen) {
+        useWorkspaceStore.getState().togglePanel('inspector')
+        return
+      }
+      if (calcOpen) {
+        useWorkspaceStore.getState().togglePanel('calc')
+        return
+      }
+
+      // 2. Unwind view navigation
+      if (view.kind === 'editor') {
+        const parentId = activePageId ? (nodes[activePageId]?.parentId ?? null) : null
+        setView(parentId ? { kind: 'folder', id: parentId } : { kind: 'home' })
+        return
+      }
+      if (view.kind === 'folder' || view.kind === 'notebook') {
+        const currentFolder = nodes[view.id]
+        const parentId = currentFolder?.parentId
+        setView(parentId ? { kind: 'folder', id: parentId } : { kind: 'home' })
+        return
+      }
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [
+    drawerOpen,
+    settingsOpen,
+    tutorialOpen,
+    shareFor,
+    assignFor,
+    presentFor,
+    publishFor,
+    addTarget,
+    inspectorOpen,
+    calcOpen,
+    view,
+    activePageId,
+    nodes,
+  ])
+
+
 
   const staff = can(profile?.role, 'share-pages')
 
@@ -309,7 +430,7 @@ export function MobileShell() {
   // The drawer is declared here so it can be embedded in EVERY view.
   // (It must be inside AnimatePresence and mounted wherever the header is.)
   const appMenu = (
-    <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent" onClick={() => setDrawerOpen(true)}>
+    <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent" onClick={openDrawer}>
       <Menu className="h-5 w-5" />
     </button>
   )
@@ -353,7 +474,7 @@ export function MobileShell() {
               <div className="flex w-full items-center gap-1">
                 <button
                   className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' || view.kind === 'folder' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
-                  onClick={() => { setView({ kind: 'home' }); setDrawerOpen(false) }}
+                  onClick={() => { navigateToView({ kind: 'home' }); setDrawerOpen(false) }}
                 >
                   <BookOpen className="h-4 w-4" /> My Notebooks
                 </button>
@@ -391,7 +512,7 @@ export function MobileShell() {
                   const ws = store.getState()
                   const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
                   const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-                  setView({ kind: 'folder', id })
+                  navigateToView({ kind: 'folder', id })
                   setDrawerOpen(false)
                 }}
               >
@@ -415,7 +536,7 @@ export function MobileShell() {
               <div className="mt-6 mb-2 text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => { setTutorialOpen(true); setDrawerOpen(false) }}
+                onClick={() => { setDrawerOpen(false); openTutorial() }}
               >
                 <MonitorPlay className="h-4 w-4" /> Tutorials
               </button>
@@ -427,11 +548,12 @@ export function MobileShell() {
               </button>
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => { setSettingsOpen(true); setDrawerOpen(false) }}
+                onClick={() => { setDrawerOpen(false); openSettings() }}
               >
                 <Settings className="h-4 w-4" /> Settings
               </button>
             </div>
+
             <div className="border-t border-border/40 p-4">
               <button
                 className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-destructive transition-colors hover:bg-destructive/10"
@@ -659,7 +781,7 @@ export function MobileShell() {
             type="button"
             aria-label="Back"
             className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-            onClick={() => setView(parentId ? { kind: 'folder', id: parentId } : { kind: 'home' })}
+            onClick={goBackFromEditor}
           >
             <ArrowLeft className="h-4.5 w-4.5" />
           </button>
@@ -690,7 +812,7 @@ export function MobileShell() {
                     key={sub.id}
                     whileTap={{ scale: 0.95 }}
                     className="flex items-center gap-2 rounded-2xl border border-border/40 bg-card px-3 py-3 shadow-sm"
-                    onClick={() => setView({ kind: 'folder', id: sub.id })}
+                    onClick={() => navigateToView({ kind: 'folder', id: sub.id })}
                   >
                     <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
                     <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{sub.name}</span>
@@ -954,7 +1076,7 @@ export function MobileShell() {
                 key={nb.id}
                 whileTap={{ scale: 0.95 }}
                 className="relative flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card shadow-sm"
-                onClick={() => setView({ kind: 'folder', id: nb.id })}
+                onClick={() => navigateToView({ kind: 'folder', id: nb.id })}
               >
                 {/* Cover image instead of an icon — pick one from /cover. */}
                 <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
@@ -1014,7 +1136,7 @@ export function MobileShell() {
               const sec = store.getState().addFolder('Section 1', id)
               store.getState().addPageIn(sec, 'Page 1')
               store.getState().setActivePage(null)
-              setView({ kind: 'folder', id })
+              navigateToView({ kind: 'folder', id })
             }}
           >
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-foreground">

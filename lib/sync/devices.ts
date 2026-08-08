@@ -41,8 +41,8 @@ function deviceLabel(): string {
 }
 
 async function touch(ownerId: string, institutionId: string) {
-  if (db.dbMode === 'cloud') {
-    const token = getAccessToken()
+  const token = getAccessToken()
+  try {
     const res = await fetch('/api/pg/simblip_devices', {
       method: 'POST',
       headers: {
@@ -61,14 +61,15 @@ async function touch(ownerId: string, institutionId: string) {
       ]),
     })
     if (!res.ok) throw new Error(`Touch failed ${res.status}`)
-  } else {
+  } catch (err) {
+    // Fallback to local table in demo / offline mode
     await db.insert<db.Row>('devices', {
       id: deviceId(),
       owner_id: ownerId,
       institution_id: institutionId,
       label: deviceLabel(),
       last_seen_at: new Date().toISOString(),
-    })
+    }).catch(() => {})
   }
 }
 
@@ -86,17 +87,16 @@ export async function refreshDevices(explicitOwnerId?: string) {
 
   try {
     let rows: DeviceRow[] = []
-    if (db.dbMode === 'cloud') {
-      const token = getAccessToken()
-      const res = await fetch(`/api/pg/simblip_devices?owner_id=eq.${ownerId}&select=id,owner_id,label,last_seen_at`, {
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-      })
-      if (res.ok) {
-        rows = (await res.json()) as DeviceRow[]
-      }
+    const token = getAccessToken()
+    const res = await fetch(`/api/pg/simblip_devices?owner_id=eq.${ownerId}&select=id,owner_id,label,last_seen_at`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (res.ok) {
+      rows = (await res.json()) as DeviceRow[]
     } else {
       rows = (await db.list<db.Row>('devices', { owner_id: ownerId })) as unknown as DeviceRow[]
     }
+
     const cutoff = Date.now() - FRESH_WINDOW_MS
     const self = deviceId()
     useDevicesStore.setState({

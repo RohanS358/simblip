@@ -18,6 +18,7 @@ import {
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
+import { usePrefs } from '@/lib/store/preferences'
 import { HoldableMergedTransport } from './transport'
 import {
   DropdownMenu,
@@ -107,10 +108,12 @@ export function PageControlsMenu({
   const pdfDock = usePdfDockStore((s) => s.dock)
   const docDock = useDocDockStore((s) => s.dock)
   const isFloating = useTransportDockStore((s) => s.floating)
+  const dockPrefs = usePrefs((s) => s.dock)
+  const dockHasTransport = dockPrefs.layoutMode === 'extended' && dockPrefs.showTransport
 
   const showPdf = !!pdfDock
   const showDoc = !!docDock
-  const showSim = showTransport && !!pageId && !isFloating
+  const showSim = showTransport && !!pageId && !isFloating && !dockHasTransport
   const showZoom = showPdf || showDoc
 
   if (!showPdf && !showDoc && !showSim) return null

@@ -43,6 +43,7 @@ const JSONB: Record<string, string[]> = {
   assignments: ['content'],
   submissions: ['content'],
   sketch_templates: ['cloud', 'strokes'],
+  devices: ['pending_pull'],
 }
 
 export const isJsonb = (table: string, col: string) => JSONB[table]?.includes(col) ?? false

@@ -48,11 +48,18 @@ export function PrefRow({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-2">
-      <div className="flex items-center gap-1.5">
-        <p className="text-[0.8125rem] font-medium">{label}</p>
-        <InfoPopover description={detail} />
+      <div className="flex flex-col min-w-0 pr-2">
+        <div className="flex items-center gap-1.5">
+          <p className="text-[0.8125rem] font-medium">{label}</p>
+          {detail && <InfoPopover description={detail} />}
+        </div>
       </div>
-      <Switch checked={checked} onCheckedChange={onChange} aria-label={label} />
+      <Switch
+        checked={checked}
+        onCheckedChange={onChange}
+        aria-label={label}
+        className="data-[state=checked]:bg-[#7f6df2] dark:data-[state=checked]:bg-[#7f6df2]"
+      />
     </div>
   )
 }
@@ -68,17 +75,17 @@ export function Choice<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="flex gap-1 rounded-lg bg-accent/50 p-0.5">
+    <div className="flex flex-wrap sm:flex-nowrap gap-1 rounded-lg bg-accent/40 p-1 border border-border/30">
       {options.map((o) => (
         <button
           key={o.id}
           type="button"
           aria-pressed={value === o.id}
           className={cn(
-            'flex-1 rounded-md px-2 py-1 text-[0.75rem] font-medium transition-colors',
+            'flex-1 min-w-[64px] whitespace-nowrap rounded-md px-2.5 py-1 text-[0.75rem] font-medium transition-all duration-150',
             value === o.id
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
+              ? 'bg-background text-foreground shadow-xs font-semibold'
+              : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
           )}
           onClick={() => onChange(o.id)}
         >
@@ -88,3 +95,56 @@ export function Choice<T extends string>({
     </div>
   )
 }
+
+/** Obsidian-style Card container for setting groups */
+export function SettingCard({
+  title,
+  children,
+  className,
+}: {
+  title?: string
+  children: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('rounded-xl border border-border/50 bg-muted/20 dark:bg-muted/10 p-4 sm:p-5 space-y-4 shadow-2xs', className)}>
+      {title && (
+        <h3 className="text-[0.6875rem] font-bold text-muted-foreground/80 tracking-wider uppercase">
+          {title}
+        </h3>
+      )}
+      <div className="divide-y divide-border/30 space-y-3.5 pt-0.5">
+        {children}
+      </div>
+    </div>
+  )
+}
+
+/** Obsidian Setting Row: Title on left, hint/detail below, control on right */
+export function ObsidianPrefRow({
+  label,
+  detail,
+  action,
+  children,
+  className,
+}: {
+  label: string
+  detail?: string
+  action?: React.ReactNode
+  children?: React.ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6 pt-3.5 first:pt-0', className)}>
+      <div className="flex flex-col flex-1 min-w-0 pr-2">
+        <p className="text-[0.84375rem] font-medium text-foreground">{label}</p>
+        {detail && <p className="text-[0.75rem] text-muted-foreground leading-relaxed mt-0.5">{detail}</p>}
+      </div>
+      <div className="shrink-0 flex items-center justify-end gap-2.5 pt-0.5 sm:pt-0 self-start sm:self-center">
+        {action ?? children}
+      </div>
+    </div>
+  )
+}
+
+

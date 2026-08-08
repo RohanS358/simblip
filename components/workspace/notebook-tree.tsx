@@ -211,6 +211,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
   const children = useWorkspaceStore(useShallow((s) => childrenOf(s.nodes, node.id)))
   const isNotebook = node.parentId === null
   const isCollapsed = handlers.collapsed[node.id]
+  const [dropOver, setDropOver] = useState(false)
 
   return (
     <div className={cn(depth > 0 && 'ml-4', isNotebook ? 'mt-1.5' : 'mt-0.5')}>
@@ -219,18 +220,44 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
           <div
             className={cn(
               'group flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-accent/50',
-              isNotebook ? 'text-[0.8125rem] font-semibold py-1.5' : 'gap-2 text-[0.78125rem] font-medium text-muted-foreground'
+              isNotebook ? 'text-[0.8125rem] font-semibold py-1.5' : 'gap-2 text-[0.78125rem] font-medium text-muted-foreground',
+              dropOver && 'ring-2 ring-inset ring-[var(--accent-blue)]/60 bg-[var(--accent-blue)]/5'
             )}
-            // Drop a file straight onto any folder — see addFileToFolder's
-            // doc comment for the page-vs-raw-file routing rule.
+            // ── DnD: accept both OS files and internal node moves ──
+            draggable
+            onDragStart={(e) => {
+              e.dataTransfer.setData('application/x-simblip-node', JSON.stringify({ id: node.id, kind: 'folder' }))
+              e.dataTransfer.effectAllowed = 'move'
+              // Prevent drag from also triggering parent handlers
+              e.stopPropagation()
+            }}
             onDragOver={(e) => {
-              if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+              const hasFile = e.dataTransfer.types.includes('Files')
+              const hasNode = e.dataTransfer.types.includes('application/x-simblip-node')
+              if (!hasFile && !hasNode) return
+              e.preventDefault()
+              e.stopPropagation()
+              setDropOver(true)
+            }}
+            onDragLeave={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as unknown as Element)) setDropOver(false)
             }}
             onDrop={(e) => {
-              const f = e.dataTransfer.files?.[0]
-              if (!f) return
+              setDropOver(false)
               e.preventDefault()
-              void addFileToFolder(node.id, f)
+              e.stopPropagation()
+              // Internal node move
+              const nodeData = e.dataTransfer.getData('application/x-simblip-node')
+              if (nodeData) {
+                try {
+                  const { id: draggedId } = JSON.parse(nodeData) as { id: string; kind: string }
+                  if (draggedId !== node.id) store.getState().moveNode(draggedId, node.id)
+                } catch { /* ignore bad JSON */ }
+                return
+              }
+              // External OS file drop
+              const f = e.dataTransfer.files?.[0]
+              if (f) void addFileToFolder(node.id, f)
             }}
           >
             <button
@@ -355,6 +382,16 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           )}
           style={{ marginLeft: `${depth * 16}px` }}
+          // ── DnD: dragging a page chip sets both tokens ──
+          // application/x-simblip-tab → canvas drop-to-split (shell.tsx)
+          // application/x-simblip-node → tree folder drop (reparent)
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData('application/x-simblip-tab', node.id)
+            e.dataTransfer.setData('application/x-simblip-node', JSON.stringify({ id: node.id, kind: 'page' }))
+            e.dataTransfer.effectAllowed = 'move'
+            e.stopPropagation()
+          }}
           onClick={() => handlers.selectPage(node.id)}
         >
           <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -439,6 +476,15 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
         <div
           className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
           style={{ marginLeft: `${16 + depth * 16}px` }}
+          // Dragging a file chip: if it has a pageId already open, use that for
+          // split-screen; also tag as a node so folders can reparent it.
+          draggable
+          onDragStart={(e) => {
+            if (node.pageId) e.dataTransfer.setData('application/x-simblip-tab', node.pageId)
+            e.dataTransfer.setData('application/x-simblip-node', JSON.stringify({ id: node.id, kind: 'file' }))
+            e.dataTransfer.effectAllowed = 'move'
+            e.stopPropagation()
+          }}
           onClick={() => handlers.openFile(node)}
         >
           <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -588,7 +634,24 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
         </DropdownMenu>
       </div>
 
-      <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+      <div
+        className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+        // Global root drop zone: external files dropped anywhere in the tree
+        // (not on a specific folder) fall into the first root notebook if any.
+        onDragOver={(e) => {
+          if (e.dataTransfer.types.includes('Files')) e.preventDefault()
+        }}
+        onDrop={(e) => {
+          // Only handle if the target is the root scroll area itself
+          // (folder rows stop propagation, so this only fires for misses).
+          const f = e.dataTransfer.files?.[0]
+          if (!f) return
+          const firstRoot = roots[0]
+          if (!firstRoot) return
+          e.preventDefault()
+          void addFileToFolder(firstRoot.id, f)
+        }}
+      >
         {roots.length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
             <p className="text-[0.75rem] leading-relaxed text-muted-foreground">

@@ -45,7 +45,7 @@ const TABLES: Record<string, TableSpec> = {
   announcements: { pk: ['id'] },
   sketch_templates: { pk: ['id'], anon: ['GET', 'POST'] },
   file_manifest: { pk: ['id'], owner: 'owner_id' },
-  devices: { pk: ['id'], owner: 'owner_id' },
+  devices: { pk: ['id'], owner: 'owner_id', anon: ['GET', 'POST', 'PATCH', 'DELETE'] },
 }
 
 // Tables that carry institution_id on the row and must stay inside the
@@ -187,10 +187,14 @@ export async function POST(req: Request, { params }: Params) {
         if (spec.owner && claims.role !== 'board') row[spec.owner] = claims.sub
         if (JOIN_TABLE_SCOPE[table]) await assertJoinParentInTenant(table, row, claims)
       }
-      const cols = Object.keys(row).map(ident)
-      const values = cols.map((c) => encodeValue(table, c, row[c]))
-      const placeholders = cols.map((c, i) => `$${i + 1}${castFor(table, c)}`)
-      const updatable = cols.filter((c) => !spec.pk.includes(c))
+      // rawKeys preserves the original un-quoted key names for value lookup.
+      // cols contains the ident-quoted names for safe SQL interpolation.
+      const rawKeys = Object.keys(row)
+      const cols = rawKeys.map(ident)
+      const values = rawKeys.map((k) => encodeValue(table, k, row[k]))
+      const placeholders = rawKeys.map((k, i) => `$${i + 1}${castFor(table, k)}`)
+      // pk column names in spec are raw strings — compare against rawKeys.
+      const updatable = rawKeys.filter((k) => !spec.pk.includes(k)).map(ident)
       const conflict =
         updatable.length > 0
           ? `do update set ${updatable.map((c) => `${c} = excluded.${c}`).join(', ')}`
@@ -198,7 +202,7 @@ export async function POST(req: Request, { params }: Params) {
       await q(
         `insert into simblip_${ident(table)} (${cols.join(', ')})
          values (${placeholders.join(', ')})
-         on conflict (${spec.pk.join(', ')}) ${conflict}`,
+         on conflict (${spec.pk.map(ident).join(', ')}) ${conflict}`,
         values
       )
     }

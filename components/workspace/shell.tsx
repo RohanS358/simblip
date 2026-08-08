@@ -5,7 +5,7 @@
 // panel, notification center and a status bar. The notebook is the medium;
 // the simulation engine is the product — the transport sits front and center.
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { GraduationCap, Search, Sun, Moon } from 'lucide-react'
@@ -105,6 +105,225 @@ function seedFirstRun(): boolean {
   return true
 }
 
+// ── PaneGrid ──────────────────────────────────────────────────────────────
+// Renders 1–4 pages in a CSS grid layout. Layout strategy:
+//   1 pane  → full canvas (no grid)
+//   2 panes → side by side columns (splitRatio respected)
+//   3 panes → left half + right column with top/bottom rows
+//   4 panes → 2×2 grid
+//
+// Each layout variant is its own component to avoid conditional hook calls.
+
+const SEAM_BASE = 'shrink-0 bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50'
+const H_SEAM = `w-1.5 cursor-col-resize ${SEAM_BASE}`
+const V_SEAM = `h-1.5 cursor-row-resize ${SEAM_BASE}`
+
+/** Fraction below which a pane is snapped closed. */
+const CLOSE_THRESHOLD = 0.12
+
+function useDragger(dir: 'h' | 'v', hostRef: React.RefObject<HTMLDivElement | null>, onMove: (f: number) => void) {
+  return useCallback((e: React.PointerEvent) => {
+    e.preventDefault()
+    const move = (ev: PointerEvent) => {
+      const host = hostRef.current?.getBoundingClientRect()
+      if (!host) return
+      onMove(dir === 'h' ? (ev.clientX - host.left) / host.width : (ev.clientY - host.top) / host.height)
+    }
+    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
+    window.addEventListener('pointermove', move)
+    window.addEventListener('pointerup', up)
+  }, [dir, hostRef, onMove])
+}
+
+function PaneCell({
+  id,
+  index,
+  activePaneIndex,
+  paneCount,
+  className,
+  style,
+}: {
+  id: string
+  index: number
+  activePaneIndex: number
+  paneCount: number
+  className?: string
+  style?: React.CSSProperties
+}) {
+  const setActivePane = useWorkspaceStore((s) => s.setActivePane)
+  const removePane = useWorkspaceStore((s) => s.removePane)
+  const isActive = index === activePaneIndex
+
+  return (
+    <div
+      className={cn(
+        'group relative min-h-0 min-w-0 overflow-hidden',
+        isActive && 'ring-1 ring-inset ring-[var(--accent-blue)]/30',
+        className
+      )}
+      style={style}
+      onPointerDownCapture={() => { if (!isActive) setActivePane(index) }}
+    >
+      <PageView pageId={id} />
+      {paneCount > 1 && (
+        <button
+          type="button"
+          aria-label="Close pane"
+          className={cn(
+            'absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-destructive/10 hover:text-destructive',
+            isActive ? 'opacity-60' : 'opacity-0 group-hover:opacity-60'
+          )}
+          onClick={() => removePane(index)}
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5">
+            <path d="M2 2l6 6M8 2l-6 6" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
+
+function Pane1({ panes, activePaneIndex }: { panes: string[]; activePaneIndex: number }) {
+  return <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={1} className="h-full w-full" />
+}
+
+function Pane2({ panes, activePaneIndex, splitRatio }: { panes: string[]; activePaneIndex: number; splitRatio: number }) {
+  const host = useRef<HTMLDivElement>(null)
+  const handleH = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      // Left pane too narrow — close it
+      useWorkspaceStore.getState().removePane(0)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      // Right pane too narrow — close it
+      useWorkspaceStore.getState().removePane(1)
+    } else {
+      useWorkspaceStore.getState().setSplitRatio(f)
+    }
+  }, [])
+  const drag = useDragger('h', host, handleH)
+  return (
+    <div ref={host} className="flex h-full w-full">
+      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={2} style={{ width: `${splitRatio * 100}%` }} />
+      <div role="separator" aria-label="Resize split" className={H_SEAM} onPointerDown={drag} />
+      <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={2} className="flex-1" />
+    </div>
+  )
+}
+
+function Pane3({ panes, activePaneIndex, splitRatio }: { panes: string[]; activePaneIndex: number; splitRatio: number }) {
+  const host = useRef<HTMLDivElement>(null)
+  const rightHost = useRef<HTMLDivElement>(null)
+  const [vRatio, setVRatio] = useState(0.5)
+  const handleH3 = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(0)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      // Collapse entire right column — remove both right panes (indices 2 then 1)
+      useWorkspaceStore.getState().removePane(2)
+      useWorkspaceStore.getState().removePane(1)
+    } else {
+      useWorkspaceStore.getState().setSplitRatio(f)
+    }
+  }, [])
+  const handleV3 = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(1)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(2)
+    } else {
+      setVRatio(Math.min(0.8, Math.max(0.2, f)))
+    }
+  }, [])
+  const dragH = useDragger('h', host, handleH3)
+  const dragV = useDragger('v', rightHost, handleV3)
+  return (
+    <div ref={host} className="flex h-full w-full">
+      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={3} style={{ width: `${splitRatio * 100}%` }} />
+      <div role="separator" aria-label="Resize columns" className={H_SEAM} onPointerDown={dragH} />
+      <div ref={rightHost} className="flex flex-1 flex-col">
+        <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={3} style={{ height: `${vRatio * 100}%` }} />
+        <div role="separator" aria-label="Resize rows" className={V_SEAM} onPointerDown={dragV} />
+        <PaneCell id={panes[2]} index={2} activePaneIndex={activePaneIndex} paneCount={3} className="flex-1" />
+      </div>
+    </div>
+  )
+}
+
+function Pane4({ panes, activePaneIndex }: { panes: string[]; activePaneIndex: number }) {
+  const host = useRef<HTMLDivElement>(null)
+  const topHost = useRef<HTMLDivElement>(null)
+  const botHost = useRef<HTMLDivElement>(null)
+  const [vRatio, setVRatio] = useState(0.5)
+  const [leftRatio, setLeftRatio] = useState(0.5)
+  const [rightRatio, setRightRatio] = useState(0.5)
+  const handleV4 = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      // Top row too short — close top two panes
+      useWorkspaceStore.getState().removePane(1)
+      useWorkspaceStore.getState().removePane(0)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      // Bottom row too short — close bottom two panes
+      useWorkspaceStore.getState().removePane(3)
+      useWorkspaceStore.getState().removePane(2)
+    } else {
+      setVRatio(Math.min(0.8, Math.max(0.2, f)))
+    }
+  }, [])
+  const handleL4 = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(0)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(1)
+    } else {
+      setLeftRatio(Math.min(0.8, Math.max(0.2, f)))
+    }
+  }, [])
+  const handleR4 = useCallback((f: number) => {
+    if (f < CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(2)
+    } else if (f > 1 - CLOSE_THRESHOLD) {
+      useWorkspaceStore.getState().removePane(3)
+    } else {
+      setRightRatio(Math.min(0.8, Math.max(0.2, f)))
+    }
+  }, [])
+  const dragV = useDragger('v', host, handleV4)
+  const dragL = useDragger('h', topHost, handleL4)
+  const dragR = useDragger('h', botHost, handleR4)
+  return (
+    <div ref={host} className="flex h-full w-full flex-col">
+      <div ref={topHost} className="flex min-h-0" style={{ height: `${vRatio * 100}%` }}>
+        <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: `${leftRatio * 100}%` }} />
+        <div role="separator" aria-label="Resize top columns" className={H_SEAM} onPointerDown={dragL} />
+        <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={4} className="flex-1" />
+      </div>
+      <div role="separator" aria-label="Resize rows" className={V_SEAM} onPointerDown={dragV} />
+      <div ref={botHost} className="flex min-h-0 flex-1">
+        <PaneCell id={panes[2]} index={2} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: `${rightRatio * 100}%` }} />
+        <div role="separator" aria-label="Resize bottom columns" className={H_SEAM} onPointerDown={dragR} />
+        <PaneCell id={panes[3]} index={3} activePaneIndex={activePaneIndex} paneCount={4} className="flex-1" />
+      </div>
+    </div>
+  )
+}
+
+function PaneGrid({
+  panes,
+  activePaneIndex,
+  splitRatio,
+}: {
+  panes: string[]
+  activePaneIndex: number
+  splitRatio: number
+}) {
+  if (panes.length === 0) return null
+  if (panes.length === 1) return <Pane1 panes={panes} activePaneIndex={activePaneIndex} />
+  if (panes.length === 2) return <Pane2 panes={panes} activePaneIndex={activePaneIndex} splitRatio={splitRatio} />
+  if (panes.length === 3) return <Pane3 panes={panes} activePaneIndex={activePaneIndex} splitRatio={splitRatio} />
+  return <Pane4 panes={panes} activePaneIndex={activePaneIndex} />
+}
+
 export function WorkspaceShell() {
   // Stores hydrate from localStorage on the client; gate rendering to avoid
   // a server/client markup mismatch.
@@ -144,8 +363,8 @@ export function WorkspaceShell() {
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const syncScroll = useWorkspaceStore((s) => s.syncScroll)
-  const splitPageId = useWorkspaceStore((s) => s.splitPageId)
-  const primaryPageId = useWorkspaceStore((s) => s.primaryPageId)
+  const panes = useWorkspaceStore((s) => s.panes)
+  const activePaneIndex = useWorkspaceStore((s) => s.activePaneIndex)
   const splitRatio = useWorkspaceStore((s) => s.splitRatio)
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const pdfToolsActive = useWorkspaceStore((s) => s.pdfToolsActive)
@@ -160,7 +379,8 @@ export function WorkspaceShell() {
     activeKind === 'doc' || activeKind === 'pptx' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
   // Width of the legacy in-board document split pane (item: resizable).
   const [docSplitW, setDocSplitW] = useState(0.5)
-  const [tabDropSide, setTabDropSide] = useState<'left' | 'right' | null>(null)
+  // Drop indicator while dragging a tab/node over the canvas.
+  const [tabDropQuadrant, setTabDropQuadrant] = useState<'left' | 'right' | 'top' | 'bottom' | null>(null)
 
   const activePageObjects = useDocStore((s) => contentPageId ? s.pages[contentPageId]?.objects : null)
   const splitScreenObject = splitScreenDocumentId && activePageObjects ? activePageObjects[splitScreenDocumentId] : null
@@ -236,6 +456,38 @@ export function WorkspaceShell() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
+  // Mobile/Tablet back gesture listener: close open dialogs/overlays instead of exiting the page.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    if (!window.history.state?.simblip) {
+      window.history.replaceState({ simblip: true }, '')
+    }
+
+    const onPopState = () => {
+      if (commandOpen) {
+        setCommandOpen(false)
+        return
+      }
+      if (settingsOpen) {
+        setSettingsOpen(false)
+        return
+      }
+      if (tutorialOpen) {
+        setTutorialOpen(false)
+        return
+      }
+      if (calcOpen) {
+        useWorkspaceStore.getState().togglePanel('calc')
+        return
+      }
+    }
+
+    window.addEventListener('popstate', onPopState)
+    return () => window.removeEventListener('popstate', onPopState)
+  }, [commandOpen, settingsOpen, tutorialOpen, calcOpen])
+
+
   if (!ready) {
     return (
       <div className="flex h-dvh items-center justify-center bg-background">
@@ -255,37 +507,41 @@ export function WorkspaceShell() {
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4 border-b border-border/40 bg-background">
-        
-        {institution?.logo_url ? (
-          <Image
-            src={String(institution.logo_url)}
-            alt={institution.name}
-            width={20}
-            height={20}
-            unoptimized
-            className="h-5 w-5 rounded object-contain"
-          />
-        ) : null}
-        <span className="text-[0.875rem] font-extrabold tracking-tight">
-          SIM<span className="text-[var(--accent-blue)]">BLIP</span>
-        </span>
-        {institution && (
-          <span className="hidden truncate text-[0.75rem] text-muted-foreground sm:inline">
-            · {institution.name}
+      <header className="z-40 flex h-12 shrink-0 items-center gap-2 border-b border-border/40 bg-background">
+        {/* Left zone: branding + institution + tabs — allowed to shrink and truncate */}
+        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden pl-4">
+          {institution?.logo_url ? (
+            <Image
+              src={String(institution.logo_url)}
+              alt={institution.name}
+              width={20}
+              height={20}
+              unoptimized
+              className="h-5 w-5 shrink-0 rounded object-contain"
+            />
+          ) : null}
+          <span className="shrink-0 text-[0.875rem] font-extrabold tracking-tight">
+            SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
-        )}
-        <span aria-hidden className="hidden text-muted-foreground/50 sm:inline">/</span>
-        {/* open pages ride in the header as tabs — boards, docs and PDFs side by side */}
-        <TabsBar
-          pageId={contentPageId}
-          showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
-        />
-        <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background pl-2  dark:">
+          {institution && (
+            <span className="hidden min-w-0 truncate text-[0.75rem] text-muted-foreground lg:inline">
+              · {institution.name}
+            </span>
+          )}
+          <span aria-hidden className="hidden shrink-0 text-muted-foreground/50 lg:inline">/</span>
+          {/* open pages ride in the header as tabs — boards, docs and PDFs side by side */}
+          <TabsBar
+            pageId={contentPageId}
+            showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
+          />
+        </div>
+
+        {/* Right zone: always-visible controls — shrink-0 so they're never hidden */}
+        <div className="relative z-10 flex shrink-0 items-center gap-1 bg-background pr-4">
           <button
             type="button"
             aria-label="Search (Ctrl+K)"
-            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[0.75rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[0.75rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:flex"
             onClick={() => setCommandOpen(true)}
           >
             <Search className="h-3.5 w-3.5" />
@@ -295,7 +551,7 @@ export function WorkspaceShell() {
           <button
             type="button"
             aria-label="Search"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:hidden"
+            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:hidden"
             onClick={() => setCommandOpen(true)}
           >
             <Search className="h-4 w-4" />
@@ -361,88 +617,61 @@ export function WorkspaceShell() {
 
         <main
           className="relative min-w-0 flex-1"
-          // Snap assist: while a tab is dragged over the canvas, glow the half
-          // it would land in; dropping splits (right) or fills the left pane.
+          // Snap assist: while a tab or tree node is dragged over the canvas,
+          // glow the quadrant it would land in; dropping adds a pane.
           onDragOver={(e) => {
             if (!e.dataTransfer.types.includes('application/x-simblip-tab')) return
             e.preventDefault()
             e.dataTransfer.dropEffect = 'move'
             const r = e.currentTarget.getBoundingClientRect()
-            setTabDropSide(e.clientX < r.left + r.width / 2 ? 'left' : 'right')
+            const xFrac = (e.clientX - r.left) / r.width
+            const yFrac = (e.clientY - r.top) / r.height
+            // Quadrant detection: use the closest edge within the center 40%
+            // deadzone, fallback to left/right for dragging from the tab bar.
+            const nearLeft = xFrac < 0.3
+            const nearRight = xFrac > 0.7
+            const nearTop = yFrac < 0.3
+            const nearBottom = yFrac > 0.7
+            if (nearTop && !nearLeft && !nearRight) setTabDropQuadrant('top')
+            else if (nearBottom && !nearLeft && !nearRight) setTabDropQuadrant('bottom')
+            else if (nearLeft) setTabDropQuadrant('left')
+            else setTabDropQuadrant('right')
           }}
           onDragLeave={(e) => {
-            if (!e.currentTarget.contains(e.relatedTarget as Node)) setTabDropSide(null)
+            if (!e.currentTarget.contains(e.relatedTarget as unknown as Element)) setTabDropQuadrant(null)
           }}
           onDrop={(e) => {
             const id = e.dataTransfer.getData('application/x-simblip-tab')
-            setTabDropSide(null)
+            setTabDropQuadrant(null)
             if (!id) return
             e.preventDefault()
             const r = e.currentTarget.getBoundingClientRect()
-            useWorkspaceStore.getState().dropTab(id, e.clientX < r.left + r.width / 2 ? 'left' : 'right')
+            const side = e.clientX < r.left + r.width / 2 ? 'left' : 'right'
+            useWorkspaceStore.getState().dropTab(id, side)
           }}
         >
-          {tabDropSide && (
+          {tabDropQuadrant && (
             <div
               className={cn(
-                'pointer-events-none absolute inset-y-2 z-50 w-1/2 rounded-2xl border-2 border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/10',
-                tabDropSide === 'left' ? 'left-2' : 'right-2'
+                'pointer-events-none absolute z-50 rounded-2xl border-2 border-[var(--accent-blue)]/50 bg-[var(--accent-blue)]/10 transition-all',
+                tabDropQuadrant === 'left' && 'inset-y-2 left-2 w-1/2',
+                tabDropQuadrant === 'right' && 'inset-y-2 right-2 w-1/2',
+                tabDropQuadrant === 'top' && 'inset-x-2 top-2 h-1/2',
+                tabDropQuadrant === 'bottom' && 'inset-x-2 bottom-2 h-1/2',
               )}
             />
           )}
           {activePageId ? (
             <>
-              {(() => {
-                const leftId = splitPageId ? (primaryPageId ?? activePageId) : activePageId
-                const rightId = splitPageId && splitPageId !== leftId ? splitPageId : null
-                const setActive = useWorkspaceStore.getState().setActivePage
-                if (!rightId) return <PageView pageId={leftId} />
-                return (
-                  <div className="flex h-full w-full">
-                    <div
-                      className={cn(
-                        'relative min-w-0',
-                        activePageId === leftId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25'
-                      )}
-                      style={{ width: `${splitRatio * 100}%` }}
-                      onPointerDownCapture={() => activePageId !== leftId && setActive(leftId)}
-                    >
-                      <PageView pageId={leftId} />
-                    </div>
-                    <div
-                      role="separator"
-                      aria-label="Resize split"
-                      className="w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50"
-                      onPointerDown={(e) => {
-                        e.preventDefault()
-                        const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
-                        const move = (ev: PointerEvent) =>
-                          useWorkspaceStore.getState().setSplitRatio((ev.clientX - host.left) / host.width)
-                        const up = () => {
-                          window.removeEventListener('pointermove', move)
-                          window.removeEventListener('pointerup', up)
-                        }
-                        window.addEventListener('pointermove', move)
-                        window.addEventListener('pointerup', up)
-                      }}
-                    />
-                    <div
-                      className={cn(
-                        'relative min-w-0 flex-1',
-                        activePageId === rightId && 'ring-1 ring-inset ring-[var(--accent-blue)]/25'
-                      )}
-                      onPointerDownCapture={() => activePageId !== rightId && setActive(rightId)}
-                    >
-                      <PageView pageId={rightId} />
-                    </div>
-                  </div>
-                )
-              })()}
+              <PaneGrid
+                panes={panes}
+                activePaneIndex={activePaneIndex}
+                splitRatio={splitRatio}
+              />
               {(activeKind !== 'pdf' || pdfToolsOn) && contentPageId && (
                 <CanvasControls pageId={contentPageId} showTransport={false} />
               )}
               {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
-             
               {contentPageId && <EventLogPanel pageId={contentPageId} />}
             </>
           ) : (

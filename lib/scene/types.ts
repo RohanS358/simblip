@@ -143,7 +143,7 @@ export interface PageDoc {
  *  Present mode instead of a scrolling document), an uploaded PDF you read
  *  and annotate, an uploaded image you view and annotate, or an editable
  *  spreadsheet. Older pages have no kind → board. */
-export type PageKind = 'board' | 'doc' | 'pdf' | 'image' | 'xlsx' | 'pptx'
+export type PageKind = 'board' | 'doc' | 'pdf' | 'image' | 'xlsx' | 'pptx' | 'web'
 
 /** The notebook/folder tree — Notebook -> Section -> Page used to be a fixed
  *  2-level hierarchy; it's now arbitrary-depth folders that can contain
@@ -222,6 +222,22 @@ export interface PageNode extends NodeBase {
   imageAnnotPageId?: string
   /** xlsx: spreadsheet grid JSON (x-data-spreadsheet's own sheet format). */
   xlsxContent?: unknown
+  /** web: current URL being browsed or cached. */
+  webUrl?: string
+  /** web: title of the active web page. */
+  webTitle?: string
+  /** web: navigation history stack. */
+  webHistory?: string[]
+  /** web: index in navigation history stack. */
+  webHistoryIndex?: number
+  /** web: saved bookmarks. */
+  webBookmarks?: { url: string; title: string }[]
+  /** web: offline cached HTML content snapshot. */
+  webCachedHtml?: string
+  /** web: offline cached readable text content. */
+  webCachedText?: string
+  /** web: id of the ink annotation overlay canvas. */
+  webAnnotPageId?: string
 }
 
 /** A raw uploaded file as a direct tree leaf (PDF, image, etc.) — not

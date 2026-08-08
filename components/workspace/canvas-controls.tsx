@@ -45,8 +45,10 @@ import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { Toolbar } from './toolbar'
-import { Transport, FloatingTransport } from './transport'
+import { FloatingTransport } from './transport'
 import { cn } from '@/lib/utils'
+
+import { SundialDock } from './sundial-dock'
 
 export function CanvasControls({
   pageId,
@@ -55,41 +57,71 @@ export function CanvasControls({
   pageId: string
   showTransport?: boolean
 }) {
-  const dockPref = usePrefs((s) => s.notebook.dock)
+  const dockPrefs = usePrefs((s) => s.dock)
   const isMobile = useIsMobile()
-  const dock = isMobile && (dockPref === 'left' || dockPref === 'right') ? 'bottom' : dockPref
+  const dockSide = isMobile && (dockPrefs.fixedSide === 'left' || dockPrefs.fixedSide === 'right')
+    ? 'bottom'
+    : dockPrefs.fixedSide
 
   const navBarH = useMobileNavBarStore((s) => s.height)
-  const edgeToolbar = dock === 'bottom' && navBarH > 0
+  const isSundial = dockPrefs.containerStyle === 'sundial'
+  const edgeToolbar = dockPrefs.positionMode === 'fixed' && dockPrefs.containerStyle === 'fixed-bar'
 
   const toolbarCell = edgeToolbar
-    ? 'col-start-1 col-end-4 row-start-3 justify-self-stretch self-end'
-    : dock === 'top'
+    ? dockSide === 'top'
+      ? 'col-start-1 col-end-4 row-start-1 justify-self-stretch self-start'
+      : dockSide === 'bottom'
+        ? 'col-start-1 col-end-4 row-start-3 justify-self-stretch self-end'
+        : dockSide === 'left'
+          ? 'col-start-1 row-start-1 row-end-4 justify-self-start self-stretch'
+          : 'col-start-3 row-start-1 row-end-4 justify-self-end self-stretch'
+    : dockSide === 'top'
       ? 'col-start-2 row-start-1 justify-self-center self-start'
-      : dock === 'bottom'
+      : dockSide === 'bottom'
         ? 'col-start-2 row-start-3 justify-self-center self-end'
-        : dock === 'left'
+        : dockSide === 'left'
           ? 'col-start-1 row-start-2 justify-self-start self-center'
           : 'col-start-3 row-start-2 justify-self-end self-center'
+
+  // If in Draggable mode, position is controlled by dragPosition or floating overlay
+  const isDraggable = dockPrefs.positionMode === 'draggable' && !isMobile
+
+  if (isSundial) {
+    return (
+      <>
+        <FloatingTransport pageId={pageId} />
+        <SundialDock pageId={pageId} />
+      </>
+    )
+  }
 
   return (
     <>
       <FloatingTransport pageId={pageId} />
-      <div
-        className={cn('pointer-events-none absolute inset-0 z-40 grid gap-3 py-4', edgeToolbar ? 'px-0' : 'px-4')}
-        style={{
-          gridTemplateColumns: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
-          gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
-          paddingBottom:
-            dock === 'bottom' && navBarH > 0
-              ? `calc(${navBarH}px + 0.75rem)`
-              : 'max(1rem, env(safe-area-inset-bottom))',
-        }}
-      >
-        <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
-          <Toolbar pageId={pageId} edge={edgeToolbar} />
+      {isDraggable ? (
+        <div className="pointer-events-none absolute inset-0 z-40 overflow-hidden">
+          <Toolbar pageId={pageId} edge={false} />
         </div>
-      </div>
+      ) : (
+        <div
+          className={cn('pointer-events-none absolute inset-0 z-40 grid gap-3', edgeToolbar ? 'p-0' : 'p-4')}
+          style={{
+            gridTemplateColumns: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
+            gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
+            paddingBottom:
+              dockSide === 'bottom' && navBarH > 0
+                ? `calc(${navBarH}px + 0.75rem)`
+                : edgeToolbar
+                  ? 0
+                  : 'max(1rem, env(safe-area-inset-bottom))',
+          }}
+        >
+          <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
+            <Toolbar pageId={pageId} edge={edgeToolbar} />
+          </div>
+        </div>
+      )}
     </>
   )
 }
+

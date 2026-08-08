@@ -16,7 +16,7 @@
 // what Upload already does).
 
 import { useEffect, useState } from 'react'
-import { ChevronLeft, FileText, Layout, Presentation as PresentationIcon, FileSpreadsheet, Upload as UploadIcon } from 'lucide-react'
+import { ChevronLeft, FileText, Layout, Presentation as PresentationIcon, FileSpreadsheet, Upload as UploadIcon, Globe } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { attachPdfToPage } from '@/lib/store/pdf-attach'
@@ -43,11 +43,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type Step = 'kind' | 'board' | 'doc-kind' | 'doc' | 'pptx' | 'xlsx' | 'upload'
+type Step = 'kind' | 'board' | 'doc-kind' | 'doc' | 'pptx' | 'xlsx' | 'web' | 'upload'
 
 const KIND_TILES: { step: Step; label: string; hint: string; icon: typeof Layout }[] = [
   { step: 'board', label: 'Whiteboard', hint: 'Infinite canvas', icon: Layout },
   { step: 'doc-kind', label: 'Document', hint: 'Doc, presentation or spreadsheet', icon: FileText },
+  { step: 'web', label: 'Web Browser', hint: 'Search, offline cache & pen notes', icon: Globe },
   { step: 'upload', label: 'Upload', hint: 'PDF, Word, Excel, PPT, image', icon: UploadIcon },
 ]
 
@@ -136,6 +137,24 @@ export function AddPageDialog({
   const createBoard = () => {
     if (!target) return
     const id = useWorkspaceStore.getState().addPageIn(target.parentId, name.trim() || 'Untitled Page', 'board')
+    finish(id)
+  }
+
+  const [webUrl, setWebUrl] = useState('https://en.wikipedia.org/wiki/Physics')
+
+  const createWeb = () => {
+    if (!target) return
+    const urlResolved = /^https?:\/\//i.test(webUrl.trim())
+      ? webUrl.trim()
+      : webUrl.trim()
+        ? `https://${webUrl.trim()}`
+        : 'https://en.wikipedia.org/wiki/Physics'
+    const id = useWorkspaceStore.getState().addPageIn(target.parentId, name.trim() || 'New Browser Tab', 'web')
+    useWorkspaceStore.getState().updatePageMeta(id, {
+      webUrl: urlResolved,
+      webHistory: [urlResolved],
+      webHistoryIndex: 0,
+    })
     finish(id)
   }
 
@@ -248,6 +267,7 @@ export function AddPageDialog({
     doc: 'New document',
     pptx: 'New presentation',
     xlsx: 'New spreadsheet',
+    web: 'New web browser tab',
     upload: 'Upload a file',
   }
   const title = STEP_TITLES[step]
@@ -277,7 +297,7 @@ export function AddPageDialog({
         </DialogHeader>
 
         {step === 'kind' && (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {KIND_TILES.map((t) => (
               <Tile key={t.step} onClick={() => setStep(t.step)}>
                 <t.icon className="h-6 w-6 text-muted-foreground" />
@@ -408,6 +428,35 @@ export function AddPageDialog({
               ))}
             </div>
           </div>
+        )}
+
+        {step === 'web' && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-[0.75rem]">Tab name</Label>
+              <Input
+                autoFocus
+                value={name}
+                placeholder="New Browser Tab"
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-[0.75rem]">Starting URL or search</Label>
+              <Input
+                value={webUrl}
+                placeholder="https://en.wikipedia.org/wiki/Physics"
+                onChange={(e) => setWebUrl(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && createWeb()}
+              />
+              <p className="text-[0.6875rem] text-muted-foreground">
+                You can enter a full URL or any search term — it will open on Wikipedia.
+              </p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={createWeb}>Open Browser</Button>
+            </div>
+          </>
         )}
 
         {step === 'upload' && (
