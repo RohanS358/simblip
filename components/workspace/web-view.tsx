@@ -42,13 +42,13 @@ export function WebView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
 
-  const initialUrl = meta?.webUrl || 'https://www.google.com'
+  const initialUrl = meta?.webUrl || 'https://www.google.com.np'
   const [url, setUrl] = useState(initialUrl)
   const [inputUrl, setInputUrl] = useState(initialUrl)
   const [history, setHistory] = useState<string[]>(meta?.webHistory || [initialUrl])
   const [historyIdx, setHistoryIdx] = useState<number>(meta?.webHistoryIndex ?? 0)
   const [viewMode, setViewMode] = useState<'live' | 'reader'>('live')
-  const [penActive, setPenActive] = useState(true)
+  const [penActive, setPenActive] = useState(false)
   const [downloading, setDownloading] = useState(false)
   const [hostW, setHostW] = useState(0)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -78,11 +78,11 @@ export function WebView({ pageId }: { pageId: string }) {
 
   const formattedUrl = (u: string) => {
     const trimmed = u.trim()
-    if (!trimmed) return 'https://www.google.com/search?igu=1'
+    if (!trimmed) return 'https://www.google.com.np/search?igu=1'
     if (/^https?:\/\//i.test(trimmed)) return trimmed
     if (/^www\./i.test(trimmed)) return `https://${trimmed}`
     if (trimmed.includes('.') && !trimmed.includes(' ')) return `https://${trimmed}`
-    return `https://www.google.com/search?igu=1&q=${encodeURIComponent(trimmed)}`
+    return `https://www.google.com.np/search?igu=1&q=${encodeURIComponent(trimmed)}`
   }
 
   const navigateTo = (newUrl: string) => {

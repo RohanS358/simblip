@@ -140,7 +140,7 @@ export function AddPageDialog({
     finish(id)
   }
 
-  const [webUrl, setWebUrl] = useState('https://www.google.com')
+  const [webUrl, setWebUrl] = useState('https://www.google.com.np')
 
   const createWeb = () => {
     if (!target) return
