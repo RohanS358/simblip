@@ -23,6 +23,7 @@ import { Switch } from '@/components/ui/switch'
 import { COMPONENT_PACKAGES } from '@/lib/packages/registry'
 import { Package } from 'lucide-react'
 import { PenSettings } from './pen-settings'
+import { BackupSettings } from './backup-settings'
 import { Field, Choice, PrefRow } from './settings-fields'
 import {
   usePrefs,
@@ -455,6 +456,7 @@ export function SettingsDialog({
             <TabsTrigger value="pen" className="shrink-0">Pen</TabsTrigger>
             <TabsTrigger value="notebook" className="shrink-0">Notebook</TabsTrigger>
             <TabsTrigger value="math" className="shrink-0">Math</TabsTrigger>
+            <TabsTrigger value="backup" className="shrink-0">Backup</TabsTrigger>
             <TabsTrigger value="shortcuts" className="shrink-0">Shortcuts</TabsTrigger>
             <TabsTrigger value="about" className="shrink-0">About</TabsTrigger>
           </TabsList>
@@ -538,6 +540,10 @@ export function SettingsDialog({
               for accessibility. Theme and tint apply everywhere — the notebook, room boards and
               the presenter.
             </p>
+          </TabsContent>
+
+          <TabsContent value="backup" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+            <BackupSettings />
           </TabsContent>
 
           <TabsContent value="shortcuts" className="pt-3 min-h-0 flex-1 overflow-y-auto pr-1">

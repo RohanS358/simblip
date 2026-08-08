@@ -1,65 +1,158 @@
 'use client'
 
-// Cloud sync indicator. Also the single place that boots the sync engine —
-// mounting the shell is what turns syncing on.
+// Cloud sync indicator & device-to-device sync popover.
+// Mounting the shell boots both cloud notebook sync and device presence.
 
-import { useEffect } from 'react'
-import { Cloud, CloudOff, RefreshCw, TriangleAlert } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Check, Loader2 } from 'lucide-react'
 import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/cloud'
+import { startDevicePresence, useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
+import { pushFilesToDevice } from '@/lib/sync/device-file-sync'
 import { useAuthStore } from '@/lib/auth/store'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Button } from '@/components/ui/button'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 export function SyncStatus() {
   const phase = useSyncStore((s) => s.phase)
   const lastError = useSyncStore((s) => s.lastError)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
-  // Identity comes from the platform auth store — the engine follows it.
   const signedIn = useAuthStore((s) => s.status === 'authed')
   const profileId = useAuthStore((s) => s.profile?.id)
 
+  const others = useDevicesStore((s) => s.others)
+  const [syncingTargetId, setSyncingTargetId] = useState<string | null>(null)
+  const [syncProgress, setSyncProgress] = useState<{ done: number; total: number } | null>(null)
+
   useEffect(() => {
     startSync()
+    startDevicePresence()
   }, [])
 
-  // File storage bootstrap: retry any upload that didn't finish last
-  // session, and — once, per user — migrate PDFs still sitting in the old
-  // IndexedDB cache onto OPFS + manifest (lib/storage/migrate-session-files.ts).
-  // Needs a real profile id (the manifest's ownerId), so it waits for
-  // sign-in instead of running at the same unconditional mount startSync() does.
   useEffect(() => {
     if (!profileId) return
-    void import('@/lib/storage/manager').then(({ retrySyncQueue }) => retrySyncQueue())
     void import('@/lib/storage/migrate-session-files').then(({ migrateSessionFilesToOpfs }) =>
       migrateSessionFilesToOpfs(profileId)
     )
   }, [profileId])
 
+  const handlePushToDevice = async (device: DeviceRow) => {
+    setSyncingTargetId(device.id)
+    setSyncProgress(null)
+    try {
+      await pushFilesToDevice(device, (done, total) => {
+        setSyncProgress({ done, total })
+      })
+      toast.success(`Files synced to ${device.label}`)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Sync failed')
+    } finally {
+      setSyncingTargetId(null)
+      setSyncProgress(null)
+    }
+  }
+
   const view = !syncConfigured
-    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local mode — notebooks live in this browser. Configure the cloud database to sync.' }
+    ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local mode — data stays on this device.' }
     : !signedIn || phase === 'offline'
-      ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — notebooks stay in this browser until your session is active.' }
+      ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — sign in to sync.' }
       : phase === 'syncing'
       ? { icon: RefreshCw, cls: 'animate-spin text-[var(--accent-blue)]', label: 'Syncing…' }
       : phase === 'error'
-        ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: `Sync error — changes kept locally and retried. ${lastError ?? ''}` }
+        ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: `Sync error — ${lastError ?? ''}` }
         : {
             icon: Cloud,
             cls: 'text-[var(--accent-mint)]',
-            label: lastSyncedAt ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString()}` : 'Synced',
+            label: lastSyncedAt ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Synced',
           }
 
   const Icon = view.icon
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span role="img" aria-label={view.label} className="rounded-lg p-1.5">
-          <Icon className={cn('h-4 w-4', view.cls)} />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent side="bottom" className="max-w-64 text-xs">
-        {view.label}
-      </TooltipContent>
-    </Tooltip>
+    <Popover>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={view.label}
+          className="group relative rounded-lg p-1.5 hover:bg-accent/60 transition-colors"
+        >
+          <Icon className={cn('h-4 w-4 transition-colors', view.cls)} />
+          {others.length > 0 && (
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[var(--accent-mint)] ring-2 ring-background" />
+          )}
+        </button>
+      </PopoverTrigger>
+
+      <PopoverContent side="bottom" align="end" className="w-80 p-3 space-y-3">
+        <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
+          <Icon className={cn('h-4 w-4 shrink-0', view.cls)} />
+          <div className="min-w-0 flex-1">
+            <p className="text-[0.8125rem] font-medium leading-none text-foreground">{view.label}</p>
+            <p className="mt-1 text-[0.6875rem] text-muted-foreground">
+              Storage budget: 1GB • Local-first storage
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[0.75rem] font-semibold text-foreground">Active Online Devices</span>
+            <span className="text-[0.6875rem] font-mono text-muted-foreground">{others.length} online</span>
+          </div>
+
+          {others.length === 0 ? (
+            <div className="rounded-lg border border-dashed border-border/60 p-3 text-center">
+              <Laptop className="mx-auto h-5 w-5 text-muted-foreground/50" />
+              <p className="mt-1.5 text-[0.75rem] font-medium text-foreground">No other active devices</p>
+              <p className="mt-0.5 text-[0.6875rem] text-muted-foreground leading-normal">
+                Open SIMBLIP in another browser or device to share files over temporary cloud transfer.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1.5 max-h-48 overflow-y-auto pr-0.5">
+              {others.map((device) => {
+                const isSyncing = syncingTargetId === device.id
+                return (
+                  <div
+                    key={device.id}
+                    className="flex items-center justify-between rounded-lg border border-border/60 bg-card/60 p-2 text-[0.78125rem]"
+                  >
+                    <div className="min-w-0 flex-1 pr-2">
+                      <p className="font-medium truncate text-foreground">{device.label}</p>
+                      <p className="text-[0.6875rem] text-muted-foreground">Online now</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={isSyncing || syncingTargetId !== null}
+                      onClick={() => void handlePushToDevice(device)}
+                      className="h-7 text-[0.6875rem] gap-1 shrink-0"
+                    >
+                      {isSyncing ? (
+                        <>
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                          {syncProgress ? `${syncProgress.done}/${syncProgress.total}` : 'Syncing'}
+                        </>
+                      ) : (
+                        <>
+                          <ArrowRightLeft className="h-3 w-3" />
+                          Sync files
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+
+        <p className="text-[0.6875rem] text-muted-foreground leading-normal pt-1 border-t border-border/40">
+          Files are pushed to cloud storage temporarily and deleted immediately after the receiving device downloads them.
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }
+

@@ -2,12 +2,21 @@
 
 // Public storage API — everything else in the app imports THIS module, not
 // opfs.ts/manifest.ts directly. Wires OPFS (bytes) + manifest (identity/sync
-// status) + the Vercel Blob upload routes together. Collapsed into one
-// module rather than split StorageManager/SyncManager/etc: in this phase
-// there's no P2P/device layer to justify separating storage concerns from
-// sync concerns — the whole "sync engine" is `listByStatus('local-only')`
-// plus a retry loop, not a persisted queue structure of its own (see the
-// storage migration plan's non-goals for what's deliberately not built yet).
+// status) + the Vercel Blob upload routes together.
+//
+// OFFLINE-ONLY BY DEFAULT: putFile() never touches the network — every file
+// (image, PDF, whatever) lives in OPFS on this device and nowhere else,
+// full stop. The 1GB Blob budget this app runs on can't afford "every file
+// everyone uploads sits in the cloud forever." uploadToCloud() still exists
+// and is exported, but it's now a building block for two narrow, explicit,
+// self-cleaning callers only:
+//   - a board presentation's temporary session upload (lib/data/boards.ts's
+//     startSession(), which already has its own cleanup path)
+//   - the device-to-device sync flow (planned: a five-minute heartbeat that
+//     diffs two active devices' manifests, uploads only what's missing on
+//     the other side, and deletes the Blob copy the moment it's pulled)
+// Nothing else should call uploadToCloud() — a file a user never explicitly
+// shares or presents should never leave this device.
 
 import { uid } from '@/lib/scene/types'
 import { getAccessToken } from '@/lib/auth/store'
@@ -22,9 +31,9 @@ async function sha256(blob: Blob): Promise<string> {
     .join('')
 }
 
-/** Store a new file: writes OPFS, creates a manifest entry (local-only), and
- *  kicks off a background Blob upload. Returns the manifest id to hang a
- *  FileNode.fileId (lib/scene/types.ts) off of. */
+/** Store a new file: writes OPFS, creates a manifest entry. Local only —
+ *  see this file's header. Returns the manifest id to hang a FileNode.fileId
+ *  (lib/scene/types.ts) off of. */
 export async function putFile(blob: Blob, name: string, mime: string, ownerId: string): Promise<string> {
   const id = uid()
   await opfs.writeFile(id, blob)
@@ -41,11 +50,6 @@ export async function putFile(blob: Blob, name: string, mime: string, ownerId: s
     cloudBackedUp: false,
   }
   await manifest.putEntry(entry)
-  void uploadToCloud(entry).catch(() => {
-    // Left as local-only/sync-failed — retried from the startup sweep
-    // (retrySyncQueue) or the next putFile-adjacent call, never blocks the
-    // caller who just wants their file stored locally right now.
-  })
   return id
 }
 
@@ -60,17 +64,13 @@ type ManifestRow = {
   updated_at: string
 }
 
-/** Read a file: OPFS first (offline-first). Falls back to fetching the Blob
- *  copy (e.g. a new device that hasn't seeded this file locally yet) and
- *  re-seeds OPFS + manifest so the next read is local. A device that never
- *  ran putFile() for this file has no local manifest entry at all — that's
- *  the common case for "another device uploaded it" — so this doesn't gate
- *  the network fetch on one existing; /api/storage/[id] resolves blob_url
+/** Read a file: OPFS first (offline-first) — the only place a file normally
+ *  lives, since putFile() no longer uploads anywhere. Falls back to fetching
+ *  a Blob copy for the narrow cases where one transiently exists (mid device
+ *  sync, or a board session's presentation upload) and re-seeds OPFS +
+ *  manifest so the next read is local. /api/storage/[id] resolves blob_url
  *  server-side from simblip_file_manifest by owner_id, no client-known
- *  cloudUrl required. Also backfills the local manifest row (via the
- *  existing /api/pg gateway, same source uploadToCloud writes to) so a
- *  "my files" list on this device isn't missing entries it never uploaded
- *  itself. */
+ *  cloudUrl required. */
 export async function getFile(fileId: string): Promise<Blob | null> {
   const local = await opfs.readFile(fileId)
   if (local) return local
@@ -134,8 +134,10 @@ export async function deleteFiles(fileIds: string[]): Promise<void> {
 
 /** Push one manifest entry's bytes to Vercel Blob and record the row via the
  *  existing /api/pg gateway (same pattern simblip_pages already uses — see
- *  app/api/pg/[table]/route.ts's file_manifest entry). */
-async function uploadToCloud(entry: FileManifestEntry): Promise<void> {
+ *  app/api/pg/[table]/route.ts's file_manifest entry). Exported for the two
+ *  explicit callers this file's header describes — never call this just
+ *  because a file exists locally; see putFile()'s doc comment. */
+export async function uploadToCloud(entry: FileManifestEntry): Promise<void> {
   const token = getAccessToken()
   if (!token) return // offline/local-demo mode — stays local-only, not an error
   await manifest.putEntry({ ...entry, syncStatus: 'uploading' })
@@ -174,11 +176,3 @@ async function uploadToCloud(entry: FileManifestEntry): Promise<void> {
   }
 }
 
-/** Call once at app bootstrap (same place lib/sync/cloud.ts's startSync()
- *  fires from) — retries any file that never finished uploading last
- *  session. This IS "the sync queue": a status scan plus a retry loop, not a
- *  separately persisted queue. */
-export async function retrySyncQueue(): Promise<void> {
-  const pending = [...(await manifest.listByStatus('local-only')), ...(await manifest.listByStatus('sync-failed'))]
-  for (const entry of pending) void uploadToCloud(entry)
-}

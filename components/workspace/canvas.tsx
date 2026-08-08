@@ -1216,11 +1216,11 @@ export function InfiniteCanvas({
         cutSelection(pageId)
         return
       }
-      if (mod && e.key.toLowerCase() === 'v' && !locked) {
-        e.preventDefault()
-        pasteClipboard(pageId)
-        return
-      }
+      // Ctrl+V itself is handled by the window-level 'paste' listener below,
+      // not here — preventDefault() on this keydown would suppress the
+      // browser's native paste event too, which is the only way it ever
+      // sees clipboardData (an OS-clipboard image, or plain text/nothing,
+      // in which case it falls back to the internal object clipboard).
       if ((e.key === 'Delete' || e.key === 'Backspace') && store.selection.length > 0 && !locked) {
         e.preventDefault()
         store.removeObjects(pageId, store.selection)
@@ -1294,26 +1294,32 @@ export function InfiniteCanvas({
       if (e.key === 'Alt') setAltHeld(false)
     }
     const onBlur = () => setAltHeld(false)
-    // OS clipboard paste of an actual image (screenshot, copied file, image
-    // copied from a browser tab) — distinct from Ctrl+V above, which is
-    // SIMBLIP's own object clipboard (lib/store/clipboard.ts, a JS
-    // variable, never touches navigator.clipboard). Both listen for the same
-    // keypress but through different browser mechanisms, so they don't
-    // conflict: this one only fires when the OS clipboard actually holds
-    // image bytes, which the object-clipboard path never has.
+    // The one true Ctrl+V handler — reads the real OS clipboard (only the
+    // 'paste' event ever exposes clipboardData, not keydown). An image on
+    // the OS clipboard (screenshot, copied file, image copied from a
+    // browser tab) wins; otherwise falls back to SIMBLIP's own object
+    // clipboard (lib/store/clipboard.ts, a JS variable, never touches
+    // navigator.clipboard) so Ctrl+V still duplicates a copied shape/note/
+    // etc the way it always has.
     const onPaste = (e: ClipboardEvent) => {
       if (!active || isTyping(e.target)) return
       const items = e.clipboardData?.items
-      if (!items) return
-      const fileItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
-      if (!fileItem) return
-      const blob = fileItem.getAsFile()
-      if (!blob) return
-      e.preventDefault()
-      const at = lastPointerRef.current
-        ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
-        : viewportCenter(pageId)
-      void insertImage(pageId, blob, 'Pasted image', at)
+      const fileItem = items && Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
+      const blob = fileItem?.getAsFile()
+      const locked = useRuntimeStore.getState().mode !== 'edit'
+      if (blob) {
+        if (locked) return
+        e.preventDefault()
+        const at = lastPointerRef.current
+          ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
+          : viewportCenter(pageId)
+        void insertImage(pageId, blob, 'Pasted image', at)
+        return
+      }
+      if (!locked && hasClipboard()) {
+        e.preventDefault()
+        pasteClipboard(pageId)
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)

@@ -284,6 +284,29 @@ create table if not exists simblip_file_manifest (
 create index if not exists simblip_file_manifest_owner_idx
   on simblip_file_manifest (owner_id);
 
+-- Device presence — lets the cloud icon show a user's OTHER currently-open
+-- browsers to sync files with (lib/sync/devices.ts). Each device upserts its
+-- own row roughly every 60s while the app is open; a row older than a few
+-- minutes reads as "offline" and is filtered out client-side (the /api/pg
+-- gateway only supports eq./is. filters, not gt., so freshness is judged by
+-- the caller, not the query). Not a sync queue — only presence.
+
+create table if not exists simblip_devices (
+  id             text primary key,           -- random id, minted once per browser (localStorage)
+  owner_id       uuid not null references simblip_profiles (id) on delete cascade,
+  institution_id uuid not null references simblip_institutions (id) on delete cascade,
+  label          text not null,              -- "Chrome on Mac", etc — see lib/sync/devices.ts
+  last_seen_at   timestamptz not null default now(),
+  -- File ids another device has uploaded to Blob (via simblip_file_manifest)
+  -- for THIS device to pull, set by the sender right after upload and
+  -- cleared by this device once every listed file is confirmed pulled and
+  -- deleted from Blob. See lib/sync/device-file-sync.ts.
+  pending_pull   jsonb not null default '[]'::jsonb
+);
+
+create index if not exists simblip_devices_owner_idx
+  on simblip_devices (owner_id);
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migrating FROM a Supabase deployment (schema v2)?
 --   • RLS policies and the auth schema are gone — the /api/pg gateway

@@ -45,6 +45,7 @@ const TABLES: Record<string, TableSpec> = {
   announcements: { pk: ['id'] },
   sketch_templates: { pk: ['id'], anon: ['GET', 'POST'] },
   file_manifest: { pk: ['id'], owner: 'owner_id' },
+  devices: { pk: ['id'], owner: 'owner_id' },
 }
 
 // Tables that carry institution_id on the row and must stay inside the
