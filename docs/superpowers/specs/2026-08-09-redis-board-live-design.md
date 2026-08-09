@@ -28,6 +28,58 @@ live cursor mirroring in both directions.
 No AI/Ollama work is in scope here — that was explicitly deferred by the
 user in this conversation.
 
+Additionally, presenting today is locked to the teacher who started the
+session: `authorizeBoardSession` (`lib/server/board-session-auth.ts:38`)
+grants `as: 'teacher'` only when `claims.sub === session.teacher_id`, and
+`/present`'s picker phase (`app/present/page.tsx:128`) sends anyone with
+`role === 'student'` straight to view-only mode, never offering them the
+"pick a page and Present" screen. The user wants this opened up: **when a
+board is free (no live session), anyone who scans becomes a presenter
+candidate**, not just a pre-designated teacher — and the reverse, once
+someone IS presenting, the board's QR should default to a closed/non-
+scannable state so the room doesn't get a second person trying to grab an
+already-live board.
+
+## Goal 5 (added): open presenting + closed-while-live QR
+
+- **Free-to-present.** Any authenticated member of the room (teacher or
+  student role — anyone who can currently resolve the pairing at all) sees
+  the "pick a page and Present" screen when the board has no live session,
+  not just users the session was pre-assigned to. `startSession` already has
+  no owner restriction (`lib/data/boards.ts:44`); the gate to remove is in
+  `/present`'s client-side phase logic
+  (`useAuthStore.getState().profile?.role === 'student'` short-circuit at
+  `app/present/page.tsx:128`), which should instead branch on **session
+  liveness**, not caller role: no live session → show the picker to anyone;
+  live session already running → straight to viewer/follow mode for anyone
+  who isn't that session's `teacher_id`.
+- **`authorizeBoardSession` stays role-based, not identity-based, for the
+  WS.** Once a session exists, whoever started it (`session.teacher_id`) is
+  the `'teacher'` for that session's WS purposes (drives `RemotePanel`,
+  desktop-live, etc.) — this doesn't change; "anyone can present" only means
+  anyone can be the one to *start* the next session on a free board, not
+  that multiple people co-drive the same live session as equals.
+- **Closed QR while live — derived, no new column.** "Closed" is not new
+  persisted state: it's `liveSessionFor(board.id)` returning non-null
+  (`lib/data/boards.ts:81`, already exists, already queried by the board
+  itself in `syncSession`). No `qr_open` column, no schema migration, no
+  extra write path — closed-ness always matches the session's actual
+  `status`, which can't drift out of sync with a derived check the way a
+  separately-toggled boolean could. `resolvePairing` (`lib/data/boards.ts:36`)
+  additionally checks `liveSessionFor` and rejects the scan (same
+  "invalid/stale" UX `/present` already shows for a bad code, reusing the
+  existing `phase === 'invalid'` state) unless the caller is that session's
+  `teacher_id`, so the presenting teacher can still reopen their own
+  `/present` tab. The board's own QR display (`app/board/page.tsx` idle/QR
+  card, ~line 935 and 997) hides the QR whenever its own `syncSession`
+  already knows a session is live — that state is already tracked locally,
+  just needs to gate the QR render.
+- This is a permissions/UX change, not a Redis concern — no new Redis usage
+  is introduced by this goal. It's bundled into this spec because it lands
+  in the same files (`app/present/page.tsx`, `app/board/page.tsx`,
+  `lib/data/boards.ts`) as the desktop-live work above and the user asked
+  for it in the same implementation pass.
+
 ## Goals
 
 1. Replace Postgres LISTEN/NOTIFY with Redis pub/sub for board-live fan-out,
