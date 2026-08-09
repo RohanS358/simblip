@@ -1,7 +1,7 @@
 // SIMBLIP service worker — makes the app installable and keeps the shell
 // working offline. Strategy: network-first with cache fallback for same-
 // origin GETs (API calls are never cached). Notebook content itself lives
-// in localStorage / Supabase, not here.
+// in localStorage / the self-hosted Postgres gateway (/api/pg), not here.
 
 const CACHE = 'simblip-v1'
 

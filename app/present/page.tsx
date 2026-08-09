@@ -1,11 +1,11 @@
 'use client'
 
-// The presenter controller (teacher's phone). Reached by scanning a room
-// board's QR (?board=…&code=…) or right after "Present on room board"
+// The presenter controller (teacher's phone or desktop). Reached by scanning
+// a room board's QR (?board=…&code=…) or right after "Present on room board"
 // (?session=…). Drives the whole lifecycle: pick a page → Present → live →
 // End → merge the board's temporary copy back or discard it.
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   CheckCircle2,
@@ -39,6 +39,12 @@ import { followSession } from '@/lib/data/board-follow'
 import { useAuthStore } from '@/lib/auth/store'
 import { dbMode } from '@/lib/data/db'
 import { useBoardLive } from '@/lib/data/board-live-client'
+import { useSendCursor, usePeerCursor } from '@/lib/data/board-live-cursor'
+import { PeerCursorOverlay } from '@/components/workspace/peer-cursor'
+import { registerSessionPage, clearSessionPage } from '@/lib/data/board-session-page'
+import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
+import { PageView } from '@/components/workspace/page-view'
+import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
 import {
@@ -81,6 +87,7 @@ function PresentController() {
   const [session, setSession] = useState<BoardSessionRow | null>(null)
   const [busy, setBusy] = useState(false)
   const [followPageId, setFollowPageId] = useState<string | null>(null)
+  const [desktopLive, setDesktopLive] = useState(false)
 
   const nodes = useWorkspaceStore((s) => s.nodes)
   const [pageId, setPageId] = useState('')
@@ -123,11 +130,14 @@ function PresentController() {
         if (!resolved) return setPhase('invalid')
         setBoard(resolved.board)
         setRoom(resolved.room)
-        // Students don't present — scanning during class joins the live
-        // whiteboard: their own copy, mirrored until the teacher ends it.
-        if (useAuthStore.getState().profile?.role === 'student') {
-          const live = await liveSessionFor(resolved.board.id)
-          if (!live) return setPhase('classIdle')
+        // Free board: anyone who can resolve the pairing may present, not
+        // just a pre-designated teacher — first to press Present wins.
+        // Board already live: everyone else (any role) joins as a viewer —
+        // their own mirrored copy, until the presenter ends it. The
+        // presenting teacher rejoining their own session (e.g. tab reload)
+        // still lands in 'live' via the sessionId-in-URL flow above.
+        const live = await liveSessionFor(resolved.board.id)
+        if (live) {
           setSession(live)
           setFollowPageId(followSession(live))
           setPhase('classLive')
@@ -298,10 +308,20 @@ function PresentController() {
           <Button variant="outline" className="w-full" disabled={busy} onClick={() => void finish()}>
             <Square className="h-4 w-4" /> End presentation
           </Button>
+          <Button
+            variant={desktopLive ? 'default' : 'outline'}
+            className="w-full"
+            onClick={() => setDesktopLive((v) => !v)}
+          >
+            <MonitorPlay className="h-4 w-4" />
+            {desktopLive ? 'Driving from this screen' : 'Drive from this screen'}
+          </Button>
         </div>
       )}
 
-      {phase === 'live' && session && <RemotePanel session={session} />}
+      {phase === 'live' && session && desktopLive && <DesktopLivePanel session={session} />}
+
+      {phase === 'live' && session && !desktopLive && <RemotePanel session={session} />}
 
       {phase === 'decide' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
@@ -326,8 +346,8 @@ function PresentController() {
           <MonitorPlay className="mx-auto h-6 w-6 text-muted-foreground/60" />
           <p className="mt-2 text-[14px] font-semibold">{room?.name ?? 'This board'} is idle</p>
           <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
-            Nothing is being presented right now. Scan again once your teacher starts the class —
-            you'll get your own live copy of the whiteboard.
+            Nothing is being presented right now. Scan again once someone starts presenting — you'll
+            get your own live copy of the whiteboard.
           </p>
         </div>
       )}
@@ -335,14 +355,14 @@ function PresentController() {
       {phase === 'classLive' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
           <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-[12px] font-semibold text-[var(--accent-mint)]">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-mint)]" /> Following the class
+            <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-mint)]" /> Following the presentation
           </span>
           <p className="text-[16px] font-bold">{session.page_name}</p>
           <p className="text-[12.5px] leading-relaxed text-muted-foreground">
             A live copy is now in your notebook under{' '}
             <span className="font-medium text-foreground">Shared with me → Whiteboard</span>. It
-            mirrors everything the teacher writes until the presentation ends, then saves itself
-            with the class date and time.
+            mirrors everything the presenter writes until it ends, then saves itself with the date
+            and time.
           </p>
           <Button
             className="w-full"
@@ -386,6 +406,87 @@ function PresentController() {
           </Button>
         </div>
       )}
+    </div>
+  )
+}
+
+// Desktop-live: the teacher's own screen shows the actual live page (same
+// PageView the board renders) instead of the phone-style button panel —
+// fully editable, with edits flowing both ways over the same obj-patch/
+// bundle sync the board already uses, plus a live cursor overlay so each
+// side sees where the other is pointing. Connects as role:'desktop', a
+// second WS connection on the same session alongside the board's own.
+function DesktopLivePanel({ session }: { session: BoardSessionRow }) {
+  const tempId = `board-${session.id}`
+  const registeredRef = useRef(false)
+  const [lastCursorEvt, setLastCursorEvt] = useState<BoardLiveServerMsg | null>(null)
+
+  useEffect(() => {
+    registerSessionPage(tempId, session.page_name, (session.edited ?? session.snapshot) as PageBundle)
+    registeredRef.current = true
+    return () => {
+      clearSessionPage(tempId)
+      registeredRef.current = false
+    }
+    // Materialize once per session id — the session's own live updates flow
+    // in over the WS below, not by re-registering on every prop change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.id])
+
+  const handleLiveEvent = useCallback(
+    (evt: BoardLiveServerMsg) => {
+      switch (evt.type) {
+        case 'obj-patch':
+          applyObjectPatch(tempId, evt.objectId, evt.obj)
+          break
+        case 'bundle':
+          if (evt.origin !== 'desktop') writeBundleContent(tempId, evt.bundle)
+          break
+        case 'cursor':
+          if (evt.origin !== 'desktop') setLastCursorEvt(evt)
+          break
+      }
+    },
+    [tempId]
+  )
+
+  const wsHandle = useBoardLive(
+    dbMode === 'cloud' ? session.id : null,
+    handleLiveEvent,
+    () => {
+      // Resync: re-pull the session and re-materialize its latest content.
+      void getSession(session.id).then((fresh) => {
+        if (fresh) registerSessionPage(tempId, fresh.page_name, (fresh.edited ?? fresh.snapshot) as PageBundle)
+      })
+    },
+    'desktop'
+  )
+
+  const sendCursor = useSendCursor(wsHandle, tempId)
+  const peerCursor = usePeerCursor(lastCursorEvt)
+
+  // Mirror local edits back out — same per-object patch pattern app/board
+  // uses, just the other direction.
+  useEffect(() => {
+    if (!wsHandle?.connected) return
+    return useDocStore.subscribe((s, prev) => {
+      if (s.pages[tempId] === prev.pages[tempId]) return
+      const { changed, removed } = diffObjects(prev.pages[tempId]?.objects ?? {}, s.pages[tempId]?.objects ?? {})
+      for (const obj of Object.values(changed)) wsHandle.sendPatch(obj.id, obj)
+      for (const id of removed) wsHandle.sendPatch(id, null)
+    })
+  }, [tempId, wsHandle, wsHandle?.connected])
+
+  return (
+    <div
+      className="glass relative h-[70vh] w-full overflow-hidden rounded-2xl"
+      onPointerMove={(e) => {
+        const rect = e.currentTarget.getBoundingClientRect()
+        sendCursor((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height)
+      }}
+    >
+      <PeerCursorOverlay cursor={peerCursor} anchor="absolute" />
+      <PageView key={tempId} pageId={tempId} />
     </div>
   )
 }

@@ -16,6 +16,7 @@ import {
 import { Analytics } from '@vercel/analytics/next'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
+import { InstallPrompt } from '@/components/install-prompt'
 import { Toaster } from '@/components/ui/sonner'
 import 'katex/dist/katex.min.css'
 import './globals.css'
@@ -113,6 +114,14 @@ export const metadata: Metadata = {
     ],
     apple: '/apple-icon.png',
   },
+  // iOS/macOS Safari ignore manifest.ts's display:'standalone' for "Add to
+  // Home Screen" — without this, an installed SIMBLIP still shows Safari's
+  // URL bar/chrome instead of launching as a real standalone window.
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'SIMBLIP',
+  },
   category: 'education',
   // Drop a Search Console verification code in .env as
   // NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION to prove ownership without another
@@ -170,6 +179,7 @@ export default async function RootLayout({
           <Toaster position="bottom-right" />
         </ThemeProvider>
         <PwaRegister />
+        <InstallPrompt />
         <Analytics />
       </body>
     </html>

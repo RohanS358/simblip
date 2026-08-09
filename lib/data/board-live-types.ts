@@ -6,7 +6,11 @@ import type { SceneObject } from '@/lib/scene/types'
 import type { RemoteCommand, BoardSessionStatus } from './types'
 import type { PageBundle } from '@/lib/store/page-bundle'
 
-export type BoardLiveRole = 'teacher' | 'board' | 'student'
+/** 'desktop' = the presenting teacher's own workspace tab driving a live
+ *  session directly (not the phone remote) — additive alongside teacher's
+ *  existing role, same auth (session.teacher_id), just a second connection
+ *  kind on the same session. */
+export type BoardLiveRole = 'teacher' | 'board' | 'student' | 'desktop'
 
 // ── Client → server ──────────────────────────────────────────────────────────
 
@@ -18,6 +22,10 @@ export type BoardLiveClientMsg =
   | { type: 'remote'; cmd: Omit<RemoteCommand, 'seq'> }
   /** Whole-bundle replace — non-board-kind sessions (doc/pdf), any role. */
   | { type: 'bundle'; bundle: PageBundle }
+  /** Live pointer position — desktop and board only (never students: with
+   *  ~50 clients/board, broadcasting every viewer's cursor isn't useful and
+   *  isn't cheap). Never persisted — pure pub/sub, no Postgres write. */
+  | { type: 'cursor'; x: number; y: number; pageId: string }
 
 // ── Server → client ──────────────────────────────────────────────────────────
 
@@ -29,3 +37,4 @@ export type BoardLiveServerMsg =
   /** State may have drifted or a payload was too large to fan out inline —
    *  go re-pull full state via the existing REST call. */
   | { type: 'resync' }
+  | { type: 'cursor'; x: number; y: number; pageId: string; origin: BoardLiveRole }

@@ -294,9 +294,19 @@ export function WebView({ pageId }: { pageId: string }) {
           ) : (
             <iframe
               key={url}
-              src={`/api/web-proxy?url=${encodeURIComponent(url)}`}
+              src={`/api/web-proxy/${encodeURIComponent(url)}`}
               title={meta?.name || 'Web Browser'}
               className="h-full w-full border-0 bg-white"
+              // allow-same-origin is required: without it the proxied
+              // document runs in an opaque origin, so its own scripts can't
+              // fetch()/XHR or read cookies — that's what made interactive
+              // sites (Google, etc.) render their own "no internet" UI even
+              // though the proxy fetch itself succeeded. Safe to combine
+              // with allow-scripts here because upstream Set-Cookie is
+              // already stripped server-side (route.ts's
+              // STRIP_RESPONSE_HEADERS) — the sandbox restriction was
+              // redundant defense against a risk already closed at the HTTP
+              // layer, and cost real functionality for no remaining benefit.
               sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox"
             />
           )}

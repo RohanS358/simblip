@@ -46,13 +46,7 @@ import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
 import { usePrefs } from '@/lib/store/preferences'
-import {
-  bundleMetaPatch,
-  bundlePage,
-  writeBundleContent,
-  type PageBundle,
-} from '@/lib/store/page-bundle'
-import * as pageArchive from '@/lib/store/page-archive'
+import { bundlePage, writeBundleContent, type PageBundle } from '@/lib/store/page-bundle'
 import { play, pause, stop } from '@/lib/physics/world'
 import {
   endSession,
@@ -71,6 +65,9 @@ import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignment
 import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { useBoardLive } from '@/lib/data/board-live-client'
+import { useSendCursor, usePeerCursor } from '@/lib/data/board-live-cursor'
+import { PeerCursorOverlay } from '@/components/workspace/peer-cursor'
+import { registerSessionPage, clearSessionPage, BOARD_SESSION_FOLDER } from '@/lib/data/board-session-page'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
 import { Button } from '@/components/ui/button'
@@ -150,73 +147,6 @@ function applyRemote(cmd: RemoteCommand, pageId: string) {
 // materialized as a real (temporary) tree entry, and every page kind renders
 // on the board exactly as it does in the notebook. Sheet ids are kept as the
 // teacher sent them, so edits round-trip back into the session bundle.
-const BOARD_NB = '__board-session'
-
-const BOARD_NB_SEC = `${BOARD_NB}-sec`
-
-function registerSessionPage(tempId: string, name: string, bundle: PageBundle) {
-  useWorkspaceStore.setState((s) => {
-    // Drop any previous board-session folder (by name — see BOARD_NB's
-    // comment) and rebuild it fresh, same "one live session at a time" model
-    // the old array-based version had.
-    const stale = childrenOf(s.nodes, null).find((n) => n.name === BOARD_NB)
-    const nodes = { ...s.nodes }
-    if (stale) {
-      delete nodes[stale.id]
-      descendantsOf(s.nodes, stale.id).forEach((n) => delete nodes[n.id])
-    }
-    nodes[BOARD_NB] = { id: BOARD_NB, parentId: null, kind: 'folder', name: BOARD_NB, emoji: '🖥️', order: 0 }
-    nodes[BOARD_NB_SEC] = { id: BOARD_NB_SEC, parentId: BOARD_NB, kind: 'folder', name: 'Live', color: 'blue', order: 0 }
-    nodes[tempId] = {
-      id: tempId,
-      parentId: BOARD_NB_SEC,
-      kind: 'page',
-      name,
-      order: 0,
-      ...(bundle.bundle ? bundleMetaPatch(bundle.bundle) : { pageKind: 'board' as const }),
-    }
-    return { nodes, activePageId: tempId }
-  })
-  writeBundleContent(tempId, bundle)
-}
-
-function clearSessionPage(tempId: string) {
-  const meta = findPageMeta(useWorkspaceStore.getState().nodes, tempId)
-  const ids = [
-    tempId,
-    ...(meta?.docPages ?? []),
-    ...(meta?.notesPages ?? []).filter(Boolean),
-    ...(meta?.annotPages ?? []).filter(Boolean),
-    ...(meta?.notesDocId ? [meta.notesDocId] : []),
-  ]
-  // NOT forgetPage — these ids belong to the teacher's pages; marking them
-  // deleted here would delete the originals from the cloud.
-  useDocStore.setState((s) => {
-    const pages = { ...s.pages }
-    const scopes = { ...s.scopes }
-    for (const id of ids) {
-      delete pages[id]
-      delete scopes[id]
-    }
-    return { pages, scopes }
-  })
-  ids.forEach((id) => pageArchive.dropPage(id))
-  useWorkspaceStore.setState((s) => {
-    const boardNb = childrenOf(s.nodes, null).find((n) => n.name === BOARD_NB)
-    const nodes = { ...s.nodes }
-    if (boardNb) {
-      delete nodes[boardNb.id]
-      descendantsOf(s.nodes, boardNb.id).forEach((n) => delete nodes[n.id])
-    }
-    return {
-      nodes,
-      activePageId: s.activePageId === tempId ? null : s.activePageId,
-      activeSheetId: null,
-      pdfToolsActive: false,
-    }
-  })
-}
-
 function timeAgo(iso: string): string {
   const mins = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000))
   if (mins < 1) return 'just now'
@@ -347,7 +277,7 @@ function BoardSurface() {
   // Board identity. Also sweep any session page a crash left behind.
   useEffect(() => {
     const nodes = useWorkspaceStore.getState().nodes
-    const boardFolder = childrenOf(nodes, null).find((n) => n.kind === 'folder' && n.name === BOARD_NB)
+    const boardFolder = childrenOf(nodes, null).find((n) => n.kind === 'folder' && n.name === BOARD_SESSION_FOLDER)
     const leftover = boardFolder ? descendantsOf(nodes, boardFolder.id).find((n) => n.kind === 'page')?.id : undefined
     if (leftover) clearSessionPage(leftover)
     void myBoard().then((res) => {
@@ -475,6 +405,8 @@ function BoardSurface() {
     writeBundleContent(`board-${fresh.id}`, (fresh.edited ?? fresh.snapshot) as PageBundle)
   }, [session])
 
+  const [lastCursorEvt, setLastCursorEvt] = useState<BoardLiveServerMsg | null>(null)
+
   const handleLiveEvent = useCallback(
     (evt: BoardLiveServerMsg) => {
       if (!session) return
@@ -498,6 +430,9 @@ function BoardSurface() {
         case 'resync':
           void refreshSessionContent()
           break
+        case 'cursor':
+          if (evt.origin !== 'board') setLastCursorEvt(evt)
+          break
       }
     },
     [session, syncSession, refreshSessionContent]
@@ -508,6 +443,12 @@ function BoardSurface() {
     handleLiveEvent,
     () => void refreshSessionContent()
   )
+
+  // Live pointer mirroring with the presenting desktop (if any) — board's
+  // own moves go out, the desktop's last-known position renders as an
+  // overlay. Both directions are pure pub/sub, never touch Postgres.
+  const sendCursor = useSendCursor(wsHandle, session ? `board-${session.id}` : null)
+  const peerCursor = usePeerCursor(lastCursorEvt)
 
   // Fast remote lane (cloud only — local mode is already instant over
   // BroadcastChannel): poll just the tiny remote/status columns at ~1 Hz so
@@ -703,7 +644,14 @@ function BoardSurface() {
     ) : null
 
   return (
-    <div className="relative h-dvh overflow-hidden bg-background">
+    <div
+      className="relative h-dvh overflow-hidden bg-background"
+      onPointerMove={(e) => {
+        if (!session) return
+        sendCursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight)
+      }}
+    >
+      <PeerCursorOverlay cursor={peerCursor} />
       {activeBoardPage ? (
         <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
           <header className="z-40 flex h-12 shrink-0 items-center gap-2 px-4 border-b border-border/40">

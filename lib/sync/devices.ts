@@ -1,10 +1,11 @@
 'use client'
 
 // Device presence — powers the cloud icon's "sync with another device" list
-// (components/workspace/sync-status.tsx). A device is "online" if its
-// simblip_devices row was touched in the last FRESH_WINDOW_MS; each open tab
-// re-touches its own row on a timer so the row goes stale within a couple of
-// minutes of the tab closing, no explicit sign-off needed.
+// (components/workspace/sync-status.tsx). Backed by Redis TTL keys
+// (app/api/devices/route.ts): a device is "online" purely because its key
+// hasn't expired yet, no timestamp filtering needed on read. Each open tab
+// re-touches its key on a timer so it expires within a couple of minutes of
+// the tab closing, no explicit sign-off needed.
 
 import { create } from 'zustand'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
@@ -44,22 +45,17 @@ async function touch(ownerId: string, institutionId: string) {
   const instId = institutionId || 'inst-platform'
   const token = getAccessToken()
   try {
-    const res = await fetch('/api/pg/simblip_devices', {
+    const res = await fetch('/api/devices', {
       method: 'POST',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         'Content-Type': 'application/json',
-        Prefer: 'resolution=merge-duplicates,return=minimal',
       },
-      body: JSON.stringify([
-        {
-          id: deviceId(),
-          owner_id: ownerId,
-          institution_id: instId,
-          label: deviceLabel(),
-          last_seen_at: new Date().toISOString(),
-        },
-      ]),
+      body: JSON.stringify({
+        id: deviceId(),
+        label: deviceLabel(),
+        last_seen_at: new Date().toISOString(),
+      }),
     })
     if (!res.ok) throw new Error(`Touch failed ${res.status}`)
   } catch (err) {
@@ -89,7 +85,7 @@ export async function refreshDevices(explicitOwnerId?: string) {
   try {
     let rows: DeviceRow[] = []
     const token = getAccessToken()
-    const res = await fetch(`/api/pg/simblip_devices?owner_id=eq.${ownerId}&select=id,owner_id,label,last_seen_at`, {
+    const res = await fetch(`/api/devices?owner_id=${ownerId}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
     })
     if (res.ok) {
@@ -98,6 +94,9 @@ export async function refreshDevices(explicitOwnerId?: string) {
       rows = (await db.list<db.Row>('devices', { owner_id: ownerId })) as unknown as DeviceRow[]
     }
 
+    // Redis keys are already TTL'd (a row only exists while fresh), but the
+    // local-mode fallback table has no expiry — keep the client-side cutoff
+    // so that path still degrades correctly.
     const cutoff = Date.now() - FRESH_WINDOW_MS
     const self = deviceId()
     useDevicesStore.setState({

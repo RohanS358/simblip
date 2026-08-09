@@ -4,7 +4,7 @@ import { verifyToken } from '@/lib/server/auth'
 import { q } from '@/lib/server/pg'
 import { authorizeBoardSession } from '@/lib/server/board-session-auth'
 import { registerSocket, publish, ensureBoardLiveListener, type LocalSocket } from '@/lib/server/board-live-bus'
-import type { BoardLiveClientMsg, BoardLiveServerMsg } from '@/lib/data/board-live-types'
+import type { BoardLiveClientMsg, BoardLiveRole, BoardLiveServerMsg } from '@/lib/data/board-live-types'
 
 // Realtime push for a single board session: teacher, board and students all
 // read/write the same simblip_board_sessions row live. See
@@ -19,11 +19,13 @@ type Params = { params: Promise<{ sessionId: string }> }
 
 export async function GET(req: Request, { params }: Params) {
   const { sessionId } = await params
-  const token = new URL(req.url).searchParams.get('token')
+  const url = new URL(req.url)
+  const token = url.searchParams.get('token')
   const claims = token ? verifyToken(token, 'access') : null
   if (!claims) return new Response('Unauthorized', { status: 401 })
 
-  const auth = await authorizeBoardSession(sessionId, claims)
+  const wantDesktop = url.searchParams.get('role') === 'desktop'
+  const auth = await authorizeBoardSession(sessionId, claims, wantDesktop ? 'desktop' : undefined)
   if (!auth) return new Response('Forbidden', { status: 403 })
   if (auth.session.status !== 'live') return new Response('Session is not live', { status: 409 })
 
@@ -45,7 +47,7 @@ export async function GET(req: Request, { params }: Params) {
 
 async function handleMessage(
   sessionId: string,
-  role: 'teacher' | 'board' | 'student',
+  role: BoardLiveRole,
   socket: LocalSocket,
   data: WebSocketData
 ): Promise<void> {
@@ -103,8 +105,16 @@ async function handleMessage(
       [sessionId, JSON.stringify(msg.bundle)]
     )
     const evt: BoardLiveServerMsg = { type: 'bundle', bundle: msg.bundle, origin: role }
-    // publish() size-guards NOTIFY automatically; same-instance peers still
-    // get the full bundle synchronously regardless.
+    await publish(sessionId, evt, socket)
+    return
+  }
+
+  if (msg.type === 'cursor') {
+    // Only desktop and board drive a pointer worth showing (students never
+    // send this). Never touches Postgres — pure ephemeral fan-out, same
+    // path obj-patch uses minus the DB write.
+    if (role !== 'desktop' && role !== 'board') return
+    const evt: BoardLiveServerMsg = { type: 'cursor', x: msg.x, y: msg.y, pageId: msg.pageId, origin: role }
     await publish(sessionId, evt, socket)
   }
 }

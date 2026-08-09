@@ -30,6 +30,7 @@ import { migrateNotebooksToNodes } from '@/lib/store/migrate-tree'
 import type { Node } from '@/lib/scene/types'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { cloudConfigured } from '@/lib/data/db'
+import { onReconnect } from '@/lib/sync/connectivity'
 
 export const syncConfigured = cloudConfigured
 
@@ -216,6 +217,15 @@ export function startSync() {
   })
 
   onPageDeleted(schedule)
+
+  // A failed flush() re-queues its batch (see the catch above) but nothing
+  // else pokes schedule() again until the next unrelated edit — without
+  // this, one offline edit followed by silence leaves phase:'error' forever
+  // even after connectivity returns. Retry immediately rather than waiting
+  // out the 2s debounce, since there's no reason to delay once the network
+  // is confirmed back (flush()'s own `flushing` guard still protects against
+  // overlap with an in-progress push).
+  onReconnect(() => void flush())
 
   useWorkspaceStore.subscribe((s, prev) => {
     if (s.nodes === prev.nodes) return

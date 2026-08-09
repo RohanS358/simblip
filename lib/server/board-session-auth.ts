@@ -20,7 +20,8 @@ interface SessionJoinRow extends BoardSessionRow {
 
 export async function authorizeBoardSession(
   sessionId: string,
-  claims: Claims
+  claims: Claims,
+  wantRole?: 'desktop'
 ): Promise<BoardSessionAuth | null> {
   const rows = await q<SessionJoinRow>(
     `select s.*, b.room_id as room_id, b.profile_id as board_profile_id
@@ -36,7 +37,10 @@ export async function authorizeBoardSession(
   if (!isOperator && claims.inst !== session.institution_id) return null
 
   if (isOperator || claims.sub === session.teacher_id) {
-    return { session, as: 'teacher' }
+    // Same identity check as 'teacher' — 'desktop' is that same presenting
+    // teacher connecting a second time from their own workspace tab, not a
+    // separate identity with separate privileges.
+    return { session, as: wantRole === 'desktop' ? 'desktop' : 'teacher' }
   }
   if (claims.role === 'board' && claims.sub === board_profile_id) {
     return { session, as: 'board' }

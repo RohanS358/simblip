@@ -63,17 +63,20 @@ already-live board.
   persisted state: it's `liveSessionFor(board.id)` returning non-null
   (`lib/data/boards.ts:81`, already exists, already queried by the board
   itself in `syncSession`). No `qr_open` column, no schema migration, no
-  extra write path — closed-ness always matches the session's actual
-  `status`, which can't drift out of sync with a derived check the way a
-  separately-toggled boolean could. `resolvePairing` (`lib/data/boards.ts:36`)
-  additionally checks `liveSessionFor` and rejects the scan (same
-  "invalid/stale" UX `/present` already shows for a bad code, reusing the
-  existing `phase === 'invalid'` state) unless the caller is that session's
-  `teacher_id`, so the presenting teacher can still reopen their own
-  `/present` tab. The board's own QR display (`app/board/page.tsx` idle/QR
-  card, ~line 935 and 997) hides the QR whenever its own `syncSession`
-  already knows a session is live — that state is already tracked locally,
-  just needs to gate the QR render.
+  extra write path. "Closed" specifically means: the board stops
+  *displaying/offering* a scannable QR for starting a new presentation —
+  it does NOT mean `resolvePairing` rejects the scan outright, because a
+  live board's QR must keep resolving for viewers (any role) to join as
+  followers. `app/board/page.tsx`'s render already gates the whole
+  idle-vs-live layout on `activeBoardPage` (truthy only when a session is
+  live or a local scratch pad is open), so the QR card simply never renders
+  during a live session — no new gating needed there, it was already
+  correct. `/present`'s phase logic is what actually enforces "closed to
+  new presentations": resolving a pairing now always checks
+  `liveSessionFor` first — live → straight to viewer/follow mode for
+  everyone (existing `classLive` flow, now reachable by any role, not just
+  `role === 'student'`); free → the picker screen, open to whoever scans
+  first.
 - This is a permissions/UX change, not a Redis concern — no new Redis usage
   is introduced by this goal. It's bundled into this spec because it lands
   in the same files (`app/present/page.tsx`, `app/board/page.tsx`,

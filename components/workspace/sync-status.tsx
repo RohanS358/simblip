@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
 import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Loader2, RotateCw } from 'lucide-react'
 import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/cloud'
 import { startDevicePresence, useDevicesStore, refreshDevices, performHeartbeat, type DeviceRow } from '@/lib/sync/devices'
-import { pushFilesToDevice } from '@/lib/sync/device-file-sync'
+import { pushFilesToDevice, startFileSync } from '@/lib/sync/device-file-sync'
 import { useAuthStore } from '@/lib/auth/store'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
@@ -29,6 +29,7 @@ export function SyncStatus() {
   useEffect(() => {
     startSync()
     startDevicePresence()
+    startFileSync()
   }, [])
 
   useEffect(() => {

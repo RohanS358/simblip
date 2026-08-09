@@ -32,7 +32,15 @@ export async function rotatePairingCode(boardId: string): Promise<string> {
   return code
 }
 
-/** Resolve a scanned QR (board id + code) to a board, or null if stale. */
+/** Resolve a scanned QR (board id + code) to a board, or null if stale.
+ *
+ *  Deliberately does NOT reject scans while a session is live — a live
+ *  board's QR still needs to resolve for viewers to join as followers (see
+ *  /present's phase logic, which routes a resolved-but-live board straight
+ *  to viewer mode for anyone who isn't that session's teacher). "Closed
+ *  while live" only means the board stops DISPLAYING/rotating a scannable
+ *  QR for starting a NEW presentation — see app/board/page.tsx, where the
+ *  QR is only rendered in the idle (no live session) view. */
 export async function resolvePairing(boardId: string, code: string): Promise<{ board: BoardRow; room: RoomRow | null } | null> {
   const boards = await db.list<BoardRow>('boards', { id: boardId })
   const board = boards[0]

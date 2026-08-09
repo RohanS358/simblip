@@ -19,6 +19,7 @@ export interface BoardLiveHandle {
   sendPatch: (objectId: string, obj: SceneObject | null) => void
   sendRemote: (cmd: Omit<RemoteCommand, 'seq'>) => void
   sendBundle: (bundle: PageBundle) => void
+  sendCursor: (x: number, y: number, pageId: string) => void
   close: () => void
 }
 
@@ -30,6 +31,7 @@ const noopHandle: BoardLiveHandle = {
   sendPatch: () => {},
   sendRemote: () => {},
   sendBundle: () => {},
+  sendCursor: () => {},
   close: () => {},
 }
 
@@ -39,7 +41,8 @@ export function connectBoardLive(
   sessionId: string,
   onEvent: (evt: BoardLiveServerMsg) => void,
   onResync: () => void,
-  onConnectedChange?: (connected: boolean) => void
+  onConnectedChange?: (connected: boolean) => void,
+  role?: 'desktop'
 ): BoardLiveHandle {
   if (process.env.NEXT_PUBLIC_BOARD_LIVE !== '1') return noopHandle
 
@@ -78,7 +81,8 @@ export function connectBoardLive(
       return
     }
     const proto = location.protocol === 'https:' ? 'wss://' : 'ws://'
-    const url = `${proto}${location.host}/api/board-live/${sessionId}?token=${encodeURIComponent(token)}`
+    const roleParam = role ? `&role=${role}` : ''
+    const url = `${proto}${location.host}/api/board-live/${sessionId}?token=${encodeURIComponent(token)}${roleParam}`
     const socket = new WebSocket(url)
     ws = socket
     socket.onopen = () => {
@@ -110,6 +114,7 @@ export function connectBoardLive(
     sendPatch: (objectId, obj) => send({ type: 'obj-patch', objectId, obj }),
     sendRemote: (cmd) => send({ type: 'remote', cmd }),
     sendBundle: (bundle) => send({ type: 'bundle', bundle }),
+    sendCursor: (x, y, pageId) => send({ type: 'cursor', x, y, pageId }),
     close: () => {
       closed = true
       if (reconnectTimer) clearTimeout(reconnectTimer)
@@ -122,7 +127,8 @@ export function connectBoardLive(
 export function useBoardLive(
   sessionId: string | null,
   onEvent: (evt: BoardLiveServerMsg) => void,
-  onResync: () => void
+  onResync: () => void,
+  role?: 'desktop'
 ): BoardLiveHandle | null {
   const [, bump] = useState(0)
   const handleRef = useRef<BoardLiveHandle | null>(null)
@@ -141,7 +147,8 @@ export function useBoardLive(
       sessionId,
       (evt) => onEventRef.current(evt),
       () => onResyncRef.current(),
-      () => bump((n) => n + 1)
+      () => bump((n) => n + 1),
+      role
     )
     handleRef.current = handle
     bump((n) => n + 1)
@@ -149,7 +156,8 @@ export function useBoardLive(
       handle.close()
       if (handleRef.current === handle) handleRef.current = null
     }
-  }, [sessionId])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, role])
 
   return handleRef.current
 }

@@ -1,30 +1,27 @@
 // Cross-instance broadcast bus for board-live WebSocket connections.
 //
-// Two separate Postgres connections, deliberately not shared:
-//   publish (NOTIFY) rides the existing pooled q() from lib/server/pg.ts —
-//     a single statement, no session affinity needed.
-//   subscribe (LISTEN) needs one dedicated, long-lived connection per warm
-//     instance, opened against DATABASE_URL_DIRECT (a direct/unpooled
-//     connection string) — LISTEN cannot survive a transaction-mode pooler
-//     (e.g. Neon's/Supabase's PgBouncer endpoint), which is what
-//     DATABASE_URL points at (see docs/deployment-cost-plan.md §2.2).
-//
 // Fan-out has two paths:
 //   1. Local, synchronous: any socket registered on THIS instance for the
-//      event's session gets it directly, no Postgres round-trip, no size
-//      limit — this covers same-instance peers (Fluid Compute reuses warm
-//      instances, so a single classroom's traffic often lands together).
-//   2. Cross-instance, via NOTIFY: serialized and broadcast to every other
-//      instance's listener, EXCEPT when the payload exceeds Postgres's
-//      8000-byte NOTIFY limit — then a minimal {sessionId, type:'resync'}
-//      goes out instead, and receivers re-pull full state over REST.
+//      event's session gets it directly, no Redis round-trip — this covers
+//      same-instance peers (Fluid Compute reuses warm instances, so a
+//      single classroom's traffic often lands together).
+//   2. Cross-instance, via Redis pub/sub: every event is published to one
+//      fixed channel and every other instance's shared subscriber picks it
+//      up and re-dispatches locally by sessionId. Unlike the Postgres
+//      NOTIFY this replaced, there's no realistic payload-size ceiling, so
+//      full obj-patch/bundle payloads always go out as-is — `resync` stays
+//      in the protocol only for genuine reconnect/drift cases, not size.
+//
+// Exactly one publisher and one subscriber connection per warm instance
+// (lib/server/redis.ts), shared across every board session on that
+// instance — the free-tier Redis plan caps at 30 connections total, so
+// per-instance connection count must stay fixed regardless of how many
+// sessions or sockets that instance is serving.
 
-import { Client } from 'pg'
-import { q } from './pg'
+import { getRedisPub, getRedisSub } from './redis'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 
-const CHANNEL = 'simblip_board_live'
-const NOTIFY_BYTE_LIMIT = 7800
+const CHANNEL = 'simblip:board-live'
 
 export interface LocalSocket {
   sessionId: string
@@ -32,19 +29,19 @@ export interface LocalSocket {
 }
 
 interface Bridge {
-  listener: Client | null
+  subscribed: boolean
   connecting: Promise<void> | null
   sockets: Map<string, Set<LocalSocket>>
 }
 
 // Stashed on globalThis, not a module-scope `let`: next dev's Fast Refresh
 // can re-evaluate this module on each request, and a bare module-scope
-// singleton would get silently re-created, leaking one LISTEN connection
+// singleton would get silently re-created, leaking a duplicate subscription
 // per reload. In production, module scope is already reused per warm
 // instance, so this is just a slightly more defensive version of the same
 // lazy-singleton pattern.
 const g = globalThis as unknown as { __boardLiveBridge?: Bridge }
-const bridge: Bridge = (g.__boardLiveBridge ??= { listener: null, connecting: null, sockets: new Map() })
+const bridge: Bridge = (g.__boardLiveBridge ??= { subscribed: false, connecting: null, sockets: new Map() })
 
 function localSocketsFor(sessionId: string): Set<LocalSocket> {
   let set = bridge.sockets.get(sessionId)
@@ -74,36 +71,22 @@ function fanOutLocal(sessionId: string, evt: BoardLiveServerMsg, exclude?: Local
   }
 }
 
-async function ensureListener(): Promise<void> {
-  if (bridge.listener) return
+async function ensureSubscribed(): Promise<void> {
+  if (bridge.subscribed) return
   if (bridge.connecting) return bridge.connecting
-  const directUrl = process.env.DATABASE_URL_DIRECT
-  if (!directUrl) {
-    throw new Error('DATABASE_URL_DIRECT is not configured — required for board-live LISTEN/NOTIFY')
-  }
   bridge.connecting = (async () => {
-    const client = new Client({
-      connectionString: directUrl,
-      ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : undefined,
-      keepAlive: true,
-    })
-    client.on('notification', (msg) => {
-      if (msg.channel !== CHANNEL || !msg.payload) return
+    const sub = getRedisSub()
+    sub.on('message', (channel, message) => {
+      if (channel !== CHANNEL) return
       try {
-        const { sessionId, evt } = JSON.parse(msg.payload) as { sessionId: string; evt: BoardLiveServerMsg }
+        const { sessionId, evt } = JSON.parse(message) as { sessionId: string; evt: BoardLiveServerMsg }
         fanOutLocal(sessionId, evt)
       } catch {
-        /* malformed notify payload — ignore */
+        /* malformed pub/sub payload — ignore */
       }
     })
-    const reset = () => {
-      if (bridge.listener === client) bridge.listener = null
-    }
-    client.on('error', reset)
-    client.on('end', reset)
-    await client.connect()
-    await client.query(`LISTEN ${CHANNEL}`)
-    bridge.listener = client
+    await sub.subscribe(CHANNEL)
+    bridge.subscribed = true
   })()
   try {
     await bridge.connecting
@@ -113,17 +96,14 @@ async function ensureListener(): Promise<void> {
 }
 
 /** Broadcast an event to every socket subscribed to a session — local
- *  instance synchronously, other instances via NOTIFY (or a `resync` signal
- *  if the payload is too large for NOTIFY's 8KB cap). */
+ *  instance synchronously, other instances via Redis pub/sub. No payload
+ *  size ceiling (unlike the Postgres NOTIFY this replaced), so full
+ *  obj-patch/bundle payloads always go out as-is. */
 export async function publish(sessionId: string, evt: BoardLiveServerMsg, exclude?: LocalSocket): Promise<void> {
   fanOutLocal(sessionId, evt, exclude)
-  const payload = JSON.stringify({ sessionId, evt })
-  const outgoing = Buffer.byteLength(payload, 'utf8') > NOTIFY_BYTE_LIMIT
-    ? JSON.stringify({ sessionId, evt: { type: 'resync' } as BoardLiveServerMsg })
-    : payload
-  await q('select pg_notify($1, $2)', [CHANNEL, outgoing])
+  await getRedisPub().publish(CHANNEL, JSON.stringify({ sessionId, evt }))
 }
 
 /** Call once per WS connection before registering the socket, so the
- *  instance is guaranteed subscribed before it starts relying on NOTIFY. */
-export const ensureBoardLiveListener = ensureListener
+ *  instance is guaranteed subscribed before it starts relying on pub/sub. */
+export const ensureBoardLiveListener = ensureSubscribed

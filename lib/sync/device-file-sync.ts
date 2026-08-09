@@ -29,7 +29,10 @@
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import * as manifest from '@/lib/storage/manifest'
 import { getFile, uploadToCloud } from '@/lib/storage/manager'
-import type { DeviceRow } from '@/lib/sync/devices'
+import { onReconnect } from '@/lib/sync/connectivity'
+import { useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
+
+const AUTO_SYNC_DEBOUNCE_MS = 10_000
 
 async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getAccessToken()
@@ -45,12 +48,15 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   return res
 }
 
-/** Push every local file this account has to `target` via Blob. Called when
- *  the user clicks a device in the cloud icon's popover. */
+/** Push this account's not-yet-synced files to `target` via Blob. Called
+ *  when the user clicks a device in the cloud icon's popover, or by
+ *  startFileSync()'s debounced auto-trigger below. Files already
+ *  `syncStatus: 'synced'` are skipped — re-uploading unchanged bytes is the
+ *  "syncs everything every time" bug this filter exists to avoid. */
 export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: number, total: number) => void) {
   const profile = useAuthStore.getState().profile
   if (!profile) return
-  const entries = await manifest.listByOwner(profile.id)
+  const entries = (await manifest.listByOwner(profile.id)).filter((e) => e.syncStatus !== 'synced')
   if (entries.length === 0) return
 
   for (let i = 0; i < entries.length; i++) {
@@ -94,4 +100,56 @@ export async function pullPendingFiles(): Promise<number> {
   }
   await rest(`simblip_devices?id=eq.${row.id}`, { method: 'PATCH', body: JSON.stringify({ pending_pull: [] }) })
   return ids.length
+}
+
+let autoSyncStarted = false
+
+/** Auto-push changed files ~10s after the last one settles, instead of only
+ *  on a manual "Sync files" click — same debounced-dirty-set shape as
+ *  lib/sync/cloud.ts's startSync(), watching the file manifest instead of
+ *  the doc store. Pushes to every currently-online device (device sync has
+ *  no single "the" target the way page sync has no target at all). */
+export function startFileSync() {
+  if (autoSyncStarted || typeof window === 'undefined') return
+  autoSyncStarted = true
+
+  let timer: ReturnType<typeof setTimeout> | null = null
+
+  // Auto-triggered pushes are fire-and-forget (no button UI waiting on
+  // them), so catch here — pushFilesToDevice() itself stays un-caught for
+  // the manual "Sync files" button, which already surfaces failures via its
+  // own try/catch + toast in sync-status.tsx.
+  const runNow = () => {
+    const targets = useDevicesStore.getState().others
+    targets.forEach((device) => {
+      pushFilesToDevice(device).catch((err) => {
+        console.warn('[device-file-sync] auto push failed:', err)
+      })
+    })
+  }
+
+  const schedule = () => {
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = null
+      runNow()
+    }, AUTO_SYNC_DEBOUNCE_MS)
+  }
+
+  manifest.onManifestChange((entry) => {
+    // Only a file freshly needing upload should re-arm the timer — ignore
+    // uploadToCloud()'s own 'uploading'/'synced' writes, which would
+    // otherwise keep resetting the debounce while a push is already running.
+    if (entry.syncStatus !== 'local-only' && entry.syncStatus !== 'sync-failed') return
+    if (!useAuthStore.getState().profile) return
+    schedule()
+  })
+
+  // A failed auto-push (offline) just leaves manifest entries at
+  // 'sync-failed'/'local-only' with no further edit to re-arm the debounce —
+  // resume immediately once the network is confirmed back, same as
+  // lib/sync/cloud.ts's reconnect handling.
+  onReconnect(() => {
+    if (useAuthStore.getState().profile) runNow()
+  })
 }
