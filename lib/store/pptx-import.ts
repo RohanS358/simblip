@@ -37,118 +37,69 @@ const PT_TO_PX = 96 / 72 // OOXML font sizes are in points (sz="2400" = 24pt, hu
 interface SlideScale {
   emuPerPxX: number
   emuPerPxY: number
-  /** EMU offset to subtract from slide-space X before dividing by emuPerPxX.
-   *  Non-zero when the content lives inside a top-level group that is
-   *  translated away from (0,0) on the physical slide (e.g. portrait slides
-   *  exported from Canva where a 16:9 content block sits in the lower half). */
+  /** EMU offset to subtract from slide-space X/Y before dividing. Non-zero
+   *  only for letterboxing: when the deck's aspect ratio doesn't match
+   *  SIMBLIP's 16:9, the content is centered in the fixed frame rather than
+   *  stretched, so these carry the (negative) centering offset. */
   slideOffsetX: number
   slideOffsetY: number
 }
 
-const DEFAULT_SLIDE_SCALE: SlideScale = { emuPerPxX: 9525, emuPerPxY: 9525, slideOffsetX: 0, slideOffsetY: 0 }
+/** 96dpi: 914400 EMU/inch ÷ 96 px/inch. The scale a deck that is exactly
+ *  SIMBLIP's own canonical 10in×5.625in would import at — the reference
+ *  point ptScaleFactor measures a deck's physical size against. */
+const EMU_PER_PX_96DPI = 9525
 
-/** Determines the effective slide viewport (position + size) in raw EMU space,
- *  accounting for portrait-declared slides where the actual 16:9 content sits
- *  inside a translated top-level group (common in Canva/Figma/Google Slides
- *  exports). Returns a SlideScale with uniform emuPerPx for X and Y plus
- *  slideOffsetX/Y so shapeBox can subtract the group's origin before dividing. */
+const DEFAULT_SLIDE_SCALE: SlideScale = {
+  emuPerPxX: EMU_PER_PX_96DPI,
+  emuPerPxY: EMU_PER_PX_96DPI,
+  slideOffsetX: 0,
+  slideOffsetY: 0,
+}
+
+/** The deck's real slide size from <p:sldSz> in ppt/presentation.xml, mapped
+ *  onto SIMBLIP's fixed 960×540 frame.
+ *
+ *  <p:sldSz> is authoritative and is the ONLY thing that defines slide-space:
+ *  every <a:off>/<a:ext> in every slide is expressed in that coordinate
+ *  system, by spec. An earlier version of this function tried to be clever —
+ *  scanning slides for the largest <p:grpSp> and using ITS bounding box as
+ *  the viewport, on the theory that portrait Canva/Figma exports hide a 16:9
+ *  content block inside a translated group. That heuristic is wrong on
+ *  ordinary decks and was the actual cause of "the pptx is scaled so much
+ *  things don't fit": on any deck whose biggest group is merely a decorative
+ *  cluster rather than a full-bleed content frame, it picked that cluster's
+ *  box (a few million EMU) as the whole slide, so every object imported
+ *  several times too large and offset by the cluster's origin. Canva's
+ *  default 1920×1080px export (18288000×10287000 EMU = 20in×11.25in) hit
+ *  this on every slide.
+ *
+ *  Aspect-ratio mismatch is handled by CONTAIN + centering (letterbox), not
+ *  by stretching or cropping: a 4:3 deck keeps its proportions and sits
+ *  centered in the 16:9 frame, which is what every real presentation tool
+ *  does. Uniform X/Y scale means circles stay circles. */
 async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
-  // ── 1. Declared slide dimensions from presentation.xml ──────────────────
   const presFile = zip.files['ppt/presentation.xml']
-  let declaredW = 0
-  let declaredH = 0
-  if (presFile) {
-    const xml = await presFile.async('text')
-    const doc = new DOMParser().parseFromString(xml, 'application/xml')
-    const sldSz = doc.getElementsByTagName('p:sldSz')[0]
-    declaredW = Number(sldSz?.getAttribute('cx') ?? 0)
-    declaredH = Number(sldSz?.getAttribute('cy') ?? 0)
-  }
+  if (!presFile) return DEFAULT_SLIDE_SCALE
 
-  // ── 2. Scan first slide for the main top-level content group ────────────
-  // Many decks (Canva, Figma, Google Slides portrait exports) put a single
-  // large <p:grpSp> as the top-level content container. Its on-slide off/ext
-  // defines the REAL viewport we should map to 960×540. We try the first
-  // slide; if there's no group, we fall back to the declared dimensions.
-  const slideFiles = Object.keys(zip.files)
-    .filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name))
-    .sort((a, b) => {
-      const na = Number(a.match(/slide(\d+)/)?.[1] ?? 0)
-      const nb = Number(b.match(/slide(\d+)/)?.[1] ?? 0)
-      return na - nb
-    })
+  const xml = await presFile.async('text')
+  const doc = new DOMParser().parseFromString(xml, 'application/xml')
+  const sldSz = doc.getElementsByTagName('p:sldSz')[0]
+  const slideW = Number(sldSz?.getAttribute('cx') ?? 0)
+  const slideH = Number(sldSz?.getAttribute('cy') ?? 0)
+  if (!(slideW > 0 && slideH > 0)) return DEFAULT_SLIDE_SCALE
 
-  let bestGroupOffX = 0
-  let bestGroupOffY = 0
-  let bestGroupExtW = 0
-  let bestGroupExtH = 0
+  // CONTAIN: the larger of the two required divisors, so both axes fit.
+  const emuPerPx = Math.max(slideW / SIMBLIP_SLIDE_W_PX, slideH / SIMBLIP_SLIDE_H_PX)
 
-  // Match the grpSpPr transform of the outermost groups in a slide.
-  // Pattern: <p:grpSpPr><a:xfrm...><a:off x=".." y=".."/><a:ext cx=".." cy=".."/>
-  const grpRe = /<p:grpSpPr>\s*<a:xfrm[^>]*>\s*<a:off x="(\d+)" y="(\d+)"[^>]*\/>\s*<a:ext cx="(\d+)" cy="(\d+)"/g
+  // Center the letterboxed content. A 4:3 deck scaled to fit 540px tall is
+  // narrower than 960px, so it gets a negative X offset (shifting it right).
+  const renderedW = slideW / emuPerPx
+  const renderedH = slideH / emuPerPx
+  const slideOffsetX = -((SIMBLIP_SLIDE_W_PX - renderedW) / 2) * emuPerPx
+  const slideOffsetY = -((SIMBLIP_SLIDE_H_PX - renderedH) / 2) * emuPerPx
 
-  for (const name of slideFiles.slice(0, 3)) {
-    const xml = await zip.files[name].async('text')
-    // Reset per slide — we want the LARGEST on-slide group (content area)
-    let maxArea = 0
-    let m: RegExpExecArray | null
-    grpRe.lastIndex = 0
-    while ((m = grpRe.exec(xml)) !== null) {
-      const offX = Number(m[1])
-      const offY = Number(m[2])
-      const extW = Number(m[3])
-      const extH = Number(m[4])
-      // Skip the spTree's own nvGrpSpPr (ext=0) and tiny decorative groups.
-      if (extW < 1000000 || extH < 1000000) continue
-      const area = extW * extH
-      if (area > maxArea) {
-        maxArea = area
-        bestGroupOffX = offX
-        bestGroupOffY = offY
-        bestGroupExtW = extW
-        bestGroupExtH = extH
-      }
-    }
-    // Stop after first slide that has a usable group.
-    if (bestGroupExtW > 0) break
-  }
-
-  // ── 3. Choose the effective canvas viewport ──────────────────────────────
-  let viewOffX = 0
-  let viewOffY = 0
-  let viewW = declaredW
-  let viewH = declaredH
-
-  if (bestGroupExtW > 0) {
-    // Use the content group's on-slide bounding box as the viewport.
-    viewOffX = bestGroupOffX
-    viewOffY = bestGroupOffY
-    viewW    = bestGroupExtW
-    viewH    = bestGroupExtH
-  } else if (declaredW <= 0 || declaredH <= 0) {
-    // No group and no declared size — fall back.
-    return DEFAULT_SLIDE_SCALE
-  }
-
-  // Clamp to at least 10"×5.625" (standard widescreen minimum)
-  viewW = Math.max(viewW, 9144000)
-  viewH = Math.max(viewH, 5143500)
-
-  // Enforce 16:9 if aspect ratio is clearly wrong (portrait, etc.)
-  const aspect = viewW / viewH
-  if (aspect < 1.2 || aspect > 2.2) {
-    viewH = Math.round(viewW / (16 / 9))
-  }
-
-  // Uniform scale: same factor for X and Y (preserves proportions)
-  const emuPerPx = Math.max(viewW / SIMBLIP_SLIDE_W_PX, viewH / SIMBLIP_SLIDE_H_PX)
-
-  return {
-    emuPerPxX: emuPerPx,
-    emuPerPxY: emuPerPx,
-    slideOffsetX: viewOffX,
-    slideOffsetY: viewOffY,
-  }
+  return { emuPerPxX: emuPerPx, emuPerPxY: emuPerPx, slideOffsetX, slideOffsetY }
 }
 
 /** Point sizes (fonts, line thickness) are ABSOLUTE physical measurements
@@ -343,11 +294,25 @@ function shapeText(
   if (!txBody) return null
   const paragraphs = directChildren(txBody, 'a:p')
   if (paragraphs.length === 0) return null
+
+  // <a:normAutofit fontScale="62500"/> — PowerPoint's own "shrink text on
+  // overflow", stored as the percentage (in 1000ths) it already decided the
+  // text must shrink by to fit its box. The stored `sz` values are the
+  // UNSHRUNK sizes, so ignoring this renders text far larger than the deck
+  // actually displays it — a direct cause of text overflowing its shape.
+  const autofit = firstChild(firstChild(txBody, 'a:bodyPr'), 'a:normAutofit')
+  const fontScaleAttr = autofit?.getAttribute('fontScale')
+  const fontScale = fontScaleAttr ? Number(fontScaleAttr) / 100000 : 1
+  const effScale: SlideScale =
+    Number.isFinite(fontScale) && fontScale > 0 && fontScale !== 1
+      ? { ...scale, emuPerPxY: scale.emuPerPxY / fontScale }
+      : scale
+
   let text = ''
   const marks: Mark[] = []
   paragraphs.forEach((p, i) => {
     if (i > 0) text += '\n'
-    const line = paragraphToLine(p, theme, scale)
+    const line = paragraphToLine(p, theme, effScale)
     const offset = text.length
     text += line.text
     marks.push(...line.marks.map((m) => ({ ...m, start: m.start + offset, end: m.end + offset })))
@@ -500,28 +465,120 @@ function shapeFillAndBorder(
   return { fillColor, strokeColor, strokeWidth }
 }
 
+/** Unit-bbox point sets (0-1 range, scaled by box w/h at call site) for the
+ *  polygon prst shapes geometryKindOf recognizes. */
+const PRST_POLYGON_POINTS: Record<string, number[][]> = {
+  triangle: [[0.5, 0], [1, 1], [0, 1]],
+  rtTriangle: [[0, 0], [0, 1], [1, 1]],
+  diamond: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]],
+  parallelogram: [[0.25, 0], [1, 0], [0.75, 1], [0, 1]],
+  trapezoid: [[0.25, 0], [0.75, 0], [1, 1], [0, 1]],
+  pentagon: [[0.5, 0], [1, 0.38], [0.82, 1], [0.18, 1], [0, 0.38]],
+  hexagon: [[0.25, 0], [0.75, 0], [1, 0.5], [0.75, 1], [0.25, 1], [0, 0.5]],
+  octagon: [[0.29, 0], [0.71, 0], [1, 0.29], [1, 0.71], [0.71, 1], [0.29, 1], [0, 0.71], [0, 0.29]],
+  star5: [
+    [0.5, 0], [0.62, 0.35], [1, 0.35], [0.69, 0.57], [0.81, 0.91],
+    [0.5, 0.7], [0.19, 0.91], [0.31, 0.57], [0, 0.35], [0.38, 0.35],
+  ],
+  rightArrow: [[0, 0.25], [0.6, 0.25], [0.6, 0], [1, 0.5], [0.6, 1], [0.6, 0.75], [0, 0.75]],
+  leftArrow: [[1, 0.25], [0.4, 0.25], [0.4, 0], [0, 0.5], [0.4, 1], [0.4, 0.75], [1, 0.75]],
+  upArrow: [[0.25, 1], [0.25, 0.4], [0, 0.4], [0.5, 0], [1, 0.4], [0.75, 0.4], [0.75, 1]],
+  downArrow: [[0.25, 0], [0.25, 0.6], [0, 0.6], [0.5, 1], [1, 0.6], [0.75, 0.6], [0.75, 0]],
+}
+
 /** <a:prstGeom prst="..."/> — mapped onto SIMBLIP's 3 real geometry kinds
  *  (rect/circle/polygon); anything unrecognized defaults to rect, since a
  *  labeled box is a closer visual match than dropping the shape entirely.
  *  Points are relative to the shape's own bbox, matching how 'polygon'
  *  geometry.points are interpreted elsewhere in the app (relative to
- *  position, within size). */
+ *  position, within size).
+ *
+ *  <a:custGeom> (a freeform path) also maps to 'polygon' — custGeom is what
+ *  every design tool that isn't PowerPoint itself emits for anything that
+ *  isn't a plain box, so treating it as an unrecognized 'rect' silently
+ *  squared off a large share of real-world decks' artwork. */
 function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' {
-  const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
-  if (prst === 'ellipse') return 'circle'
-  if (prst === 'triangle') return 'polygon'
-  if (prst === 'rightArrow' || prst === 'leftArrow' || prst === 'upArrow' || prst === 'downArrow') return 'polygon'
+  const spPr = firstChild(sp, 'p:spPr')
+  if (firstChild(spPr, 'a:custGeom')) return 'polygon'
+  const prst = firstChild(spPr, 'a:prstGeom')?.getAttribute('prst')
+  if (prst === 'ellipse' || prst === 'circle') return 'circle'
+  if (prst && PRST_POLYGON_POINTS[prst]) return 'polygon'
   return 'rect'
 }
 
-/** Unit-bbox point sets (0-1 range, scaled by box w/h at call site) for the
- *  polygon prst shapes geometryKindOf recognizes. */
-const PRST_POLYGON_POINTS: Record<string, number[][]> = {
-  triangle: [[0.5, 0], [1, 1], [0, 1]],
-  rightArrow: [[0, 0.25], [0.6, 0.25], [0.6, 0], [1, 0.5], [0.6, 1], [0.6, 0.75], [0, 0.75]],
-  leftArrow: [[1, 0.25], [0.4, 0.25], [0.4, 0], [0, 0.5], [0.4, 1], [0.4, 0.75], [1, 0.75]],
-  upArrow: [[0.25, 1], [0.25, 0.4], [0, 0.4], [0.5, 0], [1, 0.4], [0.75, 0.4], [0.75, 1]],
-  downArrow: [[0.25, 0], [0.25, 0.6], [0, 0.6], [0.5, 1], [1, 0.6], [0.75, 0.6], [0.75, 0]],
+/** <a:custGeom><a:pathLst><a:path w= h=> — a freeform outline in the path's
+ *  OWN coordinate space (w/h, not EMUs), which we normalize to the shape's
+ *  bbox. Curves (cubicBezTo/quadBezTo/arcTo) are approximated by their end
+ *  points: SIMBLIP's 'polygon' geometry is point-list only, so a rounded
+ *  outline imports as a straight-edged one rather than not at all.
+ *
+ *  Returns unit-space (0-1) points; the caller scales by the shape's px box,
+ *  matching PRST_POLYGON_POINTS' convention. */
+function custGeomUnitPoints(sp: Element): number[][] | undefined {
+  const path = firstChild(firstChild(firstChild(sp, 'p:spPr'), 'a:custGeom'), 'a:path')
+  if (!path) return undefined
+  const pathW = Number(path.getAttribute('w') ?? 0)
+  const pathH = Number(path.getAttribute('h') ?? 0)
+  if (!(pathW > 0 && pathH > 0)) return undefined
+
+  const points: number[][] = []
+  const pushPt = (pt: Element | null) => {
+    if (!pt) return
+    const x = Number(pt.getAttribute('x') ?? NaN)
+    const y = Number(pt.getAttribute('y') ?? NaN)
+    if (Number.isFinite(x) && Number.isFinite(y)) points.push([x / pathW, y / pathH])
+  }
+
+  // Only the FIRST subpath is taken — polygon geometry is a single closed
+  // ring, so a multi-subpath shape (a donut, a glyph with holes) imports as
+  // its outer contour.
+  for (const cmd of Array.from(path.children)) {
+    switch (cmd.tagName) {
+      case 'a:moveTo':
+        if (points.length > 0) return points // second subpath starts — stop
+        pushPt(firstChild(cmd, 'a:pt'))
+        break
+      case 'a:lnTo':
+        pushPt(firstChild(cmd, 'a:pt'))
+        break
+      case 'a:cubicBezTo':
+      case 'a:quadBezTo': {
+        // Approximate by the curve's end point (the last <a:pt> child).
+        const pts = directChildren(cmd, 'a:pt')
+        pushPt(pts[pts.length - 1] ?? null)
+        break
+      }
+      case 'a:close':
+        return points
+      default:
+        break // arcTo and others: no reliable end point without full math
+    }
+  }
+  return points
+}
+
+/** The unit-space outline for whatever geometry a shape declares — custGeom
+ *  path first, then the preset table. Undefined for shapes that aren't
+ *  polygons (rect/circle need no point list). */
+function polygonUnitPoints(sp: Element): number[][] | undefined {
+  const custom = custGeomUnitPoints(sp)
+  if (custom && custom.length >= 3) return custom
+  const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
+  return prst ? PRST_POLYGON_POINTS[prst] : undefined
+}
+
+/** <a:xfrm rot="..."> is in 60000ths of a degree, clockwise — the same
+ *  direction as SceneObject.rotation's CSS `rotate(Ndeg)`, so it passes
+ *  through as a plain division. flipH/flipV are not representable on a
+ *  SceneObject and are ignored (they matter mostly for asymmetric artwork). */
+function shapeRotation(sp: Element): number {
+  const rot = firstChild(sp, 'a:xfrm')?.getAttribute('rot')
+  if (!rot) return 0
+  const deg = Number(rot) / 60000
+  if (!Number.isFinite(deg)) return 0
+  // Normalize to (-180, 180] so the inspector shows a sane number.
+  const norm = ((deg % 360) + 360) % 360
+  return Math.round((norm > 180 ? norm - 360 : norm) * 10) / 10
 }
 
 // ── Per-slide extraction ────────────────────────────────────────────────────
@@ -754,6 +811,7 @@ async function pictureObject(
   const obj = baseObject('picture', { x: box.x, y: box.y })
   obj.size = { w: box.w, h: box.h }
   obj.geometry.src = src
+  obj.rotation = shapeRotation(pic)
   return obj
 }
 
@@ -775,9 +833,15 @@ async function shapesToObjects(
 
   const applyPolygonPoints = (shape: SceneObject, sp: Element, box: { w: number; h: number }) => {
     if (shape.geometry.kind !== 'polygon') return
-    const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
-    const unitPoints = prst ? PRST_POLYGON_POINTS[prst] : undefined
-    if (unitPoints) shape.geometry.points = unitPoints.map(([ux, uy]) => [ux * box.w, uy * box.h])
+    const unitPoints = polygonUnitPoints(sp)
+    if (unitPoints) {
+      shape.geometry.points = unitPoints.map(([ux, uy]) => [ux * box.w, uy * box.h])
+    } else {
+      // A polygon with no resolvable outline would render as nothing at all
+      // (geometry.tsx needs >=3 points) — fall back to the full bbox so the
+      // shape's fill/border still shows.
+      shape.geometry.kind = 'rect'
+    }
   }
 
   // PowerPoint groups (<p:grpSp>) nest shapes/pictures under their own
@@ -812,15 +876,18 @@ async function shapesToObjects(
         const src = await blipToOpfsSrc(shapeBlipFill, zip, assets, ownerId)
         if (src) {
           const box = shapeBox(child, scale, groupChain)
+          const rotation = shapeRotation(child)
           const pictureObj = baseObject('picture', { x: box.x, y: box.y })
           pictureObj.size = { w: box.w, h: box.h }
           pictureObj.geometry.src = src
+          pictureObj.rotation = rotation
           objects.push(pictureObj)
           const line = shapeText(child, theme, placeholderStyles, scale)
           if (line) {
             const textObj = baseObject('text', { x: box.x, y: box.y })
             textObj.size = { w: box.w, h: box.h }
             textObj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
+            textObj.rotation = rotation
             if (line.align) textObj.metadata.align = line.align
             if (line.verticalAlign) textObj.metadata.verticalAlign = line.verticalAlign
             objects.push(textObj)
@@ -830,6 +897,7 @@ async function shapesToObjects(
       }
 
       const box = shapeBox(child, scale, groupChain)
+      const rotation = shapeRotation(child)
       const line = shapeText(child, theme, placeholderStyles, scale)
       const { fillColor, strokeColor, strokeWidth } = shapeFillAndBorder(child, theme, scale)
       const hasVisibleShape = !!(fillColor || strokeColor)
@@ -838,6 +906,7 @@ async function shapesToObjects(
         const obj = baseObject('text', { x: box.x, y: box.y })
         obj.size = { w: box.w, h: box.h }
         obj.parameters.text = str(serialize({ text: line.text, marks: line.marks }))
+        obj.rotation = rotation
         if (line.align) obj.metadata.align = line.align
         if (line.verticalAlign) obj.metadata.verticalAlign = line.verticalAlign
         objects.push(obj)
@@ -850,6 +919,7 @@ async function shapesToObjects(
           const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
           shape.size = { w: box.w, h: box.h }
           shape.z = obj.z - 1
+          shape.rotation = rotation
           applyPolygonPoints(shape, child, box)
           if (fillColor) shape.metadata.fillColor = fillColor
           if (strokeColor) shape.metadata.strokeColor = strokeColor
@@ -859,6 +929,7 @@ async function shapesToObjects(
       } else if (hasVisibleShape) {
         const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
         shape.size = { w: box.w, h: box.h }
+        shape.rotation = rotation
         applyPolygonPoints(shape, child, box)
         if (fillColor) shape.metadata.fillColor = fillColor
         if (strokeColor) shape.metadata.strokeColor = strokeColor
@@ -873,8 +944,16 @@ async function shapesToObjects(
   if (bgBlipFill) {
     const bgSrc = await blipToOpfsSrc(bgBlipFill, zip, assets, ownerId)
     if (bgSrc) {
-      const bgPic = baseObject('picture', { x: 0, y: 0 })
-      bgPic.size = { w: SIMBLIP_SLIDE_W_PX, h: SIMBLIP_SLIDE_H_PX }
+      // The background fills the SLIDE, which after letterboxing may be
+      // inset from the 960×540 frame — reuse the same offset/scale mapping
+      // every other object goes through so it lines up with them.
+      const bgX = Math.round(-scale.slideOffsetX / scale.emuPerPxX)
+      const bgY = Math.round(-scale.slideOffsetY / scale.emuPerPxY)
+      const bgPic = baseObject('picture', { x: bgX, y: bgY })
+      bgPic.size = {
+        w: SIMBLIP_SLIDE_W_PX - 2 * bgX,
+        h: SIMBLIP_SLIDE_H_PX - 2 * bgY,
+      }
       bgPic.geometry.src = bgSrc
       bgPic.z = -9999
       objects.push(bgPic)
