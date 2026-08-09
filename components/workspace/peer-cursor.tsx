@@ -23,7 +23,7 @@ export function PeerCursorOverlay({
 
   return (
     <div
-      className={`pointer-events-none ${anchor} z-[9999] transition-[left,top] duration-75 ease-out`}
+      className={`pointer-events-none ${anchor} z-[9999]`}
       style={{ left: `${cursor.x * 100}%`, top: `${cursor.y * 100}%` }}
     >
       <svg width="18" height="18" viewBox="0 0 18 18" className="drop-shadow-sm">

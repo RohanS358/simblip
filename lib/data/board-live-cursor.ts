@@ -2,48 +2,36 @@
 
 // Live cursor + camera mirroring for board-live: desktop and board only
 // (never students — see board-live-types.ts).
-//   useSendCursor    — throttles outgoing pointer moves to 10/sec, always the
-//                      latest position (never queues intermediate ones)
+//   useSendCursor    — sends every pointer move immediately, no throttle —
+//                      lowest latency, traded against more messages sent
+//                      (still tiny payloads, fine at this scale)
 //   usePeerCursor    — tracks the last cursor event from the OTHER role,
 //                      fading it out if nothing arrives for 2s (peer idle
 //                      or disconnected)
-//   useSendViewport  — throttled outgoing pan/zoom, sent as a screen-size-
-//                      independent world-space point (not raw pixel x/y —
-//                      desktop and board can have very different screen
-//                      sizes, see board-live-types.ts's `viewport` message)
+//   useSendViewport  — outgoing pan/zoom, sent as a screen-size-independent
+//                      world-space point (not raw pixel x/y — desktop and
+//                      board can have very different screen sizes, see
+//                      board-live-types.ts's `viewport` message). No extra
+//                      throttle needed: the sender's own committed viewport
+//                      already only changes on gesture settle, not per-frame.
 //   useFollowViewport — receiver: re-derives ITS OWN viewport.x/y from the
 //                      incoming world-space point using its own screen size,
 //                      so the same world content is centered regardless of
 //                      how big each screen actually is
 
 import { useEffect, useRef, useState } from 'react'
-import { useDocStore, type Viewport } from '@/lib/store/document'
+import { useDocStore } from '@/lib/store/document'
 import type { BoardLiveHandle } from './board-live-client'
 import type { BoardLiveServerMsg } from './board-live-types'
 
-const SEND_INTERVAL_MS = 100
 const FADE_AFTER_MS = 2000
 
-/** Call the returned function on every pointer move; it coalesces to at
- *  most one send per SEND_INTERVAL_MS, always carrying the latest position. */
+/** Call the returned function on every pointer move — sends immediately,
+ *  no batching delay. */
 export function useSendCursor(handle: BoardLiveHandle | null, pageId: string | null) {
-  const pending = useRef<{ x: number; y: number } | null>(null)
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (timer.current) clearTimeout(timer.current)
-    }
-  }, [])
-
   return (x: number, y: number) => {
     if (!handle?.connected || !pageId) return
-    pending.current = { x, y }
-    if (timer.current) return
-    timer.current = setTimeout(() => {
-      timer.current = null
-      if (pending.current) handle.sendCursor(pending.current.x, pending.current.y, pageId)
-    }, SEND_INTERVAL_MS)
+    handle.sendCursor(x, y, pageId)
   }
 }
 
@@ -77,37 +65,24 @@ export function usePeerCursor(evt: BoardLiveServerMsg | null): PeerCursor | null
 }
 
 /** Watches this device's own committed viewport for `pageId` and sends the
- *  WORLD-SPACE point at screen center (+ zoom) whenever it settles —
- *  screen-size-independent, unlike viewport.x/y themselves (which are raw
- *  pixel offsets meaningful only against this device's own canvas size). */
+ *  WORLD-SPACE point at screen center (+ zoom) whenever it changes — sent
+ *  immediately, no extra throttle (the sender's own committed viewport
+ *  already only changes on gesture settle, not per-frame — see canvas.tsx's
+ *  paintViewport comment). Screen-size-independent, unlike viewport.x/y
+ *  themselves (raw pixel offsets meaningful only against this device's own
+ *  canvas size). */
 export function useSendViewport(handle: BoardLiveHandle | null, pageId: string | null) {
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const pendingRef = useRef<Viewport | null>(null)
-
   useEffect(() => {
     if (!handle?.connected || !pageId) return
-    const send = (vp: Viewport) => {
-      if (typeof window === 'undefined') return
+    let prev = useDocStore.getState().viewports[pageId]
+    return useDocStore.subscribe((s) => {
+      const vp = s.viewports[pageId]
+      if (!vp || vp === prev || typeof window === 'undefined') return
+      prev = vp
       const worldCenterX = (window.innerWidth / 2 - vp.x) / vp.zoom
       const worldCenterY = (window.innerHeight / 2 - vp.y) / vp.zoom
       handle.sendViewport(worldCenterX, worldCenterY, vp.zoom)
-    }
-    let prev = useDocStore.getState().viewports[pageId]
-    const unsub = useDocStore.subscribe((s) => {
-      const vp = s.viewports[pageId]
-      if (!vp || vp === prev) return
-      prev = vp
-      pendingRef.current = vp
-      if (timer.current) return
-      timer.current = setTimeout(() => {
-        timer.current = null
-        if (pendingRef.current) send(pendingRef.current)
-      }, SEND_INTERVAL_MS)
     })
-    return () => {
-      unsub()
-      if (timer.current) clearTimeout(timer.current)
-    }
   }, [handle, handle?.connected, pageId])
 }
 
