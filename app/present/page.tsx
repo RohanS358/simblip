@@ -438,15 +438,23 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
   }, [session.id])
 
   // Lock navigation to the session page: WorkspaceShell's sidebar/tabs can
-  // switch activePageId to anything in the real notebook (by design, for
-  // normal use) — snap back so desktop-live never drifts off the page
-  // that's actually live on the board.
+  // switch activePageId/panes to anything in the real notebook (by design,
+  // for normal use), and useWorkspaceStore's `persist` middleware rehydrates
+  // asynchronously AFTER mount — it can silently restore whatever
+  // activePageId/panes the user had before opening desktop-live, racing
+  // past a one-time effect. Guard on every store change instead of only
+  // activePageId, so a panes-only drift (e.g. from rehydration) still gets
+  // caught, and re-assert unconditionally rather than diffing against
+  // `prev` (a stale/incomplete diff is exactly what let this slip through).
   useEffect(() => {
-    return useWorkspaceStore.subscribe((s, prev) => {
-      if (s.activePageId !== prev.activePageId && s.activePageId !== tempId) {
+    const enforce = () => {
+      const s = useWorkspaceStore.getState()
+      if (s.activePageId !== tempId || s.panes.length !== 1 || s.panes[0] !== tempId) {
         useWorkspaceStore.setState({ activePageId: tempId, panes: [tempId], activePaneIndex: 0 })
       }
-    })
+    }
+    enforce()
+    return useWorkspaceStore.subscribe(enforce)
   }, [tempId])
 
   const handleLiveEvent = useCallback(
