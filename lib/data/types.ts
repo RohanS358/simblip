@@ -62,7 +62,7 @@ export type BoardSessionStatus = 'live' | 'ended' | 'merged' | 'discarded'
  *  the session row (last-write-wins); the board applies each new `seq` once. */
 export interface RemoteCommand {
   seq: number
-  kind: 'play' | 'pause' | 'stop' | 'pdf' | 'pptx' | 'select' | 'param' | 'toggle'
+  kind: 'play' | 'pause' | 'stop' | 'pdf' | 'pptx' | 'select' | 'param' | 'toggle' | 'slideshow'
   /** pdf: page direction — pptx: slide direction */
   dir?: 1 | -1
   objectId?: string
@@ -71,6 +71,8 @@ export interface RemoteCommand {
   param?: string
   /** param: new expression, e.g. "9" or "2*g" */
   value?: string
+  /** slideshow: true = enter PresentOverlay, false = exit back to edit view */
+  on?: boolean
 }
 
 export interface BoardSessionRow {

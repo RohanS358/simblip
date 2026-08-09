@@ -122,6 +122,31 @@ function PresentOverlay({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides.length, onClose, i])
 
+  // Phone remote's Previous/Next while the overlay itself is on screen —
+  // the parent PresentationView also listens for this same event to keep
+  // its own `current` in sync for when the overlay closes, but that state
+  // is separate from this overlay's own `i` (only seeded once at mount via
+  // startAt), so this overlay needs its own listener too.
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const d = (e as CustomEvent).detail as { dir: number }
+      go(Math.max(0, Math.min(slides.length - 1, i + d.dir)))
+    }
+    window.addEventListener('simblip-remote-pptx', onRemote)
+    return () => window.removeEventListener('simblip-remote-pptx', onRemote)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, i])
+
+  // Remote's End slideshow (slideshow:false) — mirrors Escape.
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const d = (e as CustomEvent).detail as { on: boolean }
+      if (!d.on) onClose()
+    }
+    window.addEventListener('simblip-remote-slideshow', onRemote)
+    return () => window.removeEventListener('simblip-remote-slideshow', onRemote)
+  }, [onClose])
+
   const slideId = slides[i]
 
   // The slide's own content is positioned in SIMBLIP's fixed 960x540
@@ -442,6 +467,17 @@ export function PresentationView({ pageId }: { pageId: string }) {
     window.addEventListener('simblip-remote-pptx', onRemote)
     return () => window.removeEventListener('simblip-remote-pptx', onRemote)
   }, [slides.length])
+
+  // Remote-triggered fullscreen slideshow — same PresentOverlay the local
+  // "Present" button opens, just started/stopped from the phone.
+  useEffect(() => {
+    const onRemote = (e: Event) => {
+      const d = (e as CustomEvent).detail as { on: boolean }
+      setPresenting(d.on)
+    }
+    window.addEventListener('simblip-remote-slideshow', onRemote)
+    return () => window.removeEventListener('simblip-remote-slideshow', onRemote)
+  }, [])
 
 
   return (

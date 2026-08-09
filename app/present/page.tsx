@@ -570,6 +570,10 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
 // object list mirrors the board's own working copy as it syncs back.
 function RemotePanel({ session }: { session: BoardSessionRow }) {
   const [objId, setObjId] = useState('')
+  // Local-only, optimistic: the phone has no visibility into the board's
+  // own Escape key closing the overlay, so this can drift — acceptable for
+  // a one-way remote button, same tradeoff the toggle mirror below accepts.
+  const [slideshowOn, setSlideshowOn] = useState(false)
   // Optimistic mirror of toggle states — the session row only syncs back
   // every few seconds, and a button that answers late feels broken.
   const [flips, setFlips] = useState<Record<string, boolean>>({})
@@ -679,6 +683,19 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
       {isPresentation && (
         <div className="space-y-1.5">
           <Label className="text-[12px]">Slides — {session.page_name}</Label>
+          <Button
+            className="w-full"
+            variant={slideshowOn ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              const on = !slideshowOn
+              setSlideshowOn(on)
+              send({ kind: 'slideshow', on })
+            }}
+          >
+            <MonitorPlay className="h-4 w-4" />
+            {slideshowOn ? 'End slideshow' : 'Start slideshow on board'}
+          </Button>
           <div className="grid grid-cols-2 gap-2">
             <Button variant="outline" size="sm" onClick={() => send({ kind: 'pptx', dir: -1 })}>
               <ChevronLeft className="h-4 w-4" /> Previous

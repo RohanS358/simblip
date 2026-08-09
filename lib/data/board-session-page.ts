@@ -88,6 +88,9 @@ export function applyRemote(cmd: RemoteCommand, pageId: string) {
     case 'pptx':
       window.dispatchEvent(new CustomEvent('simblip-remote-pptx', { detail: { dir: cmd.dir ?? 1 } }))
       break
+    case 'slideshow':
+      window.dispatchEvent(new CustomEvent('simblip-remote-slideshow', { detail: { on: cmd.on ?? true } }))
+      break
     case 'select':
       doc.setSelection(cmd.objectId ? [cmd.objectId] : [])
       break
