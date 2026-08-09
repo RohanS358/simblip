@@ -11,14 +11,19 @@
 // labels, not icon-only, since that page kind has enough controls to want
 // the room a dedicated bar gives them.
 
+import { useState } from 'react'
 import {
   Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
-  NotebookPen, ZoomIn, ZoomOut,
+  MonitorPlay, NotebookPen, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { usePrefs } from '@/lib/store/preferences'
+import { useAuthStore } from '@/lib/auth/store'
+import { can } from '@/lib/auth/types'
+import { useWorkspaceStore } from '@/lib/store/workspace'
+import { PresentDialog } from './page-actions'
 import { HoldableMergedTransport } from './transport'
 import {
   DropdownMenu,
@@ -110,11 +115,15 @@ export function PageControlsMenu({
   const isFloating = useTransportDockStore((s) => s.floating)
   const dockPrefs = usePrefs((s) => s.dock)
   const dockHasTransport = dockPrefs.layoutMode === 'extended' && dockPrefs.showTransport
+  const role = useAuthStore((s) => s.profile?.role ?? null)
+  const pageName = useWorkspaceStore((s) => (pageId ? s.nodes[pageId]?.name : undefined))
+  const [presenting, setPresenting] = useState(false)
 
   const showPdf = !!pdfDock
   const showDoc = !!docDock
   const showSim = showTransport && !!pageId && !isFloating && !dockHasTransport
   const showZoom = showPdf || showDoc
+  const showPresent = showPdf && !!pageId && can(role, 'share-pages')
 
   if (!showPdf && !showDoc && !showSim) return null
 
@@ -133,6 +142,11 @@ export function PageControlsMenu({
           <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
             {pdfDock.current}/{pdfDock.numPages}
           </span>
+          {showPresent && (
+            <DockBtn label="Present on room board…" onClick={() => setPresenting(true)}>
+              <MonitorPlay className="h-3.5 w-3.5" />
+            </DockBtn>
+          )}
           <DockBtn
             label={pdfDock.notesOpen ? 'Close notes' : 'Open notes'}
             active={pdfDock.notesOpen}
@@ -195,6 +209,13 @@ export function PageControlsMenu({
 
       {(showPdf || showDoc) && showSim && <Divider />}
       {showSim && <HoldableMergedTransport pageId={pageId!} />}
+
+      {showPresent && (
+        <PresentDialog
+          page={presenting && pageId ? { id: pageId, name: pageName ?? 'Untitled' } : null}
+          onOpenChange={(o) => !o && setPresenting(false)}
+        />
+      )}
     </div>
   )
 }

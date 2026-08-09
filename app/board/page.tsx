@@ -47,7 +47,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
 import { usePrefs } from '@/lib/store/preferences'
 import { bundlePage, writeBundleContent, type PageBundle } from '@/lib/store/page-bundle'
-import { play, pause, stop } from '@/lib/physics/world'
+import { stop } from '@/lib/physics/world'
 import {
   endSession,
   getSession,
@@ -62,85 +62,22 @@ import { dbMode } from '@/lib/data/db'
 import { listBoardAnnouncements, subscribeAnnouncements } from '@/lib/data/announcements'
 import { listRoomShares, subscribeShares } from '@/lib/data/shares'
 import { listRoomAssignments, subscribeAssignments } from '@/lib/data/assignments'
-import { num } from '@/lib/scene/types'
 import type { BoardRow, BoardSessionRow, RemoteCommand, RoomRow } from '@/lib/data/types'
 import { useBoardLive } from '@/lib/data/board-live-client'
-import { useSendCursor, usePeerCursor } from '@/lib/data/board-live-cursor'
+import { useSendCursor, usePeerCursor, useFollowViewport } from '@/lib/data/board-live-cursor'
 import { PeerCursorOverlay } from '@/components/workspace/peer-cursor'
-import { registerSessionPage, clearSessionPage, BOARD_SESSION_FOLDER } from '@/lib/data/board-session-page'
+import {
+  registerSessionPage,
+  clearSessionPage,
+  applyRemote,
+  BOARD_SESSION_FOLDER,
+} from '@/lib/data/board-session-page'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
 import { Button } from '@/components/ui/button'
 import { Kbd } from '@/components/ui/kbd'
 import { FileObject } from '@/components/objects/file-view'
 import { cn } from '@/lib/utils'
-
-// A remote command names an object; on a doc/pdf session that object may
-// live on a sheet rather than the main content page — target whichever
-// loaded page actually holds it.
-function pageHolding(mainId: string, objectId: string): string {
-  const pages = useDocStore.getState().pages
-  if (pages[mainId]?.objects[objectId]) return mainId
-  const meta = findPageMeta(useWorkspaceStore.getState().nodes, mainId)
-  for (const id of [
-    ...(meta?.docPages ?? []),
-    ...(meta?.notesPages ?? []).filter(Boolean),
-    ...(meta?.annotPages ?? []).filter(Boolean),
-  ])
-    if (pages[id]?.objects[objectId]) return id
-  return mainId
-}
-
-// The teacher's phone drives the board through commands stamped on the
-// session row — each seq is applied exactly once.
-function applyRemote(cmd: RemoteCommand, pageId: string) {
-  const doc = useDocStore.getState()
-  if (cmd.objectId && (cmd.kind === 'param' || cmd.kind === 'toggle'))
-    pageId = pageHolding(pageId, cmd.objectId)
-  switch (cmd.kind) {
-    case 'play':
-      play(pageId)
-      break
-    case 'pause':
-      pause()
-      break
-    case 'stop':
-      stop()
-      break
-    case 'pdf':
-      window.dispatchEvent(
-        new CustomEvent('simblip-remote-pdf', { detail: { dir: cmd.dir ?? 1, objectId: cmd.objectId } })
-      )
-      break
-    case 'pptx':
-      window.dispatchEvent(new CustomEvent('simblip-remote-pptx', { detail: { dir: cmd.dir ?? 1 } }))
-      break
-    case 'select':
-      doc.setSelection(cmd.objectId ? [cmd.objectId] : [])
-      break
-    case 'param':
-      if (cmd.objectId && cmd.behaviorId && cmd.param)
-        doc.setBehaviorParam(pageId, cmd.objectId, cmd.behaviorId, cmd.param, cmd.value ?? '0')
-      break
-    case 'toggle': {
-      // Flip an interactive component (switch/logic input) exactly like a
-      // tap on the board — flipping the board's CURRENT value keeps it
-      // correct even when the phone's mirror of the doc is a little stale.
-      if (!cmd.objectId || !cmd.param) break
-      const obj = doc.pages[pageId]?.objects[cmd.objectId]
-      if (!obj) break
-      const p = obj.parameters[cmd.param]
-      const cur = p?.kind === 'number' ? p.value : cmd.param === 'closed' ? 1 : 0
-      const next = cur >= 0.5 ? '0' : '1'
-      if (p) doc.setParam(pageId, cmd.objectId, cmd.param, next)
-      else
-        doc.updateObject(pageId, cmd.objectId, {
-          parameters: { ...obj.parameters, [cmd.param]: num(next) },
-        })
-      break
-    }
-  }
-}
 
 // The board account has no real notebook tree, but DocView/PdfView resolve a
 // page's kind and sheets through workspace metadata — so a presented page is
@@ -405,6 +342,9 @@ function BoardSurface() {
     writeBundleContent(`board-${fresh.id}`, (fresh.edited ?? fresh.snapshot) as PageBundle)
   }, [session])
 
+  // Shared feed for both usePeerCursor and useFollowViewport below — each
+  // filters to its own evt.type internally, same pattern as handleLiveEvent's
+  // own switch.
   const [lastCursorEvt, setLastCursorEvt] = useState<BoardLiveServerMsg | null>(null)
 
   const handleLiveEvent = useCallback(
@@ -433,6 +373,9 @@ function BoardSurface() {
         case 'cursor':
           if (evt.origin !== 'board') setLastCursorEvt(evt)
           break
+        case 'viewport':
+          setLastCursorEvt(evt)
+          break
       }
     },
     [session, syncSession, refreshSessionContent]
@@ -449,6 +392,10 @@ function BoardSurface() {
   // overlay. Both directions are pure pub/sub, never touch Postgres.
   const sendCursor = useSendCursor(wsHandle, session ? `board-${session.id}` : null)
   const peerCursor = usePeerCursor(lastCursorEvt)
+  // Desktop drives the camera, board follows — one-way (board never sends
+  // 'viewport'), so selfOrigin is fixed at 'board' purely to satisfy the
+  // shared echo-guard signature.
+  useFollowViewport(lastCursorEvt, session ? `board-${session.id}` : null, 'board')
 
   // Fast remote lane (cloud only — local mode is already instant over
   // BroadcastChannel): poll just the tiny remote/status columns at ~1 Hz so

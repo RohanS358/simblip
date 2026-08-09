@@ -2,7 +2,8 @@
 // workspace/doc stores so PageView can render it — shared by the board
 // itself (app/board/page.tsx) and the desktop-live view (app/present/page.tsx),
 // both of which need the identical "temp page under a synthetic folder"
-// setup to show the same live content.
+// setup to show the same live content, and the identical handling of
+// incoming RemoteCommands (transport, slide/page nav, param nudges, toggles).
 
 import {
   useWorkspaceStore,
@@ -13,6 +14,9 @@ import {
 import { useDocStore } from '@/lib/store/document'
 import { bundleMetaPatch, writeBundleContent, type PageBundle } from '@/lib/store/page-bundle'
 import * as pageArchive from '@/lib/store/page-archive'
+import { play, pause, stop } from '@/lib/physics/world'
+import { num } from '@/lib/scene/types'
+import type { RemoteCommand } from './types'
 
 export const BOARD_SESSION_FOLDER = '__board-session'
 const BOARD_NB = BOARD_SESSION_FOLDER
@@ -42,6 +46,73 @@ export function registerSessionPage(tempId: string, name: string, bundle: PageBu
     return { nodes, activePageId: tempId }
   })
   writeBundleContent(tempId, bundle)
+}
+
+function pageHolding(mainId: string, objectId: string): string {
+  const pages = useDocStore.getState().pages
+  if (pages[mainId]?.objects[objectId]) return mainId
+  const meta = findPageMeta(useWorkspaceStore.getState().nodes, mainId)
+  for (const id of [
+    ...(meta?.docPages ?? []),
+    ...(meta?.notesPages ?? []).filter(Boolean),
+    ...(meta?.annotPages ?? []).filter(Boolean),
+  ])
+    if (pages[id]?.objects[objectId]) return id
+  return mainId
+}
+
+/** Apply an incoming RemoteCommand (phone or desktop-live sender) to this
+ *  device's local state — transport commands run THIS device's own physics
+ *  independently (see docs/superpowers/specs/2026-08-09-redis-board-live-design.md:
+ *  each side runs its own simulation from the same signal, not a single
+ *  shared/streamed run). */
+export function applyRemote(cmd: RemoteCommand, pageId: string) {
+  const doc = useDocStore.getState()
+  if (cmd.objectId && (cmd.kind === 'param' || cmd.kind === 'toggle'))
+    pageId = pageHolding(pageId, cmd.objectId)
+  switch (cmd.kind) {
+    case 'play':
+      play(pageId)
+      break
+    case 'pause':
+      pause()
+      break
+    case 'stop':
+      stop()
+      break
+    case 'pdf':
+      window.dispatchEvent(
+        new CustomEvent('simblip-remote-pdf', { detail: { dir: cmd.dir ?? 1, objectId: cmd.objectId } })
+      )
+      break
+    case 'pptx':
+      window.dispatchEvent(new CustomEvent('simblip-remote-pptx', { detail: { dir: cmd.dir ?? 1 } }))
+      break
+    case 'select':
+      doc.setSelection(cmd.objectId ? [cmd.objectId] : [])
+      break
+    case 'param':
+      if (cmd.objectId && cmd.behaviorId && cmd.param)
+        doc.setBehaviorParam(pageId, cmd.objectId, cmd.behaviorId, cmd.param, cmd.value ?? '0')
+      break
+    case 'toggle': {
+      // Flip an interactive component (switch/logic input) exactly like a
+      // tap on the board — flipping the CURRENT value keeps it correct even
+      // when the sender's mirror of the doc is a little stale.
+      if (!cmd.objectId || !cmd.param) break
+      const obj = doc.pages[pageId]?.objects[cmd.objectId]
+      if (!obj) break
+      const p = obj.parameters[cmd.param]
+      const cur = p?.kind === 'number' ? p.value : cmd.param === 'closed' ? 1 : 0
+      const next = cur >= 0.5 ? '0' : '1'
+      if (p) doc.setParam(pageId, cmd.objectId, cmd.param, next)
+      else
+        doc.updateObject(pageId, cmd.objectId, {
+          parameters: { ...obj.parameters, [cmd.param]: num(next) },
+        })
+      break
+    }
+  }
 }
 
 export function clearSessionPage(tempId: string) {

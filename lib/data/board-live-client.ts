@@ -20,6 +20,7 @@ export interface BoardLiveHandle {
   sendRemote: (cmd: Omit<RemoteCommand, 'seq'>) => void
   sendBundle: (bundle: PageBundle) => void
   sendCursor: (x: number, y: number, pageId: string) => void
+  sendViewport: (x: number, y: number, zoom: number) => void
   close: () => void
 }
 
@@ -32,6 +33,7 @@ const noopHandle: BoardLiveHandle = {
   sendRemote: () => {},
   sendBundle: () => {},
   sendCursor: () => {},
+  sendViewport: () => {},
   close: () => {},
 }
 
@@ -115,6 +117,7 @@ export function connectBoardLive(
     sendRemote: (cmd) => send({ type: 'remote', cmd }),
     sendBundle: (bundle) => send({ type: 'bundle', bundle }),
     sendCursor: (x, y, pageId) => send({ type: 'cursor', x, y, pageId }),
+    sendViewport: (x, y, zoom) => send({ type: 'viewport', x, y, zoom }),
     close: () => {
       closed = true
       if (reconnectTimer) clearTimeout(reconnectTimer)

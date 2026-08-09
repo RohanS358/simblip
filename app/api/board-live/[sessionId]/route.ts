@@ -87,7 +87,10 @@ async function handleMessage(
   }
 
   if (msg.type === 'remote') {
-    if (role !== 'teacher') return // board/student sending themselves a command is meaningless
+    // 'desktop' is the presenting teacher's own screen (same identity check
+    // as 'teacher' in authorizeBoardSession) — board/student sending
+    // themselves a command is meaningless, desktop driving the board is not.
+    if (role !== 'teacher' && role !== 'desktop') return
     const seq = Date.now()
     const cmd = { ...msg.cmd, seq }
     await q(
@@ -115,6 +118,14 @@ async function handleMessage(
     // path obj-patch uses minus the DB write.
     if (role !== 'desktop' && role !== 'board') return
     const evt: BoardLiveServerMsg = { type: 'cursor', x: msg.x, y: msg.y, pageId: msg.pageId, origin: role }
+    await publish(sessionId, evt, socket)
+    return
+  }
+
+  if (msg.type === 'viewport') {
+    // Desktop drives, board follows — one-way, board never sends this.
+    if (role !== 'desktop') return
+    const evt: BoardLiveServerMsg = { type: 'viewport', x: msg.x, y: msg.y, zoom: msg.zoom, origin: role }
     await publish(sessionId, evt, socket)
   }
 }

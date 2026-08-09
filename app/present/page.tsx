@@ -39,9 +39,10 @@ import { followSession } from '@/lib/data/board-follow'
 import { useAuthStore } from '@/lib/auth/store'
 import { dbMode } from '@/lib/data/db'
 import { useBoardLive } from '@/lib/data/board-live-client'
-import { useSendCursor, usePeerCursor } from '@/lib/data/board-live-cursor'
+import { useSendCursor, usePeerCursor, useSendViewport } from '@/lib/data/board-live-cursor'
 import { PeerCursorOverlay } from '@/components/workspace/peer-cursor'
-import { registerSessionPage, clearSessionPage } from '@/lib/data/board-session-page'
+import { registerSessionPage, clearSessionPage, applyRemote } from '@/lib/data/board-session-page'
+import { useRuntimeStore } from '@/lib/physics/world'
 import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
 import { WorkspaceShell } from '@/components/workspace/shell'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
@@ -422,6 +423,11 @@ function PresentController() {
 function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExit: () => void }) {
   const tempId = `board-${session.id}`
   const [lastCursorEvt, setLastCursorEvt] = useState<BoardLiveServerMsg | null>(null)
+  const remoteSeqRef = useRef(0)
+  // Set while applyRemote() is running for an INCOMING command, so the
+  // outgoing mode-watcher below doesn't see its own side effect (play()/
+  // pause()/stop() changing useRuntimeStore.mode) and echo it right back.
+  const applyingIncomingRef = useRef(false)
 
   useEffect(() => {
     registerSessionPage(tempId, session.page_name, (session.edited ?? session.snapshot) as PageBundle)
@@ -469,6 +475,20 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
         case 'cursor':
           if (evt.origin !== 'desktop') setLastCursorEvt(evt)
           break
+        case 'remote':
+          // Board (or a component toggled there) drove a transport/select/
+          // param/toggle command — apply it here too, same as the board
+          // applies commands sent the other way. Each seq applied once.
+          if (evt.cmd.seq > remoteSeqRef.current) {
+            remoteSeqRef.current = evt.cmd.seq
+            applyingIncomingRef.current = true
+            try {
+              applyRemote(evt.cmd, tempId)
+            } finally {
+              applyingIncomingRef.current = false
+            }
+          }
+          break
       }
     },
     [tempId]
@@ -488,6 +508,7 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
 
   const sendCursor = useSendCursor(wsHandle, tempId)
   const peerCursor = usePeerCursor(lastCursorEvt)
+  useSendViewport(wsHandle, tempId)
 
   // Mirror local edits back out — same per-object patch pattern app/board
   // uses, just the other direction.
@@ -500,6 +521,28 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
       for (const id of removed) wsHandle.sendPatch(id, null)
     })
   }, [tempId, wsHandle, wsHandle?.connected])
+
+  // Mirror local transport (play/pause/reset) out as a RemoteCommand — each
+  // side then runs its OWN physics locally from that signal (not a single
+  // shared/streamed simulation; see design spec). Skips the very first
+  // 'edit'->anything is never sent since mode starts at 'edit' by default
+  // and that transition only means "left the page", not "pressed stop".
+  useEffect(() => {
+    if (!wsHandle?.connected) return
+    let prevMode = useRuntimeStore.getState().mode
+    return useRuntimeStore.subscribe((s) => {
+      const mode = s.mode
+      if (mode === prevMode || applyingIncomingRef.current) {
+        prevMode = mode
+        return
+      }
+      const wasRunningOrPaused = prevMode === 'running' || prevMode === 'paused'
+      prevMode = mode
+      if (mode === 'running') wsHandle.sendRemote({ kind: 'play' })
+      else if (mode === 'paused') wsHandle.sendRemote({ kind: 'pause' })
+      else if (mode === 'edit' && wasRunningOrPaused) wsHandle.sendRemote({ kind: 'stop' })
+    })
+  }, [wsHandle, wsHandle?.connected])
 
   return (
     <div

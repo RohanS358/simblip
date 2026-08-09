@@ -26,6 +26,9 @@ export type BoardLiveClientMsg =
    *  ~50 clients/board, broadcasting every viewer's cursor isn't useful and
    *  isn't cheap). Never persisted — pure pub/sub, no Postgres write. */
   | { type: 'cursor'; x: number; y: number; pageId: string }
+  /** Desktop's pan/zoom — board's camera follows it (one-way: desktop
+   *  drives). Never persisted, same ephemeral pub/sub-only path as cursor. */
+  | { type: 'viewport'; x: number; y: number; zoom: number }
 
 // ── Server → client ──────────────────────────────────────────────────────────
 
@@ -38,3 +41,4 @@ export type BoardLiveServerMsg =
    *  go re-pull full state via the existing REST call. */
   | { type: 'resync' }
   | { type: 'cursor'; x: number; y: number; pageId: string; origin: BoardLiveRole }
+  | { type: 'viewport'; x: number; y: number; zoom: number; origin: BoardLiveRole }
