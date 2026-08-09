@@ -515,7 +515,12 @@ function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' {
  *  Returns unit-space (0-1) points; the caller scales by the shape's px box,
  *  matching PRST_POLYGON_POINTS' convention. */
 function custGeomUnitPoints(sp: Element): number[][] | undefined {
-  const path = firstChild(firstChild(firstChild(sp, 'p:spPr'), 'a:custGeom'), 'a:path')
+  // Walk down by DIRECT children — firstChild() is recursive, so on a shape
+  // it could otherwise pick up a descendant's custGeom instead of its own.
+  const spPr = directChildren(sp, 'p:spPr')[0]
+  const custGeom = spPr ? directChildren(spPr, 'a:custGeom')[0] : undefined
+  const pathLst = custGeom ? directChildren(custGeom, 'a:pathLst')[0] : undefined
+  const path = pathLst ? directChildren(pathLst, 'a:path')[0] : undefined
   if (!path) return undefined
   const pathW = Number(path.getAttribute('w') ?? 0)
   const pathH = Number(path.getAttribute('h') ?? 0)
@@ -526,7 +531,12 @@ function custGeomUnitPoints(sp: Element): number[][] | undefined {
     if (!pt) return
     const x = Number(pt.getAttribute('x') ?? NaN)
     const y = Number(pt.getAttribute('y') ?? NaN)
-    if (Number.isFinite(x) && Number.isFinite(y)) points.push([x / pathW, y / pathH])
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return
+    // Clamp to the declared path box. Points may legitimately sit slightly
+    // outside it (a stroke drawn past the edge), but geometry.points are
+    // interpreted relative to the object's own size — an unclamped outlier
+    // would paint across the rest of the slide.
+    points.push([Math.min(1, Math.max(0, x / pathW)), Math.min(1, Math.max(0, y / pathH))])
   }
 
   // Only the FIRST subpath is taken — polygon geometry is a single closed
