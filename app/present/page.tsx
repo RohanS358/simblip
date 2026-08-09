@@ -43,7 +43,7 @@ import { useSendCursor, usePeerCursor } from '@/lib/data/board-live-cursor'
 import { PeerCursorOverlay } from '@/components/workspace/peer-cursor'
 import { registerSessionPage, clearSessionPage } from '@/lib/data/board-session-page'
 import { applyObjectPatch, diffObjects } from '@/lib/scene/diff'
-import { PageView } from '@/components/workspace/page-view'
+import { WorkspaceShell } from '@/components/workspace/shell'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import type { BoardRow, BoardSessionRow, RoomRow } from '@/lib/data/types'
 import { importPageDoc } from '@/lib/store/import-page'
@@ -319,7 +319,9 @@ function PresentController() {
         </div>
       )}
 
-      {phase === 'live' && session && desktopLive && <DesktopLivePanel session={session} />}
+      {phase === 'live' && session && desktopLive && (
+        <DesktopLivePanel session={session} onExit={() => setDesktopLive(false)} />
+      )}
 
       {phase === 'live' && session && !desktopLive && <RemotePanel session={session} />}
 
@@ -410,28 +412,42 @@ function PresentController() {
   )
 }
 
-// Desktop-live: the teacher's own screen shows the actual live page (same
-// PageView the board renders) instead of the phone-style button panel —
-// fully editable, with edits flowing both ways over the same obj-patch/
+// Desktop-live: the teacher's own screen shows the FULL workspace shell
+// (sidebar, dock, toolbar, canvas — same WorkspaceShell /notebook uses),
+// locked to the session's temp page, instead of the phone-style button
+// panel. Fully editable, edits flow both ways over the same obj-patch/
 // bundle sync the board already uses, plus a live cursor overlay so each
 // side sees where the other is pointing. Connects as role:'desktop', a
 // second WS connection on the same session alongside the board's own.
-function DesktopLivePanel({ session }: { session: BoardSessionRow }) {
+function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExit: () => void }) {
   const tempId = `board-${session.id}`
-  const registeredRef = useRef(false)
   const [lastCursorEvt, setLastCursorEvt] = useState<BoardLiveServerMsg | null>(null)
 
   useEffect(() => {
     registerSessionPage(tempId, session.page_name, (session.edited ?? session.snapshot) as PageBundle)
-    registeredRef.current = true
+    // registerSessionPage sets activePageId but not panes — WorkspaceShell
+    // renders content from panes[], so without this it shows "No page open"
+    // despite activePageId being correct.
+    useWorkspaceStore.setState({ panes: [tempId], activePaneIndex: 0 })
     return () => {
       clearSessionPage(tempId)
-      registeredRef.current = false
     }
     // Materialize once per session id — the session's own live updates flow
     // in over the WS below, not by re-registering on every prop change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.id])
+
+  // Lock navigation to the session page: WorkspaceShell's sidebar/tabs can
+  // switch activePageId to anything in the real notebook (by design, for
+  // normal use) — snap back so desktop-live never drifts off the page
+  // that's actually live on the board.
+  useEffect(() => {
+    return useWorkspaceStore.subscribe((s, prev) => {
+      if (s.activePageId !== prev.activePageId && s.activePageId !== tempId) {
+        useWorkspaceStore.setState({ activePageId: tempId, panes: [tempId], activePaneIndex: 0 })
+      }
+    })
+  }, [tempId])
 
   const handleLiveEvent = useCallback(
     (evt: BoardLiveServerMsg) => {
@@ -479,14 +495,20 @@ function DesktopLivePanel({ session }: { session: BoardSessionRow }) {
 
   return (
     <div
-      className="glass relative h-[70vh] w-full overflow-hidden rounded-2xl"
+      className="fixed inset-0 z-50 bg-background"
       onPointerMove={(e) => {
-        const rect = e.currentTarget.getBoundingClientRect()
-        sendCursor((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height)
+        sendCursor(e.clientX / window.innerWidth, e.clientY / window.innerHeight)
       }}
     >
-      <PeerCursorOverlay cursor={peerCursor} anchor="absolute" />
-      <PageView key={tempId} pageId={tempId} />
+      <PeerCursorOverlay cursor={peerCursor} />
+      <WorkspaceShell />
+      <button
+        type="button"
+        onClick={onExit}
+        className="glass fixed right-3 top-3 z-[60] flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-foreground shadow-sm"
+      >
+        <Square className="h-3.5 w-3.5" /> Exit live view
+      </button>
     </div>
   )
 }

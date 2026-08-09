@@ -2,6 +2,41 @@
 
 Date: 2026-08-09
 
+## Post-implementation fixes (2026-08-09, same day)
+
+Two bugs surfaced after the initial build:
+
+1. **PDF-kind pages didn't render on the board.** `uploadSessionFiles`
+   (`lib/data/session-upload.ts`) only rewrote `metadata.fileUrl` for
+   file-OBJECT elements, never the page-level `bundle.fileUrl` a
+   pdf/image/xlsx/pptx-KIND page carries. Fixed by extending
+   `uploadSessionFiles` to also upload the page's own OPFS source file when
+   `bundle.fileUrl` starts with `opfs:`. That alone wasn't sufficient,
+   though: `components/workspace/pdf-view.tsx` had a `sharedUrl` state
+   variable that nothing ever set — it only ever resolved `opfs:` URLs via
+   `getFile`, with no fallback to `resolveSharedFile()` the way
+   `components/objects/file-view.tsx` already does correctly for file
+   objects. Added that fallback branch to `pdf-view.tsx`. Checked the other
+   three page-kind viewers (`doc-view.tsx`, `xlsx-view.tsx`,
+   `presentation-view.tsx`) — all three only use `opfs:` as a ONE-TIME
+   import trigger (docx/xlsx/pptx get converted into sheet objects on first
+   open, then render from those synced objects thereafter), so they don't
+   share this bug; PDF is the only kind that re-reads the source file on
+   every render.
+
+2. **Desktop-live originally only mirrored the bare canvas** (`PageView`),
+   not the actual workspace UI. Corrected per user request: `DesktopLivePanel`
+   (`app/present/page.tsx`) now renders the real `WorkspaceShell` (the same
+   component `/notebook` uses — sidebar, dock, toolbar, canvas) full-screen,
+   locked to the session's temp page. Two supporting fixes were needed:
+   `registerSessionPage` sets `activePageId` but not `panes`, which is what
+   `WorkspaceShell` actually renders from, so the panel now also sets
+   `panes: [tempId]` on mount; and a subscription snaps `activePageId` back
+   to the session page if `WorkspaceShell`'s own sidebar/tabs navigate away,
+   since desktop-live must stay locked to the one page that's actually live
+   on the board (confirmed with user — not "board follows wherever you
+   browse").
+
 ## Context
 
 `app/board` / `app/present` already implement a real-time whiteboard feature
@@ -149,16 +184,26 @@ but swaps the transport:
 `lib/sync/devices.ts`'s `touch()` currently POSTs to `/api/pg/simblip_devices`
 every 15 seconds. Replace the underlying storage for presence with Redis:
 
-- A small server route (or extending an existing `/api/pg`-adjacent route)
-  does `SET device:{ownerId}:{deviceId} <label> EX 180` on heartbeat,
-  matching the existing `FRESH_WINDOW_MS` (3 minutes).
-- "Who's online" (`components/workspace/sync-status.tsx`'s device list)
-  reads via `KEYS device:{ownerId}:*` or (better, to avoid `KEYS` in
-  production) a small Redis Set of active device ids per owner, refreshed
-  alongside the TTL key.
-- This removes the per-tab 15s Postgres write-storm entirely; presence
-  becomes ephemeral by construction (no persistence needed, no cleanup job
-  needed — keys expire on their own).
+- A dedicated `app/api/devices/route.ts` does `SET device:{ownerId}:{deviceId}
+  <label>\t<last_seen_at> EX 180` on heartbeat (matching the existing
+  `FRESH_WINDOW_MS`, 3 minutes), plus a companion `devices:{ownerId}` Redis
+  Set as an id index — read (`GET /api/devices`) is `SMEMBERS` + `MGET`,
+  pruning any stale ids (present in the Set, expired as a key) lazily on
+  read, never `KEYS`/`SCAN` in a request path.
+- This removes the per-tab 15s Postgres write-storm entirely for the
+  presence *timestamp*; presence becomes ephemeral by construction (no
+  cleanup job needed — keys expire on their own).
+- **Correction found during implementation**: `simblip_devices` also carries
+  `pending_pull` (`lib/sync/device-file-sync.ts`) — a real queue of file ids
+  one device pushed for another to pull, which must survive until consumed.
+  That's durable state, not presence, so it stays in Postgres exactly as
+  before. `touch()` in `lib/sync/devices.ts` now does two things on every
+  heartbeat: the Redis `SET` above for presence, AND a `merge-duplicates`
+  upsert of a minimal Postgres row (`id`/`owner_id`/`institution_id`/`label`
+  only, no `last_seen_at`) purely so the row exists for `pending_pull` to
+  live on — an upsert that never touches `pending_pull` on conflict (only
+  columns present in the payload are updated), so an in-flight queue is
+  never clobbered.
 - The existing local-mode fallback (`db.insert` into a local `devices`
   table when the fetch fails) is untouched — this only changes the
   cloud-mode path.

@@ -6,6 +6,13 @@
 // hasn't expired yet, no timestamp filtering needed on read. Each open tab
 // re-touches its key on a timer so it expires within a couple of minutes of
 // the tab closing, no explicit sign-off needed.
+//
+// touch() ALSO upserts a minimal simblip_devices Postgres row (id/owner/
+// institution only — no last_seen_at write, Redis owns that). That row
+// isn't presence, it's the anchor lib/sync/device-file-sync.ts's
+// pending_pull queue lives on: a real, must-survive-until-consumed queue of
+// file ids, not ephemeral state, so it stays in Postgres rather than a
+// TTL'd Redis key that could expire mid-transfer.
 
 import { create } from 'zustand'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
@@ -58,6 +65,19 @@ async function touch(ownerId: string, institutionId: string) {
       }),
     })
     if (!res.ok) throw new Error(`Touch failed ${res.status}`)
+
+    // Upsert-only, never overwrites an existing row's pending_pull — this
+    // just makes sure the row EXISTS for device-file-sync.ts's queue to
+    // live on; merge-duplicates leaves other columns alone on conflict.
+    await fetch('/api/pg/simblip_devices', {
+      method: 'POST',
+      headers: {
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        'Content-Type': 'application/json',
+        Prefer: 'resolution=merge-duplicates,return=minimal',
+      },
+      body: JSON.stringify([{ id: deviceId(), owner_id: ownerId, institution_id: instId, label: deviceLabel() }]),
+    }).catch(() => {})
   } catch (err) {
     // Fallback to local table in demo / offline mode
     await db.insert<db.Row>('devices', {

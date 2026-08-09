@@ -326,21 +326,39 @@ useLayoutEffect(() => {
   // this replaces.
   const fileName = meta?.fileName
   useEffect(() => {
-    const fileId = meta?.fileUrl?.startsWith('opfs:') ? meta.fileUrl.slice('opfs:'.length) : null
-    if (!fileId) {
+    const metaFileUrl = meta?.fileUrl
+    if (!metaFileUrl) {
       setHydrated(true)
       return
     }
     let dead = false
-    void (async () => {
-      try {
-        const blob = await getFile(fileId)
-        if (!blob || dead) return
-        setLocal({ url: URL.createObjectURL(blob), name: fileName ?? 'document.pdf', mime: blob.type || 'application/pdf', fileId })
-      } finally {
-        if (!dead) setHydrated(true)
+    if (metaFileUrl.startsWith('opfs:')) {
+      const fileId = metaFileUrl.slice('opfs:'.length)
+      void (async () => {
+        try {
+          const blob = await getFile(fileId)
+          if (!blob || dead) return
+          setLocal({ url: URL.createObjectURL(blob), name: fileName ?? 'document.pdf', mime: blob.type || 'application/pdf', fileId })
+        } finally {
+          if (!dead) setHydrated(true)
+        }
+      })()
+      return () => {
+        dead = true
       }
-    })()
+    }
+    // Not an opfs: reference — this device doesn't own the source file
+    // (e.g. a board rendering a presented pdf-kind page). Resolve the
+    // shareable URL session-upload.ts stamped instead — same fallback
+    // components/objects/file-view.tsx already uses for file objects.
+    void import('@/lib/data/session-upload')
+      .then(({ resolveSharedFile }) => resolveSharedFile(metaFileUrl))
+      .then((url) => {
+        if (!dead) setSharedUrl(url)
+      })
+      .finally(() => {
+        if (!dead) setHydrated(true)
+      })
     return () => {
       dead = true
     }
