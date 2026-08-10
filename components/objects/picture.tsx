@@ -22,12 +22,12 @@ import type { ObjectRendererProps } from './types'
  *  left/top/right/bottom insets the way object-fit:cover's single focal
  *  point can. */
 function fillRectStyle(fillRect: { l: number; t: number; r: number; b: number } | undefined): React.CSSProperties {
-  if (!fillRect) return { objectFit: 'fill', width: '100%', height: '100%' }
+  if (!fillRect) return { objectFit: 'cover', width: '100%', height: '100%' }
   const { l, t, r, b } = fillRect
   const scaleX = 1 / (1 - l - r)
   const scaleY = 1 / (1 - t - b)
   if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
-    return { objectFit: 'fill', width: '100%', height: '100%' }
+    return { objectFit: 'cover', width: '100%', height: '100%' }
   }
   return {
     position: 'absolute',
@@ -86,7 +86,7 @@ export function PictureObject({ object }: ObjectRendererProps) {
         muted
         playsInline
         className="h-full w-full select-none rounded-md"
-        style={{ objectFit: 'fill' }}
+        style={{ objectFit: 'cover' }}
       />
     )
   }
@@ -98,7 +98,7 @@ export function PictureObject({ object }: ObjectRendererProps) {
         src={url}
         alt={object.name}
         className="h-full w-full select-none rounded-md"
-        style={{ objectFit: 'fill' }}
+        style={{ objectFit: 'cover' }}
         draggable={false}
       />
     )

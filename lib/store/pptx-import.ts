@@ -74,10 +74,20 @@ const DEFAULT_SLIDE_SCALE: SlideScale = {
  *  default 1920×1080px export (18288000×10287000 EMU = 20in×11.25in) hit
  *  this on every slide.
  *
- *  Aspect-ratio mismatch is handled by CONTAIN + centering (letterbox), not
- *  by stretching or cropping: a 4:3 deck keeps its proportions and sits
- *  centered in the 16:9 frame, which is what every real presentation tool
- *  does. Uniform X/Y scale means circles stay circles. */
+ *  Aspect-ratio mismatch is handled by COVER + centering (fill the whole
+ *  960×540 frame, crop whichever axis overflows), not CONTAIN + letterbox.
+ *  A portrait/tall deck (e.g. a 20x22.5in Canva "custom size" export) under
+ *  CONTAIN scales to fit its far-taller height, landing far narrower than
+ *  960px wide — a big, obviously-wrong blank margin on both sides, the
+ *  actual "why does the deck look tiny" bug. COVER instead scales to fill
+ *  960px width (the CONSTRAINING axis for a portrait deck) and lets the
+ *  excess height bleed off the top/bottom edges symmetrically, same as
+ *  PowerPoint's own "crop to fit" custom-slide-size behavior — matching
+ *  what the deck's own aspect ratio actually needs instead of forcing empty
+ *  space onto a device that's fundamentally a fixed 16:9 stage. A normal
+ *  16:9 or 4:3 deck's CONTAIN and COVER math coincide/nearly coincide with
+ *  ordinary content margins, so this doesn't regress the common case.
+ *  Uniform X/Y scale means circles stay circles either way. */
 async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
   const presFile = zip.files['ppt/presentation.xml']
   if (!presFile) return DEFAULT_SLIDE_SCALE
@@ -89,11 +99,13 @@ async function loadSlideScale(zip: JSZip): Promise<SlideScale> {
   const slideH = Number(sldSz?.getAttribute('cy') ?? 0)
   if (!(slideW > 0 && slideH > 0)) return DEFAULT_SLIDE_SCALE
 
-  // CONTAIN: the larger of the two required divisors, so both axes fit.
-  const emuPerPx = Math.max(slideW / SIMBLIP_SLIDE_W_PX, slideH / SIMBLIP_SLIDE_H_PX)
+  // COVER: the smaller of the two required divisors, so the frame is
+  // completely filled on the constraining axis and the other axis overflows.
+  const emuPerPx = Math.min(slideW / SIMBLIP_SLIDE_W_PX, slideH / SIMBLIP_SLIDE_H_PX)
 
-  // Center the letterboxed content. A 4:3 deck scaled to fit 540px tall is
-  // narrower than 960px, so it gets a negative X offset (shifting it right).
+  // Center the overflow. A portrait deck scaled to fill 960px wide is
+  // TALLER than 540px, so it gets a negative Y offset (shifting content up
+  // so the crop is centered top/bottom, not anchored to the top edge).
   const renderedW = slideW / emuPerPx
   const renderedH = slideH / emuPerPx
   const slideOffsetX = -((SIMBLIP_SLIDE_W_PX - renderedW) / 2) * emuPerPx
