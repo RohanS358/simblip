@@ -133,6 +133,7 @@ export function MobileShell() {
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
   const nodes = useWorkspaceStore((s) => s.nodes)
+  const openTabs = useWorkspaceStore((s) => s.openTabs)
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   // Only the open page stays in memory — see lib/store/use-active-page.ts
   useLazyActivePage(activePageId)
@@ -900,6 +901,12 @@ export function MobileShell() {
   // header. mobileTab defaults to 'home', and Notebooks falls back to it
   // too (never renders blank if the store hasn't caught up to a nav yet).
   const showGreeting = mobileTab !== 'notebooks'
+  // Continue editing — reuses openTabs (already-tracked open/recent pages,
+  // most-recent last) instead of adding new MRU state. Most recent first,
+  // capped so the strip doesn't scroll forever.
+  const recentPages = [...openTabs].reverse().slice(0, 8)
+    .map((id) => findPageMeta(nodes, id))
+    .filter((p): p is NonNullable<typeof p> => Boolean(p))
   return (
     <div className="flex h-dvh flex-col bg-background">
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
@@ -921,6 +928,28 @@ export function MobileShell() {
               Hello, {profile.full_name.split(' ')[0]}
             </h1>
             <p className="mt-1.5 text-[0.875rem] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
+          </div>
+        )}
+        {showGreeting && recentPages.length > 0 && (
+          <div className="pb-6">
+            <p className="mb-2 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+              Continue editing
+            </p>
+            <div className="flex gap-2.5 overflow-x-auto pb-1">
+              {recentPages.map((page) => (
+                <button
+                  key={page.id}
+                  type="button"
+                  className="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-muted/40 text-left"
+                  onClick={() => openPage(page.id)}
+                >
+                  <PageThumbnail pageId={page.id} className="absolute inset-0 p-1" />
+                  <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1.5 py-1 text-[0.625rem] font-semibold text-white">
+                    {page.name}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         )}
         <div className="grid grid-cols-2 gap-4">

@@ -4,6 +4,7 @@
 // keyboard shortcuts and about. Styled after Obsidian's clean settings window.
 
 import { useState, useMemo } from 'react'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { useTheme } from 'next-themes'
 import { APP_THEMES } from '@/components/theme-provider'
 import { useAuthStore } from '@/lib/auth/store'
@@ -721,6 +722,7 @@ export function SettingsDialog({
     (initialTab as TabId) ?? 'general'
   )
   const [searchQuery, setSearchQuery] = useState('')
+  const isTouch = useIsMobile()
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -740,7 +742,15 @@ export function SettingsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex h-[88dvh] max-h-[850px] w-full sm:w-[92vw] md:w-[88vw] lg:w-[960px] sm:max-w-4xl md:max-w-5xl lg:max-w-5xl flex-col overflow-hidden p-0 rounded-2xl border border-border/70 bg-background shadow-2xl transition-all duration-200">
+      <DialogContent
+        showCloseButton={false}
+        className={cn(
+          'flex flex-col overflow-hidden p-0 bg-background shadow-2xl transition-all duration-200',
+          isTouch
+            ? 'h-dvh max-h-none w-screen max-w-none rounded-none border-0'
+            : 'h-[88dvh] max-h-[850px] w-full sm:w-[92vw] md:w-[88vw] lg:w-[960px] sm:max-w-4xl md:max-w-5xl lg:max-w-5xl rounded-2xl border border-border/70'
+        )}
+      >
         <VisuallyHiddenPrimitive.Root asChild>
           <DialogPrimitive.Title>Settings</DialogPrimitive.Title>
         </VisuallyHiddenPrimitive.Root>
@@ -759,87 +769,64 @@ export function SettingsDialog({
           </DialogPrimitive.Close>
         </div>
 
-        {/* Main Split Body */}
-        <div className="flex flex-1 min-h-0 divide-x divide-border/40">
-          {/* Left Sidebar */}
-          <div className="w-48 sm:w-56 md:w-60 shrink-0 flex flex-col bg-muted/20 dark:bg-muted/10 p-3.5 space-y-3.5 overflow-y-auto no-scrollbar border-r border-border/40">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search settings..."
-                className="h-8 pl-8 pr-7 text-xs bg-background/80 border-border/60 rounded-lg focus-visible:ring-1"
-              />
-              {searchQuery && (
-                <button
-                  type="button"
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
+        {/* Main Split Body — sidebar becomes a horizontal scroll strip on
+            top instead of a left rail on touch, since a fixed-width side
+            column has no room on a phone. */}
+        <div className={cn('flex flex-1 min-h-0', isTouch ? 'flex-col' : 'divide-x divide-border/40')}>
+          {/* Sidebar / nav */}
+          <div
+            className={cn(
+              'shrink-0 flex bg-muted/20 dark:bg-muted/10 border-border/40',
+              isTouch
+                ? 'w-full flex-row items-center gap-1.5 overflow-x-auto border-b p-2.5'
+                : 'w-48 sm:w-56 md:w-60 flex-col p-3.5 space-y-3.5 overflow-y-auto no-scrollbar border-r'
+            )}
+          >
+            {/* Search Input — desktop only, no room for it in the touch strip */}
+            {!isTouch && (
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search settings..."
+                  className="h-8 pl-8 pr-7 text-xs bg-background/80 border-border/60 rounded-lg focus-visible:ring-1"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            )}
 
             {/* Navigation Options */}
-            <div className="space-y-4 pt-1">
-              {optionsItems.length > 0 && (
-                <div className="space-y-1">
-                  <p className="px-2 pb-1 text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/70">
-                    Options
-                  </p>
-                  {optionsItems.map((item) => {
-                    const Icon = item.icon
-                    const isActive = activeTab === item.id
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setActiveTab(item.id)}
-                        className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left',
-                          isActive
-                            ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
-                            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                        )}
-                      >
-                        <Icon className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-[var(--accent-blue)]' : 'opacity-70')} />
-                        <span className="truncate">{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-
-              {toolsItems.length > 0 && (
-                <div className="space-y-1">
-                  <p className="px-2 pb-1 text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/70">
-                    Core plugins & Tools
-                  </p>
-                  {toolsItems.map((item) => {
-                    const Icon = item.icon
-                    const isActive = activeTab === item.id
-                    return (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => setActiveTab(item.id)}
-                        className={cn(
-                          'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors text-left',
-                          isActive
-                            ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
-                            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                        )}
-                      >
-                        <Icon className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-[var(--accent-blue)]' : 'opacity-70')} />
-                        <span className="truncate">{item.label}</span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
+            <div className={isTouch ? 'flex flex-row gap-1.5' : 'space-y-4 pt-1'}>
+              {[...optionsItems, ...toolsItems].map((item) => {
+                const Icon = item.icon
+                const isActive = activeTab === item.id
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setActiveTab(item.id)}
+                    className={cn(
+                      'flex items-center gap-2.5 rounded-lg text-xs font-medium transition-colors text-left',
+                      isTouch ? 'shrink-0 px-3 py-2' : 'w-full px-2.5 py-1.5',
+                      isActive
+                        ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
+                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                    )}
+                  >
+                    <Icon className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-[var(--accent-blue)]' : 'opacity-70')} />
+                    <span className="truncate">{item.label}</span>
+                  </button>
+                )
+              })}
             </div>
           </div>
 
