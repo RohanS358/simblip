@@ -48,24 +48,28 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   return res
 }
 
-/** Push this account's not-yet-synced files to `target` via Blob. Called
- *  when the user clicks a device in the cloud icon's popover, or by
- *  startFileSync()'s debounced auto-trigger below. Files already
- *  `syncStatus: 'synced'` are skipped — re-uploading unchanged bytes is the
- *  "syncs everything every time" bug this filter exists to avoid. */
+/** Push this account's files to `target` via Blob. `syncStatus` records
+ *  whether a file has ever reached Blob at all, not whether THIS target has
+ *  it — there's no per-device registry (see manifest-types.ts). So a file
+ *  already `cloudBackedUp` is queued into pending_pull directly (cheap: just
+ *  its id), while only files never uploaded anywhere (`local-only` /
+ *  `sync-failed`) pay the actual uploadToCloud() bytes cost. This is what
+ *  keeps a first-time device pairing from re-uploading bytes that already
+ *  exist in Blob just because a different device pulled them first. */
 export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: number, total: number) => void) {
   const profile = useAuthStore.getState().profile
   if (!profile) return
-  const entries = (await manifest.listByOwner(profile.id)).filter((e) => e.syncStatus !== 'synced')
-  if (entries.length === 0) return
+  const entries = await manifest.listByOwner(profile.id)
+  const toUpload = entries.filter((e) => e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
 
-  for (let i = 0; i < entries.length; i++) {
-    await uploadToCloud(entries[i])
-    onProgress?.(i + 1, entries.length)
+  for (let i = 0; i < toUpload.length; i++) {
+    await uploadToCloud(toUpload[i])
+    onProgress?.(i + 1, toUpload.length)
   }
 
   const fresh = await manifest.listByOwner(profile.id)
   const ids = fresh.filter((e) => e.cloudBackedUp).map((e) => e.id)
+  if (ids.length === 0) return
   await rest(`simblip_devices?id=eq.${target.id}`, {
     method: 'PATCH',
     body: JSON.stringify({ pending_pull: ids }),
