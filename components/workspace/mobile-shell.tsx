@@ -8,7 +8,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   BookOpen,
@@ -71,6 +70,7 @@ import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
 import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
+import { AssignmentsPanel } from './assignments-panel'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,7 +91,7 @@ const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator
 // "My Notebooks" highlight check below — both render through the SAME
 // drill-down folder view; a top-level tap and a sub-folder tap just push
 // different depths onto the same view.
-type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'editor' }
+type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'assignments' } | { kind: 'editor' }
 
 const SECTION_DOT: Record<string, string> = {
   blue: 'bg-[var(--accent-blue)]',
@@ -107,7 +107,6 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
 )
 
 export function MobileShell() {
-  const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -204,6 +203,13 @@ export function MobileShell() {
   useEffect(() => {
     if ((mobileTab === 'home' || mobileTab === 'notebooks') && view.kind !== 'home') {
       setView({ kind: 'home' })
+    } else if (mobileTab === 'assignments' && view.kind !== 'assignments') {
+      setView({ kind: 'assignments' })
+    } else if (mobileTab === 'shared') {
+      const ws = useWorkspaceStore.getState()
+      const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
+      const id = nb?.id ?? ws.addNotebook(SHARED_NB)
+      if (!(view.kind === 'folder' && view.id === id)) setView({ kind: 'folder', id })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileTab])
@@ -365,21 +371,10 @@ export function MobileShell() {
           </div>
         </div>
         <div className="space-y-1">
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
-            onClick={() => {
-              const ws = store.getState()
-              const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
-              const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-              navigateToView({ kind: 'folder', id })
-            }}
-          >
-            <Share2 className="h-4 w-4 text-muted-foreground" /> Shared with me
-          </button>
           {staff && (
             <button
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
-              onClick={() => router.push('/assignments')}
+              onClick={() => useMobileTabStore.getState().setTab('assignments')}
             >
               <GraduationCap className="h-4 w-4 text-muted-foreground" /> Review
             </button>
@@ -420,6 +415,23 @@ export function MobileShell() {
 
   if (mobileTab === 'more' && view.kind !== 'editor') {
     return moreTab
+  }
+
+  // ── Assignments ──────────────────────────────────────────────────────────
+  if (mobileTab === 'assignments' && view.kind === 'assignments') {
+    return (
+      <div className="flex h-dvh flex-col bg-background">
+        <header className="flex h-12 shrink-0 items-center px-4">
+          <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          <AssignmentsPanel />
+        </main>
+        <MobileTabBar />
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
+      </div>
+    )
   }
 
   // ── Editor ────────────────────────────────────────────────────────────────

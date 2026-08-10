@@ -1,14 +1,12 @@
 'use client'
 
 // Persistent bottom nav for the touch shell — Home / Notebooks /
-// Assignments / More, always visible except inside the editor (full-bleed
-// canvas, same as the old drawer collapsed away there). Assignments is a
-// real route (/assignments); the other three are in-place views inside
-// MobileShell — see mobile-tab.ts for how the active tab stays in sync
-// across that route boundary.
+// Assignments / Shared / More, always visible except inside the editor
+// (full-bleed canvas). All five are in-place views inside MobileShell; none
+// of them are separate routes.
 
 import { useRouter, usePathname } from 'next/navigation'
-import { BookOpen, ClipboardList, Home, MoreHorizontal } from 'lucide-react'
+import { BookOpen, ClipboardList, Home, MoreHorizontal, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileTabStore, type MobileTab } from '@/lib/store/mobile-tab'
 
@@ -16,6 +14,7 @@ const TABS: { id: MobileTab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Home },
   { id: 'notebooks', label: 'Notebooks', icon: BookOpen },
   { id: 'assignments', label: 'Assignments', icon: ClipboardList },
+  { id: 'shared', label: 'Shared', icon: Share2 },
   { id: 'more', label: 'More', icon: MoreHorizontal },
 ]
 
@@ -27,11 +26,7 @@ export function MobileTabBar() {
 
   const go = (id: MobileTab) => {
     setTab(id)
-    if (id === 'assignments' && pathname !== '/assignments') {
-      router.push('/assignments')
-    } else if (id !== 'assignments' && pathname !== '/notebook') {
-      router.push('/notebook')
-    }
+    if (pathname !== '/notebook') router.push('/notebook')
   }
 
   return (
