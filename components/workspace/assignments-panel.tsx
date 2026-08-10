@@ -196,7 +196,7 @@ function StudentAssignments() {
 
 // ── Teacher dashboard ───────────────────────────────────────────────────────
 
-function TeacherAssignments() {
+function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
   const router = useRouter()
   const profile = useAuthStore((s) => s.profile)!
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
@@ -293,6 +293,18 @@ function TeacherAssignments() {
         const subs = subsByAssignment[a.id] ?? []
         const targets = targetsOf(a)
         const submitted = subs.filter((s) => ['submitted', 'late', 'reviewed'].includes(s.status)).length
+
+        if (compact) {
+          return (
+            <div key={a.id} className="flex items-center gap-2 rounded-xl px-2.5 py-2 text-[12.5px]">
+              <span className="min-w-0 flex-1 truncate font-medium">{a.title}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {submitted}/{targets.length}
+              </span>
+            </div>
+          )
+        }
+
         const expanded = openId === a.id
         return (
           <div key={a.id} className="glass rounded-2xl p-4">
@@ -390,7 +402,7 @@ function TeacherAssignments() {
   )
 }
 
-export function AssignmentsPanel() {
+export function AssignmentsPanel({ compact = false }: { compact?: boolean } = {}) {
   const role = useAuthStore((s) => s.profile?.role)
-  return role === 'student' ? <StudentAssignments /> : <TeacherAssignments />
+  return role === 'student' ? <StudentAssignments /> : <TeacherAssignments compact={compact} />
 }
