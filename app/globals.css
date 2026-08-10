@@ -4,6 +4,18 @@
 /* Dim, Midnight and Contrast are dark-family themes — every dark: utility applies. */
 @custom-variant dark (&:is(.dark *, .dim *, .midnight *, .contrast *));
 
+/* Mobile Safari/Chrome auto-inflate font-size on text blocks that don't fill
+   the viewport width ("text size adjust") — invisible on most pages, but it
+   breaks anything with its own explicit zoom/scale UI (the presentation
+   editor's 960x540 stage, scaled via CSS transform): the same coordinate-
+   space text then renders at a different size on mobile than desktop for
+   reasons outside our transform math entirely. Disable the OS behavior app-
+   wide since we already provide our own zoom controls everywhere it matters. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 :root {
   /* Paper & ink — warm near-white, soft black. Never pure #000/#fff. */
   --background: oklch(0.982 0.003 95);

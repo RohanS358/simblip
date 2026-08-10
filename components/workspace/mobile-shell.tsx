@@ -24,6 +24,7 @@ import {
   Moon,
   Pencil,
   Plus,
+  Search,
   Settings,
   Share2,
   Sun,
@@ -89,6 +90,7 @@ import { cn } from '@/lib/utils'
 const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
 const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
 const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
+const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.CommandPalette), { ssr: false })
 
 // 'notebook' kept as a distinct kind from 'folder' only for the drawer's
 // "My Notebooks" highlight check below — both render through the SAME
@@ -115,6 +117,7 @@ export function MobileShell() {
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
+  const [commandOpen, setCommandOpen] = useState(false)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
@@ -228,6 +231,11 @@ export function MobileShell() {
     setTutorialOpen(true)
   }
 
+  const openSearch = () => {
+    pushHistory('search')
+    setCommandOpen(true)
+  }
+
   const openPage = (pageId: string) => {
     pushHistory('editor')
     store.getState().setActivePage(pageId)
@@ -254,6 +262,10 @@ export function MobileShell() {
       // 1. Close overlays in priority order
       if (settingsOpen) {
         setSettingsOpen(false)
+        return
+      }
+      if (commandOpen) {
+        setCommandOpen(false)
         return
       }
       if (tutorialOpen) {
@@ -307,6 +319,7 @@ export function MobileShell() {
     return () => window.removeEventListener('popstate', onPopState)
   }, [
     settingsOpen,
+    commandOpen,
     tutorialOpen,
     shareFor,
     assignFor,
@@ -586,7 +599,13 @@ export function MobileShell() {
                 </div>
               )
             })()}
-            {(activeKind !== 'pdf' || pdfToolsOn) && activeKind !== 'web' && contentPageId && (
+            {/* pptx excluded on mobile: PresentationView already owns a
+                full-width bottom toolbar (zoom, transitions, export,
+                present) plus the slide rail — CanvasControls' floating dock
+                bar renders on the same edge and visually collides with it.
+                Desktop's dock defaults to a side/draggable position that
+                doesn't have this conflict, so it stays there. */}
+            {(activeKind !== 'pdf' || pdfToolsOn) && activeKind !== 'web' && activeKind !== 'pptx' && contentPageId && (
               <CanvasControls pageId={contentPageId} showTransport={false} />
             )}
             {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}
@@ -947,15 +966,22 @@ export function MobileShell() {
   const showGreeting = mobileTab !== 'notebooks'
   // Continue editing — reuses openTabs (already-tracked open/recent pages,
   // most-recent last) instead of adding new MRU state. Most recent first,
-  // capped so the strip doesn't scroll forever.
-  const recentPages = [...openTabs].reverse().slice(0, 8)
+  // capped so the strip doesn't scroll forever. Each page is tagged with its
+  // owning notebook (walk parentId up to the root) so the strip can group by
+  // notebook and show that name, not just the page title.
+  const recentPages = [...openTabs].reverse().slice(0, 10)
     .map((id) => findPageMeta(nodes, id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
+    .map((p) => {
+      let cur = nodes[p.parentId ?? '']
+      while (cur?.parentId && nodes[cur.parentId]) cur = nodes[cur.parentId]
+      return { page: p, notebookName: cur?.name ?? 'Notebook' }
+    })
   return (
     <div className="relative flex h-dvh flex-col bg-background">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_22%,transparent)] via-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] to-transparent"
       />
       <header
         className="relative flex shrink-0 items-center gap-1 px-4 pt-[max(0px,env(safe-area-inset-top))]"
@@ -974,21 +1000,33 @@ export function MobileShell() {
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
         {showGreeting && profile && (
-          <div className="pb-6 pt-2">
-            <h1 className="text-[1.75rem] font-black tracking-tight leading-none text-foreground drop-shadow-sm">
-              Hello, {profile.full_name.split(' ')[0]}
+          <div className="pb-5 pt-3">
+            <h1 className="text-[2.5rem] font-black tracking-tight leading-[1.05] text-foreground drop-shadow-sm">
+              Hello there,
+              <br />
+              {profile.full_name.split(' ')[0]}
             </h1>
-            <p className="mt-1.5 text-[0.875rem] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
+            <p className="mt-2 text-[0.9375rem] font-medium text-muted-foreground">What are we creating today?</p>
           </div>
+        )}
+        {showGreeting && (
+          <button
+            type="button"
+            onClick={openSearch}
+            className="mb-6 flex w-full items-center gap-2.5 rounded-2xl border border-border/50 bg-card/80 px-4 py-3 text-left shadow-sm backdrop-blur-sm transition-transform active:scale-[0.98]"
+          >
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <span className="text-[0.875rem] text-muted-foreground">Search your notebooks and pages…</span>
+          </button>
         )}
         {showGreeting && <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />}
         {showGreeting && recentPages.length > 0 && (
           <div className="pb-6">
             <p className="mb-2 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Continue editing
+              Recent
             </p>
             <div className="flex gap-2.5 overflow-x-auto pb-1">
-              {recentPages.map((page) => (
+              {recentPages.map(({ page, notebookName }) => (
                 <button
                   key={page.id}
                   type="button"
@@ -996,6 +1034,9 @@ export function MobileShell() {
                   onClick={() => openPage(page.id)}
                 >
                   <PageThumbnail pageId={page.id} className="absolute inset-0 p-1" />
+                  <span className="absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/45 to-transparent px-1.5 pt-1 pb-2.5 text-[0.5625rem] font-semibold uppercase tracking-wide text-white/90">
+                    {notebookName}
+                  </span>
                   <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1.5 py-1 text-[0.625rem] font-semibold text-white">
                     {page.name}
                   </span>
@@ -1152,6 +1193,7 @@ export function MobileShell() {
 
       <MobileTabBar />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} onOpenSettings={openSettings} />
       {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>
   )

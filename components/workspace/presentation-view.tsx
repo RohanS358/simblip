@@ -380,20 +380,58 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // Index of the gap between slides where '+' button is hovered (0 = before first, n = after last)
   const [hoverGap, setHoverGap] = useState<number | null>(null)
 
+  // Touch needs a hold before drag activates, else the reorder gesture
+  // fights the rail's native horizontal scroll on every swipe. Mouse can
+  // keep the old instant 4px threshold — a mouse-down-drag on a desktop
+  // trackpad/wheel doesn't compete with a scroll gesture the same way.
+  const HOLD_MS = 1000
+  const EDGE_SCROLL_PX = 48
+  const EDGE_SCROLL_SPEED = 12
+
   const onTilePointerDown = (slideId: string) => (e: React.PointerEvent) => {
     if (e.button !== 0) return
-    const drag = { moved: false }
-    ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+    const isTouchPointer = e.pointerType === 'touch' || e.pointerType === 'pen'
+    const drag = { moved: false, armed: !isTouchPointer }
     const startX = e.clientX
+    const startY = e.clientY
     dragOrderRef.current = slides
+    let autoScrollRaf: number | null = null
+    let lastClientX = startX
 
-    const move = (ev: PointerEvent) => {
-      if (!drag.moved) {
-        if (Math.abs(ev.clientX - startX) < 4) return
-        drag.moved = true
-        setDraggingId(slideId)
-        setDragOrder(slides)
+    const stopAutoScroll = () => {
+      if (autoScrollRaf !== null) cancelAnimationFrame(autoScrollRaf)
+      autoScrollRaf = null
+    }
+
+    const tick = () => {
+      const rail = railRef.current
+      if (!rail || !drag.moved) {
+        autoScrollRaf = null
+        return
       }
+      const r = rail.getBoundingClientRect()
+      if (lastClientX < r.left + EDGE_SCROLL_PX) rail.scrollLeft -= EDGE_SCROLL_SPEED
+      else if (lastClientX > r.right - EDGE_SCROLL_PX) rail.scrollLeft += EDGE_SCROLL_SPEED
+      autoScrollRaf = requestAnimationFrame(tick)
+    }
+
+    const startDrag = () => {
+      if (drag.moved) return
+      drag.moved = true
+      ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
+      setDraggingId(slideId)
+      setDragOrder(slides)
+      autoScrollRaf = requestAnimationFrame(tick)
+    }
+
+    let holdTimer: ReturnType<typeof setTimeout> | null = isTouchPointer
+      ? setTimeout(() => {
+          drag.armed = true
+          startDrag()
+        }, HOLD_MS)
+      : null
+
+    const reorderTo = (clientX: number) => {
       const rail = railRef.current
       if (!rail) return
       const tiles = Array.from(rail.querySelectorAll<HTMLElement>('[data-slide-tile]'))
@@ -401,7 +439,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
       let nearestDist = Infinity
       tiles.forEach((el, i) => {
         const r = el.getBoundingClientRect()
-        const d = Math.abs(ev.clientX - (r.left + r.width / 2))
+        const d = Math.abs(clientX - (r.left + r.width / 2))
         if (d < nearestDist) {
           nearestDist = d
           nearestIdx = i
@@ -418,16 +456,42 @@ export function PresentationView({ pageId }: { pageId: string }) {
         return next
       })
     }
+
+    const move = (ev: PointerEvent) => {
+      lastClientX = ev.clientX
+      // Before the hold fires (touch) or the threshold trips (mouse), any
+      // real movement means the user is scrolling the rail, not reordering
+      // — cancel the pending hold so native scroll takes over.
+      if (!drag.armed) {
+        if (Math.abs(ev.clientX - startX) > 8 || Math.abs(ev.clientY - startY) > 8) {
+          if (holdTimer) clearTimeout(holdTimer)
+          holdTimer = null
+        }
+        return
+      }
+      if (!drag.moved) {
+        if (isTouchPointer) return // hold timer owns activation for touch
+        if (Math.abs(ev.clientX - startX) < 4) return
+        startDrag()
+      }
+      reorderTo(ev.clientX)
+    }
     const up = () => {
+      if (holdTimer) clearTimeout(holdTimer)
+      stopAutoScroll()
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
       setDraggingId(null)
       setDragOrder(null)
+      // A drag that never actually moved (held past HOLD_MS but released
+      // without dragging) shouldn't navigate — the hold itself wasn't a tap.
       if (drag.moved) reorderSlides(dragOrderRef.current)
-      else goToSlide(slides.indexOf(slideId))
+      else if (isTouchPointer ? !drag.armed : true) goToSlide(slides.indexOf(slideId))
     }
     window.addEventListener('pointermove', move)
     window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
   }
 
   const displayedSlides = dragOrder ?? slides
