@@ -105,6 +105,12 @@ const SECTION_DOT: Record<string, string> = {
   rose: 'bg-[var(--accent-rose)]',
 }
 
+/** The auto-created notebook incoming shares land in — see
+ *  hooks/use-share-inbox.ts. Single source of truth for the name so the
+ *  desktop Shared panel, the mobile Shared tab, and the Home grid's
+ *  exclusion filter can't drift out of sync. */
+export const SHARED_NB = 'Shared with me'
+
 function InlineName({
   name,
   className,
@@ -184,7 +190,7 @@ function InlineName({
 
 /** Shared handlers every tree row needs — passed down instead of re-derived
  *  at each recursion level. */
-interface TreeHandlers {
+export interface TreeHandlers {
   activePageId: string | null
   renaming: string | null
   setRenaming: (id: string | null) => void
@@ -538,7 +544,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
   )
 }
 
-function TreeNode({ node, depth, handlers }: { node: Node; depth: number; handlers: TreeHandlers }) {
+export function TreeNode({ node, depth, handlers }: { node: Node; depth: number; handlers: TreeHandlers }) {
   if (node.kind === 'folder') return <FolderRow node={node} depth={depth} handlers={handlers} />
   if (node.kind === 'page') return <PageRow node={node} depth={depth} handlers={handlers} />
   return <FileRow node={node} depth={depth} handlers={handlers} />
