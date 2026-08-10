@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { castFor, encodeValue, ident, pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims, type Claims } from '@/lib/server/auth'
 import { publish } from '@/lib/server/board-live-bus'
+import { cacheGet, cacheInvalidate, cacheSet, redisConfigured } from '@/lib/server/redis'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import type { BoardSessionStatus, RemoteCommand } from '@/lib/data/types'
 
@@ -86,6 +87,13 @@ function resolve(req: Request, tableParam: string, method: string): Ctx | NextRe
 
 const isOperator = (c: Claims | null) => c?.role === 'super_admin'
 
+// Small (<1KB-to-tens-of-KB), read-heavy-on-mount, low-write-frequency
+// tables only. `pages.content` (whiteboard/doc payload) is deliberately
+// excluded: it can be hundreds of KB per row and a single workspace pull
+// fetches every page at once, which would blow the 30MB Redis budget for
+// poor hit-rate given how often boards get edited. See docs/redis-cache-plan.md.
+const CACHEABLE_TABLES = new Set(['profiles', 'institutions', 'file_manifest', 'room_members', 'workspaces'])
+
 const PLATFORM_INSTITUTION = 'inst-platform'
 
 /** where-clause from ?col=eq.v / ?col=is.null filters + enforced scoping. */
@@ -142,6 +150,19 @@ export async function GET(req: Request, { params }: Params) {
   if (ctx instanceof NextResponse) return ctx
   try {
     const url = new URL(req.url)
+    // claims.sub scoping is what makes this cache safe to share across
+    // requests: buildWhere() enforces owner/tenant filtering server-side
+    // from the JWT, so two different users hitting the identical query
+    // string can get different rows — the cache key must reflect that.
+    const cacheable = redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims
+    // Debug-only visibility into hit/miss — harmless in prod (just an extra
+    // response header) but cheap to drop entirely later if unwanted.
+    const cacheHeader = (v: 'HIT' | 'MISS' | 'SKIP') => ({ 'Content-Type': 'application/json', 'X-Cache': v })
+    if (cacheable) {
+      const hit = await cacheGet(ctx.table, ctx.claims!.sub, url.search).catch(() => null)
+      if (hit !== null) return new NextResponse(hit, { headers: cacheHeader('HIT') })
+    }
+
     const raw = url.searchParams.get('select') ?? '*'
     const cols =
       raw === '*'
@@ -153,7 +174,10 @@ export async function GET(req: Request, { params }: Params) {
             .join(', ')
     const { clause, params: p } = buildWhere(ctx, url)
     const rows = await q(`select ${cols} from simblip_${ident(ctx.table)}${clause}`, p)
-    return NextResponse.json(stripSecrets(rows))
+    const body = JSON.stringify(stripSecrets(rows))
+
+    if (cacheable) await cacheSet(ctx.table, ctx.claims!.sub, url.search, body).catch(() => {})
+    return new NextResponse(body, { headers: cacheHeader(cacheable ? 'MISS' : 'SKIP') })
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
   }
@@ -219,6 +243,9 @@ export async function POST(req: Request, { params }: Params) {
         values
       )
     }
+    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
+      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+    }
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
@@ -259,6 +286,9 @@ export async function PATCH(req: Request, { params }: Params) {
         }
       }
     }
+    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
+      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
@@ -273,6 +303,9 @@ export async function DELETE(req: Request, { params }: Params) {
     const { clause, params: p } = buildWhere(ctx, url)
     if (!clause) return NextResponse.json({ error: 'Refusing unfiltered delete' }, { status: 400 })
     await q(`delete from simblip_${ident(ctx.table)}${clause}`, p)
+    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
+      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })

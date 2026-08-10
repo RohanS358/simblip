@@ -41,3 +41,43 @@ export function getRedisSub(): Redis {
   if (!bridge.sub) bridge.sub = makeClient()
   return bridge.sub
 }
+
+// --- Small read-through cache for the /api/pg gateway (app/api/pg/[table]/route.ts) ---
+// Only for tables explicitly allowlisted there. Reuses the shared pub
+// connection — one more command type on a connection already open, not a
+// new one, given the 30-connection ceiling this file's header describes.
+
+const CACHE_TTL_SECONDS = 30
+
+/** Every key this user has cached for this table, so invalidation can DEL
+ *  them without SCAN/KEYS (same lazy-index pattern app/api/devices/route.ts
+ *  already uses for presence pruning). */
+function indexKey(table: string, userId: string): string {
+  return `pgcache:${table}:${userId}:__keys`
+}
+
+export async function cacheGet(table: string, userId: string, queryString: string): Promise<string | null> {
+  const redis = getRedisPub()
+  const key = `pgcache:${table}:${userId}:${queryString}`
+  return redis.get(key)
+}
+
+export async function cacheSet(table: string, userId: string, queryString: string, value: string): Promise<void> {
+  const redis = getRedisPub()
+  const key = `pgcache:${table}:${userId}:${queryString}`
+  await Promise.all([
+    redis.set(key, value, 'EX', CACHE_TTL_SECONDS),
+    redis.sadd(indexKey(table, userId), key),
+  ])
+}
+
+/** Drop every cached response for this user+table — called after any
+ *  write, since a 30s-stale row is fine but serving one from before the
+ *  user's own write would look like data loss. */
+export async function cacheInvalidate(table: string, userId: string): Promise<void> {
+  const redis = getRedisPub()
+  const idx = indexKey(table, userId)
+  const keys = await redis.smembers(idx)
+  if (keys.length > 0) await redis.del(...keys)
+  await redis.del(idx)
+}
