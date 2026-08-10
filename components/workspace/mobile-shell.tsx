@@ -69,7 +69,7 @@ import {
 } from './page-actions'
 import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
-import { addFileToFolder } from './notebook-tree'
+import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import {
   DropdownMenu,
@@ -105,8 +105,6 @@ const SECTION_DOT: Record<string, string> = {
 const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
   (c) => `/cover/cover-${c}.svg`
 )
-
-const SHARED_NB = 'Shared with me'
 
 export function MobileShell() {
   const router = useRouter()

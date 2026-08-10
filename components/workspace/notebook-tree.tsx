@@ -610,10 +610,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
-        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          Notebooks
-        </span>
+      <div className="flex items-center justify-end px-3.5 pb-1 pt-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
