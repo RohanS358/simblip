@@ -357,7 +357,10 @@ export function MobileShell() {
   // as an in-place list rather than a slide-out panel.
   const moreTab = (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center px-4">
+      <header
+        className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+      >
         <span className="text-[0.9375rem] font-extrabold tracking-tight">More</span>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -421,7 +424,10 @@ export function MobileShell() {
   if (mobileTab === 'assignments' && view.kind === 'assignments') {
     return (
       <div className="flex h-dvh flex-col bg-background">
-        <header className="flex h-12 shrink-0 items-center px-4">
+        <header
+          className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
           <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -438,7 +444,10 @@ export function MobileShell() {
   if (view.kind === 'editor' && activePageId) {
     return (
       <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-        <header className="z-40 flex h-12 shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2">
+        <header
+          className="z-40 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
           <button
             type="button"
             aria-label="Back"
@@ -639,7 +648,10 @@ export function MobileShell() {
     const parentId = folder.parentId
     return (
       <div className="flex h-dvh flex-col bg-background">
-        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/40 px-2">
+        <header
+          className="flex shrink-0 items-center gap-1 border-b border-border/40 px-2 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
           <button
             type="button"
             aria-label="Back"
@@ -923,7 +935,10 @@ export function MobileShell() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
       />
-      <header className="relative flex h-12 shrink-0 items-center gap-1 px-4">
+      <header
+        className="relative flex shrink-0 items-center gap-1 px-4 pt-[max(0px,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+      >
         {showGreeting ? (
           <span className="text-[0.9375rem] font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
