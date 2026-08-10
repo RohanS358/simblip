@@ -672,7 +672,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
           void addFileToFolder(firstRoot.id, f)
         }}
       >
-        {roots.length === 0 && (
+        {roots.filter((nb) => nb.name !== SHARED_NB).length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
             <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
               No notebooks yet.
@@ -701,9 +701,11 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             </div>
           </div>
         )}
-        {roots.map((nb) => (
-          <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />
-        ))}
+        {roots
+          .filter((nb) => nb.name !== SHARED_NB)
+          .map((nb) => (
+            <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />
+          ))}
       </div>
 
       <ShareDialog page={shareFor} onOpenChange={(o) => !o && setShareFor(null)} />
