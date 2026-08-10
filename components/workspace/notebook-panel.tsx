@@ -19,7 +19,7 @@ type SectionId = 'notebooks' | 'assignments' | 'shared'
 const STORAGE_KEY = 'simblip-notebook-panel-collapsed'
 
 function loadCollapsed(): Record<SectionId, boolean> {
-  const fallback: Record<SectionId, boolean> = { notebooks: false, assignments: true, shared: true }
+  const fallback: Record<SectionId, boolean> = { notebooks: false, assignments: false, shared: false }
   if (typeof window === 'undefined') return fallback
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<Record<SectionId, boolean>>

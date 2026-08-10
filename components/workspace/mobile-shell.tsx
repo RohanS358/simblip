@@ -423,9 +423,13 @@ export function MobileShell() {
   // ── Assignments ──────────────────────────────────────────────────────────
   if (mobileTab === 'assignments' && view.kind === 'assignments') {
     return (
-      <div className="flex h-dvh flex-col bg-background">
+      <div className="relative flex h-dvh flex-col bg-background">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
+        />
         <header
-          className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
+          className="relative flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
           style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
         >
           <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
@@ -647,9 +651,13 @@ export function MobileShell() {
     const files = kids.filter((n) => n.kind === 'file')
     const parentId = folder.parentId
     return (
-      <div className="flex h-dvh flex-col bg-background">
+      <div className="relative flex h-dvh flex-col bg-background">
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
+        />
         <header
-          className="flex shrink-0 items-center gap-1 border-b border-border/40 px-2 pt-[max(0px,env(safe-area-inset-top))]"
+          className="relative flex shrink-0 items-center gap-1 border-b border-border/40 px-2 pt-[max(0px,env(safe-area-inset-top))]"
           style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
         >
           <button

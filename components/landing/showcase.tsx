@@ -2,9 +2,9 @@
 // rendered with the same design tokens (glass, canvas dots, accents) as the
 // workspace, so the marketing page IS the product's UI.
 
-import Link from 'next/link'
 import { ScrollFx } from './scroll-fx'
 import { HeroBallpit } from './hero-ballpit'
+import { SignInLink } from './sign-in-link'
 
 function DemoCard({
   title,
@@ -209,12 +209,10 @@ export function Landing() {
               </a>
             ))}
           </nav>
-          <Link
-            href="/login"
+          <SignInLink
+            signedOutLabel="Sign in"
             className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
-          >
-            Sign in
-          </Link>
+          />
         </div>
       </header>
 
@@ -233,12 +231,10 @@ export function Landing() {
               editable while it runs.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
-              <Link
-                href="/login"
+              <SignInLink
+                signedOutLabel="Sign in to your institution"
                 className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-[14.5px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
-              >
-                Sign in to your institution
-              </Link>
+              />
               <a
                 href="#demos"
                 className="liquid-glass rounded-full px-7 py-3 text-[14.5px] font-medium text-foreground transition-transform active:scale-[0.97]"
@@ -416,12 +412,10 @@ export function Landing() {
             >
               Contact us for licensing
             </a>
-            <Link
-              href="/login"
+            <SignInLink
+              signedOutLabel="Already licensed? Sign in"
               className="liquid-glass rounded-full px-8 py-3.5 text-[15px] font-medium text-foreground transition-transform active:scale-[0.97]"
-            >
-              Already licensed? Sign in
-            </Link>
+            />
           </div>
         </div>
       </section>
@@ -430,9 +424,7 @@ export function Landing() {
         <span>
           © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
         </span>
-        <Link href="/login" className="hover:text-foreground">
-          Sign in →
-        </Link>
+        <SignInLink signedOutLabel="Sign in →" signedInLabel="Open notebook →" className="hover:text-foreground" />
       </footer>
     </div>
     </ScrollFx>

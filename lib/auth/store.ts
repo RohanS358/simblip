@@ -183,22 +183,52 @@ export function seedLocalOperator() {
 
 // ── Store ───────────────────────────────────────────────────────────────────
 
-async function loadContext(userId: string): Promise<{
-  profile: ProfileRow
-  institution: InstitutionRow | null
-  myRoomIds: string[]
-} | null> {
-  const profiles = await db.list<ProfileRow>('profiles', { id: userId })
-  const profile = profiles[0]
-  if (!profile || !profile.active) return null
-  const [institutions, memberships] = await Promise.all([
-    db.list<InstitutionRow>('institutions', { id: profile.institution_id }),
-    db.list<RoomMemberRow>('room_members', { profile_id: userId }),
-  ])
-  return {
-    profile,
-    institution: institutions[0] ?? null,
-    myRoomIds: memberships.map((m) => m.room_id),
+type AuthContext = { profile: ProfileRow; institution: InstitutionRow | null; myRoomIds: string[] }
+
+const CONTEXT_CACHE_KEY = 'simblip-auth-context'
+
+const loadCachedContext = (userId: string): AuthContext | null => {
+  try {
+    const raw = localStorage.getItem(CONTEXT_CACHE_KEY)
+    if (!raw) return null
+    const ctx = JSON.parse(raw) as AuthContext
+    return ctx.profile?.id === userId ? ctx : null
+  } catch {
+    return null
+  }
+}
+
+const saveCachedContext = (ctx: AuthContext) => {
+  try {
+    localStorage.setItem(CONTEXT_CACHE_KEY, JSON.stringify(ctx))
+  } catch {}
+}
+
+/** Cloud mode always hits the network for the profile/institution/rooms —
+ *  offline with an otherwise-valid session used to bounce straight to
+ *  'anon' the moment that fetch failed, defeating the app's offline-first
+ *  design. On network failure, fall back to the last successfully loaded
+ *  context for this user instead of failing the whole sign-in. */
+async function loadContext(userId: string): Promise<AuthContext | null> {
+  try {
+    const profiles = await db.list<ProfileRow>('profiles', { id: userId })
+    const profile = profiles[0]
+    if (!profile || !profile.active) return null
+    const [institutions, memberships] = await Promise.all([
+      db.list<InstitutionRow>('institutions', { id: profile.institution_id }),
+      db.list<RoomMemberRow>('room_members', { profile_id: userId }),
+    ])
+    const ctx: AuthContext = {
+      profile,
+      institution: institutions[0] ?? null,
+      myRoomIds: memberships.map((m) => m.room_id),
+    }
+    saveCachedContext(ctx)
+    return ctx
+  } catch (err) {
+    const cached = loadCachedContext(userId)
+    if (cached) return cached
+    throw err
   }
 }
 
