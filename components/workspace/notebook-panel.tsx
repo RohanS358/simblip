@@ -8,7 +8,8 @@
 // surface — see docs/superpowers/specs/2026-08-10-unify-assignments-shared-notebook-nav-design.md.
 
 import { useEffect, useState } from 'react'
-import { ChevronDown, ClipboardList, Share2 } from 'lucide-react'
+import Link from 'next/link'
+import { BarChart3, ChevronDown, ClipboardList, Share2 } from 'lucide-react'
 import { NotebookTree } from './notebook-tree'
 import { AssignmentsPanel } from './assignments-panel'
 import { SharedPanel } from './shared-panel'
@@ -79,7 +80,15 @@ export function NotebookPanel() {
         <NotebookTree />
       </Section>
       <Section id="assignments" label="Assignments" icon={ClipboardList} open={!collapsed.assignments} onToggle={toggle}>
-        <div className="px-1"><AssignmentsPanel /></div>
+        <div className="px-1">
+          <Link
+            href="/assignments/insights"
+            className="mb-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          >
+            <BarChart3 className="h-3.5 w-3.5" /> Insights
+          </Link>
+          <AssignmentsPanel compact />
+        </div>
       </Section>
       <Section id="shared" label="Shared" icon={Share2} open={!collapsed.shared} onToggle={toggle}>
         <SharedPanel />
