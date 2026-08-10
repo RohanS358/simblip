@@ -27,6 +27,7 @@ import { InfiniteCanvas } from './canvas'
 import { PageThumbnail } from './page-thumbnail'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
+import { useIsMobile } from '@/hooks/use-mobile'
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -161,21 +162,38 @@ function PresentOverlay({
   const [frameScale, setFrameScale] = useState(1)
   useEffect(() => {
     const compute = () => {
-      const availW = window.innerWidth - 64 // matches the p-8 padding below
-      const availH = window.innerHeight - 200 // header/footer chrome
+      // visualViewport tracks the actually-visible area on mobile (shrinks
+      // when a browser chrome bar is showing, or the on-screen keyboard is
+      // up) — window.innerHeight alone doesn't update for that, so the
+      // frame would overflow under the address bar on phones.
+      const vv = window.visualViewport
+      const vw = vv?.width ?? window.innerWidth
+      const vh = vv?.height ?? window.innerHeight
+      const availW = vw - 64 // matches the p-8 padding below
+      const availH = vh - 200 // header/footer chrome
       setFrameScale(Math.min(availW / 960, availH / 540))
     }
     compute()
     window.addEventListener('resize', compute)
-    return () => window.removeEventListener('resize', compute)
+    window.addEventListener('orientationchange', compute)
+    window.visualViewport?.addEventListener('resize', compute)
+    return () => {
+      window.removeEventListener('resize', compute)
+      window.removeEventListener('orientationchange', compute)
+      window.visualViewport?.removeEventListener('resize', compute)
+    }
   }, [])
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black">
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-black"
+      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+    >
       <button
         type="button"
         aria-label="Exit presentation"
-        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2 text-white hover:bg-white/20"
+        className="absolute right-4 top-4 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
+        style={{ top: 'calc(1rem + env(safe-area-inset-top))' }}
         onClick={onClose}
       >
         <X className="h-5 w-5" />
@@ -202,7 +220,7 @@ function PresentOverlay({
         <button
           type="button"
           aria-label="Previous slide"
-          className="rounded-full p-2 hover:bg-white/10 disabled:opacity-30"
+          className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-30"
           disabled={i === 0}
           onClick={() => go(Math.max(0, i - 1))}
         >
@@ -214,7 +232,7 @@ function PresentOverlay({
         <button
           type="button"
           aria-label="Next slide"
-          className="rounded-full p-2 hover:bg-white/10 disabled:opacity-30"
+          className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 disabled:opacity-30"
           disabled={i === slides.length - 1}
           onClick={() => go(Math.min(slides.length - 1, i + 1))}
         >
@@ -228,6 +246,9 @@ function PresentOverlay({
 export function PresentationView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const slides = meta?.docPages ?? []
+  // Touch has no hover — the insert-slide '+' between tiles was only ever
+  // shown on onMouseEnter, so it never appeared on a phone/tablet at all.
+  const isTouch = useIsMobile()
   const [current, setCurrent] = useState(0)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -527,12 +548,12 @@ export function PresentationView({ pageId }: { pageId: string }) {
                 style={{ width: 18 }}
                 onMouseEnter={() => setHoverGap(tileIdx)}
               >
-                {hoverGap === tileIdx && !draggingId && (
+                {(isTouch || hoverGap === tileIdx) && !draggingId && (
                   <button
                     type="button"
                     aria-label={`Insert slide at position ${tileIdx + 1}`}
                     className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
-                    style={{ width: 20, height: 20 }}
+                    style={isTouch ? { width: 28, height: 28 } : { width: 20, height: 20 }}
                     onClick={() => insertSlideAt(tileIdx)}
                   >
                     <Plus className="h-3 w-3" strokeWidth={3} />
@@ -582,12 +603,12 @@ export function PresentationView({ pageId }: { pageId: string }) {
           style={{ width: 18 }}
           onMouseEnter={() => setHoverGap(displayedSlides.length)}
         >
-          {hoverGap === displayedSlides.length && !draggingId && (
+          {(isTouch || hoverGap === displayedSlides.length) && !draggingId && (
             <button
               type="button"
               aria-label="Insert slide at end"
               className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
-              style={{ width: 20, height: 20 }}
+              style={isTouch ? { width: 28, height: 28 } : { width: 20, height: 20 }}
               onClick={() => insertSlideAt(displayedSlides.length)}
             >
               <Plus className="h-3 w-3" strokeWidth={3} />
