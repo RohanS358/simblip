@@ -642,6 +642,18 @@ const ObjectView = memo(function ObjectView({
   // found and dragged back into view.
   const objectHidden = Boolean(object.metadata.hidden)
   const objectOpacity = (object.metadata.opacity as number | undefined) ?? 100
+  // pptx import's <a:xfrm flipH/flipV> — OOXML mirrors the shape WITHIN its
+  // own box first, then rotates, so scale must come before rotate in the
+  // transform list (CSS applies right-to-left with transformOrigin center).
+  const flipH = Boolean(object.metadata.flipH)
+  const flipV = Boolean(object.metadata.flipV)
+  const objectTransform =
+    [
+      flipH || flipV ? `scale(${flipH ? -1 : 1}, ${flipV ? -1 : 1})` : '',
+      object.rotation ? `rotate(${object.rotation}deg)` : '',
+    ]
+      .filter(Boolean)
+      .join(' ') || undefined
   return (
     // Outer wrapper: registered with the physics runtime, which drives its
     // transform during Play. Edit-time rotation lives on the inner div so the
@@ -677,7 +689,7 @@ const ObjectView = memo(function ObjectView({
               : 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent')
         )}
         style={{
-          transform: object.rotation ? `rotate(${object.rotation}deg)` : undefined,
+          transform: objectTransform,
           // CSS zoom scales fonts, padding, SVG labels and KaTeX together.
           zoom: uiScale,
           opacity: objectHidden ? 0 : objectOpacity / 100,

@@ -16,7 +16,7 @@
 
 import JSZip from 'jszip'
 import { baseObject } from '@/lib/scene/factory'
-import { str, type SceneObject } from '@/lib/scene/types'
+import { num, str, type SceneObject } from '@/lib/scene/types'
 import { serialize, parse, resolveSizePx, type Mark, type MarkKind } from '@/lib/text/marks'
 
 // Slide XML coordinates are EMUs (914400 per inch). SIMBLIP's own slide
@@ -284,12 +284,61 @@ function paragraphToLine(p: Element, theme: Record<string, string>, scale: Slide
 const ALGN_TO_ALIGN: Record<string, 'left' | 'center' | 'right'> = { l: 'left', ctr: 'center', r: 'right', just: 'left' }
 const ANCHOR_TO_VALIGN: Record<string, 'top' | 'middle' | 'bottom'> = { t: 'top', ctr: 'middle', b: 'bottom' }
 
+// Real PowerPoint's own single-spacing pitch is 1.2× the font size — NOT
+// the browser's `line-height: normal` (~1.15-1.5 depending on font/engine)
+// and NOT a bare 1:1 reading of <a:spcPct>. <a:spcPct val="100000"/> (100%)
+// therefore means CSS line-height 1.2, not 1.0; a val of "150000" means
+// 1.8, not 1.5. Getting this wrong was the actual cause of imported text
+// visibly overlapping/colliding with the shape below it: SIMBLIP's text
+// object always fell back to a generic 1.625 multiplier (text.tsx) because
+// <a:lnSpc> was never read at all, so a deck authored with PowerPoint's
+// tight ~1.2 single-spacing imported at 1.625x — noticeably taller line
+// boxes that run the text past the bottom of its own (correctly-sized) box
+// and into whatever shape sits below it on the slide.
+const PPT_SINGLE_SPACING = 1.2
+
+/** <a:lnSpc><a:spcPct val="N"/></a:lnSpc> (percentage, in 1000ths) or
+ *  <a:spcPts val="N"/> (exact points, in hundredths) -> a CSS line-height
+ *  MULTIPLIER (unitless, relative to the paragraph's own font size) —
+ *  SIMBLIP's text object only has one box-level multiplier (metadata.
+ *  lineHeight), not true per-paragraph spacing, so this is read once from
+ *  the FIRST paragraph that declares it, same simplification already used
+ *  for horizontal align. `fontPx` is the resolved font size (already run
+ *  through ptScaleFactor, same as runMarks' own `sz` conversion) that
+ *  exact-pt spacing needs to convert into a multiplier — spcPts is an
+ *  absolute physical height, so it must go through the SAME ptScaleFactor
+ *  as fontPx before dividing, or the ratio is wrong on every deck whose
+ *  physical size differs from SIMBLIP's own canonical 10x5.625in (i.e.
+ *  nearly every real deck). */
+function lineSpacingMultiplier(pPr: Element | null, fontPx: number, scale: SlideScale): number | undefined {
+  const lnSpc = firstChild(pPr, 'a:lnSpc')
+  if (!lnSpc) return undefined
+  const pct = firstChild(lnSpc, 'a:spcPct')?.getAttribute('val')
+  if (pct) {
+    const frac = Number(pct) / 100000
+    return Number.isFinite(frac) && frac > 0 ? frac * PPT_SINGLE_SPACING : undefined
+  }
+  const pts = firstChild(lnSpc, 'a:spcPts')?.getAttribute('val')
+  if (pts && fontPx > 0) {
+    const pt = Number(pts) / 100
+    const px = pt * PT_TO_PX * ptScaleFactor(scale)
+    return Number.isFinite(px) && px > 0 ? px / fontPx : undefined
+  }
+  return undefined
+}
+
 function shapeText(
   sp: Element,
   theme: Record<string, string>,
   placeholderStyles: Map<string, { color?: string; sizePx?: number }>,
   scale: SlideScale
-): { text: string; marks: Mark[]; align?: 'left' | 'center' | 'right'; verticalAlign?: 'top' | 'middle' | 'bottom' } | null {
+): {
+  text: string
+  marks: Mark[]
+  align?: 'left' | 'center' | 'right'
+  verticalAlign?: 'top' | 'middle' | 'bottom'
+  lineHeight?: number
+} | null {
   const txBody = firstChild(sp, 'p:txBody')
   if (!txBody) return null
   const paragraphs = directChildren(txBody, 'a:p')
@@ -342,7 +391,17 @@ function shapeText(
   const anchor = firstChild(txBody, 'a:bodyPr')?.getAttribute('anchor')
   const verticalAlign = anchor ? ANCHOR_TO_VALIGN[anchor] : undefined
 
-  return { text, marks, align, verticalAlign }
+  // The font size lineSpacingMultiplier needs to turn an exact-point
+  // <a:spcPts> into a relative multiplier — whatever size actually applies
+  // to the first paragraph's own text: its own size mark if present, else
+  // the placeholder-inherited size, else SIMBLIP's own text-object default
+  // (TEXT_SIZES.m, lib/text/marks.ts) so an unstyled deck still gets a
+  // sane (not zero/NaN) conversion.
+  const firstSizeMark = marks.find((m) => m.kind === 'size' && m.start === 0)
+  const fontPx = firstSizeMark ? Number(firstSizeMark.value) : (phStyle?.sizePx ?? 15)
+  const lineHeight = lineSpacingMultiplier(firstChild(paragraphs[0], 'a:pPr'), fontPx, effScale)
+
+  return { text, marks, align, verticalAlign, lineHeight }
 }
 
 // ── Shape geometry: position/size + fill/border ────────────────────────────
@@ -486,20 +545,26 @@ const PRST_POLYGON_POINTS: Record<string, number[][]> = {
   downArrow: [[0.25, 0], [0.25, 0.6], [0, 0.6], [0.5, 1], [1, 0.6], [0.75, 0.6], [0.75, 0]],
 }
 
-/** <a:prstGeom prst="..."/> — mapped onto SIMBLIP's 3 real geometry kinds
- *  (rect/circle/polygon); anything unrecognized defaults to rect, since a
- *  labeled box is a closer visual match than dropping the shape entirely.
+/** <a:prstGeom prst="..."/> — mapped onto SIMBLIP's real geometry kinds
+ *  (rect/circle/polygon/line); anything unrecognized defaults to rect, since
+ *  a labeled box is a closer visual match than dropping the shape entirely.
  *  Points are relative to the shape's own bbox, matching how 'polygon'
  *  geometry.points are interpreted elsewhere in the app (relative to
  *  position, within size).
  *
- *  <a:custGeom> (a freeform path) also maps to 'polygon' — custGeom is what
- *  every design tool that isn't PowerPoint itself emits for anything that
- *  isn't a plain box, so treating it as an unrecognized 'rect' silently
- *  squared off a large share of real-world decks' artwork. */
-function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' {
+ *  <a:custGeom> (a freeform path) maps to 'polygon' when its path CLOSES
+ *  (<a:close/> present) — custGeom is what every design tool that isn't
+ *  PowerPoint itself emits for anything that isn't a plain box, so treating
+ *  it as an unrecognized 'rect' silently squared off a large share of
+ *  real-world decks' artwork. An UNCLOSED path (no <a:close/>) is not a
+ *  filled shape at all — real decks (Canva templates especially) use these
+ *  for decorative accent lines/underlines/corner-brackets, stroke-only, no
+ *  fill. Rendering that as 'polygon' auto-closes it into a filled/stroked
+ *  wedge that was never in the original slide, so it maps to 'line' instead
+ *  (a raw open polyline) to match what actually shows. */
+function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' | 'line' {
   const spPr = firstChild(sp, 'p:spPr')
-  if (firstChild(spPr, 'a:custGeom')) return 'polygon'
+  if (firstChild(spPr, 'a:custGeom')) return custGeomPath(sp)?.closed ? 'polygon' : 'line'
   const prst = firstChild(spPr, 'a:prstGeom')?.getAttribute('prst')
   if (prst === 'ellipse' || prst === 'circle') return 'circle'
   if (prst && PRST_POLYGON_POINTS[prst]) return 'polygon'
@@ -509,12 +574,14 @@ function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' {
 /** <a:custGeom><a:pathLst><a:path w= h=> — a freeform outline in the path's
  *  OWN coordinate space (w/h, not EMUs), which we normalize to the shape's
  *  bbox. Curves (cubicBezTo/quadBezTo/arcTo) are approximated by their end
- *  points: SIMBLIP's 'polygon' geometry is point-list only, so a rounded
- *  outline imports as a straight-edged one rather than not at all.
+ *  points: SIMBLIP's 'polygon'/'line' geometry is point-list only, so a
+ *  rounded outline imports as a straight-edged one rather than not at all.
  *
- *  Returns unit-space (0-1) points; the caller scales by the shape's px box,
- *  matching PRST_POLYGON_POINTS' convention. */
-function custGeomUnitPoints(sp: Element): number[][] | undefined {
+ *  Returns unit-space (0-1) points plus whether the path actually closed —
+ *  the caller scales points by the shape's px box, matching
+ *  PRST_POLYGON_POINTS' convention, and uses `closed` to pick polygon
+ *  (filled ring) vs line (open stroke) geometry. */
+function custGeomPath(sp: Element): { points: number[][]; closed: boolean } | undefined {
   // Walk down by DIRECT children — firstChild() is recursive, so on a shape
   // it could otherwise pick up a descendant's custGeom instead of its own.
   const spPr = directChildren(sp, 'p:spPr')[0]
@@ -539,13 +606,13 @@ function custGeomUnitPoints(sp: Element): number[][] | undefined {
     points.push([Math.min(1, Math.max(0, x / pathW)), Math.min(1, Math.max(0, y / pathH))])
   }
 
-  // Only the FIRST subpath is taken — polygon geometry is a single closed
-  // ring, so a multi-subpath shape (a donut, a glyph with holes) imports as
-  // its outer contour.
+  // Only the FIRST subpath is taken — polygon/line geometry is a single
+  // ring/polyline, so a multi-subpath shape (a donut, a glyph with holes)
+  // imports as its outer contour.
   for (const cmd of Array.from(path.children)) {
     switch (cmd.tagName) {
       case 'a:moveTo':
-        if (points.length > 0) return points // second subpath starts — stop
+        if (points.length > 0) return { points, closed: false } // second subpath starts — stop
         pushPt(firstChild(cmd, 'a:pt'))
         break
       case 'a:lnTo':
@@ -559,28 +626,27 @@ function custGeomUnitPoints(sp: Element): number[][] | undefined {
         break
       }
       case 'a:close':
-        return points
+        return { points, closed: true }
       default:
         break // arcTo and others: no reliable end point without full math
     }
   }
-  return points
+  return { points, closed: false }
 }
 
 /** The unit-space outline for whatever geometry a shape declares — custGeom
  *  path first, then the preset table. Undefined for shapes that aren't
- *  polygons (rect/circle need no point list). */
+ *  polygons/lines (rect/circle need no point list). */
 function polygonUnitPoints(sp: Element): number[][] | undefined {
-  const custom = custGeomUnitPoints(sp)
-  if (custom && custom.length >= 3) return custom
+  const custom = custGeomPath(sp)
+  if (custom && custom.points.length >= 2) return custom.points
   const prst = firstChild(firstChild(sp, 'p:spPr'), 'a:prstGeom')?.getAttribute('prst')
   return prst ? PRST_POLYGON_POINTS[prst] : undefined
 }
 
 /** <a:xfrm rot="..."> is in 60000ths of a degree, clockwise — the same
  *  direction as SceneObject.rotation's CSS `rotate(Ndeg)`, so it passes
- *  through as a plain division. flipH/flipV are not representable on a
- *  SceneObject and are ignored (they matter mostly for asymmetric artwork). */
+ *  through as a plain division. */
 function shapeRotation(sp: Element): number {
   const rot = firstChild(sp, 'a:xfrm')?.getAttribute('rot')
   if (!rot) return 0
@@ -589,6 +655,89 @@ function shapeRotation(sp: Element): number {
   // Normalize to (-180, 180] so the inspector shows a sane number.
   const norm = ((deg % 360) + 360) % 360
   return Math.round((norm > 180 ? norm - 360 : norm) * 10) / 10
+}
+
+/** <a:xfrm flipH="1"/flipV="1"> — mirrors the shape WITHIN its own box,
+ *  applied before rotation (OOXML order, matched by canvas.tsx's transform:
+ *  `scale(...) rotate(...)`, CSS right-to-left). Stored on metadata since
+ *  SceneObject has no dedicated flip field; canvas.tsx reads it generically
+ *  for every geometry kind so background art (the common case: a full-bleed
+ *  picture shape flipped to vary a template) renders un-mirrored instead of
+ *  silently ignoring the flip. */
+function shapeFlip(sp: Element): { flipH?: true; flipV?: true } {
+  const xfrm = firstChild(sp, 'a:xfrm')
+  const result: { flipH?: true; flipV?: true } = {}
+  if (xfrm?.getAttribute('flipH') === 'true' || xfrm?.getAttribute('flipH') === '1') result.flipH = true
+  if (xfrm?.getAttribute('flipV') === 'true' || xfrm?.getAttribute('flipV') === '1') result.flipV = true
+  return result
+}
+
+/** A <p:graphicFrame>'s own position/size — under <p:xfrm> directly (not
+ *  <p:spPr><a:xfrm> like a shape/picture), so it needs its own box reader
+ *  rather than reusing shapeBox. Tables (the only graphicFrame content this
+ *  importer handles) are placed exactly like everything else: mapped
+ *  through any ancestor group chain, then the deck's slide scale. */
+function graphicFrameBox(gf: Element, scale: SlideScale, groupChain: GroupXfrm[]): { x: number; y: number; w: number; h: number } {
+  const xfrm = firstChild(gf, 'p:xfrm')
+  const off = firstChild(xfrm, 'a:off')
+  const ext = firstChild(xfrm, 'a:ext')
+  if (!off || !ext) return { x: 40, y: 40, w: 320, h: 200 }
+  const raw = {
+    x: Number(off.getAttribute('x') ?? 0),
+    y: Number(off.getAttribute('y') ?? 0),
+    w: Number(ext.getAttribute('cx') ?? 0),
+    h: Number(ext.getAttribute('cy') ?? 0),
+  }
+  const abs = mapThroughGroups(raw, groupChain)
+  const canvasX = Math.round((abs.x - scale.slideOffsetX) / scale.emuPerPxX)
+  const canvasY = Math.round((abs.y - scale.slideOffsetY) / scale.emuPerPxY)
+  const w = Math.round(abs.w / scale.emuPerPxX)
+  const h = Math.round(abs.h / scale.emuPerPxY)
+  return {
+    x: Number.isFinite(canvasX) ? canvasX : 40,
+    y: Number.isFinite(canvasY) ? canvasY : 40,
+    w: w > 0 ? w : 320,
+    h: h > 0 ? h : 200,
+  }
+}
+
+/** <a:tbl><a:tblGrid><a:gridCol>...</a:tblGrid><a:tr><a:tc><a:txBody>... —
+ *  a real OOXML table, mapped onto SIMBLIP's 'gridtable' geometry (an
+ *  editable rows×cols string grid). Only each cell's plain concatenated
+ *  text survives (no per-run formatting, no cell fill/merge/span) — losing
+ *  a table ENTIRELY on import (the prior behavior: <p:graphicFrame> wasn't
+ *  even recognized by walkChildren) is a worse outcome than a plain-text
+ *  table for the exact same reason a preset-shape default beats dropping an
+ *  unrecognized shape. */
+function tableObject(gf: Element, scale: SlideScale, groupChain: GroupXfrm[]): SceneObject | null {
+  const tbl = firstChild(firstChild(firstChild(gf, 'a:graphic'), 'a:graphicData'), 'a:tbl')
+  if (!tbl) return null
+  const gridCols = directChildren(firstChild(tbl, 'a:tblGrid') as Element, 'a:gridCol')
+  const rows = directChildren(tbl, 'a:tr')
+  if (rows.length === 0) return null
+
+  const cells: string[][] = rows.map((tr) =>
+    directChildren(tr, 'a:tc').map((tc) => {
+      const txBody = firstChild(tc, 'a:txBody')
+      const paragraphs = txBody ? directChildren(txBody, 'a:p') : []
+      return paragraphs
+        .map((p) => directChildren(p, 'a:r').map((r) => firstChild(r, 'a:t')?.textContent ?? '').join(''))
+        .join('\n')
+    })
+  )
+  const colCount = Math.max(gridCols.length, ...cells.map((r) => r.length), 1)
+  // Ragged rows (a cell spanned/merged in the source) padded to the grid
+  // width — gridtable expects every row the same length.
+  for (const row of cells) while (row.length < colCount) row.push('')
+
+  const box = graphicFrameBox(gf, scale, groupChain)
+  const obj = baseObject('gridtable', { x: box.x, y: box.y })
+  obj.size = { w: box.w, h: box.h }
+  obj.parameters.rows = num(rows.length)
+  obj.parameters.cols = num(colCount)
+  obj.parameters.cells = str(JSON.stringify(cells))
+  obj.parameters.transparent = num(0)
+  return obj
 }
 
 // ── Per-slide extraction ────────────────────────────────────────────────────
@@ -751,6 +900,28 @@ async function slideBackground(
   return undefined
 }
 
+/** <a:blipFill><a:stretch><a:fillRect l= t= r= b=/> — the crop/zoom applied
+ *  when an image fills a shape "cover"-style: each side is an inset as a
+ *  PERCENTAGE (in 1000ths, so 100000 = 100%) of the shape's own box,
+ *  negative meaning the image extends PAST that edge (zoomed in / cropped),
+ *  positive meaning letterboxing (image smaller than the box on that side).
+ *  Very common on Canva background/photo shapes (crop-to-fill), and
+ *  previously ignored entirely — the image just stretched into the shape's
+ *  bbox via CSS object-fit:fill, which visibly distorts/mis-frames any photo
+ *  that wasn't cropped 1:1 with its shape's aspect ratio. Returns undefined
+ *  for the (very common) identity rect l=t=r=b=0, so callers can skip
+ *  passing any crop metadata for the common case. */
+function fillRectOf(blipFill: Element | null): { l: number; t: number; r: number; b: number } | undefined {
+  const fillRect = firstChild(firstChild(blipFill, 'a:stretch'), 'a:fillRect')
+  if (!fillRect) return undefined
+  const l = Number(fillRect.getAttribute('l') ?? 0) / 100000
+  const t = Number(fillRect.getAttribute('t') ?? 0) / 100000
+  const r = Number(fillRect.getAttribute('r') ?? 0) / 100000
+  const b = Number(fillRect.getAttribute('b') ?? 0) / 100000
+  if (l === 0 && t === 0 && r === 0 && b === 0) return undefined
+  return { l, t, r, b }
+}
+
 /** Resolves a <a:blip> element (found under either a <p:pic>'s own
  *  <p:blipFill> or a plain shape's <p:spPr><a:blipFill> — Canva-exported
  *  decks commonly use the latter: a picture as a shape's FILL rather than
@@ -814,7 +985,8 @@ async function pictureObject(
   scale: SlideScale,
   groupChain: GroupXfrm[] = []
 ): Promise<SceneObject | null> {
-  const src = await blipToOpfsSrc(firstChild(pic, 'p:blipFill'), zip, assets, ownerId)
+  const blipFill = firstChild(pic, 'p:blipFill')
+  const src = await blipToOpfsSrc(blipFill, zip, assets, ownerId)
   if (!src) return null
 
   const box = shapeBox(pic, scale, groupChain)
@@ -822,6 +994,9 @@ async function pictureObject(
   obj.size = { w: box.w, h: box.h }
   obj.geometry.src = src
   obj.rotation = shapeRotation(pic)
+  Object.assign(obj.metadata, shapeFlip(pic))
+  const fillRect = fillRectOf(blipFill)
+  if (fillRect) obj.metadata.fillRect = fillRect
   return obj
 }
 
@@ -842,15 +1017,21 @@ async function shapesToObjects(
   const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme, scale)
 
   const applyPolygonPoints = (shape: SceneObject, sp: Element, box: { w: number; h: number }) => {
-    if (shape.geometry.kind !== 'polygon') return
+    if (shape.geometry.kind !== 'polygon' && shape.geometry.kind !== 'line') return
     const unitPoints = polygonUnitPoints(sp)
-    if (unitPoints) {
+    const minPoints = shape.geometry.kind === 'line' ? 2 : 3
+    if (unitPoints && unitPoints.length >= minPoints) {
       shape.geometry.points = unitPoints.map(([ux, uy]) => [ux * box.w, uy * box.h])
-    } else {
+    } else if (shape.geometry.kind === 'polygon') {
       // A polygon with no resolvable outline would render as nothing at all
       // (geometry.tsx needs >=3 points) — fall back to the full bbox so the
       // shape's fill/border still shows.
       shape.geometry.kind = 'rect'
+    } else {
+      // An open custGeom path with <2 usable points has nothing to draw —
+      // default to a straight diagonal across its own bbox rather than
+      // vanishing outright, matching the "shape still shows" fallback above.
+      shape.geometry.points = [[0, 0], [box.w, box.h]]
     }
   }
 
@@ -873,6 +1054,11 @@ async function shapesToObjects(
         if (obj) objects.push(obj)
         continue
       }
+      if (child.tagName === 'p:graphicFrame') {
+        const obj = tableObject(child, scale, groupChain)
+        if (obj) objects.push(obj)
+        continue
+      }
       if (child.tagName !== 'p:sp') continue
 
       // Canva-exported decks (and some PowerPoint shapes) commonly use a
@@ -891,6 +1077,9 @@ async function shapesToObjects(
           pictureObj.size = { w: box.w, h: box.h }
           pictureObj.geometry.src = src
           pictureObj.rotation = rotation
+          Object.assign(pictureObj.metadata, shapeFlip(child))
+          const fillRect = fillRectOf(shapeBlipFill)
+          if (fillRect) pictureObj.metadata.fillRect = fillRect
           objects.push(pictureObj)
           const line = shapeText(child, theme, placeholderStyles, scale)
           if (line) {
@@ -900,6 +1089,7 @@ async function shapesToObjects(
             textObj.rotation = rotation
             if (line.align) textObj.metadata.align = line.align
             if (line.verticalAlign) textObj.metadata.verticalAlign = line.verticalAlign
+            if (line.lineHeight) textObj.metadata.lineHeight = line.lineHeight
             objects.push(textObj)
           }
           continue
@@ -919,6 +1109,7 @@ async function shapesToObjects(
         obj.rotation = rotation
         if (line.align) obj.metadata.align = line.align
         if (line.verticalAlign) obj.metadata.verticalAlign = line.verticalAlign
+        if (line.lineHeight) obj.metadata.lineHeight = line.lineHeight
         objects.push(obj)
         // A text box that ALSO has an explicit fill/border (a filled
         // rectangle with a caption, common in title/callout shapes) gets a
@@ -934,6 +1125,7 @@ async function shapesToObjects(
           if (fillColor) shape.metadata.fillColor = fillColor
           if (strokeColor) shape.metadata.strokeColor = strokeColor
           if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
+          Object.assign(shape.metadata, shapeFlip(child))
           objects.push(shape)
         }
       } else if (hasVisibleShape) {
@@ -944,6 +1136,7 @@ async function shapesToObjects(
         if (fillColor) shape.metadata.fillColor = fillColor
         if (strokeColor) shape.metadata.strokeColor = strokeColor
         if (strokeWidth) shape.metadata.strokeWidth = strokeWidth
+        Object.assign(shape.metadata, shapeFlip(child))
         objects.push(shape)
       }
     }
