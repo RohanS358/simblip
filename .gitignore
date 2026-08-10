@@ -10,6 +10,7 @@
 
 # production
 /build
+/screenshots
 
 # debug
 npm-debug.log*
@@ -27,3 +28,4 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 docs/superpowers/plans/2026-08-07-shape-properties-and-pptx-fidelity.md
+.superpowers/

@@ -12,14 +12,12 @@ import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   BookOpen,
-  ChevronRight,
   ClipboardList,
   Copy,
   Download,
   GraduationCap,
   LibraryBig,
   LogOut,
-  Menu,
   MonitorPlay,
   MoreVertical,
   Moon,
@@ -35,7 +33,7 @@ import {
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
-import type { FileNode, FolderNode, Node } from '@/lib/scene/types'
+import type { FileNode, FolderNode } from '@/lib/scene/types'
 import { useLazyActivePage } from '@/lib/store/use-active-page'
 import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
@@ -48,6 +46,8 @@ import { motion as fm, AnimatePresence } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
+import { useMobileTabStore } from '@/lib/store/mobile-tab'
+import { MobileTabBar } from './mobile-tab-bar'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { NotificationCenter } from './notifications'
@@ -108,85 +108,6 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
 
 const SHARED_NB = 'Shared with me'
 
-/** One row of the drawer's notebook tree — folders expand/collapse
- *  recursively to any depth, pages open on tap. Deliberately minimal (no
- *  context menus, no drag-drop) — that's what the full-screen folder view
- *  and desktop's NotebookTree are for; the drawer is quick navigation. */
-function DrawerNavNode({
-  node,
-  depth,
-  nodes,
-  expanded,
-  onToggle,
-  activePageId,
-  onOpenPage,
-}: {
-  node: Node
-  depth: number
-  nodes: Record<string, Node>
-  expanded: Record<string, boolean>
-  onToggle: (id: string) => void
-  activePageId: string | null
-  onOpenPage: (id: string) => void
-}) {
-  if (node.kind === 'page') {
-    return (
-      <button
-        className={cn(
-          'flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[0.8125rem]',
-          activePageId === node.id
-            ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
-            : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-        )}
-        style={{ marginLeft: `${12 + depth * 12}px` }}
-        onClick={() => onOpenPage(node.id)}
-      >
-        <span className="truncate">{node.name}</span>
-      </button>
-    )
-  }
-  if (node.kind === 'file') {
-    return (
-      <div
-        className="flex items-center gap-2 px-3 py-1 text-[0.8125rem] text-muted-foreground/70"
-        style={{ marginLeft: `${12 + depth * 12}px` }}
-      >
-        <span className="truncate">{node.name}</span>
-      </div>
-    )
-  }
-  const children = childrenOf(nodes, node.id)
-  const isOpen = expanded[node.id]
-  return (
-    <div className="ml-2">
-      <button
-        className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-left text-[0.8125rem] font-semibold text-muted-foreground hover:bg-accent hover:text-foreground"
-        style={depth > 0 ? { marginLeft: `${(depth - 1) * 12}px` } : undefined}
-        onClick={() => onToggle(node.id)}
-      >
-        <ChevronRight className={cn('h-3.5 w-3.5 shrink-0 transition-transform', isOpen && 'rotate-90')} />
-        {depth > 0 && (
-          <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', SECTION_DOT[node.color ?? 'blue'] ?? SECTION_DOT.blue)} />
-        )}
-        <span className="truncate">{node.name}</span>
-      </button>
-      {isOpen &&
-        children.map((child) => (
-          <DrawerNavNode
-            key={child.id}
-            node={child}
-            depth={depth + 1}
-            nodes={nodes}
-            expanded={expanded}
-            onToggle={onToggle}
-            activePageId={activePageId}
-            onOpenPage={onOpenPage}
-          />
-        ))}
-    </div>
-  )
-}
-
 export function MobileShell() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
@@ -206,9 +127,8 @@ export function MobileShell() {
     uploadTargetRef.current = parentId
     uploadInputRef.current?.click()
   }
-  const [drawerOpen, setDrawerOpen] = useState(false)
   const [coverFor, setCoverFor] = useState<string | null>(null)
-  const [navExpanded, setNavExpanded] = useState<Record<string, boolean>>({})
+  const mobileTab = useMobileTabStore((s) => s.tab)
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -279,10 +199,15 @@ export function MobileShell() {
     setView(nextView)
   }
 
-  const openDrawer = () => {
-    pushHistory('drawer')
-    setDrawerOpen(true)
-  }
+  // Tapping Home/Notebooks in the persistent tab bar while deep in a
+  // notebook (or the editor) returns to the drill-down root — same as
+  // tapping a fresh tab in Canva always resets that tab's stack to its top.
+  useEffect(() => {
+    if ((mobileTab === 'home' || mobileTab === 'notebooks') && view.kind !== 'home') {
+      setView({ kind: 'home' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mobileTab])
 
   const openSettings = () => {
     pushHistory('settings')
@@ -318,10 +243,6 @@ export function MobileShell() {
 
     const onPopState = () => {
       // 1. Close overlays in priority order
-      if (drawerOpen) {
-        setDrawerOpen(false)
-        return
-      }
       if (settingsOpen) {
         setSettingsOpen(false)
         return
@@ -376,7 +297,6 @@ export function MobileShell() {
     window.addEventListener('popstate', onPopState)
     return () => window.removeEventListener('popstate', onPopState)
   }, [
-    drawerOpen,
     settingsOpen,
     tutorialOpen,
     shareFor,
@@ -427,152 +347,86 @@ export function MobileShell() {
     </>
   )
 
-  // The drawer is declared here so it can be embedded in EVERY view.
-  // (It must be inside AnimatePresence and mounted wherever the header is.)
-  const appMenu = (
-    <button type="button" aria-label="Menu" className="rounded-lg p-2 text-muted-foreground hover:bg-accent" onClick={openDrawer}>
-      <Menu className="h-5 w-5" />
-    </button>
-  )
-
-  const drawer = (
-    <AnimatePresence>
-      {drawerOpen && (
-        <>
-          <fm.div
-            className="fixed inset-0 z-[70] bg-black/40"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setDrawerOpen(false)}
-          />
-          <fm.div
-            initial={{ x: '-100%' }}
-            animate={{ x: 0 }}
-            exit={{ x: '-100%' }}
-            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed inset-y-0 left-0 z-[80] w-[80vw] max-w-[320px] flex flex-col border-r border-border bg-card shadow-2xl"
+  // "More" tab — everything the old drawer's App section had (Tutorials,
+  // Theme, Settings, Sign out), plus Shared-with-me and Review for staff,
+  // as an in-place list rather than a slide-out panel.
+  const moreTab = (
+    <div className="flex h-dvh flex-col bg-background">
+      <header className="flex h-12 shrink-0 items-center px-4">
+        <span className="text-[0.9375rem] font-extrabold tracking-tight">More</span>
+      </header>
+      <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/40 bg-card p-4">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
+            {profile?.full_name?.charAt(0) || 'U'}
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col">
+            <span className="truncate text-[0.9375rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
+            <span className="truncate text-[0.6875rem] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
+          </div>
+        </div>
+        <div className="space-y-1">
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            onClick={() => {
+              const ws = store.getState()
+              const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
+              const id = nb?.id ?? ws.addNotebook(SHARED_NB)
+              navigateToView({ kind: 'folder', id })
+            }}
           >
-            <div className="flex items-center gap-3 border-b border-border/40 p-4">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
-                {profile?.full_name?.charAt(0) || 'U'}
-              </div>
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[0.875rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
-                <span className="truncate text-[0.6875rem] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
-              </div>
-              <button
-                type="button"
-                className="rounded-full p-2 text-muted-foreground hover:bg-accent"
-                onClick={() => setDrawerOpen(false)}
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4 space-y-1.5">
-              <div className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/60 mb-2 mt-1">Workspace</div>
-              <div className="flex w-full items-center gap-1">
-                <button
-                  className={cn('flex min-w-0 flex-1 items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-semibold transition-colors', view.kind === 'home' || view.kind === 'notebook' || view.kind === 'folder' ? 'bg-[color-mix(in_oklch,var(--accent-blue)_15%,transparent)] text-[var(--accent-blue)]' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
-                  onClick={() => { navigateToView({ kind: 'home' }); setDrawerOpen(false) }}
-                >
-                  <BookOpen className="h-4 w-4" /> My Notebooks
-                </button>
-                <button
-                  type="button"
-                  aria-label={navExpanded.__root ? 'Collapse notebooks' : 'Expand notebooks'}
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
-                  onClick={() => setNavExpanded((x) => ({ ...x, __root: !x.__root }))}
-                >
-                  <ChevronRight className={cn('h-4 w-4 transition-transform', navExpanded.__root && 'rotate-90')} />
-                </button>
-              </div>
-              {/* The same notebook tree the desktop sidebar has, to any
-                  depth — a folder expands to its own children recursively
-                  instead of a fixed notebook/section/page structure. */}
-              {navExpanded.__root &&
-                childrenOf(nodes, null)
-                  .filter((n) => n.name !== SHARED_NB)
-                  .map((nb) => (
-                    <DrawerNavNode
-                      key={nb.id}
-                      node={nb}
-                      depth={0}
-                      nodes={nodes}
-                      expanded={navExpanded}
-                      onToggle={(id) => setNavExpanded((x) => ({ ...x, [id]: !x[id] }))}
-                      activePageId={activePageId}
-                      onOpenPage={(id) => { openPage(id); setDrawerOpen(false) }}
-                    />
-                  ))}
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => {
-                  // Open (or create) the notebook where shared copies land.
-                  const ws = store.getState()
-                  const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
-                  const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-                  navigateToView({ kind: 'folder', id })
-                  setDrawerOpen(false)
-                }}
-              >
-                <Share2 className="h-4 w-4" /> Shared with me
-              </button>
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
-              >
-                <ClipboardList className="h-4 w-4" /> Assignments
-              </button>
-              {staff && (
-                <button
-                  className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                  onClick={() => { router.push('/assignments'); setDrawerOpen(false) }}
-                >
-                  <GraduationCap className="h-4 w-4" /> Review
-                </button>
-              )}
-
-              <div className="mt-6 mb-2 text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground/60">App</div>
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => { setDrawerOpen(false); openTutorial() }}
-              >
-                <MonitorPlay className="h-4 w-4" /> Tutorials
-              </button>
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-              >
-                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />} Theme
-              </button>
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => { setDrawerOpen(false); openSettings() }}
-              >
-                <Settings className="h-4 w-4" /> Settings
-              </button>
-            </div>
-
-            <div className="border-t border-border/40 p-4">
-              <button
-                className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-[0.875rem] font-medium text-destructive transition-colors hover:bg-destructive/10"
-                onClick={() => useAuthStore.getState().logout()}
-              >
-                <LogOut className="h-4 w-4" /> Sign out
-              </button>
-            </div>
-          </fm.div>
-        </>
-      )}
-    </AnimatePresence>
+            <Share2 className="h-4 w-4 text-muted-foreground" /> Shared with me
+          </button>
+          {staff && (
+            <button
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+              onClick={() => router.push('/assignments')}
+            >
+              <GraduationCap className="h-4 w-4 text-muted-foreground" /> Review
+            </button>
+          )}
+          <div className="my-2 border-t border-border/40" />
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            onClick={openTutorial}
+          >
+            <MonitorPlay className="h-4 w-4 text-muted-foreground" /> Tutorials
+          </button>
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
+          >
+            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />} Theme
+          </button>
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            onClick={openSettings}
+          >
+            <Settings className="h-4 w-4 text-muted-foreground" /> Settings
+          </button>
+          <div className="my-2 border-t border-border/40" />
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-destructive transition-colors hover:bg-destructive/10"
+            onClick={() => useAuthStore.getState().logout()}
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
+        </div>
+      </main>
+      <MobileTabBar />
+      <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+      {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
+    </div>
   )
+
+  if (mobileTab === 'more' && view.kind !== 'editor') {
+    return moreTab
+  }
 
   // ── Editor ────────────────────────────────────────────────────────────────
   if (view.kind === 'editor' && activePageId) {
     return (
       <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-        {drawer}
         <header className="z-40 flex h-12 shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2">
           <button
             type="button"
@@ -602,7 +456,6 @@ export function MobileShell() {
           <SyncStatus />
           <NotificationCenter />
           <UndoRedo pageId={contentPageId ?? activePageId} />
-          {appMenu}
         </header>
 
         {/* Same tab strip as desktop — open pages, ×, split toggle — plus the
@@ -775,7 +628,6 @@ export function MobileShell() {
     const parentId = folder.parentId
     return (
       <div className="flex h-dvh flex-col bg-background">
-        {drawer}
         <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/40 px-2">
           <button
             type="button"
@@ -796,7 +648,6 @@ export function MobileShell() {
           >
             <Plus className="h-4.5 w-4.5" />
           </button>
-          {appMenu}
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4">
           {subFolders.length > 0 && (
@@ -1035,6 +886,7 @@ export function MobileShell() {
             </div>
           )}
         </main>
+        <MobileTabBar />
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {pageDialogs}
         {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
@@ -1042,23 +894,28 @@ export function MobileShell() {
     )
   }
 
-  // ── Home ──────────────────────────────────────────────────────────────────
+  // ── Home / Notebooks ─────────────────────────────────────────────────────
+  // Same drill-down root screen for both tabs — Home adds a greeting above
+  // the notebook grid, Notebooks tab shows just the grid with a plain
+  // header. mobileTab defaults to 'home', and Notebooks falls back to it
+  // too (never renders blank if the store hasn't caught up to a nav yet).
+  const showGreeting = mobileTab !== 'notebooks'
   return (
     <div className="flex h-dvh flex-col bg-background">
-      {drawer}
       <header className="flex h-12 shrink-0 items-center gap-1 px-4">
-        {appMenu}
+        {showGreeting ? (
+          <span className="text-[0.9375rem] font-extrabold tracking-tight">
+            SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+          </span>
+        ) : (
+          <span className="text-[0.9375rem] font-bold">Notebooks</span>
+        )}
         <div className="flex-1" />
-        <span className="text-[0.9375rem] font-extrabold tracking-tight">
-          SIM<span className="text-[var(--accent-blue)]">BLIP</span>
-        </span>
-        <div className="flex-1 flex justify-end">
-          <SyncStatus />
-          <NotificationCenter />
-        </div>
+        <SyncStatus />
+        <NotificationCenter />
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
-        {profile && (
+        {showGreeting && profile && (
           <div className="pb-6 pt-2">
             <h1 className="text-[1.75rem] font-black tracking-tight leading-none text-foreground drop-shadow-sm">
               Hello, {profile.full_name.split(' ')[0]}
@@ -1209,6 +1066,7 @@ export function MobileShell() {
         )}
       </AnimatePresence>
 
+      <MobileTabBar />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>

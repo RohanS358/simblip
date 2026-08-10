@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { useMobileTabStore } from '@/lib/store/mobile-tab'
 import {
   CalendarClock,
   ChevronRight,
@@ -402,8 +403,13 @@ function TeacherAssignments() {
 
 function AssignmentsContent() {
   const role = useAuthStore((s) => s.profile?.role)
+  // Arriving here via a hard nav / direct link (not the tab bar's own
+  // onClick, which already sets this) still lands on the right tab.
+  useEffect(() => {
+    useMobileTabStore.getState().setTab('assignments')
+  }, [])
   return (
-    <PageShell title="Assignments">
+    <PageShell title="Assignments" tabBar>
       {role === 'student' ? <StudentAssignments /> : <TeacherAssignments />}
     </PageShell>
   )
