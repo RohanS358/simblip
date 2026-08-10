@@ -11,36 +11,48 @@ import { getFile } from '@/lib/storage/manager'
 import type { ObjectRendererProps } from './types'
 
 /** pptx import's <a:fillRect l t r b> (lib/store/pptx-import.ts's
- *  fillRectOf): each side is an inset fraction of the shape's own box,
- *  negative meaning the source image extends PAST that edge (a "fill and
- *  crop" image bigger than its frame — the common Canva case). The image's
- *  natural box in shape-fraction space is [-l, -t, 1+l+r, 1+t+b]: width
- *  1/(1-l-r) times the shape width, positioned so the shape window sits at
- *  fraction l/t from the scaled image's own top-left.
+ *  fillRectOf): each side is a signed fraction of the shape's own box —
+ *  POSITIVE means an inset (the fill rectangle is smaller/padded within the
+ *  box), NEGATIVE means an outset (the fill rectangle is BIGGER than the
+ *  box, so the image is zoomed in and clipped — the common Canva "fill and
+ *  crop" case). Per ECMA-376 §20.1.8.55 and confirmed against LibreOffice's
+ *  own oox filter (fillproperties.cxx): scaleX = 1-(l+r), scaleY = 1-(t+b)
+ *  — a subtraction, NOT `1/(1-l-r)`. That reciprocal was this function's
+ *  original (wrong) formula: for a real deck's t=b=-0.389 (a symmetric
+ *  vertical zoom-in), the reciprocal computed scaleY=0.56 — a SHRUNK fill
+ *  rectangle — when the correct answer is scaleY=1.78, a GROWN one. The
+ *  reciprocal version still "looked like a crop" in casual testing (it also
+ *  produces *some* non-1:1 box), which is exactly why it shipped once
+ *  already and the images still looked stretched/wrong after that fix.
+ *  Offset: the fill rectangle's own top-left sits at (l, t) fractions of
+ *  the BOX (not derived from scale/2 — an earlier version of this fix
+ *  wrongly assumed a centered anchor and collapsed every asymmetric l/t/r/b
+ *  combination to the same centered result, losing exactly the "crop more
+ *  off one edge than the other" asymmetry the deck actually specified).
  *
  *  Deliberately sizes the WRAPPER to that box, not the <img> itself, and
  *  leaves the <img> at object-fit:cover inside it — an <img> with an
  *  explicit width/height percentage but no object-fit stretches its pixel
  *  content to exactly fill that box regardless of the image's own aspect
  *  ratio (the browser's default object-fit:fill), which is what produced
- *  the "images stretch/distort" bug: scaleX and scaleY come from the
- *  fillRect's box math, not from the image's real pixel dimensions, so they
- *  essentially never equal the image's true aspect ratio. object-fit:cover
- *  on the <img> hands aspect-correct scaling back to the browser (which
- *  actually knows the image's intrinsic size), while the wrapper's own
- *  size/position still implements the fillRect crop window. */
+ *  the "images stretch/distort" bug in the first place: scaleX/scaleY come
+ *  from the fillRect's box math, not the image's real pixel dimensions, so
+ *  they essentially never equal the image's true aspect ratio. object-fit:
+ *  cover on the <img> hands aspect-correct scaling back to the browser
+ *  (which actually knows the image's intrinsic size), while the wrapper's
+ *  own size/position implements the fillRect crop window. */
 function fillRectWrapperStyle(fillRect: { l: number; t: number; r: number; b: number } | undefined): React.CSSProperties {
   if (!fillRect) return { position: 'absolute', inset: 0 }
   const { l, t, r, b } = fillRect
-  const scaleX = 1 / (1 - l - r)
-  const scaleY = 1 / (1 - t - b)
+  const scaleX = 1 - (l + r)
+  const scaleY = 1 - (t + b)
   if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
     return { position: 'absolute', inset: 0 }
   }
   return {
     position: 'absolute',
-    left: `${-l * scaleX * 100}%`,
-    top: `${-t * scaleY * 100}%`,
+    left: `${l * 100}%`,
+    top: `${t * 100}%`,
     width: `${scaleX * 100}%`,
     height: `${scaleY * 100}%`,
   }

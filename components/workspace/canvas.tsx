@@ -939,7 +939,17 @@ export function InfiniteCanvas({
   const placePreviewRef = useRef<{ x: number; y: number; w: number; h: number; round: boolean } | null>(null)
   placePreviewRef.current = placePreview
   // Custom right-click menu: screen-space position + the object under it.
-  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; objectId: string | null } | null>(null)
+  // `scale` counters the editor STAGE's own ancestor transform:scale() (the
+  // "Fit width"/zoom-to-fit wrapper presentation-view.tsx and doc-view.tsx
+  // mount InfiniteCanvas inside — see toLocal's doc comment) — the menu's
+  // x/y are plain unscaled canvas-container pixels, but as a DOM descendant
+  // of that scaled stage it would otherwise RENDER at the stage's zoom
+  // level too (a 205%-zoomed editor drew a 205%-sized menu), which is the
+  // "the right click menu is scaled" bug. Captured once when the menu opens
+  // (same moment toLocal computes it for the click position), not derived
+  // live in render, since it only needs to match whatever the stage scale
+  // was at the moment of the click.
+  const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; objectId: string | null; scale: number } | null>(null)
   // Alt+hover measurement: while Alt is held, hovering a second object with
   // one already selected shows the displacement between their centers.
   const [altHeld, setAltHeld] = useState(false)
@@ -1072,6 +1082,18 @@ export function InfiniteCanvas({
     const rect = el.getBoundingClientRect()
     const s = el.offsetWidth ? rect.width / el.offsetWidth : 1
     return { x: (clientX - rect.left) / s, y: (clientY - rect.top) / s }
+  }, [])
+
+  /** Same ratio toLocal divides pointer coords by — how much bigger the
+   *  container's OWN bounding rect is than its layout size, i.e. the
+   *  editor stage's ancestor transform:scale() factor. Screen-space
+   *  overlays positioned in plain container-local pixels (the right-click
+   *  menu) need to counter-scale by 1/stageScale() or they render at the
+   *  stage's zoom level instead of a fixed on-screen size. */
+  const stageScale = useCallback((): number => {
+    const el = containerRef.current
+    if (!el || !el.offsetWidth) return 1
+    return el.getBoundingClientRect().width / el.offsetWidth
   }, [])
 
   const toCanvas = useCallback((clientX: number, clientY: number): Vec2 => {
@@ -2277,7 +2299,7 @@ export function InfiniteCanvas({
           const objectId =
             document.elementFromPoint(curCenter.x, curCenter.y)?.closest?.('[data-object-id]')?.getAttribute('data-object-id') ?? null
           if (objectId) useDocStore.getState().setSelection([objectId])
-          setCtxMenu({ x: local.x, y: local.y, objectId })
+          setCtxMenu({ x: local.x, y: local.y, objectId, scale: stageScale() })
         }
       }
       touchesRef.current.delete(e.pointerId)
@@ -2339,7 +2361,7 @@ export function InfiniteCanvas({
         cancelGesture()
         const p = toLocal(x, y)
         if (objectId) useDocStore.getState().setSelection([objectId])
-        setCtxMenu({ x: p.x, y: p.y, objectId })
+        setCtxMenu({ x: p.x, y: p.y, objectId, scale: stageScale() })
       }, 500),
     }
   }
@@ -2700,7 +2722,7 @@ export function InfiniteCanvas({
     if (objectId && !currentSel.includes(objectId)) {
       useDocStore.getState().setSelection([objectId])
     }
-    setCtxMenu({ x: p.x, y: p.y, objectId })
+    setCtxMenu({ x: p.x, y: p.y, objectId, scale: stageScale() })
   }
 
 
@@ -3148,6 +3170,7 @@ export function InfiniteCanvas({
       {slash && (
         <SlashMenu
           screen={slash.screen}
+          scale={stageScale()}
           onClose={() => setSlash(null)}
           onPick={(item) => {
             insertAt(pageId, item, slash.canvas)
@@ -3159,7 +3182,15 @@ export function InfiniteCanvas({
       {ctxMenu && (
         <div
           className="glass-strong absolute z-50 w-48 rounded-xl p-1 text-[0.78125rem]"
-          style={{ left: Math.min(ctxMenu.x, (containerRef.current?.clientWidth ?? 400) - 200), top: ctxMenu.y }}
+          style={{
+            left: Math.min(ctxMenu.x, (containerRef.current?.clientWidth ?? 400) - 200),
+            top: ctxMenu.y,
+            // Counters the editor stage's own transform:scale() (see the
+            // ctxMenu state doc comment) so the menu renders at a fixed
+            // on-screen size instead of ballooning with the stage's zoom.
+            transform: ctxMenu.scale !== 1 ? `scale(${1 / ctxMenu.scale})` : undefined,
+            transformOrigin: 'top left',
+          }}
           onPointerDown={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
         >
@@ -3283,10 +3314,14 @@ export function InfiniteCanvas({
  *  or click to drop it where the pointer was. Same registry as Ctrl+K. */
 function SlashMenu({
   screen,
+  scale,
   onPick,
   onClose,
 }: {
   screen: Vec2
+  /** Counters the editor stage's own transform:scale() — same fix/reason
+   *  as the right-click menu's ctxMenu.scale (see its doc comment). */
+  scale: number
   onPick: (item: Insertable) => void
   onClose: () => void
 }) {
@@ -3316,7 +3351,13 @@ function SlashMenu({
     <div
       ref={boxRef}
       className="glass-strong absolute z-[60] w-64 overflow-hidden rounded-xl p-1 shadow-lg"
-      style={{ left: pos.x, top: pos.y, maxHeight: 300 }}
+      style={{
+        left: pos.x,
+        top: pos.y,
+        maxHeight: 300,
+        transform: scale !== 1 ? `scale(${1 / scale})` : undefined,
+        transformOrigin: 'top left',
+      }}
       onPointerDown={(e) => e.stopPropagation()}
     >
       <input
