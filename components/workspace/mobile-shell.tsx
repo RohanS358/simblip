@@ -8,7 +8,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   BookOpen,
@@ -69,8 +68,9 @@ import {
 } from './page-actions'
 import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
-import { addFileToFolder } from './notebook-tree'
+import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
+import { AssignmentsPanel } from './assignments-panel'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,7 +91,7 @@ const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator
 // "My Notebooks" highlight check below — both render through the SAME
 // drill-down folder view; a top-level tap and a sub-folder tap just push
 // different depths onto the same view.
-type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'editor' }
+type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'assignments' } | { kind: 'editor' }
 
 const SECTION_DOT: Record<string, string> = {
   blue: 'bg-[var(--accent-blue)]',
@@ -106,10 +106,7 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
   (c) => `/cover/cover-${c}.svg`
 )
 
-const SHARED_NB = 'Shared with me'
-
 export function MobileShell() {
-  const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -206,6 +203,13 @@ export function MobileShell() {
   useEffect(() => {
     if ((mobileTab === 'home' || mobileTab === 'notebooks') && view.kind !== 'home') {
       setView({ kind: 'home' })
+    } else if (mobileTab === 'assignments' && view.kind !== 'assignments') {
+      setView({ kind: 'assignments' })
+    } else if (mobileTab === 'shared') {
+      const ws = useWorkspaceStore.getState()
+      const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
+      const id = nb?.id ?? ws.addNotebook(SHARED_NB)
+      if (!(view.kind === 'folder' && view.id === id)) setView({ kind: 'folder', id })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileTab])
@@ -353,7 +357,10 @@ export function MobileShell() {
   // as an in-place list rather than a slide-out panel.
   const moreTab = (
     <div className="flex h-dvh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center px-4">
+      <header
+        className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+      >
         <span className="text-[0.9375rem] font-extrabold tracking-tight">More</span>
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -367,21 +374,10 @@ export function MobileShell() {
           </div>
         </div>
         <div className="space-y-1">
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
-            onClick={() => {
-              const ws = store.getState()
-              const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
-              const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-              navigateToView({ kind: 'folder', id })
-            }}
-          >
-            <Share2 className="h-4 w-4 text-muted-foreground" /> Shared with me
-          </button>
           {staff && (
             <button
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
-              onClick={() => router.push('/assignments')}
+              onClick={() => useMobileTabStore.getState().setTab('assignments')}
             >
               <GraduationCap className="h-4 w-4 text-muted-foreground" /> Review
             </button>
@@ -424,11 +420,34 @@ export function MobileShell() {
     return moreTab
   }
 
+  // ── Assignments ──────────────────────────────────────────────────────────
+  if (mobileTab === 'assignments' && view.kind === 'assignments') {
+    return (
+      <div className="flex h-dvh flex-col bg-background">
+        <header
+          className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
+          <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
+        </header>
+        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+          <AssignmentsPanel />
+        </main>
+        <MobileTabBar />
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
+      </div>
+    )
+  }
+
   // ── Editor ────────────────────────────────────────────────────────────────
   if (view.kind === 'editor' && activePageId) {
     return (
       <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-        <header className="z-40 flex h-12 shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2">
+        <header
+          className="z-40 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
           <button
             type="button"
             aria-label="Back"
@@ -629,7 +648,10 @@ export function MobileShell() {
     const parentId = folder.parentId
     return (
       <div className="flex h-dvh flex-col bg-background">
-        <header className="flex h-12 shrink-0 items-center gap-1 border-b border-border/40 px-2">
+        <header
+          className="flex shrink-0 items-center gap-1 border-b border-border/40 px-2 pt-[max(0px,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        >
           <button
             type="button"
             aria-label="Back"
@@ -908,8 +930,15 @@ export function MobileShell() {
     .map((id) => findPageMeta(nodes, id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-1 px-4">
+    <div className="relative flex h-dvh flex-col bg-background">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
+      />
+      <header
+        className="relative flex shrink-0 items-center gap-1 px-4 pt-[max(0px,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+      >
         {showGreeting ? (
           <span className="text-[0.9375rem] font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>

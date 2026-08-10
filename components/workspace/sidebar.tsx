@@ -35,7 +35,7 @@ import {
   useSidebarSection,
   type SidebarSectionId,
 } from '@/lib/store/sidebar-sections'
-import { NotebookTree } from './notebook-tree'
+import { NotebookPanel } from './notebook-panel'
 import { Palette } from './palette'
 import { ToolsPanel } from './tools-panel'
 import { UploadsPanel } from './uploads-panel'
@@ -203,7 +203,7 @@ export function Sidebar({
 
   const panelSections = (
     <>
-      {activeSection === 'notebook' && <NotebookTree />}
+      {activeSection === 'notebook' && <NotebookPanel />}
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
       {activeSection === 'uploads' && (

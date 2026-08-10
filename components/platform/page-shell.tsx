@@ -1,8 +1,8 @@
 'use client'
 
-// Chrome for the non-canvas surfaces (assignments, admin console, dev
-// console): a floating liquid-glass top bar over a full-width scrollable
-// content column with progressive blur where content meets chrome, and the
+// Chrome for the non-canvas surfaces (admin console, dev console): a
+// floating liquid-glass top bar over a full-width scrollable content
+// column with progressive blur where content meets chrome, and the
 // platform status bar. Content takes the whole viewport — wide screens get
 // working space, not margins.
 
@@ -12,35 +12,25 @@ import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import { NotificationCenter } from '@/components/workspace/notifications'
 import { ProfileMenu } from '@/components/workspace/profile-menu'
-import { MobileTabBar } from '@/components/workspace/mobile-tab-bar'
-import { useIsMobile } from '@/hooks/use-mobile'
 
 export function PageShell({
   title,
   backHref = '/notebook',
   children,
-  /** Show the persistent Home/Notebooks/Assignments/More tab bar on touch
-   *  devices — only for routes those tabs actually represent (Assignments).
-   *  Off by default: admin/dev consoles are staff tools outside the tab
-   *  metaphor and keep the plain back-button header. */
-  tabBar = false,
 }: {
   title: string
   backHref?: string | null
   children: React.ReactNode
-  tabBar?: boolean
 }) {
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
-  const isTouch = useIsMobile()
-  const showTabBar = tabBar && isTouch
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
       <header className="absolute inset-x-0 top-0 z-40">
         <div className="progressive-blur-top !h-20" />
         <div className="relative m-3 mb-0 flex h-11 items-center gap-2 rounded-2xl px-3 liquid-glass sm:mx-4">
-          {backHref && !showTabBar && (
+          {backHref && (
             <Link
               href={backHref}
               aria-label="Back to notebook"
@@ -72,19 +62,15 @@ export function PageShell({
         {children}
       </main>
 
-      {showTabBar ? (
-        <MobileTabBar />
-      ) : (
-        <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
-          {profile && (
-            <span className="font-medium">
-              {profile.full_name} · {ROLE_LABEL[profile.role]}
-            </span>
-          )}
-          <div className="flex-1" />
-          <span>SIMBLIP · Built by Rohan Singh</span>
-        </footer>
-      )}
+      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+        {profile && (
+          <span className="font-medium">
+            {profile.full_name} · {ROLE_LABEL[profile.role]}
+          </span>
+        )}
+        <div className="flex-1" />
+        <span>SIMBLIP · Built by Rohan Singh</span>
+      </footer>
     </div>
   )
 }

@@ -105,6 +105,12 @@ const SECTION_DOT: Record<string, string> = {
   rose: 'bg-[var(--accent-rose)]',
 }
 
+/** The auto-created notebook incoming shares land in — see
+ *  hooks/use-share-inbox.ts. Single source of truth for the name so the
+ *  desktop Shared panel, the mobile Shared tab, and the Home grid's
+ *  exclusion filter can't drift out of sync. */
+export const SHARED_NB = 'Shared with me'
+
 function InlineName({
   name,
   className,
@@ -184,7 +190,7 @@ function InlineName({
 
 /** Shared handlers every tree row needs — passed down instead of re-derived
  *  at each recursion level. */
-interface TreeHandlers {
+export interface TreeHandlers {
   activePageId: string | null
   renaming: string | null
   setRenaming: (id: string | null) => void
@@ -538,7 +544,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
   )
 }
 
-function TreeNode({ node, depth, handlers }: { node: Node; depth: number; handlers: TreeHandlers }) {
+export function TreeNode({ node, depth, handlers }: { node: Node; depth: number; handlers: TreeHandlers }) {
   if (node.kind === 'folder') return <FolderRow node={node} depth={depth} handlers={handlers} />
   if (node.kind === 'page') return <PageRow node={node} depth={depth} handlers={handlers} />
   return <FileRow node={node} depth={depth} handlers={handlers} />
@@ -604,10 +610,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-between px-3.5 pb-1 pt-3">
-        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          Notebooks
-        </span>
+      <div className="flex items-center justify-end px-3.5 pb-1 pt-1">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
@@ -669,7 +672,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
           void addFileToFolder(firstRoot.id, f)
         }}
       >
-        {roots.length === 0 && (
+        {roots.filter((nb) => nb.name !== SHARED_NB).length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
             <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
               No notebooks yet.
@@ -698,9 +701,11 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             </div>
           </div>
         )}
-        {roots.map((nb) => (
-          <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />
-        ))}
+        {roots
+          .filter((nb) => nb.name !== SHARED_NB)
+          .map((nb) => (
+            <TreeNode key={nb.id} node={nb} depth={0} handlers={handlers} />
+          ))}
       </div>
 
       <ShareDialog page={shareFor} onOpenChange={(o) => !o && setShareFor(null)} />
