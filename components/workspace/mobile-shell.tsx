@@ -918,8 +918,12 @@ export function MobileShell() {
     .map((id) => findPageMeta(nodes, id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      <header className="flex h-12 shrink-0 items-center gap-1 px-4">
+    <div className="relative flex h-dvh flex-col bg-background">
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
+      />
+      <header className="relative flex h-12 shrink-0 items-center gap-1 px-4">
         {showGreeting ? (
           <span className="text-[0.9375rem] font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
