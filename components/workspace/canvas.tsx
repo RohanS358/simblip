@@ -293,6 +293,12 @@ interface Gesture {
 const HOLD_MS = 500
 const HOLD_STILL_PX = 6
 
+// Object-drag hold-time (touch only): a touch landing on an object waits
+// this long before committing to a drag, so a quick swipe across an
+// object-dense page still scrolls instead of yanking whatever it started on.
+const DRAG_HOLD_MS = 150
+const DRAG_HOLD_STILL_PX = 8
+
 type CtxItem = [label: string, action: () => void, danger?: boolean]
 
 // The object case renders straight from the selection-actions pipeline, so
@@ -661,10 +667,15 @@ const ObjectView = memo(function ObjectView({
     <div
       ref={(el) => registerElement(object.id, el)}
       data-object-id={object.id}
-      // touch-none here (not only on the canvas): on a passthrough overlay
-      // the canvas allows native panning, but a touch that starts ON an
-      // object is a drag/select and must not scroll the reader instead.
-      className="absolute touch-none"
+      // touch-action must be decided before the browser sees the first
+      // touchmove (a JS timer can't override it after the fact), so a plain
+      // "touch on an object always drags" policy also permanently blocks
+      // page/sheet scroll for any touch that happens to land on an object —
+      // most of a content-dense page. touch-pan-y lets the browser start a
+      // native scroll on a quick swipe; handleObjectPointerDown's hold-time
+      // gate (HOLD_MS) is what decides whether a lingering touch becomes a
+      // drag instead, calling preventDefault() itself once it does.
+      className="absolute touch-pan-y"
       style={{
         left: object.position.x,
         top: object.position.y,
@@ -852,6 +863,17 @@ export function InfiniteCanvas({
   } | null>(null)
   const lastPenRef = useRef(0) // last stylus contact, for palm rejection
   const longPressRef = useRef<{ timer: number; x: number; y: number } | null>(null)
+  // Object-drag hold-time (touch only — see handleObjectPointerDown): a
+  // finger landing on an object waits this long, or a small move threshold,
+  // before committing to a drag. A quick swipe that starts on an object is
+  // released instead, so the page/sheet underneath scrolls normally.
+  const dragHoldRef = useRef<{
+    timer: ReturnType<typeof setTimeout>
+    x: number
+    y: number
+    e: React.PointerEvent
+    id: string
+  } | null>(null)
 
   const objects = useDocStore((s) => s.pages[pageId]?.objects)
   const page = useDocStore((s) => s.pages[pageId])
@@ -2182,6 +2204,18 @@ export function InfiniteCanvas({
     }
   }, [])
 
+  /** Cancel a pending touch object-drag without starting it — used both for
+   *  a swipe (finger moved past DRAG_HOLD_STILL_PX) and a plain tap (finger
+   *  lifted before DRAG_HOLD_MS). Either way the object stays selected
+   *  (already set synchronously in handleObjectPointerDown) but nothing
+   *  drags and no pointermove/up listeners were ever attached. */
+  const clearDragHold = useCallback(() => {
+    if (dragHoldRef.current) {
+      clearTimeout(dragHoldRef.current.timer)
+      dragHoldRef.current = null
+    }
+  }, [])
+
   useEffect(() => {
     if (!touchMeasureMode) setTouchMeasureTargetId(null)
   }, [touchMeasureMode])
@@ -2320,6 +2354,7 @@ export function InfiniteCanvas({
       window.removeEventListener('pointermove', onPinchMove)
       window.removeEventListener('pointerup', onPinchEnd)
       window.removeEventListener('pointercancel', onPinchEnd)
+      if (dragHoldRef.current) clearTimeout(dragHoldRef.current.timer)
     },
     [onPinchMove, onPinchEnd]
   )
@@ -2337,6 +2372,7 @@ export function InfiniteCanvas({
     clearLongPress()
     if (touchesRef.current.size === 2) {
       cancelGesture() // whatever one finger started, a pair means pan/zoom
+      clearDragHold() // …including a still-pending single-finger drag hold
       if (!pinchRef.current) {
         window.addEventListener('pointermove', onPinchMove)
         window.addEventListener('pointerup', onPinchEnd)
@@ -2372,6 +2408,8 @@ export function InfiniteCanvas({
       touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     const lp = longPressRef.current
     if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLongPress()
+    const dh = dragHoldRef.current
+    if (dh && Math.hypot(e.clientX - dh.x, e.clientY - dh.y) > DRAG_HOLD_STILL_PX) clearDragHold()
   }
 
   const handleTouchUpCapture = (e: React.PointerEvent) => {
@@ -2382,6 +2420,7 @@ export function InfiniteCanvas({
     if (e.pointerType !== 'touch') return
     touchesRef.current.delete(e.pointerId)
     clearLongPress()
+    clearDragHold()
   }
   
 
@@ -2649,7 +2688,30 @@ export function InfiniteCanvas({
     // click on an object left a no-op snapshot on the undo stack, burying
     // real edits under clicks and making Undo need far more presses than
     // expected to reach them.
-    beginGesture('move', e, { clickedId: e.shiftKey ? undefined : id })
+    //
+    // Touch: don't start the move gesture immediately. The object wrapper
+    // is touch-pan-y (not touch-none), so a quick swipe starting on an
+    // object is free to become the page/sheet's native scroll instead of a
+    // drag — but only if nothing here has started tracking pointermove yet.
+    // Wait a short hold (DRAG_HOLD_MS) or a small deliberate hold-still
+    // before committing to the drag; handleTouchMoveCapture cancels this if
+    // the finger moves past the threshold first (a swipe, not a drag).
+    const clickedId = e.shiftKey ? undefined : id
+    if (e.pointerType === 'touch') {
+      const { clientX: x, clientY: y } = e
+      dragHoldRef.current = {
+        x,
+        y,
+        e,
+        id,
+        timer: setTimeout(() => {
+          dragHoldRef.current = null
+          beginGesture('move', e, { clickedId })
+        }, DRAG_HOLD_MS),
+      }
+      return
+    }
+    beginGesture('move', e, { clickedId })
   }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
 
   const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: ResizeHandle) => {
