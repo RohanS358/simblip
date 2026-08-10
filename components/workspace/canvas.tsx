@@ -1665,10 +1665,19 @@ export function InfiniteCanvas({
         const r = Math.hypot(point.x - g.start.x, point.y - g.start.y)
         setPlacePreview({ x: g.start.x - r, y: g.start.y - r, w: 2 * r, h: 2 * r, round: true })
       } else if (g.mode === 'resize' && g.resizeId && g.resizeStart && g.resizeOrigin) {
-        const zoom = g.startViewport.zoom
         const corner = g.resizeCorner ?? 'se'
-        const dx = dxScreen / zoom
-        const dy = dyScreen / zoom
+        // toCanvas-derived delta (same as 'move' mode above), NOT a raw
+        // screen-pixel delta divided by viewport.zoom alone — dxScreen/
+        // dyScreen are unscaled window.clientX/Y deltas, but the editor
+        // stage itself can carry its own ancestor `transform: scale()` (the
+        // "Fit width"/zoom-to-fit stage in presentation-view.tsx, doc-view,
+        // etc — see toLocal's doc comment). Dividing only by the in-canvas
+        // pan/zoom left that outer stage scale completely uncompensated, so
+        // at any stage zoom other than 100% a resize handle moved faster or
+        // slower than the cursor, and the object visibly "grew" way more
+        // than the drag distance — this was the actual resize-scaling bug.
+        const dx = point.x - g.start.x
+        const dy = point.y - g.start.y
         // Edges move one axis; the perpendicular one stays frozen.
         let w = Math.max(16, g.resizeStart.w + (corner.includes('e') ? dx : corner.includes('w') ? -dx : 0))
         let h = Math.max(16, g.resizeStart.h + (corner.includes('s') ? dy : corner.includes('n') ? -dy : 0))

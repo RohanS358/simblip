@@ -16,18 +16,26 @@ import type { ObjectRendererProps } from './types'
  *  crop" image bigger than its frame — the common Canva case). The image's
  *  natural box in shape-fraction space is [-l, -t, 1+l+r, 1+t+b]: width
  *  1/(1-l-r) times the shape width, positioned so the shape window sits at
- *  fraction l/t from the scaled image's own top-left. Implemented as an
- *  absolutely-positioned/scaled <img> inside an overflow:hidden frame,
- *  since CSS object-position can't express independent asymmetric
- *  left/top/right/bottom insets the way object-fit:cover's single focal
- *  point can. */
-function fillRectStyle(fillRect: { l: number; t: number; r: number; b: number } | undefined): React.CSSProperties {
-  if (!fillRect) return { objectFit: 'cover', width: '100%', height: '100%' }
+ *  fraction l/t from the scaled image's own top-left.
+ *
+ *  Deliberately sizes the WRAPPER to that box, not the <img> itself, and
+ *  leaves the <img> at object-fit:cover inside it — an <img> with an
+ *  explicit width/height percentage but no object-fit stretches its pixel
+ *  content to exactly fill that box regardless of the image's own aspect
+ *  ratio (the browser's default object-fit:fill), which is what produced
+ *  the "images stretch/distort" bug: scaleX and scaleY come from the
+ *  fillRect's box math, not from the image's real pixel dimensions, so they
+ *  essentially never equal the image's true aspect ratio. object-fit:cover
+ *  on the <img> hands aspect-correct scaling back to the browser (which
+ *  actually knows the image's intrinsic size), while the wrapper's own
+ *  size/position still implements the fillRect crop window. */
+function fillRectWrapperStyle(fillRect: { l: number; t: number; r: number; b: number } | undefined): React.CSSProperties {
+  if (!fillRect) return { position: 'absolute', inset: 0 }
   const { l, t, r, b } = fillRect
   const scaleX = 1 / (1 - l - r)
   const scaleY = 1 / (1 - t - b)
   if (!Number.isFinite(scaleX) || !Number.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0) {
-    return { objectFit: 'cover', width: '100%', height: '100%' }
+    return { position: 'absolute', inset: 0 }
   }
   return {
     position: 'absolute',
@@ -106,8 +114,16 @@ export function PictureObject({ object }: ObjectRendererProps) {
 
   return (
     <div className="relative h-full w-full select-none overflow-hidden rounded-md">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={url} alt={object.name} style={fillRectStyle(fillRect)} draggable={false} />
+      <div style={fillRectWrapperStyle(fillRect)}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={url}
+          alt={object.name}
+          className="h-full w-full"
+          style={{ objectFit: 'cover' }}
+          draggable={false}
+        />
+      </div>
     </div>
   )
 }
