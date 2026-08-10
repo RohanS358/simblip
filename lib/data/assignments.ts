@@ -70,6 +70,13 @@ export async function listRoomAssignments(roomId: string): Promise<AssignmentRow
     .sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
+export async function getAssignment(id: string): Promise<AssignmentRow | null> {
+  const { profile } = useAuthStore.getState()
+  if (!profile) return null
+  const rows = await db.list<AssignmentRow>('assignments', { institution_id: profile.institution_id })
+  return rows.find((a) => a.id === id) ?? null
+}
+
 export const removeAssignment = (id: string) => db.removeById('assignments', id)
 
 export const subscribeAssignments = (fn: () => void) => db.subscribe('assignments', fn)

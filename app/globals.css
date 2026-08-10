@@ -769,3 +769,17 @@
   width: 14px;
   height: 14px;
 }
+
+/* One-shot mount reveal for staggered list/grid entrances (Home's due-soon
+   cards, notebook grid) — occasional, not per-interaction, so a keyframe is
+   fine here (see lib/motion.ts's springs for anything interruptible). */
+@keyframes home-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}

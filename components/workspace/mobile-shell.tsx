@@ -71,6 +71,7 @@ import { AddPageDialog } from './add-page-dialog'
 import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import { AssignmentsPanel } from './assignments-panel'
+import { HomeDueSoon } from './home-due-soon'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -967,6 +968,7 @@ export function MobileShell() {
             <p className="mt-1.5 text-[0.875rem] font-medium text-muted-foreground">Pick a notebook to start creating.</p>
           </div>
         )}
+        {showGreeting && <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />}
         {showGreeting && recentPages.length > 0 && (
           <div className="pb-6">
             <p className="mb-2 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
@@ -992,11 +994,14 @@ export function MobileShell() {
         <div className="grid grid-cols-2 gap-4">
           {childrenOf(nodes, null)
             .filter((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
-            .map((nb) => {
+            .map((nb, i) => {
             const pages = descendantsOf(nodes, nb.id).filter((n) => n.kind === 'page').length
             return (
               <fm.div
                 key={nb.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ ...spring, delay: Math.min(i, 7) * 0.05 }}
                 whileTap={{ scale: 0.95 }}
                 className="relative flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card shadow-sm"
                 onClick={() => navigateToView({ kind: 'folder', id: nb.id })}

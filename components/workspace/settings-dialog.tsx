@@ -38,6 +38,8 @@ import {
   Activity,
   Check,
   RotateCcw,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { BackupSettings } from './backup-settings'
@@ -690,23 +692,24 @@ type TabId =
 interface NavItem {
   id: TabId
   label: string
+  detail: string
   icon: React.ComponentType<{ className?: string }>
   category: 'options' | 'tools'
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'general', label: 'General', icon: User, category: 'options' },
-  { id: 'appearance', label: 'Appearance', icon: Palette, category: 'options' },
-  { id: 'interface', label: 'Interface', icon: Sliders, category: 'options' },
-  { id: 'dock', label: 'Dock', icon: Layout, category: 'options' },
-  { id: 'editor', label: 'Editor', icon: Edit3, category: 'options' },
-  { id: 'files', label: 'Files and links', icon: Files, category: 'options' },
-  { id: 'hotkeys', label: 'Hotkeys', icon: Keyboard, category: 'options' },
-  { id: 'math', label: 'Math', icon: Calculator, category: 'options' },
-  { id: 'packages', label: 'Packages', icon: Package, category: 'options' },
-  { id: 'pen', label: 'Pen feel', icon: Edit3, category: 'tools' },
-  { id: 'simulation', label: 'Simulation Engine', icon: Activity, category: 'tools' },
-  { id: 'about', label: 'About', icon: HelpCircle, category: 'tools' },
+  { id: 'general', label: 'General', detail: 'Account, sign out', icon: User, category: 'options' },
+  { id: 'appearance', label: 'Appearance', detail: 'Theme, colors', icon: Palette, category: 'options' },
+  { id: 'interface', label: 'Interface', detail: 'Layout & density', icon: Sliders, category: 'options' },
+  { id: 'dock', label: 'Dock', detail: 'Toolbar position', icon: Layout, category: 'options' },
+  { id: 'editor', label: 'Editor', detail: 'Grid, pages', icon: Edit3, category: 'options' },
+  { id: 'files', label: 'Files and links', detail: 'Backup, device sync', icon: Files, category: 'options' },
+  { id: 'hotkeys', label: 'Hotkeys', detail: 'Keyboard shortcuts', icon: Keyboard, category: 'options' },
+  { id: 'math', label: 'Math', detail: 'Angle unit, notation', icon: Calculator, category: 'options' },
+  { id: 'packages', label: 'Packages', detail: 'Optional components', icon: Package, category: 'options' },
+  { id: 'pen', label: 'Pen feel', detail: 'Stylus & pressure', icon: Edit3, category: 'tools' },
+  { id: 'simulation', label: 'Simulation Engine', detail: 'Physics solver', icon: Activity, category: 'tools' },
+  { id: 'about', label: 'About', detail: 'Version, credits', icon: HelpCircle, category: 'tools' },
 ]
 
 export function SettingsDialog({
@@ -723,6 +726,11 @@ export function SettingsDialog({
   )
   const [searchQuery, setSearchQuery] = useState('')
   const isTouch = useIsMobile()
+  // On mobile, settings opens on a grouped list (like iOS Settings) — a
+  // category is only "open" once tapped, so there's a real list screen
+  // instead of always dropping straight into General with no way back to
+  // an overview. Desktop keeps its always-visible sidebar + panel.
+  const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false)
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -741,49 +749,145 @@ export function SettingsDialog({
   const toolsItems = filteredNav.filter((item) => item.category === 'tools')
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog
+      open={open}
+      onOpenChange={(o) => {
+        onOpenChange(o)
+        if (!o) setMobileCategoryOpen(false)
+      }}
+    >
       <DialogContent
         showCloseButton={false}
+        variant={isTouch ? 'sheet' : 'modal'}
         className={cn(
-          'flex flex-col overflow-hidden p-0 bg-background shadow-2xl transition-all duration-200',
+          'flex flex-col overflow-hidden p-0 bg-background shadow-2xl',
           isTouch
             ? 'h-dvh max-h-none w-screen max-w-none rounded-none border-0'
-            : 'h-[88dvh] max-h-[850px] w-full sm:w-[92vw] md:w-[88vw] lg:w-[960px] sm:max-w-4xl md:max-w-5xl lg:max-w-5xl rounded-2xl border border-border/70'
+            : 'h-[88dvh] max-h-[850px] w-full sm:w-[92vw] md:w-[88vw] lg:w-[960px] sm:max-w-4xl md:max-w-5xl lg:max-w-5xl rounded-2xl border border-border/70 transition-[transform,opacity] duration-200'
         )}
       >
         <VisuallyHiddenPrimitive.Root asChild>
           <DialogPrimitive.Title>Settings</DialogPrimitive.Title>
         </VisuallyHiddenPrimitive.Root>
-        {/* Top Obsidian Window Title Bar */}
-        <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 bg-muted/20 px-4 select-none">
-          <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
-            <span>Settings</span>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-muted-foreground font-normal">{profile?.full_name ?? 'Rohan'}</span>
-            <span className="text-muted-foreground/40">•</span>
-            <span className="text-muted-foreground/80 font-mono text-[0.6875rem]">SIMBLIP 1.13.4</span>
-          </div>
-          <DialogPrimitive.Close className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
-            <X className="h-4 w-4" />
-            <span className="sr-only">Close</span>
-          </DialogPrimitive.Close>
-        </div>
 
-        {/* Main Split Body — sidebar becomes a horizontal scroll strip on
-            top instead of a left rail on touch, since a fixed-width side
-            column has no room on a phone. */}
-        <div className={cn('flex flex-1 min-h-0', isTouch ? 'flex-col' : 'divide-x divide-border/40')}>
-          {/* Sidebar / nav */}
+        {/* Title bar — desktop keeps the Obsidian-style window chrome; touch
+            gets an iOS-style bar that swaps to a Back button once a category
+            is open, so the header itself communicates nav depth. */}
+        {isTouch ? (
           <div
-            className={cn(
-              'shrink-0 flex bg-muted/20 dark:bg-muted/10 border-border/40',
-              isTouch
-                ? 'w-full flex-row items-center gap-1.5 overflow-x-auto border-b p-2.5'
-                : 'w-48 sm:w-56 md:w-60 flex-col p-3.5 space-y-3.5 overflow-y-auto no-scrollbar border-r'
-            )}
+            className="flex h-12 shrink-0 items-center border-b border-border/50 bg-background px-1 pt-[max(0px,env(safe-area-inset-top))] select-none"
+            style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
           >
-            {/* Search Input — desktop only, no room for it in the touch strip */}
-            {!isTouch && (
+            {mobileCategoryOpen ? (
+              <button
+                type="button"
+                onClick={() => setMobileCategoryOpen(false)}
+                className="flex items-center gap-0.5 px-2 py-2 text-[0.9375rem] font-medium text-[var(--accent-blue)]"
+              >
+                <ChevronLeft className="h-5 w-5" />
+                Settings
+              </button>
+            ) : (
+              <>
+                <span className="flex-1 px-3 text-[0.9375rem] font-extrabold tracking-tight">Settings</span>
+                <DialogPrimitive.Close className="px-3 py-2 text-[0.9375rem] font-medium text-[var(--accent-blue)]">
+                  Done
+                </DialogPrimitive.Close>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 bg-muted/20 px-4 select-none">
+            <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
+              <span>Settings</span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="text-muted-foreground font-normal">{profile?.full_name ?? 'Rohan'}</span>
+              <span className="text-muted-foreground/40">•</span>
+              <span className="text-muted-foreground/80 font-mono text-[0.6875rem]">SIMBLIP 1.13.4</span>
+            </div>
+            <DialogPrimitive.Close className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </DialogPrimitive.Close>
+          </div>
+        )}
+
+        {/* Touch root: a single grouped list, tap a row to drill into that
+            category as a full-screen page — same interaction language as
+            the rest of the mobile shell (notebook drill-down), instead of a
+            horizontal icon strip that hides labels and needs sideways
+            scanning to find anything. */}
+        {isTouch && !mobileCategoryOpen && (
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4 pt-3">
+            <div className="mb-5 flex items-center gap-3 rounded-2xl border border-border/40 bg-card p-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
+                {profile?.full_name?.charAt(0) || 'U'}
+              </div>
+              <div className="flex min-w-0 flex-1 flex-col">
+                <span className="truncate text-[0.9375rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
+                <span className="truncate text-[0.75rem] text-muted-foreground">{profile?.email || ''}</span>
+              </div>
+            </div>
+
+            {[
+              { title: null, items: optionsItems.filter((i) => i.id === 'general') },
+              { title: 'Preferences', items: optionsItems.filter((i) => i.id !== 'general') },
+              { title: 'Tools', items: toolsItems },
+            ].map((group, gi) =>
+              group.items.length === 0 ? null : (
+                <div key={gi} className="mb-5">
+                  {group.title && (
+                    <div className="mb-1.5 px-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {group.title}
+                    </div>
+                  )}
+                  <div className="divide-y divide-border/40 overflow-hidden rounded-2xl border border-border/40 bg-card">
+                    {group.items.map((item) => {
+                      const Icon = item.icon
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => {
+                            setActiveTab(item.id)
+                            setMobileCategoryOpen(true)
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-accent/60"
+                        >
+                          <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <span className="flex-1 text-[0.875rem] font-medium text-foreground">{item.label}</span>
+                          <span className="truncate text-[0.75rem] text-muted-foreground">{item.detail}</span>
+                          <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
+
+        {/* Main Split Body — desktop only below this point on touch (the
+            drill-in page renders instead when a category is open). On
+            touch it slides in from the right rather than popping in via
+            `hidden`, so entering a category reads as forward navigation
+            matching the header's Back-button direction; `translate-x-full`
+            (not `hidden`) keeps it transitionable while off-screen. */}
+        <div
+          className={cn(
+            'flex flex-1 min-h-0',
+            isTouch
+              ? cn(
+                  'absolute inset-0 top-12 flex-col bg-background transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]',
+                  mobileCategoryOpen ? 'translate-x-0' : 'translate-x-full pointer-events-none'
+                )
+              : 'divide-x divide-border/40'
+          )}
+        >
+          {/* Sidebar / nav — desktop only; touch uses the grouped list above instead. */}
+          {!isTouch && (
+            <div className="shrink-0 flex w-48 sm:w-56 md:w-60 flex-col p-3.5 space-y-3.5 overflow-y-auto no-scrollbar border-r bg-muted/20 dark:bg-muted/10 border-border/40">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input
@@ -802,42 +906,47 @@ export function SettingsDialog({
                   </button>
                 )}
               </div>
-            )}
 
-            {/* Navigation Options */}
-            <div className={isTouch ? 'flex flex-row gap-1.5' : 'space-y-4 pt-1'}>
-              {[...optionsItems, ...toolsItems].map((item) => {
-                const Icon = item.icon
-                const isActive = activeTab === item.id
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    onClick={() => setActiveTab(item.id)}
-                    className={cn(
-                      'flex items-center gap-2.5 rounded-lg text-xs font-medium transition-colors text-left',
-                      isTouch ? 'shrink-0 px-3 py-2' : 'w-full px-2.5 py-1.5',
-                      isActive
-                        ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
-                        : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                    )}
-                  >
-                    <Icon className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-[var(--accent-blue)]' : 'opacity-70')} />
-                    <span className="truncate">{item.label}</span>
-                  </button>
-                )
-              })}
+              <div className="space-y-4 pt-1">
+                {[...optionsItems, ...toolsItems].map((item) => {
+                  const Icon = item.icon
+                  const isActive = activeTab === item.id
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setActiveTab(item.id)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors',
+                        isActive
+                          ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
+                          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                      )}
+                    >
+                      <Icon className={cn('h-3.5 w-3.5 shrink-0', isActive ? 'text-[var(--accent-blue)]' : 'opacity-70')} />
+                      <span className="truncate">{item.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Right Main Settings Surface */}
-          <div className="flex-1 min-w-0 flex flex-col p-5 sm:p-7 overflow-y-auto min-h-0 space-y-6">
-            {/* Header Title */}
-            <div className="border-b border-border/40 pb-3">
-              <h2 className="text-lg font-bold tracking-tight text-foreground capitalize">
-                {NAV_ITEMS.find((n) => n.id === activeTab)?.label ?? 'Settings'}
-              </h2>
-            </div>
+          <div
+            className={cn(
+              'flex-1 min-w-0 flex flex-col overflow-y-auto min-h-0 space-y-6',
+              isTouch ? 'p-4' : 'p-5 sm:p-7'
+            )}
+          >
+            {/* Header Title — desktop only; touch's Back-button bar already names the category. */}
+            {!isTouch && (
+              <div className="border-b border-border/40 pb-3">
+                <h2 className="text-lg font-bold tracking-tight text-foreground capitalize">
+                  {NAV_ITEMS.find((n) => n.id === activeTab)?.label ?? 'Settings'}
+                </h2>
+              </div>
+            )}
 
             {/* Tab Contents */}
             {activeTab === 'general' && (

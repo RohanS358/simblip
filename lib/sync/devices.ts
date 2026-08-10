@@ -119,10 +119,24 @@ export async function refreshDevices(explicitOwnerId?: string) {
     // so that path still degrades correctly.
     const cutoff = Date.now() - FRESH_WINDOW_MS
     const self = deviceId()
-    useDevicesStore.setState({
-      others: rows.filter((r) => r.id !== self && Date.parse(r.last_seen_at) >= cutoff),
-      lastRefreshedAt: Date.now(),
-    })
+    const nextOthers = rows.filter((r) => r.id !== self && Date.parse(r.last_seen_at) >= cutoff)
+
+    // A device that just came online (wasn't in the previous `others` list)
+    // missed any push that already fired while it was offline — catch it up
+    // now instead of waiting for the next unrelated file change.
+    const prevIds = new Set(useDevicesStore.getState().others.map((r) => r.id))
+    const newlyOnline = nextOthers.filter((r) => !prevIds.has(r.id))
+
+    useDevicesStore.setState({ others: nextOthers, lastRefreshedAt: Date.now() })
+
+    if (newlyOnline.length > 0) {
+      const { pushFilesToDevice } = await import('@/lib/sync/device-file-sync')
+      newlyOnline.forEach((device) => {
+        pushFilesToDevice(device).catch((err) => {
+          console.warn('[devices] catch-up push failed:', err)
+        })
+      })
+    }
   } catch (err) {
     console.warn('[devices] Presence refresh failed:', err)
   }

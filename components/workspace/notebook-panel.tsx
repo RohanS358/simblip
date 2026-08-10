@@ -78,11 +78,11 @@ export function NotebookPanel() {
       <Section id="notebooks" label="Notebooks" icon={ClipboardList} open={!collapsed.notebooks} onToggle={toggle}>
         <NotebookTree />
       </Section>
-      <Section id="assignments" label="Assignments" icon={ClipboardList} open={!collapsed.assignments} onToggle={toggle}>
-        <div className="px-1"><AssignmentsPanel /></div>
-      </Section>
       <Section id="shared" label="Shared" icon={Share2} open={!collapsed.shared} onToggle={toggle}>
         <SharedPanel />
+      </Section>
+      <Section id="assignments" label="Assignments" icon={ClipboardList} open={!collapsed.assignments} onToggle={toggle}>
+        <div className="px-1"><AssignmentsPanel /></div>
       </Section>
     </div>
   )

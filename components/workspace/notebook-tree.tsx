@@ -610,34 +610,6 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center justify-end px-3.5 pb-1 pt-1">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              aria-label="Add"
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              onClick={() => {
-                const id = store.getState().addNotebook()
-                const sec = store.getState().addFolder('Section 1', id)
-                store.getState().addPageIn(sec, 'Page 1')
-              }}
-            >
-              <BookOpen className="h-4 w-4" /> New notebook
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => store.getState().addFolder('New Folder', null)}>
-              <Folder className="h-4 w-4" /> New folder
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
       <div
         className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3"
         // Global root drop zone: files dropped anywhere in the tree

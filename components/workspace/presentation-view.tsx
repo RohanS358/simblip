@@ -629,7 +629,8 @@ export function PresentationView({ pageId }: { pageId: string }) {
         </button>
       </div>
 
-      <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t border-border/60 bg-muted/20 px-3 py-2">
+      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/60 bg-muted/20 px-3 py-2">
+
         <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
           <button
             type="button"
@@ -682,7 +683,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           Slide {current + 1} of {slides.length}
         </span>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5">
           <button
             type="button"
             disabled={exporting || importing}
@@ -690,7 +691,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
             onClick={() => void exportPptx()}
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            {exporting ? 'Exporting…' : 'Export PowerPoint'}
+            <span className="hidden sm:inline">{exporting ? 'Exporting…' : 'Export PowerPoint'}</span>
           </button>
           <button
             type="button"
