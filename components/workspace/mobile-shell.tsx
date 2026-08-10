@@ -8,8 +8,10 @@
 import { useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
+  BarChart3,
   BookOpen,
   ClipboardList,
   Copy,
@@ -108,6 +110,7 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
 )
 
 export function MobileShell() {
+  const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
   const [view, setView] = useState<View>({ kind: 'home' })
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -434,6 +437,16 @@ export function MobileShell() {
           style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
         >
           <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
+          <div className="flex-1" />
+          {staff && (
+            <button
+              type="button"
+              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => router.push('/assignments/insights')}
+            >
+              <BarChart3 className="h-3.5 w-3.5" /> Insights
+            </button>
+          )}
         </header>
         <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
           <AssignmentsPanel />

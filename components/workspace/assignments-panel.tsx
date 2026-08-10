@@ -185,7 +185,7 @@ function StudentAssignments() {
 
 // ── Teacher dashboard ───────────────────────────────────────────────────────
 
-function TeacherAssignments() {
+function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
   const router = useRouter()
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [subsByAssignment, setSubsByAssignment] = useState<Record<string, SubmissionRow[]>>({})
@@ -218,6 +218,21 @@ function TeacherAssignments() {
       {assignments.map((a) => {
         const subs = subsByAssignment[a.id] ?? []
         const submitted = subs.filter((s) => ['submitted', 'late', 'reviewed'].includes(s.status)).length
+
+        if (compact) {
+          return (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => router.push(`/assignments/${a.id}`)}
+              className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[12.5px] transition-colors hover:bg-accent/40"
+            >
+              <span className="min-w-0 flex-1 truncate font-medium">{a.title}</span>
+              <span className="shrink-0 text-[11px] text-muted-foreground">{submitted} submitted</span>
+            </button>
+          )
+        }
+
         return (
           <button
             key={a.id}
@@ -252,7 +267,7 @@ function TeacherAssignments() {
   )
 }
 
-export function AssignmentsPanel() {
+export function AssignmentsPanel({ compact = false }: { compact?: boolean } = {}) {
   const role = useAuthStore((s) => s.profile?.role)
-  return role === 'student' ? <StudentAssignments /> : <TeacherAssignments />
+  return role === 'student' ? <StudentAssignments /> : <TeacherAssignments compact={compact} />
 }
