@@ -516,12 +516,24 @@ function shapeFillAndBorder(
   scale: SlideScale
 ): { fillColor?: string; strokeColor?: string; strokeWidth?: number } {
   const spPr = firstChild(sp, 'p:spPr')
+  // spPr's OWN <a:solidFill>/<a:noFill> must be read as a DIRECT child, not
+  // via firstChild's recursive getElementsByTagName — a shape with a
+  // stroke-only border (no shape fill, common: Canva's bordered "pill"
+  // labels) still has a real <a:solidFill> nested inside its <a:ln>, and
+  // the recursive search found THAT instead, so every stroke-only shape
+  // rendered with a solid fill in the border's own color — a plain
+  // transparent-with-outline pill imported as an opaque colored box. Same
+  // bug class the custGeom parser was already hardened against (commit
+  // e8f37ba) for the same underlying reason: firstChild digs through
+  // descendants indiscriminately, and <a:ln> is a descendant of <a:spPr>.
+  const spPrOwnFill = spPr ? directChildren(spPr, 'a:solidFill')[0] : undefined
+  const spPrOwnNoFill = spPr ? directChildren(spPr, 'a:noFill')[0] : undefined
   // <a:noFill/> is an explicit "definitely no fill" distinct from "no fill
   // specified" — both currently produce no fill (no fallback-fill logic
   // exists), but keeping the distinction explicit avoids a future fallback
   // misfiring on shapes that were deliberately made transparent.
-  const explicitNoFill = firstChild(spPr, 'a:noFill') !== null
-  const fillColor = explicitNoFill ? undefined : (solidFillColor(spPr, theme) ?? undefined)
+  const explicitNoFill = spPrOwnNoFill !== undefined
+  const fillColor = explicitNoFill || !spPrOwnFill ? undefined : (fillNodeColor(spPrOwnFill, theme) ?? undefined)
   const ln = firstChild(spPr, 'a:ln')
   const lineNoFill = firstChild(ln, 'a:noFill') !== null
   const strokeColor = lineNoFill ? undefined : (solidFillColor(ln, theme) ?? undefined)

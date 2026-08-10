@@ -156,7 +156,19 @@ export function PageThumbnail({ pageId, className }: Props) {
     )
   }
 
+  // pptx pages render into a FIXED 960×540 slide frame everywhere else in
+  // the app (the editor stage, PresentOverlay — see presentation-view.tsx),
+  // clipped with overflow:hidden so content positioned off-slide (bleed art,
+  // leftover template elements — very common in real imported decks) never
+  // shows. This thumbnail's own bbox-UNION viewBox (below) has no such
+  // clipping concept: a single off-slide object silently blows the union out
+  // far past the actual slide, shrinking every real on-slide object down to
+  // a tiny cluster in one corner of the card — "everything looks the wrong
+  // size/position" in the thumbnail despite the real editor rendering fine.
+  const isSlide = kind === 'pptx'
+
   const viewBox = useMemo(() => {
+    if (isSlide) return '0 0 960 540'
     if (!page) return '0 0 100 100'
     const objs = Object.values(page.objects)
     if (objs.length === 0) return '0 0 100 100'
@@ -179,7 +191,7 @@ export function PageThumbnail({ pageId, className }: Props) {
     const padX = (maxX - minX) * 0.08
     const padY = (maxY - minY) * 0.08
     return `${minX - padX} ${minY - padY} ${maxX - minX + padX * 2} ${maxY - minY + padY * 2}`
-  }, [page])
+  }, [page, isSlide])
 
   if (!page || Object.keys(page.objects).length === 0) {
     // Empty state — the page exists, it just has nothing on it (yet).
