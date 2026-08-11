@@ -34,13 +34,14 @@ import { uid, type SceneObject } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PenSettings } from './pen-settings'
+import { PRST_POLYGON_POINTS } from '@/lib/store/pptx-import'
 
 const PRIMARY_TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
   { tool: 'pen', icon: Pen, label: 'Pen', key: 'P' },
   { tool: 'shaper', icon: Spline, label: 'Shaper', key: 'S' },
   { tool: 'eraser', icon: Eraser, label: 'Eraser', key: 'E' },
-  { tool: 'connector', icon: Waypoints, label: 'Connector', key: 'C' },
+  { tool: 'connector', icon: Waypoints, label: 'Connector', key: 'X' },
   { tool: 'text', icon: Type, label: 'Text', key: 'T' },
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
@@ -80,6 +81,16 @@ const OvalIcon = () => (
   </svg>
 )
 
+/** Icon for a fixed-point shape (unit-space 0-1 points from PRST_POLYGON_POINTS). */
+function PointsIcon({ points }: { points: number[][] }) {
+  const pts = points.map(([x, y]) => `${(x * 20 + 2).toFixed(2)},${(y * 20 + 2).toFixed(2)}`).join(' ')
+  return (
+    <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth={2}>
+      <polygon points={pts} strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'line', label: 'Line / Beam', icon: <Minus className="h-4 w-4" /> },
   { id: 'circle', label: 'Circle', icon: <Circle className="h-4 w-4" /> },
@@ -87,10 +98,19 @@ const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [
   { id: 'square', label: 'Square', icon: <Square className="h-4 w-4" /> },
   { id: 'rect', label: 'Rectangle', icon: <RectIcon /> },
   { id: 'triangle', label: 'Triangle', icon: <NgonIcon n={3} /> },
+  { id: 'rtTriangle', label: 'Right Triangle', icon: <PointsIcon points={PRST_POLYGON_POINTS.rtTriangle} /> },
+  { id: 'diamond', label: 'Diamond', icon: <PointsIcon points={PRST_POLYGON_POINTS.diamond} /> },
+  { id: 'parallelogram', label: 'Parallelogram', icon: <PointsIcon points={PRST_POLYGON_POINTS.parallelogram} /> },
+  { id: 'trapezoid', label: 'Trapezoid', icon: <PointsIcon points={PRST_POLYGON_POINTS.trapezoid} /> },
   { id: 'pentagon', label: 'Pentagon', icon: <NgonIcon n={5} /> },
   { id: 'hexagon', label: 'Hexagon', icon: <NgonIcon n={6} /> },
   { id: 'heptagon', label: 'Heptagon', icon: <NgonIcon n={7} /> },
   { id: 'octagon', label: 'Octagon', icon: <NgonIcon n={8} /> },
+  { id: 'star5', label: 'Star', icon: <PointsIcon points={PRST_POLYGON_POINTS.star5} /> },
+  { id: 'rightArrow', label: 'Right Arrow', icon: <PointsIcon points={PRST_POLYGON_POINTS.rightArrow} /> },
+  { id: 'leftArrow', label: 'Left Arrow', icon: <PointsIcon points={PRST_POLYGON_POINTS.leftArrow} /> },
+  { id: 'upArrow', label: 'Up Arrow', icon: <PointsIcon points={PRST_POLYGON_POINTS.upArrow} /> },
+  { id: 'downArrow', label: 'Down Arrow', icon: <PointsIcon points={PRST_POLYGON_POINTS.downArrow} /> },
 ]
 
 /** SVG Sector Path generator */

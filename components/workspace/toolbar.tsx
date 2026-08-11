@@ -68,7 +68,7 @@ const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; la
   { tool: 'pen', icon: Pen, label: 'Pen — ink stays as drawn', key: 'P' },
   { tool: 'shaper', icon: Spline, label: 'Shaper — 90° elbowed lines, like Shift+pen', key: 'S' },
   { tool: 'eraser', icon: Eraser, label: 'Eraser — drag over ink to remove it', key: 'E' },
-  { tool: 'connector', icon: Waypoints, label: 'Connector — snaps to shapes, stays attached', key: 'C' },
+  { tool: 'connector', icon: Waypoints, label: 'Connector — snaps to shapes, stays attached', key: 'X' },
   { tool: 'text', icon: Type, label: 'Text', key: 'T' },
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },

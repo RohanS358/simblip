@@ -38,6 +38,7 @@ export const ACTIONS: ShortcutAction[] = [
   { id: 'tool.eraser', label: 'Eraser', group: 'Tools', default: { key: 'e', mods: [] }, when: 'while-editing' },
   { id: 'tool.circle', label: 'Circle', group: 'Tools', default: { key: 'c', mods: [] } },
   { id: 'tool.line', label: 'Line', group: 'Tools', default: { key: 'l', mods: [] } },
+  { id: 'tool.connector', label: 'Connector', group: 'Tools', default: { key: 'x', mods: [] } },
   { id: 'tool.text', label: 'Text', group: 'Tools', default: { key: 't', mods: [] } },
   { id: 'tool.note', label: 'Note', group: 'Tools', default: { key: 'n', mods: [] } },
   { id: 'tool.formula', label: 'Formula', group: 'Tools', default: { key: 'f', mods: [] } },
