@@ -36,9 +36,12 @@ export async function GET(req: Request, { params }: Params) {
     const unregister = registerSocket(local)
 
     ws.on('message', (data: WebSocketData) => {
-      void handleMessage(sessionId, auth.as, local, data).catch((err) => {
-        console.error('board-live message error', err)
-      })
+      const t0 = Date.now()
+      void handleMessage(sessionId, auth.as, local, data)
+        .then(() => console.log('[board-live] handleMessage', Date.now() - t0, 'ms'))
+        .catch((err) => {
+          console.error('board-live message error', err)
+        })
     })
     ws.on('close', unregister)
     ws.on('error', unregister)

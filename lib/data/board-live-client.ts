@@ -61,7 +61,10 @@ export function connectBoardLive(
   }
 
   const send = (msg: BoardLiveClientMsg) => {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg))
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      console.log('[board-live] send', msg.type, Date.now())
+      ws.send(JSON.stringify(msg))
+    }
   }
 
   const scheduleReconnect = () => {
@@ -94,7 +97,9 @@ export function connectBoardLive(
     }
     socket.onmessage = (e) => {
       try {
-        onEvent(JSON.parse(e.data as string) as BoardLiveServerMsg)
+        const evt = JSON.parse(e.data as string) as BoardLiveServerMsg
+        console.log('[board-live] recv', evt.type, Date.now())
+        onEvent(evt)
       } catch {
         /* malformed frame — ignore */
       }

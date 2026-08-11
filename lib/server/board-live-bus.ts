@@ -101,7 +101,9 @@ async function ensureSubscribed(): Promise<void> {
  *  obj-patch/bundle payloads always go out as-is. */
 export async function publish(sessionId: string, evt: BoardLiveServerMsg, exclude?: LocalSocket): Promise<void> {
   fanOutLocal(sessionId, evt, exclude)
+  const t0 = Date.now()
   await getRedisPub().publish(CHANNEL, JSON.stringify({ sessionId, evt }))
+  console.log('[board-live] redis publish', Date.now() - t0, 'ms')
 }
 
 /** Call once per WS connection before registering the socket, so the
