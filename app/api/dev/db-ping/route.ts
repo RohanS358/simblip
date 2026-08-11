@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
 import net from 'node:net'
+import { Client } from 'pg'
 
 // One-off diagnostic: raw TCP connect timing to DATABASE_URL's host:port,
-// measured from inside a real deployed function — tells us whether the
-// cPanel Postgres timeouts are a network-level block (port never opens)
-// or something further up the stack (TCP connects fine, pg auth/handshake
-// is what's slow). Delete this route once the board-live latency issue
-// is resolved; it has no auth and shouldn't linger in production.
+// PLUS an actual pg client login attempt — measured from inside a real
+// deployed function. Raw TCP tells us if the network path is open; the pg
+// login tells us Postgres's own rejection reason (pg_hba.conf entry
+// missing, SSL required, auth failure, etc.) instead of a generic timeout.
+// Delete this route once the board-live latency issue is resolved; it has
+// no auth and shouldn't linger in production.
 export async function GET() {
   const url = process.env.DATABASE_URL
   if (!url) {
@@ -40,5 +42,22 @@ export async function GET() {
     })
   })
 
-  return NextResponse.json({ host, port, ...result })
+  const t1 = Date.now()
+  const login = await (async () => {
+    const client = new Client({
+      connectionString: url,
+      connectionTimeoutMillis: 8000,
+      ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : undefined,
+    })
+    try {
+      await client.connect()
+      await client.query('select 1')
+      await client.end()
+      return { ok: true, ms: Date.now() - t1 }
+    } catch (err) {
+      return { ok: false, ms: Date.now() - t1, error: err instanceof Error ? err.message : String(err) }
+    }
+  })()
+
+  return NextResponse.json({ host, port, tcp: result, pgLogin: login })
 }
