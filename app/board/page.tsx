@@ -686,14 +686,7 @@ function BoardSurface() {
               >
                 <GraduationCap className="h-4 w-4" />
               </button>
-              <button
-                type="button"
-                aria-label="Toggle theme"
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-              >
-                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
+              
 
               <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
             </div>
@@ -786,14 +779,6 @@ function BoardSurface() {
             )}
             <div className="flex-1" />
             <div className="relative z-10 flex shrink-0 items-center gap-2 bg-background">
-              <button
-                type="button"
-                aria-label="Toggle theme"
-                className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-                onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-              >
-                {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-              </button>
               <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
             </div>
           </header>

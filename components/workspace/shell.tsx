@@ -33,6 +33,7 @@ import { ProfileMenu } from './profile-menu'
 import { createGeometry, componentById } from '@/lib/scene/factory'
 import { str, num } from '@/lib/scene/types'
 import { Kbd } from '@/components/ui/kbd'
+import { matchesCombo, resolveCombo } from '@/lib/keymap'
 import { cn } from '@/lib/utils'
 import { FileObject } from '@/components/objects/file-view'
 
@@ -441,14 +442,14 @@ export function WorkspaceShell() {
     const isTyping = (t: EventTarget | null) =>
       t instanceof HTMLElement && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      if (matchesCombo(e, resolveCombo('view.search'))) {
         e.preventDefault()
         setCommandOpen((o) => !o)
         return
       }
-      if (e.key === '?' && !isTyping(e.target)) {
+      if (matchesCombo(e, resolveCombo('view.shortcuts')) && !isTyping(e.target)) {
         e.preventDefault()
-        setSettingsTab('shortcuts')
+        setSettingsTab('hotkeys')
         setSettingsOpen(true)
       }
     }
@@ -570,14 +571,7 @@ export function WorkspaceShell() {
           >
             <GraduationCap className="h-4 w-4" />
           </button>
-          <button
-            type="button"
-            aria-label="Toggle theme"
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-          >
-            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
+          
           
           <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
         </div>

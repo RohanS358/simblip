@@ -174,7 +174,21 @@ export default async function RootLayout({
           enableSystem
           disableTransitionOnChange
           nonce={nonce}
-          themes={['light', 'sepia', 'lily', 'dark', 'dim', 'midnight', 'contrast', 'system']}
+          themes={[
+            'light',
+            'sepia',
+            'lily',
+            'solarized',
+            'sea',
+            'im-just-a-girl',
+            'dark',
+            'dim',
+            'midnight',
+            'contrast',
+            'mountains',
+            'diva',
+            'system',
+          ]}
         >
           {children}
           <Toaster position="bottom-right" />

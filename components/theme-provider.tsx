@@ -16,14 +16,19 @@ export const APP_THEMES = [
   { id: 'light', label: 'Light', dark: false },
   { id: 'sepia', label: 'Sepia', dark: false },
   { id: 'lily', label: 'Lily', dark: false },
+  { id: 'solarized', label: 'Solarized', dark: false },
+  { id: 'sea', label: 'Sea', dark: false },
+  { id: 'im-just-a-girl', label: "I'm Just a Girl", dark: false },
   { id: 'dark', label: 'Dark', dark: true },
   { id: 'dim', label: 'Dim', dark: true },
   { id: 'midnight', label: 'Midnight', dark: true },
   { id: 'contrast', label: 'Contrast', dark: true },
+  { id: 'mountains', label: 'Mountains', dark: true },
+  { id: 'diva', label: 'Diva', dark: true },
   { id: 'system', label: 'System', dark: false },
 ] as const
 
-const DARK_FAMILY = new Set(['dark', 'dim', 'midnight', 'contrast'])
+const DARK_FAMILY = new Set(['dark', 'dim', 'midnight', 'contrast', 'mountains', 'diva'])
 
 // True for any dark-family theme — the canvas, icons and quick toggles must
 // treat Dim, Midnight and Contrast exactly like Dark.
@@ -37,10 +42,12 @@ export function isDarkTheme(theme: string | undefined): boolean {
 // assignments and the presenter all wear the same tint.
 function AccentApplier() {
   const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
+  const customAccent = usePrefs((s) => s.appearance.customAccent) ?? '#3b82f6'
   React.useEffect(() => {
     if (accent === 'blue') document.documentElement.style.removeProperty('--accent-blue')
+    else if (accent === 'custom') document.documentElement.style.setProperty('--accent-blue', customAccent)
     else document.documentElement.style.setProperty('--accent-blue', `var(--accent-${accent})`)
-  }, [accent])
+  }, [accent, customAccent])
   return null
 }
 

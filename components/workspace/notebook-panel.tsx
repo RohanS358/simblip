@@ -9,11 +9,12 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { BarChart3, ChevronDown, ClipboardList, Share2 } from 'lucide-react'
+import { BarChart3, ChevronDown, ClipboardList, Plus, Share2 } from 'lucide-react'
 import { NotebookTree } from './notebook-tree'
 import { AssignmentsPanel } from './assignments-panel'
 import { SharedPanel } from './shared-panel'
 import { cn } from '@/lib/utils'
+import { useWorkspaceStore } from '@/lib/store/workspace'
 
 type SectionId = 'notebooks' | 'assignments' | 'shared'
 
@@ -36,6 +37,7 @@ function Section({
   icon: Icon,
   open,
   onToggle,
+  action,
   children,
 }: {
   id: SectionId
@@ -43,21 +45,21 @@ function Section({
   icon: typeof ClipboardList
   open: boolean
   onToggle: (id: SectionId) => void
+  action?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
     <div className={cn('flex min-h-0 flex-col border-b border-border/40 last:border-b-0', open && 'flex-1')}>
-      <button
-        type="button"
-        className="flex shrink-0 items-center gap-1.5 px-3.5 py-2 text-left"
-        onClick={() => onToggle(id)}
-      >
-        <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', !open && '-rotate-90')} />
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-          {label}
-        </span>
-      </button>
+      <div className="flex shrink-0 items-center gap-1.5 px-3.5 py-2">
+        <button type="button" className="flex flex-1 items-center gap-1.5 text-left" onClick={() => onToggle(id)}>
+          <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', !open && '-rotate-90')} />
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            {label}
+          </span>
+        </button>
+        {action}
+      </div>
       {open && <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar">{children}</div>}
     </div>
   )
@@ -76,17 +78,49 @@ export function NotebookPanel() {
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Section id="notebooks" label="Notebooks" icon={ClipboardList} open={!collapsed.notebooks} onToggle={toggle}>
+      <Section
+        id="notebooks"
+        label="Notebooks"
+        icon={ClipboardList}
+        open={!collapsed.notebooks}
+        onToggle={toggle}
+        action={
+          <button
+            type="button"
+            title="New notebook"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={(e) => {
+              e.stopPropagation()
+              const store = useWorkspaceStore
+              const id = store.getState().addNotebook()
+              const sec = store.getState().addFolder('Section 1', id)
+              store.getState().addPageIn(sec, 'Page 1')
+            }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </button>
+        }
+      >
         <NotebookTree />
       </Section>
-      <Section id="assignments" label="Assignments" icon={ClipboardList} open={!collapsed.assignments} onToggle={toggle}>
-        <div className="px-1">
+      <Section
+        id="assignments"
+        label="Assignments"
+        icon={ClipboardList}
+        open={!collapsed.assignments}
+        onToggle={toggle}
+        action={
           <Link
             href="/assignments/insights"
-            className="mb-1 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            title="Insights"
+            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            onClick={(e) => e.stopPropagation()}
           >
-            <BarChart3 className="h-3.5 w-3.5" /> Insights
+            <BarChart3 className="h-3.5 w-3.5" />
           </Link>
+        }
+      >
+        <div className="px-1">
           <AssignmentsPanel compact />
         </div>
       </Section>

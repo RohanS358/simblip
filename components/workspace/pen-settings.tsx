@@ -203,6 +203,7 @@ export function PenSettings() {
             label="Add custom colour"
             size="md"
             initial={pen.color}
+            onChange={(c) => setPen({ color: c })}
             onCommit={(c) =>
               setPen({
                 color: c,

@@ -3,7 +3,7 @@
 // Settings: profile, appearance, dock, notebook & simulation preferences,
 // keyboard shortcuts and about. Styled after Obsidian's clean settings window.
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useTheme } from 'next-themes'
 import { APP_THEMES } from '@/components/theme-provider'
@@ -11,6 +11,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import { useDocStore } from '@/lib/store/document'
 import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // Stable empty reference — returning a fresh `{}` from a Zustand selector on
 // every render trips useSyncExternalStore's identity check and crashes the
@@ -33,6 +34,7 @@ import {
   Edit3,
   Files,
   Keyboard,
+  Hand,
   Calculator,
   HelpCircle,
   Activity,
@@ -40,6 +42,7 @@ import {
   RotateCcw,
   ChevronRight,
   ChevronLeft,
+  Plus,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { BackupSettings } from './backup-settings'
@@ -48,6 +51,7 @@ import {
   usePrefs,
   DEFAULT_NOTEBOOK,
   DEFAULT_MATH,
+  DEFAULT_GESTURES,
   type GridType,
   type ScrollAxis,
   type DockSide,
@@ -66,7 +70,7 @@ import { fmtNum } from '@/lib/scene/format'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Kbd } from '@/components/ui/kbd'
-import { SHORTCUTS, SHORTCUT_GROUPS } from '@/lib/shortcuts'
+import { ACTIONS, SHORTCUT_GROUPS, resolveCombo, comboLabel, comboFromEvent, findCollision } from '@/lib/keymap'
 
 function DockSettings() {
   const dock = usePrefs((s) => s.dock)
@@ -436,12 +440,17 @@ function InterfaceSettings() {
 
 const THEME_SWATCH: Record<(typeof APP_THEMES)[number]['id'], string> = {
   light: 'oklch(0.982 0.003 95)',
-  sepia: 'oklch(0.955 0.02 88)',
+  sepia: 'linear-gradient(135deg, oklch(0.97 0.014 90) 0%, oklch(0.725 0.137 51.2) 100%)',
   lily: 'linear-gradient(135deg, oklch(0.9 0.05 15) 0%, oklch(0.88 0.06 45) 100%)',
+  solarized: 'linear-gradient(135deg, oklch(0.974 0.026 90.1) 0%, oklch(0.615 0.139 244.9) 100%)',
+  sea: 'linear-gradient(135deg, oklch(0.964 0.023 61.2) 0%, oklch(0.522 0.089 194.8) 100%)',
+  'im-just-a-girl': 'linear-gradient(135deg, oklch(0.975 0.016 340) 0%, oklch(0.68 0.15 335) 100%)',
   dark: 'oklch(0.17 0.01 270)',
   dim: 'oklch(0.245 0.016 265)',
   midnight: 'oklch(0.13 0.008 270)',
   contrast: 'oklch(0.05 0 0)',
+  mountains: 'linear-gradient(135deg, oklch(0.22 0.014 190) 0%, oklch(0.68 0.09 155) 100%)',
+  diva: 'linear-gradient(135deg, oklch(0.13 0 0) 0%, oklch(0.624 0.174 1.1) 100%)',
   system: 'linear-gradient(135deg, oklch(0.982 0.003 95) 50%, oklch(0.17 0.01 270) 50%)',
 }
 
@@ -450,6 +459,7 @@ function AppearanceSettings() {
   const motion = usePrefs((s) => s.appearance.motion)
   const focusOnEdit = usePrefs((s) => s.appearance.focusOnEdit)
   const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
+  const customAccent = usePrefs((s) => s.appearance.customAccent) ?? '#3b82f6'
   const setAppearance = usePrefs((s) => s.setAppearance)
 
   const ACCENTS: { id: AccentName; label: string }[] = [
@@ -463,32 +473,37 @@ function AppearanceSettings() {
   return (
     <div className="space-y-4">
       <SettingCard title="Theme & Color Scheme">
-        <ObsidianPrefRow
-          label="App Theme"
-          detail="Choose a workspace theme suited for light, dark, OLED or high contrast environments."
-        >
-          <div className="flex flex-wrap gap-1.5 max-w-full sm:max-w-md md:max-w-lg justify-start sm:justify-end">
-            {APP_THEMES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTheme(t.id)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-all shrink-0',
-                  theme === t.id
-                    ? 'border-foreground bg-accent text-foreground shadow-xs font-semibold'
-                    : 'border-border bg-background/80 text-muted-foreground hover:text-foreground hover:bg-accent/50'
+        <ObsidianPrefRow label="App Theme">
+          <Select value={theme} onValueChange={(v) => setTheme(v)}>
+            <SelectTrigger size="sm" className="w-40">
+              <SelectValue>
+                {theme && (
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="h-3 w-3 rounded-full border border-border/80 shrink-0"
+                      style={{ background: THEME_SWATCH[theme as keyof typeof THEME_SWATCH] }}
+                    />
+                    {APP_THEMES.find((t) => t.id === theme)?.label}
+                  </span>
                 )}
-              >
-                <span
-                  aria-hidden
-                  className="h-3 w-3 rounded-full border border-border/80 shrink-0"
-                  style={{ background: THEME_SWATCH[t.id] }}
-                />
-                {t.label}
-              </button>
-            ))}
-          </div>
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {APP_THEMES.map((t) => (
+                <SelectItem key={t.id} value={t.id}>
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      aria-hidden
+                      className="h-3 w-3 rounded-full border border-border/80 shrink-0"
+                      style={{ background: THEME_SWATCH[t.id] }}
+                    />
+                    {t.label}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </ObsidianPrefRow>
 
         <ObsidianPrefRow
@@ -512,6 +527,31 @@ function AppearanceSettings() {
                 {accent === a.id && <Check className="h-3.5 w-3.5 text-white" />}
               </button>
             ))}
+
+            <label
+              aria-label="Custom tint"
+              className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 ease-out active:scale-95"
+              style={{
+                background:
+                  accent === 'custom'
+                    ? customAccent
+                    : 'conic-gradient(from 0deg, red, yellow, lime, cyan, blue, magenta, red)',
+                boxShadow: accent === 'custom' ? '0 0 0 2px var(--background), 0 0 0 4px currentColor' : undefined,
+                color: customAccent,
+              }}
+            >
+              {accent === 'custom' ? (
+                <Check className="h-3.5 w-3.5 text-white" />
+              ) : (
+                <Plus className="h-3.5 w-3.5 text-white drop-shadow" />
+              )}
+              <input
+                type="color"
+                value={customAccent}
+                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                onChange={(e) => setAppearance({ accent: 'custom', customAccent: e.target.value })}
+              />
+            </label>
           </div>
         </ObsidianPrefRow>
       </SettingCard>
@@ -647,6 +687,166 @@ function MathSettings() {
   )
 }
 
+function HotkeyRow({ actionId, label, when }: { actionId: string; label: string; when?: string }) {
+  const overrides = usePrefs((s) => s.hotkeys.overrides)
+  const setHotkeys = usePrefs((s) => s.setHotkeys)
+  const [listening, setListening] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const combo = resolveCombo(actionId)
+  const hasOverride = actionId in overrides
+
+  useEffect(() => {
+    if (!listening) return
+    const onKey = (e: KeyboardEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      if (e.key === 'Escape') {
+        setListening(false)
+        return
+      }
+      // Ignore bare modifier presses — wait for the actual key.
+      if (['Control', 'Meta', 'Shift', 'Alt'].includes(e.key)) return
+      const next = comboFromEvent(e)
+      const collision = findCollision(next, actionId)
+      if (collision) {
+        setError(`Already used by ${collision.label}`)
+        return
+      }
+      setHotkeys({ overrides: { ...overrides, [actionId]: next } })
+      setListening(false)
+      setError(null)
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [listening, actionId, overrides, setHotkeys])
+
+  return (
+    <ObsidianPrefRow
+      label={label}
+      detail={
+        when === 'while-editing' ? 'Only while editing' :
+        when === 'while-paused' ? 'Only while paused' :
+        when === 'while-running-or-paused' ? 'Only once a run exists' :
+        undefined
+      }
+      action={
+        <div className="flex items-center gap-1.5">
+          {error && <span className="text-[0.6875rem] text-destructive">{error}</span>}
+          <button
+            type="button"
+            onClick={() => {
+              setError(null)
+              setListening(true)
+            }}
+            className="rounded-sm"
+          >
+            <Kbd className={listening ? 'ring-2 ring-ring' : undefined}>
+              {listening ? 'Press a key…' : comboLabel(combo)}
+            </Kbd>
+          </button>
+          {hasOverride && (
+            <button
+              type="button"
+              aria-label={`Reset ${label} to default`}
+              className="text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                const next = { ...overrides }
+                delete next[actionId]
+                setHotkeys({ overrides: next })
+              }}
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      }
+    />
+  )
+}
+
+function GestureSettings() {
+  const gestures = usePrefs((s) => s.gestures)
+  const setGestures = usePrefs((s) => s.setGestures)
+
+  return (
+    <div className="space-y-4">
+      <SettingCard title="Pinch & Touch Feel">
+        <ObsidianPrefRow
+          label="Pinch Sensitivity"
+          detail={`How strongly a pinch gesture zooms. ${gestures.pinchSensitivity.toFixed(2)}× (default 1.00×).`}
+        >
+          <div className="w-40 sm:w-56 md:w-64">
+            <Slider
+              aria-label="Pinch sensitivity"
+              value={[gestures.pinchSensitivity]}
+              min={0.5}
+              max={2}
+              step={0.05}
+              onValueChange={([v]) => setGestures({ pinchSensitivity: v })}
+            />
+          </div>
+        </ObsidianPrefRow>
+
+        <ObsidianPrefRow
+          label="Hold Before Drag"
+          detail={`Delay before a touch-and-hold starts moving an object, so a quick swipe can still scroll. ${gestures.holdBeforeDragMs}ms (default 150ms).`}
+        >
+          <div className="w-40 sm:w-56 md:w-64">
+            <Slider
+              aria-label="Hold before drag"
+              value={[gestures.holdBeforeDragMs]}
+              min={50}
+              max={500}
+              step={10}
+              onValueChange={([v]) => setGestures({ holdBeforeDragMs: v })}
+            />
+          </div>
+        </ObsidianPrefRow>
+
+        <ObsidianPrefRow
+          label="Tap vs. Drag Distance"
+          detail={`How far a touch must travel to count as a swipe instead of a drag. ${gestures.tapVsDragPx}px (default 8px).`}
+        >
+          <div className="w-40 sm:w-56 md:w-64">
+            <Slider
+              aria-label="Tap vs drag distance"
+              value={[gestures.tapVsDragPx]}
+              min={2}
+              max={24}
+              step={1}
+              onValueChange={([v]) => setGestures({ tapVsDragPx: v })}
+            />
+          </div>
+        </ObsidianPrefRow>
+
+        <ObsidianPrefRow
+          label="Palm Rejection Radius"
+          detail={`Touch contact size above which it's ignored as a resting palm instead of a fingertip. ${gestures.palmRejectRadiusPx}px (default 20px, 0 disables).`}
+        >
+          <div className="w-40 sm:w-56 md:w-64">
+            <Slider
+              aria-label="Palm rejection radius"
+              value={[gestures.palmRejectRadiusPx]}
+              min={0}
+              max={60}
+              step={2}
+              onValueChange={([v]) => setGestures({ palmRejectRadiusPx: v })}
+            />
+          </div>
+        </ObsidianPrefRow>
+      </SettingCard>
+
+      <button
+        type="button"
+        className="text-[0.75rem] font-medium text-muted-foreground hover:text-foreground"
+        onClick={() => usePrefs.getState().setGestures({ ...DEFAULT_GESTURES })}
+      >
+        Reset to defaults
+      </button>
+    </div>
+  )
+}
+
 function PackagesSettings() {
   const packages = usePrefs((s) => s.packages ?? EMPTY_PACKAGES)
   const setPackage = usePrefs((s) => s.setPackage)
@@ -683,6 +883,7 @@ type TabId =
   | 'editor'
   | 'files'
   | 'hotkeys'
+  | 'gestures'
   | 'math'
   | 'packages'
   | 'pen'
@@ -705,6 +906,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'editor', label: 'Editor', detail: 'Grid, pages', icon: Edit3, category: 'options' },
   { id: 'files', label: 'Files and links', detail: 'Backup, device sync', icon: Files, category: 'options' },
   { id: 'hotkeys', label: 'Hotkeys', detail: 'Keyboard shortcuts', icon: Keyboard, category: 'options' },
+  { id: 'gestures', label: 'Gestures', detail: 'Pinch, hold & drag feel', icon: Hand, category: 'options' },
   { id: 'math', label: 'Math', detail: 'Angle unit, notation', icon: Calculator, category: 'options' },
   { id: 'packages', label: 'Packages', detail: 'Optional components', icon: Package, category: 'options' },
   { id: 'pen', label: 'Pen feel', detail: 'Stylus & pressure', icon: Edit3, category: 'tools' },
@@ -1008,17 +1210,22 @@ export function SettingsDialog({
               <div className="space-y-4">
                 {SHORTCUT_GROUPS.map((group) => (
                   <SettingCard key={group} title={group}>
-                    {SHORTCUTS.filter((s) => s.group === group).map((s, i) => (
-                      <ObsidianPrefRow
-                        key={`${s.keys}-${i}`}
-                        label={s.label}
-                        action={<Kbd>{s.keys}</Kbd>}
-                      />
+                    {ACTIONS.filter((a) => a.group === group).map((a) => (
+                      <HotkeyRow key={a.id} actionId={a.id} label={a.label} when={a.when} />
                     ))}
                   </SettingCard>
                 ))}
+                <button
+                  type="button"
+                  className="text-[0.75rem] font-medium text-muted-foreground hover:text-foreground"
+                  onClick={() => usePrefs.getState().setHotkeys({ overrides: {} })}
+                >
+                  Reset all to defaults
+                </button>
               </div>
             )}
+
+            {activeTab === 'gestures' && <GestureSettings />}
 
             {activeTab === 'simulation' && (
               <div className="space-y-4">

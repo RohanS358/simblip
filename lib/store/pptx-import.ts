@@ -550,7 +550,7 @@ function shapeFillAndBorder(
 
 /** Unit-bbox point sets (0-1 range, scaled by box w/h at call site) for the
  *  polygon prst shapes geometryKindOf recognizes. */
-const PRST_POLYGON_POINTS: Record<string, number[][]> = {
+export const PRST_POLYGON_POINTS: Record<string, number[][]> = {
   triangle: [[0.5, 0], [1, 1], [0, 1]],
   rtTriangle: [[0, 0], [0, 1], [1, 1]],
   diamond: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]],

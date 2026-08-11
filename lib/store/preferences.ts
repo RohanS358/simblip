@@ -66,7 +66,7 @@ export interface NotebookPrefs {
 export type MotionStyle = 'bouncy' | 'smooth' | 'none'
 
 /** UI tint — resolves to the matching --accent-* variable per theme. */
-export type AccentName = 'blue' | 'violet' | 'mint' | 'amber' | 'rose'
+export type AccentName = 'blue' | 'violet' | 'mint' | 'amber' | 'rose' | 'custom'
 
 export interface AppearancePrefs {
   motion: MotionStyle
@@ -75,9 +75,48 @@ export interface AppearancePrefs {
   focusOnEdit: boolean
   /** The interface tint: selection, buttons, active states. */
   accent: AccentName
+  /** Hex color used when accent === 'custom'. */
+  customAccent: string
 }
 
-export const DEFAULT_APPEARANCE: AppearancePrefs = { motion: 'bouncy', focusOnEdit: true, accent: 'blue' }
+export const DEFAULT_APPEARANCE: AppearancePrefs = {
+  motion: 'bouncy',
+  focusOnEdit: true,
+  accent: 'blue',
+  customAccent: '#3b82f6',
+}
+
+import type { KeyCombo } from '../keymap'
+
+export interface HotkeyPrefs {
+  /** action id -> rebound combo. Absent = use the action's default. */
+  overrides: Record<string, KeyCombo>
+}
+
+export const DEFAULT_HOTKEYS: HotkeyPrefs = { overrides: {} }
+
+export interface GesturePrefs {
+  /** Multiplier applied to every pinch-zoom ratio (pointer, ctrl+wheel,
+   *  Safari gesturechange alike). 1 = unchanged. Range 0.5-2. */
+  pinchSensitivity: number
+  /** Touch object-drag commit delay in ms before a touch-and-hold starts
+   *  moving an object (see canvas.tsx DRAG_HOLD_MS). Range 50-500. */
+  holdBeforeDragMs: number
+  /** Distance in px a touch must travel to be treated as a swipe/scroll
+   *  instead of a drag (see canvas.tsx DRAG_HOLD_STILL_PX). Range 2-24. */
+  tapVsDragPx: number
+  /** Touch contact radius in px above which a touch point is rejected as a
+   *  palm instead of a finger (see hooks/use-pinch-zoom.ts PALM_RADIUS).
+   *  Range 0-60; 0 disables palm rejection. */
+  palmRejectRadiusPx: number
+}
+
+export const DEFAULT_GESTURES: GesturePrefs = {
+  pinchSensitivity: 1,
+  holdBeforeDragMs: 150,
+  tapVsDragPx: 8,
+  palmRejectRadiusPx: 20,
+}
 
 export type AngleUnit = 'deg' | 'rad'
 export type NumberStyle = 'auto' | 'fixed' | 'sci' | 'eng'
@@ -153,12 +192,16 @@ export interface PrefsState {
   dock: DockPrefs
   math: MathPrefs
   appearance: AppearancePrefs
+  hotkeys: HotkeyPrefs
+  gestures: GesturePrefs
   packages: Record<string, boolean>
   setPen: (p: Partial<PenPrefs>) => void
   setNotebook: (p: Partial<NotebookPrefs>) => void
   setDock: (p: Partial<DockPrefs>) => void
   setMath: (p: Partial<MathPrefs>) => void
   setAppearance: (p: Partial<AppearancePrefs>) => void
+  setHotkeys: (p: Partial<HotkeyPrefs>) => void
+  setGestures: (p: Partial<GesturePrefs>) => void
   setPackage: (id: string, enabled: boolean) => void
   reset: () => void
 }
@@ -225,6 +268,8 @@ export const usePrefs = create<PrefsState>()(
       dock: { ...DEFAULT_DOCK_PREFS },
       math: { ...DEFAULT_MATH },
       appearance: { ...DEFAULT_APPEARANCE },
+      hotkeys: { ...DEFAULT_HOTKEYS },
+      gestures: { ...DEFAULT_GESTURES },
       packages: { ...DEFAULT_PACKAGES },
       setPen: (p) =>
         set((s) => ({
@@ -251,6 +296,8 @@ export const usePrefs = create<PrefsState>()(
         }),
       setMath: (p) => set((s) => ({ math: { ...s.math, ...p } })),
       setAppearance: (p) => set((s) => ({ appearance: { ...s.appearance, ...p } })),
+      setHotkeys: (p) => set((s) => ({ hotkeys: { ...s.hotkeys, ...p } })),
+      setGestures: (p) => set((s) => ({ gestures: { ...s.gestures, ...p } })),
       setPackage: (id, enabled) =>
         set((s) => ({
           packages: {
@@ -266,12 +313,14 @@ export const usePrefs = create<PrefsState>()(
           dock: { ...DEFAULT_DOCK_PREFS },
           math: { ...DEFAULT_MATH },
           appearance: { ...DEFAULT_APPEARANCE },
+          hotkeys: { ...DEFAULT_HOTKEYS },
+          gestures: { ...DEFAULT_GESTURES },
           packages: { ...DEFAULT_PACKAGES },
         }),
     }),
     {
       name: 'simblip-preferences', // device-wide, not per user
-      version: 3,
+      version: 4,
       // Sanitise whatever localStorage hands back
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Record<string, unknown>
@@ -306,6 +355,23 @@ export const usePrefs = create<PrefsState>()(
           fixedSide: initialFixedSide,
         }
 
+        const hotkeys = (s.hotkeys ?? {}) as Record<string, unknown>
+        s.hotkeys = {
+          ...DEFAULT_HOTKEYS,
+          ...hotkeys,
+          overrides: typeof hotkeys.overrides === 'object' && hotkeys.overrides !== null ? hotkeys.overrides : {},
+        }
+
+        const gestures = (s.gestures ?? {}) as Record<string, unknown>
+        s.gestures = {
+          ...DEFAULT_GESTURES,
+          ...gestures,
+          pinchSensitivity: num(gestures.pinchSensitivity, DEFAULT_GESTURES.pinchSensitivity, 0.5, 2),
+          holdBeforeDragMs: num(gestures.holdBeforeDragMs, DEFAULT_GESTURES.holdBeforeDragMs, 50, 500),
+          tapVsDragPx: num(gestures.tapVsDragPx, DEFAULT_GESTURES.tapVsDragPx, 2, 24),
+          palmRejectRadiusPx: num(gestures.palmRejectRadiusPx, DEFAULT_GESTURES.palmRejectRadiusPx, 0, 60),
+        }
+
         return s as unknown as PrefsState
       },
     }
@@ -316,4 +382,5 @@ export const usePrefs = create<PrefsState>()(
 export const penPrefs = (): PenPrefs => usePrefs.getState().pen
 export const mathPrefs = (): MathPrefs => usePrefs.getState().math
 export const dockPrefs = (): DockPrefs => usePrefs.getState().dock
+export const gesturePrefs = (): GesturePrefs => usePrefs.getState().gestures
 

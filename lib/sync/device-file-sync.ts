@@ -78,7 +78,19 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
 
 /** Pull whatever's been pushed to THIS device, then clean up the Blob
  *  copies. Safe to call repeatedly (e.g. every presence tick) — a no-op
- *  once pending_pull is empty. */
+ *  once pending_pull is empty.
+ *
+ *  pending_pull is cleared BEFORE the pull/delete loop runs, not after: this
+ *  used to clear at the end, so a heartbeat tick that threw partway through
+ *  (a flaky DELETE, a dropped connection) left the row's pending_pull
+ *  pointing at ids that were already pulled+deleted. The next tick 15s later
+ *  re-ran the same ids — re-pulling (harmless, already in OPFS) but
+ *  re-issuing a DELETE for an already-deleted Blob object every 15s forever,
+ *  which is what a stuck sync looked like: a spamming DELETE loop that never
+ *  let the tick finish quickly enough for anything else to load. Clearing
+ *  first means a mid-loop failure just drops that one pull for good instead
+ *  of retrying it forever — acceptable, since the source file still exists
+ *  in the sender's own manifest for the next real push. */
 export async function pullPendingFiles(): Promise<number> {
   const profile = useAuthStore.getState().profile
   if (!profile) return 0
@@ -87,6 +99,8 @@ export async function pullPendingFiles(): Promise<number> {
   const [row] = (await res.json()) as { id: string; pending_pull: string[] }[]
   const ids = row?.pending_pull ?? []
   if (ids.length === 0) return 0
+
+  await rest(`simblip_devices?id=eq.${row.id}`, { method: 'PATCH', body: JSON.stringify({ pending_pull: [] }) })
 
   const token = getAccessToken()
   for (const id of ids) {
@@ -102,7 +116,6 @@ export async function pullPendingFiles(): Promise<number> {
       )
     }
   }
-  await rest(`simblip_devices?id=eq.${row.id}`, { method: 'PATCH', body: JSON.stringify({ pending_pull: [] }) })
   return ids.length
 }
 

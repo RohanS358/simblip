@@ -50,7 +50,6 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
           <span className="block text-[0.6875rem] font-normal text-muted-foreground">{profile.email}</span>
           <span className="mt-1 inline-block rounded-md bg-accent px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground">
             {ROLE_LABEL[profile.role]}
-            {institution ? ` · ${institution.name}` : ''}
           </span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />

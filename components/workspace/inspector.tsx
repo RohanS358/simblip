@@ -56,6 +56,7 @@ import { useDocStore, type Viewport } from '@/lib/store/document'
 import { useWorkspaceStore, ownerPageOf, findPageMeta } from '@/lib/store/workspace'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
+import { useImagePalette } from '@/lib/color/use-image-palette'
 import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
@@ -2486,6 +2487,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               <span onPointerDown={snapshotSelection}>
                 <HexColorSwatchPicker
                   label="Custom text color"
+                  onChange={(hex) => setSpan('color', hex)}
                   onCommit={(hex) => {
                     setSpan('color', hex)
                     addSwatch(hex)
@@ -2547,6 +2549,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             <HexColorSwatchPicker
               label="Custom background color"
               size="md"
+              onChange={(hex) => setMeta({ color: hex })}
               onCommit={(hex) => {
                 setMeta({ color: hex })
                 addSwatch(hex)
@@ -2745,7 +2748,6 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
   const hasFill = isShape && kind !== 'line'
   const hasStroke = isShape || isPicture
   const hasCornerRadius = kind === 'rect' || isPicture
-  const hidden = Boolean(object.metadata.hidden)
   const opacity = (object.metadata.opacity as number | undefined) ?? 100
   const fillColor = (object.metadata.fillColor as string | undefined) ?? ''
   const strokeColor = (object.metadata.strokeColor as string | undefined) ?? ''
@@ -2753,6 +2755,7 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
   const cornerRadius = (object.metadata.cornerRadius as number | undefined) ?? 8
   const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, pageId))
   const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
+  const imageSwatches = useImagePalette(pageId)
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
@@ -2777,6 +2780,8 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
           label={`Custom ${label.toLowerCase()}`}
           initial={value || '#000000'}
           documentSwatches={swatches}
+          imageSwatches={imageSwatches}
+          onChange={commit}
           onCommit={(hex) => {
             commit(hex)
             usePageSwatches.getState().add(documentId, hex)
@@ -2794,64 +2799,61 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
     </div>
   )
 
+  /** A labeled numeric field with a unit suffix, matching colorField's label
+   *  treatment above — stroke width and corner radius were previously bare
+   *  <label> rows with no FieldLabel, reading as a different, cheaper control
+   *  than the color swatches right above them. */
+  const unitField = (label: string, ariaLabel: string, value: number, commit: (n: number) => void, unit: string) => (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex items-center gap-1.5">
+        <ExprInput
+          ariaLabel={ariaLabel}
+          value={String(value)}
+          onCommit={(v) => {
+            const n = Number(v)
+            if (Number.isFinite(n) && n >= 0) commit(n)
+          }}
+        />
+        <span className="shrink-0 text-[0.625rem] text-muted-foreground/70">{unit}</span>
+      </div>
+    </div>
+  )
+
   return (
     <OptionCard>
       <SectionTitle>Appearance</SectionTitle>
-      <div className="grid grid-cols-2 gap-1.5">
-        {hasFill && colorField('Fill', fillColor, (hex) => setMeta({ fillColor: hex }), () => setMeta({ fillColor: undefined }))}
-        {hasStroke && colorField('Stroke', strokeColor, (hex) => setMeta({ strokeColor: hex }), () => setMeta({ strokeColor: undefined }))}
-      </div>
-      {hasStroke && (
-        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
-          Stroke width
-          <ExprInput
-            ariaLabel="Stroke width"
-            value={String(strokeWidth)}
-            onCommit={(v) => {
-              const n = Number(v)
-              if (Number.isFinite(n) && n >= 0) setMeta({ strokeWidth: n })
-            }}
+
+      <div className="space-y-3">
+        {(hasFill || hasStroke) && (
+          <div className="grid grid-cols-2 gap-3">
+            {hasFill && colorField('Fill', fillColor, (hex) => setMeta({ fillColor: hex }), () => setMeta({ fillColor: undefined }))}
+            {hasStroke && colorField('Stroke', strokeColor, (hex) => setMeta({ strokeColor: hex }), () => setMeta({ strokeColor: undefined }))}
+          </div>
+        )}
+
+        {(hasStroke || hasCornerRadius) && (
+          <div className="grid grid-cols-2 gap-3">
+            {hasStroke && unitField('Stroke width', 'Stroke width', strokeWidth, (n) => setMeta({ strokeWidth: n }), 'px')}
+            {hasCornerRadius && unitField('Corner radius', 'Corner radius', cornerRadius, (n) => setMeta({ cornerRadius: n }), 'px')}
+          </div>
+        )}
+
+        <div>
+          <div className="mb-1 flex items-center justify-between">
+            <FieldLabel>Opacity</FieldLabel>
+            <span className="text-[0.6875rem] tabular-nums text-muted-foreground">{opacity}%</span>
+          </div>
+          <Slider
+            aria-label="Opacity"
+            value={[opacity]}
+            min={0}
+            max={100}
+            step={1}
+            onValueChange={([v]) => setMeta({ opacity: v })}
           />
-          <span className="shrink-0 text-[0.625rem] opacity-60">px</span>
-        </label>
-      )}
-      {hasCornerRadius && (
-        <label className="flex items-center gap-1.5 text-[0.6875rem] text-muted-foreground">
-          Corner radius
-          <ExprInput
-            ariaLabel="Corner radius"
-            value={String(cornerRadius)}
-            onCommit={(v) => {
-              const n = Number(v)
-              if (Number.isFinite(n) && n >= 0) setMeta({ cornerRadius: n })
-            }}
-          />
-          <span className="shrink-0 text-[0.625rem] opacity-60">px</span>
-        </label>
-      )}
-      <div>
-        <div className="flex items-center justify-between text-[0.6875rem] text-muted-foreground">
-          <span>Opacity</span>
-          <span className="tabular-nums">{opacity}%</span>
         </div>
-        <Slider
-          aria-label="Opacity"
-          value={[opacity]}
-          min={0}
-          max={100}
-          step={1}
-          onValueChange={([v]) => setMeta({ opacity: v })}
-        />
       </div>
-      <button
-        type="button"
-        aria-pressed={hidden}
-        className="flex w-full items-center justify-between rounded-md border border-input bg-background/60 px-2 py-1.5 text-[0.75rem] text-foreground transition-colors hover:bg-accent"
-        onClick={() => setMeta({ hidden: !hidden })}
-      >
-        {hidden ? 'Hidden' : 'Visible'}
-        {hidden ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-      </button>
     </OptionCard>
   )
 }
@@ -3395,6 +3397,7 @@ function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
         <HexColorSwatchPicker
           label="Custom background color"
           size="md"
+          onChange={setValue}
           onCommit={(hex) => {
             setValue(hex)
             addSwatch(hex)

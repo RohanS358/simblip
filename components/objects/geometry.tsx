@@ -11,7 +11,7 @@ import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
-import { getNumber, type ObjectRendererProps } from './types'
+import { getNumber, getString, type ObjectRendererProps } from './types'
 import { pxToCmRounded } from '@/lib/scene/units'
 import {
   traceRays,
@@ -22,6 +22,7 @@ import {
   type ScreenPattern,
 } from '@/lib/optics/engine'
 import { useDocStore } from '@/lib/store/document'
+import { RichTextArea } from './text'
 import { useRuntimeStore, play, pause, stop, stepFrame } from '@/lib/physics/world'
 import { PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { Play, Pause, RotateCcw, SkipForward } from 'lucide-react'
@@ -41,6 +42,45 @@ import {
   type Medium,
 } from '@/lib/waves/engine'
 import { psi, energyLevel, transmissionCoefficient as quantumTransmission } from '@/lib/quantum/engine'
+
+/** Dead-center text label inside a shape (rect/circle/polygon) — same
+ *  RichTextArea every other text-carrying object uses (Note, Text). Not
+ *  mounted at all until there's a reason to be: an untouched shape has zero
+ *  extra DOM, so it never intercepts the shape's own click/drag/resize.
+ *  `active` (true once the shape already carries text, or the wrapper's
+ *  double-click asked for editing) is what mounts it; `autoEdit` only fires
+ *  for the double-click case (no label yet) — a shape that already has text
+ *  just re-mounts showing it, not forced straight into typing. */
+function ShapeTextOverlay({
+  pageId,
+  object,
+  selected,
+  active,
+  autoEdit,
+}: ObjectRendererProps & { active: boolean; autoEdit: boolean }) {
+  if (!active) return null
+  return (
+    <div
+      className="absolute inset-0 flex items-center justify-center p-1.5 text-center"
+      onDoubleClick={(e) => e.stopPropagation()}
+    >
+      {/* No `hug` — a shape's label needs real width/height to actually
+       *  receive clicks and show a caret; hug's w-max collapsed to 0×0 with
+       *  no text typed yet, so nothing was ever clickable or visible.
+       *  RichTextArea's own div is a plain top-aligned block, so the parent's
+       *  flex-center only moved the (full-size) box, not the text inside it
+       *  — className forces the actual lines to sit vertically centered too. */}
+      <RichTextArea
+        pageId={pageId}
+        object={object}
+        selected={selected}
+        placeholder=""
+        autoEdit={autoEdit}
+        className="flex h-full flex-col justify-center text-center"
+      />
+    </div>
+  )
+}
 
 /** Quadratic smoothing through midpoints — shared by live pen preview. */
 export function pointsToPath(points: number[][]): string {
@@ -577,6 +617,15 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
 
 export function GeometryObject({ pageId, object, selected }: ObjectRendererProps) {
   const { kind, points } = object.geometry
+  // Text overlay mounts lazily — either the shape already carries a label,
+  // or the user just double-clicked to add one. Resets when deselected so a
+  // shape that ended up empty stops carrying the (now pointless) editor DOM.
+  const hasLabel = getString(object, 'text').trim() !== ''
+  const [editRequested, setEditRequested] = useState(false)
+  useEffect(() => {
+    if (!selected) setEditRequested(false)
+  }, [selected])
+  const labelActive = hasLabel || editRequested
   const { w, h } = object.size
   const { fill, stroke, strokeWidth: bodyStrokeWidth, cornerRadius } = bodyFill(object)
   const render = object.metadata.render as string | undefined
@@ -1244,9 +1293,12 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const pts = points ?? []
     const d = pts.length >= 3 ? `M ${pts.map((p) => `${p[0]} ${p[1]}`).join(' L ')} Z` : ''
     return (
-      <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
-        <path d={d} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} strokeLinejoin="round" />
-      </svg>
+      <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
+        <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
+          <path d={d} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} strokeLinejoin="round" />
+        </svg>
+        <ShapeTextOverlay pageId={pageId} object={object} selected={selected} active={labelActive} autoEdit={editRequested} />
+      </div>
     )
   }
 
@@ -1258,6 +1310,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const chargeColor = qVal < 0 ? 'var(--accent-blue)' : 'var(--accent-rose)'
     const myRays = isLightSource ? rays.filter((r) => r.sourceId === object.id) : []
     return (
+      <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
         {/* Rays are traced in world space (rotation already baked into the
             beam direction); counter-rotate so the container's rotate()
@@ -1389,11 +1442,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           />
         )}
       </svg>
+      <ShapeTextOverlay pageId={pageId} object={object} selected={selected} active={labelActive} autoEdit={editRequested} />
+      </div>
     )
   }
 
   // rect
   return (
+    <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
     <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label={object.name}>
       <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : cornerRadius} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} />
       {render === 'ground' && (
@@ -1416,6 +1472,8 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         />
       )}
     </svg>
+    <ShapeTextOverlay pageId={pageId} object={object} selected={selected} active={labelActive} autoEdit={editRequested} />
+    </div>
   )
 }
 

@@ -204,13 +204,6 @@ export function CommandPalette({
               <Settings className="h-4 w-4" /> Settings
             </CommandItem>
           )}
-          <CommandItem
-            value="toggle theme dark light"
-            onSelect={() => run(() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark'))}
-          >
-            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            Toggle theme
-          </CommandItem>
         </CommandGroup>
 
         <CommandSeparator />

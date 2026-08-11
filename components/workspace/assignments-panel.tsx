@@ -204,11 +204,7 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
   }, [refresh])
 
   return (
-    <div className="space-y-3 pt-6">
-      <p className="text-[12.5px] leading-relaxed text-muted-foreground">
-        Create assignments from any notebook page — right-click it and choose{' '}
-        <span className="font-medium text-foreground">Assign…</span>
-      </p>
+    <div className="space-y-3 pt-0">
       {assignments.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <ClipboardList className="h-6 w-6 text-muted-foreground/50" />

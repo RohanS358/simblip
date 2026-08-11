@@ -1488,17 +1488,7 @@ export function InfiniteCanvas({
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       const g = gestureRef.current
-      if (!g) {
-        if (tool === 'connector') {
-          const store = useDocStore.getState()
-          const p = toCanvas(e.clientX, e.clientY)
-          const r = snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
-          setConnectorSnapDot(r.anchor ? r.point : null)
-        } else if (connectorSnapDot) {
-          setConnectorSnapDot(null)
-        }
-        return
-      }
+      if (!g) return
       const store = useDocStore.getState()
       const dxScreen = e.clientX - g.startScreen.x
       const dyScreen = e.clientY - g.startScreen.y
@@ -1850,7 +1840,7 @@ export function InfiniteCanvas({
         }
       }
     },
-    [pageId, toCanvas, tool, connectorSnapDot]
+    [pageId, toCanvas]
   )
 
   const onPointerUp = useCallback(
@@ -2974,6 +2964,14 @@ export function InfiniteCanvas({
       onPointerCancelCapture={handleTouchUpCapture}
       onPointerMove={(e) => {
         lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
+        if (tool === 'connector' && !gestureRef.current) {
+          const p = toCanvas(e.clientX, e.clientY)
+          const store = useDocStore.getState()
+          const r = snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
+          setConnectorSnapDot(r.anchor ? r.point : null)
+        } else if (connectorSnapDot) {
+          setConnectorSnapDot(null)
+        }
       }}
       onPointerDown={(e) => {
         setCtxMenu(null)

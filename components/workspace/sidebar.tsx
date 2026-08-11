@@ -24,6 +24,7 @@
 
 import { useEffect, useState } from 'react'
 import { motion as fm } from 'framer-motion'
+import { ChevronLeft } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -281,7 +282,7 @@ export function Sidebar({
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r border-border/50 transition-colors duration-150 hover:border-sky-400"
+            className="group absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r-2 border-border/60 transition-colors duration-150 hover:border-sky-400"
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)
@@ -307,6 +308,29 @@ export function Sidebar({
           {panelSections}
         </div>
       </fm.div>
+
+      <button
+        type="button"
+        aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
+        onClick={() => togglePanel('sidebar')}
+        className={cn(
+          'group/bulge absolute top-1/2 z-30 flex h-7 w-4 -translate-y-1/2',
+          'items-center justify-center border-y border-r border-border/60 bg-sidebar/85 backdrop-blur-xl shadow-sm',
+          'transition-[left,height,width,border-color,box-shadow] duration-200 ease-out hover:h-8 hover:w-[18px] hover:border-sky-400 hover:shadow-md',
+          'active:scale-95'
+        )}
+        style={{
+          left: sidebarOpen ? panelW + 40 : 40,
+          borderRadius: '0 50% 50% 0 / 0 50% 50% 0',
+        }}
+      >
+        <ChevronLeft
+          className={cn(
+            'h-3 w-3 -translate-x-0.5 text-muted-foreground transition-all duration-200 ease-out group-hover/bulge:text-sky-500',
+            !sidebarOpen && 'rotate-180'
+          )}
+        />
+      </button>
     </fm.aside>
   )
 }

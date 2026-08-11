@@ -25,20 +25,14 @@
 
 import { useEffect, useRef, type RefObject } from 'react'
 import { penActive } from '@/lib/pointer/pen-active'
+import { isPalmTouch } from '@/lib/pointer/palm-reject'
+import { gesturePrefs } from '@/lib/store/preferences'
 
-const PALM_RADIUS = 20
-
-const touchRadius = (t: Touch) => {
-  const rx = (t as unknown as { radiusX?: number }).radiusX ?? 0
-  const ry = (t as unknown as { radiusY?: number }).radiusY ?? 0
-  return Math.max(rx, ry)
-}
-
-const fingerTouches = (list: TouchList) => {
+const fingerTouches = (list: TouchList, radiusPx: number) => {
   const out: Touch[] = []
   for (let i = 0; i < list.length; i++) {
     const t = list[i]
-    if (touchRadius(t) <= PALM_RADIUS) out.push(t)
+    if (!isPalmTouch(t, radiusPx)) out.push(t)
   }
   return out
 }
@@ -80,7 +74,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
 
     const onTouchStart = (e: TouchEvent) => {
       if (penActive.current) return
-      const fingers = fingerTouches(e.touches)
+      const fingers = fingerTouches(e.touches, gesturePrefs().palmRejectRadiusPx)
       if (fingers.length !== 2) return
       e.preventDefault() // claim the gesture before the browser starts page zoom/scroll
       rebaseline(fingers)
@@ -91,7 +85,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
         baselineDist = 0 // pen came down mid-gesture — drop it, don't resume stale
         return
       }
-      const fingers = fingerTouches(e.touches)
+      const fingers = fingerTouches(e.touches, gesturePrefs().palmRejectRadiusPx)
       if (fingers.length !== 2) return
       e.preventDefault() // the pinch is ours — don't let the browser pan/zoom
       if (baselineDist <= 0) {
@@ -102,14 +96,19 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
         return
       }
       const { dist, cx, cy } = midpoint(fingers)
-      h.current.onMove(dist / baselineDist, cx, cy)
+      const rawRatio = dist / baselineDist
+      // Sensitivity scales the DEVIATION from 1 (no zoom change), not the
+      // raw ratio itself — scaling the raw ratio would make sensitivity 0
+      // freeze at ratio 0 (zoomed to nothing) instead of "no zoom change".
+      const ratio = 1 + (rawRatio - 1) * gesturePrefs().pinchSensitivity
+      h.current.onMove(ratio, cx, cy)
     }
 
     const onTouchEnd = (e: TouchEvent) => {
       baselineDist = 0
       // Finger count CHANGED — re-anchor if a pinch-able pair remains
       // (matches "only update the anchor when a finger leaves the screen").
-      const fingers = fingerTouches(e.touches)
+      const fingers = fingerTouches(e.touches, gesturePrefs().palmRejectRadiusPx)
       if (fingers.length === 2) rebaseline(fingers)
       else h.current.onEnd?.()
     }
