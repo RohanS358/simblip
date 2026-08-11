@@ -506,6 +506,28 @@ export const useDocStore = create<DocState>()(
           const objects = { ...page.objects }
           const removable = ids.filter((id) => !objects[id]?.metadata.locked)
           for (const id of removable) delete objects[id]
+          // Null out any connector anchor that pointed at a removed object —
+          // otherwise the dangling objectId could silently re-attach to an
+          // unrelated future object that happens to reuse the same id (e.g.
+          // via paste/clone-on-share id regeneration). The connector itself
+          // is left in place as a free-floating line at its last position.
+          const removedSet = new Set(removable)
+          for (const [id, obj] of Object.entries(objects)) {
+            if (obj.metadata.render !== 'connector') continue
+            const startAnchor = obj.metadata.startAnchor as { objectId: string; t: number } | undefined
+            const endAnchor = obj.metadata.endAnchor as { objectId: string; t: number } | undefined
+            const dropStart = startAnchor && removedSet.has(startAnchor.objectId)
+            const dropEnd = endAnchor && removedSet.has(endAnchor.objectId)
+            if (!dropStart && !dropEnd) continue
+            objects[id] = {
+              ...obj,
+              metadata: {
+                ...obj.metadata,
+                ...(dropStart ? { startAnchor: undefined } : {}),
+                ...(dropEnd ? { endAnchor: undefined } : {}),
+              },
+            }
+          }
           return {
             pages: { ...s.pages, [pageId]: { ...page, objects } },
             selection: s.selection.filter((sid) => !ids.includes(sid)),
