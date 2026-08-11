@@ -59,6 +59,17 @@ export function connectorPath(
   return `M ${x1} ${y1} L ${x2} ${y2}`
 }
 
+/** Single source of truth for the connector's full point list (endpoints +
+ *  bends, with the default-corner fallback when there are no stored bends).
+ *  `connectorElbowPath`, geometry.tsx's hit-strips, and canvas.tsx's drag
+ *  handler all consume this so the corner rule can never drift between them.
+ *  Callers must pass `a`/`bends`/`b` all in the SAME coordinate space —
+ *  object-local everywhere in this codebase (metadata.bends is local). */
+export function connectorPoints(a: number[], bends: number[][], b: number[]): number[][] {
+  const mid = bends.length > 0 ? bends : [[b[0], a[1]]]
+  return [a, ...mid, b]
+}
+
 /** Orthogonal elbow path for the connector tool: draws through every
  *  stored bend point in order. Empty bends = same L-shape as 'wire'. */
 export function connectorElbowPath(
@@ -68,7 +79,6 @@ export function connectorElbowPath(
   x2: number,
   y2: number
 ): string {
-  const mid = bends.length > 0 ? bends : [[x2, y1]]
-  const pts = [[x1, y1], ...mid, [x2, y2]]
+  const pts = connectorPoints([x1, y1], bends, [x2, y2])
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
 }

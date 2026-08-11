@@ -42,6 +42,7 @@ import { baseObject, createGeometry, fromRecognition, componentById } from '@/li
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
 import { nearestPointOnBoundary } from '@/lib/scene/connectors'
+import { connectorPoints } from '@/lib/render/connector-path'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
@@ -1812,19 +1813,21 @@ export function InfiniteCanvas({
         const obj = store.pages[pageId]?.objects[g.connectorId]
         if (!obj) return
         const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
+        // All math here is done in WORLD coordinates (matching `point`, which
+        // is a world-space pointer position) and converted to object-LOCAL
+        // only at the final store write below — geometry.tsx's renderer reads
+        // metadata.bends as local (relative to obj.position), same as its
+        // local a/b, so that's the space the stored array must end up in.
         const ax = obj.position.x + pts[0][0]
         const ay = obj.position.y + pts[0][1]
         const bx = obj.position.x + pts[pts.length - 1][0]
         const by = obj.position.y + pts[pts.length - 1][1]
-        const bends = ((obj.metadata.bends as number[][] | undefined) ?? []).map((p) => [...p])
-        // Mirror geometry.tsx's hit-strip fallback: connectorElbowPath synthesizes
-        // a default Manhattan corner at (bx, ay) when bends is empty, and the
-        // hit-strips are built off that same shape — so segIndex from a click
-        // must be resolved against the identical point list, or a click on the
-        // fresh connector's second (synthesized) segment indexes past the real
-        // bends array and silently no-ops.
-        const displayBends = bends.length > 0 ? bends : [[bx, ay]]
-        const allPts = [[ax, ay], ...displayBends, [bx, by]]
+        // Stored bends are local; lift to world to match ax/ay/bx/by above.
+        const localBends = (obj.metadata.bends as number[][] | undefined) ?? []
+        const bends = localBends.map(([x, y]) => [x + obj.position.x, y + obj.position.y])
+        // Use the same connectorPoints() helper geometry.tsx draws/hit-tests
+        // with (corner rule can't drift), just fed world-space a/b/bends.
+        const allPts = connectorPoints([ax, ay], bends, [bx, by])
         const segIndex = g.segIndex
         const axis = g.connectorAxis
         const p0 = allPts[segIndex]
@@ -1846,14 +1849,16 @@ export function InfiniteCanvas({
         // never moves. Doing this as one fresh array (rather than splicing
         // into a copy of the old bends by index) avoids the off-by-one from
         // indices shifting after an insert.
-        const nextBends: number[][] = []
+        const nextBendsWorld: number[][] = []
         for (let i = 1; i < allPts.length - 1; i++) {
-          if (i === segIndex) nextBends.push(setCoord(p0))
-          else if (i === segIndex + 1) nextBends.push(setCoord(p1))
-          else nextBends.push(allPts[i])
+          if (i === segIndex) nextBendsWorld.push(setCoord(p0))
+          else if (i === segIndex + 1) nextBendsWorld.push(setCoord(p1))
+          else nextBendsWorld.push(allPts[i])
         }
-        if (isStartAnchored) nextBends.unshift(setCoord(p0))
-        if (isEndAnchored) nextBends.push(setCoord(p1))
+        if (isStartAnchored) nextBendsWorld.unshift(setCoord(p0))
+        if (isEndAnchored) nextBendsWorld.push(setCoord(p1))
+        // Convert back to object-local before writing to metadata.bends.
+        const nextBends = nextBendsWorld.map(([x, y]) => [x - obj.position.x, y - obj.position.y])
         store.updateObject(
           pageId,
           g.connectorId,
