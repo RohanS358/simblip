@@ -1817,7 +1817,14 @@ export function InfiniteCanvas({
         const bx = obj.position.x + pts[pts.length - 1][0]
         const by = obj.position.y + pts[pts.length - 1][1]
         const bends = ((obj.metadata.bends as number[][] | undefined) ?? []).map((p) => [...p])
-        const allPts = [[ax, ay], ...bends, [bx, by]]
+        // Mirror geometry.tsx's hit-strip fallback: connectorElbowPath synthesizes
+        // a default Manhattan corner at (bx, ay) when bends is empty, and the
+        // hit-strips are built off that same shape — so segIndex from a click
+        // must be resolved against the identical point list, or a click on the
+        // fresh connector's second (synthesized) segment indexes past the real
+        // bends array and silently no-ops.
+        const displayBends = bends.length > 0 ? bends : [[bx, ay]]
+        const allPts = [[ax, ay], ...displayBends, [bx, by]]
         const segIndex = g.segIndex
         const axis = g.connectorAxis
         const p0 = allPts[segIndex]
