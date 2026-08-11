@@ -73,15 +73,27 @@ type ManifestRow = {
  *  sync, or a board session's presentation upload) and re-seeds OPFS +
  *  manifest so the next read is local. /api/storage/[id] streams the bytes
  *  straight from Postgres, scoped server-side to the caller's owner_id. */
+// ponytail: in-memory only, clears on reload; good enough to stop the
+// per-heartbeat/per-mount retry storm on files the server confirmed missing.
+const missingFileIds = new Map<string, number>()
+const MISSING_TTL_MS = 5 * 60_000
+
 export async function getFile(fileId: string): Promise<Blob | null> {
   const local = await opfs.readFile(fileId)
   if (local) return local
+
+  const missingSince = missingFileIds.get(fileId)
+  if (missingSince && Date.now() - missingSince < MISSING_TTL_MS) return null
 
   const token = getAccessToken()
   if (!token) return null
   try {
     const res = await fetch(`/api/storage/${fileId}`, { headers: { Authorization: `Bearer ${token}` } })
-    if (!res.ok) return null
+    if (!res.ok) {
+      if (res.status === 404) missingFileIds.set(fileId, Date.now())
+      return null
+    }
+    missingFileIds.delete(fileId)
     const blob = await res.blob()
     await opfs.writeFile(fileId, blob)
 
