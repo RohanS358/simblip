@@ -276,13 +276,30 @@ create table if not exists simblip_file_manifest (
   mime           text not null,
   size           bigint not null,
   sha256         text not null,
-  blob_url       text not null,              -- Vercel Blob public/read URL
+  blob_url       text,                       -- legacy Vercel Blob URL; unused since the Postgres-backed storage below replaced it
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
 
+-- Existing installs still have blob_url as not-null from before the move
+-- off Vercel Blob; harmless no-op on a fresh database.
+alter table simblip_file_manifest alter column blob_url drop not null;
+
 create index if not exists simblip_file_manifest_owner_idx
   on simblip_file_manifest (owner_id);
+
+-- File bytes, self-hosted. Moved off Vercel Blob after a concurrency bug
+-- (fixed in lib/storage/manager.ts/device-file-sync.ts) let simultaneous
+-- device-sync pushes re-upload the same file repeatedly, each creating a
+-- new Blob object and blowing a single account's quota. Kept as its own
+-- table — NOT in the /api/pg gateway's TABLES map and NOT in
+-- CACHEABLE_TABLES — so raw file bytes never transit the generic REST
+-- gateway or land in the Redis row cache; only app/api/storage/[id]/route.ts
+-- touches this table, via lib/server/pg.ts's q() directly.
+create table if not exists simblip_file_blobs (
+  id   text primary key references simblip_file_manifest (id) on delete cascade,
+  data bytea not null
+);
 
 -- Device presence — lets the cloud icon show a user's OTHER currently-open
 -- browsers to sync files with (lib/sync/devices.ts). Each device upserts its

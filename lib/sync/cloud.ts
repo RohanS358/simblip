@@ -87,12 +87,18 @@ const upsert = (table: string, rows: unknown) =>
 
 // ── Pull / push ─────────────────────────────────────────────────────────────
 
-async function pull(ws: string) {
+async function pull(ws: string, sinceMs: number) {
+  // Pages haven't changed remotely since our last sync are already reflected
+  // in the local archive — refetching them would re-download the full
+  // (potentially hundreds-of-KB, image-bearing) content column for every
+  // page in the workspace on every sign-in/reconcile. Filtering to rows
+  // touched after our last-seen timestamp keeps this to just what's new.
+  const since = new Date(sinceMs).toISOString()
   const [wsRes, pgRes] = await Promise.all([
     // Column is still literally named `notebooks` in Postgres (db/schema.sql)
     // — only the in-memory field was renamed to `nodes`, see lib/scene/types.ts.
     rest(`simblip_workspaces?id=eq.${ws}&select=notebooks,updated_at`),
-    rest(`simblip_pages?workspace_id=eq.${ws}&select=id,content,viewport,updated_at`),
+    rest(`simblip_pages?workspace_id=eq.${ws}&updated_at=gt.${since}&select=id,content,viewport,updated_at`),
   ])
   const wsRows = (await wsRes.json()) as { notebooks: unknown; updated_at: string }[]
   const pgRows = (await pgRes.json()) as {
@@ -180,10 +186,11 @@ export function startSync() {
     deletedPages.clear()
     workspaceDirty = false
     try {
-      // Workspace row must exist before pages reference it.
+      // Workspace row must exist before pages reference it; deletes touch a
+      // disjoint id set so they can run alongside the push instead of after.
+      const delPromise = delBatch.length > 0 ? deletePages(ws, delBatch) : Promise.resolve()
       if (wsBatch || pageBatch.length > 0) await pushWorkspace(ws)
-      await pushPages(ws, pageBatch)
-      if (delBatch.length > 0) await deletePages(ws, delBatch)
+      await Promise.all([pushPages(ws, pageBatch), delPromise])
       localStorage.setItem(seenKey(ws), String(Date.now()))
       setPhase('synced')
     } catch (err) {
@@ -238,8 +245,8 @@ export function startSync() {
   const reconcile = async (ws: string) => {
     setPhase('syncing')
     try {
-      const remote = await pull(ws)
       const seen = Number(localStorage.getItem(seenKey(ws)) ?? 0)
+      const remote = await pull(ws, seen)
       if (remote && remote.newest > seen) {
         // A cloud pull writes `nodes` directly via setState, bypassing
         // zustand's persist/rehydrate lifecycle entirely (this IS that

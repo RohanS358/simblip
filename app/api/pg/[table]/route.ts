@@ -111,6 +111,9 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
     else if (v.startsWith('eq.')) {
       params.push(v.slice(3))
       parts.push(`${col} = $${params.length}`)
+    } else if (v.startsWith('gt.')) {
+      params.push(v.slice(3))
+      parts.push(`${col} > $${params.length}`)
     }
   }
 
