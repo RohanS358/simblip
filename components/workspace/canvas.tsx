@@ -41,7 +41,7 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
-import { nearestPointOnBoundary } from '@/lib/scene/connectors'
+import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { connectorPoints } from '@/lib/render/connector-path'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
@@ -109,15 +109,44 @@ function snapMeasurePoint(pt: Vec2, objects: Record<string, SceneObject>, zoom: 
  *  within SNAP px (continuous boundary point, not fixed corners/mid —
  *  see lib/scene/connectors.ts). Returns the anchor to persist plus the
  *  resolved world point to draw at. */
+/** Shaper's snap targets: the nearest point on ANY object's outline
+ *  (continuous boundary point, lib/scene/connectors.ts), OR a circuit
+ *  terminal if one is closer within its own (tighter) snap radius —
+ *  terminals win within SNAP since components are small/dense.
+ *  Returns the anchor to persist plus the resolved world point to draw at. */
 function snapConnectorPoint(
   pt: Vec2,
   objects: Record<string, SceneObject>,
   zoom: number
-): { point: Vec2; anchor: { objectId: string; t: number } | null } {
+): { point: Vec2; anchor: ConnectorAnchor | null } {
+  const objList = Object.values(objects)
+
+  // Terminals first, tighter radius, since dense pin layouts need it.
+  const termSnap = SNAP / zoom
+  let bestTerm: { point: Vec2; objectId: string; terminalId: string } | null = null
+  let bestTermD = termSnap
+  for (const o of objList) {
+    if (o.geometry.kind !== 'symbol') continue
+    const defs = terminalsOf(o)
+    defs.forEach((t, i) => {
+      const w = terminalWorld(o, t)
+      const d = Math.hypot(w.x - pt.x, w.y - pt.y)
+      if (d < bestTermD) {
+        bestTermD = d
+        bestTerm = { point: w, objectId: o.id, terminalId: String(i) }
+      }
+    })
+  }
+  if (bestTerm) {
+    const t = bestTerm as { point: Vec2; objectId: string; terminalId: string }
+    return { point: t.point, anchor: { kind: 'terminal', objectId: t.objectId, terminalId: t.terminalId } }
+  }
+
+  // Fall back to generic shape-boundary snapping (existing behavior).
   const th = SNAP / zoom
   let best: { point: Vec2; t: number; objectId: string } | null = null
   let bestD = th
-  for (const o of Object.values(objects)) {
+  for (const o of objList) {
     if (o.metadata.render === 'connector') continue // connectors don't anchor to connectors
     const r = nearestPointOnBoundary(o, pt)
     if (!r) continue
@@ -128,7 +157,7 @@ function snapConnectorPoint(
     }
   }
   if (!best) return { point: pt, anchor: null }
-  return { point: best.point, anchor: { objectId: best.objectId, t: best.t } }
+  return { point: best.point, anchor: { kind: 'boundary', objectId: best.objectId, t: best.t } }
 }
 
 // Universal placement gestures: click spawns the default; dragging sizes

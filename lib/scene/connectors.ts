@@ -7,6 +7,10 @@
 
 import type { SceneObject, Vec2 } from './types'
 
+export type ConnectorAnchor =
+  | { kind: 'boundary'; objectId: string; t: number }
+  | { kind: 'terminal'; objectId: string; terminalId: string }
+
 function bboxEdges(obj: SceneObject): { a: Vec2; b: Vec2; len: number }[] {
   const { x, y } = obj.position
   const { w, h } = obj.size
