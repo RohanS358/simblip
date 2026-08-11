@@ -2,9 +2,12 @@
 
 // Live cursor + camera mirroring for board-live: desktop and board only
 // (never students — see board-live-types.ts).
-//   useSendCursor    — sends every pointer move immediately, no throttle —
-//                      lowest latency, traded against more messages sent
-//                      (still tiny payloads, fine at this scale)
+//   useSendCursor    — sends pointer moves at CURSOR_SEND_INTERVAL_MS —
+//                      unthrottled sends flood the shared Redis pub/sub
+//                      connection (one round-trip per raw mousemove), which
+//                      queues behind other instances' traffic and reads as
+//                      cursor lag; ~30/sec is still smooth and cuts that
+//                      load by an order of magnitude
 //   usePeerCursor    — tracks the last cursor event from the OTHER role,
 //                      fading it out if nothing arrives for 2s (peer idle
 //                      or disconnected)
@@ -25,13 +28,31 @@ import type { BoardLiveHandle } from './board-live-client'
 import type { BoardLiveServerMsg } from './board-live-types'
 
 const FADE_AFTER_MS = 2000
+const CURSOR_SEND_INTERVAL_MS = 33 // ~30/sec
 
-/** Call the returned function on every pointer move — sends immediately,
- *  no batching delay. */
+/** Call the returned function on every pointer move — throttled to
+ *  CURSOR_SEND_INTERVAL_MS, trailing edge always fires so the cursor
+ *  settles at its true final position. */
 export function useSendCursor(handle: BoardLiveHandle | null, pageId: string | null) {
+  const lastSent = useRef(0)
+  const pending = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   return (x: number, y: number) => {
     if (!handle?.connected || !pageId) return
-    handle.sendCursor(x, y, pageId)
+    const now = Date.now()
+    const elapsed = now - lastSent.current
+
+    if (pending.current) clearTimeout(pending.current)
+
+    if (elapsed >= CURSOR_SEND_INTERVAL_MS) {
+      lastSent.current = now
+      handle.sendCursor(x, y, pageId)
+    } else {
+      pending.current = setTimeout(() => {
+        lastSent.current = Date.now()
+        handle.sendCursor(x, y, pageId)
+      }, CURSOR_SEND_INTERVAL_MS - elapsed)
+    }
   }
 }
 
