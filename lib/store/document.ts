@@ -15,6 +15,7 @@ import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import * as archive from '@/lib/store/page-archive'
 import { dropBuffer } from '@/lib/physics/bus'
 import { markPageDeleted } from '@/lib/store/deleted-pages'
+import { pointAtBoundaryT } from '@/lib/scene/connectors'
 
 export type Tool =
   | 'select'
@@ -264,6 +265,49 @@ function patchObject(
   }
 }
 
+/** After `movedObjectId` changes position/size, snap back any connector's
+ *  end(s) anchored to it (metadata.{start,end}Anchor). Keeps the connector's
+ *  bend points where they were — only the anchored endpoint moves — so a
+ *  connector attached at both ends stays visually attached without the
+ *  user re-drawing it. Cheap on the common (no-connectors) case: one pass
+ *  over objects, and it bails per-object on the first metadata check. */
+function reprojectConnectors(page: PageContent, movedObjectId: string): PageContent {
+  let objects = page.objects
+  let changed = false
+  for (const obj of Object.values(page.objects)) {
+    if (obj.metadata.render !== 'connector' || obj.metadata.locked) continue
+    const startAnchor = obj.metadata.startAnchor as { objectId: string; t: number } | undefined
+    const endAnchor = obj.metadata.endAnchor as { objectId: string; t: number } | undefined
+    if (startAnchor?.objectId !== movedObjectId && endAnchor?.objectId !== movedObjectId) continue
+
+    const movedObj = objects[movedObjectId]
+    if (!movedObj) continue
+
+    const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
+    let a = { x: obj.position.x + pts[0][0], y: obj.position.y + pts[0][1] }
+    let b = { x: obj.position.x + pts[pts.length - 1][0], y: obj.position.y + pts[pts.length - 1][1] }
+    if (startAnchor?.objectId === movedObjectId) a = pointAtBoundaryT(movedObj, startAnchor.t)
+    if (endAnchor?.objectId === movedObjectId) b = pointAtBoundaryT(movedObj, endAnchor.t)
+
+    const px = Math.min(a.x, b.x)
+    const py = Math.min(a.y, b.y)
+    const newPoints = [
+      [a.x - px, a.y - py],
+      [b.x - px, b.y - py],
+    ]
+    const newObj = {
+      ...obj,
+      position: { x: px, y: py },
+      size: { w: Math.max(Math.abs(b.x - a.x), 2), h: Math.max(Math.abs(b.y - a.y), 2) },
+      geometry: { ...obj.geometry, points: newPoints },
+    }
+    if (!changed) objects = { ...objects }
+    objects[obj.id] = newObj
+    changed = true
+  }
+  return changed ? { ...page, objects } : page
+}
+
 export const useDocStore = create<DocState>()(
   persist(
     (set, get) => ({
@@ -424,6 +468,20 @@ export const useDocStore = create<DocState>()(
       updateObject: (pageId, id, patch, { history = false } = {}) => {
         if (history) get().pushHistory(pageId)
         set((s) => patchObject(s, pageId, id, (obj) => ({ ...obj, ...patch })))
+        // Cheap gate: only walk connectors when this patch could have moved
+        // the object's boundary, and only if the patch actually landed (a
+        // locked object's patchObject call above is a no-op, so its
+        // connectors must stay put too — re-reading state after the set
+        // above is what lets us tell the two cases apart).
+        if (patch.position || patch.size) {
+          set((s) => {
+            const page = s.pages[pageId]
+            const movedObj = page?.objects[id]
+            if (!page || !movedObj || movedObj.metadata.locked) return {}
+            const next = reprojectConnectors(page, id)
+            return next === page ? {} : { pages: { ...s.pages, [pageId]: next } }
+          })
+        }
       },
 
       refreshLive: (pageId) =>
