@@ -58,3 +58,16 @@ export function connectorPath(
 
   return `M ${x1} ${y1} L ${x2} ${y2}`
 }
+
+/** Orthogonal elbow path for the connector tool: draws through every
+ *  stored bend point in order. Empty bends = same L-shape as 'wire'. */
+export function connectorElbowPath(
+  x1: number,
+  y1: number,
+  bends: number[][],
+  x2: number,
+  y2: number
+): string {
+  const pts = [[x1, y1], ...bends, [x2, y2]]
+  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
+}

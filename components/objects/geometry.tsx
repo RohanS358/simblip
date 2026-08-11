@@ -8,7 +8,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
-import { connectorPath } from '@/lib/render/connector-path'
+import { connectorPath, connectorElbowPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
 import { getNumber, getString, type ObjectRendererProps } from './types'
@@ -1024,10 +1024,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const b = pts[pts.length - 1]
     // If it's a simple line or has a special render mode (like spring, damper), use connectorPath.
     // Otherwise, draw the exact multipoint path.
-    const isSpecial = render && ['spring', 'damper', 'rope', 'wire'].includes(render)
-    const d = (pts.length > 2 && !isSpecial) 
-      ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')
-      : connectorPath(render, a[0], a[1], b[0], b[1])
+    const isElbowConnector = render === 'connector'
+    const isSpecial = render && ['spring', 'damper', 'rope', 'wire', 'connector'].includes(render)
+    const bends = (object.metadata.bends as number[][] | undefined) ?? []
+    const d = isElbowConnector
+      ? connectorElbowPath(a[0], a[1], bends, b[0], b[1])
+      : pts.length > 2 && !isSpecial
+        ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')
+        : connectorPath(render, a[0], a[1], b[0], b[1])
     const OPTICS_STYLE: Record<string, { color: string; width: number }> = {
       lens: { color: 'var(--accent-violet)', width: 3 },
       mirror: { color: 'var(--accent-blue)', width: 4 },
@@ -1042,16 +1046,28 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const endColor = connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : undefined
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
+        {isElbowConnector && (
+          <defs>
+            <marker id={`arrow-start-${object.id}`} viewBox="0 0 10 10" refX="1" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M 10 0 L 0 5 L 10 10 z" fill="var(--accent-mint)" />
+            </marker>
+            <marker id={`arrow-end-${object.id}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent-mint)" />
+            </marker>
+          </defs>
+        )}
         <path
           data-connector={connector ? '' : undefined}
           data-wire={flowable ? '' : undefined}
           d={d}
           fill="none"
-          stroke={render === 'measurement' ? 'var(--accent-rose)' : optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
-          strokeWidth={render === 'measurement' ? 1.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
+          stroke={render === 'measurement' ? 'var(--accent-rose)' : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
+          strokeWidth={render === 'measurement' ? 1.5 : isElbowConnector ? 2.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
           strokeDasharray={render === 'measurement' ? '5 4' : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
+          markerStart={isElbowConnector && object.metadata.startCap === 'arrow' ? `url(#arrow-start-${object.id})` : undefined}
+          markerEnd={isElbowConnector && object.metadata.endCap === 'arrow' ? `url(#arrow-end-${object.id})` : undefined}
         />
         {render === 'measurement' &&
           (() => {
