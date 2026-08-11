@@ -33,7 +33,20 @@ ends land on terminals.
    existing tighter `SNAP` radius from `lib/circuit/engine.ts` (dense
    pin spacing); generic boundaries keep the connector tool's existing
    (larger) snap radius.
-3. **Commit-time behavior branching**, based on what each end snapped to:
+3. **Terminal snapping is upgraded to full connector-grade behavior,
+   everywhere (superseding the existing narrower `connectEnds` mechanism).**
+   Shaper already has a terminal auto-wire mechanism today
+   (`connectEnds` in `canvas.tsx`), but it's a flush-only endpoint snap at
+   commit time, with no visible hover indicator, no persisted anchor, and no
+   reprojection if the component later moves — and it only fires for
+   Shift-routed orthogonal strokes or strokes drawn inside a circuit "system
+   boundary" region. This merge replaces that mechanism: terminal snapping
+   becomes a first-class snap target (live hover dot, persisted
+   `{kind:'terminal', ...}` anchor, reprojects on move) available everywhere
+   shaper is active, not gated behind system boundaries or Shift-routing.
+   `connectEnds` and its call sites are removed once the new snap/anchor
+   path covers the same ground.
+4. **Commit-time behavior branching**, based on what each end snapped to:
    - **Both ends on circuit terminals** → commit as an anchored connector
      object AND attach the `wire` `BehaviorType`, so it's electrically live
      and solved by `lib/circuit/engine.ts` exactly like today's dedicated
@@ -44,7 +57,7 @@ ends land on terminals.
    - **Neither end snapped** → shaper's existing behavior, completely
      unchanged: sketch-recognition, scribble-delete, or plain
      orthogonal-straightened stroke, whichever already applies today.
-4. **Standalone connector tool is removed.** `'connector'` is deleted from
+5. **Standalone connector tool is removed.** `'connector'` is deleted from
    the `Tool` union, along with its toolbar/dock button, keymap shortcut
    (`X`), and cursor entry. Shaper absorbs all of its user-facing
    capability. Existing connector objects already on canvas keep
