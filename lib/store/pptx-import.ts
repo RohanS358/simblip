@@ -474,14 +474,16 @@ function groupXfrmOf(grpSp: Element): GroupXfrm | null {
 }
 
 /** Maps one shape's raw (childOff/childExt-space) EMU box through a chain
- *  of ancestor group transforms (outermost first) into slide-absolute
- *  EMUs. Empty chain = already slide-absolute (top-level shape). */
+ *  of ancestor group transforms (applied innermost-first, since raw coords
+ *  live in the immediate parent's child space) into slide-absolute EMUs.
+ *  Empty chain = already slide-absolute (top-level shape). */
 function mapThroughGroups(
   box: { x: number; y: number; w: number; h: number },
   groupChain: GroupXfrm[]
 ): { x: number; y: number; w: number; h: number } {
   let { x, y, w, h } = box
-  for (const g of groupChain) {
+  for (let i = groupChain.length - 1; i >= 0; i--) {
+    const g = groupChain[i]
     const sx = g.chExtW !== 0 ? g.extW / g.chExtW : 1
     const sy = g.chExtH !== 0 ? g.extH / g.chExtH : 1
     x = g.offX + (x - g.chOffX) * sx

@@ -103,6 +103,10 @@ export function NotebookPanel() {
       >
         <NotebookTree />
       </Section>
+      <Section id="shared" label="Shared" icon={Share2} open={!collapsed.shared} onToggle={toggle}>
+        <SharedPanel />
+      </Section>
+
       <Section
         id="assignments"
         label="Assignments"
@@ -124,9 +128,7 @@ export function NotebookPanel() {
           <AssignmentsPanel compact />
         </div>
       </Section>
-      <Section id="shared" label="Shared" icon={Share2} open={!collapsed.shared} onToggle={toggle}>
-        <SharedPanel />
-      </Section>
+      
     </div>
   )
 }
