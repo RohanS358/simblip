@@ -20,7 +20,10 @@ import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2, GeometryKind } from '@/lib/scene/types'
 import { num, str } from '@/lib/scene/types'
 import { htmlToStoredText, serialize } from '@/lib/text/marks'
-import { usePrefs, penPrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
+import { usePrefs, penPrefs, gesturePrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
+import { cursorForTool } from '@/lib/scene/tool-cursors'
+import { PRST_POLYGON_POINTS } from '@/lib/store/pptx-import'
+import { matchesCombo, resolveCombo, ACTIONS } from '@/lib/keymap'
 import { searchInsertables, insertAt, insertImage, viewportCenter, type Insertable } from '@/lib/scene/insertables'
 import { hasClipboard } from '@/lib/store/clipboard'
 import { openProperties } from '@/lib/store/sidebar-sections'
@@ -38,6 +41,7 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
+import { nearestPointOnBoundary } from '@/lib/scene/connectors'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
@@ -100,6 +104,32 @@ function snapMeasurePoint(pt: Vec2, objects: Record<string, SceneObject>, zoom: 
   return best ?? pt
 }
 
+/** Connector tool: snap to the nearest point on ANY object's outline
+ *  within SNAP px (continuous boundary point, not fixed corners/mid —
+ *  see lib/scene/connectors.ts). Returns the anchor to persist plus the
+ *  resolved world point to draw at. */
+function snapConnectorPoint(
+  pt: Vec2,
+  objects: Record<string, SceneObject>,
+  zoom: number
+): { point: Vec2; anchor: { objectId: string; t: number } | null } {
+  const th = SNAP / zoom
+  let best: { point: Vec2; t: number; objectId: string } | null = null
+  let bestD = th
+  for (const o of Object.values(objects)) {
+    if (o.metadata.render === 'connector') continue // connectors don't anchor to connectors
+    const r = nearestPointOnBoundary(o, pt)
+    if (!r) continue
+    const d = Math.hypot(r.point.x - pt.x, r.point.y - pt.y)
+    if (d < bestD) {
+      bestD = d
+      best = { ...r, objectId: o.id }
+    }
+  }
+  if (!best) return { point: pt, anchor: null }
+  return { point: best.point, anchor: { objectId: best.objectId, t: best.t } }
+}
+
 // Universal placement gestures: click spawns the default; dragging sizes
 // the object while placing it. Line-likes go point→point, circle-likes grow
 // by radius from the press point (their center), everything else stretches
@@ -131,6 +161,10 @@ const CIRCULAR_IDS = new Set([
 const MIN_PLACE_DRAG = 8
 // Shapes group: how many sides each regular-polygon shape has.
 const SHAPE_SIDES: Record<string, number> = { triangle: 3, pentagon: 5, hexagon: 6, heptagon: 7, octagon: 8 }
+// Shapes group: irregular outlines (diamond, arrows, star, …) — same
+// unit-space point table the PPTX importer uses for these preset ids, so a
+// dock-drawn arrow and an imported deck's arrow are the same geometry.
+const SHAPE_FIXED_POINTS: Record<string, number[][]> = PRST_POLYGON_POINTS
 
 /** A furious cover-it-up scribble: long dense path that keeps folding back
  *  on itself. Way more total turning and ink than any writing or shape. */
@@ -265,6 +299,8 @@ interface Gesture {
   placeComponent?: string
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
   placeTool?: Tool
+  /** Connector tool: boundary anchor captured at press, if the start point snapped. */
+  startAnchor?: { objectId: string; t: number } | null
   /** Shape id when placing from the Shapes group (square, hexagon…). */
   placeShape?: string
   /** Live drag offset, applied to the DOM and committed to the store on release. */
@@ -293,11 +329,8 @@ interface Gesture {
 const HOLD_MS = 500
 const HOLD_STILL_PX = 6
 
-// Object-drag hold-time (touch only): a touch landing on an object waits
-// this long before committing to a drag, so a quick swipe across an
-// object-dense page still scrolls instead of yanking whatever it started on.
-const DRAG_HOLD_MS = 150
-const DRAG_HOLD_STILL_PX = 8
+// Object-drag hold-time and tap-vs-drag distance (touch only) now live in
+// Settings' Gestures tab — see gesturePrefs().holdBeforeDragMs/tapVsDragPx.
 
 type CtxItem = [label: string, action: () => void, danger?: boolean]
 
@@ -626,7 +659,7 @@ const ObjectView = memo(function ObjectView({
   // every auto-generated name ends in a space + digits, so anything that
   // doesn't is one the user typed.
   const isCustomName = !/ \d+$/.test(object.name)
-  const resizable = !['line', 'stroke', 'polygon'].includes(object.geometry.kind)
+  const resizable = !['line', 'stroke'].includes(object.geometry.kind)
   const uiScale =
     COMPONENT_UI_KINDS.has(object.geometry.kind) && componentScale !== 1
       ? componentScale
@@ -960,6 +993,9 @@ export function InfiniteCanvas({
   } | null>(null)
   const placePreviewRef = useRef<{ x: number; y: number; w: number; h: number; round: boolean } | null>(null)
   placePreviewRef.current = placePreview
+  // Connector tool: blue dot at the nearest boundary point under the
+  // cursor, shown on hover (no active gesture) and while dragging.
+  const [connectorSnapDot, setConnectorSnapDot] = useState<Vec2 | null>(null)
   // Custom right-click menu: screen-space position + the object under it.
   // `scale` counters the editor STAGE's own ancestor transform:scale() (the
   // "Fit width"/zoom-to-fit wrapper presentation-view.tsx and doc-view.tsx
@@ -1180,7 +1216,10 @@ export function InfiniteCanvas({
       if (e.ctrlKey || e.metaKey) {
         // Zoom is locked — swallow the event but don't change the viewport.
         if (usePrefs.getState().notebook.lockZoom) return
-        const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.zoom * Math.exp(-e.deltaY * 0.0022)))
+        const zoom = Math.min(
+          MAX_ZOOM,
+          Math.max(MIN_ZOOM, v.zoom * Math.exp(-e.deltaY * 0.0022 * gesturePrefs().pinchSensitivity))
+        )
         const sx = e.clientX - rect.left
         const sy = e.clientY - rect.top
         applyViewport({
@@ -1222,7 +1261,8 @@ export function InfiniteCanvas({
       const ge = e as SafariGestureEvent
       const v = vpRef.current
       const rect = el.getBoundingClientRect()
-      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartZoom * ge.scale))
+      const scaledScale = 1 + (ge.scale - 1) * gesturePrefs().pinchSensitivity
+      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchStartZoom * scaledScale))
       const sx = ge.clientX - rect.left
       const sy = ge.clientY - rect.top
       applyViewport({
@@ -1253,29 +1293,33 @@ export function InfiniteCanvas({
       // to the keyboard — otherwise every mounted-but-off-screen sheet/page
       // would react to the same keystroke too.
       if (!active) return
-      if (e.code === 'Space' && !isTyping(e.target)) spaceRef.current = true
-      if (e.key === 'Alt' && !isTyping(e.target)) setAltHeld(true)
+      if (matchesCombo(e, resolveCombo('view.pan')) && !isTyping(e.target)) spaceRef.current = true
+      if (matchesCombo(e, resolveCombo('view.measure')) && !isTyping(e.target)) setAltHeld(true)
       if (isTyping(e.target)) return
       const store = useDocStore.getState()
       const locked = useRuntimeStore.getState().mode !== 'edit'
       const mod = e.metaKey || e.ctrlKey
-      if (mod && e.key.toLowerCase() === 'z' && !locked) {
+      if (matchesCombo(e, resolveCombo('edit.redo')) && !locked) {
         e.preventDefault()
-        if (e.shiftKey) store.redo(pageId)
-        else store.undo(pageId)
+        store.redo(pageId)
         return
       }
-      if (mod && e.key.toLowerCase() === 'c' && !locked) {
+      if (matchesCombo(e, resolveCombo('edit.undo')) && !locked) {
+        e.preventDefault()
+        store.undo(pageId)
+        return
+      }
+      if (matchesCombo(e, resolveCombo('edit.copy')) && !locked) {
         e.preventDefault()
         copySelection(pageId)
         return
       }
-      if (mod && e.key.toLowerCase() === 'x' && !locked) {
+      if (matchesCombo(e, resolveCombo('edit.cut')) && !locked) {
         e.preventDefault()
         cutSelection(pageId)
         return
       }
-      if (mod && e.key.toLowerCase() === 'd' && !locked) {
+      if (matchesCombo(e, resolveCombo('edit.duplicate')) && !locked) {
         e.preventDefault()
         if (store.selection.length > 0) duplicateObjects(pageId, store.selection)
         return
@@ -1302,27 +1346,26 @@ export function InfiniteCanvas({
       // no conflict since Reset/step-forward are only meaningful once a run
       // exists (stopped/paused) anyway.
       if (!mod) {
-        const key = e.key.toLowerCase()
         const rt = useRuntimeStore.getState()
-        if (key === 'q') {
+        if (matchesCombo(e, resolveCombo('sim.playPause'))) {
           e.preventDefault()
           if (rt.mode === 'running') pause()
           else play(pageId)
           return
         }
-        if (key === 'w') {
+        if (matchesCombo(e, resolveCombo('sim.stepBack'))) {
           if (rt.mode === 'paused') {
             e.preventDefault()
             stepBack()
           }
           return
         }
-        if (key === 'e' && rt.mode === 'paused') {
+        if (matchesCombo(e, resolveCombo('sim.stepForward')) && rt.mode === 'paused') {
           e.preventDefault()
           stepFrame()
           return
         }
-        if (key === 'r' && rt.mode !== 'edit') {
+        if (matchesCombo(e, resolveCombo('sim.reset')) && rt.mode !== 'edit') {
           e.preventDefault()
           stop()
           return
@@ -1332,7 +1375,7 @@ export function InfiniteCanvas({
 
       // "/" on empty canvas opens the quick-insert menu at the pointer —
       // same registry the Ctrl+K search uses.
-      if (e.key === '/') {
+      if (matchesCombo(e, resolveCombo('tool.quickInsert'))) {
         e.preventDefault()
         const rect = containerRef.current?.getBoundingClientRect()
         const lp = lastPointerRef.current
@@ -1345,17 +1388,16 @@ export function InfiniteCanvas({
         return
       }
 
-      const toolKeys: Record<string, Tool> = {
-        v: 'select', p: 'pen', s: 'shaper', c: 'circle', r: 'rect', l: 'line',
-        t: 'text', n: 'note', f: 'formula', g: 'graph', k: 'code', b: 'table',
-        e: 'eraser',
+      const toolAction = ACTIONS.find(
+        (a) => a.group === 'Tools' && a.id !== 'tool.quickInsert' && matchesCombo(e, resolveCombo(a.id))
+      )
+      if (toolAction) {
+        store.setTool(toolAction.id.replace(/^tool\./, '') as Tool)
       }
-      const t = toolKeys[e.key.toLowerCase()]
-      if (t) store.setTool(t)
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.code === 'Space') spaceRef.current = false
-      if (e.key === 'Alt') setAltHeld(false)
+      if (matchesCombo(e, resolveCombo('view.pan'))) spaceRef.current = false
+      if (matchesCombo(e, resolveCombo('view.measure'))) setAltHeld(false)
     }
     const onBlur = () => setAltHeld(false)
     // The one true Ctrl+V handler — reads the real OS clipboard (only the
@@ -1446,7 +1488,17 @@ export function InfiniteCanvas({
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       const g = gestureRef.current
-      if (!g) return
+      if (!g) {
+        if (tool === 'connector') {
+          const store = useDocStore.getState()
+          const p = toCanvas(e.clientX, e.clientY)
+          const r = snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
+          setConnectorSnapDot(r.anchor ? r.point : null)
+        } else if (connectorSnapDot) {
+          setConnectorSnapDot(null)
+        }
+        return
+      }
       const store = useDocStore.getState()
       const dxScreen = e.clientX - g.startScreen.x
       const dyScreen = e.clientY - g.startScreen.y
@@ -1683,6 +1735,10 @@ export function InfiniteCanvas({
           end = { x: g.start.x + len * Math.cos(snap), y: g.start.y + len * Math.sin(snap) }
         } else if (g.placeTool === 'measurement') {
           end = snapMeasurePoint(point, store.pages[pageId]?.objects ?? {}, g.startViewport.zoom)
+        } else if (g.placeTool === 'connector') {
+          const r = snapConnectorPoint(point, store.pages[pageId]?.objects ?? {}, g.startViewport.zoom)
+          end = r.point
+          setConnectorSnapDot(r.anchor ? r.point : null)
         }
         updateStroke([
           [g.start.x, g.start.y],
@@ -1730,6 +1786,19 @@ export function InfiniteCanvas({
           w = Math.max(16, g.resizeStart.w * k)
           h = Math.max(16, g.resizeStart.h * k)
         }
+        const resizingObj = store.pages[pageId]?.objects[g.resizeId]
+        // Polygon points are absolute px baked in at create/last-resize time,
+        // not normalized to size — without this a resized preset shape (star,
+        // arrow, diamond, …) keeps its old outline pasted inside the new box
+        // instead of actually growing/shrinking with it.
+        const presetShape = resizingObj?.geometry.kind === 'polygon' ? resizingObj.geometry.symbol : undefined
+        const sides = presetShape ? SHAPE_SIDES[presetShape] : undefined
+        const fixedPoints = presetShape ? SHAPE_FIXED_POINTS[presetShape] : undefined
+        const newPoints = sides
+          ? regularPolygonPoints(sides, w, h)
+          : fixedPoints
+            ? fixedPoints.map(([x, y]) => [x * w, y * h])
+            : undefined
         store.updateObject(
           pageId,
           g.resizeId,
@@ -1739,6 +1808,7 @@ export function InfiniteCanvas({
               x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
               y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
             },
+            ...(newPoints ? { geometry: { ...resizingObj!.geometry, points: newPoints } } : {}),
           },
           { history: false }
         )
@@ -1780,7 +1850,7 @@ export function InfiniteCanvas({
         }
       }
     },
-    [pageId, toCanvas]
+    [pageId, toCanvas, tool, connectorSnapDot]
   )
 
   const onPointerUp = useCallback(
@@ -1868,17 +1938,18 @@ export function InfiniteCanvas({
         const pv = placePreviewRef.current
         setPlacePreview(null)
         const def = g.placeComponent ? componentById(g.placeComponent) : undefined
+        const isFixedPointShape = !!(g.placeShape && SHAPE_FIXED_POINTS[g.placeShape])
         const obj = def
           ? def.create(g.start)
-          : g.placeShape && SHAPE_SIDES[g.placeShape]
+          : (g.placeShape && SHAPE_SIDES[g.placeShape]) || isFixedPointShape
             ? createGeometry('polygon', g.start)
             : g.placeTool && g.placeTool !== 'select' && g.placeTool !== 'pen' && g.placeTool !== 'place'
               ? createGeometry(g.placeTool as Parameters<typeof createGeometry>[0], g.start)
               : null
         if (obj) {
-          if (g.placeShape && SHAPE_SIDES[g.placeShape]) {
+          if ((g.placeShape && SHAPE_SIDES[g.placeShape]) || isFixedPointShape) {
             obj.size = { w: 110, h: 110 }
-            obj.name = obj.name.replace(/^Polygon/, g.placeShape[0].toUpperCase() + g.placeShape.slice(1))
+            obj.name = obj.name.replace(/^Polygon/, g.placeShape![0].toUpperCase() + g.placeShape!.slice(1))
           }
           if (pv && g.moved && Math.max(pv.w, pv.h) > MIN_PLACE_DRAG) {
             obj.size = { w: Math.max(16, pv.w), h: Math.max(16, pv.h) }
@@ -1891,7 +1962,13 @@ export function InfiniteCanvas({
             obj.size = { w: side, h: side }
           }
           const sides = g.placeShape ? SHAPE_SIDES[g.placeShape] : undefined
+          const fixedPoints = g.placeShape ? SHAPE_FIXED_POINTS[g.placeShape] : undefined
           if (sides) obj.geometry.points = regularPolygonPoints(sides, obj.size.w, obj.size.h)
+          else if (fixedPoints) obj.geometry.points = fixedPoints.map(([x, y]) => [x * obj.size.w, y * obj.size.h])
+          // Tag which preset this polygon is so resize can regenerate its
+          // points from the new size instead of leaving stale-scale geometry
+          // behind (points are absolute px, not normalized to size).
+          if (sides || fixedPoints) obj.geometry.symbol = g.placeShape ?? undefined
           obj.z = topZ(pageId)
           store.addObject(pageId, obj)
           // Newly placed object becomes the selection — resize/inspector
@@ -1907,6 +1984,7 @@ export function InfiniteCanvas({
         {
           const pts = strokeRef.current
           setStroke(null)
+          setConnectorSnapDot(null)
           const def = g.placeComponent ? componentById(g.placeComponent) : undefined
           const maker = def
             ? () => def.create(g.start)
@@ -1918,6 +1996,16 @@ export function InfiniteCanvas({
                     o.metadata.render = 'measurement'
                     return o
                   }
+                : g.placeTool === 'connector'
+                  ? () => {
+                      const o = createGeometry('line', g.start)
+                      o.metadata.render = 'connector'
+                      o.metadata.startAnchor = g.startAnchor ?? undefined
+                      o.metadata.bends = []
+                      o.metadata.startCap = 'none'
+                      o.metadata.endCap = 'none'
+                      return o
+                    }
                 : null
           if (maker) {
             const a = g.start
@@ -1936,6 +2024,10 @@ export function InfiniteCanvas({
             } else {
               // Plain click: legacy behavior, default length centered on the click.
               obj.position = { x: a.x - obj.size.w / 2, y: a.y - obj.size.h / 2 }
+            }
+            if (g.placeTool === 'connector') {
+              const endSnap = snapConnectorPoint(b, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
+              obj.metadata.endAnchor = endSnap.anchor ?? undefined
             }
             obj.z = topZ(pageId)
             store.addObject(pageId, obj)
@@ -2205,8 +2297,9 @@ export function InfiniteCanvas({
   }, [])
 
   /** Cancel a pending touch object-drag without starting it — used both for
-   *  a swipe (finger moved past DRAG_HOLD_STILL_PX) and a plain tap (finger
-   *  lifted before DRAG_HOLD_MS). Either way the object stays selected
+   *  a swipe (finger moved past gesturePrefs().tapVsDragPx) and a plain tap
+   *  (finger lifted before gesturePrefs().holdBeforeDragMs). Either way the
+   *  object stays selected
    *  (already set synchronously in handleObjectPointerDown) but nothing
    *  drags and no pointermove/up listeners were ever attached. */
   const clearDragHold = useCallback(() => {
@@ -2255,7 +2348,9 @@ export function InfiniteCanvas({
       }
       const [a, b] = [...touches.values()]
       const dist = Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1)
-      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, p.viewport.zoom * (dist / p.dist)))
+      const rawRatio = dist / p.dist
+      const ratio = 1 + (rawRatio - 1) * gesturePrefs().pinchSensitivity
+      const zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, p.viewport.zoom * ratio))
       const rect = containerRef.current!.getBoundingClientRect()
       const cx = (a.x + b.x) / 2 - rect.left
       const cy = (a.y + b.y) / 2 - rect.top
@@ -2409,7 +2504,7 @@ export function InfiniteCanvas({
     const lp = longPressRef.current
     if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLongPress()
     const dh = dragHoldRef.current
-    if (dh && Math.hypot(e.clientX - dh.x, e.clientY - dh.y) > DRAG_HOLD_STILL_PX) clearDragHold()
+    if (dh && Math.hypot(e.clientX - dh.x, e.clientY - dh.y) > gesturePrefs().tapVsDragPx) clearDragHold()
   }
 
   const handleTouchUpCapture = (e: React.PointerEvent) => {
@@ -2591,7 +2686,8 @@ export function InfiniteCanvas({
       }
       beginGesture(shape === 'circle' ? 'placeRadius' : 'placeRect', e, {
         placeShape: shape,
-        placeTool: shape === 'oval' ? 'circle' : shape === 'square' ? 'rect' : SHAPE_SIDES[shape] ? undefined : (shape as Tool),
+        placeTool:
+          shape === 'oval' ? 'circle' : shape === 'square' ? 'rect' : SHAPE_SIDES[shape] || SHAPE_FIXED_POINTS[shape] ? undefined : (shape as Tool),
       })
       return
     }
@@ -2602,6 +2698,12 @@ export function InfiniteCanvas({
           : point
       setStroke([[start.x, start.y]])
       beginGesture('placeLine', e, { placeTool: tool, start })
+      return
+    }
+    if (tool === 'connector') {
+      const snapped = snapConnectorPoint(point, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
+      setStroke([[snapped.point.x, snapped.point.y]])
+      beginGesture('placeLine', e, { placeTool: 'connector', start: snapped.point, startAnchor: snapped.anchor })
       return
     }
     beginGesture(tool === 'circle' ? 'placeRadius' : 'placeRect', e, { placeTool: tool })
@@ -2693,7 +2795,7 @@ export function InfiniteCanvas({
     // is touch-pan-y (not touch-none), so a quick swipe starting on an
     // object is free to become the page/sheet's native scroll instead of a
     // drag — but only if nothing here has started tracking pointermove yet.
-    // Wait a short hold (DRAG_HOLD_MS) or a small deliberate hold-still
+    // Wait a short hold (gesturePrefs().holdBeforeDragMs) or a small deliberate hold-still
     // before committing to the drag; handleTouchMoveCapture cancels this if
     // the finger moves past the threshold first (a swipe, not a drag).
     const clickedId = e.shiftKey ? undefined : id
@@ -2707,7 +2809,7 @@ export function InfiniteCanvas({
         timer: setTimeout(() => {
           dragHoldRef.current = null
           beginGesture('move', e, { clickedId })
-        }, DRAG_HOLD_MS),
+        }, gesturePrefs().holdBeforeDragMs),
       }
       return
     }
@@ -2791,12 +2893,7 @@ export function InfiniteCanvas({
 
 
 
-  const cursor =
-    tool === 'pen' || tool === 'shaper' || tool === 'lasso'
-      ? 'crosshair'
-      : tool === 'select'
-        ? 'default'
-        : 'copy'
+  const cursor = cursorForTool(tool)
 
   // O(1) lookups — `selection.includes(id)` inside the object map was O(n)
   // per object, i.e. O(n^2) for the page.
@@ -3075,6 +3172,19 @@ export function InfiniteCanvas({
                 strokeLinejoin="round"
               />
             )}
+          </svg>
+        )}
+
+        {connectorSnapDot && (
+          <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+            <circle
+              cx={connectorSnapDot.x}
+              cy={connectorSnapDot.y}
+              r={5 / viewport.zoom}
+              fill="var(--accent-blue)"
+              stroke="white"
+              strokeWidth={1.5 / viewport.zoom}
+            />
           </svg>
         )}
 
