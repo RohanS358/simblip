@@ -79,8 +79,9 @@ circuit engine supports today.
 - Wherever object moves/resizes are committed today (`updateObject` or
   equivalent), after the mutation, recompute the world position of any connector
   endpoint anchored to that object (`t` → boundary point in current world
-  coordinates). Bend points stay relative to the resolved endpoints so the middle
-  of the path reflows proportionally rather than snapping oddly.
+  coordinates). Bend points are held at their existing object-local coordinates
+  unchanged — only the anchored endpoint(s) reproject; the interior bend shape
+  stays exactly as the user last set it rather than reflowing proportionally.
 
 ### Orthogonal reflow rendering
 
