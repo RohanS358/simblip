@@ -289,6 +289,34 @@ function TracerToggle({
   )
 }
 
+function ConnectorCapsSection({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const updateObject = useDocStore((s) => s.updateObject)
+  const setCap = (which: 'startCap' | 'endCap', value: 'none' | 'arrow') =>
+    updateObject(pageId, object.id, { metadata: { ...object.metadata, [which]: value } }, { history: true })
+
+  const Row = ({ label, field }: { label: string; field: 'startCap' | 'endCap' }) => (
+    <div className="mt-1.5 flex items-center gap-2">
+      <span className="w-20 shrink-0 truncate text-[0.6875rem] text-muted-foreground">{label}</span>
+      <select
+        className="flex-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[0.6875rem]"
+        value={(object.metadata[field] as string | undefined) ?? 'none'}
+        onChange={(e) => setCap(field, e.target.value as 'none' | 'arrow')}
+      >
+        <option value="none">None</option>
+        <option value="arrow">Arrow</option>
+      </select>
+    </div>
+  )
+
+  return (
+    <div>
+      <SectionTitle>Connector</SectionTitle>
+      <Row label="Start cap" field="startCap" />
+      <Row label="End cap" field="endCap" />
+    </div>
+  )
+}
+
 function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObject }) {
   const addBehavior = useDocStore((s) => s.addBehavior)
   const removeBehavior = useDocStore((s) => s.removeBehavior)
@@ -3064,6 +3092,10 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       {object.geometry.kind === 'slider' && <SliderOptions pageId={pageId} object={object} />}
       {object.geometry.kind === 'button' && <ButtonOptions pageId={pageId} object={object} />}
       {object.geometry.kind === 'trigger' && <TriggerOptions pageId={pageId} object={object} />}
+
+      {object.geometry.kind === 'line' && object.metadata.render === 'connector' && (
+        <ConnectorCapsSection pageId={pageId} object={object} />
+      )}
 
       {contentParams.length > 0 && (
         <div className="space-y-1.5">
