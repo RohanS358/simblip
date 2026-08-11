@@ -1074,7 +1074,11 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           // interior shape can be dragged perpendicular to each segment —
           // canvas.tsx's handleObjectPointerDown reads data-connector-segment
           // /-axis off the pointer target to start the 'connectorReflow' gesture.
-          const allPts = [[a[0], a[1]], ...bends, [b[0], b[1]]]
+          // Must mirror connectorElbowPath's own default-corner fallback (empty
+          // bends still render as one Manhattan corner at (b[0], a[1])) or the
+          // hit-strips point at a diagonal that doesn't match what's on screen.
+          const displayBends = bends.length > 0 ? bends : [[b[0], a[1]]]
+          const allPts = [[a[0], a[1]], ...displayBends, [b[0], b[1]]]
           return allPts.slice(0, -1).map((p, i) => {
             const q = allPts[i + 1]
             const axis = Math.abs(q[0] - p[0]) > Math.abs(q[1] - p[1]) ? 'h' : 'v'

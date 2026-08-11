@@ -1831,12 +1831,22 @@ export function InfiniteCanvas({
         const setCoord = (p: number[]) => (axis === 'h' ? [p[0], newCoord] : [newCoord, p[1]])
         const isStartAnchored = segIndex === 0
         const isEndAnchored = segIndex + 1 === allPts.length - 1
+        // Rebuild explicitly rather than patching indices in place — allPts's
+        // interior (everything but its first/last entry) is the current bend
+        // list; the dragged segment's own two ends (p0, p1) get overwritten
+        // with the new coordinate, and if either end IS an outer endpoint, an
+        // extra bend is inserted next to it instead so that endpoint itself
+        // never moves. Doing this as one fresh array (rather than splicing
+        // into a copy of the old bends by index) avoids the off-by-one from
+        // indices shifting after an insert.
         const nextBends: number[][] = []
-        for (let i = 1; i < allPts.length - 1; i++) nextBends.push(allPts[i])
-        if (isStartAnchored) nextBends.splice(0, 0, setCoord(p0))
-        else nextBends[segIndex - 1] = setCoord(nextBends[segIndex - 1])
+        for (let i = 1; i < allPts.length - 1; i++) {
+          if (i === segIndex) nextBends.push(setCoord(p0))
+          else if (i === segIndex + 1) nextBends.push(setCoord(p1))
+          else nextBends.push(allPts[i])
+        }
+        if (isStartAnchored) nextBends.unshift(setCoord(p0))
         if (isEndAnchored) nextBends.push(setCoord(p1))
-        else if (!isStartAnchored) nextBends[segIndex] = setCoord(nextBends[segIndex] ?? p1)
         store.updateObject(
           pageId,
           g.connectorId,
