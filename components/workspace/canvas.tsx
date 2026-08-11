@@ -274,6 +274,7 @@ type GestureMode =
   | 'placeLine'
   | 'placeRect'
   | 'placeRadius'
+  | 'connectorReflow'
 
 interface Gesture {
   mode: GestureMode
@@ -301,6 +302,11 @@ interface Gesture {
   placeTool?: Tool
   /** Connector tool: boundary anchor captured at press, if the start point snapped. */
   startAnchor?: { objectId: string; t: number } | null
+  /** connectorReflow: which connector/segment is being dragged, and along
+   *  which axis the drag moves the segment's free coordinate. */
+  connectorId?: string
+  segIndex?: number
+  connectorAxis?: 'h' | 'v'
   /** Shape id when placing from the Shapes group (square, hexagon…). */
   placeShape?: string
   /** Live drag offset, applied to the DOM and committed to the store on release. */
@@ -1802,6 +1808,41 @@ export function InfiniteCanvas({
           },
           { history: false }
         )
+      } else if (g.mode === 'connectorReflow' && g.connectorId !== undefined && g.segIndex !== undefined && g.connectorAxis) {
+        const obj = store.pages[pageId]?.objects[g.connectorId]
+        if (!obj) return
+        const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
+        const ax = obj.position.x + pts[0][0]
+        const ay = obj.position.y + pts[0][1]
+        const bx = obj.position.x + pts[pts.length - 1][0]
+        const by = obj.position.y + pts[pts.length - 1][1]
+        const bends = ((obj.metadata.bends as number[][] | undefined) ?? []).map((p) => [...p])
+        const allPts = [[ax, ay], ...bends, [bx, by]]
+        const segIndex = g.segIndex
+        const axis = g.connectorAxis
+        const p0 = allPts[segIndex]
+        const p1 = allPts[segIndex + 1]
+        // The connector's two OUTER endpoints (index 0 and last of allPts)
+        // never move. If the dragged segment touches one of them, insert a
+        // fresh bend near that end so the endpoint itself stays put and the
+        // new segment absorbs the drag; if the segment is purely interior
+        // (both ends already bends), just move that bend's coordinate.
+        const newCoord = axis === 'h' ? point.y : point.x
+        const setCoord = (p: number[]) => (axis === 'h' ? [p[0], newCoord] : [newCoord, p[1]])
+        const isStartAnchored = segIndex === 0
+        const isEndAnchored = segIndex + 1 === allPts.length - 1
+        const nextBends: number[][] = []
+        for (let i = 1; i < allPts.length - 1; i++) nextBends.push(allPts[i])
+        if (isStartAnchored) nextBends.splice(0, 0, setCoord(p0))
+        else nextBends[segIndex - 1] = setCoord(nextBends[segIndex - 1])
+        if (isEndAnchored) nextBends.push(setCoord(p1))
+        else if (!isStartAnchored) nextBends[segIndex] = setCoord(nextBends[segIndex] ?? p1)
+        store.updateObject(
+          pageId,
+          g.connectorId,
+          { metadata: { ...obj.metadata, bends: nextBends } },
+          { history: false }
+        )
       } else if (g.mode === 'rotate' && g.rotateId && g.rotateCenter) {
         const angle = Math.atan2(point.y - g.rotateCenter.y, point.x - g.rotateCenter.x)
         let deg =
@@ -1864,6 +1905,7 @@ export function InfiniteCanvas({
       }
       if (g?.mode === 'pan') commitViewport() // the store has been lagging on purpose
       if (g?.mode === 'resize') useDocStore.getState().pushHistory(pageId)
+      if (g?.mode === 'connectorReflow') useDocStore.getState().pushHistory(pageId)
       if (!g) return
       const store = useDocStore.getState()
       setLiveDragOffset(null)
@@ -2707,6 +2749,15 @@ export function InfiniteCanvas({
     setCtxMenu(null)
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if ((tool !== 'select' && editing) || e.button !== 0) return
+    const segEl = (e.target as HTMLElement).closest('[data-connector-segment]') as HTMLElement | null
+    if (segEl && editing) {
+      e.stopPropagation()
+      const segIndex = Number(segEl.dataset.connectorSegment)
+      const connectorAxis = segEl.dataset.connectorAxis as 'h' | 'v'
+      useDocStore.getState().setSelection([id])
+      beginGesture('connectorReflow', e, { connectorId: id, segIndex, connectorAxis })
+      return
+    }
     if (viewer) {
       e.stopPropagation()
       const store = useDocStore.getState()

@@ -1069,6 +1069,28 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           markerStart={isElbowConnector && object.metadata.startCap === 'arrow' ? `url(#arrow-start-${object.id})` : undefined}
           markerEnd={isElbowConnector && object.metadata.endCap === 'arrow' ? `url(#arrow-end-${object.id})` : undefined}
         />
+        {isElbowConnector && selected && (() => {
+          // Invisible wide hit-strips per segment so a selected connector's
+          // interior shape can be dragged perpendicular to each segment —
+          // canvas.tsx's handleObjectPointerDown reads data-connector-segment
+          // /-axis off the pointer target to start the 'connectorReflow' gesture.
+          const allPts = [[a[0], a[1]], ...bends, [b[0], b[1]]]
+          return allPts.slice(0, -1).map((p, i) => {
+            const q = allPts[i + 1]
+            const axis = Math.abs(q[0] - p[0]) > Math.abs(q[1] - p[1]) ? 'h' : 'v'
+            return (
+              <line
+                key={i}
+                x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]}
+                stroke="transparent"
+                strokeWidth={14}
+                data-connector-segment={i}
+                data-connector-axis={axis}
+                style={{ cursor: axis === 'h' ? 'ns-resize' : 'ew-resize', pointerEvents: 'stroke' }}
+              />
+            )
+          })
+        })()}
         {render === 'measurement' &&
           (() => {
             // Ruler ticks perpendicular to the line at each end, live
