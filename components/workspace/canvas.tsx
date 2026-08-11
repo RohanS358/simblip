@@ -391,28 +391,6 @@ function ctxMenuItems(objectId: string | null, editing: boolean, pageId: string)
   )
 }
 
-// Snap a drawn line/stroke's endpoints onto any circuit terminal within
-// reach (mutates geometry.points in place, pre-insert) and report whether it
-// connected. Hand-drawing always stops a few pixels short of the pin — this
-// closes that gap so wires actually touch what they join.
-function connectEnds(obj: SceneObject, all: SceneObject[]): boolean {
-  const gpts = obj.geometry.points
-  if (!gpts || gpts.length < 2) return false
-  let hit = false
-  for (const i of [0, gpts.length - 1]) {
-    const t = nearestTerminal(all, {
-      x: obj.position.x + gpts[i][0],
-      y: obj.position.y + gpts[i][1],
-    })
-    if (t) {
-      const pressure = gpts[i].length > 2 ? [gpts[i][2]] : []
-      gpts[i] = [t.x - obj.position.x, t.y - obj.position.y, ...pressure]
-      hit = true
-    }
-  }
-  return hit
-}
-
 function convertSelectionToCircuit(pageId: string) {
   const store = useDocStore.getState()
   const page = store.pages[pageId]
@@ -536,7 +514,22 @@ function convertSelectionToCircuit(pageId: string) {
     const live = useDocStore.getState().pages[pageId]?.objects[o.id]
     if (!live) continue
     const clone = JSON.parse(JSON.stringify(live)) as SceneObject
-    if (connectEnds(clone, allNow)) {
+    const gpts = clone.geometry.points
+    let flush = false
+    if (gpts && gpts.length >= 2) {
+      for (const i of [0, gpts.length - 1]) {
+        const t = nearestTerminal(allNow, {
+          x: clone.position.x + gpts[i][0],
+          y: clone.position.y + gpts[i][1],
+        })
+        if (t) {
+          const pressure = gpts[i].length > 2 ? [gpts[i][2]] : []
+          gpts[i] = [t.x - clone.position.x, t.y - clone.position.y, ...pressure]
+          flush = true
+        }
+      }
+    }
+    if (flush) {
       clone.behaviors.push(createBehavior('wire'))
       clone.name = clone.name.replace(/^(Line|Stroke)/, 'Wire')
       useDocStore.getState().updateObject(pageId, o.id, {
@@ -1763,10 +1756,6 @@ export function InfiniteCanvas({
           end = { x: g.start.x + len * Math.cos(snap), y: g.start.y + len * Math.sin(snap) }
         } else if (g.placeTool === 'measurement') {
           end = snapMeasurePoint(point, store.pages[pageId]?.objects ?? {}, g.startViewport.zoom)
-        } else if (g.placeTool === 'connector') {
-          const r = snapConnectorPoint(point, store.pages[pageId]?.objects ?? {}, g.startViewport.zoom)
-          end = r.point
-          setConnectorSnapDot(r.anchor ? r.point : null)
         }
         updateStroke([
           [g.start.x, g.start.y],
@@ -2081,16 +2070,6 @@ export function InfiniteCanvas({
                     o.metadata.render = 'measurement'
                     return o
                   }
-                : g.placeTool === 'connector'
-                  ? () => {
-                      const o = createGeometry('line', g.start)
-                      o.metadata.render = 'connector'
-                      o.metadata.startAnchor = g.startAnchor ?? undefined
-                      o.metadata.bends = []
-                      o.metadata.startCap = 'none'
-                      o.metadata.endCap = 'none'
-                      return o
-                    }
                 : null
           if (maker) {
             const a = g.start
@@ -2109,10 +2088,6 @@ export function InfiniteCanvas({
             } else {
               // Plain click: legacy behavior, default length centered on the click.
               obj.position = { x: a.x - obj.size.w / 2, y: a.y - obj.size.h / 2 }
-            }
-            if (g.placeTool === 'connector') {
-              const endSnap = snapConnectorPoint(b, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
-              obj.metadata.endAnchor = endSnap.anchor ?? undefined
             }
             obj.z = topZ(pageId)
             store.addObject(pageId, obj)
@@ -2234,11 +2209,6 @@ export function InfiniteCanvas({
               h: Math.max(maxY - minY, 1),
             })
             stampInkMeta(obj)
-            const all = Object.values(store.pages[pageId]?.objects ?? {})
-            if (connectEnds(obj, all)) {
-              obj.behaviors.push(createBehavior('wire'))
-              obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
-            }
             obj.z = topZ(pageId)
             store.addObject(pageId, obj)
             store.setSelection([obj.id])
@@ -2324,7 +2294,6 @@ export function InfiniteCanvas({
             } else if ((rec.kind === 'line' || rec.kind === 'stroke') && domain !== 'mechanics') {
               // Any free line in a circuit system conducts — flush to pins.
               obj = fromRecognition(rec)
-              connectEnds(obj, all)
               obj.behaviors.push(createBehavior('wire'))
               obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
             } else if (rec.kind === 'line' && domain === 'mechanics') {
@@ -2369,17 +2338,6 @@ export function InfiniteCanvas({
                     h: rec.h,
                   }
             obj = fromRecognition(keep)
-            // A doodle whose end touches a circuit terminal IS a wire — and
-            // its endpoints snap flush onto the pins, closing the gap.
-            if (
-              (obj.geometry.kind === 'line' || obj.geometry.kind === 'stroke') &&
-              obj.behaviors.length === 0
-            ) {
-              if (connectEnds(obj, all)) {
-                obj.behaviors.push(createBehavior('wire'))
-                obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
-              }
-            }
           }
           if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
           obj.z = topZ(pageId)
@@ -2841,12 +2799,6 @@ export function InfiniteCanvas({
       beginGesture('placeLine', e, { placeTool: tool, start })
       return
     }
-    if (tool === 'connector') {
-      const snapped = snapConnectorPoint(point, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
-      setStroke([[snapped.point.x, snapped.point.y]])
-      beginGesture('placeLine', e, { placeTool: 'connector', start: snapped.point, startAnchor: snapped.anchor })
-      return
-    }
     beginGesture(tool === 'circle' ? 'placeRadius' : 'placeRect', e, { placeTool: tool })
   }
 
@@ -3124,7 +3076,7 @@ export function InfiniteCanvas({
       onPointerCancelCapture={handleTouchUpCapture}
       onPointerMove={(e) => {
         lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
-        if ((tool === 'connector' || tool === 'shaper') && !gestureRef.current) {
+        if (tool === 'shaper' && !gestureRef.current) {
           const p = toCanvas(e.clientX, e.clientY)
           const store = useDocStore.getState()
           const r = snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)

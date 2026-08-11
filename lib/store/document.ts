@@ -44,7 +44,6 @@ export type Tool =
   | 'rect'
   | 'line'
   | 'measurement' // point-to-point ruler: a line tagged metadata.render='measurement'
-  | 'connector' // shape-to-shape orthogonal connector: snaps to boundary, stays attached
   | 'shape' // placing a shape from the Shapes group (toolOption = shape id)
   | 'text'
   | 'note'

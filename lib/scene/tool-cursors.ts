@@ -78,7 +78,6 @@ export function cursorForTool(tool: Tool): string {
     case 'circle':
     case 'rect':
     case 'line':
-    case 'connector':
     case 'measurement':
     case 'shape':
       return CROSSHAIR_CURSOR

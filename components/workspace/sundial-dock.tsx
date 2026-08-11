@@ -23,7 +23,6 @@ import {
   Circle,
   Square,
   Minus,
-  Waypoints,
 } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useRuntimeStore } from '@/lib/physics/world'
@@ -41,7 +40,6 @@ const PRIMARY_TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: strin
   { tool: 'pen', icon: Pen, label: 'Pen', key: 'P' },
   { tool: 'shaper', icon: Spline, label: 'Shaper', key: 'S' },
   { tool: 'eraser', icon: Eraser, label: 'Eraser', key: 'E' },
-  { tool: 'connector', icon: Waypoints, label: 'Connector', key: 'X' },
   { tool: 'text', icon: Type, label: 'Text', key: 'T' },
   { tool: 'note', icon: StickyNote, label: 'Note', key: 'N' },
   { tool: 'formula', icon: Sigma, label: 'Formula', key: 'F' },
