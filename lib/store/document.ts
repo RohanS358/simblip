@@ -15,7 +15,24 @@ import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import * as archive from '@/lib/store/page-archive'
 import { dropBuffer } from '@/lib/physics/bus'
 import { markPageDeleted } from '@/lib/store/deleted-pages'
-import { pointAtBoundaryT } from '@/lib/scene/connectors'
+import { pointAtBoundaryT, type ConnectorAnchor } from '@/lib/scene/connectors'
+import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
+
+/** Resolves an anchor to a world point on `obj`. Anchors without a `kind`
+ *  field predate the terminal-anchor change and are treated as boundary
+ *  anchors for backward compatibility. */
+function resolveAnchorPoint(anchor: ConnectorAnchor | { objectId: string; t: number }, obj: SceneObject): { x: number; y: number } {
+  const kind = 'kind' in anchor ? anchor.kind : 'boundary'
+  if (kind === 'terminal') {
+    const a = anchor as { objectId: string; terminalId: string }
+    const defs = terminalsOf(obj)
+    const t = defs[Number(a.terminalId)]
+    // ponytail: terminal-not-found (e.g. gate input count changed under a stale anchor) falls back to boundary t=0 rather than crashing
+    return t ? terminalWorld(obj, t) : pointAtBoundaryT(obj, 0)
+  }
+  const a = anchor as { objectId: string; t: number }
+  return pointAtBoundaryT(obj, a.t)
+}
 
 export type Tool =
   | 'select'
@@ -276,8 +293,8 @@ function reprojectConnectors(page: PageContent, movedObjectId: string): PageCont
   let changed = false
   for (const obj of Object.values(page.objects)) {
     if (obj.metadata.render !== 'connector' || obj.metadata.locked) continue
-    const startAnchor = obj.metadata.startAnchor as { objectId: string; t: number } | undefined
-    const endAnchor = obj.metadata.endAnchor as { objectId: string; t: number } | undefined
+    const startAnchor = obj.metadata.startAnchor as (ConnectorAnchor | { objectId: string; t: number }) | undefined
+    const endAnchor = obj.metadata.endAnchor as (ConnectorAnchor | { objectId: string; t: number }) | undefined
     if (startAnchor?.objectId !== movedObjectId && endAnchor?.objectId !== movedObjectId) continue
 
     const movedObj = objects[movedObjectId]
@@ -286,8 +303,8 @@ function reprojectConnectors(page: PageContent, movedObjectId: string): PageCont
     const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
     let a = { x: obj.position.x + pts[0][0], y: obj.position.y + pts[0][1] }
     let b = { x: obj.position.x + pts[pts.length - 1][0], y: obj.position.y + pts[pts.length - 1][1] }
-    if (startAnchor?.objectId === movedObjectId) a = pointAtBoundaryT(movedObj, startAnchor.t)
-    if (endAnchor?.objectId === movedObjectId) b = pointAtBoundaryT(movedObj, endAnchor.t)
+    if (startAnchor?.objectId === movedObjectId) a = resolveAnchorPoint(startAnchor, movedObj)
+    if (endAnchor?.objectId === movedObjectId) b = resolveAnchorPoint(endAnchor, movedObj)
 
     const px = Math.min(a.x, b.x)
     const py = Math.min(a.y, b.y)

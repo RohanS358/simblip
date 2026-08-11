@@ -331,7 +331,7 @@ interface Gesture {
   /** Geometry tool for drag-to-draw placement (circle, rect, text…). */
   placeTool?: Tool
   /** Connector tool: boundary anchor captured at press, if the start point snapped. */
-  startAnchor?: { objectId: string; t: number } | null
+  startAnchor?: ConnectorAnchor | null
   /** connectorReflow: which connector/segment is being dragged, and along
    *  which axis the drag moves the segment's free coordinate. */
   connectorId?: string
