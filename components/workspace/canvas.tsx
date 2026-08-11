@@ -332,6 +332,8 @@ interface Gesture {
   placeTool?: Tool
   /** Connector tool: boundary anchor captured at press, if the start point snapped. */
   startAnchor?: ConnectorAnchor | null
+  /** Shaper's draw gesture: boundary/terminal anchor captured at press, for Task 4 to consume. */
+  endAnchor?: ConnectorAnchor | null
   /** connectorReflow: which connector/segment is being dragged, and along
    *  which axis the drag moves the segment's free coordinate. */
   connectorId?: string
@@ -2124,6 +2126,15 @@ export function InfiniteCanvas({
           setStroke(null)
           if (!points || points.length < 2) return
 
+          const endAnchor =
+            store.tool === 'shaper'
+              ? snapConnectorPoint(
+                  { x: points[points.length - 1][0], y: points[points.length - 1][1] },
+                  store.pages[pageId]?.objects ?? {},
+                  vpRef.current.zoom
+                ).anchor
+              : null
+
           // Scribble-out: scratching furiously over your work deletes what
           // is underneath — the scribble itself never commits. (Nothing
           // under it? Then it is just ink and flows through normally.)
@@ -2738,8 +2749,11 @@ export function InfiniteCanvas({
     }
     if (tool === 'pen' || tool === 'shaper') {
       const p = toCanvas(e.clientX, e.clientY)
-      setStroke([[p.x, p.y, inkPressure(e)]])
-      beginGesture('draw', e)
+      const snapped =
+        tool === 'shaper' ? snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom) : null
+      const startPoint = snapped?.anchor ? snapped.point : p
+      setStroke([[startPoint.x, startPoint.y, inkPressure(e)]])
+      beginGesture('draw', e, { startAnchor: snapped?.anchor ?? null })
       return
     }
 
@@ -3066,7 +3080,7 @@ export function InfiniteCanvas({
       onPointerCancelCapture={handleTouchUpCapture}
       onPointerMove={(e) => {
         lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
-        if (tool === 'connector' && !gestureRef.current) {
+        if ((tool === 'connector' || tool === 'shaper') && !gestureRef.current) {
           const p = toCanvas(e.clientX, e.clientY)
           const store = useDocStore.getState()
           const r = snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom)
