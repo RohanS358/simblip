@@ -2135,6 +2135,50 @@ export function InfiniteCanvas({
                 ).anchor
               : null
 
+          // Shaper commit: a stroke with at least one snapped end becomes a
+          // connector (mint) or, when both ends land on circuit terminals, a
+          // wire (amber, conducts). A same-object self-loop (near-instant
+          // click right on a snap target — both ends resolve to the same
+          // objectId) is degenerate, not a real connection: drop the end
+          // anchor so it falls through to the plain-stroke path below
+          // instead of creating a zero-length self-referencing connector.
+          const selfLoop =
+            g.startAnchor && endAnchor && g.startAnchor.objectId === endAnchor.objectId
+          const effectiveEndAnchor = selfLoop ? null : endAnchor
+          if (store.tool === 'shaper' && (g.startAnchor || effectiveEndAnchor)) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+            for (const [x, y] of points) {
+              if (x < minX) minX = x
+              if (y < minY) minY = y
+              if (x > maxX) maxX = x
+              if (y > maxY) maxY = y
+            }
+            const obj = fromRecognition({
+              kind: 'stroke',
+              points: points.map(([x, y]) => [x - minX, y - minY]),
+              x: minX,
+              y: minY,
+              w: Math.max(maxX - minX, 1),
+              h: Math.max(maxY - minY, 1),
+            })
+            stampInkMeta(obj)
+            obj.metadata.render = 'connector'
+            obj.metadata.startAnchor = g.startAnchor ?? undefined
+            obj.metadata.endAnchor = effectiveEndAnchor ?? undefined
+            obj.metadata.bends = []
+            obj.metadata.startCap = 'none'
+            obj.metadata.endCap = 'none'
+            const bothTerminals = g.startAnchor?.kind === 'terminal' && effectiveEndAnchor?.kind === 'terminal'
+            if (bothTerminals) {
+              obj.behaviors.push(createBehavior('wire'))
+              obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+            }
+            obj.z = topZ(pageId)
+            store.addObject(pageId, obj)
+            store.setSelection([obj.id])
+            return null
+          }
+
           // Scribble-out: scratching furiously over your work deletes what
           // is underneath — the scribble itself never commits. (Nothing
           // under it? Then it is just ink and flows through normally.)

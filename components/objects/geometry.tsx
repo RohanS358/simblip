@@ -1061,8 +1061,8 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           data-wire={flowable ? '' : undefined}
           d={d}
           fill="none"
-          stroke={render === 'measurement' ? 'var(--accent-rose)' : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : stroke}
-          strokeWidth={render === 'measurement' ? 1.5 : isElbowConnector ? 2.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : isWire ? 2.5 : 2}
+          stroke={render === 'measurement' ? 'var(--accent-rose)' : isWire ? 'var(--accent-amber)' : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : stroke}
+          strokeWidth={render === 'measurement' ? 1.5 : isWire ? 2.5 : isElbowConnector ? 2.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : 2}
           strokeDasharray={render === 'measurement' ? '5 4' : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
