@@ -588,11 +588,18 @@ export const PRST_POLYGON_POINTS: Record<string, number[][]> = {
  *  fill. Rendering that as 'polygon' auto-closes it into a filled/stroked
  *  wedge that was never in the original slide, so it maps to 'line' instead
  *  (a raw open polyline) to match what actually shows. */
+const LINE_PRSTS = new Set([
+  'line', 'straightConnector1',
+  'bentConnector2', 'bentConnector3', 'bentConnector4', 'bentConnector5',
+  'curvedConnector2', 'curvedConnector3', 'curvedConnector4', 'curvedConnector5',
+])
+
 function geometryKindOf(sp: Element): 'rect' | 'circle' | 'polygon' | 'line' {
   const spPr = firstChild(sp, 'p:spPr')
   if (firstChild(spPr, 'a:custGeom')) return custGeomPath(sp)?.closed ? 'polygon' : 'line'
   const prst = firstChild(spPr, 'a:prstGeom')?.getAttribute('prst')
   if (prst === 'ellipse' || prst === 'circle') return 'circle'
+  if (prst && LINE_PRSTS.has(prst)) return 'line'
   if (prst && PRST_POLYGON_POINTS[prst]) return 'polygon'
   return 'rect'
 }
