@@ -68,6 +68,7 @@ export function connectorElbowPath(
   x2: number,
   y2: number
 ): string {
-  const pts = [[x1, y1], ...bends, [x2, y2]]
+  const mid = bends.length > 0 ? bends : [[x2, y1]]
+  const pts = [[x1, y1], ...mid, [x2, y2]]
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
 }
