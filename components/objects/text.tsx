@@ -1206,7 +1206,7 @@ export function TextObject(props: ObjectRendererProps) {
         'relative flex h-full flex-col',
         hug ? 'w-max' : 'w-full',
         VERTICAL_ALIGN_CLASS[vAlign] ?? 'justify-start',
-        hasFill && cn(!bgIsHex && FILLS[bg as string], 'p-3 hairline shadow-sm')
+        hasFill ? cn(!bgIsHex && FILLS[bg as string], 'p-3 hairline shadow-sm') : 'p-2'
       )}
       style={{
         textAlign: align,
