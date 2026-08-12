@@ -169,9 +169,14 @@ function PresentOverlay({
       const vv = window.visualViewport
       const vw = vv?.width ?? window.innerWidth
       const vh = vv?.height ?? window.innerHeight
-      const availW = vw - 64 // matches the p-8 padding below
-      const availH = vh - 200 // header/footer chrome
-      setFrameScale(Math.min(availW / 960, availH / 540))
+      // Chrome reserve scales with the viewport instead of a flat 200px:
+      // on a small phone in landscape that constant exceeded the height
+      // outright, producing a zero-or-negative scale and a blank slide.
+      const padX = vw < 640 ? 24 : 64
+      const reserve = Math.min(200, Math.max(72, vh * 0.18))
+      const availW = Math.max(120, vw - padX)
+      const availH = Math.max(80, vh - reserve)
+      setFrameScale(Math.max(0.05, Math.min(availW / 960, availH / 540)))
     }
     compute()
     window.addEventListener('resize', compute)
@@ -184,10 +189,38 @@ function PresentOverlay({
     }
   }, [])
 
+  // Swipe to change slides. On a phone the overlay is fullscreen with no
+  // visible controls but the close button, so without this there was no way
+  // to advance a slide by touch at all — the keyboard handler above is
+  // desktop-only in practice.
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
+  const onSwipeStart = (e: React.PointerEvent) => {
+    if (e.pointerType === 'mouse') return
+    swipeRef.current = { x: e.clientX, y: e.clientY }
+  }
+  const onSwipeEnd = (e: React.PointerEvent) => {
+    const s = swipeRef.current
+    swipeRef.current = null
+    if (!s) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    // Horizontal intent only, so a vertical drag (or a pinch) never advances.
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    if (dx < 0) go(Math.min(slides.length - 1, i + 1))
+    else go(Math.max(0, i - 1))
+  }
+
   return (
     <div
       className="fixed inset-0 z-50 flex flex-col bg-black"
-      style={{ paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
+      style={{
+        paddingTop: 'env(safe-area-inset-top)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+        touchAction: 'none',
+      }}
+      onPointerDown={onSwipeStart}
+      onPointerUp={onSwipeEnd}
+      onPointerCancel={() => (swipeRef.current = null)}
     >
       <button
         type="button"
@@ -567,13 +600,32 @@ export function PresentationView({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col">
-      <div ref={stageRef} className="flex min-h-0 flex-1 items-center justify-center overflow-auto bg-muted/40 p-6">
+      {/*
+        The stage scrolls when the slide is zoomed past the viewport.
+        `transform: scale()` does NOT contribute to a parent's scrollable
+        area — the box keeps its unscaled 960×540 size for layout — so the
+        old negative-margin trick only approximated it and broke entirely
+        when zoomed out. A wrapper sized to the SCALED dimensions gives the
+        scroll container something real to measure, and `touch-action` +
+        `-webkit-overflow-scrolling` are what make it actually drag on iOS,
+        where the default here was "nothing moves".
+      */}
+      <div
+        ref={stageRef}
+        className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40"
+        style={{ touchAction: 'pan-x pan-y pinch-zoom', WebkitOverflowScrolling: 'touch' }}
+      >
         {importing ? (
-          <div className="flex items-center gap-2 text-muted-foreground">
+          <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
             <span className="text-[0.75rem]">Importing presentation…</span>
           </div>
         ) : activeSlideId ? (
+          <div
+            className="flex min-h-full items-center justify-center p-4 sm:p-6"
+            // The scaled footprint, so the scroll container can measure it.
+            style={{ minWidth: 960 * zoom + 32, minHeight: 540 * zoom + 32 }}
+          >
           <div
             className="relative shrink-0 overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
             style={{
@@ -581,7 +633,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
               height: 540,
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
-              margin: `${Math.max(0, (540 * (zoom - 1)) / 2)}px ${Math.max(0, (960 * (zoom - 1)) / 2)}px`,
             }}
           >
             <TransitionSlide
@@ -594,12 +645,16 @@ export function PresentationView({ pageId }: { pageId: string }) {
               <InfiniteCanvas key={activeSlideId} pageId={activeSlideId} locked transparent passthrough active />
             </TransitionSlide>
           </div>
+          </div>
         ) : null}
       </div>
 
+      {/* Slide rail. Shorter on phones, where a 96px rail plus the toolbar
+          ate most of a small viewport and left the slide itself squeezed. */}
       <div
         ref={railRef}
-        className="flex h-24 shrink-0 items-center gap-0 overflow-x-auto border-t border-border/60 bg-muted/30 p-2"
+        className="flex h-16 shrink-0 items-center gap-0 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/30 p-2 sm:h-24"
+        style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}
         onMouseLeave={() => setHoverGap(null)}
       >
         {displayedSlides.map((id, tileIdx) => {
@@ -693,9 +748,24 @@ export function PresentationView({ pageId }: { pageId: string }) {
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto border-t border-border/60 bg-muted/20 px-3 py-2">
+      {/*
+        Toolbar. Every group is `shrink-0` inside a scrolling strip: without
+        that, flex children shrink below their content on a narrow screen and
+        their labels collide — which is the "overlapping panels" seen on
+        mobile. Scrolling horizontally is the correct answer on a phone;
+        squeezing is not. Safe-area padding keeps the last control clear of
+        the home indicator.
+      */}
+      <div
+        className="flex shrink-0 items-center gap-1.5 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/20 px-3 py-2"
+        style={{
+          touchAction: 'pan-x',
+          WebkitOverflowScrolling: 'touch',
+          paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))',
+        }}
+      >
 
-        <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
           <button
             type="button"
             aria-label="Zoom out"
@@ -724,7 +794,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </button>
         </div>
 
-        <div className="flex items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
+        <div className="flex shrink-0 items-center gap-0.5 rounded-lg border border-border/60 bg-background/60 p-0.5">
           {(['none', 'fade', 'slide'] as SlideTransition[]).map((t) => (
             <button
               key={t}

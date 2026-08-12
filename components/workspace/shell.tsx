@@ -451,6 +451,37 @@ export function WorkspaceShell() {
         e.preventDefault()
         setSettingsTab('hotkeys')
         setSettingsOpen(true)
+        return
+      }
+
+      // Panels. These stay live while typing — they don't insert characters,
+      // and reaching for Properties mid-edit is exactly when you want it.
+      const toggle = useWorkspaceStore.getState().togglePanel
+      if (matchesCombo(e, resolveCombo('panel.sidebar'))) {
+        e.preventDefault()
+        toggle('sidebar')
+        return
+      }
+      if (matchesCombo(e, resolveCombo('panel.inspector'))) {
+        e.preventDefault()
+        toggle('inspector')
+        return
+      }
+      if (matchesCombo(e, resolveCombo('panel.calculator'))) {
+        e.preventDefault()
+        toggle('calc')
+        return
+      }
+      // Zen: collapse everything, or restore both rails if already collapsed.
+      if (matchesCombo(e, resolveCombo('panel.zen'))) {
+        e.preventDefault()
+        const s = useWorkspaceStore.getState()
+        const anyOpen = s.sidebarOpen || s.inspectorOpen || s.calcOpen
+        useWorkspaceStore.setState({
+          sidebarOpen: !anyOpen,
+          inspectorOpen: !anyOpen,
+          calcOpen: false,
+        })
       }
     }
     window.addEventListener('keydown', onKey)

@@ -21,7 +21,90 @@ import { NextRequest, NextResponse } from 'next/server'
 // "browser-in-a-tab" feature, not an unintended SSRF vector. Requests that
 // attempt to reach local/RFC-1918 addresses are blocked.
 
-const BLOCKED_HOSTS = /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1)/i
+// SSRF guard. The old check was a string regex on the hostname:
+//   /^(localhost|127\.|10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|::1)/i
+// which every standard bypass walks straight through — decimal-encoded IPs
+// (http://2130706433 = 127.0.0.1), IPv6-mapped (::ffff:127.0.0.1), 0.0.0.0,
+// the link-local cloud metadata endpoint at 169.254.169.254 (the dangerous
+// one on any cloud host: it hands out instance credentials), and DNS
+// rebinding via a hostname that resolves to a private address.
+//
+// We now RESOLVE the hostname and check the resulting IPs, so what's
+// validated is what will actually be connected to.
+
+/**
+ * True when `hostname` is — or resolves to — an address we must not proxy.
+ * Resolution is what closes DNS rebinding and every encoding trick: whatever
+ * the hostname looks like, we judge the IPs it actually points at.
+ *
+ * A resolution failure blocks the request. A hostname we cannot resolve is
+ * one we cannot vet, and failing open here is the whole vulnerability.
+ */
+async function resolvesToPrivateAddress(hostname: string): Promise<boolean> {
+  const host = hostname.replace(/^\[|\]$/g, '') // strip IPv6 brackets
+  if (host.toLowerCase() === 'localhost' || host.toLowerCase().endsWith('.localhost')) return true
+
+  // Decimal / octal / hex encodings of an IPv4 address ("2130706433",
+  // "0x7f000001") — URL parsers accept these, DNS never sees them. This must
+  // be tested BEFORE the dotted-quad branch: "2130706433" also matches a
+  // digits-and-dots pattern, and would otherwise fall through as a malformed
+  // dotted quad and be judged public.
+  if (/^(0x[0-9a-f]+|\d+)$/i.test(host)) {
+    const n = host.toLowerCase().startsWith('0x') ? parseInt(host, 16) : Number(host)
+    if (Number.isFinite(n) && n >= 0 && n <= 0xffffffff) {
+      return isPrivateIp(
+        [(n >>> 24) & 255, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join('.')
+      )
+    }
+    return true
+  }
+
+  // A bare IP literal needs no DNS round-trip.
+  if (/^[\d.]+$/.test(host) || host.includes(':')) return isPrivateIp(host)
+
+  try {
+    const { lookup } = await import('node:dns/promises')
+    const results = await lookup(host, { all: true })
+    // ANY private answer blocks: a name resolving to both a public and a
+    // private address is a rebinding attempt, not a legitimate site.
+    return results.length === 0 || results.some((r) => isPrivateIp(r.address))
+  } catch {
+    return true
+  }
+}
+
+/** Private, loopback, link-local and other non-routable IPv4/IPv6 ranges. */
+function isPrivateIp(ip: string): boolean {
+  // Normalize IPv6-mapped IPv4 ("::ffff:127.0.0.1") down to the IPv4 form.
+  const v4 = ip.replace(/^::ffff:/i, '')
+
+  if (/^\d+\.\d+\.\d+\.\d+$/.test(v4)) {
+    const parts = v4.split('.').map(Number)
+    if (parts.some((n) => !Number.isInteger(n) || n < 0 || n > 255)) return true
+    const [a, b] = parts
+    return (
+      a === 0 || // 0.0.0.0/8 — "this host"
+      a === 10 || // private
+      a === 127 || // loopback
+      (a === 169 && b === 254) || // link-local, incl. 169.254.169.254 metadata
+      (a === 172 && b >= 16 && b <= 31) || // private
+      (a === 192 && b === 168) || // private
+      (a === 100 && b >= 64 && b <= 127) || // CGNAT
+      (a === 192 && b === 0) || // IETF protocol assignments
+      a >= 224 // multicast + reserved
+    )
+  }
+
+  const v6 = ip.toLowerCase()
+  return (
+    v6 === '::' ||
+    v6 === '::1' || // loopback
+    v6.startsWith('fc') || // unique local
+    v6.startsWith('fd') ||
+    v6.startsWith('fe80') || // link-local
+    v6.startsWith('ff') // multicast
+  )
+}
 
 // Headers we strip from upstream responses before forwarding to the iframe.
 const STRIP_RESPONSE_HEADERS = new Set([
@@ -220,7 +303,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ path
     return NextResponse.json({ error: 'Only http/https allowed' }, { status: 400 })
   }
 
-  if (BLOCKED_HOSTS.test(parsed.hostname)) {
+  if (await resolvesToPrivateAddress(parsed.hostname)) {
     return NextResponse.json({ error: 'Private addresses not allowed' }, { status: 403 })
   }
 

@@ -367,6 +367,10 @@ interface Gesture {
 // Draw-and-hold: freehand ink only upgrades into a component (spring,
 // domain part) when the pen rests in place this long before lifting.
 const HOLD_MS = 500
+
+/** Centroid travel before a three-finger swipe counts as undo/redo. Large
+ *  enough that resting three fingers while thinking never fires it. */
+const THREE_FINGER_PX = 60
 const HOLD_STILL_PX = 6
 
 // Object-drag hold-time and tap-vs-drag distance (touch only) now live in
@@ -939,6 +943,8 @@ export function InfiniteCanvas({
   // Touch state: live touch points, the two-finger pinch baseline, and the
   // long-press timer that stands in for right-click on touch screens.
   const touchesRef = useRef<Map<number, Vec2>>(new Map())
+  /** Three-finger horizontal swipe → undo (left) / redo (right). */
+  const threeFingerRef = useRef<{ startX: number; startY: number; fired: boolean } | null>(null)
   const pinchRef = useRef<{
     dist: number
     center: Vec2
@@ -1350,9 +1356,93 @@ export function InfiniteCanvas({
       if (matchesCombo(e, resolveCombo('view.pan')) && !isTyping(e.target)) spaceRef.current = true
       if (matchesCombo(e, resolveCombo('view.measure')) && !isTyping(e.target)) setAltHeld(true)
       if (isTyping(e.target)) return
+
+      // Zoom from the keyboard, anchored at the viewport CENTRE (there is no
+      // pointer position to zoom about). Same math as the pinch/double-tap
+      // paths so all three agree.
+      const zoomBy = (factor: number | 'reset' | 'fit') => {
+        const el = containerRef.current
+        if (!el) return
+        const v = vpRef.current
+        if (factor === 'reset') {
+          const next = { x: 0, y: 0, zoom: 1 }
+          vpRef.current = next
+          paintViewport(next)
+          useDocStore.getState().setViewport(pageId, next)
+          return
+        }
+        if (factor === 'fit') {
+          // Fit every object on the page, with a small margin.
+          const objs = Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
+          if (objs.length === 0) return
+          const minX = Math.min(...objs.map((o) => o.position.x))
+          const minY = Math.min(...objs.map((o) => o.position.y))
+          const maxX = Math.max(...objs.map((o) => o.position.x + o.size.w))
+          const maxY = Math.max(...objs.map((o) => o.position.y + o.size.h))
+          const pad = 48
+          const zoom = Math.max(
+            0.1,
+            Math.min(4, Math.min(el.offsetWidth / (maxX - minX + pad * 2), el.offsetHeight / (maxY - minY + pad * 2)))
+          )
+          const next = {
+            zoom,
+            x: el.offsetWidth / 2 - ((minX + maxX) / 2) * zoom,
+            y: el.offsetHeight / 2 - ((minY + maxY) / 2) * zoom,
+          }
+          vpRef.current = next
+          paintViewport(next)
+          useDocStore.getState().setViewport(pageId, next)
+          return
+        }
+        const zoom = Math.max(0.1, Math.min(8, v.zoom * factor))
+        const cx = el.offsetWidth / 2
+        const cy = el.offsetHeight / 2
+        const next = {
+          zoom,
+          x: cx - ((cx - v.x) * zoom) / v.zoom,
+          y: cy - ((cy - v.y) * zoom) / v.zoom,
+        }
+        vpRef.current = next
+        paintViewport(next)
+        useDocStore.getState().setViewport(pageId, next)
+      }
+
+      if (matchesCombo(e, resolveCombo('view.zoomIn'))) {
+        e.preventDefault()
+        zoomBy(1.2)
+        return
+      }
+      if (matchesCombo(e, resolveCombo('view.zoomOut'))) {
+        e.preventDefault()
+        zoomBy(1 / 1.2)
+        return
+      }
+      if (matchesCombo(e, resolveCombo('view.zoomReset'))) {
+        e.preventDefault()
+        zoomBy('reset')
+        return
+      }
+      if (matchesCombo(e, resolveCombo('view.zoomFit'))) {
+        e.preventDefault()
+        zoomBy('fit')
+        return
+      }
+
       const store = useDocStore.getState()
       const locked = useRuntimeStore.getState().mode !== 'edit'
       const mod = e.metaKey || e.ctrlKey
+
+      // Select everything the user can actually act on — system-rendered
+      // scaffolding and locked objects are skipped, since selecting them
+      // just produces a selection that refuses every subsequent operation.
+      if (matchesCombo(e, resolveCombo('edit.selectAll'))) {
+        e.preventDefault()
+        const all = Object.values(store.pages[pageId]?.objects ?? {})
+          .filter((o) => o.metadata.render !== 'system' && !o.metadata.locked)
+          .map((o) => o.id)
+        store.setSelection(all)
+        return
+      }
       if (matchesCombo(e, resolveCombo('edit.redo')) && !locked) {
         e.preventDefault()
         store.redo(pageId)
@@ -2584,6 +2674,23 @@ export function InfiniteCanvas({
     if (e.pointerType !== 'touch') return
     touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
     clearLongPress()
+
+    // Three fingers down = undo/redo swipe (the iPad system gesture, which
+    // users arrive already knowing). Recording the origin here; the decision
+    // happens on lift, in handleTouchUpCapture, once we know the direction.
+    if (touchesRef.current.size === 3) {
+      cancelGesture()
+      clearDragHold()
+      pinchRef.current = null
+      const pts = [...touchesRef.current.values()]
+      threeFingerRef.current = {
+        startX: pts.reduce((s, p) => s + p.x, 0) / pts.length,
+        startY: pts.reduce((s, p) => s + p.y, 0) / pts.length,
+        fired: false,
+      }
+      return
+    }
+
     if (touchesRef.current.size === 2) {
       cancelGesture() // whatever one finger started, a pair means pan/zoom
       clearDragHold() // …including a still-pending single-finger drag hold
@@ -2620,6 +2727,31 @@ export function InfiniteCanvas({
     if (e.pointerType !== 'touch') return
     if (touchesRef.current.has(e.pointerId))
       touchesRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    // Three-finger swipe: fire once, as soon as the centroid clears the
+    // threshold, rather than waiting for lift — the gesture should feel
+    // immediate, and firing on move means the user sees the result while
+    // their fingers are still down.
+    const tf = threeFingerRef.current
+    if (tf && !tf.fired && touchesRef.current.size === 3) {
+      const pts = [...touchesRef.current.values()]
+      const cx = pts.reduce((s, p) => s + p.x, 0) / pts.length
+      const cy = pts.reduce((s, p) => s + p.y, 0) / pts.length
+      const dx = cx - tf.startX
+      const dy = cy - tf.startY
+      // Horizontal intent only: a vertical three-finger drag is usually the
+      // OS's own gesture, and claiming it would fight the platform.
+      if (Math.abs(dx) > THREE_FINGER_PX && Math.abs(dx) > Math.abs(dy) * 1.5) {
+        tf.fired = true
+        const store = useDocStore.getState()
+        if (useRuntimeStore.getState().mode === 'edit') {
+          if (dx < 0) store.undo(pageId)
+          else store.redo(pageId)
+        }
+      }
+      return
+    }
+
     const lp = longPressRef.current
     if (lp && Math.hypot(e.clientX - lp.x, e.clientY - lp.y) > 10) clearLongPress()
     const dh = dragHoldRef.current
@@ -2628,11 +2760,14 @@ export function InfiniteCanvas({
 
   const handleTouchUpCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'pen') {
-    lastPenRef.current = Date.now() // keep the rejection window alive through long strokes
-    return
-  }
+      lastPenRef.current = Date.now() // keep the rejection window alive through long strokes
+      return
+    }
     if (e.pointerType !== 'touch') return
     touchesRef.current.delete(e.pointerId)
+    // The gesture ends when the fingers that started it are gone, not on the
+    // first lift — otherwise releasing one finger of three re-arms it.
+    if (touchesRef.current.size === 0) threeFingerRef.current = null
     clearLongPress()
     clearDragHold()
   }

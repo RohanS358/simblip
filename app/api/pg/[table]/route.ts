@@ -46,7 +46,12 @@ const TABLES: Record<string, TableSpec> = {
   announcements: { pk: ['id'] },
   sketch_templates: { pk: ['id'], anon: ['GET', 'POST'] },
   file_manifest: { pk: ['id'], owner: 'owner_id' },
-  devices: { pk: ['id'], owner: 'owner_id', anon: ['GET', 'POST', 'PATCH', 'DELETE'] },
+  // SECURITY: `devices` used to allow anonymous GET/POST/PATCH/DELETE. With
+  // no claims the scoping block in buildWhere is skipped entirely, so
+  // ?owner_id=eq.<anyone> read — or deleted — any user's device rows without
+  // a token. Every client call (lib/sync/devices.ts, device-file-sync.ts)
+  // already sends a Bearer token, so requiring auth costs nothing.
+  devices: { pk: ['id'], owner: 'owner_id' },
 }
 
 // Tables that carry institution_id on the row and must stay inside the
@@ -73,7 +78,18 @@ interface Ctx {
   claims: Claims | null
 }
 
-function resolve(req: Request, tableParam: string, method: string): Ctx | NextResponse {
+/**
+ * Roles that grant more than an ordinary user, and so must be confirmed
+ * against the database rather than taken from the token. `super_admin`
+ * bypasses tenant scoping entirely; `board` skips owner scoping.
+ */
+const PRIVILEGED_ROLES = new Set(['super_admin', 'admin', 'board'])
+
+async function resolve(
+  req: Request,
+  tableParam: string,
+  method: string
+): Promise<Ctx | NextResponse> {
   if (!pgConfigured) return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 500 })
   const table = tableParam.replace(/^simblip_/, '')
   const spec = TABLES[table]
@@ -82,6 +98,26 @@ function resolve(req: Request, tableParam: string, method: string): Ctx | NextRe
   if (!claims && !spec.anon?.includes(method)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
+
+  // SECURITY: role came straight from the JWT, so a demoted or deactivated
+  // admin kept operator powers for the life of their token — up to 30 days,
+  // with no revocation path. Privileged claims are now re-read from the
+  // profile on every request; ordinary users cost no extra query, since
+  // their role grants nothing beyond what owner/tenant scoping already
+  // allows. The provisioning routes have always done this — /api/pg didn't.
+  if (claims && PRIVILEGED_ROLES.has(claims.role)) {
+    const row = (
+      await q<{ role: string; active: boolean; institution_id: string | null }>(
+        'select role, active, institution_id from simblip_profiles where id = $1',
+        [claims.sub]
+      )
+    )[0]
+    if (!row?.active) return NextResponse.json({ error: 'Account unavailable' }, { status: 401 })
+    // Trust the DB, not the token, for both role and tenant.
+    claims.role = row.role
+    claims.inst = row.institution_id
+  }
+
   return { table, spec, claims }
 }
 
@@ -100,13 +136,29 @@ const PLATFORM_INSTITUTION = 'inst-platform'
 function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
   const parts: string[] = []
   const params: unknown[] = []
-  const explicitCols = new Set<string>()
+
+  const { claims: reqClaims } = ctx
+  const scopedCol =
+    ctx.table === 'institutions' ? 'id' : TENANT_COLUMN.has(ctx.table) ? 'institution_id' : null
 
   for (const [k, v] of url.searchParams.entries()) {
     if (k === 'select' || k === 'order' || k === 'limit' || k === 'offset') continue
     const col = ident(k)
     if (col === 'password_hash') throw new Error('Forbidden column')
-    explicitCols.add(col)
+    // Reject a client filter that tries to pin a scoped column to someone
+    // else's value. The unconditional scope below would already reduce this
+    // to "no rows", but failing loudly beats silently returning an empty list
+    // — and it makes the attempt visible rather than looking like no data.
+    if (
+      reqClaims &&
+      !isOperator(reqClaims) &&
+      reqClaims.inst &&
+      col === scopedCol &&
+      v.startsWith('eq.') &&
+      v.slice(3) !== reqClaims.inst
+    ) {
+      throw new Error('Cross-tenant filter rejected')
+    }
     if (v === 'is.null') parts.push(`${col} is null`)
     else if (v.startsWith('eq.')) {
       params.push(v.slice(3))
@@ -118,14 +170,23 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
   }
 
   const { table, spec, claims } = ctx
+
+  // SECURITY: scoping is UNCONDITIONAL. It used to be skipped whenever the
+  // client had already sent that column ("!explicitCols.has(...)"), which
+  // meant supplying the filter yourself REMOVED the guard:
+  //   ?institution_id=eq.<other-tenant>  → read another institution's rows
+  //   ?workspace_id=eq.<other-user>      → read another user's pages
+  // Both scopes are now always AND-ed on top of whatever the client asked
+  // for, so a client filter can only ever NARROW the result set, never widen
+  // it. A client value for a scoped column is rejected outright above.
   if (claims && !isOperator(claims)) {
     if (table === 'institutions') {
-      if (!explicitCols.has('id') && claims.inst) {
+      if (claims.inst) {
         params.push(claims.inst)
         parts.push(`id = $${params.length}`)
       }
     } else if (TENANT_COLUMN.has(table)) {
-      if (!explicitCols.has('institution_id') && claims.inst) {
+      if (claims.inst) {
         params.push(claims.inst)
         parts.push(`institution_id = $${params.length}`)
       }
@@ -135,7 +196,10 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
         parts.push(JOIN_TABLE_SCOPE[table](params.length))
       }
     }
-    if (spec.owner && claims.role !== 'board' && !explicitCols.has(spec.owner)) {
+    // `role: 'board'` is a shared kiosk identity: it legitimately reads pages
+    // it does not own, and is constrained by institution + the board-session
+    // authorization in lib/server/board-session-auth.ts instead.
+    if (spec.owner && claims.role !== 'board') {
       params.push(claims.sub)
       parts.push(`${spec.owner} = $${params.length}`)
     }
@@ -143,13 +207,86 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
   return { clause: parts.length ? ` where ${parts.join(' and ')}` : '', params }
 }
 
+/** Ceiling for a request that didn't ask for a limit of its own. Far above a
+ *  legitimate workspace, low enough that a runaway query can't scan a table. */
+const MAX_ROWS = 2000
+/** Ceiling for an explicit ?limit= — a caller can page, not dump. */
+const MAX_EXPLICIT_LIMIT = 5000
+
+/**
+ * ORDER BY / LIMIT / OFFSET from the query string.
+ *
+ * These are interpolated into SQL (Postgres won't parameterize an identifier
+ * or a sort direction), so the column goes through `ident()` and the
+ * direction is matched against a fixed pair. Limit and offset are coerced to
+ * non-negative integers — never passed through as strings.
+ */
+function buildTail(table: string, url: URL): { sql: string; truncatedAt: number | null } {
+  let sql = ''
+
+  const order = url.searchParams.get('order')
+  if (order) {
+    // PostgREST dialect: "col" | "col.asc" | "col.desc"
+    const [rawCol, dir] = order.split('.')
+    const col = ident(rawCol.trim())
+    sql += ` order by ${col} ${dir === 'desc' ? 'desc' : 'asc'}`
+  }
+
+  const rawLimit = url.searchParams.get('limit')
+  const explicit = rawLimit !== null ? Math.floor(Number(rawLimit)) : NaN
+  const limit =
+    Number.isFinite(explicit) && explicit > 0
+      ? Math.min(explicit, MAX_EXPLICIT_LIMIT)
+      : MAX_ROWS
+  sql += ` limit ${limit}`
+
+  const rawOffset = url.searchParams.get('offset')
+  const offset = rawOffset !== null ? Math.floor(Number(rawOffset)) : NaN
+  if (Number.isFinite(offset) && offset > 0) sql += ` offset ${offset}`
+
+  // Only an implicit ceiling counts as "possibly truncated" — an explicit
+  // limit is the caller getting exactly what they asked for.
+  void table
+  return { sql, truncatedAt: rawLimit === null ? limit : null }
+}
+
 const stripSecrets = (rows: Record<string, unknown>[]) =>
   rows.map(({ password_hash: _ph, ...rest }) => rest)
+
+/**
+ * Messages this gateway raises itself. These are safe to return: they
+ * describe the caller's own request, not the database.
+ */
+const SAFE_ERRORS = new Set([
+  'Forbidden column',
+  'Cross-tenant filter rejected',
+  'Refusing unfiltered update',
+  'Refusing unfiltered delete',
+  'Room is outside your institution',
+  'Asset is outside your institution',
+])
+
+/**
+ * SECURITY: raw driver errors used to be returned verbatim, handing clients
+ * column names, constraint names, type details and fragments of our schema —
+ * a free map of the database for anyone probing it. Our own validation
+ * messages still pass through (they're about the request, and callers need
+ * them); everything else becomes a generic message and is logged server-side
+ * where it's actually useful for debugging.
+ */
+function errorResponse(err: unknown, table: string, method: string): NextResponse {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (SAFE_ERRORS.has(msg) || msg.startsWith('Bad identifier:')) {
+    return NextResponse.json({ error: msg }, { status: 400 })
+  }
+  console.error(`[pg] ${method} ${table} failed:`, err)
+  return NextResponse.json({ error: 'Request failed' }, { status: 400 })
+}
 
 type Params = { params: Promise<{ table: string }> }
 
 export async function GET(req: Request, { params }: Params) {
-  const ctx = resolve(req, (await params).table, 'GET')
+  const ctx = await resolve(req, (await params).table, 'GET')
   if (ctx instanceof NextResponse) return ctx
   try {
     const url = new URL(req.url)
@@ -162,7 +299,7 @@ export async function GET(req: Request, { params }: Params) {
     // response header) but cheap to drop entirely later if unwanted.
     const cacheHeader = (v: 'HIT' | 'MISS' | 'SKIP') => ({ 'Content-Type': 'application/json', 'X-Cache': v })
     if (cacheable) {
-      const hit = await cacheGet(ctx.table, ctx.claims!.sub, url.search).catch(() => null)
+      const hit = await cacheGet(ctx.table, ctx.claims!.sub, url.search, ctx.claims!.inst).catch(() => null)
       if (hit !== null) return new NextResponse(hit, { headers: cacheHeader('HIT') })
     }
 
@@ -176,13 +313,34 @@ export async function GET(req: Request, { params }: Params) {
             .filter((c) => c !== 'password_hash')
             .join(', ')
     const { clause, params: p } = buildWhere(ctx, url)
-    const rows = await q(`select ${cols} from simblip_${ident(ctx.table)}${clause}`, p)
+    // SCALING: `limit`/`offset`/`order` were parsed out of the filter loop but
+    // never applied, so every list request was an unbounded sequential scan —
+    // fine at demo size, an outage at real size. They are honoured now, and an
+    // unpaginated request still gets a hard ceiling rather than the whole
+    // table. MAX_ROWS is deliberately well above any legitimate single
+    // workspace (a large notebook is a few hundred pages) so existing callers
+    // that expect "everything" keep working.
+    const { sql: tail, truncatedAt } = buildTail(ctx.table, url)
+    const rows = await q(
+      `select ${cols} from simblip_${ident(ctx.table)}${clause}${tail}`,
+      p
+    )
     const body = JSON.stringify(stripSecrets(rows))
 
-    if (cacheable) await cacheSet(ctx.table, ctx.claims!.sub, url.search, body).catch(() => {})
-    return new NextResponse(body, { headers: cacheHeader(cacheable ? 'MISS' : 'SKIP') })
+    // A caller that asked for no limit and got exactly the ceiling is very
+    // likely missing data — say so in a header rather than silently lying.
+    const headers: Record<string, string> = cacheHeader(cacheable ? 'MISS' : 'SKIP')
+    if (truncatedAt !== null && rows.length === truncatedAt) {
+      headers['X-Truncated'] = String(truncatedAt)
+      console.warn(
+        `[pg] GET ${ctx.table} hit the ${truncatedAt}-row ceiling — caller should paginate`
+      )
+    }
+
+    if (cacheable) await cacheSet(ctx.table, ctx.claims!.sub, url.search, body, ctx.claims!.inst).catch(() => {})
+    return new NextResponse(body, { headers })
   } catch (err) {
-    return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
+    return errorResponse(err, ctx.table, 'GET')
   }
 }
 
@@ -208,7 +366,7 @@ async function assertJoinParentInTenant(
 }
 
 export async function POST(req: Request, { params }: Params) {
-  const ctx = resolve(req, (await params).table, 'POST')
+  const ctx = await resolve(req, (await params).table, 'POST')
   if (ctx instanceof NextResponse) return ctx
   try {
     const body = (await req.json()) as Record<string, unknown> | Record<string, unknown>[]
@@ -247,16 +405,16 @@ export async function POST(req: Request, { params }: Params) {
       )
     }
     if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
     }
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {
-    return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
+    return errorResponse(err, ctx.table, 'POST')
   }
 }
 
 export async function PATCH(req: Request, { params }: Params) {
-  const ctx = resolve(req, (await params).table, 'PATCH')
+  const ctx = await resolve(req, (await params).table, 'PATCH')
   if (ctx instanceof NextResponse) return ctx
   try {
     const patch = (await req.json()) as Record<string, unknown>
@@ -290,16 +448,16 @@ export async function PATCH(req: Request, { params }: Params) {
       }
     }
     if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
     }
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
+    return errorResponse(err, ctx.table, 'PATCH')
   }
 }
 
 export async function DELETE(req: Request, { params }: Params) {
-  const ctx = resolve(req, (await params).table, 'DELETE')
+  const ctx = await resolve(req, (await params).table, 'DELETE')
   if (ctx instanceof NextResponse) return ctx
   try {
     const url = new URL(req.url)
@@ -307,10 +465,10 @@ export async function DELETE(req: Request, { params }: Params) {
     if (!clause) return NextResponse.json({ error: 'Refusing unfiltered delete' }, { status: 400 })
     await q(`delete from simblip_${ident(ctx.table)}${clause}`, p)
     if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub).catch(() => {})
+      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
     }
     return NextResponse.json({ ok: true })
   } catch (err) {
-    return NextResponse.json({ error: String(err instanceof Error ? err.message : err) }, { status: 400 })
+    return errorResponse(err, ctx.table, 'DELETE')
   }
 }

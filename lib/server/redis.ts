@@ -49,34 +49,66 @@ export function getRedisSub(): Redis {
 
 const CACHE_TTL_SECONDS = 30
 
-/** Every key this user has cached for this table, so invalidation can DEL
+/**
+ * Tables whose rows are SHARED across everyone in a tenant rather than owned
+ * by one user. These must be cached and invalidated per-institution: keyed
+ * per-user, an admin editing the institution or a room's membership would
+ * invalidate only their OWN cached copy, leaving every other member of the
+ * tenant served stale data until the TTL expired.
+ */
+const TENANT_SCOPED_CACHE = new Set(['institutions', 'room_members'])
+
+/**
+ * The identity a cache entry belongs to: the tenant for shared tables, the
+ * user for owned ones. Callers pass both and this picks — so the choice is
+ * made in exactly one place and read and invalidation can never disagree.
+ */
+const scopeOf = (table: string, userId: string, inst: string | null): string =>
+  TENANT_SCOPED_CACHE.has(table) ? `inst:${inst ?? 'none'}` : userId
+
+/** Every key this scope has cached for this table, so invalidation can DEL
  *  them without SCAN/KEYS (same lazy-index pattern app/api/devices/route.ts
  *  already uses for presence pruning). */
-function indexKey(table: string, userId: string): string {
-  return `pgcache:${table}:${userId}:__keys`
+function indexKey(table: string, scope: string): string {
+  return `pgcache:${table}:${scope}:__keys`
 }
 
-export async function cacheGet(table: string, userId: string, queryString: string): Promise<string | null> {
+export async function cacheGet(
+  table: string,
+  userId: string,
+  queryString: string,
+  inst: string | null = null
+): Promise<string | null> {
   const redis = getRedisPub()
-  const key = `pgcache:${table}:${userId}:${queryString}`
-  return redis.get(key)
+  return redis.get(`pgcache:${table}:${scopeOf(table, userId, inst)}:${queryString}`)
 }
 
-export async function cacheSet(table: string, userId: string, queryString: string, value: string): Promise<void> {
+export async function cacheSet(
+  table: string,
+  userId: string,
+  queryString: string,
+  value: string,
+  inst: string | null = null
+): Promise<void> {
   const redis = getRedisPub()
-  const key = `pgcache:${table}:${userId}:${queryString}`
+  const scope = scopeOf(table, userId, inst)
+  const key = `pgcache:${table}:${scope}:${queryString}`
   await Promise.all([
     redis.set(key, value, 'EX', CACHE_TTL_SECONDS),
-    redis.sadd(indexKey(table, userId), key),
+    redis.sadd(indexKey(table, scope), key),
   ])
 }
 
-/** Drop every cached response for this user+table — called after any
+/** Drop every cached response for this scope+table — called after any
  *  write, since a 30s-stale row is fine but serving one from before the
- *  user's own write would look like data loss. */
-export async function cacheInvalidate(table: string, userId: string): Promise<void> {
+ *  write would look like data loss. */
+export async function cacheInvalidate(
+  table: string,
+  userId: string,
+  inst: string | null = null
+): Promise<void> {
   const redis = getRedisPub()
-  const idx = indexKey(table, userId)
+  const idx = indexKey(table, scopeOf(table, userId, inst))
   const keys = await redis.smembers(idx)
   if (keys.length > 0) await redis.del(...keys)
   await redis.del(idx)

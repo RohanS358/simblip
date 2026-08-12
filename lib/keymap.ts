@@ -21,7 +21,7 @@ export interface KeyCombo {
 export interface ShortcutAction {
   id: string
   label: string
-  group: 'Tools' | 'Simulation' | 'Edit' | 'View'
+  group: 'Tools' | 'Simulation' | 'Edit' | 'View' | 'Panels'
   default: KeyCombo
   /** Describes when the action is actually live — informational only, shown
    *  as a hint in Settings. The real gating logic still lives at the call
@@ -63,14 +63,36 @@ export const ACTIONS: ShortcutAction[] = [
   { id: 'edit.paste', label: 'Paste', group: 'Edit', default: { key: 'v', mods: ['mod'] } },
   { id: 'edit.duplicate', label: 'Duplicate selection', group: 'Edit', default: { key: 'd', mods: ['mod'] } },
 
+  { id: 'edit.selectAll', label: 'Select all on the page', group: 'Edit', default: { key: 'a', mods: ['mod'] } },
+
   // View
   { id: 'view.pan', label: 'Pan (hold + drag, or two fingers)', group: 'View', default: { key: ' ', mods: [] } },
   { id: 'view.measure', label: 'Hold to measure', group: 'View', default: { key: 'alt', mods: [] } },
   { id: 'view.search', label: 'Search everything', group: 'View', default: { key: 'k', mods: ['mod'] } },
   { id: 'view.shortcuts', label: 'This shortcuts list', group: 'View', default: { key: '?', mods: [] } },
+
+  // Panels — every side surface is reachable from the keyboard. Bracket keys
+  // for the two rails (the Figma/VS Code convention: [ left, ] right), and
+  // mod-digit for the overlays.
+  { id: 'panel.sidebar', label: 'Toggle the left sidebar', group: 'Panels', default: { key: '[', mods: ['mod'] } },
+  { id: 'panel.inspector', label: 'Toggle Properties', group: 'Panels', default: { key: ']', mods: ['mod'] } },
+  { id: 'panel.calculator', label: 'Toggle the calculator', group: 'Panels', default: { key: '1', mods: ['mod'] } },
+  { id: 'panel.zen', label: 'Hide every panel (zen mode)', group: 'Panels', default: { key: '.', mods: ['mod'] } },
+
+  // Zoom — present on every device, but these are the keyboard path.
+  { id: 'view.zoomIn', label: 'Zoom in', group: 'View', default: { key: '=', mods: ['mod'] } },
+  { id: 'view.zoomOut', label: 'Zoom out', group: 'View', default: { key: '-', mods: ['mod'] } },
+  { id: 'view.zoomReset', label: 'Reset zoom to 100%', group: 'View', default: { key: '0', mods: ['mod'] } },
+  { id: 'view.zoomFit', label: 'Zoom to fit the page', group: 'View', default: { key: '9', mods: ['mod'] } },
 ]
 
-export const SHORTCUT_GROUPS: ShortcutAction['group'][] = ['Tools', 'Simulation', 'Edit', 'View']
+export const SHORTCUT_GROUPS: ShortcutAction['group'][] = [
+  'Tools',
+  'Simulation',
+  'Edit',
+  'View',
+  'Panels',
+]
 
 const isMac = () => typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 

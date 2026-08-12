@@ -3,7 +3,30 @@
 
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 
-const SECRET = process.env.AUTH_SECRET ?? 'simblip-dev-secret-change-me'
+// SECURITY: the dev fallback is a PUBLIC string in this repo — anyone can
+// forge a token with it, including `role: 'super_admin'`, which bypasses all
+// tenant scoping in /api/pg. Silently falling back to it in production would
+// turn one missing env var into a total auth bypass with no visible symptom,
+// so production refuses to start instead. Dev keeps the convenience default.
+// Resolved lazily, on first sign/verify — NOT at module load. `next build`
+// runs with NODE_ENV=production and collects page data without runtime env
+// vars present, so throwing at import time would fail every build rather
+// than the one thing that actually needs the secret.
+let cachedSecret: string | null = null
+
+function secret(): string {
+  if (cachedSecret !== null) return cachedSecret
+  const configured = process.env.AUTH_SECRET
+  if (configured && configured.length >= 32) return (cachedSecret = configured)
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      configured
+        ? 'AUTH_SECRET must be at least 32 characters in production.'
+        : 'AUTH_SECRET is required in production — refusing to issue tokens signed with the public dev secret.'
+    )
+  }
+  return (cachedSecret = configured || 'simblip-dev-secret-change-me')
+}
 
 // ── Passwords ───────────────────────────────────────────────────────────────
 
@@ -33,7 +56,7 @@ export interface Claims {
 
 const b64u = (data: Buffer | string) => Buffer.from(data).toString('base64url')
 
-const hmac = (data: string) => createHmac('sha256', SECRET).update(data).digest('base64url')
+const hmac = (data: string) => createHmac('sha256', secret()).update(data).digest('base64url')
 
 export function signToken(claims: Omit<Claims, 'exp'>, ttlSeconds: number): string {
   const head = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))

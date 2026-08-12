@@ -11,6 +11,49 @@ import { signToken, verifyPassword, verifyToken } from '@/lib/server/auth'
 const ACCESS_TTL = 3600 // 1 h
 const REFRESH_TTL = 60 * 60 * 24 * 30 // 30 d
 
+// ── Rate limiting ───────────────────────────────────────────────────────────
+// Password grants were unlimited, which is both a brute-force hole and a
+// cheap CPU-exhaustion DoS: every attempt runs scrypt (deliberately
+// expensive) on OUR server, so an attacker spends nothing and we spend a
+// core. Counters are per-instance and in-memory — imperfect across a
+// horizontally-scaled deployment, but it turns "unlimited" into "a few per
+// minute per instance", which is the difference that matters. Redis-backed
+// counting is the upgrade if this ever needs to be exact.
+const WINDOW_MS = 15 * 60 * 1000
+const MAX_ATTEMPTS = 10
+
+const attempts = new Map<string, { count: number; resetAt: number }>()
+
+function rateLimited(key: string): boolean {
+  const now = Date.now()
+  const rec = attempts.get(key)
+  if (!rec || now > rec.resetAt) {
+    attempts.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    // Opportunistic sweep so the map can't grow without bound; cheap because
+    // it only runs on a fresh window, not on every request.
+    if (attempts.size > 5000) {
+      for (const [k, v] of attempts) if (now > v.resetAt) attempts.delete(k)
+    }
+    return false
+  }
+  rec.count++
+  return rec.count > MAX_ATTEMPTS
+}
+
+/** Successful login clears the counter, so ordinary users are never locked. */
+const clearAttempts = (key: string) => attempts.delete(key)
+
+/** Best-effort client identity for rate limiting. */
+function clientKey(req: Request, email: string): string {
+  const ip =
+    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+    req.headers.get('x-real-ip') ||
+    'unknown'
+  // Keyed on ip+email: one attacker can't lock out every account from one IP,
+  // and one victim's account can't be locked out from many IPs either.
+  return `${ip}:${email.toLowerCase()}`
+}
+
 interface ProfileAuthRow {
   id: string
   role: string
@@ -36,16 +79,38 @@ export async function POST(req: Request) {
 
   try {
     if (body.grant === 'password') {
+      const email = String(body.email ?? '').trim()
+      const key = clientKey(req, email)
+      if (rateLimited(key)) {
+        return NextResponse.json(
+          { msg: 'Too many sign-in attempts. Try again in a few minutes.' },
+          { status: 429, headers: { 'Retry-After': String(WINDOW_MS / 1000) } }
+        )
+      }
+
       const rows = await q<ProfileAuthRow>(
         `select id, role, institution_id, active, password_hash
            from simblip_profiles where lower(email) = lower($1)`,
-        [String(body.email ?? '').trim()]
+        [email]
       )
       const p = rows[0]
-      if (!p || !verifyPassword(String(body.password ?? ''), p.password_hash)) {
+      // SECURITY: a deactivated account used to answer 403 "This account has
+      // been deactivated" while an unknown one answered 400 — which confirmed
+      // to an attacker that the address exists. Wrong password, unknown
+      // address and disabled account are now indistinguishable from outside.
+      // The distinction is kept in the server log for support.
+      // verifyPassword runs FIRST and unconditionally when a row exists, so a
+      // deactivated account costs the same scrypt time as an active one —
+      // short-circuiting on `active` would leak the account's existence
+      // through response timing instead of through the status code.
+      const passwordOk = p ? verifyPassword(String(body.password ?? ''), p.password_hash) : false
+      if (!p || !passwordOk || !p.active) {
+        if (p && passwordOk && !p.active) {
+          console.warn(`[auth] sign-in refused: profile ${p.id} is deactivated`)
+        }
         return NextResponse.json({ msg: 'Invalid email or password.' }, { status: 400 })
       }
-      if (!p.active) return NextResponse.json({ msg: 'This account has been deactivated.' }, { status: 403 })
+      clearAttempts(key)
       return issue(p)
     }
 

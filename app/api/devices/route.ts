@@ -40,7 +40,15 @@ export async function GET(req: Request) {
   const claims = bearerClaims(req)
   if (!claims) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const ownerId = new URL(req.url).searchParams.get('owner_id') ?? claims.sub
+  // SECURITY: always the caller's own id. This used to honour a client
+  // ?owner_id=, which let any authenticated user enumerate anyone else's
+  // devices (labels + last-seen times). The param is still accepted so
+  // existing callers don't break, but only when it matches the caller.
+  const requested = new URL(req.url).searchParams.get('owner_id')
+  if (requested && requested !== claims.sub) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+  }
+  const ownerId = claims.sub
   const redis = getRedisPub()
   const ids = await redis.smembers(`devices:${ownerId}`)
   if (ids.length === 0) return NextResponse.json([] satisfies DeviceRow[])
