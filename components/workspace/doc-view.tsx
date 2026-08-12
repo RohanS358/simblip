@@ -316,7 +316,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const importedRef = useRef(false)
   const fileUrl = meta?.fileUrl
   useEffect(() => {
-    if (importedRef.current) return
+    // sheets.length > 1 means this page was already imported (e.g. eagerly,
+    // by file-view.tsx's attachFileToObject, when the doc was attached to a
+    // dock/embedded Document object) — importing again here would append a
+    // duplicate copy of every paragraph on top of the real content.
+    if (importedRef.current || sheets.length > 1) return
     const fileId = fileUrl?.startsWith('opfs:') ? fileUrl.slice('opfs:'.length) : null
     if (!fileId) return
     importedRef.current = true

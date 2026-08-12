@@ -69,7 +69,16 @@ function MinimalPagePreview({ linkedPageId }: { linkedPageId: string }) {
     <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white dark:bg-neutral-900">
       <div
         className="pointer-events-none absolute overflow-hidden"
-        style={{ width: frameW, height: frameH, transform: `scale(${scale})` }}
+        style={{
+          width: frameW,
+          height: frameH,
+          transform: `scale(${scale})`,
+          // Slide background color lives on the CONTAINER, not as a scene
+          // object — presentation-view.tsx's own stage applies it the same
+          // way (meta.sheetColors[slideId]), so a colored slide rendered
+          // without this shows white/transparent behind its objects.
+          backgroundColor: meta?.sheetColors?.[activePageId],
+        }}
       >
         <InfiniteCanvas key={activePageId} pageId={activePageId} locked transparent passthrough active={false} />
       </div>
@@ -172,6 +181,40 @@ export async function attachFileToObject(
       useDocStore.getState().updateObject(hostPageId, objectId, {
         metadata: { ...objectMetadata, linkedPageId: newPageId },
       })
+      // Import eagerly, right here: PresentationView/DocView normally do
+      // this on their own mount, but MinimalPagePreview never mounts them —
+      // it only reads docPages/sheetColors, which stay empty until SOME
+      // component runs the import. Without this the embedded preview was
+      // blank the first time (until the user happened to open the linked
+      // page directly elsewhere, triggering the import once and for all).
+      if (kind === 'pptx') {
+        const { importPptx } = await import('@/lib/store/pptx-import')
+        const imported = await importPptx(f, ownerId)
+        const sheetColors: Record<string, string> = {}
+        for (const slide of imported.length ? imported : [{ objects: [], background: undefined }]) {
+          const slideId = ws.addDocSheet(newPageId)
+          for (const obj of slide.objects) useDocStore.getState().addObject(slideId, obj)
+          if (slide.background) sheetColors[slideId] = slide.background
+        }
+        if (Object.keys(sheetColors).length) ws.updatePageMeta(newPageId, { sheetColors })
+      } else if (kind === 'doc') {
+        // Matches DocView's own import effect: addPageIn seeded one blank
+        // default sheet — drop it once real content replaces it, same as
+        // DocView does when it imports on its own first mount.
+        const { importDocx } = await import('@/lib/store/docx-import')
+        const sheetObjectSets = await importDocx(f)
+        const staleId = findPageMeta(useWorkspaceStore.getState().nodes, newPageId)?.docPages?.[0]
+        const newIds: string[] = []
+        for (const objects of sheetObjectSets) {
+          const sheetId = ws.addDocSheet(newPageId)
+          for (const obj of objects) useDocStore.getState().addObject(sheetId, obj)
+          newIds.push(sheetId)
+        }
+        if (staleId && newIds.length) {
+          ws.updatePageMeta(newPageId, { docPages: newIds })
+          useDocStore.getState().forgetPage(staleId)
+        }
+      }
       return { ok: true, linkedPageId: newPageId }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Could not open this file.' }
