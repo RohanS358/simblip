@@ -8,7 +8,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
-import dynamic from 'next/dynamic'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
@@ -27,9 +26,6 @@ import {
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { RequireAuth } from '@/components/auth/require-auth'
-// ogl is a WebGL library and this is decoration — keep it out of the board's
-// first paint, which matters on the low-powered hardware these rooms use.
-const SoftAurora = dynamic(() => import('@/components/ui/soft-aurora'), { ssr: false })
 import { QrCode } from '@/components/platform/qr-code'
 import { PageView } from '@/components/workspace/page-view'
 import { CanvasControls } from '@/components/workspace/canvas-controls'
@@ -761,22 +757,6 @@ function BoardSurface() {
         </div>
       ) : (
         <div className="relative flex h-full flex-col">
-          {/* Ambient aurora behind the idle screen only — it must never sit
-              under a lesson, where it would compete with the content. Tinted
-              from the live theme accents (components/ui/soft-aurora.tsx reads
-              the CSS variables), so it follows whichever theme the room board
-              is set to instead of pinning one hard-coded palette.
-
-              It stops above the identity footer (bottom-6 = that bar's h-6):
-              the line naming who is signed in has to stay plainly legible on
-              flat background, not float on a moving gradient. */}
-          <SoftAurora
-            className="pointer-events-none absolute inset-x-0 bottom-6 top-0 z-0"
-            speed={0.35}
-            brightness={0.55}
-            bandHeight={0.62}
-            enableMouseInteraction={false}
-          />
           {/* Same top header as the active whiteboard view */}
           <header className="relative z-40 flex h-12 shrink-0 items-center gap-2 px-4">
             {institution?.logo_url ? (
