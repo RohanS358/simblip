@@ -160,6 +160,8 @@ export async function attachFileToObject(
       useDocStore.getState().updateObject(hostPageId, objectId, {
         metadata: { ...objectMetadata, linkedPageId: newPageId },
       })
+      flushPageNow(hostPageId)
+      flushPageNow(newPageId)
       return { ok: true, linkedPageId: newPageId }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Could not open this file.' }
@@ -215,6 +217,17 @@ export async function attachFileToObject(
           useDocStore.getState().forgetPage(staleId)
         }
       }
+      // The doc store debounces its durable write by 400ms and otherwise
+      // only flushes on pagehide/beforeunload — a reload landing inside
+      // that window (or an environment where those events don't fire, e.g.
+      // some dev hot-reloads) drops everything written since the last
+      // flush. linkedPageId and the freshly imported slides/sheets are the
+      // one thing here that must survive a reload the instant attach
+      // finishes, so force them to disk now instead of trusting the timer.
+      flushPageNow(hostPageId)
+      for (const childId of findPageMeta(useWorkspaceStore.getState().nodes, newPageId)?.docPages ?? []) {
+        flushPageNow(childId)
+      }
       return { ok: true, linkedPageId: newPageId }
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : 'Could not open this file.' }
@@ -223,6 +236,14 @@ export async function attachFileToObject(
 
   putSessionFile(objectId, f)
   return { ok: true }
+}
+
+/** Force this page's current content to durable storage immediately,
+ *  instead of waiting for the doc store's 400ms debounce or a
+ *  pagehide/beforeunload that might not fire before a reload. */
+function flushPageNow(pageId: string) {
+  const content = useDocStore.getState().pages[pageId]
+  if (content) void import('@/lib/store/page-archive').then(({ writePage }) => writePage(pageId, content))
 }
 
 export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) {
