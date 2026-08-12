@@ -171,7 +171,7 @@ function PaneCell({
           type="button"
           aria-label="Close pane"
           className={cn(
-            'absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-all hover:bg-destructive/10 hover:text-destructive',
+            'absolute right-2 top-2 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-muted-foreground shadow-sm backdrop-blur-sm transition-[background-color,color] duration-150 ease-out hover:bg-destructive/10 hover:text-destructive',
             isActive ? 'opacity-60' : 'opacity-0 group-hover:opacity-60'
           )}
           onClick={() => removePane(index)}

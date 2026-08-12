@@ -56,7 +56,7 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
         <input
           autoFocus
           aria-label="LaTeX expression"
-          className="w-full bg-transparent font-mono text-[13px] outline-none"
+          className="w-full bg-transparent font-mono text-base outline-none md:text-[13px]"
           value={latex}
           onChange={(e) => setStringParam(pageId, object.id, 'latex', e.target.value)}
           onBlur={() => setEditing(false)}

@@ -477,7 +477,7 @@ export function Toolbar({
         onScroll={() => publishRef.current()}
         style={fadeMask ? { maskImage: fadeMask, WebkitMaskImage: fadeMask } : undefined}
         className={cn(
-          'no-scrollbar flex min-h-0 min-w-0 transition-all duration-200',
+          'no-scrollbar flex min-h-0 min-w-0 transition-[width,height,opacity] duration-200 ease-out',
           colorThemeClass,
           paddingClass,
           vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto',

@@ -44,8 +44,9 @@ import { useShareInbox } from '@/hooks/use-share-inbox'
 import { CanvasControls, showsCanvasDock } from './canvas-controls'
 import { Inspector } from './inspector'
 import { FocusObject } from './focus-object'
-import { motion as fm, AnimatePresence } from 'framer-motion'
+import { motion as fm, AnimatePresence, useDragControls } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
+import { haptic } from '@/lib/haptics'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
 import { useMobileTabStore } from '@/lib/store/mobile-tab'
@@ -75,6 +76,12 @@ import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import { AssignmentsPanel } from './assignments-panel'
 import { HomeDueSoon } from './home-due-soon'
+import {
+  ConfirmDeleteDialog,
+  RenameDialog,
+  type ConfirmTarget,
+  type RenameTarget,
+} from './mobile-prompts'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -111,6 +118,40 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
   (c) => `/cover/cover-${c}.svg`
 )
 
+// Touch targets. Apple HIG and Material both want ~44px; these controls used
+// to be a 14px icon in p-1, i.e. a 22px tap area sitting in a card corner —
+// the least accurate place for a thumb. The ICON stays small (the cards are
+// dense on purpose); the HIT AREA grows to 44px via padding, and the visible
+// chip is drawn by an inset pseudo-element-sized child instead of the button
+// box itself. active:scale gives the press its confirmation.
+
+/** The ⋮ button on a page/file/folder card: 44px tap, 28px visible chip. */
+const CARD_ACTION_BTN =
+  'absolute right-0 top-0 z-10 flex h-11 w-11 items-center justify-center text-muted-foreground ' +
+  'transition-transform duration-150 ease-out active:scale-90 ' +
+  '[&>svg]:rounded-full [&>svg]:bg-background/80 [&>svg]:p-1.5 [&>svg]:backdrop-blur-sm ' +
+  '[&>svg]:h-7 [&>svg]:w-7 [&>svg]:shadow-sm'
+
+/** A bare icon button in a header or toolbar row: 44px tap, small glyph. */
+const ICON_BTN =
+  'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground ' +
+  'transition-transform duration-150 ease-out active:scale-90 hover:bg-accent'
+
+/**
+ * Entry animation for a card in a grid. Cards used to appear as one solid
+ * block, which reads as a page repaint rather than as content arriving.
+ *
+ * The delay is capped at 8 items: a stagger is a flourish on the first
+ * screenful, and a 40-page folder should not take two seconds to finish
+ * drawing. Reduced-motion callers pass a spring of duration 0, which
+ * collapses this to a plain fade.
+ */
+const cardEntry = (i: number) => ({
+  initial: { opacity: 0, y: 8 },
+  animate: { opacity: 1, y: 0 },
+  transition: { delay: Math.min(i, 8) * 0.04 },
+})
+
 export function MobileShell() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
@@ -132,6 +173,13 @@ export function MobileShell() {
     uploadInputRef.current?.click()
   }
   const [coverFor, setCoverFor] = useState<string | null>(null)
+  // Drag handle for the Inspector bottom sheet — the gesture starts only from
+  // its header, never from the scrolling body.
+  const sheetDrag = useDragControls()
+  // Rename / delete used to call window.prompt and window.confirm — native OS
+  // dialogs that break the app illusion on a phone. See mobile-prompts.tsx.
+  const [renameFor, setRenameFor] = useState<RenameTarget | null>(null)
+  const [deleteFor, setDeleteFor] = useState<ConfirmTarget | null>(null)
   const mobileTab = useMobileTabStore((s) => s.tab)
 
   const profile = useAuthStore((s) => s.profile)
@@ -237,6 +285,7 @@ export function MobileShell() {
   }
 
   const openPage = (pageId: string) => {
+    haptic('tick')
     pushHistory('editor')
     store.getState().setActivePage(pageId)
     setView({ kind: 'editor' })
@@ -244,6 +293,7 @@ export function MobileShell() {
 
   const openFile = (node: FileNode) => {
     if (openFileNode(node)) {
+      haptic('tick')
       pushHistory('editor')
       setView({ kind: 'editor' })
     }
@@ -355,6 +405,8 @@ export function MobileShell() {
         pageId={publishFor?.id ?? null}
       />
       <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />
+      <RenameDialog target={renameFor} onClose={() => setRenameFor(null)} />
+      <ConfirmDeleteDialog target={deleteFor} onClose={() => setDeleteFor(null)} />
       <input
         ref={uploadInputRef}
         type="file"
@@ -380,7 +432,7 @@ export function MobileShell() {
       >
         <span className="text-[0.9375rem] font-extrabold tracking-tight">More</span>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/40 bg-card p-4">
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
             {profile?.full_name?.charAt(0) || 'U'}
@@ -393,7 +445,7 @@ export function MobileShell() {
         <div className="space-y-1">
           {staff && (
             <button
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
               onClick={() => useMobileTabStore.getState().setTab('assignments')}
             >
               <GraduationCap className="h-4 w-4 text-muted-foreground" /> Review
@@ -401,26 +453,26 @@ export function MobileShell() {
           )}
           <div className="my-2 border-t border-border/40" />
           <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
             onClick={openTutorial}
           >
             <MonitorPlay className="h-4 w-4 text-muted-foreground" /> Tutorials
           </button>
           <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
             onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
           >
             {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />} Theme
           </button>
           <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-colors hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
             onClick={openSettings}
           >
             <Settings className="h-4 w-4 text-muted-foreground" /> Settings
           </button>
           <div className="my-2 border-t border-border/40" />
           <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-destructive transition-colors hover:bg-destructive/10"
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-destructive transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-destructive/10 hover:bg-destructive/10"
             onClick={() => useAuthStore.getState().logout()}
           >
             <LogOut className="h-4 w-4" /> Sign out
@@ -454,14 +506,14 @@ export function MobileShell() {
           {staff && (
             <button
               type="button"
-              className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+              className="flex h-11 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-medium text-muted-foreground transition-transform duration-150 ease-out active:scale-95 hover:bg-accent hover:text-foreground"
               onClick={() => router.push('/assignments/insights')}
             >
               <BarChart3 className="h-3.5 w-3.5" /> Insights
             </button>
           )}
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
           <AssignmentsPanel />
         </main>
         <MobileTabBar />
@@ -482,7 +534,7 @@ export function MobileShell() {
           <button
             type="button"
             aria-label="Back"
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+            className={ICON_BTN}
             onClick={goBackFromEditor}
           >
             <ArrowLeft className="h-4.5 w-4.5" />
@@ -494,7 +546,11 @@ export function MobileShell() {
               width={20}
               height={20}
               unoptimized
-              className="h-5 w-5 rounded object-contain"
+              // Hidden on the narrowest phones: at 390px the header was
+              // logo + wordmark + title + 3 status/action controls, and the
+              // page title — the only thing that identifies what you're
+              // editing — truncated to a few characters.
+              className="hidden h-5 w-5 rounded object-contain xs:block"
             />
           ) : null}
           {/* The page title is what matters mid-edit — the wordmark only
@@ -504,7 +560,6 @@ export function MobileShell() {
           </span>
           <span className="hidden text-muted-foreground/50 sm:inline">/</span>
           <span className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold">{pageName}</span>
-          <SyncStatus />
           <NotificationCenter />
           <UndoRedo pageId={contentPageId ?? activePageId} />
         </header>
@@ -520,6 +575,11 @@ export function MobileShell() {
             pageId={contentPageId}
             showTransport={!!activePageId && (activeKind !== 'pdf' || pdfToolsOn)}
           />
+          {/* Sync state is ambient — it belongs beside the tabs, not competing
+              with the page title for the header's last few pixels. */}
+          <div className="ml-auto shrink-0 pr-1">
+            <SyncStatus />
+          </div>
         </div>
 
         <main className="relative flex min-h-0 flex-1 flex-row">
@@ -638,21 +698,58 @@ export function MobileShell() {
               animate={isPhone ? { y: 0 } : { x: 0 }}
               exit={isPhone ? { y: '100%' } : { x: '100%' }}
               transition={spring}
+              // Drag-to-dismiss, phone only — a side panel on a tablet isn't a
+              // sheet and shouldn't behave like one.
+              //
+              // dragListener={false} + dragControls: the gesture starts ONLY
+              // from the header below. Dragging anywhere else would fight the
+              // Inspector's own vertical scrolling, which is the usual way
+              // this pattern goes wrong.
+              //
+              // dragConstraints pins the top so the sheet can't be flung up
+              // past its own height; elastic gives the resistance a real sheet
+              // has when you pull against a stop, instead of a dead wall.
+              drag={isPhone ? 'y' : false}
+              dragListener={false}
+              dragControls={sheetDrag}
+              dragConstraints={{ top: 0, bottom: 0 }}
+              dragElastic={{ top: 0.02, bottom: 0.9 }}
+              onDragEnd={(_, info) => {
+                // Distance OR velocity — a quick flick should dismiss even if
+                // it barely moved, which is what makes the gesture feel light.
+                if (info.offset.y > 120 || info.velocity.y > 500) {
+                  haptic('bump')
+                  closeInspector()
+                }
+              }}
             >
-              <div className="flex items-center justify-between px-4 py-2 border-b border-border">
-                <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Properties &amp; variables
-                </span>
-                <button
-                  type="button"
-                  aria-label="Close"
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
-                  onClick={closeInspector}
-                >
-                  <X className="h-4 w-4" />
-                </button>
+              <div
+                className="flex shrink-0 touch-none flex-col border-b border-border"
+                onPointerDown={(e) => isPhone && sheetDrag.start(e)}
+                style={{ cursor: isPhone ? 'grab' : undefined }}
+              >
+                {/* Grabber. Nothing else signals the sheet is draggable, and
+                    an invisible gesture is one nobody finds. */}
+                {isPhone && (
+                  <div className="flex justify-center pt-2 pb-1" aria-hidden>
+                    <div className="h-1 w-9 rounded-full bg-muted-foreground/25" />
+                  </div>
+                )}
+                <div className="flex items-center justify-between px-4 pb-2 pt-1">
+                  <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                    Properties
+                  </span>
+                  <button
+                    type="button"
+                    aria-label="Close"
+                    className={ICON_BTN}
+                    onClick={closeInspector}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain [&>aside]:!m-0 [&>aside]:!w-full [&>aside]:!max-w-none [&>aside]:!rounded-none [&>aside]:!bg-transparent [&>aside]:!shadow-none [&>aside]:!backdrop-blur-none">
                 <Inspector pageId={contentPageId ?? activePageId} />
               </div>
             </fm.div>
@@ -691,7 +788,7 @@ export function MobileShell() {
           <button
             type="button"
             aria-label="Back"
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+            className={ICON_BTN}
             onClick={goBackFromEditor}
           >
             <ArrowLeft className="h-4.5 w-4.5" />
@@ -702,13 +799,13 @@ export function MobileShell() {
           <button
             type="button"
             aria-label="New folder"
-            className="rounded-lg p-2 text-muted-foreground hover:bg-accent"
+            className={ICON_BTN}
             onClick={() => store.getState().addFolder('New Folder', folder.id)}
           >
             <Plus className="h-4.5 w-4.5" />
           </button>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8 pt-4">
+        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-4">
           {subFolders.length > 0 && (
             <div className="mb-6">
               <div className="mb-3 flex items-center gap-2 px-1">
@@ -717,9 +814,11 @@ export function MobileShell() {
                 </span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {subFolders.map((sub) => (
+                {subFolders.map((sub, i) => (
                   <fm.div
                     key={sub.id}
+                    {...cardEntry(i)}
+                    transition={{ ...spring, ...cardEntry(i).transition }}
                     whileTap={{ scale: 0.95 }}
                     className="flex items-center gap-2 rounded-2xl border border-border/40 bg-card px-3 py-3 shadow-sm"
                     onClick={() => navigateToView({ kind: 'folder', id: sub.id })}
@@ -731,7 +830,9 @@ export function MobileShell() {
                         <button
                           type="button"
                           aria-label={`Actions for ${sub.name}`}
-                          className="shrink-0 rounded-full p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          // -my-2 keeps the 44px tap area from stretching the
+                          // card taller than its text row.
+                          className="-my-2 flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-transform duration-150 ease-out active:scale-90 hover:bg-accent hover:text-foreground"
                         >
                           <MoreVertical className="h-3.5 w-3.5" />
                         </button>
@@ -740,8 +841,11 @@ export function MobileShell() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation()
-                            const name = window.prompt('Rename folder', sub.name)
-                            if (name?.trim()) store.getState().renameNode(sub.id, name.trim())
+                            setRenameFor({
+                              kind: 'folder',
+                              name: sub.name,
+                              onRename: (next) => store.getState().renameNode(sub.id, next),
+                            })
                           }}
                         >
                           <Pencil className="h-4 w-4" /> Rename
@@ -761,7 +865,12 @@ export function MobileShell() {
                           variant="destructive"
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (window.confirm(`Delete folder "${sub.name}"?`)) store.getState().removeNode(sub.id)
+                            setDeleteFor({
+                              kind: 'folder',
+                              name: sub.name,
+                              detail: 'Everything inside it goes too.',
+                              onConfirm: () => store.getState().removeNode(sub.id),
+                            })
                           }}
                         >
                           <Trash2 className="h-4 w-4" /> Delete
@@ -782,7 +891,7 @@ export function MobileShell() {
               <button
                 type="button"
                 aria-label="Upload file"
-                className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                className={ICON_BTN}
                 onClick={() => uploadFileTo(folder.id)}
               >
                 <Upload className="h-4 w-4" />
@@ -790,7 +899,7 @@ export function MobileShell() {
               <button
                 type="button"
                 aria-label="New page"
-                className="rounded-full p-1.5 text-muted-foreground hover:bg-accent"
+                className={ICON_BTN}
                 onClick={() => setAddTarget({ parentId: folder.id })}
               >
                 <Plus className="h-4 w-4" />
@@ -800,13 +909,15 @@ export function MobileShell() {
 
           {pages.length === 0 && files.length === 0 ? (
             <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[0.75rem] text-muted-foreground">
-              No pages yet.
+              Add your first page
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
-              {pages.map((page) => (
+              {pages.map((page, i) => (
                 <fm.div
                   key={page.id}
+                  {...cardEntry(i)}
+                  transition={{ ...spring, ...cardEntry(i).transition }}
                   whileTap={{ scale: 0.95 }}
                   className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 shadow-sm"
                   onClick={() => openPage(page.id)}
@@ -823,18 +934,23 @@ export function MobileShell() {
                         </span>
                       )
                     })()}
-                    <button
-                      type="button"
-                      aria-label={`Actions for ${page.name}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground opacity-100 backdrop-blur-sm transition-opacity group-hover:opacity-100 hover:bg-background hover:text-foreground"
-                    >
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <span className="flex h-6 w-6 items-center justify-center">
-                            <MoreVertical className="h-3.5 w-3.5" />
-                          </span>
-                        </DropdownMenuTrigger>
+                    <DropdownMenu>
+                      {/* The trigger IS the button — wrapping it in another
+                          <button> nests interactive elements (invalid HTML,
+                          and screen readers see one control where there are
+                          two). stopPropagation lives here so opening the menu
+                          doesn't also open the page. */}
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${page.name}`}
+                          onClick={(e) => e.stopPropagation()}
+                          onPointerDown={(e) => e.stopPropagation()}
+                          className={CARD_ACTION_BTN}
+                        >
+                          <MoreVertical className="h-3.5 w-3.5" />
+                        </button>
+                      </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-48 rounded-xl">
                           <DropdownMenuItem onClick={() => openPage(page.id)}>
                             <BookOpen className="h-4 w-4" /> Open
@@ -842,8 +958,11 @@ export function MobileShell() {
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation()
-                              const name = window.prompt('Rename page', page.name)
-                              if (name?.trim()) store.getState().renameNode(page.id, name.trim())
+                              setRenameFor({
+                                kind: 'page',
+                                name: page.name,
+                                onRename: (next) => store.getState().renameNode(page.id, next),
+                              })
                             }}
                           >
                             <Pencil className="h-4 w-4" /> Rename
@@ -879,39 +998,42 @@ export function MobileShell() {
                             variant="destructive"
                             onClick={(e) => {
                               e.stopPropagation()
-                              if (window.confirm(`Delete page "${page.name}"?`)) {
-                                store.getState().removeNode(page.id)
-                              }
+                              setDeleteFor({
+                                kind: 'page',
+                                name: page.name,
+                                onConfirm: () => store.getState().removeNode(page.id),
+                              })
                             }}
                           >
                             <Trash2 className="h-4 w-4" /> Delete page
                           </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </button>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                   <span className="mt-2 line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{page.name}</span>
                 </fm.div>
               ))}
-              {files.map((file) => (
+              {files.map((file, i) => (
                 <fm.div
                   key={file.id}
+                  {...cardEntry(pages.length + i)}
+                  transition={{ ...spring, ...cardEntry(pages.length + i).transition }}
                   whileTap={{ scale: 0.95 }}
                   className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
                   onClick={() => openFile(file)}
                 >
-                  <button
-                    type="button"
-                    aria-label={`Actions for ${file.name}`}
-                    onClick={(e) => e.stopPropagation()}
-                    className="absolute right-1 top-1 rounded-full bg-background/70 p-1 text-muted-foreground backdrop-blur-sm hover:bg-background hover:text-foreground"
-                  >
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <span className="flex h-6 w-6 items-center justify-center">
-                          <MoreVertical className="h-3.5 w-3.5" />
-                        </span>
-                      </DropdownMenuTrigger>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${file.name}`}
+                        onClick={(e) => e.stopPropagation()}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className={CARD_ACTION_BTN}
+                      >
+                        <MoreVertical className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 rounded-xl">
                         <DropdownMenuItem onClick={() => openFile(file)}>
                           <BookOpen className="h-4 w-4" /> Open
@@ -919,8 +1041,11 @@ export function MobileShell() {
                         <DropdownMenuItem
                           onClick={(e) => {
                             e.stopPropagation()
-                            const name = window.prompt('Rename file', file.name)
-                            if (name?.trim()) store.getState().renameNode(file.id, name.trim())
+                            setRenameFor({
+                              kind: 'file',
+                              name: file.name,
+                              onRename: (next) => store.getState().renameNode(file.id, next),
+                            })
                           }}
                         >
                           <Pencil className="h-4 w-4" /> Rename
@@ -930,14 +1055,17 @@ export function MobileShell() {
                           variant="destructive"
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (window.confirm(`Delete file "${file.name}"?`)) store.getState().removeNode(file.id)
+                            setDeleteFor({
+                              kind: 'file',
+                              name: file.name,
+                              onConfirm: () => store.getState().removeNode(file.id),
+                            })
                           }}
                         >
                           <Trash2 className="h-4 w-4" /> Delete file
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </button>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <span className="line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{file.name}</span>
                   <span className="text-[0.625rem] text-muted-foreground">{file.mime}</span>
                 </fm.div>
@@ -993,7 +1121,7 @@ export function MobileShell() {
         <SyncStatus />
         <NotificationCenter />
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto px-4 pb-8">
+      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
         {showGreeting && profile && (
           <div className="pb-5 pt-3">
             <h1 className="text-[2.5rem] font-black tracking-tight leading-[1.05] text-foreground drop-shadow-sm">
@@ -1065,18 +1193,24 @@ export function MobileShell() {
                       <BookOpen className="h-7 w-7 text-muted-foreground/50" />
                     </div>
                   )}
-                  <div className="absolute right-1.5 top-1.5">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                        <button type="button" className="rounded-full bg-background/70 p-1.5 text-muted-foreground backdrop-blur-sm hover:bg-background hover:text-foreground">
-                          <MoreVertical className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                      <button
+                        type="button"
+                        aria-label={`Actions for ${nb.name}`}
+                        className={CARD_ACTION_BTN}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </button>
+                    </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-48 rounded-xl">
                         <DropdownMenuItem onClick={(e) => {
                           e.stopPropagation()
-                          const name = window.prompt('Rename notebook', nb.name)
-                          if (name?.trim()) store.getState().renameNotebook(nb.id, name.trim())
+                          setRenameFor({
+                            kind: 'notebook',
+                            name: nb.name,
+                            onRename: (next) => store.getState().renameNotebook(nb.id, next),
+                          })
                         }}>
                           <Pencil className="h-4 w-4" /> Rename
                         </DropdownMenuItem>
@@ -1086,15 +1220,17 @@ export function MobileShell() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={(e) => {
                           e.stopPropagation()
-                          if (window.confirm(`Delete notebook "${nb.name}"?`)) {
-                            store.getState().removeNotebook(nb.id)
-                          }
+                          setDeleteFor({
+                            kind: 'notebook',
+                            name: nb.name,
+                            detail: 'All of its pages go too.',
+                            onConfirm: () => store.getState().removeNotebook(nb.id),
+                          })
                         }}>
                           <Trash2 className="h-4 w-4" /> Delete
                         </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
                 <div className="flex flex-col p-3">
                   <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight">{nb.name}</span>
@@ -1149,7 +1285,7 @@ export function MobileShell() {
                 <button
                   type="button"
                   aria-label="Close"
-                  className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent"
+                  className={ICON_BTN}
                   onClick={() => setCoverFor(null)}
                 >
                   <X className="h-4 w-4" />
@@ -1187,6 +1323,10 @@ export function MobileShell() {
       </AnimatePresence>
 
       <MobileTabBar />
+      {/* Notebook rename/delete live on THIS screen, so the shared dialogs
+          have to be mounted here too — not only on the folder screen. */}
+      <RenameDialog target={renameFor} onClose={() => setRenameFor(null)} />
+      <ConfirmDeleteDialog target={deleteFor} onClose={() => setDeleteFor(null)} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} onOpenSettings={openSettings} />
       {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}

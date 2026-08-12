@@ -231,7 +231,7 @@ export function WebView({ pageId }: { pageId: string }) {
             variant="outline"
             size="sm"
             className={cn('h-8 text-xs gap-1.5 rounded-lg', isCached && 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
-            aria-label={isCached ? 'Offline ready' : 'Save offline'}
+            aria-label={isCached ? 'Saved for offline' : 'Save for offline'}
             disabled={downloading}
             onClick={saveOffline}
           >
@@ -242,7 +242,7 @@ export function WebView({ pageId }: { pageId: string }) {
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            <span className="hidden sm:inline">{isCached ? 'Offline Ready' : 'Save Offline'}</span>
+            <span className="hidden sm:inline">{isCached ? 'Saved for offline' : 'Save for offline'}</span>
           </Button>
 
           <Button

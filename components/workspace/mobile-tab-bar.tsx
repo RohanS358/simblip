@@ -10,6 +10,7 @@ import { BookOpen, ClipboardList, Home, Share2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMobileTabStore, type MobileTab } from '@/lib/store/mobile-tab'
 import { useAuthStore } from '@/lib/auth/store'
+import { haptic } from '@/lib/haptics'
 
 const TABS: { id: MobileTab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Home', icon: Home },
@@ -26,6 +27,9 @@ export function MobileTabBar() {
   const profile = useAuthStore((s) => s.profile)
 
   const go = (id: MobileTab) => {
+    // Tapping the tab you're already on is not a navigation — buzzing for it
+    // would make the bar feel noisy rather than responsive.
+    if (id !== tab) haptic('tick')
     setTab(id)
     if (pathname !== '/notebook') router.push('/notebook')
   }
@@ -50,7 +54,7 @@ export function MobileTabBar() {
             onClick={() => go(id)}
           >
             <Icon className="h-[18px] w-[18px]" />
-            <span className="text-[0.625rem] font-semibold">{label}</span>
+            <span className="text-[0.6875rem] font-semibold tracking-tight">{label}</span>
           </button>
         )
       })}
@@ -72,7 +76,7 @@ export function MobileTabBar() {
         >
           {profile?.full_name?.charAt(0) || 'U'}
         </span>
-        <span className="text-[0.625rem] font-semibold">Profile</span>
+        <span className="text-[0.6875rem] font-semibold tracking-tight">Profile</span>
       </button>
     </nav>
   )

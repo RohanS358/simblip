@@ -222,7 +222,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       <input
         ref={inputRef}
         aria-label="Expression"
-        className="w-full rounded-lg bg-transparent px-2 pt-1 text-right font-mono text-[0.8125rem] text-muted-foreground outline-none select-all"
+        className="w-full rounded-lg bg-transparent px-2 pt-1 text-right font-mono text-base text-muted-foreground outline-none select-all md:text-[0.8125rem]"
         style={{ touchAction: 'auto', caretColor: 'transparent' }}
         value={expr}
         placeholder="0"

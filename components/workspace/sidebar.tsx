@@ -326,7 +326,7 @@ export function Sidebar({
       >
         <ChevronLeft
           className={cn(
-            'h-3 w-3 -translate-x-0.5 text-muted-foreground transition-all duration-200 ease-out group-hover/bulge:text-sky-500',
+            'h-3 w-3 -translate-x-0.5 text-muted-foreground transition-colors duration-200 ease-out group-hover/bulge:text-sky-500',
             !sidebarOpen && 'rotate-180'
           )}
         />

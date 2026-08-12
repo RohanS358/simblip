@@ -164,7 +164,7 @@ export function XlsxView({ pageId }: { pageId: string }) {
       <div className="flex items-center justify-end border-b border-border/60 px-3 py-1.5">
         <Button variant="outline" size="sm" onClick={() => void exportXlsx()} disabled={exporting}>
           {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Export as .xlsx
+          Export spreadsheet
         </Button>
       </div>
       <div className="relative min-h-0 flex-1">

@@ -483,7 +483,7 @@ function UploadCard({
 
   return (
     <div
-      className="group relative aspect-square rounded-xl border border-border/60 bg-muted/20 overflow-hidden cursor-pointer hover:border-[var(--accent-blue)] transition-all shadow-xs hover:shadow-md flex items-center justify-center"
+      className="group relative aspect-square rounded-xl border border-border/60 bg-muted/20 overflow-hidden cursor-pointer hover:border-[var(--accent-blue)] transition-[border-color,box-shadow] duration-200 ease-out shadow-xs hover:shadow-md flex items-center justify-center"
       onClick={onInsert}
       title={item.name}
     >
@@ -515,7 +515,7 @@ function UploadCard({
       <button
         type="button"
         aria-label="Delete from library"
-        className="absolute top-1 right-1 z-10 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-all hover:bg-rose-600 hover:text-white group-hover:opacity-100"
+        className="absolute top-1 right-1 z-10 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-[opacity,background-color,color] duration-150 ease-out hover:bg-rose-600 hover:text-white group-hover:opacity-100"
         onClick={onDelete}
       >
         <Trash2 className="h-3 w-3" />

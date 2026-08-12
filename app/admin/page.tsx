@@ -486,7 +486,7 @@ function RoomsTab({
               {renamingId === room.id ? (
                 <Input
                   autoFocus
-                  className="h-7 flex-1 text-[13px]"
+                  className="h-9 flex-1 text-base md:h-7 md:text-[13px]"
                   value={renameDraft}
                   onChange={(e) => setRenameDraft(e.target.value)}
                   onBlur={() => void commitRename(room)}
@@ -526,7 +526,7 @@ function RoomsTab({
                 <div className="flex items-center gap-1.5">
                   <Input
                     placeholder="Board password"
-                    className="h-7 w-36 text-[11.5px]"
+                    className="h-9 w-36 text-base md:h-7 md:text-[11.5px]"
                     value={boardPw[room.id] ?? ''}
                     onChange={(e) => setBoardPw((s) => ({ ...s, [room.id]: e.target.value }))}
                   />
@@ -728,7 +728,7 @@ function BrandingTab() {
             value={accent}
             onChange={(e) => setAccent(e.target.value)}
           />
-          <Input value={accent} onChange={(e) => setAccent(e.target.value)} className="w-28 font-mono text-[12px]" />
+          <Input value={accent} onChange={(e) => setAccent(e.target.value)} className="w-28 font-mono text-base md:text-[12px]" />
         </div>
       </div>
       <Button onClick={() => void save()} disabled={!name.trim()}>Save branding</Button>

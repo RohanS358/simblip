@@ -763,7 +763,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
                       <span className="w-24 truncate text-[11.5px] text-muted-foreground">{name}</span>
                       <input
                         defaultValue={p.kind === 'number' ? p.expr : ''}
-                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-[12px] outline-none focus:border-[var(--ring)]"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-base outline-none focus:border-[var(--ring)] md:text-[12px]"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') e.currentTarget.blur()
                         }}

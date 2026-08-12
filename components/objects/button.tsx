@@ -48,7 +48,7 @@ export function ButtonObject({ pageId, object }: ObjectRendererProps) {
         type="button"
         onClick={handleClick}
         className={cn(
-          'flex h-full w-full items-center justify-center gap-2 rounded-lg border border-border bg-accent/60 px-3 py-1.5 text-[12.5px] font-semibold text-foreground transition-all duration-150 active:scale-95 hover:bg-accent hover:border-[var(--accent-blue)]',
+          'flex h-full w-full items-center justify-center gap-2 rounded-lg border border-border bg-accent/60 px-3 py-1.5 text-[12.5px] font-semibold text-foreground transition-[background-color,border-color,transform] duration-150 ease-out active:scale-95 hover:bg-accent hover:border-[var(--accent-blue)]',
           clicked && 'scale-95 bg-[var(--accent-blue)] text-primary-foreground'
         )}
       >

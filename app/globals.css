@@ -4,6 +4,19 @@
 /* Dim, Midnight, Contrast, Mountains and Diva are dark-family themes — every dark: utility applies. */
 @custom-variant dark (&:is(.dark *, .dim *, .midnight *, .contrast *, .mountains *, .diva *));
 
+/* `hover:` only where a real pointer can hover.
+ *
+ * A touch screen fires :hover on tap and then KEEPS it until you tap
+ * something else, so every `hover:bg-accent` in the app left a stuck
+ * highlight behind on a phone — the control looked permanently focused and
+ * the actual press had no feedback of its own. Tailwind's default `hover:`
+ * is an unguarded `&:hover`, so this redefines the variant once instead of
+ * editing the ~100 call sites that use it.
+ *
+ * Press feedback on touch is `active:` (see the active:scale-* utilities on
+ * buttons), which is the correct signal there. */
+@custom-variant hover (@media (hover: hover) and (pointer: fine) { &:hover });
+
 /* Mobile Safari/Chrome auto-inflate font-size on text blocks that don't fill
    the viewport width ("text size adjust") — invisible on most pages, but it
    breaks anything with its own explicit zoom/scale UI (the presentation
@@ -630,6 +643,11 @@ html {
 }
 
 @theme inline {
+  /* Tailwind's smallest default breakpoint is sm:640px, which is wider than
+     every phone in portrait — so there was no way to say "only on a roomier
+     phone". xs marks the gap between a 360-390px handset and a 430px Pro Max,
+     where an extra header control starts to fit. */
+  --breakpoint-xs: 25rem; /* 400px */
   --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
   --color-background: var(--background);

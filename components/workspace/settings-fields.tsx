@@ -82,7 +82,7 @@ export function Choice<T extends string>({
           type="button"
           aria-pressed={value === o.id}
           className={cn(
-            'flex-1 shrink-0 min-w-fit whitespace-nowrap rounded-md px-3 py-1 text-[0.75rem] font-medium transition-all duration-150',
+            'flex-1 shrink-0 min-w-fit whitespace-nowrap rounded-md px-3 py-1 text-[0.75rem] font-medium transition-[background-color,color] duration-150 ease-out',
             value === o.id
               ? 'bg-background text-foreground shadow-xs font-semibold'
               : 'text-muted-foreground hover:text-foreground hover:bg-background/40'

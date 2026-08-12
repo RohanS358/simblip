@@ -261,7 +261,7 @@ function ExprInput({
       // on a tablet.
       style={{ touchAction: 'pan-y' }}
       className={cn(
-        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[0.75rem] outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30',
+        'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-base outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30 md:text-[0.75rem]',
         mono && 'font-mono',
         shownError ? 'border-[var(--accent-rose)]' : 'border-input',
         // The ew-resize cursor is a PROMISE that dragging does something. It
@@ -3460,7 +3460,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
               rows={3}
               spellCheck={false}
               aria-label={`Large formula editor for ${v.name}`}
-              className="mt-1 w-full resize-y rounded-md border border-input bg-background/80 px-2 py-1.5 font-mono text-[0.75rem] leading-relaxed outline-none focus:border-[var(--ring)]"
+              className="mt-1 w-full resize-y rounded-md border border-input bg-background/80 px-2 py-1.5 font-mono text-base leading-relaxed outline-none focus:border-[var(--ring)] md:text-[0.75rem]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) e.currentTarget.blur()
               }}

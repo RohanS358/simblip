@@ -593,7 +593,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           className={cn(
-            'relative z-30 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/95 backdrop-blur-md cursor-grab active:cursor-grabbing shadow-md transition-all duration-150',
+            'relative z-30 flex h-9 w-9 items-center justify-center rounded-full border border-border/60 bg-background/95 backdrop-blur-md cursor-grab active:cursor-grabbing shadow-md transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out',
             expanded ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/20' : 'hover:border-border'
           )}
           onClick={() => setExpanded((v) => !v)}

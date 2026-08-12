@@ -3659,7 +3659,7 @@ export function InfiniteCanvas({
             autoFocus
             aria-label="Component value or name"
             placeholder="100k · 9V · name"
-            className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-[0.75rem] shadow-md outline-none placeholder:text-muted-foreground/50"
+            className="absolute z-50 w-32 rounded-md border border-[var(--ring)] bg-card px-2 py-1 font-mono text-base shadow-md outline-none placeholder:text-muted-foreground/50 md:text-[0.75rem]"
             style={{ left: quickLabel.x, top: quickLabel.y }}
             inputMode="text"
             onPointerDown={(e) => e.stopPropagation()}
@@ -3880,7 +3880,7 @@ function SlashMenu({
         autoFocus
         aria-label="Insert a component"
         placeholder="Insert…"
-        className="w-full rounded-lg bg-transparent px-2 py-1.5 text-[0.8125rem] outline-none"
+        className="w-full rounded-lg bg-transparent px-2 py-1.5 text-base outline-none md:text-[0.8125rem]"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         onBlur={onClose}
