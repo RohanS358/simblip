@@ -3,29 +3,40 @@
 
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from 'crypto'
 
-// SECURITY: the dev fallback is a PUBLIC string in this repo — anyone can
-// forge a token with it, including `role: 'super_admin'`, which bypasses all
-// tenant scoping in /api/pg. Silently falling back to it in production would
-// turn one missing env var into a total auth bypass with no visible symptom,
-// so production refuses to start instead. Dev keeps the convenience default.
-// Resolved lazily, on first sign/verify — NOT at module load. `next build`
-// runs with NODE_ENV=production and collects page data without runtime env
-// vars present, so throwing at import time would fail every build rather
-// than the one thing that actually needs the secret.
-let cachedSecret: string | null = null
+// SECURITY: the dev fallback below is a PUBLIC string in this repo — anyone
+// can forge a token with it, including `role: 'super_admin'`, which bypasses
+// all tenant scoping in /api/pg. So production must never ISSUE a token
+// signed with it.
+//
+// The guard deliberately sits on the signing path only. An earlier version
+// threw inside secret() itself, which also covers verifyToken() — and since
+// every /api/pg request verifies a bearer token, one unset env var turned
+// into a 500 on every single data request instead of a clear auth failure.
+// Verification with the wrong key already fails safely (the HMAC simply
+// doesn't match), so it does not need to throw.
+//
+// Resolved lazily, never at module load: `next build` runs with
+// NODE_ENV=production and collects page data without runtime env vars, so
+// throwing at import time would fail every build.
+const DEV_SECRET = 'simblip-dev-secret-change-me'
 
 function secret(): string {
-  if (cachedSecret !== null) return cachedSecret
-  const configured = process.env.AUTH_SECRET
-  if (configured && configured.length >= 32) return (cachedSecret = configured)
-  if (process.env.NODE_ENV === 'production') {
+  return process.env.AUTH_SECRET || DEV_SECRET
+}
+
+/** True when we'd be signing with the public dev fallback. */
+const usingDevSecret = (): boolean => !process.env.AUTH_SECRET
+
+/**
+ * Called before MINTING a token. Refuses to hand out a credential signed
+ * with a secret that is public knowledge; verification is unaffected.
+ */
+function assertSignable(): void {
+  if (process.env.NODE_ENV === 'production' && usingDevSecret()) {
     throw new Error(
-      configured
-        ? 'AUTH_SECRET must be at least 32 characters in production.'
-        : 'AUTH_SECRET is required in production — refusing to issue tokens signed with the public dev secret.'
+      'AUTH_SECRET is required in production — refusing to issue tokens signed with the public dev secret.'
     )
   }
-  return (cachedSecret = configured || 'simblip-dev-secret-change-me')
 }
 
 // ── Passwords ───────────────────────────────────────────────────────────────
@@ -59,6 +70,7 @@ const b64u = (data: Buffer | string) => Buffer.from(data).toString('base64url')
 const hmac = (data: string) => createHmac('sha256', secret()).update(data).digest('base64url')
 
 export function signToken(claims: Omit<Claims, 'exp'>, ttlSeconds: number): string {
+  assertSignable()
   const head = b64u(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
   const body = b64u(JSON.stringify({ ...claims, exp: Math.floor(Date.now() / 1000) + ttlSeconds }))
   return `${head}.${body}.${hmac(`${head}.${body}`)}`
@@ -83,9 +95,21 @@ export function verifyToken(token: string, typ: Claims['typ']): Claims | null {
   }
 }
 
-/** Claims from a request's Bearer access token, or null. */
+/**
+ * Claims from a request's Bearer access token, or null.
+ *
+ * Never throws. This runs at the top of every authenticated route, usually
+ * before any try/catch, so anything thrown here becomes an unhandled 500 on
+ * every request rather than a 401 — which is exactly what happened when the
+ * production-secret guard lived on this path. A bad or unverifiable token is
+ * simply "not authenticated".
+ */
 export function bearerClaims(req: Request): Claims | null {
-  const header = req.headers.get('authorization')
-  if (!header?.startsWith('Bearer ')) return null
-  return verifyToken(header.slice(7), 'access')
+  try {
+    const header = req.headers.get('authorization')
+    if (!header?.startsWith('Bearer ')) return null
+    return verifyToken(header.slice(7), 'access')
+  } catch {
+    return null
+  }
 }

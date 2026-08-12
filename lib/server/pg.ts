@@ -32,11 +32,15 @@ export function getPool(): Pool {
       // main way a serverless fleet starves the database.
       idleTimeoutMillis: 5000,
       connectionTimeoutMillis: 5000,
-      // Without a cap a single stuck query can pin a connection for the life
-      // of the instance. Vercel's own function ceiling is far higher, so this
-      // fails the query rather than leaking the connection.
-      statement_timeout: 15000,
+      // Client-side cap only: query_timeout is enforced by node-postgres and
+      // sends nothing to the server. `statement_timeout` is deliberately NOT
+      // set here — pg puts it in the connection STARTUP packet, and a managed
+      // host that rejects the parameter would fail every connection. Set
+      // PG_STATEMENT_TIMEOUT only against a server known to accept it.
       query_timeout: 15000,
+      ...(process.env.PG_STATEMENT_TIMEOUT
+        ? { statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT) }
+        : {}),
       ssl: process.env.DATABASE_SSL === '1' ? { rejectUnauthorized: false } : undefined,
     })
     // A pool that emits 'error' with no listener crashes the process — an
