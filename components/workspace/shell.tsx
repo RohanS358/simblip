@@ -23,7 +23,7 @@ import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
 import { useSidebarSection, openProperties } from '@/lib/store/sidebar-sections'
-import { CanvasControls } from './canvas-controls'
+import { CanvasControls, showsCanvasDock } from './canvas-controls'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { SyncStatus } from './sync-status'
@@ -693,7 +693,7 @@ export function WorkspaceShell() {
                 activePaneIndex={activePaneIndex}
                 splitRatio={splitRatio}
               />
-              {(activeKind !== 'pdf' || pdfToolsOn) && activeKind !== 'web' && contentPageId && (
+              {showsCanvasDock(activeKind, pdfToolsOn) && contentPageId && (
                 <CanvasControls pageId={contentPageId} showTransport={false} />
               )}
               {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}

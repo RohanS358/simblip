@@ -165,10 +165,17 @@ export function WebView({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex h-full w-full flex-col bg-background overflow-hidden select-none">
-      {/* Top Web Navigation & Controls Bar */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-muted/20 px-3">
+      {/* Top Web Navigation & Controls Bar. Same rule as the presentation
+          toolbar: on a phone the action buttons squeeze the address field to
+          nothing and their labels collide, so every group is shrink-0 and the
+          strip scrolls horizontally instead. The address form keeps a min
+          width so it stays usable rather than collapsing first. */}
+      <div
+        className="flex h-12 shrink-0 items-center justify-between gap-2 overflow-x-auto overscroll-x-contain border-b border-border/50 bg-muted/20 px-3"
+        style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}
+      >
         {/* Navigation Buttons */}
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"
             aria-label="Back"
@@ -198,7 +205,7 @@ export function WebView({ pageId }: { pageId: string }) {
         </div>
 
         {/* Address & Search Input Form */}
-        <form onSubmit={handleSearchSubmit} className="flex min-w-0 flex-1 items-center gap-2 max-w-xl">
+        <form onSubmit={handleSearchSubmit} className="flex min-w-[12rem] flex-1 items-center gap-2 max-w-xl">
           <div className="relative flex min-w-0 flex-1 items-center">
             <Globe className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-muted-foreground" />
             <Input
@@ -218,12 +225,13 @@ export function WebView({ pageId }: { pageId: string }) {
         </form>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
             type="button"
             variant="outline"
             size="sm"
             className={cn('h-8 text-xs gap-1.5 rounded-lg', isCached && 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
+            aria-label={isCached ? 'Offline ready' : 'Save offline'}
             disabled={downloading}
             onClick={saveOffline}
           >
@@ -234,7 +242,7 @@ export function WebView({ pageId }: { pageId: string }) {
             ) : (
               <Download className="h-3.5 w-3.5" />
             )}
-            {isCached ? 'Offline Ready' : 'Save Offline'}
+            <span className="hidden sm:inline">{isCached ? 'Offline Ready' : 'Save Offline'}</span>
           </Button>
 
           <Button
@@ -242,10 +250,12 @@ export function WebView({ pageId }: { pageId: string }) {
             variant={penActive ? 'default' : 'outline'}
             size="sm"
             className="h-8 text-xs gap-1.5 rounded-lg"
+            aria-label="Pen overlay"
+            aria-pressed={penActive}
             onClick={() => setPenActive((v) => !v)}
           >
             <PenTool className="h-3.5 w-3.5" />
-            Pen Overlay
+            <span className="hidden sm:inline">Pen Overlay</span>
           </Button>
 
           <Button
@@ -253,10 +263,11 @@ export function WebView({ pageId }: { pageId: string }) {
             variant="ghost"
             size="sm"
             className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            aria-label={viewMode === 'live' ? 'Switch to reader view' : 'Switch to live view'}
             onClick={() => setViewMode((m) => (m === 'live' ? 'reader' : 'live'))}
           >
             <BookOpen className="h-3.5 w-3.5" />
-            {viewMode === 'live' ? 'Reader' : 'Live'}
+            <span className="hidden sm:inline">{viewMode === 'live' ? 'Reader' : 'Live'}</span>
           </Button>
 
           <Button
@@ -264,11 +275,12 @@ export function WebView({ pageId }: { pageId: string }) {
             variant="ghost"
             size="sm"
             className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            aria-label="Open in new tab"
             onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
             title="Open in new tab"
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            Open
+            <span className="hidden sm:inline">Open</span>
           </Button>
         </div>
       </div>

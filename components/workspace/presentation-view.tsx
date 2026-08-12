@@ -295,22 +295,37 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const [zoom, setZoomRaw] = useState(1)
   const stageRef = useRef<HTMLDivElement>(null)
   const setZoom = (z: number) => setZoomRaw(Math.min(3, Math.max(0.25, z)))
+
+  /**
+   * The scale that fits the slide in the stage.
+   *
+   * On a wide screen that's min(width, height) — the whole slide visible at
+   * once, which is what a presentation editor should show. On a phone that
+   * same rule is useless: a 390px-wide stage fits 960×540 at ~0.35, and the
+   * height constraint pushes it lower still, so the slide renders as an
+   * unreadable postage stamp. Worse, "fits entirely" means the content is
+   * never bigger than the scroller, so there is nothing to scroll TO — which
+   * is why the stage felt frozen on mobile.
+   *
+   * Narrow screens therefore fit to WIDTH only. The slide stays legible, is
+   * taller than the stage, and the scroll container finally has real overflow
+   * to pan through (the wrapper below is sized to the scaled footprint).
+   */
+  const fitScale = (el: HTMLElement) => {
+    const scaleW = (el.clientWidth - 48) / 960
+    const scaleH = (el.clientHeight - 48) / 540
+    return Math.min(3, Math.max(0.25, el.clientWidth < 640 ? scaleW : Math.min(scaleW, scaleH)))
+  }
+
   const fitWidth = () => {
     const el = stageRef.current
-    if (el) {
-      const scaleW = (el.clientWidth - 48) / 960
-      const scaleH = (el.clientHeight - 48) / 540
-      setZoom(Math.min(3, Math.max(0.25, Math.min(scaleW, scaleH))))
-    }
+    if (el) setZoom(fitScale(el))
   }
 
   // Auto-fit on initial mount so the presentation fills the stage viewport cleanly.
   useLayoutEffect(() => {
     const el = stageRef.current
-    if (!el) return
-    const scaleW = (el.clientWidth - 48) / 960
-    const scaleH = (el.clientHeight - 48) / 540
-    setZoomRaw(Math.min(3, Math.max(0.25, Math.min(scaleW, scaleH))))
+    if (el) setZoomRaw(fitScale(el))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // How the active slide animates in on change — applies both to the main

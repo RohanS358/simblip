@@ -41,7 +41,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
-import { CanvasControls } from './canvas-controls'
+import { CanvasControls, showsCanvasDock } from './canvas-controls'
 import { Inspector } from './inspector'
 import { FocusObject } from './focus-object'
 import { motion as fm, AnimatePresence } from 'framer-motion'
@@ -599,13 +599,8 @@ export function MobileShell() {
                 </div>
               )
             })()}
-            {/* pptx excluded on mobile: PresentationView already owns a
-                full-width bottom toolbar (zoom, transitions, export,
-                present) plus the slide rail — CanvasControls' floating dock
-                bar renders on the same edge and visually collides with it.
-                Desktop's dock defaults to a side/draggable position that
-                doesn't have this conflict, so it stays there. */}
-            {(activeKind !== 'pdf' || pdfToolsOn) && activeKind !== 'web' && activeKind !== 'pptx' && contentPageId && (
+            {/* Only kinds with a canvas to draw on — see showsCanvasDock. */}
+            {showsCanvasDock(activeKind, pdfToolsOn) && contentPageId && (
               <CanvasControls pageId={contentPageId} showTransport={false} />
             )}
             {calcOpen && <Calculator onClose={() => togglePanel('calc')} />}

@@ -50,6 +50,24 @@ import { cn } from '@/lib/utils'
 
 import { SundialDock } from './sundial-dock'
 
+/**
+ * Should the drawing dock float over this page kind at all?
+ *
+ * It's a pen-and-shapes tool, so it belongs wherever there's a canvas to draw
+ * on: boards, doc sheets, and PDFs once pdf-tools are switched on. The other
+ * kinds have no canvas AND render their own chrome along the bottom edge — a
+ * presentation's zoom + slideshow toolbar, a spreadsheet's sheet tabs, a web
+ * view's browser bar. The floating pill lands right on top of that bar, and
+ * being pointer-events-auto it also eats the taps and scroll drags meant for
+ * it. Barely visible on a wide desktop pane; fatal on a phone, where both
+ * bars want the same strip.
+ *
+ * Both shells used to inline their own version of this check, which is how
+ * pptx ended up excluded on mobile only.
+ */
+export const showsCanvasDock = (kind: string, pdfToolsOn: boolean): boolean =>
+  kind === 'pdf' ? pdfToolsOn : kind === 'board' || kind === 'doc'
+
 export function CanvasControls({
   pageId,
   showTransport = true,
