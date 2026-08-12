@@ -13,6 +13,7 @@ import { terminalsOf } from '@/lib/circuit/engine'
 import { inkPath } from './ink'
 import { getNumber, getString, type ObjectRendererProps } from './types'
 import { pxToCmRounded } from '@/lib/scene/units'
+import { hasOpenedProperties } from '@/lib/scene/dblclick-policy'
 import {
   traceRays,
   screenPatterns,
@@ -1335,7 +1336,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const pts = points ?? []
     const d = pts.length >= 3 ? `M ${pts.map((p) => `${p[0]} ${p[1]}`).join(' L ')} Z` : ''
     return (
-      <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
+      <div className="relative h-full w-full" onDoubleClick={() => {
+        // Shapes are "properties-then-edit": the FIRST double-click belongs to
+        // the Properties panel (opened by the canvas wrapper). Only once that
+        // has happened for this object does a double-click reach the label
+        // editor. This handler fires BEFORE the wrapper's (child-to-parent
+        // bubbling), so it has to ask the policy rather than be told.
+        if (hasOpenedProperties(object.id)) setEditRequested(true)
+      }}>
         <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
           <path d={d} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} strokeLinejoin="round" />
         </svg>
@@ -1352,7 +1360,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const chargeColor = qVal < 0 ? 'var(--accent-blue)' : 'var(--accent-rose)'
     const myRays = isLightSource ? rays.filter((r) => r.sourceId === object.id) : []
     return (
-      <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
+      <div className="relative h-full w-full" onDoubleClick={() => {
+        // Shapes are "properties-then-edit": the FIRST double-click belongs to
+        // the Properties panel (opened by the canvas wrapper). Only once that
+        // has happened for this object does a double-click reach the label
+        // editor. This handler fires BEFORE the wrapper's (child-to-parent
+        // bubbling), so it has to ask the policy rather than be told.
+        if (hasOpenedProperties(object.id)) setEditRequested(true)
+      }}>
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
         {/* Rays are traced in world space (rotation already baked into the
             beam direction); counter-rotate so the container's rotate()
@@ -1491,7 +1506,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
 
   // rect
   return (
-    <div className="relative h-full w-full" onDoubleClick={(e) => { e.stopPropagation(); setEditRequested(true) }}>
+    <div className="relative h-full w-full" onDoubleClick={() => {
+        // Shapes are "properties-then-edit": the FIRST double-click belongs to
+        // the Properties panel (opened by the canvas wrapper). Only once that
+        // has happened for this object does a double-click reach the label
+        // editor. This handler fires BEFORE the wrapper's (child-to-parent
+        // bubbling), so it has to ask the policy rather than be told.
+        if (hasOpenedProperties(object.id)) setEditRequested(true)
+      }}>
     <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-label={object.name}>
       <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={render === 'ground' ? 3 : cornerRadius} fill={fill} stroke={stroke} strokeWidth={bodyStrokeWidth} />
       {render === 'ground' && (

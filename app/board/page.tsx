@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
   BookOpen,
@@ -26,6 +27,9 @@ import {
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { RequireAuth } from '@/components/auth/require-auth'
+// ogl is a WebGL library and this is decoration — keep it out of the board's
+// first paint, which matters on the low-powered hardware these rooms use.
+const SoftAurora = dynamic(() => import('@/components/ui/soft-aurora'), { ssr: false })
 import { QrCode } from '@/components/platform/qr-code'
 import { PageView } from '@/components/workspace/page-view'
 import { CanvasControls } from '@/components/workspace/canvas-controls'
@@ -756,9 +760,21 @@ function BoardSurface() {
           {tutorialOpen && <TutorialPanel pageId={activeBoardPage} onClose={() => setTutorialOpen(false)} />}
         </div>
       ) : (
-        <div className="flex h-full flex-col">
+        <div className="relative flex h-full flex-col">
+          {/* Ambient aurora behind the idle screen only — it must never sit
+              under a lesson, where it would compete with the content. Tinted
+              from the live theme accents (components/ui/soft-aurora.tsx reads
+              the CSS variables), so it follows whichever theme the room board
+              is set to instead of pinning one hard-coded palette. */}
+          <SoftAurora
+            className="pointer-events-none absolute inset-0 z-0"
+            speed={0.35}
+            brightness={0.55}
+            bandHeight={0.62}
+            enableMouseInteraction={false}
+          />
           {/* Same top header as the active whiteboard view */}
-          <header className="z-40 flex h-12 shrink-0 items-center gap-2 bg-background px-4">
+          <header className="relative z-40 flex h-12 shrink-0 items-center gap-2 px-4">
             {institution?.logo_url ? (
               <Image
                 src={String(institution.logo_url)}
@@ -783,7 +799,7 @@ function BoardSurface() {
             </div>
           </header>
 
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+          <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 text-center">
             <p className="text-[13px] uppercase tracking-[0.2em] text-muted-foreground">
               {institution?.name ?? 'SIMBLIP'}
             </p>

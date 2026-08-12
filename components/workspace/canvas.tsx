@@ -55,6 +55,12 @@ import { useSlashMenuStore } from '@/lib/store/slash-menu'
 import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { ProbeLayer } from './probe-layer'
+import {
+  dblClickIntent,
+  hasOpenedProperties,
+  markPropertiesOpened,
+  clearPropertiesOpened,
+} from '@/lib/scene/dblclick-policy'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
 import { penActive } from '@/lib/pointer/pen-active'
@@ -371,6 +377,20 @@ const HOLD_MS = 500
 /** Centroid travel before a three-finger swipe counts as undo/redo. Large
  *  enough that resting three fingers while thinking never fires it. */
 const THREE_FINGER_PX = 60
+
+/**
+ * The object whose Properties a double-click has already opened.
+ *
+ * Shapes use "first double-click opens Properties, the next one edits the
+ * label" (lib/scene/dblclick-policy.ts). This remembers which object is past
+ * step one. Module scope rather than component state on purpose: it must
+ * survive ObjectView re-renders, and it must NOT cause one — flipping it is
+ * pure gesture bookkeeping with no visual output of its own.
+ *
+ * Cleared whenever the selection changes, which is what bounds the window to
+ * "while this object stays selected".
+ */
+const propsOpenedForRef = { current: null as string | null }
 const HOLD_STILL_PX = 6
 
 // Object-drag hold-time and tap-vs-drag distance (touch only) now live in
@@ -776,7 +796,28 @@ const ObjectView = memo(function ObjectView({
         transformOrigin: 'center center',
       }}
       onPointerDown={(e) => onPointerDown(e, object.id)}
-      onDoubleClick={() => openProperties()}
+      // Double-click meaning is declared per kind in lib/scene/dblclick-policy
+      // rather than assumed here. This handler used to open Properties for
+      // EVERYTHING, which meant every editable component had to fight it with
+      // stopPropagation() — and any component that forgot silently lost its
+      // own editing gesture.
+      onDoubleClick={() => {
+        const intent = dblClickIntent(object.geometry.kind)
+        // 'edit' kinds handle it themselves, inside the component.
+        if (intent === 'edit') return
+        if (intent === 'properties') {
+          openProperties()
+          return
+        }
+        // properties-then-edit (shapes): the panel first. The shape's own
+        // handler already ran (children bubble first) and checked the same
+        // flag, so once it's set the label editor has opened and there is
+        // nothing left to do here. The flag clears on selection change, which
+        // bounds step two to "while this shape stays selected".
+        if (hasOpenedProperties(object.id)) return // step two: the shape edits
+        markPropertiesOpened(object.id)
+        openProperties()
+      }}
       onPointerEnter={() => onHover(object.id)}
       onPointerLeave={() => onHover(null)}
     >
@@ -3158,6 +3199,14 @@ export function InfiniteCanvas({
   // O(1) lookups — `selection.includes(id)` inside the object map was O(n)
   // per object, i.e. O(n^2) for the page.
   const selectedSet = useMemo(() => new Set(selection), [selection])
+
+  // A shape's "Properties already opened, so the next double-click edits the
+  // label" state lasts exactly as long as that object stays selected.
+  useEffect(() => {
+    for (const id of Object.keys(objects ?? {})) {
+      if (hasOpenedProperties(id) && !selectedSet.has(id)) clearPropertiesOpened(id)
+    }
+  }, [selectedSet, objects])
 
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const fullscreenObjectId = useWorkspaceStore((s) => s.fullscreenObjectId)
