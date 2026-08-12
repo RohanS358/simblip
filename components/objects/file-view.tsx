@@ -1,23 +1,24 @@
 'use client'
 
-// Session document element — a PDF VIEWER AND CONVERTER. One full page at a
-// time, rendered by pdf.js onto a high-DPI canvas (crisp at any whiteboard
-// zoom, no browser viewer chrome). Presentations and documents (pptx, docx,
-// txt…) are converted to PDF IN THE BROWSER (lib/store/to-pdf.ts — no server
-// binary, so it works on Vercel) and then flow through the exact same
-// pipeline, so everything ends up a PDF. The content is pointer-inert:
-// clicking/dragging the body selects and moves the element like any other
-// object; ONLY the floating control bar is interactive. Files are
-// session-only, never saved.
+// Document element in the whiteboard dock. PDFs are rendered inline by
+// pdf.js (crisp at any whiteboard zoom, no browser viewer chrome). Anything
+// with a real editor/importer of its own — pptx, docx, xlsx — is instead
+// attached as a proper page (same putFile + pageKindForFile pipeline as the
+// notebook-tree and Uploads Library) and previewed here via that page's own
+// viewer (PresentationView/DocView/XlsxView — the app's own OOXML importers,
+// not a PDF-conversion shortcut). The content is pointer-inert: clicking/
+// dragging the body selects and moves the element like any other object;
+// ONLY the floating control bar is interactive.
 
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square, PanelRightClose, PanelRightOpen, Link, Link2Off } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, loadSessionFile, putSessionFile } from '@/lib/store/ephemeral-storage'
-import { convertToPdf } from '@/lib/store/to-pdf'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findNode } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { cn } from '@/lib/utils'
+import { pageKindForFile } from '@/components/workspace/open-file'
+import { PageView } from '@/components/workspace/page-view'
 import type { ObjectRendererProps } from './types'
 
 // pdf.js is loaded lazily on first use so it never weighs down the notebook.
@@ -41,7 +42,7 @@ const loadPdfjs = () => {
   return pdfjsPromise
 }
 
-export function FileObject({ object }: ObjectRendererProps) {
+export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) {
   const [page, setPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
   const [rev, setRev] = useState(0) // bumps when a file is (re)attached
@@ -112,31 +113,72 @@ export function FileObject({ object }: ObjectRendererProps) {
     }
   }, [local, sharedUrl, object.name, object.metadata.fileName, object.metadata.fileMime])
 
-  /** Attach a file. Anything that isn't already a PDF or an image is
-   *  converted to PDF in the browser first, so the viewer only ever
-   *  renders PDFs (and slide nav / the phone remote keep working). */
+  const [linkedPageId, setLinkedPageId] = useState<string | null>(
+    (object.metadata.linkedPageId as string) ?? null
+  )
+
+  /** Attach a file. PDFs and images render inline via pdf.js/<img> as before.
+   *  pptx/docx/xlsx get a real page (own importer, own editor) instead of
+   *  being flattened to PDF — this object then just previews that page.
+   *  text/markdown/csv have no dedicated kind, so they still become a
+   *  pdf-kind page (same as notebook-tree's addFileToFolder). */
   const attach = async (f: File) => {
     const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
     const alreadyViewable =
       f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
+    const isTextConvertible = ['.txt', '.md', '.csv'].includes(ext)
 
-    let toStore: File = f
-    if (!alreadyViewable) {
-      setConverting('Converting to PDF…')
+    if (isTextConvertible) {
+      setConverting('Opening…')
       try {
-        toStore = await convertToPdf(f, (done, total) =>
-          setConverting(`Converting to PDF… ${done}/${total}`)
-        )
-        toast.success(`Converted ${f.name} to PDF`)
+        const ws = useWorkspaceStore.getState()
+        const hostNode = findNode(ws.nodes, hostPageId)
+        const parentId = hostNode?.parentId ?? null
+        const newPageId = ws.addPageIn(parentId ?? '', f.name.replace(/\.[^.]+$/, ''), 'pdf')
+        const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
+        await attachPdfToPage(newPageId, f)
+        useDocStore.getState().updateObject(hostPageId, object.id, {
+          metadata: { ...object.metadata, linkedPageId: newPageId },
+        })
+        setLinkedPageId(newPageId)
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not convert this file to PDF.')
-        return
+        toast.error(err instanceof Error ? err.message : 'Could not open this file.')
       } finally {
         setConverting(null)
       }
+      return
     }
 
-    setLocal(putSessionFile(object.id, toStore))
+    if (!alreadyViewable) {
+      const kind = pageKindForFile({ mime: f.type, name: f.name })
+      if (!kind) {
+        toast.error("This file type isn't supported yet.")
+        return
+      }
+      setConverting('Opening…')
+      try {
+        const { putFile } = await import('@/lib/storage/manager')
+        const { useAuthStore } = await import('@/lib/auth/store')
+        const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
+        const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
+        const ws = useWorkspaceStore.getState()
+        const hostNode = findNode(ws.nodes, hostPageId)
+        const parentId = hostNode?.parentId ?? null
+        const newPageId = ws.addPageIn(parentId ?? '', f.name.replace(/\.[^.]+$/, ''), kind)
+        ws.updatePageMeta(newPageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: f.type })
+        useDocStore.getState().updateObject(hostPageId, object.id, {
+          metadata: { ...object.metadata, linkedPageId: newPageId },
+        })
+        setLinkedPageId(newPageId)
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Could not open this file.')
+      } finally {
+        setConverting(null)
+      }
+      return
+    }
+
+    setLocal(putSessionFile(object.id, f))
     docRef.current = null
     setNumPages(0)
     setPage(1)
@@ -306,6 +348,12 @@ export function FileObject({ object }: ObjectRendererProps) {
             <Loader2 className="h-6 w-6 animate-spin" />
             <span className="text-[12px]">{converting}</span>
           </div>
+        ) : linkedPageId ? (
+          // pptx/docx/xlsx preview via the app's own page viewer (real OOXML
+          // import) — pointer-inert here too, same as the pdf.js canvas.
+          <div className="pointer-events-none h-full w-full overflow-hidden">
+            <PageView pageId={linkedPageId} />
+          </div>
         ) : !file ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <FileUp className="h-6 w-6" />
@@ -313,9 +361,9 @@ export function FileObject({ object }: ObjectRendererProps) {
               {object.name || 'Attach a document, slide deck or image'}
               <br />
               <span className="text-[10.5px] opacity-70">
-                PDF, PowerPoint (.pptx), Word (.docx), text or image — anything that
-                isn&apos;t a PDF is converted to one right here in your browser.
-                Session-only, never saved to the cloud.
+                PDF, PowerPoint (.pptx), Word (.docx), Excel (.xlsx) or image.
+                Slides and documents open with their real editor — PDFs and
+                images preview inline, session-only.
               </span>
             </span>
           </div>
@@ -479,7 +527,16 @@ export function FileObject({ object }: ObjectRendererProps) {
           type="button"
           aria-label="Fullscreen"
           className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-          onClick={() => void boxRef.current?.requestFullscreen?.()}
+          onClick={() => {
+            // Linked page (pptx/docx/xlsx): fullscreen = open it as its own
+            // solitary tab, same as clicking it in the notebook-tree, rather
+            // than CSS-fullscreening this small preview box.
+            if (linkedPageId) {
+              useWorkspaceStore.getState().setActivePage(linkedPageId)
+              return
+            }
+            void boxRef.current?.requestFullscreen?.()
+          }}
         >
           <Maximize2 className="h-4 w-4" />
         </button>
@@ -488,7 +545,7 @@ export function FileObject({ object }: ObjectRendererProps) {
       <input
         ref={inputRef}
         type="file"
-        accept=".pdf,image/*,.pptx,.docx,.txt,.md,.csv"
+        accept=".pdf,image/*,.pptx,.docx,.xlsx,.txt,.md,.csv"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0]
