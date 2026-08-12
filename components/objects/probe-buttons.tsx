@@ -8,7 +8,8 @@
 // so there is exactly one drag implementation no matter where it began.
 
 import { useDocStore } from '@/lib/store/document'
-import { probeLinks, probeOrigin, probesFor } from '@/lib/scene/probes'
+import { usePrefs } from '@/lib/store/preferences'
+import { probeLinks, probeOrigin, probesFor, probeUiScale } from '@/lib/scene/probes'
 import { beginProbeDrag } from '@/lib/scene/probe-drag'
 import type { SceneObject } from '@/lib/scene/types'
 
@@ -17,7 +18,9 @@ import type { SceneObject } from '@/lib/scene/types'
 export function ProbeButtons({ pageId, object }: { pageId: string; object: SceneObject }) {
   const specs = probesFor(object)
   const select = useDocStore((s) => s.setSelection)
+  const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   if (specs.length === 0) return null
+  const uiScale = probeUiScale(object, componentScale)
 
   return (
     <>
@@ -48,7 +51,7 @@ export function ProbeButtons({ pageId, object }: { pageId: string; object: Scene
                 pageId,
                 objectId: object.id,
                 param: spec.param,
-                from: probeOrigin(object, i, specs.length),
+                from: probeOrigin(object, i, specs.length, uiScale),
               })
             }}
           >

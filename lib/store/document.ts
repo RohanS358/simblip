@@ -23,6 +23,7 @@ import * as archive from '@/lib/store/page-archive'
 import { dropBuffer } from '@/lib/physics/bus'
 import { markPageDeleted } from '@/lib/store/deleted-pages'
 import { pointAtBoundaryT, type ConnectorAnchor } from '@/lib/scene/connectors'
+import { refitBends } from '@/lib/render/connector-path'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 
 /** Resolves an anchor to a world point on `obj`. Anchors without a `kind`
@@ -381,15 +382,30 @@ function reprojectConnectors(page: PageContent, movedObjectId: string): PageCont
 
     const px = Math.min(a.x, b.x)
     const py = Math.min(a.y, b.y)
-    const newPoints = [
-      [a.x - px, a.y - py],
-      [b.x - px, b.y - py],
-    ]
+    const localA = [a.x - px, a.y - py]
+    const localB = [b.x - px, b.y - py]
+    const newPoints = [localA, localB]
+
+    // Bends are stored object-LOCAL, so a new bounding-box origin shifts every
+    // one of them unless they're rebased by the same delta — and rebasing
+    // alone would still leave a diagonal segment at the moved end. refitBends
+    // does both, which is what keeps a dragged connector orthogonal instead of
+    // straightening into a slanted line.
+    const oldBends = obj.metadata.bends as number[][] | undefined
+    let newMeta = obj.metadata
+    if (oldBends && oldBends.length > 0) {
+      const dx = obj.position.x - px
+      const dy = obj.position.y - py
+      const rebased = oldBends.map((p) => [p[0] + dx, p[1] + dy])
+      newMeta = { ...obj.metadata, bends: refitBends(localA, rebased, localB) }
+    }
+
     const newObj = {
       ...obj,
       position: { x: px, y: py },
       size: { w: Math.max(Math.abs(b.x - a.x), 2), h: Math.max(Math.abs(b.y - a.y), 2) },
       geometry: { ...obj.geometry, points: newPoints },
+      metadata: newMeta,
     }
     if (!changed) objects = { ...objects }
     objects[obj.id] = newObj

@@ -70,6 +70,49 @@ export function connectorPoints(a: number[], bends: number[][], b: number[]): nu
   return [a, ...mid, b]
 }
 
+/**
+ * Re-fit a connector's bends after one of its endpoints moved.
+ *
+ * Bends are stored object-LOCAL, so when an anchored endpoint moves the
+ * connector's bounding box (and therefore its origin) changes and every bend
+ * has to be rebased by the same delta, or it silently drifts. Rebasing alone
+ * isn't enough though: a bend that was a right angle for the OLD endpoint
+ * leaves a diagonal segment once the endpoint moves, which is what made
+ * connectors "straighten" on drag.
+ *
+ * So each bend is also snapped back onto the orthogonal grid implied by its
+ * neighbours — a bend that shared an axis with the endpoint keeps sharing it.
+ * The result stays H/V-only for the common one- and two-bend routes the
+ * connector tool produces, and never invents bends the user didn't draw.
+ *
+ * All arguments and the result are in the connector's LOCAL space.
+ */
+export function refitBends(a: number[], bends: number[][], b: number[]): number[][] {
+  if (bends.length === 0) return bends
+
+  const out = bends.map((p) => [p[0], p[1]])
+  // Walk the chain, keeping each joint square with the point before it. The
+  // segment INTO a bend alternates axis with the segment out of it, so fixing
+  // one coordinate per bend is enough to keep every segment axis-aligned.
+  for (let i = 0; i < out.length; i++) {
+    const prev = i === 0 ? a : out[i - 1]
+    const next = i === out.length - 1 ? b : out[i + 1]
+    // Which axis did this bend turn on originally? Preserve that choice, so a
+    // route the user shaped as "along x, then y" still reads that way.
+    const wasVerticalIn = Math.abs(bends[i][0] - (i === 0 ? a[0] : bends[i - 1][0])) < 0.5
+    if (wasVerticalIn) {
+      // Came in vertically → share x with the previous point, y with the next.
+      out[i][0] = prev[0]
+      out[i][1] = next[1]
+    } else {
+      // Came in horizontally → share y with the previous point, x with the next.
+      out[i][1] = prev[1]
+      out[i][0] = next[0]
+    }
+  }
+  return out
+}
+
 /** Orthogonal elbow path for the connector tool: draws through every
  *  stored bend point in order. Empty bends = same L-shape as 'wire'. */
 export function connectorElbowPath(

@@ -12,16 +12,21 @@
 // convention the measure/selection overlays use.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Trash2 } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { channelOptions } from '@/lib/scene/bindings'
 import { onProbeDrag } from '@/lib/scene/probe-drag'
+import { usePrefs } from '@/lib/store/preferences'
 import {
   attachPoint,
   defaultChannel,
   endDirection,
+  leadDirection,
+  leadDistance,
   orthPath,
   probeLinks,
   probeOrigin,
+  probeUiScale,
   probesFor,
   serializeLinks,
   snapTarget,
@@ -31,6 +36,14 @@ import {
 } from '@/lib/scene/probes'
 import { GRAPH_COLORS } from '@/components/objects/graph'
 import type { SceneObject, Vec2 } from '@/lib/scene/types'
+
+/** Signed lead-out for a live drag: the same exit stub the committed arrow
+ *  will use, so the preview matches what you get on release. */
+function dragLead(obj: SceneObject, drag: Drag): number {
+  const to = drag.snap ? drag.snap.point : drag.to
+  const d = leadDirection(obj, drag.from, to)
+  return d * leadDistance(obj, drag.from, d)
+}
 
 /** Faint enough to never obstruct the drawing underneath. */
 const ARROW_OPACITY = 0.42
@@ -57,6 +70,7 @@ export function ProbeLayer({
   toCanvas: (clientX: number, clientY: number) => Vec2
 }) {
   const setStringParam = useDocStore((s) => s.setStringParam)
+  const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   const [drag, setDrag] = useState<Drag | null>(null)
   const [openChip, setOpenChip] = useState<string | null>(null)
   const dragRef = useRef<Drag | null>(null)
@@ -151,7 +165,7 @@ export function ProbeLayer({
       >
         {focused &&
           specs.map((spec, i) => {
-            const origin = probeOrigin(focused, i, specs.length)
+            const origin = probeOrigin(focused, i, specs.length, probeUiScale(focused, componentScale))
             const links = probeLinks(focused, spec)
             return (
               <g key={spec.param}>
@@ -159,18 +173,20 @@ export function ProbeLayer({
                   const target = objects[link.objectId]
                   if (!target) return null
                   const end = attachPoint(target, origin)
+                  const ld = leadDirection(focused, origin, end)
+                  const lead = ld * leadDistance(focused, origin, ld)
                   // Graph arrows carry the series' own color so the line on
                   // the chart and the arrow on the canvas read as one thing.
                   const color =
                     spec.mode === 'channel'
                       ? GRAPH_COLORS[link.index % GRAPH_COLORS.length]
                       : spec.color
-                  const dir = endDirection(origin, end)
+                  const dir = endDirection(origin, end, lead)
                   const head = 6 / zoom
                   return (
                     <g key={`${link.objectId}:${link.channel}:${n}`}>
                       <path
-                        d={orthPath(origin, end)}
+                        d={orthPath(origin, end, lead)}
                         fill="none"
                         stroke={color}
                         strokeWidth={1.25 / zoom}
@@ -203,7 +219,11 @@ export function ProbeLayer({
         {drag && (
           <>
             <path
-              d={orthPath(drag.from, drag.snap ? drag.snap.point : drag.to)}
+              d={orthPath(
+                drag.from,
+                drag.snap ? drag.snap.point : drag.to,
+                focused ? dragLead(focused, drag) : 0
+              )}
               fill="none"
               stroke={drag.snap && !drag.snap.valid ? 'var(--accent-rose)' : drag.spec.color}
               strokeWidth={1.5 / zoom}
@@ -229,7 +249,7 @@ export function ProbeLayer({
       {/* Channel chips at each arrowhead. */}
       {focused &&
         specs.flatMap((spec, i) => {
-          const origin = probeOrigin(focused, i, specs.length)
+          const origin = probeOrigin(focused, i, specs.length, probeUiScale(focused, componentScale))
           const links = probeLinks(focused, spec)
           return links.map((link, n) => {
             const target = objects[link.objectId]
@@ -310,27 +330,38 @@ function ProbeChip({
       onPointerDown={(e) => e.stopPropagation()}
     >
       <div className="flex -translate-y-1/2 translate-x-2 items-center gap-0.5">
-        <button
-          type="button"
-          aria-label={mode === 'channel' ? `Channel: ${label}. Click to change` : label}
-          aria-expanded={mode === 'channel' ? open : undefined}
-          className="flex items-center gap-1 rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-[10px] shadow-sm backdrop-blur transition-colors"
-          style={{ borderColor: color, color }}
-          onClick={mode === 'channel' ? onToggle : onRemove}
-        >
-          <span className="max-w-24 truncate">{label || '—'}</span>
-          {mode === 'channel' && <span aria-hidden>▾</span>}
-        </button>
-        {mode === 'channel' && (
+        {/* Object-mode chips have no channel to pick, so the label is inert —
+            removing is an explicit button in BOTH modes rather than a click
+            on the name, which would delete a column by accident. */}
+        {mode === 'channel' ? (
           <button
             type="button"
-            aria-label={`Disconnect ${label}`}
-            className="rounded-full border border-border bg-card/95 px-1 py-0.5 text-[10px] leading-none text-muted-foreground shadow-sm backdrop-blur hover:text-[var(--accent-rose)]"
-            onClick={onRemove}
+            aria-label={`Channel: ${label}. Click to change`}
+            aria-expanded={open}
+            className="flex items-center gap-1 rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-[10px] shadow-sm backdrop-blur transition-colors"
+            style={{ borderColor: color, color }}
+            onClick={onToggle}
           >
-            ✕
+            <span className="max-w-24 truncate">{label || '—'}</span>
+            <span aria-hidden>▾</span>
           </button>
+        ) : (
+          <span
+            className="rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-[10px] shadow-sm backdrop-blur"
+            style={{ borderColor: color, color }}
+          >
+            <span className="block max-w-24 truncate">{label || '—'}</span>
+          </span>
         )}
+        <button
+          type="button"
+          aria-label={`Disconnect ${label}`}
+          title="Remove this connection"
+          className="rounded-full border border-border bg-card/95 p-0.5 leading-none text-[var(--accent-rose)] shadow-sm backdrop-blur transition-colors hover:bg-[var(--accent-rose)] hover:text-white"
+          onClick={onRemove}
+        >
+          <Trash2 className="h-2.5 w-2.5" />
+        </button>
       </div>
 
       {open && options.length > 0 && (

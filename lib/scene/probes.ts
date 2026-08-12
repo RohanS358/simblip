@@ -73,11 +73,52 @@ export const PROBE_SPECS: Record<string, ProbeSpec[]> = {
 export const probesFor = (obj: SceneObject): ProbeSpec[] =>
   PROBE_SPECS[obj.geometry.kind] ?? []
 
-/** Where probe `i` of `n` sits — stacked down the component's left edge, just
- *  outside it so the dot never covers content. World coordinates. */
-export function probeOrigin(obj: SceneObject, i: number, n: number): Vec2 {
-  const gap = obj.size.h / (n + 1)
-  return { x: obj.position.x, y: obj.position.y + gap * (i + 1) }
+// Geometry of the probe buttons in a component's header, so arrows can start
+// exactly where the button is drawn. These mirror the Tailwind classes in
+// components/objects/probe-buttons.tsx and the header rows that host it
+// ("flex items-center gap-2 … px-3 py-1.5", buttons "h-4 w-4" first in the
+// row). If either changes, change these with it.
+/** Kinds whose chrome renders under CSS `zoom: componentScale` — mirrors
+ *  COMPONENT_UI_KINDS in components/workspace/canvas.tsx for the kinds that
+ *  can carry probes. */
+const UI_SCALED = new Set(['graph', 'truthtable', 'chart', 'table', 'cashflow'])
+
+/** The CSS zoom actually applied to `obj`'s chrome, given the user's
+ *  component-scale preference. */
+export const probeUiScale = (obj: SceneObject, componentScale: number): number =>
+  UI_SCALED.has(obj.geometry.kind) ? componentScale : 1
+
+const HEADER_PAD_X = 12 // px-3
+const HEADER_PAD_Y = 6 // py-1.5
+const PROBE_SIZE = 16 // h-4 w-4
+const PROBE_GAP = 8 // gap-2
+
+/**
+ * Centre of probe `i`'s button, in world coordinates — the point its arrow is
+ * drawn from.
+ *
+ * Components in COMPONENT_UI_KINDS render their chrome under CSS `zoom`
+ * (Properties → component scale), which scales the header's padding and the
+ * buttons with it, so the offset has to be scaled the same way or the arrow
+ * detaches from the button at any scale but 1.
+ */
+export function probeOrigin(obj: SceneObject, i: number, n: number, uiScale = 1): Vec2 {
+  void n // buttons sit in a row; each one's offset depends only on its index
+  const dx = HEADER_PAD_X + PROBE_SIZE / 2 + i * (PROBE_SIZE + PROBE_GAP)
+  const dy = HEADER_PAD_Y + PROBE_SIZE / 2
+  const x = obj.position.x + dx * uiScale
+  const y = obj.position.y + dy * uiScale
+  if (!obj.rotation) return { x, y }
+  // A rotated component rotates its header too, about the box's centre.
+  const cx = obj.position.x + obj.size.w / 2
+  const cy = obj.position.y + obj.size.h / 2
+  const r = (obj.rotation * Math.PI) / 180
+  const cos = Math.cos(r)
+  const sin = Math.sin(r)
+  return {
+    x: cx + (x - cx) * cos - (y - cy) * sin,
+    y: cy + (x - cx) * sin + (y - cy) * cos,
+  }
 }
 
 // ── What a probe is currently pointing at ───────────────────────────────────
@@ -222,29 +263,87 @@ export function attachPoint(target: SceneObject, from: Vec2): Vec2 {
  * component it starts from. Pure geometry from two endpoints — nothing is
  * stored, so the route re-derives itself whenever either end moves.
  */
-export function orthPath(a: Vec2, b: Vec2): string {
+/** How far the line runs straight out of the probe before it may turn. */
+const LEAD_OUT = 18
+
+/**
+ * `lead` is the SIGNED distance the line must run straight out of the probe
+ * before it may turn — negative to exit left, positive right, 0 for a plain
+ * route with no exit stub (used by the free-drag preview).
+ */
+export function orthPath(a: Vec2, b: Vec2, lead: number = 0): string {
   const dx = b.x - a.x
   const dy = b.y - a.y
-  // Nearly collinear: a single straight run reads better than a degenerate
-  // elbow that doubles back on itself.
-  if (Math.abs(dy) < 1) return `M ${a.x} ${a.y} L ${b.x} ${b.y}`
-  if (Math.abs(dx) < 1) return `M ${a.x} ${a.y} L ${b.x} ${b.y}`
+  // Nearly collinear AND heading the same way the probe exits: a single
+  // straight run reads better than a degenerate elbow that doubles back.
+  if (Math.abs(dy) < 1 && (lead === 0 || Math.sign(dx) === Math.sign(lead))) {
+    return `M ${a.x} ${a.y} L ${b.x} ${b.y}`
+  }
+  if (Math.abs(dx) < 1 && lead === 0) return `M ${a.x} ${a.y} L ${b.x} ${b.y}`
 
-  // Probes exit horizontally (they sit on a left/right edge), so lead out on
-  // X, turn once, and come in on X again — a Z. When the target is very close
-  // horizontally, a simple L is tidier.
+  // The probe button sits inside the component's header, so the line has to
+  // leave AWAY from the card before it may turn — otherwise it exits straight
+  // across the component it belongs to.
+  if (lead !== 0) {
+    const exit = a.x + lead
+    // Target is already past the exit stub in the same direction: one clean
+    // turn at the stub, then run in.
+    if (Math.sign(b.x - exit) === Math.sign(lead) || Math.abs(b.x - exit) < 1) {
+      const midX = exit + (b.x - exit) / 2
+      return `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`
+    }
+    // Target is BEHIND the probe (the common case: graph on the left of what
+    // it measures). Go out, run vertically clear of the component, then back
+    // across at the target's row — a staple, never a line through the card.
+    return `M ${a.x} ${a.y} L ${exit} ${a.y} L ${exit} ${b.y} L ${b.x} ${b.y}`
+  }
+
   if (Math.abs(dx) < 24) return `M ${a.x} ${a.y} L ${a.x} ${b.y} L ${b.x} ${b.y}`
   const midX = a.x + dx / 2
   return `M ${a.x} ${a.y} L ${midX} ${a.y} L ${midX} ${b.y} L ${b.x} ${b.y}`
 }
 
+/**
+ * Which way a probe's line should leave its component: -1 for left, +1 for
+ * right. Probes live near the LEFT edge of the header, so they normally exit
+ * left; a target far off to the right is better served by exiting right than
+ * by wrapping the whole card.
+ */
+export function leadDirection(obj: SceneObject, origin: Vec2, target: Vec2): -1 | 1 {
+  const right = obj.position.x + obj.size.w
+  // Target clearly past the component's right edge → leaving right is shorter
+  // and doesn't cross anything.
+  if (target.x > right) return 1
+  // Otherwise leave by the near (left) edge, which is where the probe sits.
+  return origin.x - obj.position.x <= right - origin.x ? -1 : 1
+}
+
+/**
+ * How far the stub must run to clear `obj`'s edge in direction `lead`, so the
+ * turn happens OUTSIDE the component rather than on top of it. The probe sits
+ * a little way inside the header, so a fixed lead alone isn't always enough.
+ */
+export function leadDistance(obj: SceneObject, origin: Vec2, lead: -1 | 1): number {
+  const edge = lead < 0 ? obj.position.x : obj.position.x + obj.size.w
+  return Math.max(LEAD_OUT, Math.abs(origin.x - edge) + LEAD_OUT)
+}
+
 /** Unit direction of the path's final segment — orients the arrowhead. */
-export function endDirection(a: Vec2, b: Vec2): Vec2 {
-  const dx = b.x - a.x
-  const dy = b.y - a.y
-  if (Math.abs(dy) < 1) return { x: Math.sign(dx) || 1, y: 0 }
-  if (Math.abs(dx) < 1) return { x: 0, y: Math.sign(dy) || 1 }
-  // Both Z and L routes above finish on a horizontal run into the target.
-  if (Math.abs(dx) < 24) return { x: Math.sign(dx) || 1, y: 0 }
-  return { x: Math.sign(dx) || 1, y: 0 }
+export function endDirection(a: Vec2, b: Vec2, lead: number = 0): Vec2 {
+  // Read the direction off the path itself rather than re-deriving the
+  // branch logic — the two used to be maintained separately, which is exactly
+  // how an arrowhead ends up pointing the wrong way after a routing change.
+  const nums = orthPath(a, b, lead)
+    .split(/[ML]/)
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((s) => s.split(/\s+/).map(Number))
+  const last = nums[nums.length - 1]
+  const prev = nums[nums.length - 2] ?? last
+  const dx = last[0] - prev[0]
+  const dy = last[1] - prev[1]
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return { x: 1, y: 0 }
+  return Math.abs(dx) >= Math.abs(dy)
+    ? { x: Math.sign(dx) || 1, y: 0 }
+    : { x: 0, y: Math.sign(dy) || 1 }
 }
