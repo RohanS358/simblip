@@ -9,6 +9,7 @@ import { getNumber, getString, type ObjectRendererProps } from './types'
 import { Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getTargetValue, writeTargetValue } from '@/lib/scene/control-targets'
+import { ProbeButtons } from './probe-buttons'
 
 export function TriggerObject({ pageId, object }: ObjectRendererProps) {
   const page = useDocStore((s) => s.pages[pageId])
@@ -71,13 +72,14 @@ export function TriggerObject({ pageId, object }: ObjectRendererProps) {
   return (
     <div
       className={cn(
-        'flex h-full w-full flex-col justify-between rounded-xl border p-2.5 shadow-sm backdrop-blur-md select-none transition-colors duration-200',
+        'relative flex h-full w-full flex-col justify-between rounded-xl border p-2.5 shadow-sm backdrop-blur-md select-none transition-colors duration-200',
         isTriggered
           ? 'border-[var(--accent-amber)] bg-[var(--accent-amber)]/15 text-foreground'
           : 'border-border/80 bg-card/90 text-muted-foreground'
       )}
     >
-      <div className="flex items-center justify-between gap-1.5 text-[11.5px]">
+      <ProbeButtons pageId={pageId} object={object} />
+      <div className="flex items-center justify-between gap-1.5 pl-11 text-[11.5px]">
         <div className="flex items-center gap-1.5 font-medium truncate">
           <Zap
             className={cn(

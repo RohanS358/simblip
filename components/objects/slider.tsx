@@ -9,6 +9,7 @@ import { getNumber, getString, type ObjectRendererProps } from './types'
 import { Slider as UISlider } from '@/components/ui/slider'
 import { Sliders } from 'lucide-react'
 import { getTargetValue, writeTargetValue } from '@/lib/scene/control-targets'
+import { ProbeButtons } from './probe-buttons'
 
 export function SliderObject({ pageId, object }: ObjectRendererProps) {
   const page = useDocStore((s) => s.pages[pageId])
@@ -33,8 +34,9 @@ export function SliderObject({ pageId, object }: ObjectRendererProps) {
   }
 
   return (
-    <div className="flex h-full w-full flex-col justify-between rounded-xl border border-border/80 bg-card/90 p-3 shadow-sm backdrop-blur-md select-none">
-      <div className="flex items-center justify-between gap-2 text-[12px]">
+    <div className="relative flex h-full w-full flex-col justify-between rounded-xl border border-border/80 bg-card/90 p-3 shadow-sm backdrop-blur-md select-none">
+      <ProbeButtons pageId={pageId} object={object} />
+      <div className="flex items-center justify-between gap-2 pl-5 text-[12px]">
         <div className="flex items-center gap-1.5 font-medium text-foreground min-w-0">
           <Sliders className="h-3.5 w-3.5 shrink-0 text-[var(--accent-blue)]" />
           <span className="truncate">{label}</span>

@@ -19,14 +19,22 @@ import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { parseBindings, serializeBindings, splitIds, type Binding } from './bindings'
 
 /** What a probe accepts. Graphs read channels; truth tables drive/read whole
- *  components, so their probes bind objects with no channel to choose. */
-export type ProbeMode = 'channel' | 'object'
+ *  components, so their probes bind objects with no channel to choose. Controls
+ *  (slider/button/trigger) hold a SINGLE target — one object plus one of its
+ *  parameter names — spread over the targetType/targetObjectId/targetParamName
+ *  trio the Inspector already edits. */
+export type ProbeMode = 'channel' | 'object' | 'pair'
 
 export interface ProbeSpec {
-  /** The string param this probe reads and writes. */
+  /** The string param this probe reads and writes. For 'pair' probes this is
+   *  the objectId param, and `nameParam`/`typeParam` carry the rest. */
   param: string
   label: string
   mode: ProbeMode
+  /** 'pair' only: the param holding the chosen parameter name, and the param
+   *  holding 'variable' | 'objectParam'. */
+  nameParam?: string
+  typeParam?: string
   /** Accent for the dot, arrow and chip. */
   color: string
   /** Is `target` a legal thing for this probe to point at? */
@@ -36,6 +44,24 @@ export interface ProbeSpec {
 }
 
 const hasChannels = (o: SceneObject) => channelsFor(o).length > 0
+
+/**
+ * A control's single target/source slot ('source' → sourceObjectId +
+ * sourceParamName + sourceType). Anything with a numeric parameter can be
+ * driven or watched — getObjectParams always offers x/y/width/height/rotation
+ * — so the only thing a control can't point at is a system object, which
+ * snapTarget already skips.
+ */
+const controlProbe = (role: 'source' | 'target', label: string, color: string): ProbeSpec => ({
+  param: `${role}ObjectId`,
+  nameParam: `${role}ParamName`,
+  typeParam: `${role}Type`,
+  label,
+  mode: 'pair',
+  color,
+  accepts: () => true,
+  rejectHint: 'Drop on a component to drive one of its parameters',
+})
 
 /** Probe layout per geometry kind. Add a kind here and it gets probes —
  *  the layer and the gesture are generic. */
@@ -68,6 +94,14 @@ export const PROBE_SPECS: Record<string, ProbeSpec[]> = {
       rejectHint: 'Only an Output, logic probe, LED or bulb can be read',
     },
   ],
+  slider: [controlProbe('target', 'Drive', 'var(--chart-1)')],
+  button: [controlProbe('target', 'Drive', 'var(--chart-1)')],
+  trigger: [
+    // Read first, then write — same left-to-right order as the trigger's own
+    // "src condition threshold → target" summary line.
+    controlProbe('source', 'Watch', 'var(--chart-2)'),
+    controlProbe('target', 'Drive', 'var(--chart-1)'),
+  ],
 }
 
 export const probesFor = (obj: SceneObject): ProbeSpec[] =>
@@ -93,6 +127,14 @@ const HEADER_PAD_Y = 6 // py-1.5
 const PROBE_SIZE = 16 // h-4 w-4
 const PROBE_GAP = 8 // gap-2
 
+/** Controls (slider/button/trigger) have no header row to sit in, so their
+ *  probes are pinned to the top-left corner by ProbeButtons' `float` variant.
+ *  Mirrors the `left-1 top-1` inset there. */
+const FLOAT_INSET = 4
+
+/** Kinds whose probes float in the corner instead of sitting in a header row. */
+export const FLOATING_PROBE_KINDS = new Set(['slider', 'button', 'trigger'])
+
 /**
  * Centre of probe `i`'s button, in world coordinates — the point its arrow is
  * drawn from.
@@ -104,8 +146,11 @@ const PROBE_GAP = 8 // gap-2
  */
 export function probeOrigin(obj: SceneObject, i: number, n: number, uiScale = 1): Vec2 {
   void n // buttons sit in a row; each one's offset depends only on its index
-  const dx = HEADER_PAD_X + PROBE_SIZE / 2 + i * (PROBE_SIZE + PROBE_GAP)
-  const dy = HEADER_PAD_Y + PROBE_SIZE / 2
+  const float = FLOATING_PROBE_KINDS.has(obj.geometry.kind)
+  const padX = float ? FLOAT_INSET : HEADER_PAD_X
+  const padY = float ? FLOAT_INSET : HEADER_PAD_Y
+  const dx = padX + PROBE_SIZE / 2 + i * (PROBE_SIZE + PROBE_GAP)
+  const dy = padY + PROBE_SIZE / 2
   const x = obj.position.x + dx * uiScale
   const y = obj.position.y + dy * uiScale
   if (!obj.rotation) return { x, y }
@@ -139,6 +184,12 @@ const getStr = (obj: SceneObject, name: string): string => {
 /** Read a probe's current links out of its param. */
 export function probeLinks(obj: SceneObject, spec: ProbeSpec): ProbeLink[] {
   const value = getStr(obj, spec.param)
+  if (spec.mode === 'pair') {
+    // Bound only when pointing at an OBJECT param — a control aimed at a page
+    // variable has no object to draw an arrow to.
+    if (getStr(obj, spec.typeParam!) !== 'objectParam' || !value) return []
+    return [{ index: 0, objectId: value, channel: getStr(obj, spec.nameParam!) }]
+  }
   if (spec.mode === 'object') {
     return splitIds(value).map((objectId, index) => ({ index, objectId, channel: '' }))
   }
@@ -160,10 +211,40 @@ export function probeLinks(obj: SceneObject, spec: ProbeSpec): ProbeLink[] {
     .map((channel, index) => ({ index, objectId: sourceId, channel }))
 }
 
-/** Serialize links back to the param's own encoding. */
+/** Serialize links back to the param's own encoding. Not used by 'pair'
+ *  probes, which span three params — see writeProbeLinks. */
 export function serializeLinks(spec: ProbeSpec, links: ProbeLink[]): string {
   if (spec.mode === 'object') return links.map((l) => l.objectId).join('; ')
   return serializeBindings(links.map((l): Binding => ({ objectId: l.objectId, channel: l.channel })))
+}
+
+/**
+ * Write a probe's links back through `set`, whatever shape the probe stores
+ * them in. One place so the canvas doesn't have to know that a control's
+ * binding is three params while a graph's is one.
+ */
+export function writeProbeLinks(
+  spec: ProbeSpec,
+  links: ProbeLink[],
+  set: (param: string, value: string) => void
+): void {
+  if (spec.mode !== 'pair') {
+    set(spec.param, serializeLinks(spec, links))
+    return
+  }
+  const link = links[0]
+  // Clearing a control's target returns it to variable mode with no name,
+  // which is exactly the unbound state the Inspector shows.
+  set(spec.typeParam!, link ? 'objectParam' : 'variable')
+  set(spec.param, link?.objectId ?? '')
+  set(spec.nameParam!, link?.channel ?? '')
+}
+
+/** The parameter a fresh control binding should default to. Prefers a
+ *  meaningful `value` (sliders, inputs, clocks) over the spatial fallbacks. */
+export function defaultParamName(target: SceneObject, options: string[]): string {
+  void target
+  return options.find((p) => p === 'value') ?? options[0] ?? 'x'
 }
 
 /**

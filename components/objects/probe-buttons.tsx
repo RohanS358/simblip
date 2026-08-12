@@ -9,7 +9,13 @@
 
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
-import { probeLinks, probeOrigin, probesFor, probeUiScale } from '@/lib/scene/probes'
+import {
+  FLOATING_PROBE_KINDS,
+  probeLinks,
+  probeOrigin,
+  probesFor,
+  probeUiScale,
+} from '@/lib/scene/probes'
 import { beginProbeDrag } from '@/lib/scene/probe-drag'
 import type { SceneObject } from '@/lib/scene/types'
 
@@ -21,8 +27,12 @@ export function ProbeButtons({ pageId, object }: { pageId: string; object: Scene
   const componentScale = usePrefs((s) => s.notebook.componentScale ?? 1)
   if (specs.length === 0) return null
   const uiScale = probeUiScale(object, componentScale)
+  // Controls have no header row to sit in — pin the probes to the card's
+  // top-left corner, matching FLOAT_INSET in lib/scene/probes.ts so the arrow
+  // still starts at the button.
+  const floating = FLOATING_PROBE_KINDS.has(object.geometry.kind)
 
-  return (
+  const dots = (
     <>
       {specs.map((spec, i) => {
         const bound = probeLinks(object, spec).length
@@ -64,4 +74,7 @@ export function ProbeButtons({ pageId, object }: { pageId: string; object: Scene
       })}
     </>
   )
+
+  if (!floating) return dots
+  return <div className="absolute left-1 top-1 z-10 flex items-center gap-2">{dots}</div>
 }

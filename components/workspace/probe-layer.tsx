@@ -17,9 +17,12 @@ import { useDocStore } from '@/lib/store/document'
 import { channelOptions } from '@/lib/scene/bindings'
 import { onProbeDrag } from '@/lib/scene/probe-drag'
 import { usePrefs } from '@/lib/store/preferences'
+import { getObjectParams } from '@/lib/scene/control-targets'
 import {
   attachPoint,
   defaultChannel,
+  defaultParamName,
+  writeProbeLinks,
   endDirection,
   leadDirection,
   leadDistance,
@@ -28,7 +31,6 @@ import {
   probeOrigin,
   probeUiScale,
   probesFor,
-  serializeLinks,
   snapTarget,
   type ProbeLink,
   type ProbeSpec,
@@ -84,7 +86,9 @@ export function ProbeLayer({
    *  (same reason GraphOptions in the Inspector clears them). */
   const writeLinks = useCallback(
     (obj: SceneObject, spec: ProbeSpec, links: ProbeLink[]) => {
-      setStringParam(pageId, obj.id, spec.param, serializeLinks(spec, links))
+      writeProbeLinks(spec, links, (param, value) =>
+        setStringParam(pageId, obj.id, param, value)
+      )
       if (spec.param !== 'series') return
       const p = obj.parameters
       if (p.sourceId?.kind === 'string' && p.sourceId.value) {
@@ -113,6 +117,15 @@ export function ProbeLayer({
       if (!d || !focused || !d.snap?.valid) return
       const { spec, snap } = d
       const links = probeLinks(focused, spec)
+      // A control holds ONE target, so a drop replaces whatever was there
+      // rather than appending a second arrow.
+      if (spec.mode === 'pair') {
+        const params = getObjectParams(snap.target)
+        writeLinks(focused, spec, [
+          { index: 0, objectId: snap.target.id, channel: defaultParamName(snap.target, params) },
+        ])
+        return
+      }
       // Same object+channel twice would draw two identical arrows; for object
       // mode, binding the same component twice is meaningless too.
       const taken = links.filter((l) => l.objectId === snap.target.id).map((l) => l.channel)
@@ -273,9 +286,22 @@ export function ProbeLayer({
                 y={end.y}
                 zoom={zoom}
                 color={color}
-                mode={spec.mode}
-                label={spec.mode === 'channel' ? link.channel : target.name}
-                options={spec.mode === 'channel' ? channelOptions(target) : []}
+                mode={spec.mode === 'object' ? 'object' : 'channel'}
+                label={
+                  spec.mode === 'object'
+                    ? target.name
+                    : spec.mode === 'pair'
+                      ? `${target.name}.${link.channel}`
+                      : link.channel
+                }
+                options={
+                  spec.mode === 'channel'
+                    ? channelOptions(target)
+                    : spec.mode === 'pair'
+                      ? getObjectParams(target)
+                      : []
+                }
+                selected={link.channel}
                 open={openChip === key}
                 onToggle={() => setOpenChip(openChip === key ? null : key)}
                 onPick={(channel) => {
@@ -303,6 +329,7 @@ function ProbeChip({
   color,
   mode,
   label,
+  selected,
   options,
   open,
   onToggle,
@@ -315,6 +342,8 @@ function ProbeChip({
   color: string
   mode: 'channel' | 'object'
   label: string
+  /** The option currently chosen — the label may decorate it (Name.param). */
+  selected: string
   options: string[]
   open: boolean
   onToggle: () => void
@@ -375,10 +404,10 @@ function ProbeChip({
               key={c}
               type="button"
               role="option"
-              aria-selected={c === label}
+              aria-selected={c === selected}
               className={
                 'block w-full truncate rounded px-1.5 py-1 text-left font-mono text-[10.5px] transition-colors hover:bg-accent ' +
-                (c === label ? 'text-foreground' : 'text-muted-foreground')
+                (c === selected ? 'text-foreground' : 'text-muted-foreground')
               }
               onClick={() => onPick(c)}
             >

@@ -9,6 +9,7 @@ import { getNumber, getString, type ObjectRendererProps } from './types'
 import { MousePointerClick } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { getTargetValue, writeTargetValue } from '@/lib/scene/control-targets'
+import { ProbeButtons } from './probe-buttons'
 
 export function ButtonObject({ pageId, object }: ObjectRendererProps) {
   const [clicked, setClicked] = useState(false)
@@ -41,7 +42,8 @@ export function ButtonObject({ pageId, object }: ObjectRendererProps) {
   }
 
   return (
-    <div className="flex h-full w-full items-center justify-center rounded-xl border border-border/80 bg-card/90 p-2 shadow-sm backdrop-blur-md select-none">
+    <div className="relative flex h-full w-full items-center justify-center rounded-xl border border-border/80 bg-card/90 p-2 shadow-sm backdrop-blur-md select-none">
+      <ProbeButtons pageId={pageId} object={object} />
       <button
         type="button"
         onClick={handleClick}
