@@ -39,6 +39,7 @@ import {
   HelpCircle,
   Activity,
   Check,
+  Pencil,
   RotateCcw,
   ChevronRight,
   ChevronLeft,
@@ -737,17 +738,35 @@ function HotkeyRow({ actionId, label, when }: { actionId: string; label: string;
       action={
         <div className="flex items-center gap-1.5">
           {error && <span className="text-[0.6875rem] text-destructive">{error}</span>}
+          {/* The Kbd alone read as a static badge — nobody clicked it. Wrap it
+              in a visibly interactive shell (border, hover, focus ring, a
+              pencil on hover) and say what a click does, so the row announces
+              itself as editable without a tooltip hunt. */}
           <button
             type="button"
+            aria-label={
+              listening
+                ? `Recording new shortcut for ${label}. Press a key, or Escape to cancel.`
+                : `Change shortcut for ${label} (currently ${comboLabel(combo)})`
+            }
+            title={listening ? 'Press a key… Esc to cancel' : 'Click to change'}
             onClick={() => {
               setError(null)
               setListening(true)
             }}
-            className="rounded-sm"
+            className={cn(
+              'group/hk flex items-center gap-1 rounded-md border border-dashed border-border px-1.5 py-0.5',
+              'cursor-pointer transition-colors hover:border-solid hover:border-ring hover:bg-accent/60',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              listening && 'border-solid border-ring bg-accent/60 ring-2 ring-ring'
+            )}
           >
-            <Kbd className={listening ? 'ring-2 ring-ring' : undefined}>
-              {listening ? 'Press a key…' : comboLabel(combo)}
+            <Kbd className={cn('bg-transparent px-0', listening && 'text-foreground')}>
+              {listening ? 'Press a key… (Esc cancels)' : comboLabel(combo)}
             </Kbd>
+            {!listening && (
+              <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/hk:opacity-100" />
+            )}
           </button>
           {hasOverride && (
             <button
@@ -1216,6 +1235,16 @@ export function SettingsDialog({
 
             {activeTab === 'hotkeys' && (
               <div className="space-y-4">
+                {/* Nothing on this tab used to say the keys were editable —
+                    they looked like a printed reference sheet. State the
+                    interaction once, up front, instead of hoping the hover
+                    styles get discovered. */}
+                <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
+                  Click any shortcut to record a new one, then press the key combination you want.{' '}
+                  <Kbd>Esc</Kbd> cancels, and a combination already taken by another action is
+                  refused rather than silently stealing it. Changed shortcuts get a{' '}
+                  <RotateCcw className="inline h-3 w-3 align-[-0.1em]" /> to restore the default.
+                </p>
                 {SHORTCUT_GROUPS.map((group) => (
                   <SettingCard key={group} title={group}>
                     {ACTIONS.filter((a) => a.group === group).map((a) => (

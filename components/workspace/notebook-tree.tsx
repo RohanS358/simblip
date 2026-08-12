@@ -39,6 +39,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
+import { setPageSyncEnabled } from '@/lib/sync/page-sync'
 import { openFile as openFileNode } from './open-file'
 import { KIND_ICON } from './tabs-bar'
 import {
@@ -52,7 +53,6 @@ import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
 import {
   ContextMenu,
-  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -64,6 +64,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 /** Route a dropped/picked file into parentId — a PDF, or plain text/markdown/
@@ -464,6 +465,15 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
           </>
         )}
         <ContextMenuSeparator />
+        {/* Opt-in per page, default OFF (lib/sync/page-sync.ts): while it's
+            off, neither this page's content nor its images ever leave the
+            device — only the tree entry does, so another device sees the page
+            listed but empty. */}
+        <SyncMenuItem
+          checked={node.syncEnabled === true}
+          onToggle={(next) => void setPageSyncEnabled(node.id, next)}
+        />
+        <ContextMenuSeparator />
         <ContextMenuItem onClick={() => exportPageJson(node)}>
           <Download className="h-4 w-4" /> Export JSON
         </ContextMenuItem>
@@ -472,6 +482,41 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
+  )
+}
+
+/** The cross-device sync opt-in, shared by page and file rows. A Switch rather
+ *  than a checkmark so it reads as a persistent setting (and matches the
+ *  toggles in Settings), inside a plain item so the whole row is the hit
+ *  target — the Switch itself is inert. */
+function SyncMenuItem({
+  checked,
+  disabled,
+  onToggle,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onToggle: (next: boolean) => void
+}) {
+  return (
+    <ContextMenuItem
+      disabled={disabled}
+      onSelect={(e) => {
+        e.preventDefault() // keep the menu open so the switch is seen moving
+        onToggle(!checked)
+      }}
+      className="justify-between gap-6"
+    >
+      <span className="flex items-center gap-2">
+        <CloudUpload className="h-4 w-4" /> Sync across devices
+      </span>
+      <Switch
+        checked={checked}
+        tabIndex={-1}
+        aria-hidden
+        className="pointer-events-none scale-90 data-[state=checked]:bg-[#7f6df2] dark:data-[state=checked]:bg-[#7f6df2]"
+      />
+    </ContextMenuItem>
   )
 }
 
@@ -557,16 +602,8 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
         <ContextMenuSeparator />
         {/* Opt-in per file: OFF means the bytes never leave this device, which
             is why a file can look "missing" on another one — the manifest row
-            syncs, the content doesn't. Checkbox item so the current state is
-            visible without opening a dialog. */}
-        <ContextMenuCheckboxItem
-          checked={syncOn === true}
-          disabled={syncOn === null}
-          onCheckedChange={toggleSync}
-          onSelect={(e) => e.preventDefault()} // keep the menu open on toggle
-        >
-          <CloudUpload className="h-4 w-4" /> Sync across devices
-        </ContextMenuCheckboxItem>
+            syncs, the content doesn't. */}
+        <SyncMenuItem checked={syncOn === true} disabled={syncOn === null} onToggle={toggleSync} />
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
           <Trash2 className="h-4 w-4" /> Delete file

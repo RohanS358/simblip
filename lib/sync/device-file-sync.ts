@@ -28,11 +28,17 @@
 
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import * as manifest from '@/lib/storage/manifest'
+import type { FileManifestEntry } from '@/lib/storage/manifest-types'
 import { getFile, uploadToCloud } from '@/lib/storage/manager'
 import { onReconnect } from '@/lib/sync/connectivity'
 import { useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
+import { syncedFileIds } from '@/lib/sync/page-sync'
+import { useWorkspaceStore } from '@/lib/store/workspace'
 
 const AUTO_SYNC_DEBOUNCE_MS = 10_000
+
+/** File ids reachable from a sync-enabled page, as of right now. */
+const fromSyncedPages = (): Set<string> => syncedFileIds(useWorkspaceStore.getState().nodes)
 
 async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   const token = getAccessToken()
@@ -61,11 +67,19 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   if (!profile) return
   const entries = await manifest.listByOwner(profile.id)
   // Opt-in only: a file's bytes leave this device solely when the user turned
-  // sync on for it (right-click → Sync this file). Default-off, so the
-  // manifest row still travels — the other device knows the file exists and
-  // shows it as not-downloaded — while the bytes stay put unless asked for.
-  const wanted = entries.filter((e) => e.syncEnabled === true)
-  const toUpload = wanted.filter((e) => e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
+  // sync on for it (right-click → Sync across devices), either on the file
+  // itself or on a page that references it. Default-off, so the manifest row
+  // still travels — the other device knows the file exists and shows it as
+  // not-downloaded — while the bytes stay put unless asked for.
+  //
+  // The page-derived half is recomputed here rather than stamped onto the
+  // manifest at toggle time, so an image dropped onto an already-synced page
+  // is covered without anyone re-toggling anything.
+  const viaPage = fromSyncedPages()
+  const allowed = (e: FileManifestEntry) => e.syncEnabled === true || viaPage.has(e.id)
+  const toUpload = entries.filter(
+    (e) => allowed(e) && (e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
+  )
 
   for (let i = 0; i < toUpload.length; i++) {
     await uploadToCloud(toUpload[i])
@@ -73,7 +87,7 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   }
 
   const fresh = await manifest.listByOwner(profile.id)
-  const ids = fresh.filter((e) => e.syncEnabled === true && e.cloudBackedUp).map((e) => e.id)
+  const ids = fresh.filter((e) => allowed(e) && e.cloudBackedUp).map((e) => e.id)
   if (ids.length === 0) return
   await rest(`simblip_devices?id=eq.${target.id}`, {
     method: 'PATCH',
@@ -163,10 +177,11 @@ export function startFileSync() {
     // uploadToCloud()'s own 'uploading'/'synced' writes, which would
     // otherwise keep resetting the debounce while a push is already running.
     if (entry.syncStatus !== 'local-only' && entry.syncStatus !== 'sync-failed') return
-    // Sync is opt-in per file — a local-only file nobody enabled sync for
-    // should never wake the pusher (pushFilesToDevice would filter it out
-    // anyway; this just avoids the pointless debounce + round trip).
-    if (entry.syncEnabled !== true) return
+    // Sync is opt-in — a local-only file neither enabled directly nor pulled
+    // in by a synced page should never wake the pusher (pushFilesToDevice
+    // filters it out anyway; this just avoids the pointless debounce + round
+    // trip).
+    if (entry.syncEnabled !== true && !fromSyncedPages().has(entry.id)) return
     if (!useAuthStore.getState().profile) return
     schedule()
   })

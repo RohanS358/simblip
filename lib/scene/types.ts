@@ -180,6 +180,15 @@ export interface FolderNode extends NodeBase {
 /** Tree metadata only — page content lives in the document store, keyed by id. */
 export interface PageNode extends NodeBase {
   kind: 'page'
+  /**
+   * Does this page's CONTENT (and its images' bytes) leave the device?
+   *
+   * Opt-in, default false — see lib/sync/page-sync.ts. The node itself always
+   * syncs so other devices know the page exists; this gates the simblip_pages
+   * content rows and the blob uploads. Optional so pages written before the
+   * toggle existed keep loading; readers treat `undefined` as false.
+   */
+  syncEnabled?: boolean
   /** What this page IS: an infinite board, a paged document, or an uploaded
    *  PDF/PPT you read and annotate. Older pages have no kind → board. */
   pageKind?: PageKind

@@ -17,6 +17,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { uid, type FileNode, type FolderNode, type Node, type PageKind, type PageNode } from '@/lib/scene/types'
+import { contentIdsOf } from '@/lib/sync/page-sync'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import { migrateNotebooksToNodes } from '@/lib/store/migrate-tree'
 
@@ -299,12 +300,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         if (!target) return
         const toDelete = [target, ...(target.kind === 'folder' ? descendantsOf(nodes, id) : [])]
         const pageNodes = toDelete.filter((n): n is PageNode => n.kind === 'page')
-        const contentIds = pageNodes.flatMap((p) => [
-          p.id,
-          ...(p.docPages ?? []), // doc sheets AND pptx slides — same field
-          ...(p.notesPages ?? []).filter(Boolean),
-          ...(p.imageAnnotPageId ? [p.imageAnnotPageId] : []),
-        ])
+        // Shared with the per-page sync gate (lib/sync/page-sync.ts) — the
+        // set of content canvases a page owns is the same question either
+        // way, and having one answer is what keeps a newly added satellite
+        // canvas from leaking here and silently syncing there.
+        const contentIds = pageNodes.flatMap(contentIdsOf)
 
         // ── OPFS cleanup ───────────────────────────────────────────────────
         // 1. FileNode direct blobs (e.g. raw uploaded files in the tree)

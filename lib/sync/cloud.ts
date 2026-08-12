@@ -31,6 +31,7 @@ import type { Node } from '@/lib/scene/types'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { cloudConfigured } from '@/lib/data/db'
 import { onReconnect } from '@/lib/sync/connectivity'
+import { syncedContentIds } from '@/lib/sync/page-sync'
 
 export const syncConfigured = cloudConfigured
 
@@ -128,7 +129,13 @@ async function pushWorkspace(ws: string) {
 async function pushPages(ws: string, pageIds: string[]) {
   const { pages, viewports } = useDocStore.getState()
   const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
+  // Per-page opt-in (lib/sync/page-sync.ts): content only leaves the device
+  // for pages the user explicitly switched sync on for. Everything else stays
+  // local — the tree node still travels via pushWorkspace, so another device
+  // lists the page and just finds it empty until sync is enabled.
+  const allowed = syncedContentIds(useWorkspaceStore.getState().nodes)
   const rows = pageIds
+    .filter((id) => allowed.has(id))
     .map((id) => {
       // A page edited and then closed is no longer in memory — read its
       // content back from the archive so the last edits still reach the
