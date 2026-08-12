@@ -28,14 +28,12 @@
 // narrow width while a phone has height to spare (Toolbar shrinks its own
 // buttons on mobile too, see toolbar.tsx).
 //
-// On a phone, the app nav rail (sidebar.tsx) is ALSO a fixed bottom bar, and
-// it changes height (rail alone vs. rail+open panel) — so when this dock
-// also resolves to 'bottom', the grid can't reserve a fixed guess for it.
-// Sidebar publishes its live measured height to useMobileNavBarStore (same
-// "written by one, read by another" shape as useDockRect/usePdfDockStore);
-// this always reads the current value, whichever state the bar is in.
+// On a phone, the app nav rail (sidebar.tsx) is ALSO a fixed bottom bar. This
+// dock used to subtract the rail's published height itself; the shell's
+// <main> reserves it for every page kind now (mobile-shell.tsx), so this
+// overlay's inset-0 already ends above the rail.
 //
-// That same condition (docked bottom, nav rail present — i.e. an actual
+// Docked bottom with a nav rail present (i.e. an actual phone) (docked bottom, nav rail present — i.e. an actual
 // phone) also switches the toolbar itself from the floating centered pill
 // it is everywhere else into a full-bleed bar flush with both edges, sitting
 // right above the rail — a phone's bottom edge is a fixed piece of chrome,
@@ -43,7 +41,6 @@
 
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
-import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { Toolbar } from './toolbar'
 import { FloatingTransport } from './transport'
 import { cn } from '@/lib/utils'
@@ -81,7 +78,6 @@ export function CanvasControls({
     ? 'bottom'
     : dockPrefs.fixedSide
 
-  const navBarH = useMobileNavBarStore((s) => s.height)
   const isSundial = dockPrefs.containerStyle === 'sundial'
   const edgeToolbar = dockPrefs.positionMode === 'fixed' && dockPrefs.containerStyle === 'fixed-bar'
 
@@ -126,12 +122,10 @@ export function CanvasControls({
           style={{
             gridTemplateColumns: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
             gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
-            paddingBottom:
-              dockSide === 'bottom' && navBarH > 0
-                ? `calc(${navBarH}px + 0.75rem)`
-                : edgeToolbar
-                  ? 0
-                  : 'max(1rem, env(safe-area-inset-bottom))',
+            // The nav rail's height is reserved by the shell's <main> now
+            // (mobile-shell.tsx), so this overlay's inset-0 already stops
+            // above it — padding for it again would double the gap.
+            paddingBottom: edgeToolbar ? 0 : 'max(1rem, env(safe-area-inset-bottom))',
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>

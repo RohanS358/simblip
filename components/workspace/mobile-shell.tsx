@@ -50,6 +50,7 @@ import { haptic } from '@/lib/haptics'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
 import { useMobileTabStore } from '@/lib/store/mobile-tab'
+import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { MobileTabBar } from './mobile-tab-bar'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
@@ -196,6 +197,10 @@ export function MobileShell() {
   // A phone is narrow; a tablet is a touch device that isn't. They want
   // different panels — a sheet from the bottom vs. the desktop side panel.
   const isPhone = useIsNarrow(767)
+  // Live height of the fixed bottom nav rail (0 on tablet, where the rail is
+  // a normal left column) — the editor reserves it so page chrome isn't
+  // covered. Published by sidebar.tsx.
+  const navBarH = useMobileNavBarStore((s) => s.height)
   const selection = useDocStore((s) => s.selection)
   const focusOnEdit = usePrefs((s) => s.appearance.focusOnEdit)
   const focusedId = focusOnEdit && inspectorOpen && selection.length === 1 ? selection[0] : null
@@ -582,7 +587,17 @@ export function MobileShell() {
           </div>
         </div>
 
-        <main className="relative flex min-h-0 flex-1 flex-row">
+        {/* The phone nav rail (sidebar.tsx) is `fixed inset-x-0 bottom-0`, so
+            it covers whatever the editor renders along its own bottom edge —
+            a presentation's slide rail + toolbar, a sheet's tab strip, a web
+            view's browser bar. Reserving its measured height here fixes that
+            once for every page kind instead of per-view (CanvasControls used
+            to be the only thing compensating, which is why board/doc looked
+            fine and pptx/xlsx overlapped). */}
+        <main
+          className="relative flex min-h-0 flex-1 flex-row"
+          style={{ paddingBottom: navBarH }}
+        >
           {/* Same left-docked rail + collapsible pane as desktop — on a
               phone it starts collapsed to the rail (sidebarOpen is forced
               false below max-width:767px, same as the desktop shell), so it

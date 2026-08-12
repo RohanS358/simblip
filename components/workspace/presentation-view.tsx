@@ -317,6 +317,21 @@ export function PresentationView({ pageId }: { pageId: string }) {
     return Math.min(3, Math.max(0.25, el.clientWidth < 640 ? scaleW : Math.min(scaleW, scaleH)))
   }
 
+  /**
+   * Phones open the deck zoomed in rather than at fit-width.
+   *
+   * Fit-width on a 390px screen is ~0.35: 8pt body text renders at under 3
+   * real pixels, and — because a fitted slide is by definition no bigger than
+   * the stage — the scroll container has zero overflow, so one-finger drag
+   * has nothing to scroll and the preview feels frozen. Opening at ~2× the
+   * fit gives readable text AND real overflow in both axes to pan through.
+   * `Fit width` in the toolbar still drops back to the fitted scale.
+   */
+  const openScale = (el: HTMLElement) => {
+    const fit = fitScale(el)
+    return el.clientWidth < 640 ? Math.min(3, fit * 2) : fit
+  }
+
   const fitWidth = () => {
     const el = stageRef.current
     if (el) setZoom(fitScale(el))
@@ -325,7 +340,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // Auto-fit on initial mount so the presentation fills the stage viewport cleanly.
   useLayoutEffect(() => {
     const el = stageRef.current
-    if (el) setZoomRaw(fitScale(el))
+    if (el) setZoomRaw(openScale(el))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   // How the active slide animates in on change — applies both to the main
@@ -687,10 +702,10 @@ export function PresentationView({ pageId }: { pageId: string }) {
                     type="button"
                     aria-label={`Insert slide at position ${tileIdx + 1}`}
                     className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
-                    style={isTouch ? { width: 28, height: 28 } : { width: 20, height: 20 }}
+                    style={{ width: 18, height: 18 }}
                     onClick={() => insertSlideAt(tileIdx)}
                   >
-                    <Plus className="h-3 w-3" strokeWidth={3} />
+                    <Plus className="h-2.5 w-2.5" strokeWidth={3} />
                   </button>
                 )}
               </div>
@@ -742,10 +757,10 @@ export function PresentationView({ pageId }: { pageId: string }) {
               type="button"
               aria-label="Insert slide at end"
               className="absolute z-20 flex items-center justify-center rounded-full bg-[var(--accent-blue)] text-white shadow-md transition-transform hover:scale-110 active:scale-95"
-              style={isTouch ? { width: 28, height: 28 } : { width: 20, height: 20 }}
+              style={{ width: 18, height: 18 }}
               onClick={() => insertSlideAt(displayedSlides.length)}
             >
-              <Plus className="h-3 w-3" strokeWidth={3} />
+              <Plus className="h-2.5 w-2.5" strokeWidth={3} />
             </button>
           )}
         </div>
