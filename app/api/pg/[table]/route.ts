@@ -280,7 +280,25 @@ function errorResponse(err: unknown, table: string, method: string): NextRespons
     return NextResponse.json({ error: msg }, { status: 400 })
   }
   console.error(`[pg] ${method} ${table} failed:`, err)
-  return NextResponse.json({ error: 'Request failed' }, { status: 400 })
+  // The generic message above is right for the body text, but returning
+  // NOTHING identifying made a live 400 undiagnosable from the browser: every
+  // failure looked identical, and the only real detail sat in a server log
+  // nobody can read from a phone. A Postgres SQLSTATE is a fixed five-char
+  // code from a published list — it names the failure class (42703 undefined
+  // column, 22P02 bad input syntax, 57014 timeout, 53300 too many
+  // connections) without exposing any column, constraint, or value. Status
+  // codes also get split out: a connection/timeout failure is ours (503), not
+  // the caller's malformed request (400).
+  const code = typeof (err as { code?: unknown })?.code === 'string'
+    ? (err as { code: string }).code
+    : undefined
+  // Connection-level failures are server problems — a client retry is
+  // meaningful, and a 400 tells it (wrongly) that retrying is pointless.
+  const serverSide = code === '57014' || code === '53300' || code === '08006' || code === '08003'
+  return NextResponse.json(
+    { error: 'Request failed', ...(code ? { code } : {}) },
+    { status: serverSide ? 503 : 400 }
+  )
 }
 
 type Params = { params: Promise<{ table: string }> }
