@@ -106,15 +106,30 @@ import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 import { InfoPopover } from './info-popover'
 import { ColumnPicker } from './column-picker'
 
-/** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
- * a single click never enters text edit — only a double-click does. A
- * plain click-drag instead SCRUBS a purely numeric value (right = up, left
- * = down; hold Shift for coarse, Alt for fine), committing live so the
- * canvas follows the drag, exactly like dragging a resize handle — see the
- * pushHistory coalescing in lib/store/document.ts for why that's safe to
- * call on every pointermove instead of just on release. Non-numeric values
- * (an expression, a variable name) simply aren't scrubbable; double-click
- * still edits them normally. */
+/** A value the scrubber is allowed to touch: a plain number, nothing else.
+ *
+ *  This guard is the whole reason scrubbing was corrupting data. `scrubbable`
+ *  defaulted to true and only ONE of twenty call sites opted out, so object
+ *  names, variable names, expressions and "auto" range fields were all
+ *  draggable — and `Number("Mass 1")` is NaN, which was then committed live.
+ *  A field is now scrubbed only if what's actually in it right now is a
+ *  number, regardless of what the call site asked for. */
+const isNumericValue = (v: string): boolean => v.trim() !== '' && Number.isFinite(Number(v))
+
+/**
+ * The panel's single text/number field.
+ *
+ * Commits on blur/Enter — mid-typing never reaches the engine. Escape
+ * reverts. On a NUMERIC value it also supports the two conventions every
+ * design tool shares:
+ *
+ *   • drag left/right to scrub (Shift = coarse, Alt = fine)
+ *   • ArrowUp/Down to nudge
+ *
+ * Both are hard-gated on the current value actually being numeric, and both
+ * are mouse/pen only — a touch drag scrolls the panel, because on a tablet
+ * that is what dragging a field must do.
+ */
 function ExprInput({
   value,
   onCommit,
@@ -126,6 +141,7 @@ function ExprInput({
   suffix,
   disabled = false,
   onPointerDownCapture,
+  onInvalid,
 }: {
   value: string
   onCommit: (value: string) => void
@@ -133,6 +149,9 @@ function ExprInput({
   ariaLabel: string
   placeholder?: string
   mono?: boolean
+  /** Opt OUT of scrubbing. Even when true, a non-numeric value is never
+   *  scrubbed — this only suppresses it for numeric fields that shouldn't
+   *  drag (e.g. one inside a horizontally scrolling row). */
   scrubbable?: boolean
   /** Small unit label rendered inside the field, right-aligned (e.g. "px"). */
   suffix?: string
@@ -141,35 +160,64 @@ function ExprInput({
    *  that must snapshot state (e.g. a live text selection elsewhere in the
    *  DOM) before this input's own focus/pointer handling can run. */
   onPointerDownCapture?: () => void
+  /** Called when a commit is rejected by the caller's validation, so the
+   *  field can say why instead of silently snapping back. */
+  onInvalid?: (attempted: string) => string | void
 }) {
   const [draft, setDraft] = useState(value)
+  const [localError, setLocalError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
+  /** True while a scrub is committing, so the value→draft sync below doesn't
+   *  fight the gesture (each commit changes `value`, which would otherwise
+   *  immediately overwrite the draft mid-drag and make the number stutter). */
+  const scrubbingRef = useRef(false)
 
   useEffect(() => {
+    if (scrubbingRef.current) return
     setDraft(value)
+    setLocalError(null)
   }, [value])
+
+  const canScrub = scrubbable && isNumericValue(draft)
+
+  const commit = (next: string) => {
+    const msg = next === value ? undefined : onInvalid?.(next)
+    setLocalError(typeof msg === 'string' ? msg : null)
+    onCommit(next)
+  }
+
+  const shownError = error ?? localError ?? undefined
 
   return (
     <div className="relative">
       <input
       ref={inputRef}
       aria-label={ariaLabel}
-      aria-invalid={Boolean(error)}
+      aria-invalid={Boolean(shownError)}
+      title={shownError}
       placeholder={placeholder}
       disabled={disabled}
+      // `pan-y` keeps a vertical touch drag scrolling the panel; the scrub
+      // gesture is mouse/pen only. Without this the panel could not be
+      // scrolled by dragging over any field — the whole inspector felt stuck
+      // on a tablet.
+      style={{ touchAction: 'pan-y' }}
       className={cn(
         'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-[0.75rem] outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30',
         mono && 'font-mono',
-        error ? 'border-[var(--accent-rose)]' : 'border-input',
-        scrubbable && 'cursor-ew-resize',
+        shownError ? 'border-[var(--accent-rose)]' : 'border-input',
+        // The ew-resize cursor is a PROMISE that dragging does something. It
+        // now appears only where dragging actually scrubs.
+        canScrub ? 'cursor-ew-resize' : 'cursor-text',
         suffix && 'pr-5'
       )}
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onPointerDown={(e) => {
         onPointerDownCapture?.()
-        if (!scrubbable || e.button !== 0) return
+        // Mouse/pen only: a touch drag belongs to the scroll container.
+        if (!canScrub || e.button !== 0 || e.pointerType === 'touch') return
         // Don't capture yet — capturing would steal the click that focuses
         // the field. We only take over once the pointer actually moves.
         dragRef.current = { startX: e.clientX, startVal: Number(draft), dragged: false }
@@ -181,6 +229,7 @@ function ExprInput({
         if (!drag.dragged) {
           if (Math.abs(dx) < 4) return // still just a click
           drag.dragged = true
+          scrubbingRef.current = true
           e.currentTarget.setPointerCapture(e.pointerId)
           e.currentTarget.blur() // hand the gesture to the scrubber
         }
@@ -193,31 +242,41 @@ function ExprInput({
         const drag = dragRef.current
         dragRef.current = null
         if (drag?.dragged) {
+          scrubbingRef.current = false
           e.currentTarget.releasePointerCapture(e.pointerId)
-        } else {
-          // A plain click: select everything so typing replaces the value,
-          // which is what you want on a numeric field.
-          requestAnimationFrame(() => inputRef.current?.select())
         }
+        // A plain click is left alone: the browser places the caret where the
+        // user clicked. Auto-selecting here (in a rAF, racing the native
+        // caret placement) is what made the first click feel dead and forced
+        // a second one. Select-all is available on focus-by-keyboard below,
+        // and by the usual ⌘A once focused.
+      }}
+      onFocus={(e) => {
+        // Tabbing into a field selects it (so typing replaces) — but only for
+        // keyboard focus, never for a click, which must keep its caret.
+        if (e.target.matches(':focus-visible')) e.target.select()
       }}
       onBlur={() => {
-        if (draft !== value) onCommit(draft)
+        scrubbingRef.current = false
+        if (draft !== value) commit(draft)
       }}
       onKeyDown={(e) => {
         if (e.key === 'Enter') e.currentTarget.blur()
         if (e.key === 'Escape') {
           setDraft(value)
+          setLocalError(null)
           e.currentTarget.blur()
         }
-        // Arrow keys nudge a numeric value, like every other design tool.
-        if (scrubbable && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        // Arrow keys nudge — numeric values only, same guard as the scrubber.
+        // Nudging "Mass 1" used to commit NaN.
+        if (canScrub && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
           e.preventDefault()
           const step = e.shiftKey ? 10 : e.altKey ? 0.01 : 1
           const next = String(
             Math.round((Number(draft) + (e.key === 'ArrowUp' ? step : -step)) * 1000) / 1000
           )
           setDraft(next)
-          onCommit(next)
+          commit(next)
         }
         e.stopPropagation()
       }}
@@ -304,6 +363,7 @@ function ConnectorCapsSection({ pageId, object }: { pageId: string; object: Scen
     <div className="mt-1.5 flex items-center gap-2">
       <span className="w-20 shrink-0 truncate text-[0.6875rem] text-muted-foreground">{label}</span>
       <select
+        aria-label={`${label} cap`}
         className="flex-1 rounded-md border border-border/70 bg-background px-2 py-1 text-[0.6875rem]"
         value={(object.metadata[field] as string | undefined) ?? 'none'}
         onChange={(e) => setCap(field, e.target.value as 'none' | 'arrow')}
@@ -424,7 +484,10 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                         aria-label={ps.label}
                         onClick={() => setBehaviorParam(pageId, object.id, b.id, ps.name, on ? '0' : '1')}
                         className={cn(
-                          'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+                          'relative rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+              // Touch target: the pill stays visually small, but an invisible
+              // inset overlay gives it a finger-sized hit area (WCAG 2.5.8).
+              "after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 after:content-['']",
                           on
                             ? 'bg-[var(--accent-amber)]/20 text-[var(--accent-amber)]'
                             : 'bg-accent text-muted-foreground'
@@ -1092,7 +1155,10 @@ function GraphOptions({
             aria-label="Stacked charts"
             onClick={() => set('stacked', getStr(object, 'stacked') === '1' ? '' : '1')}
             className={cn(
-              'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+              'relative rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+              // Touch target: the pill stays visually small, but an invisible
+              // inset overlay gives it a finger-sized hit area (WCAG 2.5.8).
+              "after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 after:content-['']",
               getStr(object, 'stacked') === '1'
                 ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]'
                 : 'bg-accent text-muted-foreground'
@@ -1373,7 +1439,10 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
               aria-label="Stacked series"
               onClick={() => set('stacked', stacked ? '' : '1')}
               className={cn(
-                'rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+                'relative rounded-full px-2 py-0.5 text-[0.625rem] font-semibold transition-colors',
+              // Touch target: the pill stays visually small, but an invisible
+              // inset overlay gives it a finger-sized hit area (WCAG 2.5.8).
+              "after:absolute after:left-0 after:top-1/2 after:h-11 after:w-full after:-translate-y-1/2 after:content-['']",
                 stacked ? 'bg-[var(--accent-blue)]/20 text-[var(--accent-blue)]' : 'bg-accent text-muted-foreground'
               )}
             >
@@ -1386,7 +1455,7 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">
           <SectionTitle>Data</SectionTitle>
-          <label className="flex cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65625rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+          <label className="flex min-h-9 cursor-pointer items-center gap-1 rounded-md px-1.5 py-0.5 text-[0.65625rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
             <Upload className="h-3 w-3" /> Import CSV
             <input
               type="file"
@@ -1523,24 +1592,25 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Label</label>
-        <input
-          type="text"
+        <ExprInput
           value={label}
-          onChange={(e) =>
+          onCommit={(v) =>
             updateObject(
               pageId,
               object.id,
-              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { parameters: { ...object.parameters, label: str(v) } },
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
+          ariaLabel="Label"
+          mono={false}
         />
       </div>
 
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Target Type</label>
         <select
+          aria-label="Target Type"
           value={targetType}
           onChange={(e) =>
             updateObject(
@@ -1561,6 +1631,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
         <div>
           <label className="text-[0.6875rem] text-muted-foreground">Target Component</label>
           <select
+            aria-label="Target Component"
             value={targetObjectId}
             onChange={(e) =>
               updateObject(
@@ -1585,6 +1656,7 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Target Parameter / Variable</label>
         <select
+          aria-label="Target Parameter / Variable"
           value={targetParamName}
           onChange={(e) =>
             updateObject(
@@ -1611,55 +1683,33 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
         </select>
       </div>
 
+      {/* Min/Max/Step commit on blur via ExprInput. As raw <input onChange>
+          they pushed a history entry per KEYSTROKE, so typing "2500" left
+          four undo steps and undo became unusable. */}
       <div className="grid grid-cols-3 gap-1.5">
-        <div>
-          <label className="text-[0.625rem] text-muted-foreground">Min</label>
-          <input
-            type="number"
-            value={min}
-            onChange={(e) =>
-              updateObject(
-                pageId,
-                object.id,
-                { parameters: { ...object.parameters, min: num(e.target.value) } },
-                { history: true }
-              )
-            }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
-          />
-        </div>
-        <div>
-          <label className="text-[0.625rem] text-muted-foreground">Max</label>
-          <input
-            type="number"
-            value={max}
-            onChange={(e) =>
-              updateObject(
-                pageId,
-                object.id,
-                { parameters: { ...object.parameters, max: num(e.target.value) } },
-                { history: true }
-              )
-            }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
-          />
-        </div>
-        <div>
-          <label className="text-[0.625rem] text-muted-foreground">Step</label>
-          <input
-            type="number"
-            value={step}
-            onChange={(e) =>
-              updateObject(
-                pageId,
-                object.id,
-                { parameters: { ...object.parameters, step: num(e.target.value) } },
-                { history: true }
-              )
-            }
-            className="w-full rounded-md border border-input bg-background/60 px-1.5 py-0.5 text-[0.6875rem] font-mono outline-none"
-          />
-        </div>
+        {([
+          ['Min', 'min', min],
+          ['Max', 'max', max],
+          ['Step', 'step', step],
+        ] as const).map(([label, key, val]) => (
+          <div key={key}>
+            <label className="text-[0.625rem] text-muted-foreground">{label}</label>
+            <ExprInput
+              ariaLabel={`Slider ${label}`}
+              value={String(val)}
+              onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number')}
+              onCommit={(v) => {
+                if (!Number.isFinite(Number(v))) return
+                updateObject(
+                  pageId,
+                  object.id,
+                  { parameters: { ...object.parameters, [key]: num(v) } },
+                  { history: true }
+                )
+              }}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )
@@ -1687,24 +1737,25 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
 
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Label</label>
-        <input
-          type="text"
+        <ExprInput
           value={label}
-          onChange={(e) =>
+          onCommit={(v) =>
             updateObject(
               pageId,
               object.id,
-              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { parameters: { ...object.parameters, label: str(v) } },
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
+          ariaLabel="Label"
+          mono={false}
         />
       </div>
 
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Action Type</label>
         <select
+          aria-label="Action Type"
           value={actionType}
           onChange={(e) =>
             updateObject(
@@ -1725,6 +1776,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Target Type</label>
         <select
+          aria-label="Target Type"
           value={targetType}
           onChange={(e) =>
             updateObject(
@@ -1745,6 +1797,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
         <div>
           <label className="text-[0.6875rem] text-muted-foreground">Target Component</label>
           <select
+            aria-label="Target Component"
             value={targetObjectId}
             onChange={(e) =>
               updateObject(
@@ -1769,6 +1822,7 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Target Parameter / Variable</label>
         <select
+          aria-label="Target Parameter / Variable"
           value={targetParamName}
           onChange={(e) =>
             updateObject(
@@ -1798,18 +1852,19 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       {actionType !== 'toggle' && (
         <div>
           <label className="text-[0.6875rem] text-muted-foreground">Value to Set / Step</label>
-          <input
-            type="number"
-            value={targetValue}
-            onChange={(e) =>
+          <ExprInput
+            ariaLabel="Value to set / step"
+            value={String(targetValue)}
+            onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number')}
+            onCommit={(v) => {
+              if (!Number.isFinite(Number(v))) return
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, targetValue: num(e.target.value) } },
+                { parameters: { ...object.parameters, targetValue: num(v) } },
                 { history: true }
               )
-            }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] font-mono outline-none"
+            }}
           />
         </div>
       )}
@@ -1848,24 +1903,25 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
 
       <div>
         <label className="text-[0.6875rem] text-muted-foreground">Label</label>
-        <input
-          type="text"
+        <ExprInput
           value={label}
-          onChange={(e) =>
+          onCommit={(v) =>
             updateObject(
               pageId,
               object.id,
-              { parameters: { ...object.parameters, label: str(e.target.value) } },
+              { parameters: { ...object.parameters, label: str(v) } },
               { history: true }
             )
           }
-          className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] outline-none"
+          ariaLabel="Label"
+          mono={false}
         />
       </div>
 
       <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
         <p className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground">Monitored Source</p>
         <select
+          aria-label="Monitored Source"
           value={sourceType}
           onChange={(e) =>
             updateObject(
@@ -1883,6 +1939,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
 
         {sourceType === 'objectParam' && (
           <select
+            aria-label="Component Parameter"
             value={sourceObjectId}
             onChange={(e) =>
               updateObject(
@@ -1904,6 +1961,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         )}
 
         <select
+          aria-label="Monitored parameter"
           value={sourceParamName}
           onChange={(e) =>
             updateObject(
@@ -1934,6 +1992,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         <div>
           <label className="text-[0.625rem] text-muted-foreground">Operator</label>
           <select
+            aria-label="Operator"
             value={condition}
             onChange={(e) =>
               updateObject(
@@ -1955,18 +2014,19 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         </div>
         <div>
           <label className="text-[0.625rem] text-muted-foreground">Threshold Value</label>
-          <input
-            type="number"
-            value={threshold}
-            onChange={(e) =>
+          <ExprInput
+            ariaLabel="Threshold value"
+            value={String(threshold)}
+            onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number')}
+            onCommit={(v) => {
+              if (!Number.isFinite(Number(v))) return
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, threshold: num(e.target.value) } },
+                { parameters: { ...object.parameters, threshold: num(v) } },
                 { history: true }
               )
-            }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-[0.75rem] font-mono outline-none"
+            }}
           />
         </div>
       </div>
@@ -1974,6 +2034,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
       <div className="rounded-lg border border-border/60 bg-accent/30 p-2 space-y-2">
         <p className="text-[0.625rem] font-bold uppercase tracking-wider text-muted-foreground">Target Action</p>
         <select
+          aria-label="Target Action"
           value={targetType}
           onChange={(e) =>
             updateObject(
@@ -1991,6 +2052,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
 
         {targetType === 'objectParam' && (
           <select
+            aria-label="Component Parameter"
             value={targetObjectId}
             onChange={(e) =>
               updateObject(
@@ -2012,6 +2074,7 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         )}
 
         <select
+          aria-label="Target parameter"
           value={targetParamName}
           onChange={(e) =>
             updateObject(
@@ -2874,6 +2937,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       <ExprInput
         ariaLabel={label}
         value={String(Math.round(value * 100) / 100)}
+        onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number')}
         onCommit={(v) => {
           const n = Number(v)
           if (Number.isFinite(n)) commit(n)
@@ -2890,6 +2954,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       <ExprInput
         ariaLabel={`${label} (cm)`}
         value={String(pxToCmRounded(px))}
+        onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number in cm')}
         onCommit={(v) => {
           const n = Number(v)
           if (Number.isFinite(n)) commitPx(cmToPx(n))
@@ -2908,6 +2973,7 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
               ariaLabel="Object name"
               mono={false}
               value={object.name}
+              onInvalid={(name) => (name.trim() ? undefined : 'A name is required')}
               onCommit={(name) => name.trim() && updateObject(pageId, object.id, { name: name.trim() }, { history: true })}
             />
           </div>
@@ -3140,6 +3206,13 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             <ExprInput
               ariaLabel="Variable name"
               value={v.name}
+              // Rejected names used to vanish silently — the field just
+              // snapped back with no clue why.
+              onInvalid={(name) =>
+                /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)
+                  ? undefined
+                  : 'Names start with a letter or _, then letters, digits or _'
+              }
               onCommit={(name) =>
                 /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) && updateVariable(pageId, v.id, { name })
               }
