@@ -54,6 +54,7 @@ import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { useSlashMenuStore } from '@/lib/store/slash-menu'
 import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
+import { ProbeLayer } from './probe-layer'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
 import { penActive } from '@/lib/pointer/pen-active'
@@ -3213,6 +3214,18 @@ export function InfiniteCanvas({
             />
           )
         })}
+
+        {/* On-canvas value binding: drag a probe dot onto a component to plot
+            or tabulate it. Writes the same params the Inspector edits. */}
+        {!viewer && objects && (
+          <ProbeLayer
+            pageId={pageId}
+            objects={objects}
+            focusedId={selection.length === 1 ? selection[0] : null}
+            zoom={viewport.zoom}
+            toCanvas={toCanvas}
+          />
+        )}
 
         {(altHeld || touchMeasureTargetId) &&
           selection.length === 1 &&
