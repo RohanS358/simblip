@@ -28,9 +28,10 @@ import { listAllEntries, onManifestChange } from '@/lib/storage/manifest'
 import { deleteFiles, getFile, putFile } from '@/lib/storage/manager'
 import type { FileManifestEntry } from '@/lib/storage/manifest-types'
 import { useDocStore } from '@/lib/store/document'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
 import { baseObject } from '@/lib/scene/factory'
 import type { SceneObject } from '@/lib/scene/types'
+import { pageKindForFile } from '@/components/workspace/open-file'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -266,22 +267,25 @@ export function UploadsPanel({
       store.setSelection([obj.id])
       toast.success(`Inserted picture "${item.name}"`)
     } else {
-      const obj: SceneObject = baseObject('rect', center, item.name)
-      const existingObjects = Object.values(store.pages[pageId]?.objects ?? {})
-      const maxZ = existingObjects.reduce((max, o) => Math.max(max, o.z ?? 0), 0)
-      obj.z = maxZ + 1
-      obj.size = { w: 480, h: 360 }
-      obj.metadata = {
-        kind: 'file',
+      // Non-image assets (pdf/doc/xlsx/pptx) have no canvas object renderer —
+      // open them as a proper Document/Presentation/Spreadsheet/PDF page,
+      // same as clicking the file in the notebook-tree (open-file.ts).
+      const kind = pageKindForFile({ mime: item.mime, name: item.name })
+      if (!kind) {
+        toast.error("This file type isn't supported yet.")
+        return
+      }
+      const wsStore = useWorkspaceStore.getState()
+      const activeNode = findNode(wsStore.nodes, pageId)
+      const parentId = activeNode?.parentId ?? null
+      const newPageId = wsStore.addPageIn(parentId ?? '', item.name.replace(/\.[^.]+$/, ''), kind)
+      wsStore.updatePageMeta(newPageId, {
         fileUrl: item.url.startsWith('opfs:') ? item.url : `opfs:${item.id}`,
         fileName: item.name,
         fileMime: item.mime,
-      }
-
-      store.pushHistory(pageId)
-      store.addObject(pageId, obj)
-      store.setSelection([obj.id])
-      toast.success(`Inserted "${item.name}"`)
+      })
+      wsStore.setActivePage(newPageId)
+      toast.success(`Opened "${item.name}"`)
     }
   }
 

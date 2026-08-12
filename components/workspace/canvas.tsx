@@ -37,7 +37,8 @@ import {
   topZ,
   type SelectionAction,
 } from '@/lib/scene/selection-actions'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
+import { pageKindForFile } from '@/components/workspace/open-file'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
@@ -389,6 +390,39 @@ function ctxMenuItems(objectId: string | null, editing: boolean, pageId: string)
   return actionsForSelection({ pageId, ids, editing }).map(
     (a): CtxItem => [a.label, a.run, a.danger]
   )
+}
+
+/** Dropping a doc/pdf/pptx/xlsx onto the canvas: upload it and open it as a
+ *  sibling page next to the current one — mirrors add-page-dialog.tsx's
+ *  createFromAnyUpload / open-file.ts's openFile for tree files. */
+async function openDocFileAsPage(file: File) {
+  const kind = pageKindForFile({ mime: file.type, name: file.name })
+  if (!kind) return
+  const wsStore = useWorkspaceStore.getState()
+  const activeNode = findNode(wsStore.nodes, wsStore.activePageId ?? '')
+  const parentId = activeNode?.parentId ?? null
+  if (kind === 'pdf') {
+    const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
+    const id = wsStore.addPageIn(parentId ?? '', file.name.replace(/\.[^.]+$/, ''), 'pdf')
+    try {
+      await attachPdfToPage(id, file, () => {})
+    } catch {
+      toast.error('Could not convert this file.')
+    }
+    wsStore.setActivePage(id)
+    return
+  }
+  const { putFile } = await import('@/lib/storage/manager')
+  const { useAuthStore: useAuth } = await import('@/lib/auth/store')
+  const ownerId = useAuth.getState().profile?.id ?? 'anon'
+  const fileId = await putFile(file, file.name, file.type || 'application/octet-stream', ownerId)
+  const id = wsStore.addPageIn(parentId ?? '', file.name.replace(/\.[^.]+$/, ''), kind)
+  wsStore.updatePageMeta(id, {
+    fileUrl: `opfs:${fileId}`,
+    fileName: file.name,
+    fileMime: file.type,
+  })
+  wsStore.setActivePage(id)
 }
 
 function convertSelectionToCircuit(pageId: string) {
@@ -3097,15 +3131,19 @@ export function InfiniteCanvas({
         e.dataTransfer.dropEffect = 'copy'
       }}
       onDrop={(e) => {
-        const files = Array.from(e.dataTransfer.files).filter(
-          (f) => f.type.startsWith('image/') || f.type.startsWith('video/')
-        )
-        if (!files.length) return
+        const dropped = Array.from(e.dataTransfer.files)
+        const mediaFiles = dropped.filter((f) => f.type.startsWith('image/') || f.type.startsWith('video/'))
+        const docFiles = dropped.filter((f) => !mediaFiles.includes(f) && pageKindForFile({ mime: f.type, name: f.name }))
+        if (!mediaFiles.length && !docFiles.length) return
         e.preventDefault()
         const at = toCanvas(e.clientX, e.clientY)
-        files.forEach((f, i) =>
+        mediaFiles.forEach((f, i) =>
           void insertImage(pageId, f, f.name, { x: at.x + i * 24, y: at.y + i * 24 })
         )
+        // Documents/presentations/spreadsheets/PDFs have no canvas object
+        // renderer — open each as its own page, same as the upload dialog's
+        // createFromAnyUpload and the notebook-tree's open-file.ts.
+        docFiles.forEach((f) => void openDocFileAsPage(f))
       }}
       role="application"
       aria-label="Infinite canvas"
