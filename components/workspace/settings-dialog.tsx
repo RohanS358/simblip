@@ -45,7 +45,9 @@ import {
   Plus,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
+import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
+import { StoragePanel } from './storage-panel'
 import { Field, Choice, PrefRow, SettingCard, ObsidianPrefRow } from './settings-fields'
 import {
   usePrefs,
@@ -528,30 +530,33 @@ function AppearanceSettings() {
               </button>
             ))}
 
-            <label
-              aria-label="Custom tint"
-              className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 ease-out active:scale-95"
-              style={{
-                background:
-                  accent === 'custom'
-                    ? customAccent
-                    : 'conic-gradient(from 0deg, red, yellow, lime, cyan, blue, magenta, red)',
-                boxShadow: accent === 'custom' ? '0 0 0 2px var(--background), 0 0 0 4px currentColor' : undefined,
-                color: customAccent,
-              }}
-            >
-              {accent === 'custom' ? (
-                <Check className="h-3.5 w-3.5 text-white" />
-              ) : (
-                <Plus className="h-3.5 w-3.5 text-white drop-shadow" />
-              )}
-              <input
-                type="color"
-                value={customAccent}
-                className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-                onChange={(e) => setAppearance({ accent: 'custom', customAccent: e.target.value })}
-              />
-            </label>
+            <HexColorSwatchPicker
+              label="Custom tint"
+              initial={customAccent}
+              onChange={(hex) => setAppearance({ accent: 'custom', customAccent: hex })}
+              onCommit={(hex) => setAppearance({ accent: 'custom', customAccent: hex })}
+              trigger={
+                <button
+                  type="button"
+                  aria-label="Custom tint"
+                  className="relative flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-full transition-transform duration-150 ease-out active:scale-95"
+                  style={{
+                    background:
+                      accent === 'custom'
+                        ? customAccent
+                        : 'conic-gradient(from 0deg, red, yellow, lime, cyan, blue, magenta, red)',
+                    boxShadow: accent === 'custom' ? '0 0 0 2px var(--background), 0 0 0 4px currentColor' : undefined,
+                    color: customAccent,
+                  }}
+                >
+                  {accent === 'custom' ? (
+                    <Check className="h-3.5 w-3.5 text-white" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5 text-white drop-shadow" />
+                  )}
+                </button>
+              }
+            />
           </div>
         </ObsidianPrefRow>
       </SettingCard>
@@ -1196,6 +1201,9 @@ export function SettingsDialog({
 
             {activeTab === 'files' && (
               <div className="space-y-4">
+                <SettingCard title="Storage">
+                  <StoragePanel />
+                </SettingCard>
                 <SettingCard title="Backup & Device Sync">
                   <BackupSettings />
                 </SettingCard>

@@ -2209,6 +2209,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, pageId))
   const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
   const addSwatch = (hex: string) => usePageSwatches.getState().add(documentId, hex)
+  const imageSwatches = useImagePalette(pageId)
 
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
@@ -2515,6 +2516,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
               <span onPointerDown={snapshotSelection}>
                 <HexColorSwatchPicker
                   label="Custom text color"
+                  imageSwatches={imageSwatches}
                   onChange={(hex) => setSpan('color', hex)}
                   onCommit={(hex) => {
                     setSpan('color', hex)
@@ -2577,6 +2579,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             <HexColorSwatchPicker
               label="Custom background color"
               size="md"
+              imageSwatches={imageSwatches}
               onChange={(hex) => setMeta({ color: hex })}
               onCommit={(hex) => {
                 setMeta({ color: hex })
@@ -3371,6 +3374,7 @@ function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
   const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, contentPageId))
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, documentId))
   const swatches = usePageSwatches((s) => s.swatches[documentId] ?? EMPTY_SWATCHES)
+  const imageSwatches = useImagePalette(contentPageId)
 
   if (meta?.pageKind !== 'doc' && meta?.pageKind !== 'pptx') return null
 
@@ -3429,6 +3433,7 @@ function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
         <HexColorSwatchPicker
           label="Custom background color"
           size="md"
+          imageSwatches={imageSwatches}
           onChange={setValue}
           onCommit={(hex) => {
             setValue(hex)
