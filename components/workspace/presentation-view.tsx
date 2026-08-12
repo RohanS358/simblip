@@ -16,8 +16,8 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
-  Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight,
-  ZoomIn, ZoomOut, Sparkles, Download, MonitorPlay,
+  Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight, ChevronDown,
+  ZoomIn, ZoomOut, Sparkles, Download, MonitorPlay, SlidersHorizontal,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -27,7 +27,13 @@ import { InfiniteCanvas } from './canvas'
 import { PageThumbnail } from './page-thumbnail'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import {
   ContextMenu,
   ContextMenuTrigger,
@@ -282,6 +288,18 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // Touch has no hover — the insert-slide '+' between tiles was only ever
   // shown on onMouseEnter, so it never appeared on a phone/tablet at all.
   const isTouch = useIsMobile()
+  // Layout question, not device question: a phone has no room for two stacked
+  // bars of chrome under the slide, a tablet does. (useIsMobile is true for
+  // both, so it's the wrong signal here — see hooks/use-mobile.ts.)
+  const isPhone = useIsNarrow(767)
+  // Phone chrome: the secondary controls (zoom, transition, export) live in a
+  // sheet instead of a horizontally-scrolling strip that pushed Present —
+  // the screen's primary action — off the right edge entirely.
+  const [optionsOpen, setOptionsOpen] = useState(false)
+  // The filmstrip is the biggest single block of chrome on a phone. It's
+  // needed to *change* slides and dead weight while editing one, so it
+  // collapses; the slide counter in the bar is the toggle.
+  const [railOpen, setRailOpen] = useState(true)
   const [current, setCurrent] = useState(0)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -680,12 +698,18 @@ export function PresentationView({ pageId }: { pageId: string }) {
       </div>
 
       {/* Slide rail. Shorter on phones, where a 96px rail plus the toolbar
-          ate most of a small viewport and left the slide itself squeezed. */}
+          ate most of a small viewport and left the slide itself squeezed —
+          and collapsible there, so editing a slide can use the whole screen.
+          Always open on tablet/desktop, which have the room. */}
       <div
         ref={railRef}
-        className="flex h-16 shrink-0 items-center gap-0 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/30 p-2 sm:h-24"
+        className={cn(
+          'flex shrink-0 items-center gap-0 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/30 transition-[height,padding] duration-200 ease-out sm:h-24 sm:p-2',
+          !isPhone || railOpen ? 'h-14 p-2' : 'h-0 overflow-hidden border-t-0 p-0'
+        )}
         style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}
         onMouseLeave={() => setHoverGap(null)}
+        aria-hidden={isPhone && !railOpen}
       >
         {displayedSlides.map((id, tileIdx) => {
           const i = slides.indexOf(id)
@@ -779,13 +803,108 @@ export function PresentationView({ pageId }: { pageId: string }) {
       </div>
 
       {/*
-        Toolbar. Every group is `shrink-0` inside a scrolling strip: without
-        that, flex children shrink below their content on a narrow screen and
-        their labels collide — which is the "overlapping panels" seen on
-        mobile. Scrolling horizontally is the correct answer on a phone;
-        squeezing is not. Safe-area padding keeps the last control clear of
-        the home indicator.
+        Phone control bar — one row, three jobs, in priority order:
+        counter (also the rail toggle) · options · Present.
+
+        The old strip put five equal-weight control groups in a horizontal
+        scroller, which pushed Present — the entire point of a presentation
+        editor — off the right edge where nobody would find it. Here the
+        primary action is a filled accent button pinned to the right of the
+        thumb zone, the secondary controls collapse into a sheet, and the
+        counter carries the value (`4 / 11`) at a heavier weight than its
+        label, instead of dividing the eye between five same-weight chips.
       */}
+      {isPhone ? (
+        <div
+          className="flex shrink-0 items-center gap-2 border-t border-border/60 bg-muted/20 px-3 py-2"
+          style={{ paddingBottom: 'max(0.5rem, env(safe-area-inset-bottom))' }}
+        >
+          {/* Counter doubles as the filmstrip toggle — the rail is the only
+              other thing that shows "which slide", so they belong together. */}
+          <button
+            type="button"
+            aria-expanded={railOpen}
+            aria-label={railOpen ? 'Hide slide list' : 'Show slide list'}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 py-1.5 pl-2.5 pr-2 transition-transform active:scale-95"
+            onClick={() => setRailOpen((v) => !v)}
+          >
+            <span className="font-mono text-[0.8125rem] font-semibold tabular-nums text-foreground">
+              {current + 1}
+              <span className="text-muted-foreground/70">/{slides.length}</span>
+            </span>
+            <ChevronDown
+              className={cn(
+                'h-3.5 w-3.5 text-muted-foreground transition-transform duration-200',
+                railOpen ? '' : 'rotate-180'
+              )}
+            />
+          </button>
+
+          {/* With the filmstrip collapsed there's no other way to change
+              slides — the stage's own horizontal drag means "pan the slide"
+              now that it's zoomed past the viewport, so it can't also mean
+              "next slide". These only exist in that state. */}
+          {!railOpen && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous slide"
+                disabled={current === 0}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95 disabled:opacity-30"
+                onClick={() => goToSlide(Math.max(0, current - 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                aria-label="Next slide"
+                disabled={current >= slides.length - 1}
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95 disabled:opacity-30"
+                onClick={() => goToSlide(Math.min(slides.length - 1, current + 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </>
+          )}
+
+          <button
+            type="button"
+            aria-label="Slide options"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95"
+            onClick={() => setOptionsOpen(true)}
+          >
+            <SlidersHorizontal className="h-4 w-4" />
+          </button>
+
+          {/* Add lives on the bar only while the filmstrip is open — the rail
+              has its own inline '+' affordances, and once it's collapsed the
+              prev/next arrows are the better use of that width. */}
+          {railOpen && (
+            <button
+              type="button"
+              aria-label="Add slide"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95"
+              onClick={() => {
+                useWorkspaceStore.getState().addDocSheet(pageId)
+                setCurrent(slides.length)
+              }}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+          )}
+
+          {/* Primary action: filled accent, right edge of the thumb zone. */}
+          <button
+            type="button"
+            disabled={importing || slides.length === 0}
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-[0.8125rem] font-semibold text-primary-foreground shadow-sm transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+            onClick={() => setPresenting(true)}
+          >
+            <MonitorPlay className="h-4 w-4" />
+            Present
+          </button>
+        </div>
+      ) : (
       <div
         className="flex shrink-0 items-center gap-1.5 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/20 px-3 py-2"
         style={{
@@ -868,6 +987,105 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </button>
         </div>
       </div>
+      )}
+
+      {/* Phone options sheet — everything the compact bar doesn't show.
+          A sheet, not a scrolling strip: each control gets a label and full
+          width, so zoom and transition stop competing for the same 40px. */}
+      <Sheet open={optionsOpen} onOpenChange={setOptionsOpen}>
+        <SheetContent
+          side="bottom"
+          className="gap-0 rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
+        >
+          <SheetHeader className="pb-2">
+            <SheetTitle className="text-[0.9375rem]">Slide options</SheetTitle>
+          </SheetHeader>
+
+          <div className="flex flex-col gap-5 px-4 pt-2">
+            <div>
+              <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+                Zoom
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Zoom out"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95"
+                  onClick={() => setZoom(zoom - 0.1)}
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </button>
+                <span className="min-w-14 text-center font-mono text-[0.9375rem] font-semibold tabular-nums">
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  type="button"
+                  aria-label="Zoom in"
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border/60 bg-background/60 text-muted-foreground transition-transform active:scale-95"
+                  onClick={() => setZoom(zoom + 0.1)}
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  className="ml-auto shrink-0 rounded-xl border border-border/60 bg-background/60 px-4 py-2.5 text-[0.8125rem] font-medium transition-transform active:scale-95"
+                  onClick={fitWidth}
+                >
+                  Fit width
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+                Transition
+              </p>
+              <div className="flex gap-2">
+                {(['none', 'fade', 'slide'] as SlideTransition[]).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    aria-pressed={transition === t}
+                    className={cn(
+                      'flex-1 rounded-xl border px-3 py-2.5 text-[0.8125rem] font-medium capitalize transition-transform active:scale-95',
+                      transition === t
+                        ? 'border-transparent bg-[var(--accent-blue)] text-primary-foreground'
+                        : 'border-border/60 bg-background/60 text-muted-foreground'
+                    )}
+                    onClick={() => setTransition(t)}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-[0.875rem] font-medium transition-transform active:scale-95"
+                onClick={() => {
+                  useWorkspaceStore.getState().addDocSheet(pageId)
+                  setCurrent(slides.length)
+                  setOptionsOpen(false)
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                Add slide
+              </button>
+              <button
+                type="button"
+                disabled={exporting || importing}
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-[0.875rem] font-medium transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                onClick={() => void exportPptx()}
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                {exporting ? 'Exporting…' : 'Export PowerPoint'}
+              </button>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       {presenting && (
         <PresentOverlay
