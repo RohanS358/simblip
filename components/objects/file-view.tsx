@@ -145,7 +145,7 @@ export async function attachFileToObject(
     try {
       const ws = useWorkspaceStore.getState()
       const hostNode = findNode(ws.nodes, hostPageId)
-      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), 'pdf')
+      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), 'pdf', false)
       const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
       await attachPdfToPage(newPageId, f)
       useDocStore.getState().updateObject(hostPageId, objectId, {
@@ -167,7 +167,7 @@ export async function attachFileToObject(
       const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
       const ws = useWorkspaceStore.getState()
       const hostNode = findNode(ws.nodes, hostPageId)
-      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), kind)
+      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), kind, false)
       ws.updatePageMeta(newPageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: f.type })
       useDocStore.getState().updateObject(hostPageId, objectId, {
         metadata: { ...objectMetadata, linkedPageId: newPageId },

@@ -303,7 +303,7 @@ export function UploadsPanel({
       const wsStore = useWorkspaceStore.getState()
       const activeNode = findNode(wsStore.nodes, pageId)
       const parentId = activeNode?.parentId ?? null
-      const newPageId = wsStore.addPageIn(parentId ?? '', item.name.replace(/\.[^.]+$/, ''), kind)
+      const newPageId = wsStore.addPageIn(parentId ?? '', item.name.replace(/\.[^.]+$/, ''), kind, false)
       wsStore.updatePageMeta(newPageId, {
         fileUrl: item.url.startsWith('opfs:') ? item.url : `opfs:${item.id}`,
         fileName: item.name,

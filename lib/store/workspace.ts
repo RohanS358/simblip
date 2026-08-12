@@ -151,8 +151,11 @@ interface WorkspaceState {
   renameSection: (notebookId: string, id: string, name: string) => void
   /** @deprecated alias for removeNode. */
   removeSection: (notebookId: string, id: string) => void
-  /** Create a page under parentId (one parentId now, not two). */
-  addPageIn: (parentId: string, name?: string, kind?: PageKind) => string
+  /** Create a page under parentId (one parentId now, not two). `activate`
+   *  (default true) opens it as the focused pane — pass false for a hidden
+   *  backing page (e.g. the linked page behind an embedded Document object)
+   *  that must exist in the tree without stealing focus from what's open. */
+  addPageIn: (parentId: string, name?: string, kind?: PageKind, activate?: boolean) => string
   /** @deprecated alias for addPageIn(sectionId, name, kind) — sectionId is
    *  already a valid parentId (a section IS a folder), notebookId is unused. */
   addPage: (notebookId: string, sectionId: string, name?: string, kind?: PageKind) => string
@@ -380,7 +383,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         set((s) => ({ nodes: patchNode(s.nodes, id, { parentId: newParentId, order: siblingOrder }) }))
       },
 
-      addPageIn: (parentId, name = 'Untitled Page', kind = 'board') => {
+      addPageIn: (parentId, name = 'Untitled Page', kind = 'board', activate = true) => {
         const id = uid()
         set((s) => {
           const siblings = childrenOf(s.nodes, parentId)
@@ -394,6 +397,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             order: siblings.length,
             ...(kind === 'doc' ? { docPages: [uid()] } : {}),
           }
+          if (!activate) return { nodes: { ...s.nodes, [id]: node } }
           const openTabs = s.openTabs.includes(id) ? s.openTabs : [...s.openTabs, id]
           // New page always opens as the sole focused pane (replaces active slot).
           const panes = s.panes.length === 0 ? [id] : s.panes.map((p, i) => i === s.activePaneIndex ? id : p)
