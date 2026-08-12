@@ -5,7 +5,7 @@
 // & page list) → editor (full-bleed canvas, no sidebar, properties as a
 // bottom sheet, the top-right actions collapsed into one menu).
 
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
@@ -53,7 +53,7 @@ import { useSpring } from '@/lib/motion'
 import { haptic } from '@/lib/haptics'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
-import { useMobileTabStore } from '@/lib/store/mobile-tab'
+import { useMobileTabStore, type MobileView } from '@/lib/store/mobile-tab'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
 import { MobileTabBar } from './mobile-tab-bar'
 import { PageView } from './page-view'
@@ -108,7 +108,10 @@ const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.C
 // "My Notebooks" highlight check below — both render through the SAME
 // drill-down folder view; a top-level tap and a sub-folder tap just push
 // different depths onto the same view.
-type View = { kind: 'home' } | { kind: 'notebook'; id: string } | { kind: 'folder'; id: string } | { kind: 'assignments' } | { kind: 'editor' }
+// Structurally identical to MobileView in lib/store/mobile-tab.ts, which is
+// where it's persisted — aliased rather than redeclared so the two can't
+// drift apart.
+type View = MobileView
 
 const SECTION_DOT: Record<string, string> = {
   blue: 'bg-[var(--accent-blue)]',
@@ -191,7 +194,15 @@ const cardEntry = (i: number) => ({
 export function MobileShell() {
   const router = useRouter()
   const { resolvedTheme, setTheme } = useTheme()
-  const [view, setView] = useState<View>({ kind: 'home' })
+  // Mirrored into the persisted mobile-tab store on every change, so
+  // reopening the app returns to the same screen. Local state stays the
+  // render source (it's read on every branch below); the store is the
+  // durable copy, restored once on mount by the effect further down.
+  const [view, setViewLocal] = useState<View>({ kind: 'home' })
+  const setView = useCallback((next: View) => {
+    setViewLocal(next)
+    useMobileTabStore.getState().setView(next)
+  }, [])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
@@ -217,6 +228,7 @@ export function MobileShell() {
   const [renameFor, setRenameFor] = useState<RenameTarget | null>(null)
   const [deleteFor, setDeleteFor] = useState<ConfirmTarget | null>(null)
   const mobileTab = useMobileTabStore((s) => s.tab)
+  const tabHydrated = useMobileTabStore((s) => s.hydrated)
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -292,10 +304,36 @@ export function MobileShell() {
     setView(nextView)
   }
 
+  // Restore last session's screen, once, after the persisted store has been
+  // read back. Runs BEFORE the tab-reset effect below can act on the
+  // restored tab (see restoredRef there): reopening into the editor means
+  // the tab is still 'home', and that effect's whole job is to force
+  // view→home for exactly that combination.
+  const restoredRef = useRef(false)
+  useEffect(() => {
+    if (restoredRef.current || !tabHydrated) return
+    restoredRef.current = true
+    const saved = useMobileTabStore.getState().view
+    // Only restore a view that still points at something real — a notebook
+    // deleted on another device (or an editor view whose page is gone)
+    // would otherwise land on a blank screen with no way back.
+    const ws = useWorkspaceStore.getState()
+    const valid =
+      saved.kind === 'editor'
+        ? !!ws.activePageId && !!findPageMeta(ws.nodes, ws.activePageId)
+        : saved.kind === 'folder' || saved.kind === 'notebook'
+          ? !!ws.nodes[saved.id]
+          : true
+    if (valid && saved.kind !== 'home') setViewLocal(saved)
+  }, [tabHydrated])
+
   // Tapping Home/Notebooks in the persistent tab bar while deep in a
   // notebook (or the editor) returns to the drill-down root — same as
   // tapping a fresh tab in Canva always resets that tab's stack to its top.
   useEffect(() => {
+    // Skip the mount run: at that point `mobileTab` is the RESTORED tab, not
+    // a tap, and resetting here would immediately undo the restore above.
+    if (!restoredRef.current) return
     if ((mobileTab === 'home' || mobileTab === 'notebooks') && view.kind !== 'home') {
       setView({ kind: 'home' })
     } else if (mobileTab === 'assignments' && view.kind !== 'assignments') {
