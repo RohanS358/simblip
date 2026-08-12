@@ -79,6 +79,7 @@ import {
 import { PublishDialog } from './library-panel'
 import { AddPageDialog, type Step as AddPageStep } from './add-page-dialog'
 import { BugReportDialog } from './bug-report-dialog'
+import { BugSwarm, useBugHold } from './bug-swarm'
 import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import { AssignmentsPanel } from './assignments-panel'
@@ -207,6 +208,9 @@ export function MobileShell() {
   }, [])
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [bugOpen, setBugOpen] = useState(false)
+  const [swarm, setSwarm] = useState(false)
+  // Hold the bug item for five seconds — see bug-swarm.tsx.
+  const bugHold = useBugHold(() => setSwarm(true))
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
@@ -553,7 +557,15 @@ export function MobileShell() {
           </button>
           <button
             className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-            onClick={() => setBugOpen(true)}
+            {...bugHold.handlers}
+            // A five-second press would otherwise raise the OS text-selection
+            // callout right over the item being held.
+            style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
+            onClick={() => {
+              // A completed hold already did its thing; don't also open the form.
+              if (bugHold.fired.current) return
+              setBugOpen(true)
+            }}
           >
             <Bug className="h-4 w-4 text-muted-foreground" /> Report a bug
           </button>
@@ -568,6 +580,7 @@ export function MobileShell() {
       </main>
       <MobileTabBar />
       <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
+      {swarm && <BugSwarm onEnd={() => setSwarm(false)} />}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>

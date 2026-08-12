@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { Bug, ClipboardList, LogOut, NotebookPen, Settings, ShieldCheck } from 'lucide-react'
 import { BugReportDialog } from './bug-report-dialog'
+import { BugSwarm, useBugHold } from './bug-swarm'
 import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import {
@@ -32,6 +33,9 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
   const [bugOpen, setBugOpen] = useState(false)
+  const [swarm, setSwarm] = useState(false)
+  // Hold the bug item for five seconds — see bug-swarm.tsx.
+  const bugHold = useBugHold(() => setSwarm(true))
   if (!profile) return null
 
   const isStaff = profile.role === 'teacher' || profile.role === 'admin'
@@ -77,7 +81,17 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => setBugOpen(true)}>
+        <DropdownMenuItem
+          {...bugHold.handlers}
+          onSelect={(e) => {
+            // A completed hold already did its thing; don't also open the form.
+            if (bugHold.fired.current) {
+              e.preventDefault()
+              return
+            }
+            setBugOpen(true)
+          }}
+        >
           <Bug className="h-4 w-4" /> Report a bug
         </DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -86,6 +100,7 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
         </DropdownMenuItem>
       </DropdownMenuContent>
       <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
+      {swarm && <BugSwarm onEnd={() => setSwarm(false)} />}
     </DropdownMenu>
   )
 }
