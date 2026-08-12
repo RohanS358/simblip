@@ -20,7 +20,7 @@ import {
   X,
   FileSpreadsheet,
   FileCode,
-  File,
+  File as FileIcon,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
@@ -72,7 +72,7 @@ function getFileIcon(mime: string, name: string) {
   if (['txt', 'md', 'json', 'js', 'ts', 'py', 'cpp', 'c', 'h'].includes(ext)) {
     return <FileCode className="h-4 w-4 text-indigo-500 shrink-0" />
   }
-  return <File className="h-4 w-4 text-muted-foreground shrink-0" />
+  return <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
 }
 
 /** World-space point currently at the middle of the active canvas viewport. */
@@ -267,14 +267,39 @@ export function UploadsPanel({
       store.setSelection([obj.id])
       toast.success(`Inserted picture "${item.name}"`)
     } else {
-      // Non-image assets (pdf/doc/xlsx/pptx) have no canvas object renderer —
-      // open them as a proper Document/Presentation/Spreadsheet/PDF page,
-      // same as clicking the file in the notebook-tree (open-file.ts).
+      // Non-image assets (pdf/doc/xlsx/pptx) embed as a Document object on
+      // the active page, previewed with the app's own viewers — same object
+      // dropping the file directly onto the canvas creates (canvas.tsx's
+      // embedDocFileOnCanvas), just fed from an already-uploaded asset
+      // instead of a fresh File.
+      if (item.mime === 'application/pdf' || item.name.toLowerCase().endsWith('.pdf')) {
+        const blob = await getFile(item.id)
+        if (!blob) {
+          toast.error('Could not read this file.')
+          return
+        }
+        const obj: SceneObject = baseObject('note', center, item.name)
+        obj.size = { w: 480, h: 340 }
+        obj.metadata = { render: 'file' }
+        store.pushHistory(pageId)
+        store.addObject(pageId, obj)
+        store.setSelection([obj.id])
+        const { putSessionFile } = await import('@/lib/store/ephemeral-storage')
+        putSessionFile(obj.id, new File([blob], item.name, { type: item.mime }))
+        toast.success(`Inserted "${item.name}"`)
+        return
+      }
       const kind = pageKindForFile({ mime: item.mime, name: item.name })
       if (!kind) {
         toast.error("This file type isn't supported yet.")
         return
       }
+      const obj: SceneObject = baseObject('note', center, item.name)
+      obj.size = { w: 480, h: 340 }
+      obj.metadata = { render: 'file' }
+      store.pushHistory(pageId)
+      store.addObject(pageId, obj)
+      store.setSelection([obj.id])
       const wsStore = useWorkspaceStore.getState()
       const activeNode = findNode(wsStore.nodes, pageId)
       const parentId = activeNode?.parentId ?? null
@@ -284,8 +309,8 @@ export function UploadsPanel({
         fileName: item.name,
         fileMime: item.mime,
       })
-      wsStore.setActivePage(newPageId)
-      toast.success(`Opened "${item.name}"`)
+      store.updateObject(pageId, obj.id, { metadata: { ...obj.metadata, linkedPageId: newPageId } })
+      toast.success(`Inserted "${item.name}"`)
     }
   }
 

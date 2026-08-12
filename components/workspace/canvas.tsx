@@ -392,37 +392,25 @@ function ctxMenuItems(objectId: string | null, editing: boolean, pageId: string)
   )
 }
 
-/** Dropping a doc/pdf/pptx/xlsx onto the canvas: upload it and open it as a
- *  sibling page next to the current one — mirrors add-page-dialog.tsx's
- *  createFromAnyUpload / open-file.ts's openFile for tree files. */
-async function openDocFileAsPage(file: File) {
-  const kind = pageKindForFile({ mime: file.type, name: file.name })
-  if (!kind) return
-  const wsStore = useWorkspaceStore.getState()
-  const activeNode = findNode(wsStore.nodes, wsStore.activePageId ?? '')
-  const parentId = activeNode?.parentId ?? null
-  if (kind === 'pdf') {
-    const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
-    const id = wsStore.addPageIn(parentId ?? '', file.name.replace(/\.[^.]+$/, ''), 'pdf')
-    try {
-      await attachPdfToPage(id, file, () => {})
-    } catch {
-      toast.error('Could not convert this file.')
-    }
-    wsStore.setActivePage(id)
-    return
-  }
-  const { putFile } = await import('@/lib/storage/manager')
-  const { useAuthStore: useAuth } = await import('@/lib/auth/store')
-  const ownerId = useAuth.getState().profile?.id ?? 'anon'
-  const fileId = await putFile(file, file.name, file.type || 'application/octet-stream', ownerId)
-  const id = wsStore.addPageIn(parentId ?? '', file.name.replace(/\.[^.]+$/, ''), kind)
-  wsStore.updatePageMeta(id, {
-    fileUrl: `opfs:${fileId}`,
-    fileName: file.name,
-    fileMime: file.type,
-  })
-  wsStore.setActivePage(id)
+/** Dropping a pdf/pptx/docx/xlsx onto any canvas (board or a Document's own
+ *  sheet — DocView's sheets ARE InfiniteCanvas) embeds it in place as a
+ *  Document object (components/objects/file-view.tsx's FileObject), via the
+ *  same attachFileToObject pipeline that object's own file-picker uses:
+ *  PDFs render inline via pdf.js, pptx/docx/xlsx get a real linked page
+ *  previewed through PageView (the app's own OOXML importers) — same object
+ *  the sundial dock's "Document" tool creates, just placed directly at the
+ *  drop point instead of via the dock. */
+async function embedDocFileOnCanvas(pageId: string, file: File, at: { x: number; y: number }) {
+  const doc = useDocStore.getState()
+  const obj = baseObject('note', { x: at.x - 240, y: at.y - 170 }, file.name)
+  obj.size = { w: 480, h: 340 }
+  obj.metadata = { render: 'file' }
+  doc.addObject(pageId, obj)
+  doc.setSelection([obj.id])
+
+  const { attachFileToObject } = await import('@/components/objects/file-view')
+  const result = await attachFileToObject(pageId, obj.id, obj.metadata, file)
+  if (!result.ok) toast.error(result.error)
 }
 
 function convertSelectionToCircuit(pageId: string) {
@@ -3140,10 +3128,12 @@ export function InfiniteCanvas({
         mediaFiles.forEach((f, i) =>
           void insertImage(pageId, f, f.name, { x: at.x + i * 24, y: at.y + i * 24 })
         )
-        // Documents/presentations/spreadsheets/PDFs have no canvas object
-        // renderer — open each as its own page, same as the upload dialog's
-        // createFromAnyUpload and the notebook-tree's open-file.ts.
-        docFiles.forEach((f) => void openDocFileAsPage(f))
+        // Documents/presentations/spreadsheets/PDFs embed in place as a
+        // Document object, previewed with the app's own viewers — same as
+        // dropping them into an open Document's sheet (also an InfiniteCanvas).
+        docFiles.forEach((f, i) =>
+          void embedDocFileOnCanvas(pageId, f, { x: at.x + i * 24, y: at.y + i * 24 })
+        )
       }}
       role="application"
       aria-label="Infinite canvas"

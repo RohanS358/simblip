@@ -42,6 +42,63 @@ const loadPdfjs = () => {
   return pdfjsPromise
 }
 
+/** Single source of truth for attaching a file to a Document object — used
+ *  both by FileObject's own file-picker/drop and by canvas.tsx embedding a
+ *  freshly-dropped file straight into a new Document object. PDFs/images go
+ *  to session storage (FileObject renders them itself via pdf.js/<img>);
+ *  pptx/docx/xlsx become a real linked page (own importer, own editor);
+ *  txt/md/csv become a pdf-kind page (no dedicated viewer exists for those). */
+export async function attachFileToObject(
+  hostPageId: string,
+  objectId: string,
+  objectMetadata: Record<string, unknown>,
+  f: File
+): Promise<{ ok: true; linkedPageId?: string } | { ok: false; error: string }> {
+  const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
+  const alreadyViewable = f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
+  const isTextConvertible = ['.txt', '.md', '.csv'].includes(ext)
+
+  if (isTextConvertible) {
+    try {
+      const ws = useWorkspaceStore.getState()
+      const hostNode = findNode(ws.nodes, hostPageId)
+      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), 'pdf')
+      const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
+      await attachPdfToPage(newPageId, f)
+      useDocStore.getState().updateObject(hostPageId, objectId, {
+        metadata: { ...objectMetadata, linkedPageId: newPageId },
+      })
+      return { ok: true, linkedPageId: newPageId }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Could not open this file.' }
+    }
+  }
+
+  if (!alreadyViewable) {
+    const kind = pageKindForFile({ mime: f.type, name: f.name })
+    if (!kind) return { ok: false, error: "This file type isn't supported yet." }
+    try {
+      const { putFile } = await import('@/lib/storage/manager')
+      const { useAuthStore } = await import('@/lib/auth/store')
+      const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
+      const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
+      const ws = useWorkspaceStore.getState()
+      const hostNode = findNode(ws.nodes, hostPageId)
+      const newPageId = ws.addPageIn(hostNode?.parentId ?? '', f.name.replace(/\.[^.]+$/, ''), kind)
+      ws.updatePageMeta(newPageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: f.type })
+      useDocStore.getState().updateObject(hostPageId, objectId, {
+        metadata: { ...objectMetadata, linkedPageId: newPageId },
+      })
+      return { ok: true, linkedPageId: newPageId }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Could not open this file.' }
+    }
+  }
+
+  putSessionFile(objectId, f)
+  return { ok: true }
+}
+
 export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) {
   const [page, setPage] = useState(1)
   const [numPages, setNumPages] = useState(0)
@@ -117,68 +174,23 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
     (object.metadata.linkedPageId as string) ?? null
   )
 
-  /** Attach a file. PDFs and images render inline via pdf.js/<img> as before.
-   *  pptx/docx/xlsx get a real page (own importer, own editor) instead of
-   *  being flattened to PDF — this object then just previews that page.
-   *  text/markdown/csv have no dedicated kind, so they still become a
-   *  pdf-kind page (same as notebook-tree's addFileToFolder). */
+  /** Attach a file via the shared attachFileToObject pipeline (also used by
+   *  canvas.tsx when a file is dropped straight onto a new Document object). */
   const attach = async (f: File) => {
-    const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
-    const alreadyViewable =
-      f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
-    const isTextConvertible = ['.txt', '.md', '.csv'].includes(ext)
-
-    if (isTextConvertible) {
-      setConverting('Opening…')
-      try {
-        const ws = useWorkspaceStore.getState()
-        const hostNode = findNode(ws.nodes, hostPageId)
-        const parentId = hostNode?.parentId ?? null
-        const newPageId = ws.addPageIn(parentId ?? '', f.name.replace(/\.[^.]+$/, ''), 'pdf')
-        const { attachPdfToPage } = await import('@/lib/store/pdf-attach')
-        await attachPdfToPage(newPageId, f)
-        useDocStore.getState().updateObject(hostPageId, object.id, {
-          metadata: { ...object.metadata, linkedPageId: newPageId },
-        })
-        setLinkedPageId(newPageId)
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not open this file.')
-      } finally {
-        setConverting(null)
-      }
+    setConverting('Opening…')
+    const result = await attachFileToObject(hostPageId, object.id, object.metadata, f)
+    setConverting(null)
+    if (!result.ok) {
+      toast.error(result.error)
       return
     }
-
-    if (!alreadyViewable) {
-      const kind = pageKindForFile({ mime: f.type, name: f.name })
-      if (!kind) {
-        toast.error("This file type isn't supported yet.")
-        return
-      }
-      setConverting('Opening…')
-      try {
-        const { putFile } = await import('@/lib/storage/manager')
-        const { useAuthStore } = await import('@/lib/auth/store')
-        const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
-        const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
-        const ws = useWorkspaceStore.getState()
-        const hostNode = findNode(ws.nodes, hostPageId)
-        const parentId = hostNode?.parentId ?? null
-        const newPageId = ws.addPageIn(parentId ?? '', f.name.replace(/\.[^.]+$/, ''), kind)
-        ws.updatePageMeta(newPageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: f.type })
-        useDocStore.getState().updateObject(hostPageId, object.id, {
-          metadata: { ...object.metadata, linkedPageId: newPageId },
-        })
-        setLinkedPageId(newPageId)
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : 'Could not open this file.')
-      } finally {
-        setConverting(null)
-      }
+    if (result.linkedPageId) {
+      setLinkedPageId(result.linkedPageId)
       return
     }
-
-    setLocal(putSessionFile(object.id, f))
+    // PDF/image: session storage was written by attachFileToObject — pick it
+    // back up and bump rev so the pdf.js/<img> effects below re-render.
+    setLocal(getSessionFile(object.id))
     docRef.current = null
     setNumPages(0)
     setPage(1)
