@@ -21,21 +21,56 @@ import { pageKindForFile } from '@/components/workspace/open-file'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
 import type { ObjectRendererProps } from './types'
 
+const SLIDE_W = 960
+const SLIDE_H = 540
+const SHEET_W = 794
+const SHEET_H = 1123
+
 /** Minimal content-only preview for a linked pptx/doc/xlsx page — just the
  *  current slide/sheet (locked, transparent, non-interactive InfiniteCanvas)
  *  plus prev/next, no editor toolbar/sidebar/zoom controls. pptx pages are
  *  slide decks (docPages = slides); doc/xlsx pages are one or more sheets,
- *  navigated the same way here for a consistent minimal viewer. */
+ *  navigated the same way here for a consistent minimal viewer.
+ *
+ *  Slide/sheet content is authored assuming a FIXED frame (960×540 for
+ *  slides, 794×1123 A4 for doc sheets — same as presentation-view.tsx's
+ *  stage / doc-view.tsx's SHEET_W/H) — rendering InfiniteCanvas directly
+ *  into an arbitrarily-sized box skips that frame entirely, so objects show
+ *  at their raw canvas coordinates instead of fitted to the box. This wraps
+ *  the canvas in that same fixed frame, clipped, then CSS-scales the WHOLE
+ *  frame down to fit the object's own size — exactly what the real editor's
+ *  stage does. */
 function MinimalPagePreview({ linkedPageId }: { linkedPageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, linkedPageId))
   const pages = meta?.docPages ?? []
+  const isSlide = meta?.pageKind === 'pptx'
+  const frameW = isSlide ? SLIDE_W : SHEET_W
+  const frameH = isSlide ? SLIDE_H : SHEET_H
   const [index, setIndex] = useState(0)
   const activePageId = pages[Math.min(index, pages.length - 1)] ?? linkedPageId
   const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation()
 
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = containerRef.current
+    if (!el) return
+    const fit = () => {
+      const rect = el.getBoundingClientRect()
+      setScale(Math.min(rect.width / frameW, rect.height / frameH) || 1)
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [frameW, frameH])
+
   return (
-    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white dark:bg-neutral-900">
-      <div className="pointer-events-none h-full w-full">
+    <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white dark:bg-neutral-900">
+      <div
+        className="pointer-events-none absolute overflow-hidden"
+        style={{ width: frameW, height: frameH, transform: `scale(${scale})` }}
+      >
         <InfiniteCanvas key={activePageId} pageId={activePageId} locked transparent passthrough active={false} />
       </div>
       {pages.length > 1 && (
