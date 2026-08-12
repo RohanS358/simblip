@@ -28,10 +28,8 @@ import { listAllEntries, onManifestChange } from '@/lib/storage/manifest'
 import { deleteFiles, getFile, putFile } from '@/lib/storage/manager'
 import type { FileManifestEntry } from '@/lib/storage/manifest-types'
 import { useDocStore } from '@/lib/store/document'
-import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
 import { baseObject } from '@/lib/scene/factory'
 import type { SceneObject } from '@/lib/scene/types'
-import { pageKindForFile } from '@/components/workspace/open-file'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -268,30 +266,14 @@ export function UploadsPanel({
       toast.success(`Inserted picture "${item.name}"`)
     } else {
       // Non-image assets (pdf/doc/xlsx/pptx) embed as a Document object on
-      // the active page, previewed with the app's own viewers — same object
-      // dropping the file directly onto the canvas creates (canvas.tsx's
-      // embedDocFileOnCanvas), just fed from an already-uploaded asset
-      // instead of a fresh File.
-      if (item.mime === 'application/pdf' || item.name.toLowerCase().endsWith('.pdf')) {
-        const blob = await getFile(item.id)
-        if (!blob) {
-          toast.error('Could not read this file.')
-          return
-        }
-        const obj: SceneObject = baseObject('note', center, item.name)
-        obj.size = { w: 480, h: 340 }
-        obj.metadata = { render: 'file' }
-        store.pushHistory(pageId)
-        store.addObject(pageId, obj)
-        store.setSelection([obj.id])
-        const { putSessionFile } = await import('@/lib/store/ephemeral-storage')
-        putSessionFile(obj.id, new File([blob], item.name, { type: item.mime }))
-        toast.success(`Inserted "${item.name}"`)
-        return
-      }
-      const kind = pageKindForFile({ mime: item.mime, name: item.name })
-      if (!kind) {
-        toast.error("This file type isn't supported yet.")
+      // the active page, previewed with the app's own viewers — via the
+      // same attachFileToObject pipeline canvas.tsx's embedDocFileOnCanvas
+      // uses, so pptx/docx get the same eager import (docPages/sheetColors
+      // populated immediately, not left blank until some other component
+      // happens to mount and import them).
+      const blob = await getFile(item.id)
+      if (!blob) {
+        toast.error('Could not read this file.')
         return
       }
       const obj: SceneObject = baseObject('note', center, item.name)
@@ -300,16 +282,13 @@ export function UploadsPanel({
       store.pushHistory(pageId)
       store.addObject(pageId, obj)
       store.setSelection([obj.id])
-      const wsStore = useWorkspaceStore.getState()
-      const activeNode = findNode(wsStore.nodes, pageId)
-      const parentId = activeNode?.parentId ?? null
-      const newPageId = wsStore.addPageIn(parentId ?? '', item.name.replace(/\.[^.]+$/, ''), kind, false)
-      wsStore.updatePageMeta(newPageId, {
-        fileUrl: item.url.startsWith('opfs:') ? item.url : `opfs:${item.id}`,
-        fileName: item.name,
-        fileMime: item.mime,
-      })
-      store.updateObject(pageId, obj.id, { metadata: { ...obj.metadata, linkedPageId: newPageId } })
+      const { attachFileToObject } = await import('@/components/objects/file-view')
+      const file = new File([blob], item.name, { type: item.mime })
+      const result = await attachFileToObject(pageId, obj.id, obj.metadata, file)
+      if (!result.ok) {
+        toast.error(result.error)
+        return
+      }
       toast.success(`Inserted "${item.name}"`)
     }
   }
