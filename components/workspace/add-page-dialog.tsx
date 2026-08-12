@@ -43,7 +43,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 
-type Step = 'kind' | 'board' | 'doc-kind' | 'doc' | 'pptx' | 'xlsx' | 'web' | 'upload'
+export type Step = 'kind' | 'board' | 'doc-kind' | 'doc' | 'pptx' | 'xlsx' | 'web' | 'upload'
 
 const KIND_TILES: { step: Step; label: string; hint: string; icon: typeof Layout }[] = [
   { step: 'board', label: 'Whiteboard', hint: 'Infinite canvas', icon: Layout },
@@ -107,7 +107,10 @@ export function AddPageDialog({
   onOpenChange,
   onCreated,
 }: {
-  target: { parentId: string } | null
+  /** `step` deep-links past the kind picker: the mobile home screen's
+   *  create tiles already say which kind you picked, so making you pick it
+   *  again in the dialog is a wasted tap. */
+  target: { parentId: string; step?: Step } | null
   onOpenChange: (open: boolean) => void
   /** Extra post-create behavior a call site wants (mobile-shell navigates
    *  straight into the editor). addPage already sets activePageId, so
@@ -122,7 +125,7 @@ export function AddPageDialog({
 
   useEffect(() => {
     if (!target) return
-    setStep('kind')
+    setStep(target.step ?? 'kind')
     setName('')
     setPresetId('a4')
     setOrientation('portrait')

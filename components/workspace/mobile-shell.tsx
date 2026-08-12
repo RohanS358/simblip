@@ -15,8 +15,10 @@ import {
   BookOpen,
   ClipboardList,
   Copy,
+  FileText,
   Download,
   GraduationCap,
+  LayoutDashboard,
   LibraryBig,
   LogOut,
   MonitorPlay,
@@ -24,9 +26,11 @@ import {
   Moon,
   Pencil,
   Plus,
+  Presentation,
   Search,
   Settings,
   Share2,
+  Sheet,
   Sun,
   Trash2,
   Upload,
@@ -72,7 +76,7 @@ import {
   type PageRef,
 } from './page-actions'
 import { PublishDialog } from './library-panel'
-import { AddPageDialog } from './add-page-dialog'
+import { AddPageDialog, type Step as AddPageStep } from './add-page-dialog'
 import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import { AssignmentsPanel } from './assignments-panel'
@@ -119,6 +123,15 @@ const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
   (c) => `/cover/cover-${c}.svg`
 )
 
+/** Stable index from an id, so a notebook without a chosen cover still keeps
+ *  the SAME art every render and across reloads — a random pick would make
+ *  the grid reshuffle its colours on every paint. */
+const hashIndex = (id: string, n: number) => {
+  let h = 0
+  for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) | 0
+  return Math.abs(h) % n
+}
+
 // Touch targets. Apple HIG and Material both want ~44px; these controls used
 // to be a 14px icon in p-1, i.e. a 22px tap area sitting in a card corner —
 // the least accurate place for a thumb. The ICON stays small (the cards are
@@ -137,6 +150,28 @@ const CARD_ACTION_BTN =
 const ICON_BTN =
   'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-muted-foreground ' +
   'transition-transform duration-150 ease-out active:scale-90 hover:bg-accent'
+
+/** Section heading above a grid or strip on the home/folder screens. */
+const SECTION_LABEL =
+  'mb-2.5 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70'
+
+/**
+ * The home screen's create grid.
+ *
+ * Colour-coded per page kind so the row is scannable by hue rather than by
+ * reading four labels — the same reason Canva's "Get started" row works. The
+ * tints are literal oklch values rather than theme tokens on purpose: these
+ * identify a KIND (a presentation is always amber, a sheet always green),
+ * which must stay stable across the ~12 user themes, exactly like a file-type
+ * icon in a file manager. They're used at 16% against the card, so they read
+ * as soft category chips in both light and dark.
+ */
+const CREATE_TILES: { step: AddPageStep; label: string; icon: typeof LayoutDashboard; tint: string }[] = [
+  { step: 'board', label: 'Whiteboard', icon: LayoutDashboard, tint: 'oklch(0.62 0.17 265)' },
+  { step: 'doc', label: 'Document', icon: FileText, tint: 'oklch(0.60 0.15 230)' },
+  { step: 'pptx', label: 'Slides', icon: Presentation, tint: 'oklch(0.68 0.16 55)' },
+  { step: 'xlsx', label: 'Sheet', icon: Sheet, tint: 'oklch(0.60 0.14 155)' },
+]
 
 /**
  * Entry animation for a card in a grid. Cards used to appear as one solid
@@ -164,7 +199,7 @@ export function MobileShell() {
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
   const [presentFor, setPresentFor] = useState<PageRef | null>(null)
   const [publishFor, setPublishFor] = useState<PageRef | null>(null)
-  const [addTarget, setAddTarget] = useState<{ parentId: string } | null>(null)
+  const [addTarget, setAddTarget] = useState<{ parentId: string; step?: AddPageStep } | null>(null)
   // One shared hidden <input type=file>, same pattern notebook-tree.tsx
   // uses — a tap can't open the native picker directly.
   const uploadInputRef = useRef<HTMLInputElement>(null)
@@ -1137,52 +1172,100 @@ export function MobileShell() {
         <NotificationCenter />
       </header>
       <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
+        {/* One line, not three. The old block spent ~180px on a 40px black
+            "Hello there, {name}" + subtitle before any content — on a 900px
+            phone that's a fifth of the screen given to the app introducing
+            itself. The name still greets you; it just doesn't take the fold. */}
         {showGreeting && profile && (
-          <div className="pb-5 pt-3">
-            <h1 className="text-[2.5rem] font-black tracking-tight leading-[1.05] text-foreground drop-shadow-sm">
-              Hello there,
-              <br />
-              {profile.full_name.split(' ')[0]}
-            </h1>
-            <p className="mt-2 text-[0.9375rem] font-medium text-muted-foreground">What are we creating today?</p>
-          </div>
+          <h1 className="pb-3 pt-1 text-[1.5rem] font-extrabold tracking-tight leading-tight text-foreground">
+            Hi, {profile.full_name.split(' ')[0]}
+            <span className="text-muted-foreground/70"> — what are we making?</span>
+          </h1>
         )}
         {showGreeting && (
           <button
             type="button"
             onClick={openSearch}
-            className="mb-6 flex w-full items-center gap-2.5 rounded-2xl border border-border/50 bg-card/80 px-4 py-3 text-left shadow-sm backdrop-blur-sm transition-transform active:scale-[0.98]"
+            className="mb-5 flex w-full items-center gap-2.5 rounded-2xl border border-border/50 bg-card/80 px-4 py-3 text-left shadow-sm backdrop-blur-sm transition-transform active:scale-[0.98]"
           >
             <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
             <span className="text-[0.875rem] text-muted-foreground">Search your notebooks and pages…</span>
           </button>
         )}
-        {showGreeting && <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />}
-        {showGreeting && recentPages.length > 0 && (
+        {/* Create grid — the screen's reason to exist, above the fold.
+            Every page kind is one tap from home instead of buried behind
+            "New notebook" → open → "+" → pick a kind. Each tile deep-links
+            into that kind's step in AddPageDialog, so the kind you tapped is
+            never asked again. Color-coded per kind so the grid is scannable
+            by shape and hue, not by reading four labels. */}
+        {showGreeting && (
           <div className="pb-6">
-            <p className="mb-2 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
-              Recent
-            </p>
-            <div className="flex gap-2.5 overflow-x-auto pb-1">
-              {recentPages.map(({ page, notebookName }) => (
+            <p className={SECTION_LABEL}>Create</p>
+            <div className="grid grid-cols-4 gap-2">
+              {CREATE_TILES.map(({ step, label, icon: Icon, tint }) => (
                 <button
-                  key={page.id}
+                  key={step}
                   type="button"
-                  className="relative aspect-[4/3] w-28 shrink-0 overflow-hidden rounded-xl border border-border/50 bg-muted/40 text-left"
-                  onClick={() => openPage(page.id)}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/80 px-1 py-3 shadow-sm transition-transform active:scale-95"
+                  onClick={() => {
+                    // Create into the most recently used notebook when there
+                    // is one — a page has to live somewhere, and asking
+                    // "which notebook?" first is the friction this grid exists
+                    // to remove. Falls back to making one.
+                    const ws = store.getState()
+                    const existing = childrenOf(ws.nodes, null)
+                      .find((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
+                    setAddTarget({ parentId: existing?.id ?? ws.addNotebook(), step })
+                  }}
                 >
-                  <PageThumbnail pageId={page.id} className="absolute inset-0 p-1" />
-                  <span className="absolute inset-x-0 top-0 truncate bg-gradient-to-b from-black/45 to-transparent px-1.5 pt-1 pb-2.5 text-[0.5625rem] font-semibold uppercase tracking-wide text-white/90">
-                    {notebookName}
+                  <span
+                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    style={{ backgroundColor: `color-mix(in oklch, ${tint} 16%, transparent)` }}
+                  >
+                    <Icon className="h-5 w-5" style={{ color: tint }} />
                   </span>
-                  <span className="absolute inset-x-0 bottom-0 truncate bg-black/50 px-1.5 py-1 text-[0.625rem] font-semibold text-white">
-                    {page.name}
-                  </span>
+                  <span className="text-[0.6875rem] font-semibold leading-tight text-foreground">{label}</span>
                 </button>
               ))}
             </div>
           </div>
         )}
+        {showGreeting && <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />}
+        {/* Recent. Labels sit BELOW the thumbnail, not stacked on top of it:
+            the old card had a dark gradient at the top for the notebook name
+            and a solid black bar at the bottom for the page name, which
+            covered a third of the preview and still truncated both to
+            "UNTITLED NOTEBO…". A thumbnail's whole job is to be recognised at
+            a glance — so the image gets the full card, and the text gets
+            real background contrast underneath it. */}
+        {showGreeting && recentPages.length > 0 && (
+          <div className="pb-6">
+            <p className={SECTION_LABEL}>Recent</p>
+            <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
+              {recentPages.map(({ page, notebookName }) => {
+                const KindIcon = KIND_ICON[page.pageKind ?? 'board']
+                return (
+                  <button
+                    key={page.id}
+                    type="button"
+                    className="w-32 shrink-0 text-left transition-transform active:scale-95"
+                    onClick={() => openPage(page.id)}
+                  >
+                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm">
+                      <PageThumbnail pageId={page.id} className="absolute inset-0 p-1" />
+                    </div>
+                    <p className="mt-1.5 flex items-center gap-1 truncate text-[0.75rem] font-semibold text-foreground">
+                      <KindIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{page.name}</span>
+                    </p>
+                    <p className="truncate text-[0.6875rem] text-muted-foreground">{notebookName}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+        {showGreeting && <p className={SECTION_LABEL}>Your notebooks</p>}
         <div className="grid grid-cols-2 gap-4">
           {childrenOf(nodes, null)
             .filter((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
@@ -1199,15 +1282,20 @@ export function MobileShell() {
                 onClick={() => navigateToView({ kind: 'folder', id: nb.id })}
               >
                 {/* Cover image instead of an icon — pick one from /cover. */}
+                {/* A notebook with no cover picked used to render a flat pale
+                    wash with a grey book glyph — the same image for every
+                    notebook, so a grid of them was a grid of identical grey
+                    rectangles with nothing to tell them apart but the caption.
+                    The shipped cover art is already there; picking one by id
+                    hash gives each notebook a stable, distinct face from the
+                    moment it's created, and the user can still override it. */}
                 <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
-                  {nb.cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={nb.cover} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] to-transparent">
-                      <BookOpen className="h-7 w-7 text-muted-foreground/50" />
-                    </div>
-                  )}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={nb.cover ?? COVERS[hashIndex(nb.id, COVERS.length)]}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                       <button
@@ -1249,7 +1337,11 @@ export function MobileShell() {
                 </div>
                 <div className="flex flex-col p-3">
                   <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight">{nb.name}</span>
-                  <span className="mt-0.5 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground/80">
+                  {/* Plain sentence case, not bold uppercase: the count is
+                      supporting metadata, and shouting "3 PAGES" at the same
+                      weight as the notebook's own name flattens the card's
+                      hierarchy to nothing. */}
+                  <span className="mt-0.5 text-[0.75rem] text-muted-foreground">
                     {pages} page{pages === 1 ? '' : 's'}
                   </span>
                 </div>
@@ -1258,7 +1350,7 @@ export function MobileShell() {
           })}
           <fm.div
             whileTap={{ scale: 0.95 }}
-            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-border/60 bg-muted/20 p-4 text-muted-foreground"
+            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-border/70 bg-muted/20 p-4 text-muted-foreground"
             onClick={() => {
               const id = store.getState().addNotebook()
               const sec = store.getState().addFolder('Section 1', id)

@@ -401,16 +401,19 @@ function ExprInput({
             'absolute right-1 top-1/2 -translate-y-1/2 rounded px-1 py-0.5 font-mono text-[0.625rem] leading-none transition-opacity duration-150',
             // Base is VISIBLE-but-quiet, not hidden. A hover-only reveal
             // would leave the chip unreachable on a tablet, where there is no
-            // hover and a tap gives focus (not :focus-visible). Pointer-fine
-            // devices get the calmer fade-up instead.
+            // hover and a tap gives focus (not :focus-visible). Hover-capable
+            // devices get the calmer fade-up instead. Guarded on hover alone,
+            // matching the global `hover:` variant in globals.css — adding
+            // `(pointer: fine)` also excludes touchscreen laptops, which do
+            // have a mouse.
             'text-muted-foreground opacity-50 hover:!opacity-100 hover:text-foreground',
             // Underscores are Tailwind's escape for spaces in an arbitrary
             // variant — without them the `and` fuses to the parens and the
             // whole stylesheet fails to parse.
-            '[@media(hover:hover)_and_(pointer:fine)]:opacity-0',
-            '[@media(hover:hover)_and_(pointer:fine)]:group-hover/expr:opacity-70',
+            '[@media(hover:hover)]:opacity-0',
+            '[@media(hover:hover)]:group-hover/expr:opacity-70',
             // Focusing the field is the moment you might want the picker.
-            '[@media(hover:hover)_and_(pointer:fine)]:group-focus-within/expr:opacity-70',
+            '[@media(hover:hover)]:group-focus-within/expr:opacity-70',
             'focus-visible:!opacity-100',
             openList && '!opacity-100 text-[var(--accent-blue)]'
           )}

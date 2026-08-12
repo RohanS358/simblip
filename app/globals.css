@@ -14,8 +14,17 @@
  * editing the ~100 call sites that use it.
  *
  * Press feedback on touch is `active:` (see the active:scale-* utilities on
- * buttons), which is the correct signal there. */
-@custom-variant hover (@media (hover: hover) and (pointer: fine) { &:hover });
+ * buttons), which is the correct signal there.
+ *
+ * Guarded on hover CAPABILITY only — deliberately NOT `and (pointer: fine)`.
+ * Those are separate questions, and only the first one is being asked here: a
+ * phone reports `hover: none` and is excluded by this alone. Adding the
+ * pointer test also excluded every machine whose PRIMARY pointer is coarse
+ * while still having a mouse — touchscreen laptops, 2-in-1s, and desktops
+ * with a digitizer/tablet driver — which silently killed hover across the
+ * whole app on real desktops (the sidebar resize bar and notebook tree rows
+ * are where it showed first). */
+@custom-variant hover (@media (hover: hover) { &:hover });
 
 /* Mobile Safari/Chrome auto-inflate font-size on text blocks that don't fill
    the viewport width ("text size adjust") — invisible on most pages, but it

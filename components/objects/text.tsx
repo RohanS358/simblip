@@ -151,6 +151,11 @@ function useLiveTextEditor(
    *  CARET_HOST_CHAR in lib/text/render.ts), so this is a direct Range-walk
    *  with no shown-vs-raw proportional estimate needed for any line. */
   const posAt = (node: Node, nodeOffset: number): { line: number; offset: number } | null => {
+    // Must be inside THIS editor. Every text box on the page renders the same
+    // `data-i` line divs, so walking up for one without also confirming the
+    // owner would happily map a selection living in a different box onto this
+    // box's line numbers.
+    if (!editorRef.current?.contains(node)) return null
     let n: Node | null = node
     let lineDiv: HTMLElement | null = null
     while (n && n !== editorRef.current) {
@@ -385,8 +390,13 @@ function useLiveTextEditor(
    *  Only a genuine new click/selection — which clears the fresh flag
    *  first, see activateLine/onClick/onKeyUp below — earns a re-snapshot. */
   const snapshotSelection = () => {
-    if (snapshotFreshRef.current) return
     const span = selectionSpan()
+    // Same rule as setSpan: a live range beats a "fresh" snapshot, because
+    // the user can only have made it after that snapshot was taken. Without
+    // this, selecting different text and then dragging the Size field kept
+    // re-applying to the earlier range — the no-op below meant the new
+    // selection was never captured at all.
+    if (snapshotFreshRef.current && !span) return
     const pos = caretPosition()
     if (span) {
       snapshotRef.current = { s: span.s, e: span.e }
@@ -431,9 +441,30 @@ function useLiveTextEditor(
       commit()
       return
     }
-    const snap = snapshotRef.current
+    // A LIVE range selection always wins over a restored snapshot.
+    //
+    // setSpan re-arms snapshotRef after a snapshot-driven edit (see the tail
+    // of this function) so repeated nudges of the same panel field keep
+    // hitting the same range. That re-armed snapshot is only meant to survive
+    // until the user goes back to the canvas — but the clears for it hang off
+    // the editor's own onClick/onKeyUp, and a panel button never lets those
+    // fire: `guard` in inspector.tsx preventDefaults the pointerdown
+    // precisely so the contentEditable KEEPS its selection and never sees a
+    // click. So after one Size edit, every later panel edit (a colour
+    // swatch, a weight) still read the old snapshot and restyled the
+    // previously-selected text instead of what was selected now.
+    //
+    // If window.getSelection() currently holds a real (non-collapsed) range
+    // inside this editor, the user selected it AFTER the snapshot was taken —
+    // the snapshot is stale by definition, so drop it. The snapshot path
+    // still covers the case it exists for: a focus-stealing panel input
+    // (the Size number field) that has already collapsed the DOM selection,
+    // where selectionSpan() returns null and there is nothing live to prefer.
+    const live = selectionSpan()
+    const snap = live ? null : snapshotRef.current
     snapshotRef.current = null // one-shot — a stale snapshot from an earlier edit must never silently reapply
-    const span = snap ? null : selectionSpan()
+    if (live) snapshotFreshRef.current = false
+    const span = snap ? null : live
     const pos = snap ? null : caretPosition()
 
     const sLoc = snap ? snap.s : span ? span.s : pos
