@@ -504,11 +504,16 @@ function shapeBox(sp: Element, scale: SlideScale, groupChain: GroupXfrm[] = []):
   const canvasY = Math.round((abs.y - scale.slideOffsetY) / scale.emuPerPxY)
   const w = Math.round(abs.w / scale.emuPerPxX)
   const h = Math.round(abs.h / scale.emuPerPxY)
+  // w/h=0 is NOT clamped here: a straight connector is legitimately
+  // zero-height (horizontal) or zero-width (vertical) in OOXML — the actual
+  // angle comes from rotation/flip, not the box. Callers that need a
+  // never-zero box (rect/circle/picture) clamp themselves; clamping here
+  // corrupted every horizontal/vertical pptx line into a diagonal.
   return {
     x: Number.isFinite(canvasX) ? canvasX : 40,
     y: Number.isFinite(canvasY) ? canvasY : 40,
-    w: w > 0 ? w : 320,
-    h: h > 0 ? h : 48,
+    w: Number.isFinite(w) ? w : 320,
+    h: Number.isFinite(h) ? h : 48,
   }
 }
 
@@ -1024,7 +1029,7 @@ async function pictureObject(
 
   const box = shapeBox(pic, scale, groupChain)
   const obj = baseObject('picture', { x: box.x, y: box.y })
-  obj.size = { w: box.w, h: box.h }
+  obj.size = { w: box.w > 0 ? box.w : 320, h: box.h > 0 ? box.h : 48 }
   obj.geometry.src = src
   obj.rotation = shapeRotation(pic)
   Object.assign(obj.metadata, shapeFlip(pic))
@@ -1048,6 +1053,12 @@ async function shapesToObjects(
   if (!spTree) return { objects: [] }
   const objects: SceneObject[] = []
   const placeholderStyles = await loadPlaceholderStyles(zip, slideName, theme, scale)
+
+  // rect/circle/polygon need a non-zero box to render at all; 'line' does
+  // not — a zero-height/width line is a legitimate horizontal/vertical
+  // connector, and clamping it produces a diagonal instead.
+  const shapeSize = (kind: ReturnType<typeof geometryKindOf>, box: { w: number; h: number }) =>
+    kind === 'line' ? { w: box.w, h: box.h } : { w: box.w > 0 ? box.w : 320, h: box.h > 0 ? box.h : 48 }
 
   const applyPolygonPoints = (shape: SceneObject, sp: Element, box: { w: number; h: number }) => {
     if (shape.geometry.kind !== 'polygon' && shape.geometry.kind !== 'line') return
@@ -1150,8 +1161,9 @@ async function shapesToObjects(
         // no fill/border of its own — matches what the slide visually shows
         // even though it's two SceneObjects instead of PowerPoint's one.
         if (hasVisibleShape) {
-          const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
-          shape.size = { w: box.w, h: box.h }
+          const kind = geometryKindOf(child)
+          const shape = baseObject(kind, { x: box.x, y: box.y })
+          shape.size = shapeSize(kind, box)
           shape.z = obj.z - 1
           shape.rotation = rotation
           applyPolygonPoints(shape, child, box)
@@ -1162,8 +1174,9 @@ async function shapesToObjects(
           objects.push(shape)
         }
       } else if (hasVisibleShape) {
-        const shape = baseObject(geometryKindOf(child), { x: box.x, y: box.y })
-        shape.size = { w: box.w, h: box.h }
+        const kind = geometryKindOf(child)
+        const shape = baseObject(kind, { x: box.x, y: box.y })
+        shape.size = shapeSize(kind, box)
         shape.rotation = rotation
         applyPolygonPoints(shape, child, box)
         if (fillColor) shape.metadata.fillColor = fillColor
