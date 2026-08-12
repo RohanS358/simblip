@@ -6,7 +6,14 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { SceneObject, Variable, BehaviorType, NumericParam } from '@/lib/scene/types'
+import type {
+  SceneObject,
+  Variable,
+  BehaviorType,
+  NumericParam,
+  ParamValue,
+} from '@/lib/scene/types'
+import { renameInExpr } from '@/lib/scene/bindings'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
@@ -181,6 +188,73 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
     objects[id] = changed ? { ...obj, parameters, behaviors } : obj
   }
   return { content: { objects, variables }, scope }
+}
+
+/**
+ * Rewrite every [oldName(channel)] token on a page to the object's new name —
+ * the three places liveScopeOf() scans for them: page variables, object
+ * params, behavior params. Without this, renaming an object silently zeroes
+ * every formula that referenced it (the token resolves by name, finds
+ * nothing, and yields 0 rather than an error).
+ *
+ * Writes only when something actually changed, so the common rename — one
+ * where no formula mentions the object — costs a scan and no re-render.
+ */
+function renameLiveRefs(
+  get: () => DocState,
+  set: (fn: (s: DocState) => Partial<DocState>) => void,
+  pageId: string,
+  oldName: string,
+  newName: string
+) {
+  const page = get().pages[pageId]
+  if (!page) return
+
+  const rewriteParams = (
+    params: Record<string, ParamValue>
+  ): Record<string, ParamValue> | null => {
+    let changed = false
+    const next = { ...params }
+    for (const [name, p] of Object.entries(params)) {
+      if (p.kind !== 'number') continue
+      const expr = renameInExpr(p.expr, oldName, newName)
+      if (expr !== p.expr) {
+        next[name] = { ...p, expr }
+        changed = true
+      }
+    }
+    return changed ? next : null
+  }
+
+  let dirty = false
+
+  const variables = page.variables.map((v) => {
+    const expr = renameInExpr(v.expr, oldName, newName)
+    if (expr === v.expr) return v
+    dirty = true
+    return { ...v, expr }
+  })
+
+  const objects: Record<string, SceneObject> = {}
+  for (const [id, obj] of Object.entries(page.objects)) {
+    const parameters = rewriteParams(obj.parameters)
+    let bDirty = false
+    const behaviors = obj.behaviors.map((b) => {
+      const params = rewriteParams(b.params)
+      if (!params) return b
+      bDirty = true
+      return { ...b, params }
+    })
+    if (parameters || bDirty) {
+      dirty = true
+      objects[id] = { ...obj, parameters: parameters ?? obj.parameters, behaviors }
+    } else {
+      objects[id] = obj
+    }
+  }
+
+  if (!dirty) return
+  set((s) => ({ pages: { ...s.pages, [pageId]: { objects, variables } } }))
 }
 
 interface DocState {
@@ -483,6 +557,13 @@ export const useDocStore = create<DocState>()(
 
       updateObject: (pageId, id, patch, { history = false } = {}) => {
         if (history) get().pushHistory(pageId)
+        // Formulas reference objects by NAME ([Voltmeter 1(V)]), so a rename
+        // would orphan every token pointing at the old one. Rewrite them here
+        // — the one path every rename goes through — before the patch lands.
+        const prevName = get().pages[pageId]?.objects[id]?.name
+        if (patch.name !== undefined && prevName && patch.name !== prevName) {
+          renameLiveRefs(get, set, pageId, prevName, patch.name)
+        }
         set((s) => patchObject(s, pageId, id, (obj) => ({ ...obj, ...patch })))
         // Cheap gate: only walk connectors when this patch could have moved
         // the object's boundary, and only if the patch actually landed (a

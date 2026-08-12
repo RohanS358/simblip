@@ -70,6 +70,37 @@ export function channelsFor(obj: SceneObject): string[] {
   return [...new Set(out)]
 }
 
+// ── Truth-table roles ───────────────────────────────────────────────────────
+// A truth table drives some components and reads others. That used to live in
+// its own symbol allowlists in lib/circuit/truth-table.ts, disconnected from
+// the channel registry above — so a symbol could be graphable but invisible to
+// the table (or the reverse) with nothing to catch the drift. Both questions
+// are "what does this symbol do?", so both are answered here.
+
+/** Symbols a truth table can DRIVE → the param it forces. */
+export const DRIVABLE: Record<string, string> = {
+  input: 'value', // logic input → its `value` param
+  switch: 'closed', // a switch is a 1-bit input too
+}
+
+/** Symbols a truth table can READ. */
+export const READABLE = new Set(['output', 'logic-probe', 'led', 'bulb'])
+
+const symbolOf = (o: SceneObject): string | undefined =>
+  o.geometry.kind === 'symbol' ? o.geometry.symbol : undefined
+
+/** Can a truth table force this object's state? */
+export const isDrivable = (o: SceneObject): boolean => {
+  const s = symbolOf(o)
+  return !!s && s in DRIVABLE
+}
+
+/** Can a truth table read this object's state? */
+export const isReadable = (o: SceneObject): boolean => {
+  const s = symbolOf(o)
+  return !!s && READABLE.has(s)
+}
+
 /** Human-readable unit hint for a channel — used in pickers. */
 export const CHANNEL_LABELS: Record<string, string> = {
   x: 'x position (cm)',

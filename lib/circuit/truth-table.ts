@@ -13,6 +13,7 @@
 
 import type { SceneObject } from '@/lib/scene/types'
 import { num } from '@/lib/scene/types'
+import { DRIVABLE, isDrivable, isReadable } from '@/lib/scene/channels'
 import { buildCircuit, stepCircuit, type Circuit } from './engine'
 
 const DT = 1 / 120
@@ -20,27 +21,13 @@ const DT = 1 / 120
  *  enough for a value to ripple through the deepest chain of gates. */
 const SETTLE = 16
 
-/** Components a truth table can DRIVE — the things you'd flip by hand. */
-const SOURCE_SYMBOLS: Record<string, string> = {
-  input: 'value', // logic input → its `value` param
-  switch: 'closed', // a switch is a 1-bit input too
-}
-
-/** Components a truth table can READ. */
-const SINK_SYMBOLS = new Set(['output', 'logic-probe', 'led', 'bulb'])
+// Which components can be driven/read lives in lib/scene/channels.ts, next to
+// the channel registry — one place answers "what does this symbol do?".
+export const isTruthSource = isDrivable
+export const isTruthSink = isReadable
 
 const symbolOf = (o: SceneObject): string | undefined =>
   o.geometry.kind === 'symbol' ? o.geometry.symbol : undefined
-
-export const isTruthSource = (o: SceneObject): boolean => {
-  const s = symbolOf(o)
-  return !!s && s in SOURCE_SYMBOLS
-}
-
-export const isTruthSink = (o: SceneObject): boolean => {
-  const s = symbolOf(o)
-  return !!s && SINK_SYMBOLS.has(s)
-}
 
 /** Everything on the page this table could use, in placement order. */
 export function truthCandidates(objects: SceneObject[]): {
@@ -116,7 +103,7 @@ export function computeTruthTable(
     const forced = objects.map((o) => {
       const idx = inputs.findIndex((inp) => inp.id === o.id)
       if (idx < 0) return o
-      const param = SOURCE_SYMBOLS[symbolOf(o) as string]
+      const param = DRIVABLE[symbolOf(o) as string]
       return { ...o, parameters: { ...o.parameters, [param]: num(String(ins[idx])) } }
     })
 

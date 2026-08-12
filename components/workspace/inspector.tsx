@@ -57,7 +57,6 @@ import { useWorkspaceStore, ownerPageOf, findPageMeta } from '@/lib/store/worksp
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { useImagePalette } from '@/lib/color/use-image-palette'
-import { readBuffer } from '@/lib/physics/bus'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
 import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, parse, applyMark, serialize, type MarkKind } from '@/lib/text/marks'
@@ -95,10 +94,17 @@ import {
   laplaceSteps,
   fourierSteps,
 } from '@/lib/formula/steps'
-import { channelsFor, CHANNEL_LABELS } from '@/lib/scene/channels'
+import { CHANNEL_LABELS } from '@/lib/scene/channels'
+import {
+  bindableObjects,
+  channelOptions,
+  serializeBindings,
+  splitIds,
+} from '@/lib/scene/bindings'
 import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 import { InfoPopover } from './info-popover'
+import { ColumnPicker } from './column-picker'
 
 /** Commits on blur/Enter — mid-typing never hits the engine. Figma-style:
  * a single click never enters text edit — only a double-click does. A
@@ -491,8 +497,6 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
   )
 }
 
-const GRAPH_CHANNELS = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
-
 // Stable fallbacks (never recreated per render) so Zustand selectors always
 // return the same reference — an inline `?? {}`/`?? []` rebuilds a fresh
 // snapshot every render and trips useSyncExternalStore's bailout (React #185).
@@ -539,11 +543,7 @@ const getStr = (obj: SceneObject, name: string): string => {
   return p?.kind === 'string' ? p.value : ''
 }
 
-const splitList = (s: string) =>
-  s
-    .split(';')
-    .map((c) => c.trim())
-    .filter(Boolean)
+const splitList = splitIds
 
 const selectCls =
   'w-full min-w-0 rounded-md border border-input bg-background/60 px-1.5 py-1 text-[0.71875rem] outline-none focus:border-[var(--ring)]'
@@ -569,53 +569,21 @@ function TruthTableOptions({ pageId, object }: { pageId: string; object: SceneOb
   const { sources, sinks } = truthCandidates(Object.values(pageObjects))
 
   const picked = (param: 'inputs' | 'outputs') => splitList(getStr(object, param))
-  const toggle = (param: 'inputs' | 'outputs', id: string) => {
-    const cur = picked(param)
-    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    setStringParam(pageId, object.id, param, next.join('; '))
-  }
 
   const list = (
     param: 'inputs' | 'outputs',
     items: SceneObject[],
     empty: string,
     color: string
-  ) => {
-    const chosen = picked(param)
-    return items.length === 0 ? (
-      <p className="text-[0.71875rem] text-muted-foreground">{empty}</p>
-    ) : (
-      <div className="space-y-1">
-        {items.map((o) => {
-          const on = chosen.includes(o.id)
-          return (
-            <button
-              key={o.id}
-              type="button"
-              role="switch"
-              aria-checked={on}
-              className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-[0.75rem] transition-colors"
-              style={{
-                borderColor: on ? color : 'var(--border)',
-                color: on ? 'var(--foreground)' : 'var(--muted-foreground)',
-                background: on ? `color-mix(in oklch, ${color} 10%, transparent)` : 'transparent',
-              }}
-              onClick={() => toggle(param, o.id)}
-            >
-              <span
-                className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: on ? color : 'var(--border)' }}
-              />
-              <span className="min-w-0 flex-1 truncate">{o.name}</span>
-              <span className="shrink-0 font-mono text-[0.625rem] opacity-60">
-                {o.geometry.symbol}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-    )
-  }
+  ) => (
+    <ColumnPicker
+      items={items}
+      value={getStr(object, param)}
+      onChange={(next) => setStringParam(pageId, object.id, param, next)}
+      color={color}
+      empty={empty}
+    />
+  )
 
   const nIn = picked('inputs').length
 
@@ -979,24 +947,16 @@ function GraphOptions({
   const setStringParam = useDocStore((s) => s.setStringParam)
   const set = (name: string, v: string) => setStringParam(pageId, object.id, name, v)
 
+  const byId = new Map(bodies.map((b) => [b.id, b]))
   const series = parseSeries(object)
-  const channelsFor = (objId: string) => {
-    const live = readBuffer(objId)?.channelNames
-    if (live && live.length > 0) return live
-    // No samples yet: guess from the object kind — circuit parts stream
-    // V/I/P (analog) or level/value (digital), bodies stream motion.
-    const o = bodies.find((b) => b.id === objId)
-    if (o?.behaviors.some((b) => b.enabled && b.type === 'electricalNode')) {
-      const sym = o.geometry.symbol ?? ''
-      if (sym === 'logic-probe') return ['level']
-      if (sym === 'output' || sym === 'input' || sym === 'clock') return ['value']
-      return ['V', 'I', 'P']
-    }
-    return GRAPH_CHANNELS
-  }
+  // Channel discovery lives in lib/scene/bindings.ts — the same source the
+  // Variables panel uses. This used to be a local re-guess from behaviors
+  // that offered V/I/P for anything electrical, which was wrong for the many
+  // symbols with their own channel sets (potentiometer, transformer, motors…).
+  const channelsOf = (objId: string) => channelOptions(byId.get(objId))
 
   const writeSeries = (list: GraphSeries[]) => {
-    set('series', list.map((s) => `${s.objectId}:${s.channel}`).join('; '))
+    set('series', serializeBindings(list))
     // Legacy single-source params would resurrect as a fallback once the
     // series list empties — clear them the first time the editor writes.
     if (getStr(object, 'sourceId')) set('sourceId', '')
@@ -1045,7 +1005,7 @@ function GraphOptions({
   )
 
   const xChannel = getStr(object, 'xChannel') || 't'
-  const xOptions = [...new Set(['t', ...(series[0] ? channelsFor(series[0].objectId) : [])])]
+  const xOptions = [...new Set(['t', ...(series[0] ? channelsOf(series[0].objectId) : [])])]
 
   return (
     <div className="space-y-4">
@@ -1070,7 +1030,7 @@ function GraphOptions({
               value={s.objectId}
               onChange={(e) => {
                 const objId = e.target.value
-                const chs = channelsFor(objId)
+                const chs = channelsOf(objId)
                 updateSeries(i, { objectId: objId, channel: chs.includes(s.channel) ? s.channel : chs[0] })
               }}
             >
@@ -1087,8 +1047,8 @@ function GraphOptions({
               value={s.channel}
               onChange={(e) => updateSeries(i, { channel: e.target.value })}
             >
-              {!channelsFor(s.objectId).includes(s.channel) && <option value={s.channel}>{s.channel}</option>}
-              {channelsFor(s.objectId).map((c) => (
+              {!channelsOf(s.objectId).includes(s.channel) && <option value={s.channel}>{s.channel}</option>}
+              {channelsOf(s.objectId).map((c) => (
                 <option key={c} value={c}>
                   {c}
                 </option>
@@ -1110,7 +1070,7 @@ function GraphOptions({
             onClick={() => {
               const objId = series[series.length - 1]?.objectId ?? bodies[0].id
               const used = series.filter((s) => s.objectId === objId).map((s) => s.channel)
-              const chs = channelsFor(objId)
+              const chs = channelsOf(objId)
               writeSeries([...series, { objectId: objId, channel: chs.find((c) => !used.includes(c)) ?? chs[0] }])
             }}
           />
@@ -3155,17 +3115,11 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   const [bindCh, setBindCh] = useState('')
   // Only objects that actually stream data can be bound — and each one
   // offers ITS channels (a mass gives x/vx/ke, a resistor gives V/I/P).
-  // Derived from the object, so this works before Play has ever run; a live
-  // buffer, when one exists, is authoritative.
-  const objectList = Object.values(pageObjects).filter(
-    (o) => o.metadata.render !== 'system' && channelsFor(o).length > 0
-  )
-  const channelsOf = (id: string): string[] => {
-    const live = readBuffer(id)?.channelNames
-    if (live && live.length > 0) return live
-    const obj = pageObjects[id]
-    return obj ? channelsFor(obj) : []
-  }
+  // Shared with the graph series picker (lib/scene/bindings.ts): derived from
+  // the object so this works before Play has ever run, with a live buffer
+  // taking over once one exists.
+  const objectList = bindableObjects(Object.values(pageObjects))
+  const channelsOf = (id: string): string[] => channelOptions(pageObjects[id])
 
   return (
     <div className="space-y-1.5">

@@ -15,16 +15,14 @@ import {
   truthCandidates,
   MAX_INPUTS,
 } from '@/lib/circuit/truth-table'
+import { splitIds } from '@/lib/scene/bindings'
+import { ColumnPicker } from '@/components/workspace/column-picker'
 import { getString, type ObjectRendererProps } from './types'
 
 const ONE = 'var(--chart-2)' // high
 const ZERO = 'var(--muted-foreground)' // low
 
-const splitList = (s: string) =>
-  s
-    .split(';')
-    .map((x) => x.trim())
-    .filter(Boolean)
+const splitList = splitIds
 
 export function TruthTableObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -47,29 +45,17 @@ export function TruthTableObject({ pageId, object, selected }: ObjectRendererPro
   const nothingPicked = inputIds.length === 0 || outputIds.length === 0
 
   // Quick-pick shown before any column is chosen — so the component is usable
-  // the moment it lands, without opening the Inspector.
-  const toggle = (param: 'inputs' | 'outputs', id: string) => {
-    const cur = splitList(getString(object, param))
-    const next = cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    setStringParam(pageId, object.id, param, next.join('; '))
-  }
-
-  const chip = (param: 'inputs' | 'outputs', id: string, name: string, on: boolean) => (
-    <button
-      key={id}
-      type="button"
-      aria-pressed={on}
-      className="rounded-md border px-1.5 py-0.5 font-mono text-[10.5px] transition-colors"
-      style={{
-        borderColor: on ? ONE : 'var(--border)',
-        color: on ? ONE : 'var(--muted-foreground)',
-        background: on ? `color-mix(in oklch, ${ONE} 12%, transparent)` : 'transparent',
-      }}
-      onPointerDown={(e) => e.stopPropagation()}
-      onClick={() => toggle(param, id)}
-    >
-      {name}
-    </button>
+  // the moment it lands, without opening the Inspector. Same picker the
+  // Inspector uses, at chip density (components/workspace/column-picker.tsx).
+  const pick = (param: 'inputs' | 'outputs', items: typeof sources, empty: string) => (
+    <ColumnPicker
+      variant="chip"
+      items={items}
+      value={getString(object, param)}
+      onChange={(next) => setStringParam(pageId, object.id, param, next)}
+      color={ONE}
+      empty={empty}
+    />
   )
 
   return (
@@ -102,23 +88,13 @@ export function TruthTableObject({ pageId, object, selected }: ObjectRendererPro
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Inputs
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {sources.map((o) => chip('inputs', o.id, o.name, inputIds.includes(o.id)))}
-                  {sources.length === 0 && (
-                    <span className="text-[11px] text-muted-foreground">No inputs on this page.</span>
-                  )}
-                </div>
+                {pick('inputs', sources, 'No inputs on this page.')}
               </div>
               <div className="space-y-1">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Outputs
                 </p>
-                <div className="flex flex-wrap gap-1">
-                  {sinks.map((o) => chip('outputs', o.id, o.name, outputIds.includes(o.id)))}
-                  {sinks.length === 0 && (
-                    <span className="text-[11px] text-muted-foreground">No outputs on this page.</span>
-                  )}
-                </div>
+                {pick('outputs', sinks, 'No outputs on this page.')}
               </div>
               <p className="mt-auto text-[10.5px] leading-relaxed text-muted-foreground">
                 Every combination is simulated on the real circuit. Up to {MAX_INPUTS} inputs.

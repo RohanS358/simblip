@@ -29,6 +29,7 @@ import { derivativeExpr } from '@/lib/formula/steps'
 import { fmtNum } from '@/lib/scene/format'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
+import { parseBindings, type Binding } from '@/lib/scene/bindings'
 import { getString, type ObjectRendererProps } from './types'
 
 // Stable empty scope reference — see components/objects/table.tsx.
@@ -53,23 +54,13 @@ const splitList = (s: string) =>
     .map((c) => c.trim())
     .filter(Boolean)
 
-export interface GraphSeries {
-  objectId: string
-  channel: string
-}
+/** A graph series is just a binding — one object's one channel. */
+export type GraphSeries = Binding
 
 /** Parse the `series` param, falling back to legacy sourceId+yChannels. */
 export function parseSeries(object: ObjectRendererProps['object']): GraphSeries[] {
-  const raw = splitList(getString(object, 'series'))
-  if (raw.length > 0) {
-    return raw
-      .map((entry) => {
-        const i = entry.indexOf(':')
-        if (i <= 0) return null
-        return { objectId: entry.slice(0, i), channel: entry.slice(i + 1) }
-      })
-      .filter((s): s is GraphSeries => s !== null && s.channel.length > 0)
-  }
+  const bound = parseBindings(getString(object, 'series'))
+  if (bound.length > 0) return bound
   // Legacy format: one source, comma/semicolon-separated channels.
   const sourceId = getString(object, 'sourceId')
   if (!sourceId) return []
