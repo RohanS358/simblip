@@ -14,12 +14,60 @@ import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, FileUp, Loader2, Maximize2, Minimize2, Rows3, Square, PanelRightClose, PanelRightOpen, Link, Link2Off } from 'lucide-react'
 import { toast } from 'sonner'
 import { getSessionFile, loadSessionFile, putSessionFile } from '@/lib/store/ephemeral-storage'
-import { useWorkspaceStore, findNode } from '@/lib/store/workspace'
+import { useWorkspaceStore, findNode, findPageMeta } from '@/lib/store/workspace'
 import { useDocStore } from '@/lib/store/document'
 import { cn } from '@/lib/utils'
 import { pageKindForFile } from '@/components/workspace/open-file'
-import { PageView } from '@/components/workspace/page-view'
+import { InfiniteCanvas } from '@/components/workspace/canvas'
 import type { ObjectRendererProps } from './types'
+
+/** Minimal content-only preview for a linked pptx/doc/xlsx page — just the
+ *  current slide/sheet (locked, transparent, non-interactive InfiniteCanvas)
+ *  plus prev/next, no editor toolbar/sidebar/zoom controls. pptx pages are
+ *  slide decks (docPages = slides); doc/xlsx pages are one or more sheets,
+ *  navigated the same way here for a consistent minimal viewer. */
+function MinimalPagePreview({ linkedPageId }: { linkedPageId: string }) {
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, linkedPageId))
+  const pages = meta?.docPages ?? []
+  const [index, setIndex] = useState(0)
+  const activePageId = pages[Math.min(index, pages.length - 1)] ?? linkedPageId
+  const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation()
+
+  return (
+    <div className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white dark:bg-neutral-900">
+      <div className="pointer-events-none h-full w-full">
+        <InfiniteCanvas key={activePageId} pageId={activePageId} locked transparent passthrough active={false} />
+      </div>
+      {pages.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous slide"
+            disabled={index <= 0}
+            className="glass-strong pointer-events-auto absolute left-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-25"
+            onPointerDown={stop}
+            onClick={() => setIndex((i) => Math.max(0, i - 1))}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next slide"
+            disabled={index >= pages.length - 1}
+            className="glass-strong pointer-events-auto absolute right-1.5 top-1/2 z-10 -translate-y-1/2 rounded-full p-1.5 text-muted-foreground transition-colors hover:text-foreground disabled:opacity-25"
+            onPointerDown={stop}
+            onClick={() => setIndex((i) => Math.min(pages.length - 1, i + 1))}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <span className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-2 py-0.5 font-mono text-[10.5px] text-white">
+            {index + 1} / {pages.length}
+          </span>
+        </>
+      )}
+    </div>
+  )
+}
 
 // pdf.js is loaded lazily on first use so it never weighs down the notebook.
 type PdfDoc = {
@@ -361,11 +409,10 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
             <span className="text-[12px]">{converting}</span>
           </div>
         ) : linkedPageId ? (
-          // pptx/docx/xlsx preview via the app's own page viewer (real OOXML
-          // import) — pointer-inert here too, same as the pdf.js canvas.
-          <div className="pointer-events-none h-full w-full overflow-hidden">
-            <PageView pageId={linkedPageId} />
-          </div>
+          // pptx/docx/xlsx: minimal slide/sheet-only preview (real OOXML
+          // import, no editor chrome) — pointer-inert here too, same as the
+          // pdf.js canvas.
+          <MinimalPagePreview linkedPageId={linkedPageId} />
         ) : !file ? (
           <div className="flex flex-col items-center gap-2 text-muted-foreground">
             <FileUp className="h-6 w-6" />
