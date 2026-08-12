@@ -2638,7 +2638,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                       onPointerDown={guard}
                       onClick={() => {
                         setFont(id)
-                        setSpan('font', id)
+                        setSpan('font', id, true)
                         setFontOpen(false)
                       }}
                     >

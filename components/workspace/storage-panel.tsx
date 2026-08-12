@@ -70,7 +70,17 @@ export function StoragePanel() {
   const [busy, setBusy] = useState<Set<string>>(new Set())
 
   const reload = () => {
-    void listAllEntries().then((all) => setEntries(all.sort((a, b) => b.size - a.size)))
+    void listAllEntries().then((all) =>
+      setEntries(
+        all
+          // Defensive: a handful of manifest rows on this device carry
+          // garbage `size` values from before this field was validated at
+          // write time — clamp rather than let one bad row blow up the
+          // chart scale and total to Infinity/1e226.
+          .map((e) => ({ ...e, size: Number.isFinite(e.size) && e.size >= 0 && e.size < 1e12 ? e.size : 0 }))
+          .sort((a, b) => b.size - a.size)
+      )
+    )
   }
   useEffect(reload, [])
 
