@@ -4,9 +4,8 @@
 // "Convert to physics object" = attaching a behavior here. Every numeric
 // field accepts an expression against the page's variable scope.
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useContext, createContext, useId } from 'react'
 import {
-  Link2,
   Link,
   Maximize2,
   Plus,
@@ -94,9 +93,7 @@ import {
   laplaceSteps,
   fourierSteps,
 } from '@/lib/formula/steps'
-import { CHANNEL_LABELS } from '@/lib/scene/channels'
 import {
-  bindableObjects,
   channelOptions,
   serializeBindings,
   splitIds,
@@ -105,6 +102,19 @@ import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 import { InfoPopover } from './info-popover'
 import { ColumnPicker } from './column-picker'
+import {
+  scopeItems,
+  filterScope,
+  activeToken,
+  spliceItem,
+  type ScopeItem,
+} from './expr-scope'
+
+const EMPTY_SCOPE: ScopeItem[] = Object.freeze([]) as unknown as ScopeItem[]
+
+/** The page's variables + live channels, available to every ExprInput below
+ *  without threading `pageId` through 28 call sites. Empty outside a page. */
+const ExprScopeContext = createContext<ScopeItem[]>(EMPTY_SCOPE)
 
 /** A value the scrubber is allowed to touch: a plain number, nothing else.
  *
@@ -167,6 +177,53 @@ function ExprInput({
   const [draft, setDraft] = useState(value)
   const [localError, setLocalError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  // ── Autocomplete ──────────────────────────────────────────────────────────
+  // The whole discovery fix: a field can't LOOK like a plain number box when
+  // it accepts `g` or [Mass 1(vx)]. Typing `[` opens the list; so does the
+  // chip that appears on focus, for users who don't know the syntax exists.
+  const scope = useContext(ExprScopeContext)
+  const listId = useId()
+  const [openList, setOpenList] = useState(false)
+  const [highlight, setHighlight] = useState(0)
+  const [query, setQuery] = useState('')
+  const matches = useMemo(
+    () => (openList ? filterScope(scope, query).slice(0, 8) : EMPTY_SCOPE),
+    [openList, scope, query]
+  )
+  const closeList = () => {
+    setOpenList(false)
+    setQuery('')
+    setHighlight(0)
+  }
+  /** Re-read the caret and decide whether a `[…` token is being typed. */
+  const syncToken = (el: HTMLInputElement) => {
+    if (!scope.length) return
+    const tok = activeToken(el.value, el.selectionStart ?? el.value.length)
+    if (tok) {
+      setQuery(tok.query)
+      setHighlight(0)
+      setOpenList(true)
+    } else if (openList && query !== '') {
+      // Only auto-close a token-driven list; the chip-opened one stays put.
+      closeList()
+    }
+  }
+  const pick = (item: ScopeItem) => {
+    const el = inputRef.current
+    const caret = el?.selectionStart ?? draft.length
+    const next = spliceItem(draft, caret, item)
+    setDraft(next.text)
+    closeList()
+    // Restore focus and drop the caret after the inserted token, so the user
+    // can keep typing an operator without reaching for the mouse.
+    requestAnimationFrame(() => {
+      const node = inputRef.current
+      if (!node) return
+      node.focus()
+      node.setSelectionRange(next.caret, next.caret)
+    })
+  }
   const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
   /** True while a scrub is committing, so the value→draft sync below doesn't
    *  fight the gesture (each commit changes `value`, which would otherwise
@@ -190,7 +247,7 @@ function ExprInput({
   const shownError = error ?? localError ?? undefined
 
   return (
-    <div className="relative">
+    <div className="group/expr relative" ref={wrapRef}>
       <input
       ref={inputRef}
       aria-label={ariaLabel}
@@ -210,10 +267,25 @@ function ExprInput({
         // The ew-resize cursor is a PROMISE that dragging does something. It
         // now appears only where dragging actually scrubs.
         canScrub ? 'cursor-ew-resize' : 'cursor-text',
-        suffix && 'pr-5'
+        suffix && 'pr-5',
+        // Room for the [ ] chip so it never overlaps the value.
+        scope.length > 0 && !disabled && !suffix && 'pr-7'
       )}
+      role={scope.length ? 'combobox' : undefined}
+      aria-expanded={scope.length ? openList : undefined}
+      aria-autocomplete={scope.length ? 'list' : undefined}
+      aria-controls={openList ? listId : undefined}
+      aria-activedescendant={openList && matches.length ? `${listId}-${highlight}` : undefined}
+      autoComplete="off"
       value={draft}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setDraft(e.target.value)
+        syncToken(e.currentTarget)
+      }}
+      onSelect={(e) => {
+        // Arrow/click caret moves can leave or enter a token too.
+        if (openList) syncToken(e.currentTarget)
+      }}
       onPointerDown={(e) => {
         onPointerDownCapture?.()
         // Mouse/pen only: a touch drag belongs to the scroll container.
@@ -256,11 +328,39 @@ function ExprInput({
         // keyboard focus, never for a click, which must keep its caret.
         if (e.target.matches(':focus-visible')) e.target.select()
       }}
-      onBlur={() => {
+      onBlur={(e) => {
         scrubbingRef.current = false
+        // Clicking a suggestion blurs the input — committing here would race
+        // the pick and snap the draft back. relatedTarget is the row, which
+        // lives inside this wrapper, so we let the pick handler finish.
+        if (e.relatedTarget && wrapRef.current?.contains(e.relatedTarget as Node)) return
+        closeList()
         if (draft !== value) commit(draft)
       }}
       onKeyDown={(e) => {
+        // The suggestion list owns these keys while it's open, so Enter picks
+        // a row instead of committing and Escape closes the list instead of
+        // reverting the whole field. Both fall through once it's closed.
+        if (openList && matches.length) {
+          if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+            e.preventDefault()
+            e.stopPropagation()
+            setHighlight((h) => (h + (e.key === 'ArrowDown' ? 1 : matches.length - 1)) % matches.length)
+            return
+          }
+          if (e.key === 'Enter' || e.key === 'Tab') {
+            e.preventDefault()
+            e.stopPropagation()
+            pick(matches[highlight])
+            return
+          }
+          if (e.key === 'Escape') {
+            e.preventDefault()
+            e.stopPropagation()
+            closeList()
+            return
+          }
+        }
         if (e.key === 'Enter') e.currentTarget.blur()
         if (e.key === 'Escape') {
           setDraft(value)
@@ -285,6 +385,87 @@ function ExprInput({
         <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[0.625rem] text-muted-foreground">
           {suffix}
         </span>
+      )}
+
+      {/* The affordance. A field that accepts `g` or [Mass 1(vx)] cannot look
+          identical to one that only takes a number — that was the entire
+          discovery failure. This appears on hover/focus only, so a panel of
+          number boxes stays calm until you engage with one. */}
+      {scope.length > 0 && !disabled && !suffix && (
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Insert a variable or live value into ${ariaLabel}`}
+          title="Insert a variable or live value  ·  or just type ["
+          className={cn(
+            'absolute right-1 top-1/2 -translate-y-1/2 rounded px-1 py-0.5 font-mono text-[0.625rem] leading-none transition-opacity duration-150',
+            // Base is VISIBLE-but-quiet, not hidden. A hover-only reveal
+            // would leave the chip unreachable on a tablet, where there is no
+            // hover and a tap gives focus (not :focus-visible). Pointer-fine
+            // devices get the calmer fade-up instead.
+            'text-muted-foreground opacity-50 hover:!opacity-100 hover:text-foreground',
+            '[@media(hover:hover)and(pointer:fine)]:opacity-0',
+            '[@media(hover:hover)and(pointer:fine)]:group-hover/expr:opacity-70',
+            // Focusing the field is the moment you might want the picker.
+            '[@media(hover:hover)and(pointer:fine)]:group-focus-within/expr:opacity-70',
+            'focus-visible:!opacity-100',
+            openList && '!opacity-100 text-[var(--accent-blue)]'
+          )}
+          onMouseDown={(e) => e.preventDefault()} // keep focus in the input
+          onClick={() => {
+            if (openList) return closeList()
+            setQuery('')
+            setHighlight(0)
+            setOpenList(true)
+            inputRef.current?.focus()
+          }}
+        >
+          [ ]
+        </button>
+      )}
+
+      {openList && matches.length > 0 && (
+        <ul
+          id={listId}
+          role="listbox"
+          aria-label="Variables and live values"
+          className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-md"
+        >
+          {matches.map((m, i) => (
+            <li
+              key={m.insert}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === highlight}
+              className={cn(
+                'flex cursor-pointer items-baseline gap-2 px-2 py-1 text-[0.71875rem]',
+                i === highlight && 'bg-accent'
+              )}
+              onMouseEnter={() => setHighlight(i)}
+              onMouseDown={(e) => {
+                // mousedown, not click: click fires after blur, by which time
+                // the field has already committed and closed the list.
+                e.preventDefault()
+                pick(m)
+              }}
+            >
+              <span
+                className={cn(
+                  'shrink-0 font-mono',
+                  m.kind === 'variable'
+                    ? 'text-[var(--accent-amber)]'
+                    : 'text-[var(--accent-blue)]'
+                )}
+              >
+                {m.kind === 'variable' ? 'var' : 'live'}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-mono">{m.label}</span>
+              <span className="shrink-0 truncate text-[0.625rem] text-muted-foreground">
+                {m.hint}
+              </span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
@@ -565,6 +746,13 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
 // snapshot every render and trips useSyncExternalStore's bailout (React #185).
 const EMPTY_OBJECTS: Record<string, SceneObject> = Object.freeze({})
 const EMPTY_VARIABLES: Variable[] = Object.freeze([]) as unknown as Variable[]
+
+function ExprScopeProvider({ pageId, children }: { pageId: string; children: React.ReactNode }) {
+  const variables = useDocStore((s) => s.pages[pageId]?.variables ?? EMPTY_VARIABLES)
+  const objects = useDocStore((s) => s.pages[pageId]?.objects ?? EMPTY_OBJECTS)
+  const items = useMemo(() => scopeItems(variables, Object.values(objects)), [variables, objects])
+  return <ExprScopeContext.Provider value={items}>{children}</ExprScopeContext.Provider>
+}
 const FALLBACK_VIEWPORT: Viewport = Object.freeze({ x: 0, y: 0, zoom: 1 })
 
 // Component models: symbols whose pin layout is selectable. The chosen
@@ -3165,6 +3353,13 @@ const SYSTEM_VARS = [
   { name: 'timeScale', def: '1', label: 'Simulation speed ×' },
 ]
 
+/** One-click starters for an empty page. A button that writes a real variable
+ *  teaches the concept faster than a paragraph describing one. */
+const STARTER_VARS = [
+  { name: 'k', expr: '2', why: 'A plain number you can reuse and tune in one place' },
+  { name: 'speed', expr: '10', why: 'Name a value once, use it in every field' },
+]
+
 function VariablesPanel({ pageId }: { pageId: string }) {
   const variables = useDocStore((s) => s.pages[pageId]?.variables ?? EMPTY_VARIABLES)
   const addVariable = useDocStore((s) => s.addVariable)
@@ -3172,33 +3367,33 @@ function VariablesPanel({ pageId }: { pageId: string }) {
   const removeVariable = useDocStore((s) => s.removeVariable)
 
   const unsetSystem = SYSTEM_VARS.filter((sv) => !variables.some((v) => v.name === sv.name))
-  const pageObjects = useDocStore((st) => st.pages[pageId]?.objects ?? EMPTY_OBJECTS)
-  // Component-value binding: pick an object + one of its live channels and a
-  // [Name(channel)] token is appended to the expression — no typing needed.
-  const [binding, setBinding] = useState<string | null>(null)
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [bindObj, setBindObj] = useState('')
-  const [bindCh, setBindCh] = useState('')
-  // Only objects that actually stream data can be bound — and each one
-  // offers ITS channels (a mass gives x/vx/ke, a resistor gives V/I/P).
-  // Shared with the graph series picker (lib/scene/bindings.ts): derived from
-  // the object so this works before Play has ever run, with a live buffer
-  // taking over once one exists.
-  const objectList = bindableObjects(Object.values(pageObjects))
-  const channelsOf = (id: string): string[] => channelOptions(pageObjects[id])
 
   return (
     <div className="space-y-1.5">
       {variables.length === 0 && (
-        <p className="py-4 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
-          Variables are shared by every object on this page.
-          <br />
-          Try <span className="font-mono">g = 9.81</span>, then use{' '}
-          <span className="font-mono">g</span> in any parameter — even while
-          the simulation runs. Live outputs work too:{' '}
-          <span className="font-mono">k = 2*[Voltmeter 1(V)] / [Capacitor 1(I)]</span>{' '}
-          tracks any object&apos;s graphed channel by name, in every domain.
-        </p>
+        // Was three lines of prose teaching [Name(channel)] syntax. Nobody
+        // reads an empty state, and nothing here could be clicked — so the
+        // one sentence that matters stays and the examples became buttons
+        // that write a real, working variable you can immediately edit.
+        <div className="py-3 text-center">
+          <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
+            A value you name once and reuse in any field on this page.
+          </p>
+          <div className="mt-2.5 flex flex-wrap justify-center gap-1.5">
+            {STARTER_VARS.map((s) => (
+              <button
+                key={s.name}
+                type="button"
+                title={s.why}
+                className="rounded-md border border-border px-2 py-1 font-mono text-[0.6875rem] text-muted-foreground transition-colors hover:border-[var(--ring)] hover:text-foreground active:scale-[0.97]"
+                onClick={() => addVariable(pageId, s.name, s.expr)}
+              >
+                {s.name} = {s.expr}
+              </button>
+            ))}
+          </div>
+        </div>
       )}
       {variables.map((v) => (
         <div key={v.id}>
@@ -3240,23 +3435,10 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             >
               <Maximize2 className="h-3 w-3" />
             </button>
-            <button
-              type="button"
-              aria-label={`Bind a component value to ${v.name}`}
-              title="Insert a live component value"
-              className={
-                binding === v.id
-                  ? 'rounded p-0.5 text-[var(--accent-blue)]'
-                  : 'rounded p-0.5 text-muted-foreground opacity-60 transition-opacity hover:text-foreground hover:opacity-100'
-              }
-              onClick={() => {
-                setBinding(binding === v.id ? null : v.id)
-                setBindObj('')
-                setBindCh('')
-              }}
-            >
-              <Link2 className="h-3 w-3" />
-            </button>
+            {/* The old Link2 button + two-select row lived here. The
+                expression field itself now offers the same picker (type `[`
+                or hit its [ ] chip), so this was a second, worse door to one
+                room — and the only one that appended a guessed ` * `. */}
             <button
               type="button"
               aria-label={`Delete variable ${v.name}`}
@@ -3283,65 +3465,6 @@ function VariablesPanel({ pageId }: { pageId: string }) {
                 setExpandedId(null)
               }}
             />
-          )}
-          {binding === v.id && (
-            <div className="mt-1 flex items-center gap-1.5">
-              <select
-                aria-label="Component"
-                value={bindObj}
-                onChange={(e) => {
-                  setBindObj(e.target.value)
-                  setBindCh('')
-                }}
-                className="min-w-0 flex-1 rounded-md border border-border bg-background px-1.5 py-1 text-[0.71875rem]"
-              >
-                <option value="">Component…</option>
-                {objectList.map((o) => (
-                  <option key={o.id} value={o.id}>
-                    {o.name}
-                  </option>
-                ))}
-              </select>
-              <select
-                aria-label="Value channel"
-                value={bindCh}
-                disabled={!bindObj}
-                onChange={(e) => setBindCh(e.target.value)}
-                className="w-24 rounded-md border border-border bg-background px-1.5 py-1 text-[0.71875rem]"
-              >
-                <option value="">Value…</option>
-                {bindObj &&
-                  channelsOf(bindObj).map((c) => (
-                    <option key={c} value={c}>
-                      {CHANNEL_LABELS[c] ? `${c} — ${CHANNEL_LABELS[c]}` : c}
-                    </option>
-                  ))}
-              </select>
-              <button
-                type="button"
-                disabled={!bindObj || !bindCh}
-                className="rounded-md border border-border px-2 py-1 text-[0.71875rem] font-semibold text-muted-foreground enabled:hover:text-foreground disabled:opacity-40"
-                onClick={() => {
-                  const o = pageObjects[bindObj]
-                  if (!o) return
-                  const token = `[${o.name}(${bindCh})]`
-                  const cur = v.expr.trim()
-                  updateVariable(pageId, v.id, {
-                    expr: !cur || cur === '0' ? token : `${cur} * ${token}`,
-                  })
-                  setBinding(null)
-                }}
-              >
-                Insert
-              </button>
-            </div>
-          )}
-          {binding === v.id && (
-            <p className="mt-0.5 text-[0.625rem] leading-snug text-muted-foreground">
-              Live value from the simulation — combine several (edit the expression, e.g.{' '}
-              <span className="font-mono">2*[A(V)]/[B(I)]</span>). Only objects that produce
-              data are listed, each with its own outputs.
-            </p>
           )}
           {v.error && <p className="mt-0.5 text-[0.65625rem] text-[var(--accent-rose)]">{v.error}</p>}
         </div>
@@ -3485,6 +3608,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
   )
 
   return (
+    <ExprScopeProvider pageId={pageId}>
     <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
       <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
         <TabsTrigger value="properties" className="text-[0.75rem]">
@@ -3512,6 +3636,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
         <VariablesPanel pageId={pageId} />
       </TabsContent>
     </Tabs>
+    </ExprScopeProvider>
   )
 }
 
