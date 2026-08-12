@@ -44,10 +44,12 @@ import {
   ChevronRight,
   ChevronLeft,
   Plus,
+  ShieldCheck,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
+import { PrivacySettings } from './privacy-settings'
 import { StoragePanel } from './storage-panel'
 import { Field, Choice, PrefRow, SettingCard, ObsidianPrefRow } from './settings-fields'
 import {
@@ -912,6 +914,7 @@ type TabId =
   | 'packages'
   | 'pen'
   | 'simulation'
+  | 'privacy'
   | 'about'
 
 interface NavItem {
@@ -935,6 +938,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'packages', label: 'Packages', detail: 'Optional components', icon: Package, category: 'options' },
   { id: 'pen', label: 'Pen feel', detail: 'Stylus & pressure', icon: Edit3, category: 'tools' },
   { id: 'simulation', label: 'Simulation Engine', detail: 'Physics solver', icon: Activity, category: 'tools' },
+  { id: 'privacy', label: 'Privacy', detail: 'Your data, terms', icon: ShieldCheck, category: 'tools' },
   { id: 'about', label: 'About', detail: 'Version, credits', icon: HelpCircle, category: 'tools' },
 ]
 
@@ -1274,6 +1278,8 @@ export function SettingsDialog({
                 </SettingCard>
               </div>
             )}
+
+            {activeTab === 'privacy' && <PrivacySettings />}
 
             {activeTab === 'about' && (
               <div className="space-y-4">

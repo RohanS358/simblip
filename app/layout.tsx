@@ -13,7 +13,9 @@ import {
   Nunito,
   Raleway,
 } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { ConsentedAnalytics } from '@/components/legal/consented-analytics'
+import { TermsGate } from '@/components/legal/terms-gate'
+import { StorageNotice } from '@/components/legal/storage-notice'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
 import { InstallPrompt } from '@/components/install-prompt'
@@ -191,11 +193,15 @@ export default async function RootLayout({
           ]}
         >
           {children}
+          {/* Terms first, then the storage notice — both no-op until an
+              account is signed in, and both skip room-board displays. */}
+          <TermsGate />
+          <StorageNotice />
           <Toaster position="bottom-right" />
         </ThemeProvider>
         <PwaRegister />
         <InstallPrompt />
-        <Analytics />
+        <ConsentedAnalytics />
       </body>
     </html>
   )
