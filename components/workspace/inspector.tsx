@@ -404,10 +404,13 @@ function ExprInput({
             // hover and a tap gives focus (not :focus-visible). Pointer-fine
             // devices get the calmer fade-up instead.
             'text-muted-foreground opacity-50 hover:!opacity-100 hover:text-foreground',
-            '[@media(hover:hover)and(pointer:fine)]:opacity-0',
-            '[@media(hover:hover)and(pointer:fine)]:group-hover/expr:opacity-70',
+            // Underscores are Tailwind's escape for spaces in an arbitrary
+            // variant — without them the `and` fuses to the parens and the
+            // whole stylesheet fails to parse.
+            '[@media(hover:hover)_and_(pointer:fine)]:opacity-0',
+            '[@media(hover:hover)_and_(pointer:fine)]:group-hover/expr:opacity-70',
             // Focusing the field is the moment you might want the picker.
-            '[@media(hover:hover)and(pointer:fine)]:group-focus-within/expr:opacity-70',
+            '[@media(hover:hover)_and_(pointer:fine)]:group-focus-within/expr:opacity-70',
             'focus-visible:!opacity-100',
             openList && '!opacity-100 text-[var(--accent-blue)]'
           )}

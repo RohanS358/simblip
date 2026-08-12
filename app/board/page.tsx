@@ -765,9 +765,13 @@ function BoardSurface() {
               under a lesson, where it would compete with the content. Tinted
               from the live theme accents (components/ui/soft-aurora.tsx reads
               the CSS variables), so it follows whichever theme the room board
-              is set to instead of pinning one hard-coded palette. */}
+              is set to instead of pinning one hard-coded palette.
+
+              It stops above the identity footer (bottom-6 = that bar's h-6):
+              the line naming who is signed in has to stay plainly legible on
+              flat background, not float on a moving gradient. */}
           <SoftAurora
-            className="pointer-events-none absolute inset-0 z-0"
+            className="pointer-events-none absolute inset-x-0 bottom-6 top-0 z-0"
             speed={0.35}
             brightness={0.55}
             bandHeight={0.62}
@@ -813,6 +817,20 @@ function BoardSurface() {
             </Button>
             <NoticeStack items={notices} />
           </div>
+
+          {/* Same identity bar the active board carries, so who-is-signed-in
+              doesn't vanish when the board goes idle. It sits on flat
+              background below the aurora, which ends at this bar's top edge. */}
+          <footer className="relative z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 bg-background px-4 text-[10.5px] text-muted-foreground">
+            {profile && (
+              <span className="font-medium">
+                {profile.full_name} · {ROLE_LABEL[profile.role]}
+              </span>
+            )}
+            {institution && <span className="hidden sm:inline">{institution.name}</span>}
+            <div className="flex-1" />
+            <span>SIMBLIP · Built by Rohan Singh</span>
+          </footer>
 
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         </div>

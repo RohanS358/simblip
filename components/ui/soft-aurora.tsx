@@ -20,6 +20,26 @@ import { useEffect, useRef } from 'react'
 import { Renderer, Program, Mesh, Triangle } from 'ogl'
 
 /**
+ * Is the active theme a light one?
+ *
+ * Measured from the resolved --background, not from a class allowlist: this
+ * app ships six themes (light, dim, midnight, contrast, mountains, diva) and
+ * more can be added, so `class === 'dark'` would silently mis-tag any new
+ * light theme. Luminance of the actual page ground is the thing that
+ * matters, so that is what's asked.
+ *
+ * Returns 0..1 rather than a boolean so mid-tone themes get a partial
+ * correction instead of snapping to one extreme.
+ */
+function lightness(el: HTMLElement): number {
+  const bg = cssColorToVec3(el, '--background', [0, 0, 0])
+  const lum = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]
+  // Below ~0.5 is a dark ground and needs no correction at all; above it,
+  // ramp up to full by the time the page is near-white.
+  return Math.max(0, Math.min(1, (lum - 0.5) / 0.35))
+}
+
+/**
  * Resolve a CSS colour (any format — oklch(), hex, rgb()) to linear-ish RGB
  * in 0..1, by letting the browser do the conversion. `color-mix` and OKLCH
  * are not parseable by hand, and hard-coding a hex would defeat theming.
@@ -124,6 +144,9 @@ uniform vec3 uResolution;
 uniform float uSpeed;
 uniform float uScale;
 uniform float uBrightness;
+/** 1 on a light theme, 0 on a dark one. Drives the light-mode correction
+ *  at the end of main() — see the comment there. */
+uniform float uLight;
 uniform vec3 uColor1;
 uniform vec3 uColor2;
 uniform float uNoiseFreq;
@@ -234,7 +257,26 @@ void main() {
   col += 0.99 * auroraGlow(t + uLayerOffset, shift) * cosineGradient(uv.x + uTime * uSpeed * 0.1 * uColorSpeed, vec3(0.5), vec3(0.5), vec3(2.0, 1.0, 0.0), vec3(0.5, 0.20, 0.25)) * uColor2;
 
   col *= uBrightness;
+
+  // Light themes need the opposite treatment to dark ones. The shader
+  // composites additively over the page, which is luminous on a dark ground
+  // but on white just DARKENS toward the accent hue — the same values that
+  // glow at night read as a grey-blue haze by day.
+  //
+  // So on light: push saturation up and lift the whole band toward white, so
+  // what lands on the page is a bright tint rather than a dim wash. uLight is
+  // 0 on dark themes, which leaves everything above untouched.
+  if (uLight > 0.0) {
+    float lum = dot(col, vec3(0.2126, 0.7152, 0.0722));
+    col = mix(vec3(lum), col, 1.0 + 0.45 * uLight);   // richer hue, not grey
+    col = mix(col, vec3(1.0), 0.30 * uLight);          // lift toward white
+  }
+
   float alpha = clamp(length(col), 0.0, 1.0);
+  // A light page also needs LESS coverage: the same alpha that reads as a
+  // soft glow on black reads as dirt on white. Scale it back rather than
+  // asking the caller to pass a different brightness per theme.
+  alpha *= mix(1.0, 0.62, uLight);
   gl_FragColor = vec4(col, alpha);
 }
 `
@@ -322,6 +364,7 @@ export default function SoftAurora({
         uSpeed: { value: speed },
         uScale: { value: scale },
         uBrightness: { value: brightness },
+        uLight: { value: lightness(container) },
         uColor1: { value: cssColorToVec3(container, colorVar1, [0.4, 0.6, 1]) },
         uColor2: { value: cssColorToVec3(container, colorVar2, [0.7, 0.4, 1]) },
         uNoiseFreq: { value: noiseFrequency },
@@ -366,6 +409,12 @@ export default function SoftAurora({
     const themeObserver = new MutationObserver(() => {
       program.uniforms.uColor1.value = cssColorToVec3(container, colorVar1, [0.4, 0.6, 1])
       program.uniforms.uColor2.value = cssColorToVec3(container, colorVar2, [0.7, 0.4, 1])
+      // Light↔dark is a theme change too — re-measure the ground.
+      program.uniforms.uLight.value = lightness(container)
+      // Under reduced motion there is no rAF loop, so new uniforms would sit
+      // unused and the board would keep showing the old theme's colours until
+      // something else forced a repaint. Paint the one frame ourselves.
+      if (reduceMotion) renderer.render({ scene: mesh })
     })
     themeObserver.observe(document.documentElement, {
       attributes: true,

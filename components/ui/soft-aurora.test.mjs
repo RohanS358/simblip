@@ -99,4 +99,49 @@ for (const bad of ['', 'not-a-color', 'rgb(', 'oklch()']) {
   assert.deepEqual(fromComputed(bad, FB), FB, `${JSON.stringify(bad)} uses the fallback`)
 }
 
+// ── light-theme detection ───────────────────────────────────────────────────
+// The aurora composites additively: luminous over a dark ground, but a grey
+// wash over a light one. `uLight` drives the correction, and it's measured
+// from the resolved --background rather than a `class === 'dark'` check —
+// this app ships six themes and a new light one must not be mis-tagged.
+// Mirrors `lightness()` in soft-aurora.tsx.
+function lightness(bg) {
+  const lum = 0.2126 * bg[0] + 0.7152 * bg[1] + 0.0722 * bg[2]
+  return Math.max(0, Math.min(1, (lum - 0.5) / 0.35))
+}
+
+assert.equal(lightness([0, 0, 0]), 0, 'black ground gets no correction')
+assert.equal(lightness([1, 1, 1]), 1, 'white ground gets the full correction')
+// Every --background that actually ships in app/globals.css. Each must land
+// on the correct side; a light theme reading as dark is the bug this guards.
+const DARK_BGS = [
+  'oklch(0.17 0.01 270)',
+  'oklch(0.245 0.016 265)',
+  'oklch(0.13 0.008 270)',
+  'oklch(0.05 0 0)',
+  'oklch(0.22 0.014 190)',
+  'oklch(0.13 0 0)',
+]
+const LIGHT_BGS = [
+  'oklch(0.982 0.003 95)',
+  'oklch(0.97 0.014 90)',
+  'oklch(0.975 0.014 20)',
+  'oklch(0.974 0.026 90.1)',
+  'oklch(0.964 0.023 61.2)',
+  'oklch(0.975 0.016 340)',
+]
+for (const bg of DARK_BGS) {
+  assert.equal(lightness(clamp01(oklchToRgb(bg))), 0, `${bg} is dark — no correction`)
+}
+for (const bg of LIGHT_BGS) {
+  assert.ok(lightness(clamp01(oklchToRgb(bg))) > 0.9, `${bg} is light — full correction`)
+}
+// Monotonic across the ramp — no step that would pop on a theme switch.
+let prev = -1
+for (const l of [0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]) {
+  const v = lightness([l, l, l])
+  assert.ok(v >= prev, `ramp is monotonic at ${l}`)
+  prev = v
+}
+
 console.log('soft-aurora: all checks passed')
