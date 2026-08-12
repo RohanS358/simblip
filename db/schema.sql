@@ -324,6 +324,28 @@ create table if not exists simblip_devices (
 create index if not exists simblip_devices_owner_idx
   on simblip_devices (owner_id);
 
+-- ── Bug reports ────────────────────────────────────────────────────────────
+-- User-submitted reports, read on /dev. Deliberately NOT tenant-scoped the
+-- way content tables are: a bug report is about the software, and the dev
+-- console needs to see every institution's. institution_id is kept for
+-- context (which deployment hit it), not for isolation.
+
+create table if not exists simblip_bug_reports (
+  id             uuid primary key default gen_random_uuid(),
+  reporter_id    uuid references simblip_profiles (id) on delete set null,
+  institution_id uuid references simblip_institutions (id) on delete set null,
+  title          text not null,
+  body           text not null default '',
+  -- Browser/OS/viewport + the route it was filed from: the context that
+  -- otherwise dies in the reporter's head and makes a report unreproducible.
+  context        jsonb not null default '{}'::jsonb,
+  status         text not null default 'open',   -- open | closed
+  created_at     timestamptz not null default now()
+);
+
+create index if not exists simblip_bug_reports_created_idx
+  on simblip_bug_reports (created_at desc);
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migrating FROM a Supabase deployment (schema v2)?
 --   • RLS policies and the auth schema are gone — the /api/pg gateway

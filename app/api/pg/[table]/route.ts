@@ -52,6 +52,11 @@ const TABLES: Record<string, TableSpec> = {
   // a token. Every client call (lib/sync/devices.ts, device-file-sync.ts)
   // already sends a Bearer token, so requiring auth costs nothing.
   devices: { pk: ['id'], owner: 'owner_id' },
+  // Bug reports: any signed-in user can file one (POST) and read back their
+  // own (the owner scope below narrows GET to reporter_id = you). The /dev
+  // console reads every report — it authenticates as an operator, and
+  // isOperator() skips both the tenant and owner scopes.
+  bug_reports: { pk: ['id'], owner: 'reporter_id' },
 }
 
 // Tables that carry institution_id on the row and must stay inside the

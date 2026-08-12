@@ -20,6 +20,7 @@ import {
   BookOpen,
   ChevronRight,
   ClipboardList,
+  CloudUpload,
   Copy,
   Download,
   File as FileIcon,
@@ -51,6 +52,7 @@ import { PublishDialog } from './library-panel'
 import { AddPageDialog } from './add-page-dialog'
 import {
   ContextMenu,
+  ContextMenuCheckboxItem,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
@@ -476,8 +478,25 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
 /** A raw uploaded file, direct leaf of a folder (not wrapped in a page). */
 function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; handlers: TreeHandlers }) {
   const store = useWorkspaceStore
+  // Per-file cross-device sync, opt-in (see manifest-types.ts). Read lazily
+  // when the menu opens rather than on every tree render — this is one
+  // IndexedDB hit per file row otherwise, on a tree that can be hundreds of
+  // rows long.
+  const [syncOn, setSyncOn] = useState<boolean | null>(null)
+  const loadSyncState = () => {
+    void import('@/lib/storage/manager').then(({ isSyncEnabled }) =>
+      isSyncEnabled(node.fileId).then(setSyncOn)
+    )
+  }
+  const toggleSync = () => {
+    const next = !syncOn
+    setSyncOn(next) // optimistic — the write below can't meaningfully fail
+    void import('@/lib/storage/manager').then(({ setSyncEnabled }) =>
+      setSyncEnabled(node.fileId, next)
+    )
+  }
   return (
-    <ContextMenu>
+    <ContextMenu onOpenChange={(open) => open && loadSyncState()}>
       <ContextMenuTrigger asChild>
         <div
           className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
@@ -535,6 +554,19 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
         <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
           <Pencil className="h-4 w-4" /> Rename
         </ContextMenuItem>
+        <ContextMenuSeparator />
+        {/* Opt-in per file: OFF means the bytes never leave this device, which
+            is why a file can look "missing" on another one — the manifest row
+            syncs, the content doesn't. Checkbox item so the current state is
+            visible without opening a dialog. */}
+        <ContextMenuCheckboxItem
+          checked={syncOn === true}
+          disabled={syncOn === null}
+          onCheckedChange={toggleSync}
+          onSelect={(e) => e.preventDefault()} // keep the menu open on toggle
+        >
+          <CloudUpload className="h-4 w-4" /> Sync across devices
+        </ContextMenuCheckboxItem>
         <ContextMenuSeparator />
         <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
           <Trash2 className="h-4 w-4" /> Delete file

@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { BadgeCheck, Building2, Loader2, Lock, Package, Plus, RefreshCw, School, Shield, Trash2, UserRound, Users, Wrench } from 'lucide-react'
+import { BadgeCheck, Bug, Building2, Check, Loader2, Lock, Package, Plus, RefreshCw, School, Shield, Trash2, UserRound, Users, Wrench } from 'lucide-react'
 import { RequireAuth } from '@/components/auth/require-auth'
 import { PageShell } from '@/components/platform/page-shell'
 import { Button } from '@/components/ui/button'
@@ -15,7 +15,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
 import { getDbMode } from '@/lib/data/db'
-import type { BoardRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from '@/lib/data/types'
+import type { BoardRow, BugReportRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from '@/lib/data/types'
 import { COMPONENT_PACKAGES } from '@/lib/packages/registry'
 import {
   createAccount,
@@ -24,9 +24,11 @@ import {
   createRoom,
   listBoards,
   listInstitutions,
+  listBugReports,
   listMembers,
   listProfiles,
   listRooms,
+  setBugStatus,
   setMembership,
   updateInstitutionPackages,
   updateProfilePackages,
@@ -52,6 +54,7 @@ export default function DevPage() {
   const [rooms, setRooms] = useState<RoomRow[]>([])
   const [boards, setBoards] = useState<BoardRow[]>([])
   const [members, setMembers] = useState<RoomMemberRow[]>([])
+  const [bugs, setBugs] = useState<BugReportRow[]>([])
   const [selectedInstitutionId, setSelectedInstitutionId] = useState('')
 
   const [institutionName, setInstitutionName] = useState('')
@@ -122,11 +125,33 @@ export default function DevPage() {
     void listRooms().then(setRooms)
     void listBoards().then(setBoards)
     void listMembers().then(setMembers)
+    // Never blocks the console on a missing table: a deployment that hasn't
+    // run the simblip_bug_reports migration yet should still show every
+    // other tab rather than erroring the whole page.
+    void listBugReports()
+      .then((rows) =>
+        setBugs([...rows].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)))
+      )
+      .catch(() => setBugs([]))
   }, [])
 
   useEffect(() => {
     refresh()
   }, [refresh])
+
+  const openBugCount = useMemo(() => bugs.filter((b) => b.status === 'open').length, [bugs])
+  const profileName = useCallback(
+    (id: string | null) => (id ? profiles.find((p) => p.id === id)?.full_name ?? 'Unknown' : 'Anonymous'),
+    [profiles]
+  )
+  const toggleBug = useCallback((bug: BugReportRow) => {
+    const next = bug.status === 'open' ? 'closed' : 'open'
+    setBugs((rows) => rows.map((r) => (r.id === bug.id ? { ...r, status: next } : r)))
+    void setBugStatus(bug.id, next).catch(() => {
+      toast.error('Could not update the report')
+      setBugs((rows) => rows.map((r) => (r.id === bug.id ? { ...r, status: bug.status } : r)))
+    })
+  }, [])
 
   const selectedInstitution = useMemo(
     () => institutions.find((item) => item.id === selectedInstitutionId) ?? null,
@@ -299,6 +324,9 @@ export default function DevPage() {
               <TabsTrigger value="rooms">Rooms</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="packages">Package Access</TabsTrigger>
+              <TabsTrigger value="bugs">
+                Bugs{openBugCount > 0 ? ` (${openBugCount})` : ''}
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="enrollment">
@@ -541,6 +569,73 @@ export default function DevPage() {
                       Select All
                     </Button>
                   </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="bugs">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Bug className="h-4 w-4" /> Bug Reports
+                  </CardTitle>
+                  <CardDescription>
+                    Filed from the account menu. Each report carries the reporter&apos;s browser,
+                    screen size and the page they were on.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {bugs.length === 0 ? (
+                    <p className="py-8 text-center text-[13px] text-muted-foreground">
+                      No bug reports yet.
+                    </p>
+                  ) : (
+                    bugs.map((bug) => (
+                      <div
+                        key={bug.id}
+                        className={`rounded-xl border p-4 ${
+                          bug.status === 'closed' ? 'border-border/40 opacity-60' : 'border-border'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[14px] font-semibold">{bug.title}</p>
+                            <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                              {profileName(bug.reporter_id)} ·{' '}
+                              {new Date(bug.created_at).toLocaleString()}
+                            </p>
+                            {bug.body && (
+                              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed">
+                                {bug.body}
+                              </p>
+                            )}
+                            <details className="mt-2">
+                              <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
+                                Environment
+                              </summary>
+                              <pre className="mt-1.5 overflow-x-auto rounded-lg bg-muted/50 p-2 text-[11px] leading-relaxed">
+                                {JSON.stringify(bug.context, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
+                          <Button
+                            variant={bug.status === 'open' ? 'default' : 'outline'}
+                            size="sm"
+                            className="shrink-0"
+                            onClick={() => toggleBug(bug)}
+                          >
+                            {bug.status === 'open' ? (
+                              <>
+                                <Check className="h-3.5 w-3.5" /> Close
+                              </>
+                            ) : (
+                              'Reopen'
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>

@@ -24,7 +24,13 @@
  * with a digitizer/tablet driver — which silently killed hover across the
  * whole app on real desktops (the sidebar resize bar and notebook tree rows
  * are where it showed first). */
-@custom-variant hover (@media (hover: hover) { &:hover });
+@custom-variant hover {
+  @media (hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+}
 
 /* Mobile Safari/Chrome auto-inflate font-size on text blocks that don't fill
    the viewport width ("text size adjust") — invisible on most pages, but it

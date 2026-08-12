@@ -4,7 +4,9 @@
 // (admin console, assignments), settings, and sign-out.
 
 import { useRouter } from 'next/navigation'
-import { ClipboardList, LogOut, NotebookPen, Settings, ShieldCheck } from 'lucide-react'
+import { useState } from 'react'
+import { Bug, ClipboardList, LogOut, NotebookPen, Settings, ShieldCheck } from 'lucide-react'
+import { BugReportDialog } from './bug-report-dialog'
 import { useAuthStore } from '@/lib/auth/store'
 import { ROLE_LABEL } from '@/lib/auth/types'
 import {
@@ -29,6 +31,7 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
   const router = useRouter()
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
+  const [bugOpen, setBugOpen] = useState(false)
   if (!profile) return null
 
   const isStaff = profile.role === 'teacher' || profile.role === 'admin'
@@ -74,10 +77,15 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => setBugOpen(true)}>
+          <Bug className="h-4 w-4" /> Report a bug
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => useAuthStore.getState().logout()}>
           <LogOut className="h-4 w-4" /> Sign out
         </DropdownMenuItem>
       </DropdownMenuContent>
+      <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
     </DropdownMenu>
   )
 }

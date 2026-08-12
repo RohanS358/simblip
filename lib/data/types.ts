@@ -56,6 +56,21 @@ export interface BoardRow {
   [key: string]: unknown
 }
 
+/** A user-filed bug report (simblip_bug_reports), listed on /dev. */
+export interface BugReportRow {
+  id: string
+  reporter_id: string | null
+  institution_id: string | null
+  title: string
+  body: string
+  /** Browser/OS/viewport/route captured at file time — see
+   *  components/workspace/bug-report-dialog.tsx's captureContext(). */
+  context: Record<string, unknown>
+  status: 'open' | 'closed'
+  created_at: string
+  [key: string]: unknown
+}
+
 export type BoardSessionStatus = 'live' | 'ended' | 'merged' | 'discarded'
 
 /** One command from the teacher's phone to the presenting board. Stored on

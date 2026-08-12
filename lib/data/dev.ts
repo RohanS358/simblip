@@ -3,7 +3,7 @@
 import * as db from './db'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { newPairingCode } from './boards'
-import type { BoardRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from './types'
+import type { BoardRow, BugReportRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from './types'
 import type { Role } from '@/lib/auth/types'
 
 const requirePlatformAdmin = () => {
@@ -42,6 +42,16 @@ export const listProfiles = () => db.list<ProfileRow>('profiles')
 export const listRooms = () => db.list<RoomRow>('rooms')
 export const listBoards = () => db.list<BoardRow>('boards')
 export const listMembers = () => db.list<RoomMemberRow>('room_members')
+
+/** User-filed bug reports, newest first (see simblip_bug_reports in
+ *  db/schema.sql). Operator-only in practice: the /api/pg gateway scopes a
+ *  normal caller to their own reports, and skips both the tenant and owner
+ *  scopes for an operator token — which is what the /dev console holds. */
+export const listBugReports = () =>
+  db.list<BugReportRow>('bug_reports', undefined, '*')
+
+export const setBugStatus = (id: string, status: 'open' | 'closed') =>
+  db.update('bug_reports', id, { status })
 
 export async function createInstitution(input: {
   name: string

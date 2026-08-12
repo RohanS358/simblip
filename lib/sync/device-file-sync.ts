@@ -60,7 +60,12 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   const profile = useAuthStore.getState().profile
   if (!profile) return
   const entries = await manifest.listByOwner(profile.id)
-  const toUpload = entries.filter((e) => e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
+  // Opt-in only: a file's bytes leave this device solely when the user turned
+  // sync on for it (right-click → Sync this file). Default-off, so the
+  // manifest row still travels — the other device knows the file exists and
+  // shows it as not-downloaded — while the bytes stay put unless asked for.
+  const wanted = entries.filter((e) => e.syncEnabled === true)
+  const toUpload = wanted.filter((e) => e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
 
   for (let i = 0; i < toUpload.length; i++) {
     await uploadToCloud(toUpload[i])
@@ -68,7 +73,7 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   }
 
   const fresh = await manifest.listByOwner(profile.id)
-  const ids = fresh.filter((e) => e.cloudBackedUp).map((e) => e.id)
+  const ids = fresh.filter((e) => e.syncEnabled === true && e.cloudBackedUp).map((e) => e.id)
   if (ids.length === 0) return
   await rest(`simblip_devices?id=eq.${target.id}`, {
     method: 'PATCH',
@@ -158,6 +163,10 @@ export function startFileSync() {
     // uploadToCloud()'s own 'uploading'/'synced' writes, which would
     // otherwise keep resetting the debounce while a push is already running.
     if (entry.syncStatus !== 'local-only' && entry.syncStatus !== 'sync-failed') return
+    // Sync is opt-in per file — a local-only file nobody enabled sync for
+    // should never wake the pusher (pushFilesToDevice would filter it out
+    // anyway; this just avoids the pointless debounce + round trip).
+    if (entry.syncEnabled !== true) return
     if (!useAuthStore.getState().profile) return
     schedule()
   })

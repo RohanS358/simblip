@@ -129,6 +129,48 @@ export async function getFile(fileId: string): Promise<Blob | null> {
   }
 }
 
+/** Is this file opted in to cross-device sync? Absent flag = no (the default
+ *  for every file created before the toggle existed, and every new one). */
+export async function isSyncEnabled(fileId: string): Promise<boolean> {
+  const entry = await manifest.getEntry(fileId)
+  return entry?.syncEnabled === true
+}
+
+/**
+ * Turn cross-device sync on/off for one file.
+ *
+ * Turning it OFF also removes any copy already in the cloud: leaving the
+ * bytes up there after the user said "stop syncing this" would make the
+ * toggle a lie. The local OPFS copy is untouched — this is a sync setting,
+ * not a delete.
+ */
+export async function setSyncEnabled(fileId: string, enabled: boolean): Promise<void> {
+  const entry = await manifest.getEntry(fileId)
+  if (!entry) return
+  await manifest.putEntry({
+    ...entry,
+    syncEnabled: enabled,
+    // Re-arm the uploader: a file previously pushed and then disabled is
+    // 'synced' + cloudBackedUp, and pushFilesToDevice only ever uploads
+    // 'local-only'/'sync-failed' — so without this reset, re-enabling would
+    // never re-upload the bytes it just deleted below.
+    ...(enabled ? {} : { syncStatus: 'local-only' as const, cloudBackedUp: false, cloudUrl: undefined }),
+  })
+  if (enabled) return
+
+  const token = getAccessToken()
+  if (!token || !entry.cloudBackedUp) return
+  try {
+    await fetch(`/api/storage/${fileId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch {
+    // Best effort: the flag is already off, so nothing will re-upload it.
+    // A leftover blob is cleaned up by the next successful toggle or delete.
+  }
+}
+
 export async function deleteFiles(fileIds: string[]): Promise<void> {
   const token = getAccessToken()
   await Promise.all(

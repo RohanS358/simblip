@@ -21,6 +21,19 @@ export interface FileManifestEntry {
   createdAt: number
   modifiedAt: number
   syncStatus: SyncStatus
+  /**
+   * Does the user want this file's BYTES to leave the device?
+   *
+   * Opt-in, default false: files can be large and personal, and uploading
+   * every one by default costs the user bandwidth and us storage for content
+   * nobody asked to share. The manifest ROW still syncs either way (that's
+   * how another device knows the file exists at all) — this only gates the
+   * blob upload in device-file-sync.ts.
+   *
+   * Optional so entries written before this field existed keep loading;
+   * everything reading it treats `undefined` as false.
+   */
+  syncEnabled?: boolean
   /** True once confirmed present in Vercel Blob. */
   cloudBackedUp: boolean
   /** Blob URL once uploaded. */

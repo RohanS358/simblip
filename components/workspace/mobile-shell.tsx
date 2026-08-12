@@ -13,6 +13,7 @@ import {
   ArrowLeft,
   BarChart3,
   BookOpen,
+  Bug,
   ClipboardList,
   Copy,
   FileText,
@@ -77,6 +78,7 @@ import {
 } from './page-actions'
 import { PublishDialog } from './library-panel'
 import { AddPageDialog, type Step as AddPageStep } from './add-page-dialog'
+import { BugReportDialog } from './bug-report-dialog'
 import { addFileToFolder, SHARED_NB } from './notebook-tree'
 import { openFile as openFileNode } from './open-file'
 import { AssignmentsPanel } from './assignments-panel'
@@ -204,6 +206,7 @@ export function MobileShell() {
     useMobileTabStore.getState().setView(next)
   }, [])
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [bugOpen, setBugOpen] = useState(false)
   const [tutorialOpen, setTutorialOpen] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
@@ -548,6 +551,12 @@ export function MobileShell() {
           >
             <Settings className="h-4 w-4 text-muted-foreground" /> Settings
           </button>
+          <button
+            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
+            onClick={() => setBugOpen(true)}
+          >
+            <Bug className="h-4 w-4 text-muted-foreground" /> Report a bug
+          </button>
           <div className="my-2 border-t border-border/40" />
           <button
             className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-destructive transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-destructive/10 hover:bg-destructive/10"
@@ -558,6 +567,7 @@ export function MobileShell() {
         </div>
       </main>
       <MobileTabBar />
+      <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
     </div>
@@ -1472,6 +1482,11 @@ export function MobileShell() {
           have to be mounted here too — not only on the folder screen. */}
       <RenameDialog target={renameFor} onClose={() => setRenameFor(null)} />
       <ConfirmDeleteDialog target={deleteFor} onClose={() => setDeleteFor(null)} />
+      {/* Same reason: the Create grid above sets addTarget, and the dialog
+          that consumes it is otherwise mounted only inside the folder branch
+          — so every Create tile set state that nothing was listening for and
+          the buttons looked dead. */}
+      <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} onOpenSettings={openSettings} />
       {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
