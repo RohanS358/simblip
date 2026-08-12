@@ -3399,7 +3399,7 @@ function VariablesPanel({ pageId }: { pageId: string }) {
         </div>
       )}
       {variables.map((v) => (
-        <div key={v.id}>
+        <div key={v.id} className="border-b border-border/50 pb-1.5 last:border-b-0">
           <div className="group flex items-center gap-1.5">
             <ExprInput
               ariaLabel="Variable name"
@@ -3415,16 +3415,6 @@ function VariablesPanel({ pageId }: { pageId: string }) {
                 /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name) && updateVariable(pageId, v.id, { name })
               }
             />
-            <span className="text-muted-foreground">=</span>
-            <ExprInput
-              ariaLabel={`Expression for ${v.name}`}
-              value={v.expr}
-              error={v.error}
-              onCommit={(expr) => updateVariable(pageId, v.id, { expr })}
-            />
-            <span className="w-14 shrink-0 truncate text-right font-mono text-[0.625rem] text-[var(--accent-amber)]">
-              {v.error ? '—' : +v.value.toFixed(3)}
-            </span>
             <button
               type="button"
               aria-label={`Open large editor for ${v.name}`}
@@ -3450,6 +3440,18 @@ function VariablesPanel({ pageId }: { pageId: string }) {
             >
               <Trash2 className="h-3 w-3" />
             </button>
+          </div>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="text-muted-foreground">=</span>
+            <ExprInput
+              ariaLabel={`Expression for ${v.name}`}
+              value={v.expr}
+              error={v.error}
+              onCommit={(expr) => updateVariable(pageId, v.id, { expr })}
+            />
+            <span className="w-14 shrink-0 truncate text-right font-mono text-[0.625rem] text-[var(--accent-amber)]">
+              {v.error ? '—' : +v.value.toFixed(3)}
+            </span>
           </div>
           {expandedId === v.id && (
             <textarea
