@@ -60,6 +60,40 @@ export function splitIndent(raw: string): { level: number; indent: string; rest:
   return { level, indent, rest: raw.slice(indent.length) }
 }
 
+/** Every block-level prefix a line can carry, as one pattern — headings,
+ *  quotes, checklists, bullets, numbered items. Checklist's `- [ ] ` must be
+ *  tried before plain bullet's `- `, since the latter is a strict prefix of
+ *  the former and would otherwise match first and leave `[ ] ` as stray text.
+ *  Matched against a line's post-indent `rest` (see splitIndent) — leading
+ *  whitespace is a separate concern from block type. */
+export const BLOCK_PREFIX_RE = /^(#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+\.\s+)/
+
+/** What pressing Enter at the end of a line starting with `rest` should open
+ *  the NEXT line with. Returns null for a line that carries no list marker
+ *  (headings and quotes deliberately included as null — a heading continues
+ *  as body text, matching every editor).
+ *
+ *  `trigger` is the exact prefix found on the current line (so the caller can
+ *  detect the "empty item, Enter ends the list" case by comparing it against
+ *  the whole line); `next` is what to write on the new line — identical for
+ *  bullets and checkboxes (a ticked box continues as an unticked one),
+ *  incremented for numbered items. */
+export function continuationPrefix(rest: string): { trigger: string; next: string } | null {
+  const checklist = rest.match(/^([-*+]\s+)\[[ xX]\](\s+)/)
+  if (checklist) {
+    const trigger = checklist[0]
+    return { trigger, next: `${checklist[1]}[ ]${checklist[2]}` }
+  }
+  const bullet = rest.match(/^[-*+]\s+/)
+  if (bullet) return { trigger: bullet[0], next: bullet[0] }
+  const numbered = rest.match(/^(\d+)(\.\s+)/)
+  if (numbered) {
+    const trigger = numbered[0]
+    return { trigger, next: `${Number(numbered[1]) + 1}${numbered[2]}` }
+  }
+  return null
+}
+
 const TOGGLE_KINDS = new Set<MarkKind>(['bold', 'italic', 'underline', 'strike', 'highlight', 'code'])
 export const isExclusiveKind = (kind: MarkKind): kind is ExclusiveMarkKind => !TOGGLE_KINDS.has(kind)
 

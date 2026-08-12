@@ -20,7 +20,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from
 import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
-import { renderMarkdown, renderEditorLine, htmlToMarkdownSource } from '@/lib/text/render'
+import { renderMarkdown, renderEditorLine, htmlToMarkdownSource, stripCaretHost, CARET_HOST_CHAR } from '@/lib/text/render'
 import {
   applyMark,
   shiftMarks,
@@ -28,6 +28,8 @@ import {
   serialize,
   htmlToStoredText,
   splitIndent,
+  continuationPrefix,
+  BLOCK_PREFIX_RE,
   INDENT_UNIT,
   TEXT_COLORS,
   TEXT_SIZES,
@@ -85,6 +87,10 @@ function useLiveTextEditor(
   // and setSpan's doc comments for why this exists (prevents a second panel
   // edit on the same field from re-reading a stale DOM selection).
   const snapshotFreshRef = useRef(false)
+  // Format chosen while the box was still empty (size/colour/font/weight
+  // picked before any text exists). Applied by onInput to the first run of
+  // characters that actually arrives — see applyWholeBox.
+  const pendingFormatRef = useRef<{ kind: MarkKind; value: string }[]>([])
 
   const lineEl = (i: number) => editorRef.current?.children[i] as HTMLElement | undefined
 
@@ -94,6 +100,20 @@ function useLiveTextEditor(
     let start = 0
     for (let k = 0; k < i; k++) start += linesRef.current[k].length + 1
     return start
+  }
+
+  /** Inverse of lineStart: absolute offset in the flat joined string back to
+   *  {line, offset}. Used after a multi-line edit to find where the caret
+   *  should land without assuming the edit stayed on one line. */
+  const locate = (absolute: number): { line: number; offset: number } => {
+    let remaining = Math.max(0, absolute)
+    for (let i = 0; i < linesRef.current.length; i++) {
+      const len = linesRef.current[i].length
+      if (remaining <= len) return { line: i, offset: remaining }
+      remaining -= len + 1
+    }
+    const last = linesRef.current.length - 1
+    return { line: last, offset: linesRef.current[last]?.length ?? 0 }
   }
 
   const renderLineDom = (i: number) => {
@@ -126,9 +146,10 @@ function useLiveTextEditor(
   }
 
   /** Maps any (node, offset) inside the editor to {line, offset} — DOM text
-   *  length always equals the raw line length now (no hidden markers ever
-   *  inflate it, unlike the old model), so this is a direct Range-walk with
-   *  no shown-vs-raw proportional estimate needed for any line. */
+   *  length equals the raw line length once the caret host's zero-width
+   *  space is stripped (the ONLY hidden character in the DOM; see
+   *  CARET_HOST_CHAR in lib/text/render.ts), so this is a direct Range-walk
+   *  with no shown-vs-raw proportional estimate needed for any line. */
   const posAt = (node: Node, nodeOffset: number): { line: number; offset: number } | null => {
     let n: Node | null = node
     let lineDiv: HTMLElement | null = null
@@ -144,7 +165,7 @@ function useLiveTextEditor(
     const pre = document.createRange()
     pre.selectNodeContents(lineDiv)
     pre.setEnd(node, nodeOffset)
-    return { line, offset: pre.toString().length }
+    return { line, offset: stripCaretHost(pre.toString()).length }
   }
 
   /** Collapsed caret position (line + offset), or null if there's a range
@@ -172,7 +193,12 @@ function useLiveTextEditor(
    * and Enter with a selection) — the one path that can touch multiple
    * lines at once. Marks are shifted for the delete-then-insert as two
    * ordinary shiftMarks calls (a replace is just those two edits). */
-  const replaceRange = (s: { line: number; offset: number }, e: { line: number; offset: number }, text: string) => {
+  const replaceRange = (
+    s: { line: number; offset: number },
+    e: { line: number; offset: number },
+    text: string,
+    opts: { commit?: boolean } = {}
+  ) => {
     const globalStart = lineStart(s.line) + s.offset
     const globalEnd = lineStart(e.line) + e.offset
     if (globalEnd > globalStart) marksRef.current = shiftMarks(marksRef.current, globalStart, -(globalEnd - globalStart))
@@ -189,7 +215,10 @@ function useLiveTextEditor(
     activeRef.current = newActive
     renderLineDom(newActive)
     placeCaretAt(newActive, caretAt)
-    commit()
+    // Callers that apply marks immediately after (paste) suppress this to
+    // avoid committing the unstyled text and then the styled text as two
+    // separate edits — one paste should be one commit.
+    if (opts.commit !== false) commit()
   }
 
   /** Finds the (textNode, offset) that sits `targetOffset` characters into
@@ -197,11 +226,32 @@ function useLiveTextEditor(
    * not just the first one, since a formatted line is a tree of
    * strong/em/span elements, not one text node. */
   const textNodeAt = (el: HTMLElement, targetOffset: number): { node: Text; offset: number } => {
+    // A prefixed line with no body yet (see CARET_HOST in lib/text/render.ts)
+    // ends in an empty, normally-sized span. The caret must go THERE, not at
+    // the end of the preceding marker's text node — the marker is
+    // font-size:0, so a caret inside it is invisible and swallows typing at
+    // zero size. The host holds no text, so this never affects the
+    // DOM-length == raw-length invariant; it only redirects the landing spot
+    // for the one offset that sits at the very end of the prefix.
+    const host = el.querySelector<HTMLElement>(':scope > .md-caret-host')
+    if (host && targetOffset >= stripCaretHost(el.textContent ?? '').length) {
+      let node = host.firstChild as Text | null
+      if (!node || node.nodeType !== 3) {
+        node = document.createTextNode(CARET_HOST_CHAR)
+        host.appendChild(node)
+      }
+      // AFTER the zero-width space, so typed text extends the host's own
+      // text node rather than being merged back into the zeroed marker.
+      return { node, offset: node.textContent?.length ?? 0 }
+    }
+
     const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT)
     let consumed = 0
     let last: Text | null = null
     for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
-      const len = node.textContent?.length ?? 0
+      // The caret host's zero-width space is not part of the raw line, so it
+      // must not advance the offset count.
+      const len = stripCaretHost(node.textContent ?? '').length
       if (targetOffset <= consumed + len) return { node, offset: targetOffset - consumed }
       consumed += len
       last = node
@@ -219,7 +269,7 @@ function useLiveTextEditor(
     const el = lineEl(line)
     const sel = window.getSelection()
     if (!el || !sel) return
-    const totalLen = el.textContent?.length ?? 0
+    const totalLen = stripCaretHost(el.textContent ?? '').length
     const clamped = Math.max(0, Math.min(offset, totalLen))
     const { node, offset: nodeOffset } = textNodeAt(el, clamped)
     const range = document.createRange()
@@ -237,8 +287,8 @@ function useLiveTextEditor(
     const endEl = lineEl(eLine)
     const sel = window.getSelection()
     if (!startEl || !endEl || !sel) return
-    const startLen = startEl.textContent?.length ?? 0
-    const endLen = endEl.textContent?.length ?? 0
+    const startLen = stripCaretHost(startEl.textContent ?? '').length
+    const endLen = stripCaretHost(endEl.textContent ?? '').length
     const a = Math.max(0, Math.min(sOffset, startLen))
     const b = Math.max(0, Math.min(eOffset, endLen))
     const start = textNodeAt(startEl, a)
@@ -265,7 +315,10 @@ function useLiveTextEditor(
     activateLine(pos.line, pos.offset)
   }
 
-  const commit = () => onChange(serialize({ text: linesRef.current.join('\n'), marks: marksRef.current }))
+  // Final backstop: the caret host's zero-width space is a rendering detail
+  // and must never be persisted, no matter which path produced the text.
+  const commit = () =>
+    onChange(serialize({ text: stripCaretHost(linesRef.current.join('\n')), marks: marksRef.current }))
 
   /** Toggles `kind` over the current selection (or does nothing on a
    *  collapsed caret — there's no text to mark). Named (not just inlined
@@ -276,12 +329,30 @@ function useLiveTextEditor(
     // selection made by clicking a still-inactive line doesn't move the
     // caret into that line on its own.
     const span = selectionSpan()
-    if (!span || span.s.line !== span.e.line) {
-      // Cross-line selections aren't supported for inline marks (matches
-      // the old wrap()'s effective behavior — it only ever wrapped within
-      // one line's raw string too); collapsed caret has nothing to mark.
+    if (!span) return // collapsed caret — nothing selected to mark
+
+    // A selection spanning several lines applies the mark to each line's
+    // covered portion. Previously this returned early and did nothing at
+    // all: select two paragraphs, press Ctrl+B, and the editor silently
+    // ignored you. Marks are offsets into the flat string, so a cross-line
+    // range is expressible — it just has to skip the '\n' boundaries so the
+    // newline itself never gets marked.
+    if (span.s.line !== span.e.line) {
+      for (let i = span.s.line; i <= span.e.line; i++) {
+        const len = (linesRef.current[i] ?? '').length
+        const from = i === span.s.line ? span.s.offset : 0
+        const to = i === span.e.line ? span.e.offset : len
+        if (to <= from) continue
+        marksRef.current = applyMark(marksRef.current, lineStart(i) + from, lineStart(i) + to, kind)
+      }
+      rebuildAll()
+      activeRef.current = span.e.line
+      renderLineDom(span.e.line)
+      selectRange(span.s.line, span.s.offset, span.e.line, span.e.offset)
+      commit()
       return
     }
+
     const { line, offset: s } = span.s
     const { offset: e } = span.e
     if (line !== activeRef.current) activateLine(line, s)
@@ -290,7 +361,9 @@ function useLiveTextEditor(
     const end = lineStart(i) + e
     marksRef.current = applyMark(marksRef.current, start, end, kind)
     renderLineDom(i)
-    placeCaretAt(i, e)
+    // Keep the range selected rather than collapsing to its end — so a
+    // follow-up Ctrl+I on the same words still has something to act on.
+    selectRange(i, s, i, e)
     commit()
   }
 
@@ -322,6 +395,28 @@ function useLiveTextEditor(
     }
   }
 
+  /** Applies an exclusive mark across every character in the box. Used both
+   *  by the explicit whole-box path and by a collapsed-caret panel edit.
+   *
+   *  An EMPTY box has no characters, so the range is [0, 0) and applyMark
+   *  bails on start >= end — picking a size/colour before typing anything
+   *  silently did nothing, and the first character came out at the default.
+   *  A seeded [0,1) mark does NOT solve it: shiftMarks deliberately pushes a
+   *  mark forward (rather than growing it) for an insertion at its start, so
+   *  the seed would slide off the very character it was meant to style. The
+   *  choice is therefore parked in pendingFormatRef and applied by onInput
+   *  once real text exists — the same "pending format at the caret" model
+   *  every word processor uses for "pick bold, then type". */
+  const applyWholeBox = (kind: MarkKind, value: string) => {
+    const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
+    if (fullEnd <= 0) {
+      pendingFormatRef.current = pendingFormatRef.current.filter((p) => p.kind !== kind)
+      pendingFormatRef.current.push({ kind, value })
+      return
+    }
+    marksRef.current = applyMark(marksRef.current, 0, fullEnd, kind, value)
+  }
+
   /** Applies an exclusive "pick one value" mark (size/color/font/weight) —
    *  applyMark (lib/text/marks.ts) already clips/replaces any existing mark
    *  of the SAME kind that overlaps the range, so re-picking a value never
@@ -331,9 +426,7 @@ function useLiveTextEditor(
    *  targeting whatever the caret happens to be on. */
   const setSpan = (kind: 'size' | 'color' | 'font' | 'weight' | 'link', value: string, wholeBox = false) => {
     if (wholeBox) {
-      const fullStart = 0
-      const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
-      marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
+      applyWholeBox(kind, value)
       rebuildAll()
       commit()
       return
@@ -358,9 +451,7 @@ function useLiveTextEditor(
     if (start === end) {
       // Collapsed caret (nothing dragged over) means "apply to the whole
       // box" — Word/Docs behavior for a size/color field with no selection.
-      const fullStart = 0
-      const fullEnd = linesRef.current.reduce((acc, l) => acc + l.length, 0) + linesRef.current.length - 1
-      marksRef.current = applyMark(marksRef.current, fullStart, fullEnd, kind, value)
+      applyWholeBox(kind, value)
       rebuildAll()
       placeCaretAt(sLoc.line, sLoc.offset)
       commit()
@@ -382,17 +473,6 @@ function useLiveTextEditor(
     commit()
   }
 
-  // Recognizes any existing block-level prefix a line can carry — heading,
-  // quote, checklist, bullet, numbered — so prefixLine (below) can swap ONE
-  // out for another instead of stacking them. Order matters: checklist's
-  // `- [ ] ` must be tried before plain bullet's `- `, since the latter is a
-  // strict prefix of the former and would otherwise match first and leave
-  // `[ ] ` behind as visible text. Matched against the line's `rest` (post-
-  // indent, see splitIndent) — indentation is a separate per-line concern
-  // from block type, handled by indentLine below, so this never has to
-  // account for leading spaces itself.
-  const BLOCK_PREFIX = /^(#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s+|[-*+]\s+|\d+\.\s+)/
-
   const prefixLine = (prefix: string) => {
     // Same fix as toggleMark: land on the line the user actually
     // clicked/selected, not whatever line happened to be active already.
@@ -407,7 +487,7 @@ function useLiveTextEditor(
     const i = activeRef.current
     const raw = linesRef.current[i] ?? ''
     const { indent, rest } = splitIndent(raw)
-    const existing = rest.match(BLOCK_PREFIX)?.[0] ?? ''
+    const existing = rest.match(BLOCK_PREFIX_RE)?.[0] ?? ''
     const bare = rest.slice(existing.length)
     // Re-applying the exact same prefix (e.g. clicking Bullet on an already-
     // bulleted line) toggles it off, matching toggleMark's toggle behavior;
@@ -484,8 +564,36 @@ function useLiveTextEditor(
   const onInput = () => {
     const idx = activeRef.current
     if (idx < 0) return
+
+    // The browser can restructure the line divs behind our back — an IME
+    // commit, autocorrect, a drag-and-drop, or a native multi-line delete
+    // that slipped past onKeyDown. When the DOM's line COUNT no longer
+    // matches the model, per-line diffing below is meaningless (it would
+    // read the wrong div for `idx` and overwrite a good line with a
+    // neighbour's text). Rebuild the model from the DOM instead: marks can't
+    // be preserved through an edit we never saw, but the user's TEXT is
+    // never silently discarded, which is the part that actually matters.
+    const container = editorRef.current
+    if (container && container.children.length !== linesRef.current.length) {
+      const domLines = Array.from(container.children).map((c) => stripCaretHost(c.textContent ?? ''))
+      const caret = caretPosition()
+      linesRef.current = domLines.length > 0 ? domLines : ['']
+      activeRef.current = Math.min(caret?.line ?? idx, linesRef.current.length - 1)
+      rebuildAll()
+      renderLineDom(activeRef.current)
+      if (caret) placeCaretAt(activeRef.current, caret.offset)
+      snapshotFreshRef.current = false
+      markEmpty()
+      commit()
+      return
+    }
+
     const el = lineEl(idx)
-    const nextText = el?.textContent ?? ''
+    // Strip the caret host's zero-width space: it lives in the DOM only to
+    // give the caret somewhere real to sit on an empty prefixed line, and
+    // must never reach the stored text (typing into the host produces
+    // "​Hello" in textContent — the model wants "Hello").
+    const nextText = stripCaretHost(el?.textContent ?? '')
     const prevText = linesRef.current[idx] ?? ''
     if (nextText !== prevText) {
       // Diff the two strings at their common prefix/suffix to find the one
@@ -508,6 +616,17 @@ function useLiveTextEditor(
       if (removedLen > 0) marksRef.current = shiftMarks(marksRef.current, at, -removedLen)
       if (insertedLen > 0) marksRef.current = shiftMarks(marksRef.current, at, insertedLen)
       linesRef.current[idx] = nextText
+
+      // First real text in a box the user had already picked a size/colour
+      // for — apply that choice now that there are characters to carry it.
+      if (insertedLen > 0 && pendingFormatRef.current.length > 0) {
+        for (const p of pendingFormatRef.current) {
+          marksRef.current = applyMark(marksRef.current, at, at + insertedLen, p.kind, p.value)
+        }
+        pendingFormatRef.current = []
+        renderLineDom(idx)
+        placeCaretAt(idx, prefixLen + insertedLen)
+      }
     }
     snapshotFreshRef.current = false // typing invalidates any pending panel snapshot
     markEmpty()
@@ -582,8 +701,28 @@ function useLiveTextEditor(
       // (Tab on one line, Enter, keep typing at the same depth — no need to
       // re-Tab every time) — unless the caret is still INSIDE the leading
       // whitespace itself, where duplicating it would just double-indent.
-      const { indent } = splitIndent(raw)
-      const carry = at >= indent.length ? indent : ''
+      const { indent, rest } = splitIndent(raw)
+      const listPrefix = continuationPrefix(rest)
+
+      // Enter on a list item that has no body yet ENDS the list instead of
+      // adding another empty bullet — the universal editor convention, and
+      // the only way to get out of a list without reaching for the mouse.
+      if (listPrefix && rest === listPrefix.trigger && at >= indent.length) {
+        const removed = raw.length - indent.length
+        if (removed > 0) marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + indent.length, -removed)
+        linesRef.current[idx] = indent
+        renderLineDom(idx)
+        placeCaretAt(idx, indent.length)
+        commit()
+        return
+      }
+
+      // Continue the list: the new line opens with the same marker (numbered
+      // lists advance). Only when the caret is past the prefix — splitting
+      // inside the marker itself means the user is editing the marker, not
+      // adding an item.
+      const carryPrefix = listPrefix && at >= indent.length + listPrefix.trigger.length ? listPrefix.next : ''
+      const carry = at >= indent.length ? indent + carryPrefix : ''
       marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + at, 1) // the new '\n' itself
       if (carry) marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + at + 1, carry.length)
       linesRef.current.splice(idx, 1, raw.slice(0, at), carry + raw.slice(at))
@@ -597,6 +736,34 @@ function useLiveTextEditor(
     }
     if (e.key === 'Backspace') {
       const pos = caretPosition()
+      const rawLine = linesRef.current[idx] ?? ''
+      const { indent: curIndent, rest: curRest } = splitIndent(rawLine)
+      const prefixHere = curRest.match(BLOCK_PREFIX_RE)?.[0] ?? ''
+
+      // Backspace at the end of a block prefix removes the WHOLE prefix, not
+      // one character of it. Deleting a single char turns "- " into "-",
+      // which no longer matches the bullet pattern, so the line flips from a
+      // rendered bullet to a literal dash mid-keystroke — the marker has to
+      // behave as one atomic unit, the way it does in every editor.
+      if (prefixHere && pos && pos.line === idx && pos.offset === curIndent.length + prefixHere.length) {
+        e.preventDefault()
+        marksRef.current = shiftMarks(marksRef.current, lineStart(idx) + curIndent.length, -prefixHere.length)
+        linesRef.current[idx] = curIndent + curRest.slice(prefixHere.length)
+        renderLineDom(idx)
+        placeCaretAt(idx, curIndent.length)
+        commit()
+        return
+      }
+
+      // Backspace inside leading indentation removes one whole INDENT_UNIT
+      // rather than one space — otherwise unindenting a line takes eight
+      // presses and leaves the line in a half-indented state in between.
+      if (pos && pos.line === idx && pos.offset > 0 && pos.offset <= curIndent.length) {
+        e.preventDefault()
+        indentLine(-1)
+        return
+      }
+
       if (idx > 0 && pos && pos.line === idx && pos.offset === 0) {
         e.preventDefault()
         const prev = linesRef.current[idx - 1]
@@ -630,23 +797,41 @@ function useLiveTextEditor(
 
   const onPaste = (e: React.ClipboardEvent) => {
     e.preventDefault()
-    const idx = activeRef.current
-    if (idx < 0) return
+    // The canvas also listens for 'paste' on window (components/workspace/
+    // canvas.tsx) to turn clipboard text into a NEW text box. preventDefault
+    // above does not stop that listener — only this does. canvas.tsx has its
+    // own guard too; both exist because either one alone has failed before.
+    e.stopPropagation()
     const plainText = e.clipboardData.getData('text/plain')
     const htmlText = e.clipboardData.getData('text/html')
     const span = selectionSpan()
     const pos = caretPosition()
+    // Fall back to the last known line rather than bailing: activeRef is
+    // transiently -1 during rebuildAll/syncExternal, and returning here after
+    // preventDefault() would swallow the paste with no way to retry.
+    const idx = activeRef.current >= 0 ? activeRef.current : Math.max(0, linesRef.current.length - 1)
     const at = span?.s ?? pos ?? { line: idx, offset: (linesRef.current[idx] ?? '').length }
     const end = span?.e ?? at
     if (htmlText && htmlText.includes('<')) {
       const stored = htmlToStoredText(htmlText, plainText)
-      replaceRange(at, end, stored.text)
+      // Resolve the insert point's ABSOLUTE offset BEFORE replaceRange
+      // mutates linesRef — lineStart() afterwards reflects the post-insert
+      // line geometry, which lands every pasted mark on the wrong characters
+      // for any paste that isn't on the last line.
+      const offset = lineStart(at.line) + at.offset
+      replaceRange(at, end, stored.text, { commit: stored.marks.length === 0 })
       if (stored.marks.length > 0) {
-        const offset = lineStart(at.line) + at.offset
         for (const m of stored.marks) {
           marksRef.current = applyMark(marksRef.current, m.start + offset, m.end + offset, m.kind, m.value)
         }
         rebuildAll()
+        // Restore the caret rebuildAll() just destroyed — it lands at the end
+        // of the pasted content, where the user expects to keep typing.
+        const endOffset = offset + stored.text.length
+        const loc = locate(endOffset)
+        activeRef.current = loc.line
+        renderLineDom(loc.line)
+        placeCaretAt(loc.line, loc.offset)
         commit()
       }
     } else {
@@ -677,6 +862,7 @@ function useLiveTextEditor(
     const span = selectionSpan()
     if (!span) return
     e.preventDefault()
+    e.stopPropagation() // same reason as onPaste — keep the canvas's window listener out of it
     const sel = window.getSelection()
     if (sel) e.clipboardData.setData('text/plain', sel.toString())
     replaceRange(span.s, span.e, '')

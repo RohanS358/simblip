@@ -120,6 +120,17 @@ interface RenderedLine {
   cls: string
 }
 
+/** Zero-width space placed inside an empty line's caret host — see
+ *  renderEditorLine's CARET_HOST comment for why an empty host does not
+ *  work. Never part of the stored text: strip it from any DOM text before
+ *  comparing against the model. */
+export const CARET_HOST_CHAR = '​'
+
+/** DOM text content → raw line text. Removes the caret-host zero-width
+ *  space so `el.textContent.length` matches the model's line length, the
+ *  invariant the caret/selection mapping depends on. */
+export const stripCaretHost = (text: string): string => text.split(CARET_HOST_CHAR).join('')
+
 /** Same per-line shape as the old renderLineLive/renderLineActive — one
  *  line's block-type detection (heading/quote/checkbox/bullet/numbered) and
  *  its rendered inline HTML, used by the live per-line editor
@@ -157,11 +168,35 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
   // caller in components/objects/text.tsx for the full story).
   if (raw === '') return { html: '<br>', cls: '' }
 
+  // A prefixed line whose BODY is empty (you cleared the text but the "- " /
+  // "# " prefix is still there) would render as marker-span + nothing. For
+  // bullets and checkboxes that span is font-size:0 (the glyph comes from
+  // ::before, see globals.css), so the line's only text node sits inside a
+  // zero-size element: the caret placed there is zero-height — invisible —
+  // and everything typed lands in the marker at font-size 0, invisible too.
+  // For headings/quotes/numbers there is simply no text node after the
+  // marker to land in at all. Every empty-body branch therefore appends a
+  // normally-sized caret host.
+  //
+  // The host MUST contain a zero-width space, not be empty. Verified in
+  // Chrome: with an empty host the browser refuses to keep a caret inside an
+  // empty inline element — it relocates the caret into the preceding marker
+  // and merges typed text there, at font-size 0, i.e. still invisible. With
+  // the ZWSP the caret measures a real 18px and typed text paints normally.
+  //
+  // The ZWSP is invisible but IS a character, so it would break the
+  // DOM-length == raw-length invariant posAt depends on. Both readers of DOM
+  // text strip it: posAt (caret mapping) and onInput (the typing diff), via
+  // stripCaretHost below.
+  const CARET_HOST = `<span class="md-caret-host">${CARET_HOST_CHAR}</span>`
+
   const heading = raw.match(/^(#{1,6})(\s+)(.*)$/)
   if (heading) {
     const bodyStart = lineStart + heading[1].length + heading[2].length
     return {
-      html: `<span class="md-marker">${escapeHtml(heading[1] + heading[2])}</span>${renderLine(heading[3], marks, bodyStart)}`,
+      html:
+        `<span class="md-marker">${escapeHtml(heading[1] + heading[2])}</span>${renderLine(heading[3], marks, bodyStart)}` +
+        (heading[3] === '' ? CARET_HOST : ''),
       cls: `md-h md-h${heading[1].length}`,
     }
   }
@@ -172,7 +207,9 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
   if (quote) {
     const bodyStart = lineStart + quote[1].length
     return {
-      html: `<span class="md-marker">${escapeHtml(quote[1])}</span>${renderLine(quote[2], marks, bodyStart)}`,
+      html:
+        `<span class="md-marker">${escapeHtml(quote[1])}</span>${renderLine(quote[2], marks, bodyStart)}` +
+        (quote[2] === '' ? CARET_HOST : ''),
       cls: 'md-quote',
     }
   }
@@ -183,7 +220,8 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
     return {
       html:
         `<span class="md-marker md-marker-check">${escapeHtml(checkbox[1])}[${escapeHtml(checkbox[2])}]${escapeHtml(checkbox[3])}</span>` +
-        `<span class="${checked ? 'md-done' : ''}">${renderLine(checkbox[4], marks, bodyStart)}</span>`,
+        `<span class="${checked ? 'md-done' : ''}">${renderLine(checkbox[4], marks, bodyStart)}</span>` +
+        (checkbox[4] === '' ? CARET_HOST : ''),
       cls: `md-li${checked ? ' md-li-checked' : ''}`,
     }
   }
@@ -191,7 +229,9 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
   if (bullet) {
     const bodyStart = lineStart + bullet[1].length
     return {
-      html: `<span class="md-marker md-marker-bullet">${escapeHtml(bullet[1])}</span>${renderLine(bullet[2], marks, bodyStart)}`,
+      html:
+        `<span class="md-marker md-marker-bullet">${escapeHtml(bullet[1])}</span>${renderLine(bullet[2], marks, bodyStart)}` +
+        (bullet[2] === '' ? CARET_HOST : ''),
       cls: 'md-li',
     }
   }
@@ -199,7 +239,9 @@ export function renderEditorLine(raw: string, marks: Mark[], lineStart: number):
   if (numbered) {
     const bodyStart = lineStart + numbered[1].length
     return {
-      html: `<span class="md-marker md-marker-num">${escapeHtml(numbered[1])}</span>${renderLine(numbered[2], marks, bodyStart)}`,
+      html:
+        `<span class="md-marker md-marker-num">${escapeHtml(numbered[1])}</span>${renderLine(numbered[2], marks, bodyStart)}` +
+        (numbered[2] === '' ? CARET_HOST : ''),
       cls: 'md-li',
     }
   }

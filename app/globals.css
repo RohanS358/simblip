@@ -915,6 +915,18 @@ html {
   .md-editor .md-marker {
     color: var(--muted-foreground);
   }
+  /* Caret landing pad for a prefixed line with no body text yet (see
+     renderEditorLine's CARET_HOST). Without it the caret's only home is
+     inside the font-size:0 bullet/checkbox marker, where it renders
+     zero-height (invisible) and swallows what you type at font-size 0.
+     Zero width so it never shifts layout, but full inherited font-size and
+     line-height so the caret is exactly as tall as a real character. */
+  .md-editor .md-caret-host {
+    display: inline-block;
+    width: 0;
+    font-size: inherit;
+    line-height: inherit;
+  }
   .md-editor .md-h {
     font-weight: 700;
     display: inline-block;

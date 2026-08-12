@@ -27,6 +27,7 @@ import { matchesCombo, resolveCombo, ACTIONS } from '@/lib/keymap'
 import { searchInsertables, insertAt, insertImage, viewportCenter, type Insertable } from '@/lib/scene/insertables'
 import { hasClipboard } from '@/lib/store/clipboard'
 import { openProperties } from '@/lib/store/sidebar-sections'
+import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   actionsForSelection,
   registerSelectionActions,
@@ -1594,6 +1595,14 @@ export function InfiniteCanvas({
     // etc the way it always has.
     const onPaste = (e: ClipboardEvent) => {
       if (!active || isTyping(e.target)) return
+      // A live text editor owns the clipboard entirely (text.tsx's onPaste).
+      // isTyping(e.target) alone is NOT enough: preventDefault in a React
+      // delegated handler suppresses the browser's default action, not this
+      // window listener, so without this both would run — pasting into the
+      // box AND spawning a duplicate box at the pointer. Keyed off the
+      // registered editor rather than the event target so it holds no matter
+      // which inline element (strong/span/mark) the caret happened to be in.
+      if (useActiveTextEditor.getState().objectId !== null) return
       const items = e.clipboardData?.items
       const fileItem = items && Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'))
       const blob = fileItem?.getAsFile()
