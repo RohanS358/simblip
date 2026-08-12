@@ -30,6 +30,7 @@ import { fmtNum } from '@/lib/scene/format'
 import { usePrefs } from '@/lib/store/preferences'
 import { useDocStore } from '@/lib/store/document'
 import { parseBindings, type Binding } from '@/lib/scene/bindings'
+import { ProbeButtons } from './probe-buttons'
 import { getString, type ObjectRendererProps } from './types'
 
 // Stable empty scope reference — see components/objects/table.tsx.
@@ -470,6 +471,7 @@ export function GraphObject({ pageId, object }: ObjectRendererProps) {
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
+        <ProbeButtons pageId={pageId} object={object} />
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
           {panels.map((p) => p.name).join(', ') || 'Graph'}
           {hasPlot ? ` vs ${xChannel}` : ''}

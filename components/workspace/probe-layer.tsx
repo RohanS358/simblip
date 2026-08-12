@@ -14,6 +14,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDocStore } from '@/lib/store/document'
 import { channelOptions } from '@/lib/scene/bindings'
+import { onProbeDrag } from '@/lib/scene/probe-drag'
 import {
   attachPoint,
   defaultChannel,
@@ -120,38 +121,25 @@ export function ProbeLayer({
     }
   }, [drag, all, focused, focusedId, toCanvas, writeLinks])
 
-  const startDrag = useCallback(
-    (e: React.PointerEvent, spec: ProbeSpec, from: Vec2) => {
-      // The canvas would otherwise read this as "start dragging the object".
-      e.stopPropagation()
-      e.preventDefault()
-      setDrag({ spec, from, to: from, snap: null })
-      setOpenChip(null)
-    },
-    []
+  // Drags are started by the probe buttons in each component's header, which
+  // are rendered inside the object (a sibling of this overlay, not a child) —
+  // see lib/scene/probe-drag.ts for why the handoff goes through a bus.
+  useEffect(
+    () =>
+      onProbeDrag((req) => {
+        const obj = objects[req.objectId]
+        if (!obj) return
+        const spec = probesFor(obj).find((s) => s.param === req.param)
+        if (!spec) return
+        setDrag({ spec, from: req.from, to: req.from, snap: null })
+        setOpenChip(null)
+      }),
+    [objects]
   )
 
-  // ── Bound-but-unfocused: dots only ────────────────────────────────────────
-  // So a binding is discoverable at rest without any line on the canvas.
-  const restDots = all.flatMap((obj) => {
-    if (obj.id === focusedId) return []
-    const specs = probesFor(obj)
-    return specs.flatMap((spec, i) => {
-      if (probeLinks(obj, spec).length === 0) return []
-      const o = probeOrigin(obj, i, specs.length)
-      return [
-        <circle
-          key={`${obj.id}:${spec.param}`}
-          cx={o.x}
-          cy={o.y}
-          r={3.5 / zoom}
-          fill={spec.color}
-          opacity={0.5}
-        />,
-      ]
-    })
-  })
-
+  // The probe HANDLES live in each component's header (ProbeButtons), so at
+  // rest this overlay draws nothing at all — a bound-but-unfocused component
+  // shows its filled header button instead of a dot on the canvas.
   const specs = focused ? probesFor(focused) : []
 
   return (
@@ -161,8 +149,6 @@ export function ProbeLayer({
         width={1}
         height={1}
       >
-        {restDots}
-
         {focused &&
           specs.map((spec, i) => {
             const origin = probeOrigin(focused, i, specs.length)
@@ -209,15 +195,6 @@ export function ProbeLayer({
                   )
                 })}
 
-                {/* The probe dot: filled once something is bound. */}
-                <circle
-                  cx={origin.x}
-                  cy={origin.y}
-                  r={5 / zoom}
-                  fill={links.length > 0 ? spec.color : 'var(--background)'}
-                  stroke={spec.color}
-                  strokeWidth={1.5 / zoom}
-                />
               </g>
             )
           })}
@@ -248,33 +225,6 @@ export function ProbeLayer({
           </>
         )}
       </svg>
-
-      {/* Probe hit targets. Separate from the SVG so they can take pointer
-          events without making the whole overlay interactive. */}
-      {focused &&
-        specs.map((spec, i) => {
-          const origin = probeOrigin(focused, i, specs.length)
-          const r = 9 / zoom
-          return (
-            <div
-              key={`hit:${spec.param}`}
-              role="button"
-              tabIndex={0}
-              aria-label={`${spec.label} probe — drag to a component to connect`}
-              title={`${spec.label}: drag to a component`}
-              // touch-none: this is a drag target, so the browser must not
-              // claim the gesture as a scroll before the handler sees it.
-              className="absolute cursor-crosshair touch-none rounded-full"
-              style={{
-                left: origin.x - r,
-                top: origin.y - r,
-                width: r * 2,
-                height: r * 2,
-              }}
-              onPointerDown={(e) => startDrag(e, spec, origin)}
-            />
-          )
-        })}
 
       {/* Channel chips at each arrowhead. */}
       {focused &&

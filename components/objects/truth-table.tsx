@@ -8,7 +8,6 @@
 // the same chart tokens for the 1/0 states.
 
 import { useMemo } from 'react'
-import { TableProperties } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import {
   computeTruthTable,
@@ -17,6 +16,7 @@ import {
 } from '@/lib/circuit/truth-table'
 import { splitIds } from '@/lib/scene/bindings'
 import { ColumnPicker } from '@/components/workspace/column-picker'
+import { ProbeButtons } from './probe-buttons'
 import { getString, type ObjectRendererProps } from './types'
 
 const ONE = 'var(--chart-2)' // high
@@ -61,7 +61,7 @@ export function TruthTableObject({ pageId, object, selected }: ObjectRendererPro
   return (
     <div className="flex h-full w-full flex-col overflow-hidden rounded-xl bg-card/70 hairline">
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
-        <TableProperties className="h-3.5 w-3.5 text-muted-foreground" />
+        <ProbeButtons pageId={pageId} object={object} />
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
           {object.name}
         </span>
