@@ -125,7 +125,7 @@ const SECTION_DOT: Record<string, string> = {
 }
 
 /** The cover set that ships in /public/cover — pick one per notebook. */
-const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate'].map(
+const COVERS = ['blue', 'mint', 'violet', 'amber', 'rose', 'slate','1','2','3','4','5','6','7','8','9','10','11','12'].map(
   (c) => `/cover/cover-${c}.svg`
 )
 
