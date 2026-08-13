@@ -23,10 +23,12 @@
 // dropped, which is why the dock briefly lost its centering entirely.)
 //
 // The dock's own side preference (top/bottom/left/right, see usePrefs
-// notebook.dock) is a desktop-only choice: on mobile, left/right are
-// overridden to bottom, since a side dock permanently eats into a phone's
-// narrow width while a phone has height to spare (Toolbar shrinks its own
-// buttons on mobile too, see toolbar.tsx).
+// notebook.dock) is honoured everywhere except a PHONE, where left/right are
+// overridden to bottom: a side dock permanently eats into a narrow width
+// while a phone has height to spare. A tablet is a touch device with a
+// desktop's worth of width, so it keeps the side it was given — the same
+// touch-AND-narrow test the Toolbar uses to fold its extra tools into a
+// "More" flyout (`condensed` in toolbar.tsx).
 //
 // On a phone, the app nav rail (sidebar.tsx) is ALSO a fixed bottom bar. This
 // dock used to subtract the rail's published height itself; the shell's
@@ -40,30 +42,62 @@
 // not a floating control, same visual language as the rail beneath it.
 
 import { usePrefs } from '@/lib/store/preferences'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { Toolbar } from './toolbar'
 import { FloatingTransport } from './transport'
 import { cn } from '@/lib/utils'
+import { useViewChrome } from '@/hooks/use-dock-clearance'
 
 import { SundialDock } from './sundial-dock'
 
 /**
  * Should the drawing dock float over this page kind at all?
  *
- * It's a pen-and-shapes tool, so it belongs wherever there's a canvas to draw
- * on: boards, doc sheets, and PDFs once pdf-tools are switched on. The other
- * kinds have no canvas AND render their own chrome along the bottom edge — a
- * presentation's zoom + slideshow toolbar, a spreadsheet's sheet tabs, a web
- * view's browser bar. The floating pill lands right on top of that bar, and
- * being pointer-events-auto it also eats the taps and scroll drags meant for
- * it. Barely visible on a wide desktop pane; fatal on a phone, where both
- * bars want the same strip.
+ * It's a pen-and-shapes tool, so it belongs wherever there's a real canvas to
+ * draw on — which is every kind except the spreadsheet:
+ *
+ *   board  the page itself is the canvas
+ *   doc    each sheet is a canvas
+ *   pptx   each slide is a canvas (locked/transparent, like a PDF page)
+ *   pdf    per-page transparent ink overlay, gated on the pdf-tools toggle
+ *   image  transparent ink overlay sized to the image (imageAnnotPageId)
+ *   web    transparent ink overlay over the embedded page (webAnnotPageId)
+ *   xlsx   NO canvas — x-data-spreadsheet is a third-party widget that owns
+ *          its own scrolling grid, so there is nothing to draw on and the
+ *          dock would be a row of dead buttons.
+ *
+ * pptx/image/web used to be excluded here even though image-view.tsx and
+ * web-view.tsx both build an ink layer specifically for this dock to drive.
+ * The exclusion existed because the overlay lands on top of whatever the view
+ * draws along its own bottom edge and, being pointer-events-auto, eats the
+ * taps meant for it — that's now handled properly by useViewChrome instead of
+ * by hiding the dock (see the padding in CanvasControls below).
  *
  * Both shells used to inline their own version of this check, which is how
  * pptx ended up excluded on mobile only.
  */
 export const showsCanvasDock = (kind: string, pdfToolsOn: boolean): boolean =>
-  kind === 'pdf' ? pdfToolsOn : kind === 'board' || kind === 'doc'
+  kind === 'pdf' ? pdfToolsOn : kind !== 'xlsx'
+
+/**
+ * Kinds whose real editing surface is a per-sheet canvas rather than the page
+ * itself — doc sheets, pptx slides, and the image/web ink overlays. The view
+ * publishes which one is focused as `activeSheetId`; everything the dock does
+ * (draw, insert, select, undo) has to target that, not the container page.
+ *
+ * Both shells computed this inline and had drifted apart: the desktop shell
+ * listed pptx, mobile didn't, and neither listed image or web — so the dock
+ * would have drawn onto the empty container page instead of the ink layer.
+ */
+const SHEET_KINDS = new Set(['doc', 'pptx', 'image', 'web'])
+
+export const contentPageIdFor = (
+  kind: string,
+  activeSheetId: string | null,
+  activePageId: string | null,
+  pdfToolsOn: boolean
+): string | null =>
+  SHEET_KINDS.has(kind) || pdfToolsOn ? activeSheetId ?? activePageId : activePageId
 
 export function CanvasControls({
   pageId,
@@ -74,9 +108,18 @@ export function CanvasControls({
 }) {
   const dockPrefs = usePrefs((s) => s.dock)
   const isMobile = useIsMobile()
-  const dockSide = isMobile && (dockPrefs.fixedSide === 'left' || dockPrefs.fixedSide === 'right')
+  // Phone only — a tablet is a touch device with room for a side dock, so it
+  // keeps whatever side you picked. Mirrors `condensed` in toolbar.tsx.
+  const isNarrow = useIsNarrow()
+  const condensed = isMobile && isNarrow
+  const dockSide = condensed && (dockPrefs.fixedSide === 'left' || dockPrefs.fixedSide === 'right')
     ? 'bottom'
     : dockPrefs.fixedSide
+
+  // Whatever the view draws along its own bottom edge (the presentation's
+  // slide rail + control bar). Reserved rather than overlapped — see
+  // showsCanvasDock's note.
+  const chromeBottom = useViewChrome((s) => s.bottom)
 
   const isSundial = dockPrefs.containerStyle === 'sundial'
   const edgeToolbar = dockPrefs.positionMode === 'fixed' && dockPrefs.containerStyle === 'fixed-bar'
@@ -124,8 +167,12 @@ export function CanvasControls({
             gridTemplateRows: 'minmax(0,1fr) fit-content(100%) minmax(0,1fr)',
             // The nav rail's height is reserved by the shell's <main> now
             // (mobile-shell.tsx), so this overlay's inset-0 already stops
-            // above it — padding for it again would double the gap.
-            paddingBottom: edgeToolbar ? 0 : 'max(1rem, env(safe-area-inset-bottom))',
+            // above it — padding for it again would double the gap. The
+            // view's OWN bottom chrome is inside this box though, so that
+            // part is on us.
+            paddingBottom: edgeToolbar
+              ? chromeBottom
+              : `calc(max(1rem, env(safe-area-inset-bottom)) + ${chromeBottom}px)`,
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>

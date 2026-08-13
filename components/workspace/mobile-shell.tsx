@@ -46,7 +46,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useShareInbox } from '@/hooks/use-share-inbox'
-import { CanvasControls, showsCanvasDock } from './canvas-controls'
+import { CanvasControls, showsCanvasDock, contentPageIdFor } from './canvas-controls'
 import { Inspector } from './inspector'
 import { FocusObject } from './focus-object'
 import { motion as fm, AnimatePresence, useDragControls } from 'framer-motion'
@@ -67,7 +67,7 @@ import { Dock } from './dock'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
 import { FileObject } from '../objects/file-view'
-import { PageThumbnail } from './page-thumbnail'
+import { PageThumbnail, pageAspect } from './page-thumbnail'
 import { KIND_ICON } from './tabs-bar'
 import {
   AssignDialog,
@@ -269,11 +269,11 @@ export function MobileShell() {
   const activeKind = useWorkspaceStore(
     (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
-  // Docs: the tools act on the focused sheet; boards act on themselves; PDFs
-  // draw with the same real tools, targeting the focused page/notes canvas.
+  // Boards act on themselves; every other kind acts on the focused sheet or
+  // ink layer. Shared with shell.tsx — this copy used to omit pptx (and both
+  // omitted image/web), so the dock targeted the wrong page there.
   const pdfToolsOn = activeKind === 'pdf' && pdfToolsActive
-  const contentPageId =
-    activeKind === 'doc' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
+  const contentPageId = contentPageIdFor(activeKind, activeSheetId, activePageId, pdfToolsOn)
   const splitScreenObject = useDocStore((s) =>
     contentPageId && splitScreenDocumentId
       ? s.pages[contentPageId]?.objects?.[splitScreenDocumentId] ?? null
@@ -1035,8 +1035,11 @@ export function MobileShell() {
                 >
                   {/* Thumbnail takes the bulk of the card so the user can
                       preview the page without opening it. */}
-                  <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl bg-muted/40">
-                    <PageThumbnail pageId={page.id} className="absolute inset-0 p-1.5" />
+                  <div
+                    className="relative mx-auto min-h-0 w-full flex-1 overflow-hidden rounded-xl bg-muted/40"
+                    style={{ aspectRatio: pageAspect(page.pageKind) }}
+                  >
+                    <PageThumbnail live pageId={page.id} className="absolute inset-0" />
                     {(() => {
                       const KindIcon = KIND_ICON[page.pageKind ?? 'board']
                       return (
@@ -1312,8 +1315,14 @@ export function MobileShell() {
                     className="w-32 shrink-0 text-left transition-transform active:scale-95"
                     onClick={() => openPage(page.id)}
                   >
-                    <div className="relative aspect-[4/3] w-full overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm">
-                      <PageThumbnail pageId={page.id} className="absolute inset-0 p-1" />
+                    {/* The frame takes the page's OWN proportions — an A4 doc
+                        and a 16:9 deck shouldn't both be letterboxed into one
+                        generic 4:3 box. */}
+                    <div
+                      className="relative w-full overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
+                      style={{ aspectRatio: pageAspect(page.pageKind) }}
+                    >
+                      <PageThumbnail live pageId={page.id} className="absolute inset-0" />
                     </div>
                     <p className="mt-1.5 flex items-center gap-1 truncate text-[0.75rem] font-semibold text-foreground">
                       <KindIcon className="h-3 w-3 shrink-0 text-muted-foreground" />

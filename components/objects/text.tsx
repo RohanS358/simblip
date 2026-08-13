@@ -315,6 +315,28 @@ function useLiveTextEditor(
   }
 
   const checkLineSwitch = () => {
+    // A drag-selection ends with a click, and an extending Shift+Arrow ends
+    // with a keyup — both land here with a REAL range selected. activateLine
+    // finishes with placeCaretAt, whose removeAllRanges() would throw that
+    // range away, leaving a collapsed caret. setSpan then reads start === end
+    // and takes the "no selection means the whole box" branch, so a size or
+    // colour picked right after selecting two words restyled the entire text
+    // box. Switch the active line for rendering, but never touch the caret
+    // while the user is holding a selection.
+    const span = selectionSpan()
+    if (span) {
+      const line = span.s.line
+      const oldIdx = activeRef.current
+      if (line === oldIdx) return
+      activeRef.current = line
+      // Only the md-line-active class differs between the two renders, and
+      // renderLineDom rewrites innerHTML — which destroys any selection
+      // anchored in that line just as surely as placeCaretAt does. Toggle the
+      // class directly and leave the DOM (and the selection) alone.
+      lineEl(oldIdx)?.classList.remove('md-line-active')
+      lineEl(line)?.classList.add('md-line-active')
+      return
+    }
     const pos = caretPosition()
     if (!pos || pos.line === activeRef.current) return
     activateLine(pos.line, pos.offset)

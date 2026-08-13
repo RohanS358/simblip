@@ -277,7 +277,7 @@ export function LibraryPanel({
       aria-label="Institution library"
     >
       {/* Sticky Header: Library Title, Search Bar & Category Filters */}
-      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40">
+      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 pb-2 pt-1 border-b border-border/50">
         <div className="flex items-center gap-2 px-3.5 pb-2 pt-2">
           <LibraryBig className="h-4 w-4 text-[var(--accent-blue)]" />
           <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -341,7 +341,7 @@ export function LibraryPanel({
         </div>
       </div>
 
-      <div className="no-scrollbar flex-1 space-y-2 overflow-y-auto px-3 pb-3">
+      <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
         {filtered.length === 0 && (
           <p className="px-2 py-8 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
             {assets.length === 0

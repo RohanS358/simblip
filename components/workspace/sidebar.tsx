@@ -23,7 +23,7 @@
 // panel sliding up above it as a capped-height sheet, not sideways.
 
 import { useEffect, useState } from 'react'
-import { motion as fm } from 'framer-motion'
+import { motion as fm, AnimatePresence } from 'framer-motion'
 import { ChevronLeft } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -241,11 +241,29 @@ export function Sidebar({
           transition={motion}
           className="glass-strong flex flex-col rounded-t-2xl border-t border-border/40 pb-[env(safe-area-inset-bottom)]"
         >
-          {sidebarOpen && (
-            <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden border-b border-border/50">
-              <div className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
-            </div>
-          )}
+          {/* The panel used to be a bare `sidebarOpen && <div>` — it popped in
+              and out with no motion at all, while desktop (below) folded open
+              on a spring. Same idea here, on height instead of width: the
+              inner div keeps its real height inside the overflow-hidden fold,
+              so the content never reflows mid-animation. `motion` is
+              useSpring(), which already collapses to an instant transition
+              under prefers-reduced-motion. */}
+          <AnimatePresence initial={false}>
+            {sidebarOpen && (
+              <fm.div
+                key="panel"
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={motion}
+                className="min-h-0 overflow-hidden border-b border-border/50"
+              >
+                <div className="flex max-h-[38dvh] min-h-0 flex-col overflow-hidden">
+                  <div className="min-h-0 flex-1 overflow-y-auto">{panelSections}</div>
+                </div>
+              </fm.div>
+            )}
+          </AnimatePresence>
           {railNav}
         </fm.div>
       </aside>

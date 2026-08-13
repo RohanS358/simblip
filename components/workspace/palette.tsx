@@ -70,9 +70,12 @@ export function Palette() {
   const currentDomainValid = domain === null || packages[domain] !== false
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-2.5 py-1" aria-label="Component palette">
+    <div className="flex h-full min-h-0 flex-col py-1" aria-label="Component palette">
       {/* Sticky Header: Search Bar & Domain Filters */}
-      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40 mb-2 space-y-2">
+      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 px-2.5 pb-2 pt-1 border-b border-border/50 mb-2 space-y-2">
+         <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            Components
+          </span>
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
@@ -83,7 +86,7 @@ export function Palette() {
           />
         </div>
 
-        <div className="no-scrollbar flex items-center gap-1 overflow-x-auto">
+        <div className="no-scrollbar -mx-2.5 flex items-center gap-1 overflow-x-auto px-2.5">
           <button
             type="button"
             className={cn(
@@ -114,7 +117,7 @@ export function Palette() {
         </div>
       </div>
 
-      <div className="no-scrollbar grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto">
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto px-2.5">
         {filtered.map((c) => {
           const armed = tool === 'place' && toolOption === c.id
           return (

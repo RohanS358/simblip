@@ -11,16 +11,94 @@
 // memory; the rest stay in the "empty" state, which is still useful
 // (the page is there, just not opened yet on this device).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { FileText } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { pdfThumb } from '@/lib/store/pdf-thumb'
-import type { SceneObject, GeometryKind } from '@/lib/scene/types'
+import { InfiniteCanvas } from './canvas'
+import { SLIDE_W, SLIDE_H, SHEET_W, SHEET_H } from '@/lib/scene/frames'
+import type { SceneObject, GeometryKind, PageKind } from '@/lib/scene/types'
 
 type Props = {
   pageId: string
   className?: string
+  /** Render the page for real (mounting its canvas) instead of drawing the
+   *  cheap bbox sketch. Off by default: a sketch costs nothing, and grids of
+   *  many cards shouldn't each mount a live canvas unless the caller wants
+   *  the fidelity. */
+  live?: boolean
+}
+
+/** The page's natural aspect ratio (w/h) — a preview frame should match the
+ *  thing it previews rather than boxing an A4 doc and a 16:9 deck into the
+ *  same card. Exported so callers can size the frame with `aspectRatio`. */
+export function pageAspect(kind: PageKind | undefined): number {
+  if (kind === 'pptx') return 16 / 9
+  if (kind === 'doc' || kind === 'pdf') return SHEET_W / SHEET_H
+  return 4 / 3
+}
+
+/** Mounts the page's real canvas in its natural frame, CSS-scaled down to
+ *  whatever box it's given — the same 960×540 / A4 frame the editor uses, so
+ *  the preview IS the document rather than an approximation of it.
+ *
+ *  `fit` is for kinds with no fixed frame (a board): the canvas is sized and
+ *  translated so that content bbox — not the origin — lands in the preview.
+ *  A board's objects can sit anywhere in an unbounded plane, so without this
+ *  a preview anchored at 0,0 usually shows empty space. */
+export function LiveFrame({
+  pageId,
+  w,
+  h,
+  fit,
+  background,
+}: {
+  pageId: string
+  w: number
+  h: number
+  fit?: { x: number; y: number; w: number; h: number } | null
+  /** Slide/sheet background — it lives on the CONTAINER, not as a scene
+   *  object (see file-view.tsx), so a colored slide previewed without it
+   *  shows transparent behind its objects. */
+  background?: string
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(0)
+  const frameW = fit ? fit.w : w
+  const frameH = fit ? fit.h : h
+
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const measure = () => setScale(Math.min(el.clientWidth / frameW, el.clientHeight / frameH))
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    measure()
+    return () => ro.disconnect()
+  }, [frameW, frameH])
+
+  return (
+    <div ref={ref} className="pointer-events-none absolute inset-0 overflow-hidden">
+      {scale > 0 && (
+        <div
+          className="absolute left-0 top-0 origin-top-left"
+          style={{ width: frameW, height: frameH, transform: `scale(${scale})`, backgroundColor: background }}
+        >
+          <div
+            className="absolute"
+            style={
+              fit
+                ? { left: -fit.x, top: -fit.y, width: fit.x + fit.w, height: fit.y + fit.h }
+                : { inset: 0 }
+            }
+          >
+            <InfiniteCanvas pageId={pageId} locked transparent passthrough viewer active={false} />
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // Map a geometry kind to a soft accent — same family as the rest of the app.
@@ -106,13 +184,16 @@ function ShapeForObj({ obj }: { obj: SceneObject }) {
   )
 }
 
-export function PageThumbnail({ pageId, className }: Props) {
+export function PageThumbnail({ pageId, className, live }: Props) {
   // The preview must show what the page IS: a board previews its own
   // objects, a doc previews its first SHEET, and a PDF shows its actual
   // first page rendered from the locally cached file.
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const kind = meta?.pageKind ?? 'board'
-  const contentId = kind === 'doc' ? (meta?.docPages?.[0] ?? pageId) : pageId
+  // A doc previews its first SHEET and a deck its first SLIDE — both keep
+  // their content in docPages, and the page id itself holds no objects.
+  const contentId =
+    kind === 'doc' || kind === 'pptx' ? (meta?.docPages?.[0] ?? pageId) : pageId
 
   // Subscribe to *this* page's content (zustand will only re-render us when
   // this slice changes). Reading the page from getState() on each render
@@ -192,6 +273,28 @@ export function PageThumbnail({ pageId, className }: Props) {
     const padY = (maxY - minY) * 0.08
     return `${minX - padX} ${minY - padY} ${maxX - minX + padX * 2} ${maxY - minY + padY * 2}`
   }, [page, isSlide])
+
+  // Real render of the page in its own frame — a deck slide at 960×540, a doc
+  // sheet at A4, a board at its own content bbox. Same InfiniteCanvas the
+  // editor uses, so the preview IS the document rather than a sketch of it.
+  // After the useMemo above (hooks must not sit behind a conditional return)
+  // and after the PDF branch, which already previews a rasterized page.
+  if (live && page && Object.keys(page.objects).length > 0) {
+    const [vx, vy, vw, vh] = viewBox.split(' ').map(Number)
+    return (
+      <div className={className}>
+        <div className="relative h-full w-full">
+          <LiveFrame
+            pageId={contentId}
+            w={isSlide ? SLIDE_W : SHEET_W}
+            h={isSlide ? SLIDE_H : SHEET_H}
+            fit={isSlide || kind === 'doc' ? null : { x: vx, y: vy, w: vw, h: vh }}
+            background={meta?.sheetColors?.[contentId]}
+          />
+        </div>
+      </div>
+    )
+  }
 
   if (!page || Object.keys(page.objects).length === 0) {
     // Empty state — the page exists, it just has nothing on it (yet).

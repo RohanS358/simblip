@@ -51,16 +51,21 @@ export function ImageView({ pageId }: { pageId: string }) {
     }
   }, [fileUrl])
 
+  // The ink layer is what the dock draws on, so it has to be the active sheet
+  // while this view is up — and NOT after it closes, or the next page's dock
+  // would still be pointed at this image's ink (same cleanup as
+  // presentation-view.tsx).
   useEffect(() => {
     const node = useWorkspaceStore.getState().nodes[pageId]
     if (!node || node.kind !== 'page') return
     if (node.imageAnnotPageId) {
       useWorkspaceStore.getState().setActiveSheet(node.imageAnnotPageId)
-      return
+    } else {
+      const id = crypto.randomUUID()
+      useWorkspaceStore.getState().updatePageMeta(pageId, { imageAnnotPageId: id })
+      useWorkspaceStore.getState().setActiveSheet(id)
     }
-    const id = crypto.randomUUID()
-    useWorkspaceStore.getState().updatePageMeta(pageId, { imageAnnotPageId: id })
-    useWorkspaceStore.getState().setActiveSheet(id)
+    return () => useWorkspaceStore.getState().setActiveSheet(null)
   }, [pageId])
 
   return (

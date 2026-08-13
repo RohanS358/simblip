@@ -23,7 +23,7 @@ import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { Dock } from './dock'
 import { useSidebarSection, openProperties } from '@/lib/store/sidebar-sections'
-import { CanvasControls, showsCanvasDock } from './canvas-controls'
+import { CanvasControls, showsCanvasDock, contentPageIdFor } from './canvas-controls'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { SyncStatus } from './sync-status'
@@ -373,11 +373,10 @@ export function WorkspaceShell() {
     (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
   // What the toolbar/transport/inspector actually operate on: boards act on
-  // themselves, docs act on the focused SHEET, and PDF readers draw with the
-  // real board dock too — targeting whichever page/notes canvas is focused.
+  // themselves, every other kind acts on the focused sheet/ink layer. Shared
+  // with mobile-shell.tsx — the two copies had drifted (see contentPageIdFor).
   const pdfToolsOn = activeKind === 'pdf' && pdfToolsActive
-  const contentPageId =
-    activeKind === 'doc' || activeKind === 'pptx' || pdfToolsOn ? (activeSheetId ?? activePageId) : activePageId
+  const contentPageId = contentPageIdFor(activeKind, activeSheetId, activePageId, pdfToolsOn)
   // Width of the legacy in-board document split pane (item: resizable).
   const [docSplitW, setDocSplitW] = useState(0.5)
   // Drop indicator while dragging a tab/node over the canvas.

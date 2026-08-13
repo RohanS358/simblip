@@ -319,7 +319,7 @@ export function UploadsPanel({
       aria-label="Uploads library"
     >
       {/* Sticky Header */}
-      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40">
+      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 pb-2 pt-1 border-b border-border/50">
         <div className="flex items-center gap-2 px-3.5 pb-2 pt-2">
           <FolderUp className="h-4 w-4 text-[var(--accent-blue)]" />
           <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -377,7 +377,7 @@ export function UploadsPanel({
       </div>
 
       {/* Upload Drop Zone & Item List */}
-      <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {/* Upload dropzone banner */}
         <div
           className={cn(

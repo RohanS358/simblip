@@ -60,7 +60,7 @@ function Section({
         </button>
         {action}
       </div>
-      {open && <div className="min-h-0 flex-1 overflow-y-auto no-scrollbar">{children}</div>}
+      {open && <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>}
     </div>
   )
 }

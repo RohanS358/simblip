@@ -26,6 +26,7 @@ import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
+import { CONVERTIBLE } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { getFile } from '@/lib/storage/manager'
@@ -36,6 +37,26 @@ import { PdfDropzone } from './pdf-dropzone'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useTransientHud } from '@/hooks/use-transient-hud'
 
+
+/**
+ * Does this pdf-kind page still hold an un-converted source document?
+ *
+ * A .docx opens as a pdf-kind page (open-file.ts), and so does anything else
+ * to-pdf.ts can render, so the page's file is whatever was uploaded until the
+ * first open converts it. attachPdfToPage stamps `fileMime: 'application/pdf'`
+ * on the page once it has — that stamp, not the file name (which keeps its
+ * original extension), is what stops this from repeating forever.
+ *
+ * The `.pdf` name check covers pages stored before fileMime was recorded:
+ * without it a real PDF with no mime would be sent to convertToPdf, which
+ * refuses `.pdf` and would surface a spurious error.
+ */
+function needsPdfConversion(fileName?: string, fileMime?: string): boolean {
+  if (fileMime === 'application/pdf') return false
+  const ext = fileName ? fileName.slice(fileName.lastIndexOf('.')).toLowerCase() : ''
+  if (ext === '.pdf') return false
+  return (CONVERTIBLE as readonly string[]).includes(ext)
+}
 
 type PdfDoc = {
   numPages: number
@@ -325,6 +346,7 @@ useLayoutEffect(() => {
   // storage is already durable, unlike the old 7-day rolling /api/files seed
   // this replaces.
   const fileName = meta?.fileName
+  const fileMime = meta?.fileMime
   useEffect(() => {
     const metaFileUrl = meta?.fileUrl
     if (!metaFileUrl) {
@@ -338,6 +360,26 @@ useLayoutEffect(() => {
         try {
           const blob = await getFile(fileId)
           if (!blob || dead) return
+          // A .docx opens as a pdf-kind page (see open-file.ts), so on first
+          // open the bytes here are still the Word file. Hand it to the same
+          // attach pipeline a dropped .docx already uses: it converts, stores
+          // the PDF durably and repoints this page's fileUrl at it, so later
+          // opens — and other devices — find a real PDF with nothing to redo.
+          // (Repointing fileUrl re-runs this effect; the guard is false the
+          // second time round because attachPdfToPage stamps fileMime.)
+          if (needsPdfConversion(fileName, fileMime)) {
+            try {
+              const stored = await attachPdfToPage(
+                pageId,
+                new File([blob], fileName ?? 'document', { type: fileMime || blob.type }),
+                setConverting
+              )
+              if (!dead) setLocal(stored)
+            } catch (err) {
+              if (!dead) toast.error(err instanceof Error ? err.message : 'Could not convert this document to PDF.')
+            }
+            return
+          }
           setLocal({ url: URL.createObjectURL(blob), name: fileName ?? 'document.pdf', mime: blob.type || 'application/pdf', fileId })
         } finally {
           if (!dead) setHydrated(true)

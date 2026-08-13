@@ -24,10 +24,12 @@ import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
 import type { SlideTransition } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
-import { PageThumbnail } from './page-thumbnail'
+import { LiveFrame } from './page-thumbnail'
+import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
+import { useBottomChrome } from '@/hooks/use-dock-clearance'
 import {
   Sheet,
   SheetContent,
@@ -156,10 +158,10 @@ function PresentOverlay({
 
   const slideId = slides[i]
 
-  // The slide's own content is positioned in SIMBLIP's fixed 960x540
-  // coordinate space (see pptx-import.ts's SIMBLIP_SLIDE_W/H_PX and the
-  // main stage's own `width: 960, height: 540` box) — the frame here must
-  // stay a literal 960x540 box and get scaled down/up via CSS transform to
+  // The slide's own content is positioned in SIMBLIP's fixed SLIDE_W×SLIDE_H
+  // coordinate space (lib/scene/frames — the same frame pptx-import.ts maps
+  // onto and the main stage below uses) — the frame here must stay a literal
+  // 960×540 box and get scaled down/up via CSS transform to
   // fit the fullscreen viewport, the same way the main stage does with
   // `zoom`. Letting the frame's own CSS width stretch responsively
   // (the previous w-full max-w-[1400px]) kept objects at their correct
@@ -182,7 +184,7 @@ function PresentOverlay({
       const reserve = Math.min(200, Math.max(72, vh * 0.18))
       const availW = Math.max(120, vw - padX)
       const availH = Math.max(80, vh - reserve)
-      setFrameScale(Math.max(0.05, Math.min(availW / 960, availH / 540)))
+      setFrameScale(Math.max(0.05, Math.min(availW / SLIDE_W, availH / SLIDE_H)))
     }
     compute()
     window.addEventListener('resize', compute)
@@ -241,7 +243,7 @@ function PresentOverlay({
         {slideId && (
           <div
             className="relative shrink-0 overflow-hidden rounded-md shadow-2xl"
-            style={{ width: 960, height: 540, transform: `scale(${frameScale})` }}
+            style={{ width: SLIDE_W, height: SLIDE_H, transform: `scale(${frameScale})` }}
           >
             <TransitionSlide
               transition={transition}
@@ -300,6 +302,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // needed to *change* slides and dead weight while editing one, so it
   // collapses; the slide counter in the bar is the toggle.
   const [railOpen, setRailOpen] = useState(true)
+  const bottomChromeRef = useBottomChrome<HTMLDivElement>()
   const [current, setCurrent] = useState(0)
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
@@ -330,8 +333,8 @@ export function PresentationView({ pageId }: { pageId: string }) {
    * to pan through (the wrapper below is sized to the scaled footprint).
    */
   const fitScale = (el: HTMLElement) => {
-    const scaleW = (el.clientWidth - 48) / 960
-    const scaleH = (el.clientHeight - 48) / 540
+    const scaleW = (el.clientWidth - 48) / SLIDE_W
+    const scaleH = (el.clientHeight - 48) / SLIDE_H
     return Math.min(3, Math.max(0.25, el.clientWidth < 640 ? scaleW : Math.min(scaleW, scaleH)))
   }
 
@@ -672,13 +675,13 @@ export function PresentationView({ pageId }: { pageId: string }) {
           <div
             className="flex min-h-full items-center justify-center p-4 sm:p-6"
             // The scaled footprint, so the scroll container can measure it.
-            style={{ minWidth: 960 * zoom + 32, minHeight: 540 * zoom + 32 }}
+            style={{ minWidth: SLIDE_W * zoom + 32, minHeight: SLIDE_H * zoom + 32 }}
           >
           <div
             className="relative shrink-0 overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
             style={{
-              width: 960,
-              height: 540,
+              width: SLIDE_W,
+              height: SLIDE_H,
               transform: `scale(${zoom})`,
               transformOrigin: 'center center',
             }}
@@ -697,6 +700,11 @@ export function PresentationView({ pageId }: { pageId: string }) {
         ) : null}
       </div>
 
+      {/* The slide rail and the control bar are this view's own bottom chrome.
+          The drawing dock floats over the whole content box, so it has to know
+          how tall they are or it lands on top of them — hence the measured
+          wrapper (useBottomChrome → useViewChrome → canvas-controls.tsx). */}
+      <div ref={bottomChromeRef} className="flex shrink-0 flex-col">
       {/* Slide rail. Shorter on phones, where a 96px rail plus the toolbar
           ate most of a small viewport and left the slide itself squeezed —
           and collapsible there, so editing a slide can use the whole screen.
@@ -704,7 +712,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
       <div
         ref={railRef}
         className={cn(
-          'flex shrink-0 items-center gap-0 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/30 transition-[height,padding] duration-200 ease-out sm:h-24 sm:p-2',
+          'thin-scrollbar flex shrink-0 items-center gap-0 overflow-x-auto overscroll-x-contain border-t border-border/60 bg-muted/30 transition-[height,padding] duration-200 ease-out sm:h-24 sm:p-2',
           !isPhone || railOpen ? 'h-14 p-2' : 'h-0 overflow-hidden border-t-0 p-0'
         )}
         style={{ touchAction: 'pan-x', WebkitOverflowScrolling: 'touch' }}
@@ -714,7 +722,13 @@ export function PresentationView({ pageId }: { pageId: string }) {
         {displayedSlides.map((id, tileIdx) => {
           const i = slides.indexOf(id)
           return (
-            <div key={id} className="flex items-center h-full">
+            // shrink-0 is what makes the rail scrollable at all. Without it
+            // this wrapper is a shrinkable flex item, so adding slides just
+            // compressed each wrapper instead of growing the row — the tile
+            // inside kept its own width while its parent collapsed around it,
+            // scrollWidth never exceeded clientWidth, and there was literally
+            // nothing to scroll by wheel OR touch.
+            <div key={id} className="flex shrink-0 items-center h-full">
               {/* Gap before this tile — shows '+' on hover */}
               <div
                 className="relative flex items-center justify-center h-full"
@@ -741,13 +755,22 @@ export function PresentationView({ pageId }: { pageId: string }) {
                     onPointerDown={onTilePointerDown(id)}
                     onMouseEnter={() => setHoverGap(null)}
                     className={cn(
-                      'group relative aspect-video h-full shrink-0 touch-none cursor-grab overflow-hidden rounded-md border bg-white text-left active:cursor-grabbing',
+                      // touch-pan-x, not touch-none: the tiles cover nearly the
+                      // whole rail, so touch-none here meant a swipe starting
+                      // on one could never scroll it. Reorder-by-drag still
+                      // works — onTilePointerDown only arms after HOLD_MS and
+                      // its `move` handler cancels the pending hold once the
+                      // finger travels >8px, deliberately handing that gesture
+                      // back to the native scroll this now permits.
+                      'group relative aspect-video h-full shrink-0 touch-pan-x cursor-grab overflow-hidden rounded-md border bg-white text-left active:cursor-grabbing',
                       i === current ? 'border-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30' : 'border-border/60',
                       draggingId === id && 'opacity-70'
                     )}
                     style={{ backgroundColor: meta?.sheetColors?.[id] }}
                   >
-                    <PageThumbnail pageId={id} className="pointer-events-none absolute inset-0 h-full w-full" />
+                    {/* The real slide, not a bbox sketch — a deck's tiles all
+                        look alike otherwise. See page-thumbnail.tsx. */}
+                    <LiveFrame pageId={id} w={SLIDE_W} h={SLIDE_H} background={meta?.sheetColors?.[id]} />
                     <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
                       {i + 1}
                     </span>
@@ -988,6 +1011,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
         </div>
       </div>
       )}
+      </div>
 
       {/* Phone options sheet — everything the compact bar doesn't show.
           A sheet, not a scrolling strip: each control gets a label and full

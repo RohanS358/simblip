@@ -3626,7 +3626,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
           Variables
         </TabsTrigger>
       </TabsList>
-      <TabsContent value="properties" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <TabsContent value="properties" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {object ? (
           <ObjectProperties pageId={pageId} object={object} />
         ) : (
@@ -3640,7 +3640,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
           </div>
         )}
       </TabsContent>
-      <TabsContent value="variables" className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <TabsContent value="variables" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <VariablesPanel pageId={pageId} />
       </TabsContent>
     </Tabs>

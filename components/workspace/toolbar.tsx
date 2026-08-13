@@ -36,6 +36,7 @@ import {
   FileText,
   ChevronDown,
   Wrench,
+  Ellipsis,
 } from 'lucide-react'
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { motion as fm } from 'framer-motion'
@@ -45,7 +46,7 @@ import { useRuntimeStore } from '@/lib/physics/world'
 import { actionsForSelection } from '@/lib/scene/selection-actions'
 import { PenSettings } from './pen-settings'
 import { usePrefs } from '@/lib/store/preferences'
-import { useIsMobile } from '@/hooks/use-mobile'
+import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useSlashMenuStore } from '@/lib/store/slash-menu'
 import { uid, type SceneObject, type PageNode } from '@/lib/scene/types'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -73,6 +74,17 @@ const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; la
   { tool: 'graph', icon: ChartLine, label: 'Graph', key: 'G' },
   { tool: 'gridtable', icon: TableProperties, label: 'Grid Table', key: 'B' },
 ]
+
+// A PHONE can't fit 13 tool buttons at a real touch target, and the previous
+// answer — shrink every button to 28px and let the row scroll — made all of
+// them hard to hit and half of them invisible. So a narrow touch viewport
+// keeps the tools you actually draw with and moves the rest into a "More"
+// flyout, the same flyout pattern the Shapes group already uses.
+//
+// This is keyed on the VIEWPORT being narrow, not on the device being touch:
+// a tablet is a touch device with a desktop's worth of width, so it gets the
+// full dock back (see `condensed` below).
+const MOBILE_PRIMARY: Tool[] = ['select', 'pen', 'eraser', 'text']
 
 /** Crisp inline n-gon icon — lucide has no heptagon. */
 function NgonIcon({ n }: { n: number }) {
@@ -191,6 +203,40 @@ function ToolButton({
   )
 }
 
+/**
+ * A cell in the mobile "More" flyout. Icon + label, unlike the bare icons in
+ * the dock row — the tools that get pushed in here are exactly the ones whose
+ * icon isn't self-evident (Σ, spline, grid table), and a flyout has the room.
+ */
+function MoreButton({
+  active,
+  label,
+  icon,
+  onClick,
+}: {
+  active: boolean
+  label: string
+  icon: React.ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        'flex h-16 flex-col items-center justify-center gap-1 rounded-xl px-1 transition-colors active:scale-[0.97]',
+        active ? 'text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
+      style={active ? { background: 'var(--accent-blue)' } : undefined}
+    >
+      {icon}
+      <span className="w-full truncate text-center text-[0.625rem] font-medium">{label}</span>
+    </button>
+  )
+}
+
 function DockPageMenu() {
   const activePageId = useWorkspaceStore((s) => s.activePageId)
   const nodes = useWorkspaceStore((s) => s.nodes)
@@ -274,13 +320,19 @@ export function Toolbar({
   if (selActions.length > 0) lastActionsRef.current = selActions
   const segActions = selActions.length > 0 ? selActions : lastActionsRef.current
   const isMobile = useIsMobile()
+  // Touch + narrow = phone. A tablet is touch but wide, so it keeps the full
+  // dock; only the width-starved layout gets folded into the More flyout.
+  const isNarrow = useIsNarrow()
+  const condensed = isMobile && isNarrow
 
   const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
+  const [showMore, setShowMore] = useState(false)
 
   const dockPrefsState = usePrefs((s) => s.dock)
   const setDock = usePrefs((s) => s.setDock)
-  const dockSide = isMobile && (dockPrefsState.fixedSide === 'left' || dockPrefsState.fixedSide === 'right')
+  // Keep in sync with canvas-controls.tsx, which lays the dock out on its grid.
+  const dockSide = condensed && (dockPrefsState.fixedSide === 'left' || dockPrefsState.fixedSide === 'right')
     ? 'bottom'
     : dockPrefsState.fixedSide
   const vertical = dockSide === 'left' || dockSide === 'right'
@@ -323,11 +375,18 @@ export function Toolbar({
     dragRef.current = null
   }
 
-  // Sizing styles
-  const sizeMode = isMobile ? 'compact' : dockPrefsState.size
+  // Sizing styles. A phone stays a compact single line — it used to force
+  // 'compact' (28px, too small to hit) and the fix is NOT a bigger button
+  // (44px targets wrapped the dock onto two lines and ate the canvas), it's
+  // fewer of them: MOBILE_PRIMARY moves everything else into the More flyout,
+  // which leaves room for a 36px target in one row. 28px is below any touch
+  // target guideline, so no touch device gets 'compact' whatever the pref.
+  const sizeMode = isMobile && dockPrefsState.size === 'compact' ? 'md' : dockPrefsState.size
   const btnSize = sizeMode === 'compact' ? 'h-7 w-7' : sizeMode === 'large' ? 'h-11 w-11' : 'h-9 w-9'
   const iconSize = sizeMode === 'compact' ? 'h-3.5 w-3.5' : sizeMode === 'large' ? 'h-5 w-5' : 'h-4 w-4'
-  const paddingClass = sizeMode === 'compact' ? 'p-1 gap-0.5' : sizeMode === 'large' ? 'p-2 gap-1.5' : 'p-1.5 gap-1'
+  const paddingClass = condensed
+    ? 'p-1 gap-1'
+    : sizeMode === 'compact' ? 'p-1 gap-0.5' : sizeMode === 'large' ? 'p-2 gap-1.5' : 'p-1.5 gap-1'
 
   // Shape styles
   const shapeClass =
@@ -384,15 +443,19 @@ export function Toolbar({
   const toolbarRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const handleClickOutside = (e: PointerEvent) => {
-      if (showPen && toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
         setShowPen(false)
+        setShowShapes(false)
+        setShowMore(false)
       }
     }
-    if (showPen) {
+    // Shapes/More matter most on touch: without this the flyout stays open
+    // over the canvas and eats the next draw stroke.
+    if (showPen || showShapes || showMore) {
       window.addEventListener('pointerdown', handleClickOutside)
     }
     return () => window.removeEventListener('pointerdown', handleClickOutside)
-  }, [showPen])
+  }, [showPen, showShapes, showMore])
 
   const pillRef = useRef<HTMLDivElement>(null)
   const publishRef = useRef<() => void>(() => {})
@@ -432,6 +495,32 @@ export function Toolbar({
 
   const isExtended = dockPrefsState.layoutMode === 'extended'
 
+  const primaryTools = condensed ? TOOLS.filter((t) => MOBILE_PRIMARY.includes(t.tool)) : TOOLS
+  const overflowTools = condensed ? TOOLS.filter((t) => !MOBILE_PRIMARY.includes(t.tool)) : []
+
+  const addDocument = () => {
+    if (!pageId) return
+    const doc = useDocStore.getState()
+    const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+    const cx = (window.innerWidth / 2 - v.x) / v.zoom
+    const cy = (window.innerHeight / 2 - v.y) / v.zoom
+    const obj: SceneObject = {
+      id: uid(),
+      name: 'Document',
+      geometry: { kind: 'note' },
+      position: { x: cx - 240, y: cy - 170 },
+      size: { w: 480, h: 340 },
+      rotation: 0,
+      z: 0,
+      behaviors: [],
+      parameters: {},
+      metadata: { render: 'file' },
+    }
+    doc.addObject(pageId, obj)
+    doc.setSelection([obj.id])
+    doc.setTool('select')
+  }
+
   const content = (
     <div ref={toolbarRef} className={cn('relative flex min-h-0 min-w-0', edge && 'w-full')}>
       {showPen && (
@@ -469,6 +558,51 @@ export function Toolbar({
               {sh.icon}
             </ToolButton>
           ))}
+        </div>
+      )}
+
+      {showMore && (
+        <div
+          className={cn(
+            'glass-strong absolute z-50 grid w-[min(20rem,calc(100vw-1.5rem))] grid-cols-3 gap-1 rounded-2xl p-2',
+            penFlyoutClass
+          )}
+        >
+          {overflowTools.map(({ tool: t, icon: Icon, label }) => (
+            <MoreButton
+              key={t}
+              active={tool === t}
+              // The dock labels carry an em-dash explainer that has no room here.
+              label={label.split('—')[0].trim()}
+              icon={<Icon className="h-5 w-5" />}
+              onClick={() => {
+                setTool(t)
+                setShowMore(false)
+              }}
+            />
+          ))}
+          {pageId && (
+            <MoreButton
+              active={false}
+              label="Components"
+              icon={<Blocks className="h-5 w-5" />}
+              onClick={() => {
+                useSlashMenuStore.getState().open(pageId)
+                setShowMore(false)
+              }}
+            />
+          )}
+          {pageId && (
+            <MoreButton
+              active={false}
+              label="Document"
+              icon={<Paperclip className="h-5 w-5" />}
+              onClick={() => {
+                addDocument()
+                setShowMore(false)
+              }}
+            />
+          )}
         </div>
       )}
 
@@ -529,7 +663,7 @@ export function Toolbar({
           </>
         )}
 
-        {TOOLS.map(({ tool: t, icon: Icon, label, key }) =>
+        {primaryTools.map(({ tool: t, icon: Icon, label, key }) =>
           t === 'pen' ? (
             <ToolButton
               key={t}
@@ -569,50 +703,49 @@ export function Toolbar({
           active={showShapes || tool === 'shape'}
           label="Shapes — line, circle, oval, square, rectangle, triangle … octagon"
           size={btnSize}
-          onClick={() => setShowShapes((v) => !v)}
+          onClick={() => {
+            setShowMore(false)
+            setShowShapes((v) => !v)
+          }}
         >
           <ShapesGroupIcon />
         </ToolButton>
 
-        {isMobile && pageId && (
+        {condensed ? (
           <ToolButton
-            active={false}
-            label="Insert a component"
+            active={showMore}
+            label="More tools"
             size={btnSize}
-            onClick={() => useSlashMenuStore.getState().open(pageId)}
+            onClick={() => {
+              setShowShapes(false)
+              setShowMore((v) => !v)
+            }}
           >
-            <Blocks className={iconSize} />
+            <Ellipsis className={iconSize} />
           </ToolButton>
+        ) : (
+          // Touch-only: a mouse gets components from the sidebar palette.
+          isMobile && pageId && (
+            <ToolButton
+              active={false}
+              label="Insert a component"
+              size={btnSize}
+              onClick={() => useSlashMenuStore.getState().open(pageId)}
+            >
+              <Blocks className={iconSize} />
+            </ToolButton>
+          )
         )}
 
-        {pageId && (
+        {/* A phone reaches Document through the More flyout instead. */}
+        {pageId && !condensed && (
           <>
             <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
             <ToolButton
               active={false}
               label="Document — attach a PDF/image"
               size={btnSize}
-              onClick={() => {
-                const doc = useDocStore.getState()
-                const v = doc.viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-                const cx = (window.innerWidth / 2 - v.x) / v.zoom
-                const cy = (window.innerHeight / 2 - v.y) / v.zoom
-                const obj: SceneObject = {
-                  id: uid(),
-                  name: 'Document',
-                  geometry: { kind: 'note' },
-                  position: { x: cx - 240, y: cy - 170 },
-                  size: { w: 480, h: 340 },
-                  rotation: 0,
-                  z: 0,
-                  behaviors: [],
-                  parameters: {},
-                  metadata: { render: 'file' },
-                }
-                doc.addObject(pageId, obj)
-                doc.setSelection([obj.id])
-                doc.setTool('select')
-              }}
+              onClick={addDocument}
             >
               <Paperclip className={iconSize} />
             </ToolButton>
@@ -632,7 +765,7 @@ export function Toolbar({
               className={cn(
                 'flex min-h-0 min-w-0 items-center overflow-hidden',
                 vertical && 'flex-col',
-                isMobile ? 'gap-0.5' : 'gap-1'
+                condensed ? 'gap-0.5' : 'gap-1'
               )}
             >
               <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />

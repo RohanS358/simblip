@@ -19,12 +19,8 @@ import { useDocStore } from '@/lib/store/document'
 import { cn } from '@/lib/utils'
 import { pageKindForFile } from '@/components/workspace/open-file'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
+import { SLIDE_W, SLIDE_H, SHEET_W, SHEET_H } from '@/lib/scene/frames'
 import type { ObjectRendererProps } from './types'
-
-const SLIDE_W = 960
-const SLIDE_H = 540
-const SHEET_W = 794
-const SHEET_H = 1123
 
 /** Minimal content-only preview for a linked pptx/doc/xlsx page — just the
  *  current slide/sheet (locked, transparent, non-interactive InfiniteCanvas)
@@ -32,9 +28,9 @@ const SHEET_H = 1123
  *  slide decks (docPages = slides); doc/xlsx pages are one or more sheets,
  *  navigated the same way here for a consistent minimal viewer.
  *
- *  Slide/sheet content is authored assuming a FIXED frame (960×540 for
- *  slides, 794×1123 A4 for doc sheets — same as presentation-view.tsx's
- *  stage / doc-view.tsx's SHEET_W/H) — rendering InfiniteCanvas directly
+ *  Slide/sheet content is authored assuming a FIXED frame (lib/scene/frames:
+ *  960×540 for slides, 794×1123 A4 for doc sheets — the same frame
+ *  presentation-view.tsx's stage uses) — rendering InfiniteCanvas directly
  *  into an arbitrarily-sized box skips that frame entirely, so objects show
  *  at their raw canvas coordinates instead of fitted to the box. This wraps
  *  the canvas in that same fixed frame, clipped, then CSS-scales the WHOLE
@@ -138,8 +134,9 @@ const loadPdfjs = () => {
  *  both by FileObject's own file-picker/drop and by canvas.tsx embedding a
  *  freshly-dropped file straight into a new Document object. PDFs/images go
  *  to session storage (FileObject renders them itself via pdf.js/<img>);
- *  pptx/docx/xlsx become a real linked page (own importer, own editor);
- *  txt/md/csv become a pdf-kind page (no dedicated viewer exists for those). */
+ *  pptx/xlsx become a real linked page (own importer, own editor);
+ *  txt/md/csv/docx become a pdf-kind page (no editable model of their own —
+ *  .docx is converted rather than parsed, see open-file.ts). */
 export async function attachFileToObject(
   hostPageId: string,
   objectId: string,
@@ -148,9 +145,13 @@ export async function attachFileToObject(
 ): Promise<{ ok: true; linkedPageId?: string } | { ok: false; error: string }> {
   const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
   const alreadyViewable = f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
-  const isTextConvertible = ['.txt', '.md', '.csv'].includes(ext)
+  // .docx joins txt/md/csv here: it has no editable model of its own anymore
+  // (open-file.ts routes it to the pdf kind), and converting up front is what
+  // keeps the canvas preview from sitting blank until someone opens the
+  // linked page — the same reason pptx imports eagerly below.
+  const isPdfConvertible = ['.txt', '.md', '.csv', '.docx'].includes(ext)
 
-  if (isTextConvertible) {
+  if (isPdfConvertible) {
     try {
       const ws = useWorkspaceStore.getState()
       const hostNode = findNode(ws.nodes, hostPageId)
@@ -199,24 +200,12 @@ export async function attachFileToObject(
           if (slide.background) sheetColors[slideId] = slide.background
         }
         if (Object.keys(sheetColors).length) ws.updatePageMeta(newPageId, { sheetColors })
-      } else if (kind === 'doc') {
-        // Matches DocView's own import effect: addPageIn seeded one blank
-        // default sheet — drop it once real content replaces it, same as
-        // DocView does when it imports on its own first mount.
-        const { importDocx } = await import('@/lib/store/docx-import')
-        const sheetObjectSets = await importDocx(f)
-        const staleId = findPageMeta(useWorkspaceStore.getState().nodes, newPageId)?.docPages?.[0]
-        const newIds: string[] = []
-        for (const objects of sheetObjectSets) {
-          const sheetId = ws.addDocSheet(newPageId)
-          for (const obj of objects) useDocStore.getState().addObject(sheetId, obj)
-          newIds.push(sheetId)
-        }
-        if (staleId && newIds.length) {
-          ws.updatePageMeta(newPageId, { docPages: newIds })
-          useDocStore.getState().forgetPage(staleId)
-        }
       }
+      // There used to be a `kind === 'doc'` branch here running docx-import.
+      // Nothing routes to the 'doc' kind on import anymore — .docx is handled
+      // by the isPdfConvertible path above — so it was unreachable. DocView
+      // keeps its own copy of that import for doc pages created back when
+      // .docx did open as one.
       // The doc store debounces its durable write by 400ms and otherwise
       // only flushes on pagehide/beforeunload — a reload landing inside
       // that window (or an environment where those events don't fire, e.g.

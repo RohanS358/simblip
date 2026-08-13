@@ -3899,7 +3899,7 @@ function SlashMenu({
           }
         }}
       />
-      <div ref={listRef} className="no-scrollbar max-h-[236px] overflow-y-auto border-t border-border/60 pt-1">
+      <div ref={listRef} className="max-h-[236px] overflow-y-auto border-t border-border/60 pt-1">
         {results.length === 0 && (
           <p className="px-2 py-3 text-center text-[0.75rem] text-muted-foreground">Nothing matches.</p>
         )}

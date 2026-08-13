@@ -53,17 +53,20 @@ export function WebView({ pageId }: { pageId: string }) {
   const [hostW, setHostW] = useState(0)
   const hostRef = useRef<HTMLDivElement>(null)
 
-  // Ensure pen annotation page ID exists
+  // Ensure pen annotation page ID exists, and make it the active sheet — it's
+  // what the dock draws on. Cleared on unmount so the next page's dock doesn't
+  // stay pointed at this one's ink.
   useEffect(() => {
     const node = useWorkspaceStore.getState().nodes[pageId]
     if (!node || node.kind !== 'page') return
     if (node.webAnnotPageId) {
       useWorkspaceStore.getState().setActiveSheet(node.webAnnotPageId)
-      return
+    } else {
+      const id = crypto.randomUUID()
+      useWorkspaceStore.getState().updatePageMeta(pageId, { webAnnotPageId: id })
+      useWorkspaceStore.getState().setActiveSheet(id)
     }
-    const id = crypto.randomUUID()
-    useWorkspaceStore.getState().updatePageMeta(pageId, { webAnnotPageId: id })
-    useWorkspaceStore.getState().setActiveSheet(id)
+    return () => useWorkspaceStore.getState().setActiveSheet(null)
   }, [pageId])
 
   // Track container width for pen canvas scaling

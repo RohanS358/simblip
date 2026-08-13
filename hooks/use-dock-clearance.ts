@@ -31,6 +31,47 @@ export const useDockRect = create<DockRectState>((set) => ({
   set: (rect) => set({ rect }),
 }))
 
+interface ViewChromeState {
+  bottom: number
+  set: (bottom: number) => void
+}
+
+/**
+ * Height of the chrome the ACTIVE page view draws along the bottom of its own
+ * area — today only the presentation's slide rail + control bar.
+ *
+ * The dock overlay spans the whole content box (canvas-controls.tsx), so
+ * without this it lands on top of that chrome and, being pointer-events-auto,
+ * eats the taps meant for it. Same "publish your rect, neighbours move" idea
+ * as useDockRect above, in the other direction.
+ */
+export const useViewChrome = create<ViewChromeState>((set) => ({
+  bottom: 0,
+  set: (bottom) => set({ bottom }),
+}))
+
+/**
+ * Attach the returned ref to the element wrapping your view's bottom chrome.
+ * Measured rather than declared, because the height is a CSS concern that
+ * changes with breakpoint and collapse state.
+ */
+export function useBottomChrome<T extends HTMLElement>() {
+  const ref = useRef<T>(null)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const publish = () => useViewChrome.getState().set(el.offsetHeight)
+    publish()
+    const ro = new ResizeObserver(publish)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      useViewChrome.getState().set(0)
+    }
+  }, [])
+  return ref
+}
+
 const GAP = 8
 
 /**

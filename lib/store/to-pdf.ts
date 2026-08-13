@@ -14,10 +14,14 @@
 // Every heavy dependency is imported lazily so the notebook bundle never
 // carries them until someone actually attaches a document.
 
-export const PPT_W = 960 // 16:9 slide, CSS px
-export const PPT_H = 540
-const DOC_W = 794 // A4 @ 96dpi
-const DOC_H = 1123
+// The frames themselves live in lib/scene/frames; aliased here because the
+// export path has always called them PPT_*/DOC_*.
+import { SLIDE_W, SLIDE_H, SHEET_W, SHEET_H } from '@/lib/scene/frames'
+
+export const PPT_W = SLIDE_W // 16:9 slide, CSS px
+export const PPT_H = SLIDE_H
+const DOC_W = SHEET_W // A4 @ 96dpi
+const DOC_H = SHEET_H
 
 export type ConvertProgress = (done: number, total: number) => void
 

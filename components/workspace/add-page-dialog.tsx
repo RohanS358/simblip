@@ -221,8 +221,10 @@ export function AddPageDialog({
     finish(id)
   }
 
-  /** Word/Excel/PPT/image go through this — same fileUrl handoff open-file.ts
-   *  uses for files already in the tree, so both paths import identically. */
+  /** Excel/PPT/image go through this — same fileUrl handoff open-file.ts uses
+   *  for files already in the tree, so both paths import identically. Word
+   *  doesn't anymore: .docx resolves to the 'pdf' kind and takes createPdf's
+   *  convert-then-attach path instead. */
   const createFromUpload = async (kind: 'doc' | 'xlsx' | 'pptx' | 'image', file: File) => {
     if (!target) return
     setConverting('Uploading…')

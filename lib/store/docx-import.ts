@@ -1,5 +1,12 @@
 'use client'
 
+// LEGACY PATH. Importing a .docx no longer creates a Document page — it
+// resolves to the 'pdf' kind now and is rendered by to-pdf.ts's docx-preview
+// conversion instead (see components/workspace/open-file.ts for why). This
+// importer is still reached by doc-view.tsx's first-open effect, for doc
+// pages created back when .docx did open as one, and its docx-export.ts
+// inverse is still Document's live "Export .docx".
+//
 // .docx -> SceneObject[], for doc-view.tsx's first-open import (a Document
 // page created from an uploaded Word file). A .docx is a zip of OOXML —
 // this reads word/document.xml's paragraphs (<w:p>, text runs in <w:t>)
@@ -14,9 +21,11 @@
 import JSZip from 'jszip'
 import { baseObject } from '@/lib/scene/factory'
 import { str, type SceneObject } from '@/lib/scene/types'
+import { SHEET_W } from '@/lib/scene/frames'
 
 const LINE_H = 28 // px between stacked paragraphs, matches text's default 48px box minus padding feel
-const SHEET_W_PADDED = 700 // leaves margin inside doc-view's 794px A4 sheet
+const SHEET_MARGIN = 47 // px of margin on each side of the A4 sheet
+const SHEET_W_PADDED = SHEET_W - SHEET_MARGIN * 2
 
 function paragraphText(p: Element): string {
   return Array.from(p.getElementsByTagName('w:t'))

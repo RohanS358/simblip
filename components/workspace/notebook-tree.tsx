@@ -70,14 +70,24 @@ import { cn } from '@/lib/utils'
 /** Route a dropped/picked file into parentId — a PDF, or plain text/markdown/
  *  csv this app can flatten into one, becomes a reader PAGE (paged reading,
  *  per-page ink/notes — a genuinely richer experience worth keeping as a
- *  page for formats with no editable model of their own). pptx/docx/xlsx
- *  become a raw FILE leaf like anything else — opening one (open-file.ts)
- *  creates a real editable doc/xlsx/presentation-kind page on first click,
- *  instead of pre-flattening to a read-only PDF. Anything else (images,
- *  video, audio, arbitrary files) also becomes a raw FILE leaf instead of
- *  being force-converted or silently failing — a real filesystem wouldn't reject
- *  a dropped .png. Shared by the tree's drag-drop handler and the "Upload
- *  file…" menu item so both take the same file through the same path. */
+ *  page for formats with no editable model of their own).
+ *
+ *  Anything else (images, video, audio, arbitrary files) becomes a raw FILE
+ *  leaf instead of being force-converted or silently failing — a real
+ *  filesystem wouldn't reject a dropped .png.
+ *
+ *  A format we CAN render (pptx/docx/xlsx/image — anything pageKindForFile
+ *  knows) still stores its bytes as a FileNode, but gets its companion page
+ *  created here rather than on first click. The bytes-then-lazy-import split
+ *  is deliberate (the expensive OOXML parse still happens on first open, in
+ *  the viewer), but deferring the PAGE too meant a dropped .pptx showed up as
+ *  an opaque "file" of no obvious type that mutated into a presentation when
+ *  tapped. Creating the page up front makes an uploaded deck look like a deck
+ *  immediately; open-file.ts still handles the case where a FileNode somehow
+ *  has no page yet (older uploads, shares).
+ *
+ *  Shared by the tree's drag-drop handler and the "Upload file…" menu item so
+ *  both take the same file through the same path. */
 export async function addFileToFolder(parentId: string, f: File) {
   const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
   const isPdf = f.type === 'application/pdf' || ext === '.pdf'
@@ -96,8 +106,19 @@ export async function addFileToFolder(parentId: string, f: File) {
   const { putFile } = await import('@/lib/storage/manager')
   const { useAuthStore } = await import('@/lib/auth/store')
   const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
-  const fileId = await putFile(f, f.name, f.type || 'application/octet-stream', ownerId)
-  useWorkspaceStore.getState().addFile(parentId, f.name, fileId, f.type || 'application/octet-stream', f.size)
+  const mime = f.type || 'application/octet-stream'
+  const fileId = await putFile(f, f.name, mime, ownerId)
+  const store = useWorkspaceStore.getState()
+  const nodeId = store.addFile(parentId, f.name, fileId, mime, f.size)
+
+  const { pageKindForFile } = await import('./open-file')
+  const kind = pageKindForFile({ mime, name: f.name })
+  if (!kind || !nodeId) return
+
+  const s = useWorkspaceStore.getState()
+  const pageId = s.addPageIn(parentId, f.name.replace(/\.[^.]+$/, ''), kind)
+  s.updatePageMeta(pageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: mime })
+  s.setFilePageId(nodeId, pageId)
 }
 
 const SECTION_DOT: Record<string, string> = {
@@ -680,7 +701,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div
-        className="no-scrollbar min-h-0 flex-1 overflow-y-auto px-2 pb-3"
+        className="min-h-0 flex-1 overflow-y-auto px-2 pb-3"
         // Global root drop zone: files dropped anywhere in the tree
         // (not on a specific folder) fall into the first root notebook if any.
         // Internal node drags that miss a folder row move the node to the root.

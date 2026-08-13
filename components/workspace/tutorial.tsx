@@ -296,7 +296,7 @@ export function TutorialPanel({
       </div>
 
       {!course ? (
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto no-scrollbar">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto">
           <p className="pb-1 text-[0.75rem] leading-relaxed text-muted-foreground">
             Guided experiments, done by you on this page. Each step watches your canvas and ticks
             itself when it detects the setup. Nothing is locked — jump to any tier any time.

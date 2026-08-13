@@ -1117,7 +1117,7 @@ export function SettingsDialog({
         >
           {/* Sidebar / nav — desktop only; touch uses the grouped list above instead. */}
           {!isTouch && (
-            <div className="shrink-0 flex w-48 sm:w-56 md:w-60 flex-col p-3.5 space-y-3.5 overflow-y-auto no-scrollbar border-r bg-muted/20 dark:bg-muted/10 border-border/40">
+            <div className="shrink-0 flex w-48 sm:w-56 md:w-60 flex-col p-3.5 space-y-3.5 overflow-y-auto border-r bg-muted/20 dark:bg-muted/10 border-border/40">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input

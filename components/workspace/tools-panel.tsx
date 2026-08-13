@@ -65,9 +65,9 @@ export function ToolsPanel() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col px-2.5 py-1" aria-label="Tools panel">
+    <div className="flex h-full min-h-0 flex-col py-1" aria-label="Tools panel">
       {/* Sticky Header: Search Bar */}
-      <div className="sticky top-0 z-20 shrink-0 bg-background/95 backdrop-blur-md pb-2 pt-1 border-b border-border/40 mb-2 space-y-2">
+      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 px-2.5 pb-2 pt-1 border-b border-border/50 mb-2 space-y-2">
         <div className="flex items-center justify-between px-0.5">
           <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
             Tools
@@ -84,7 +84,7 @@ export function ToolsPanel() {
         </div>
       </div>
 
-      <div className="no-scrollbar flex-1 space-y-3 overflow-y-auto pb-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-2.5 pb-3">
         {(!q || 'calculator'.includes(q)) && (
           <button
             type="button"

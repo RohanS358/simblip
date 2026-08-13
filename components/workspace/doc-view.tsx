@@ -34,13 +34,14 @@ import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useTransientHud } from '@/hooks/use-transient-hud'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { sanitizeFormFields } from '@/lib/store/to-pdf'
+import { SHEET_W, SHEET_H } from '@/lib/scene/frames'
 import { InfiniteCanvas } from './canvas'
 import { DocSorter } from './doc-sorter'
 import { cn } from '@/lib/utils'
 
-/** A4 at ~96 dpi. Sheets keep this ratio at any pane width unless resized. */
-export const SHEET_W = 794
-export const SHEET_H = 1123
+/** A4 at ~96 dpi. Sheets keep this ratio at any pane width unless resized.
+ *  Re-exported for existing importers; the numbers live in lib/scene/frames. */
+export { SHEET_W, SHEET_H }
 const MIN_SHEET = 320
 const MAX_SHEET = 2400
 const MIN_ZOOM = 0.25
@@ -690,7 +691,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     <div className="relative h-full w-full">
       <div
         ref={scrollRef}
-        className="no-scrollbar h-full w-full overflow-auto bg-muted/40"
+        className="h-full w-full overflow-auto bg-muted/40"
         // Without this, a two-finger pinch here races the browser's own
         // native page-zoom on mobile/tablet (nothing in the viewport meta
         // disables it) instead of reaching usePinchZoom below — the native

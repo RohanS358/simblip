@@ -99,7 +99,7 @@ export function DocSorter({
           <X className="h-3.5 w-3.5" />
         </button>
       </div>
-      <div ref={containerRef} className="no-scrollbar flex min-h-0 flex-1 items-center gap-2.5 overflow-x-auto px-3 pb-2">
+      <div ref={containerRef} className="thin-scrollbar flex min-h-0 flex-1 items-center gap-2.5 overflow-x-auto px-3 pb-2">
         {order.map((sheetId, i) => (
           <fm.div
             key={sheetId}

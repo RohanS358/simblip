@@ -18,6 +18,7 @@ import JSZip from 'jszip'
 import { baseObject } from '@/lib/scene/factory'
 import { num, str, type SceneObject } from '@/lib/scene/types'
 import { serialize, parse, resolveSizePx, type Mark, type MarkKind } from '@/lib/text/marks'
+import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
 
 // Slide XML coordinates are EMUs (914400 per inch). SIMBLIP's own slide
 // canvas is a FIXED 960×540px frame (PPT_W_IN×PPT_H_IN in pptx-export.ts,
@@ -30,8 +31,8 @@ import { serialize, parse, resolveSizePx, type Mark, type MarkKind } from '@/lib
 // EMU_PER_PX_X/Y below are computed per-deck from the real <p:sldSz> in
 // ppt/presentation.xml (loadSlideSize), so every position/size scales to
 // fit the fixed 960×540 target frame no matter the source aspect ratio.
-const SIMBLIP_SLIDE_W_PX = 960
-const SIMBLIP_SLIDE_H_PX = 540
+const SIMBLIP_SLIDE_W_PX = SLIDE_W
+const SIMBLIP_SLIDE_H_PX = SLIDE_H
 const PT_TO_PX = 96 / 72 // OOXML font sizes are in points (sz="2400" = 24pt, hundredths of a point)
 
 interface SlideScale {

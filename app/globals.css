@@ -723,6 +723,58 @@ html {
     outline-offset: 2px;
     border-radius: 4px;
   }
+  /* Scrollbars, app-wide: a rounded thumb floating on a transparent track,
+     invisible until you're actually on the thing that scrolls.
+
+     There is no CSS state for "is scrolling", so the fade is driven by hover
+     and focus-within on the scroll container — the same trick macOS overlay
+     scrollbars approximate natively. A touch device never hovers, which is
+     the right outcome: the thumb stays hidden and the platform draws its own
+     transient one.
+
+     Colour is mixed from --muted-foreground rather than a new token, so all
+     the themes (dim/midnight/contrast/mountains/diva/sepia…) inherit it
+     without each declaring one.
+
+     .no-scrollbar (@layer utilities, below) still wins where a scroller is
+     meant to have no visible bar at all — later layers beat earlier ones. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  *:hover,
+  *:focus-within {
+    scrollbar-color: color-mix(in oklch, var(--muted-foreground) 38%, transparent) transparent;
+  }
+
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: transparent;
+    border-radius: 9999px;
+    /* Transparent border + padding-box clip insets the thumb inside the
+       track, so it reads as a floating pill rather than a full-width slab. */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    transition: background-color 180ms ease;
+  }
+  :hover::-webkit-scrollbar-thumb,
+  :focus-within::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--muted-foreground) 38%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--muted-foreground) 62%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background-color: color-mix(in oklch, var(--muted-foreground) 78%, transparent);
+  }
+
   /* Kill double-tap-to-zoom on controls so touch taps register instantly. */
   button,
   [role='button'],
@@ -827,6 +879,18 @@ html {
   }
   .no-scrollbar {
     scrollbar-width: none;
+  }
+
+  /* Same fading pill as the app-wide bar, but slimmer — for SHORT horizontal
+     scrollers (a slide rail, a filmstrip) where the default 11px track is a
+     large fraction of the element's own height. Still hidden until hover/
+     focus; only the thickness changes. */
+  .thin-scrollbar::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+  }
+  .thin-scrollbar::-webkit-scrollbar-thumb {
+    border-width: 2px;
   }
 
   /* Rendered markdown (Note/Text objects) — Obsidian-ish reading view.
