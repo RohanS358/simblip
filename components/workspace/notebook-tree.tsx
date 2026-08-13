@@ -15,7 +15,7 @@
 // so notebook browsing works identically everywhere instead of each shell
 // reimplementing its own tree.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import {
   BookOpen,
   ChevronRight,
@@ -101,6 +101,7 @@ export async function addFileToFolder(parentId: string, f: File) {
       // Conversion failed — the page still exists, empty; pdf-view's own
       // dropzone can retry, same fallback add-page-dialog.tsx uses.
     }
+    useWorkspaceStore.getState().setActivePage(pageId)
     return
   }
   const { putFile } = await import('@/lib/storage/manager')
@@ -119,6 +120,34 @@ export async function addFileToFolder(parentId: string, f: File) {
   const pageId = s.addPageIn(parentId, f.name.replace(/\.[^.]+$/, ''), kind)
   s.updatePageMeta(pageId, { fileUrl: `opfs:${fileId}`, fileName: f.name, fileMime: mime })
   s.setFilePageId(nodeId, pageId)
+  s.setActivePage(pageId)
+}
+
+/** Sequential so a multi-file drop lands in tree order (each addFileToFolder
+ *  awaits storage) and the last file is the one left open. */
+export async function addFilesToFolder(parentId: string, files: FileList | File[]) {
+  for (const f of Array.from(files)) await addFileToFolder(parentId, f)
+}
+
+/** Drop-anywhere support for rows that aren't folders (pages, files): an OS
+ *  file dropped on them saves into their CONTAINING folder instead of falling
+ *  through to the root handler's "first notebook" guess. Internal node drags
+ *  are left alone so they keep bubbling to the folder/root reparent handlers. */
+function rowFileDrop(parentId: string | null) {
+  return {
+    onDragOver: (e: DragEvent) => {
+      if (!parentId || !e.dataTransfer.types.includes('Files')) return
+      e.preventDefault()
+      e.stopPropagation()
+    },
+    onDrop: (e: DragEvent) => {
+      const files = e.dataTransfer.files
+      if (!parentId || !files?.length) return
+      e.preventDefault()
+      e.stopPropagation()
+      void addFilesToFolder(parentId, files)
+    },
+  }
 }
 
 const SECTION_DOT: Record<string, string> = {
@@ -286,8 +315,8 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
                 return
               }
               // External OS file drop
-              const f = e.dataTransfer.files?.[0]
-              if (f) void addFileToFolder(node.id, f)
+              const files = e.dataTransfer.files
+              if (files?.length) void addFilesToFolder(node.id, files)
             }}
           >
             <button
@@ -422,6 +451,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             e.dataTransfer.effectAllowed = 'move'
             e.stopPropagation()
           }}
+          {...rowFileDrop(node.parentId)}
           onClick={() => handlers.selectPage(node.id)}
         >
           <KindIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -577,6 +607,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             e.dataTransfer.effectAllowed = 'move'
             e.stopPropagation()
           }}
+          {...rowFileDrop(node.parentId)}
           onClick={() => handlers.openFile(node)}
         >
           <FileIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -726,12 +757,13 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             } catch { /* ignore bad JSON */ }
             return
           }
-          const f = e.dataTransfer.files?.[0]
-          if (!f) return
-          const firstRoot = roots[0]
-          if (!firstRoot) return
+          const files = e.dataTransfer.files
+          if (!files?.length) return
           e.preventDefault()
-          void addFileToFolder(firstRoot.id, f)
+          // Empty tree: make somewhere for the file to land rather than
+          // silently dropping it.
+          const target = roots[0]?.id ?? store.getState().addFolder('New Folder', null)
+          void addFilesToFolder(target, files)
         }}
       >
         {roots.filter((nb) => nb.name !== SHARED_NB).length === 0 && (
@@ -784,10 +816,11 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
         type="file"
         className="hidden"
         onChange={(e) => {
-          const f = e.target.files?.[0]
+          const files = e.target.files
           const parentId = uploadTargetRef.current
+          const picked = files ? Array.from(files) : []
           e.target.value = '' // same file picked twice still fires onChange
-          if (f && parentId) void addFileToFolder(parentId, f)
+          if (picked.length && parentId) void addFilesToFolder(parentId, picked)
         }}
       />
     </div>
