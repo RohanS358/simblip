@@ -9,7 +9,7 @@ const nextConfig = {
   // Lighthouse flagged the first-party chunks as missing source maps —
   // without them, production errors (Sentry-less right now) are unreadable
   // minified stack traces.
-  productionBrowserSourceMaps: true,
+  productionBrowserSourceMaps: false,
   async headers() {
     // _next/static/* already gets long-lived immutable caching from Vercel;
     // these are the public/ assets that don't. sw.js is deliberately
