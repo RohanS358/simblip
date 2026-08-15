@@ -36,7 +36,10 @@ import {
   Trash2,
   Upload,
   X,
+  CloudUpload,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { setPageSyncEnabled, setFolderSyncEnabled } from '@/lib/sync/page-sync'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
@@ -193,6 +196,62 @@ const cardEntry = (i: number) => ({
   animate: { opacity: 1, y: 0 },
   transition: { delay: Math.min(i, 8) * 0.04 },
 })
+
+/** The cross-device sync opt-in for mobile menus. */
+function SyncDropdownItem({
+  checked,
+  disabled,
+  onToggle,
+}: {
+  checked: boolean
+  disabled?: boolean
+  onToggle: (next: boolean) => void
+}) {
+  return (
+    <DropdownMenuItem
+      disabled={disabled}
+      onClick={(e) => {
+        e.preventDefault()
+        onToggle(!checked)
+      }}
+      className="justify-between gap-6"
+    >
+      <span className="flex items-center gap-2">
+        <CloudUpload className="h-4 w-4" /> Sync across devices
+      </span>
+      <Switch
+        checked={checked}
+        tabIndex={-1}
+        aria-hidden
+        className="pointer-events-none scale-90 data-[state=checked]:bg-[var(--accent-blue)]"
+      />
+    </DropdownMenuItem>
+  )
+}
+
+/** Lazily reads file sync state for the dropdown menu. */
+function FileSyncDropdownItem({ fileId }: { fileId: string }) {
+  const [syncOn, setSyncOn] = useState<boolean | null>(null)
+  useEffect(() => {
+    void import('@/lib/storage/manager').then(({ isSyncEnabled }) =>
+      isSyncEnabled(fileId).then(setSyncOn)
+    )
+  }, [fileId])
+
+  return (
+    <SyncDropdownItem
+      checked={syncOn === true}
+      disabled={syncOn === null}
+      onToggle={() => {
+        const next = !syncOn
+        setSyncOn(next)
+        void import('@/lib/storage/manager').then(({ setSyncEnabled }) =>
+          setSyncEnabled(fileId, next)
+        )
+      }}
+    />
+  )
+}
 
 export function MobileShell() {
   const router = useRouter()
@@ -972,6 +1031,11 @@ export function MobileShell() {
                           <span className={cn('h-3.5 w-3.5 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} /> Choose color
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
+                        <SyncDropdownItem
+                          checked={sub.syncEnabled === true}
+                          onToggle={(next) => void setFolderSyncEnabled(sub.id, next)}
+                        />
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
                           onClick={(e) => {
@@ -1108,6 +1172,12 @@ export function MobileShell() {
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); exportPageJson(page) }}>
                             <Download className="h-4 w-4" /> Export JSON
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <SyncDropdownItem
+                            checked={page.syncEnabled === true}
+                            onToggle={(next) => void setPageSyncEnabled(page.id, next)}
+                          />
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             variant="destructive"
                             onClick={(e) => {
@@ -1164,6 +1234,8 @@ export function MobileShell() {
                         >
                           <Pencil className="h-4 w-4" /> Rename
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <FileSyncDropdownItem fileId={file.id} />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           variant="destructive"
@@ -1390,6 +1462,11 @@ export function MobileShell() {
                         <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setCoverFor(nb.id) }}>
                           <BookOpen className="h-4 w-4" /> Choose cover…
                         </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <SyncDropdownItem
+                          checked={nb.syncEnabled === true}
+                          onToggle={(next) => void setFolderSyncEnabled(nb.id, next)}
+                        />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={(e) => {
                           e.stopPropagation()
