@@ -34,6 +34,7 @@ import { onReconnect } from '@/lib/sync/connectivity'
 import { useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
 import { syncedFileIds } from '@/lib/sync/page-sync'
 import { useWorkspaceStore } from '@/lib/store/workspace'
+import { globalPrefAllowsFile } from '@/lib/sync/sync-prefs'
 
 const AUTO_SYNC_DEBOUNCE_MS = 10_000
 
@@ -76,7 +77,8 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   // manifest at toggle time, so an image dropped onto an already-synced page
   // is covered without anyone re-toggling anything.
   const viaPage = fromSyncedPages()
-  const allowed = (e: FileManifestEntry) => e.syncEnabled === true || viaPage.has(e.id)
+  const allowed = (e: FileManifestEntry) =>
+    e.syncEnabled === true || viaPage.has(e.id) || globalPrefAllowsFile(e.mime, e.name)
   const toUpload = entries.filter(
     (e) => allowed(e) && (e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
   )
@@ -181,7 +183,12 @@ export function startFileSync() {
     // in by a synced page should never wake the pusher (pushFilesToDevice
     // filters it out anyway; this just avoids the pointless debounce + round
     // trip).
-    if (entry.syncEnabled !== true && !fromSyncedPages().has(entry.id)) return
+    if (
+      entry.syncEnabled !== true &&
+      !fromSyncedPages().has(entry.id) &&
+      !globalPrefAllowsFile(entry.mime, entry.name)
+    )
+      return
     if (!useAuthStore.getState().profile) return
     schedule()
   })

@@ -61,6 +61,7 @@ export async function rehydrateUserStores() {
   const { useFilePageContentStore } = await import('@/lib/store/file-page-content')
   const { useMobileTabStore } = await import('@/lib/store/mobile-tab')
   const { useConsent } = await import('@/lib/store/consent')
+  const { useSyncPrefsStore } = await import('@/lib/sync/sync-prefs')
   await useWorkspaceStore.persist.rehydrate()
   await useDocStore.persist.rehydrate()
   await useFilePageContentStore.persist.rehydrate()
@@ -68,6 +69,7 @@ export async function rehydrateUserStores() {
   // browser — without this a login switch would show the incoming user the
   // previous user's answers.
   await useConsent.persist.rehydrate()
+  await useSyncPrefsStore.persist.rehydrate()
   // Last-session screen — scoped per user like the rest, so a login switch
   // reads the incoming user's own last view instead of keeping the previous
   // one on screen.

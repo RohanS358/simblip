@@ -39,7 +39,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
-import { setPageSyncEnabled } from '@/lib/sync/page-sync'
+import { setPageSyncEnabled, setFolderSyncEnabled } from '@/lib/sync/page-sync'
 import { openFile as openFileNode } from './open-file'
 import { KIND_ICON } from './tabs-bar'
 import {
@@ -400,6 +400,11 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
           <ContextMenuItem onClick={() => handlers.setRenaming(node.id)}>
             <Pencil className="h-4 w-4" /> Rename
           </ContextMenuItem>
+          <ContextMenuSeparator />
+          <SyncMenuItem
+            checked={node.syncEnabled === true}
+            onToggle={(next) => void setFolderSyncEnabled(node.id, next)}
+          />
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
             <Trash2 className="h-4 w-4" /> Delete {isNotebook ? 'notebook' : 'folder'}

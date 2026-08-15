@@ -175,6 +175,15 @@ export interface FolderNode extends NodeBase {
   cover?: string
   /** Only meaningful when parentId !== null (was Section.color). */
   color?: string
+  /**
+   * Does every page and file under this folder sync across devices?
+   *
+   * Opt-in, default false — see lib/sync/page-sync.ts. Cascades: all descendant
+   * pages and files are treated as sync-enabled when this is true, regardless of
+   * their individual flags. Optional so folders written before this field existed
+   * keep loading; readers treat `undefined` as false.
+   */
+  syncEnabled?: boolean
 }
 
 /** Tree metadata only — page content lives in the document store, keyed by id. */

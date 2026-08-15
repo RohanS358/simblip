@@ -22,7 +22,20 @@
 // delete path, and a static import back would close the cycle.
 import { useDocStore } from '@/lib/store/document'
 import { markPageDeleted } from '@/lib/store/deleted-pages'
-import type { Node, PageNode } from '@/lib/scene/types'
+import type { FolderNode, Node, PageNode } from '@/lib/scene/types'
+import { globalPrefAllowsPage } from '@/lib/sync/sync-prefs'
+
+/** Walk up the tree from a node's parent to see if any ancestor folder has
+ *  syncEnabled === true. If so, the node inherits that setting. */
+function ancestorFolderSynced(nodes: Record<string, Node>, nodeId: string): boolean {
+  let cur: Node | undefined = nodes[nodeId]
+  while (cur) {
+    const parent: Node | undefined = cur.parentId ? nodes[cur.parentId] : undefined
+    if (parent?.kind === 'folder' && (parent as FolderNode).syncEnabled === true) return true
+    cur = parent
+  }
+  return false
+}
 
 /** Every doc-store content id a page owns: the node id itself plus the
  *  satellite canvases it spawns (doc sheets and pptx slides share `docPages`;
@@ -55,7 +68,13 @@ export function fileIdsOf(page: PageNode): string[] {
 }
 
 const syncedPages = (nodes: Record<string, Node>): PageNode[] =>
-  Object.values(nodes).filter((n): n is PageNode => n.kind === 'page' && n.syncEnabled === true)
+  Object.values(nodes).filter(
+    (n): n is PageNode =>
+      n.kind === 'page' &&
+      (n.syncEnabled === true ||
+        globalPrefAllowsPage(n.pageKind) ||
+        ancestorFolderSynced(nodes, n.id))
+  )
 
 /** Content ids cloud.ts is allowed to push, from the current tree. */
 export function syncedContentIds(nodes: Record<string, Node>): Set<string> {
@@ -94,4 +113,36 @@ export async function setPageSyncEnabled(pageId: string, enabled: boolean): Prom
   // Sequential on purpose: each call issues a DELETE to /api/storage, and a
   // page can reference dozens of images.
   for (const id of files) await setSyncEnabled(id, false)
+}
+
+/**
+ * Flip a folder's opt-in, cascading to every descendant page and file.
+ *
+ * Turning it ON makes all pages and files inside the folder eligible for sync
+ * without requiring individual toggles. Turning it OFF removes cloud copies of
+ * all descendant content (same contract as the per-page toggle).
+ */
+export async function setFolderSyncEnabled(folderId: string, enabled: boolean): Promise<void> {
+  const { useWorkspaceStore, descendantsOf } = await import('@/lib/store/workspace')
+  const nodes = useWorkspaceStore.getState().nodes
+  const node = nodes[folderId]
+  if (!node || node.kind !== 'folder') return
+
+  useWorkspaceStore.setState((s) => ({
+    nodes: { ...s.nodes, [folderId]: { ...s.nodes[folderId], syncEnabled: enabled } as Node },
+  }))
+
+  if (enabled) return
+
+  const descendants = descendantsOf(nodes, folderId)
+  for (const desc of descendants) {
+    if (desc.kind === 'page' && desc.syncEnabled !== true) {
+      contentIdsOf(desc).forEach(markPageDeleted)
+      const files = fileIdsOf(desc)
+      if (files.length > 0) {
+        const { setSyncEnabled } = await import('@/lib/storage/manager')
+        for (const id of files) await setSyncEnabled(id, false)
+      }
+    }
+  }
 }

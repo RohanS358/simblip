@@ -51,6 +51,7 @@ import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
 import { PrivacySettings } from './privacy-settings'
 import { StoragePanel } from './storage-panel'
+import { useSyncPrefsStore, type SyncCategory } from '@/lib/sync/sync-prefs'
 import { Field, Choice, PrefRow, SettingCard, ObsidianPrefRow } from './settings-fields'
 import {
   usePrefs,
@@ -901,6 +902,61 @@ function PackagesSettings() {
   )
 }
 
+function SyncPreferencesPanel() {
+  const globalSync = useSyncPrefsStore((s) => s.globalSync)
+  const categories = useSyncPrefsStore((s) => s.categories)
+  const setSyncPrefs = useSyncPrefsStore((s) => s.setSyncPrefs)
+  const setCategoryEnabled = useSyncPrefsStore((s) => s.setCategoryEnabled)
+
+  const CAT_LABELS: Record<SyncCategory, { label: string; detail: string }> = {
+    documents: { label: 'Documents & PDFs', detail: 'PDFs, DOCX, Markdown, and text files' },
+    presentations: { label: 'Presentations', detail: 'PPTX slide decks' },
+    spreadsheets: { label: 'Spreadsheets', detail: 'XLSX, XLS, and CSV workbooks' },
+    images: { label: 'Images', detail: 'PNG, JPG, SVG, and picture attachments' },
+    boards: { label: 'Infinite Boards', detail: 'Canvas board pages' },
+    other: { label: 'Other Files', detail: 'All other attached file types' },
+  }
+
+  return (
+    <div className="space-y-3">
+      <ObsidianPrefRow
+        label="Sync all content across devices"
+        detail="Automatically sync files matching enabled categories without needing individual per-item toggles."
+      >
+        <Switch
+          checked={globalSync}
+          onCheckedChange={(val) => setSyncPrefs({ globalSync: val })}
+          className="data-[state=checked]:bg-[#7f6df2]"
+        />
+      </ObsidianPrefRow>
+
+      {globalSync && (
+        <div className="pt-2 pl-3 border-l-2 border-[#7f6df2]/30 space-y-2">
+          <p className="text-[0.75rem] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+            Enabled File Types
+          </p>
+          {(Object.keys(CAT_LABELS) as SyncCategory[]).map((cat) => (
+            <ObsidianPrefRow
+              key={cat}
+              label={CAT_LABELS[cat].label}
+              detail={CAT_LABELS[cat].detail}
+            >
+              <Switch
+                checked={categories[cat] ?? false}
+                onCheckedChange={(val) => setCategoryEnabled(cat, val)}
+                className="data-[state=checked]:bg-[#7f6df2]"
+              />
+            </ObsidianPrefRow>
+          ))}
+        </div>
+      )}
+      <p className="text-[0.6875rem] text-muted-foreground leading-normal pt-1">
+        Items can still be individually opted in or out via right-click in the notebook tree.
+      </p>
+    </div>
+  )
+}
+
 type TabId =
   | 'general'
   | 'appearance'
@@ -1224,6 +1280,9 @@ export function SettingsDialog({
 
             {activeTab === 'files' && (
               <div className="space-y-4">
+                <SettingCard title="Sync Preferences">
+                  <SyncPreferencesPanel />
+                </SettingCard>
                 <SettingCard title="Storage">
                   <StoragePanel />
                 </SettingCard>
