@@ -1157,6 +1157,23 @@ html {
   height: 14px;
 }
 
+/* One-shot click ripple under the walkthrough's simulated cursor. Fires once
+   per press (the element is re-keyed), so a keyframe is right here. */
+@keyframes walkthrough-ripple {
+  from {
+    opacity: 0.9;
+    transform: scale(0.35);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.1);
+  }
+}
+
+.walkthrough-ripple {
+  animation: walkthrough-ripple 480ms ease-out forwards;
+}
+
 /* One-shot mount reveal for staggered list/grid entrances (Home's due-soon
    cards, notebook grid) — occasional, not per-interaction, so a keyframe is
    fine here (see lib/motion.ts's springs for anything interruptible). */

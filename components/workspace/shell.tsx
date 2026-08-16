@@ -46,8 +46,10 @@ const MobileShell = dynamic(() => import('./mobile-shell').then((m) => m.MobileS
 const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.CommandPalette), { ssr: false })
 const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
 const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
-const TutorialPanel = dynamic(() => import('./tutorial').then((m) => m.TutorialPanel), { ssr: false })
 const EventLogPanel = dynamic(() => import('./event-log-panel').then((m) => m.EventLogPanel), { ssr: false })
+import { WalkthroughOverlay } from './walkthrough-overlay'
+import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
+import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
 
 /** Returns true only on the account's actual first run (seeds a notebook),
  *  so the caller can auto-open the tutorial exactly once, right where the
@@ -414,8 +416,7 @@ export function WorkspaceShell() {
 
   useEffect(() => {
     if (seedFirstRun()) {
-      setTutorialInitialCourse('basics')
-      setTutorialOpen(true)
+      setTimeout(() => walkthroughEngine.start(), 500)
     }
     // Small screens: the canvas is the workspace — panels open on demand.
     if (window.matchMedia('(max-width: 767px)').matches)
@@ -592,16 +593,13 @@ export function WorkspaceShell() {
           <NotificationCenter />
           <button
             type="button"
-            aria-label="Tutorials"
-            className={cn(
-              'rounded-lg p-1.5 transition-colors hover:bg-accent',
-              tutorialOpen ? 'text-foreground' : 'text-muted-foreground'
-            )}
-            onClick={() => setTutorialOpen((o) => !o)}
+            aria-label="Walkthrough Demo"
+            className="rounded-lg p-1.5 transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
+            onClick={() => walkthroughEngine.start()}
+            title="Start Interactive Guided Walkthrough"
           >
             <GraduationCap className="h-4 w-4" />
           </button>
-          
           
           <ProfileMenu onOpenSettings={() => setSettingsOpen(true)} />
         </div>
@@ -734,13 +732,7 @@ export function WorkspaceShell() {
         }}
         initialTab={settingsTab}
       />
-      {tutorialOpen && (
-        <TutorialPanel
-          pageId={activePageId}
-          initialCourseId={tutorialInitialCourse}
-          onClose={() => setTutorialOpen(false)}
-        />
-      )}
+      <WalkthroughOverlay />
     </div>
   )
 }

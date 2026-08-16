@@ -33,7 +33,8 @@ import { Dock } from '@/components/workspace/dock'
 import { Sidebar, RailButton } from '@/components/workspace/sidebar'
 import { CommandPalette } from '@/components/workspace/command-palette'
 import { SettingsDialog } from '@/components/workspace/settings-dialog'
-import { TutorialPanel } from '@/components/workspace/tutorial'
+import { WalkthroughOverlay } from '@/components/workspace/walkthrough-overlay'
+import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
 import { Calculator } from '@/components/workspace/calculator'
 import { PageControlsMenu } from '@/components/workspace/page-controls-menu'
 import { UndoRedo } from '@/components/workspace/undo-redo'
@@ -753,7 +754,7 @@ function BoardSurface() {
             onOpenSettings={() => setSettingsOpen(true)}
           />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
-          {tutorialOpen && <TutorialPanel pageId={activeBoardPage} onClose={() => setTutorialOpen(false)} />}
+          <WalkthroughOverlay />
         </div>
       ) : (
         <div className="relative flex h-full flex-col">
