@@ -24,13 +24,15 @@
 
 import { useEffect, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, TableOfContents } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
+import { usePdfDockStore } from '@/lib/store/pdf-dock'
+import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import {
   SIDEBAR_SECTIONS,
   useSidebarSection,
@@ -176,6 +178,12 @@ export function Sidebar({
     if (!sidebarOpen) togglePanel('sidebar')
   }
 
+  const pdfDock = usePdfDockStore((s) => s.dock)
+  const presDock = usePresentationDockStore((s) => s.dock)
+  const hasToc = pdfDock?.hasToc || presDock?.hasToc
+  const tocOpen = pdfDock ? pdfDock.tocOpen : presDock?.tocOpen
+  const toggleToc = pdfDock ? pdfDock.toggleToc : presDock?.toggleToc
+
   const railNav = (
     <nav
       className={cn(
@@ -194,6 +202,16 @@ export function Sidebar({
           <s.icon className="h-[18px] w-[18px]" />
         </RailButton>
       ))}
+      {hasToc && toggleToc && (
+        <RailButton
+          label="Table of Contents"
+          tooltipSide={isPhone ? 'top' : 'right'}
+          active={!!tocOpen}
+          onClick={toggleToc}
+        >
+          <TableOfContents className="h-[18px] w-[18px]" />
+        </RailButton>
+      )}
       {bottomRailContent && (
         <div className={cn('flex items-center justify-center', !isPhone && 'mt-auto')}>
           {bottomRailContent}

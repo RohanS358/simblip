@@ -11,9 +11,13 @@ import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
+  ArrowRight,
   BarChart3,
+  Bell,
   BookOpen,
   Bug,
+  ChevronDown,
+  ChevronRight,
   ClipboardList,
   Copy,
   FileText,
@@ -37,6 +41,21 @@ import {
   Upload,
   X,
   CloudUpload,
+  LayoutGrid,
+  List,
+  Sparkles,
+  SlidersHorizontal,
+  FolderPlus,
+  Check,
+  Compass,
+  User,
+  Zap,
+  Atom,
+  TrendingUp,
+  Activity,
+  Gift,
+  Gem,
+  Grid,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { setPageSyncEnabled, setFolderSyncEnabled } from '@/lib/sync/page-sync'
@@ -59,6 +78,7 @@ import { useIsNarrow } from '@/hooks/use-mobile'
 import { usePrefs } from '@/lib/store/preferences'
 import { useMobileTabStore, type MobileView } from '@/lib/store/mobile-tab'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
+import { TahoeWaves } from './tahoe-waves'
 import { MobileTabBar } from './mobile-tab-bar'
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
@@ -293,6 +313,19 @@ export function MobileShell() {
   // dialogs that break the app illusion on a phone. See mobile-prompts.tsx.
   const [renameFor, setRenameFor] = useState<RenameTarget | null>(null)
   const [deleteFor, setDeleteFor] = useState<ConfirmTarget | null>(null)
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [filterKind, setFilterKind] = useState<string>('all')
+  const [fabOpen, setFabOpen] = useState(false)
+  const [sheetExpanded, setSheetExpanded] = useState(false)
+  const [assignmentCount, setAssignmentCount] = useState(3)
+
+  useEffect(() => {
+    void import('@/lib/data/assignments').then(({ listMyAssignments }) => {
+      listMyAssignments().then((res) => {
+        if (res && res.length >= 0) setAssignmentCount(res.length)
+      }).catch(() => {})
+    })
+  }, [])
   const mobileTab = useMobileTabStore((s) => s.tab)
   const tabHydrated = useMobileTabStore((s) => s.hydrated)
 
@@ -404,11 +437,6 @@ export function MobileShell() {
       setView({ kind: 'home' })
     } else if (mobileTab === 'assignments' && view.kind !== 'assignments') {
       setView({ kind: 'assignments' })
-    } else if (mobileTab === 'shared') {
-      const ws = useWorkspaceStore.getState()
-      const nb = childrenOf(ws.nodes, null).find((n) => n.name === SHARED_NB)
-      const id = nb?.id ?? ws.addNotebook(SHARED_NB)
-      if (!(view.kind === 'folder' && view.id === id)) setView({ kind: 'folder', id })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mobileTab])
@@ -565,76 +593,132 @@ export function MobileShell() {
     </>
   )
 
-  // "More" tab — everything the old drawer's App section had (Tutorials,
-  // Theme, Settings, Sign out), plus Shared-with-me and Review for staff,
-  // as an in-place list rather than a slide-out panel.
+  // "More" tab — Google Account & Settings surface with Material You
+  // styling, profile banner, status indicators, and grouped action cards.
   const moreTab = (
-    <div className="flex h-dvh flex-col bg-background">
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <TahoeWaves height={220} />
       <header
-        className="flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
-        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        className="relative z-10 flex shrink-0 items-center justify-between px-5 pt-[max(0.5rem,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
       >
-        <span className="text-[0.9375rem] font-extrabold tracking-tight">More</span>
+        <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Account & App</span>
+        <SyncStatus />
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
-        <div className="mb-6 flex items-center gap-3 rounded-2xl border border-border/40 bg-card p-4">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[var(--accent-blue)] text-lg font-bold text-white shadow-sm">
-            {profile?.full_name?.charAt(0) || 'U'}
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col">
-            <span className="truncate text-[0.9375rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
-            <span className="truncate text-[0.6875rem] font-medium text-muted-foreground uppercase tracking-wider">{profile?.role || 'Student'}</span>
+      <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-2">
+        {/* Google Account Profile Card */}
+        <div className="mb-5 overflow-hidden rounded-[28px] border border-border/50 bg-card/85 p-5 shadow-sm backdrop-blur-md">
+          <div className="flex items-center gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-tr from-[var(--accent-blue)] to-[var(--accent-violet)] text-xl font-bold text-white shadow-md">
+              {profile?.full_name?.charAt(0) || 'U'}
+            </div>
+            <div className="flex min-w-0 flex-1 flex-col">
+              <span className="truncate text-[1.0625rem] font-bold tracking-tight text-foreground">
+                {profile?.full_name || 'SIMBLIP User'}
+              </span>
+              <span className="truncate text-[0.75rem] font-medium text-muted-foreground">
+                {profile?.email || 'rohan.nandu358@gmail.com'}
+              </span>
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-blue)]/12 px-2.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--accent-blue)]">
+                  {profile?.role || 'Student'}
+                </span>
+                {institution?.name && (
+                  <span className="truncate text-[0.6875rem] font-medium text-muted-foreground">
+                    • {institution.name}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
         </div>
-        <div className="space-y-1">
-          {staff && (
+
+        {/* Action Groups */}
+        <div className="space-y-4">
+          <div className="overflow-hidden rounded-[24px] border border-border/50 bg-card/75 shadow-xs backdrop-blur-md">
+            {staff && (
+              <button
+                className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+                onClick={() => useMobileTabStore.getState().setTab('assignments')}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-mint)]/15 text-[var(--accent-mint)]">
+                    <GraduationCap className="h-5 w-5" />
+                  </div>
+                  <span>Assignments & Review</span>
+                </div>
+                <span className="text-xs font-semibold text-muted-foreground">Staff</span>
+              </button>
+            )}
+
             <button
-              className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-              onClick={() => useMobileTabStore.getState().setTab('assignments')}
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              onClick={openTutorial}
             >
-              <GraduationCap className="h-4 w-4 text-muted-foreground" /> Review
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                  <MonitorPlay className="h-5 w-5" />
+                </div>
+                <span>Interactive Tutorials</span>
+              </div>
             </button>
-          )}
-          <div className="my-2 border-t border-border/40" />
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-            onClick={openTutorial}
-          >
-            <MonitorPlay className="h-4 w-4 text-muted-foreground" /> Tutorials
-          </button>
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-            onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
-          >
-            {isDarkTheme(resolvedTheme) ? <Sun className="h-4 w-4 text-muted-foreground" /> : <Moon className="h-4 w-4 text-muted-foreground" />} Theme
-          </button>
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-            onClick={openSettings}
-          >
-            <Settings className="h-4 w-4 text-muted-foreground" /> Settings
-          </button>
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-foreground transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-accent hover:bg-accent"
-            {...bugHold.handlers}
-            // A five-second press would otherwise raise the OS text-selection
-            // callout right over the item being held.
-            style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
-            onClick={() => {
-              // A completed hold already did its thing; don't also open the form.
-              if (bugHold.fired.current) return
-              setBugOpen(true)
-            }}
-          >
-            <Bug className="h-4 w-4 text-muted-foreground" /> Report a bug
-          </button>
-          <div className="my-2 border-t border-border/40" />
-          <button
-            className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-[0.875rem] font-medium text-destructive transition-[background-color,transform] duration-150 ease-out active:scale-[0.98] active:bg-destructive/10 hover:bg-destructive/10"
-            onClick={() => useAuthStore.getState().logout()}
-          >
-            <LogOut className="h-4 w-4" /> Sign out
-          </button>
+
+            <button
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-amber)]/15 text-[var(--accent-amber)]">
+                  {isDarkTheme(resolvedTheme) ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+                </div>
+                <span>Display Theme</span>
+              </div>
+              <span className="text-xs font-semibold text-muted-foreground capitalize">
+                {isDarkTheme(resolvedTheme) ? 'Dark' : 'Light'}
+              </span>
+            </button>
+
+            <button
+              className="flex w-full items-center justify-between px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              onClick={openSettings}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-violet)]/15 text-[var(--accent-violet)]">
+                  <Settings className="h-5 w-5" />
+                </div>
+                <span>Preferences & Sync</span>
+              </div>
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-[24px] border border-border/50 bg-card/75 shadow-xs backdrop-blur-md">
+            <button
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              {...bugHold.handlers}
+              style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
+              onClick={() => {
+                if (bugHold.fired.current) return
+                setBugOpen(true)
+              }}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                  <Bug className="h-5 w-5" />
+                </div>
+                <span>Report an issue</span>
+              </div>
+            </button>
+
+            <button
+              className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left text-[0.875rem] font-medium text-destructive transition-colors active:bg-destructive/10 hover:bg-destructive/10"
+              onClick={() => useAuthStore.getState().logout()}
+            >
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
+                <LogOut className="h-5 w-5" />
+              </div>
+              <span>Sign out</span>
+            </button>
+          </div>
         </div>
       </main>
       <MobileTabBar />
@@ -652,32 +736,143 @@ export function MobileShell() {
   // ── Assignments ──────────────────────────────────────────────────────────
   if (mobileTab === 'assignments' && view.kind === 'assignments') {
     return (
-      <div className="relative flex h-dvh flex-col bg-background">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
-        />
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+        <TahoeWaves height={180} />
         <header
-          className="relative flex shrink-0 items-center px-4 pt-[max(0px,env(safe-area-inset-top))]"
-          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+          className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
         >
-          <span className="text-[0.9375rem] font-extrabold tracking-tight">Assignments</span>
-          <div className="flex-1" />
-          {staff && (
-            <button
-              type="button"
-              className="flex h-11 items-center gap-1.5 rounded-full px-3 text-[11.5px] font-medium text-muted-foreground transition-transform duration-150 ease-out active:scale-95 hover:bg-accent hover:text-foreground"
-              onClick={() => router.push('/assignments/insights')}
-            >
-              <BarChart3 className="h-3.5 w-3.5" /> Insights
-            </button>
-          )}
+          <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Assignments</span>
+          <div className="flex items-center gap-1.5">
+            {staff && (
+              <button
+                type="button"
+                className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+                onClick={() => router.push('/assignments/insights')}
+              >
+                <BarChart3 className="h-3.5 w-3.5" /> Insights
+              </button>
+            )}
+            <NotificationCenter />
+          </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+        <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-2">
           <AssignmentsPanel />
         </main>
         <MobileTabBar />
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
+      </div>
+    )
+  }
+
+  // ── Shared with me ────────────────────────────────────────────────────────
+  if (mobileTab === 'shared' && view.kind !== 'editor') {
+    const ws = store.getState()
+    const sharedNb = childrenOf(nodes, null).find((n) => n.name === SHARED_NB)
+    const sharedId = sharedNb?.id ?? ws.addNotebook(SHARED_NB)
+    const kids = childrenOf(nodes, sharedId)
+    const subFolders = kids.filter((n): n is FolderNode => n.kind === 'folder')
+    const pages = kids.filter((n) => n.kind === 'page')
+    const files = kids.filter((n) => n.kind === 'file')
+
+    return (
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+        <TahoeWaves height={180} />
+        <header
+          className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
+        >
+          <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Shared with me</span>
+          <div className="flex items-center gap-1.5">
+            {/* <button
+              type="button"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+              onClick={() => setAddTarget({ parentId: sharedId })}
+            >
+              <Plus className="h-3.5 w-3.5" /> Add page
+            </button> */}
+            <NotificationCenter />
+          </div>
+        </header>
+        <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-2">
+          {subFolders.length === 0 && pages.length === 0 && files.length === 0 ? (
+            <div className="mt-8 flex flex-col items-center justify-center gap-3 rounded-3xl border border-dashed border-border/60 bg-card/40 p-8 text-center backdrop-blur-xs">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]">
+                <Share2 className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-[0.9375rem] font-bold text-foreground">Nothing shared yet</p>
+                <p className="mt-1 text-[0.75rem] text-muted-foreground">Pages and notebooks shared with you will appear here.</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {subFolders.length > 0 && (
+                <div>
+                  <p className="mb-2 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">Folders</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    {subFolders.map((sub, i) => (
+                      <fm.div
+                        key={sub.id}
+                        {...cardEntry(i)}
+                        transition={{ ...spring, ...cardEntry(i).transition }}
+                        whileTap={{ scale: 0.95 }}
+                        className="flex items-center gap-2 rounded-2xl border border-border/40 bg-card px-3 py-3 shadow-sm"
+                        onClick={() => navigateToView({ kind: 'folder', id: sub.id })}
+                      >
+                        <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
+                        <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{sub.name}</span>
+                      </fm.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(pages.length > 0 || files.length > 0) && (
+                <div>
+                  <p className="mb-2 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">Shared Pages & Files</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {pages.map((page, i) => (
+                      <fm.div
+                        key={page.id}
+                        {...cardEntry(i)}
+                        transition={{ ...spring, ...cardEntry(i).transition }}
+                        whileTap={{ scale: 0.95 }}
+                        className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 shadow-sm"
+                        onClick={() => openPage(page.id)}
+                      >
+                        <div
+                          className="relative mx-auto min-h-0 w-full flex-1 overflow-hidden rounded-xl bg-muted/40"
+                          style={{ aspectRatio: pageAspect(page.pageKind) }}
+                        >
+                          <PageThumbnail live pageId={page.id} className="absolute inset-0" />
+                        </div>
+                        <span className="mt-2 line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{page.name}</span>
+                      </fm.div>
+                    ))}
+                    {files.map((file, i) => (
+                      <fm.div
+                        key={file.id}
+                        {...cardEntry(pages.length + i)}
+                        transition={{ ...spring, ...cardEntry(pages.length + i).transition }}
+                        whileTap={{ scale: 0.95 }}
+                        className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
+                        onClick={() => openFile(file)}
+                      >
+                        <span className="line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{file.name}</span>
+                        <span className="text-[0.625rem] text-muted-foreground">{file.mime}</span>
+                      </fm.div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </main>
+        <MobileTabBar />
+        <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
+        {pageDialogs}
         {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
       </div>
     )
@@ -946,36 +1141,37 @@ export function MobileShell() {
     const files = kids.filter((n) => n.kind === 'file')
     const parentId = folder.parentId
     return (
-      <div className="relative flex h-dvh flex-col bg-background">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-56 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_14%,transparent)] to-transparent"
-        />
+      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+        <TahoeWaves height={180} />
         <header
-          className="relative flex shrink-0 items-center gap-1 border-b border-border/40 px-2 pt-[max(0px,env(safe-area-inset-top))]"
-          style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+          className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
+          style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
         >
-          <button
-            type="button"
-            aria-label="Back"
-            className={ICON_BTN}
-            onClick={goBackFromEditor}
-          >
-            <ArrowLeft className="h-4.5 w-4.5" />
-          </button>
-          <span className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold">
-            {folder.name}
-          </span>
-          <button
-            type="button"
-            aria-label="New folder"
-            className={ICON_BTN}
-            onClick={() => store.getState().addFolder('New Folder', folder.id)}
-          >
-            <Plus className="h-4.5 w-4.5" />
-          </button>
+          <div className="flex items-center gap-2 min-w-0 flex-1 pr-2">
+            <button
+              type="button"
+              aria-label="Back"
+              className={ICON_BTN}
+              onClick={goBackFromEditor}
+            >
+              <ArrowLeft className="h-4.5 w-4.5" />
+            </button>
+            <span className="min-w-0 flex-1 truncate text-[1.125rem] font-extrabold tracking-tight text-foreground">
+              {folder.name}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+              onClick={() => store.getState().addFolder('New Folder', folder.id)}
+            >
+              <Plus className="h-3.5 w-3.5" /> Folder
+            </button>
+            <NotificationCenter />
+          </div>
         </header>
-        <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8 pt-4">
+        <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-4">
           {subFolders.length > 0 && (
             <div className="mb-6">
               <div className="mb-3 flex items-center gap-2 px-1">
@@ -1273,11 +1469,16 @@ export function MobileShell() {
   // header. mobileTab defaults to 'home', and Notebooks falls back to it
   // too (never renders blank if the store hasn't caught up to a nav yet).
   const showGreeting = mobileTab !== 'notebooks'
+  const hour = new Date().getHours()
+  const timeGreeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
+  const firstName = profile?.full_name?.split(' ')[0] || 'there'
+  
+  // Statistics for the insight cards
+  const allNotebooks = childrenOf(nodes, null).filter((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
+  const allPagesList = Object.values(nodes).filter((n) => n.kind === 'page')
+
   // Continue editing — reuses openTabs (already-tracked open/recent pages,
-  // most-recent last) instead of adding new MRU state. Most recent first,
-  // capped so the strip doesn't scroll forever. Each page is tagged with its
-  // owning notebook (walk parentId up to the root) so the strip can group by
-  // notebook and show that name, not just the page title.
+  // most-recent last) instead of adding new MRU state.
   const recentPages = [...openTabs].reverse().slice(0, 10)
     .map((id) => findPageMeta(nodes, id))
     .filter((p): p is NonNullable<typeof p> => Boolean(p))
@@ -1286,68 +1487,160 @@ export function MobileShell() {
       while (cur?.parentId && nodes[cur.parentId]) cur = nodes[cur.parentId]
       return { page: p, notebookName: cur?.name ?? 'Notebook' }
     })
+
+  const handleOpenRecent = () => {
+    haptic('tick')
+    if (recentPages.length > 0) {
+      openPage(recentPages[0].page.id)
+    } else if (allPagesList.length > 0) {
+      openPage(allPagesList[0].id)
+    } else {
+      const ws = store.getState()
+      const existing = childrenOf(ws.nodes, null).find((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
+      setAddTarget({ parentId: existing?.id ?? ws.addNotebook(), step: 'board' })
+    }
+  }
+
   return (
-    <div className="relative flex h-dvh flex-col bg-background">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-[color-mix(in_oklch,var(--accent-blue)_22%,transparent)] via-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] to-transparent"
-      />
+    <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <TahoeWaves height={280} />
+
+      {/* Top Status & Brand Header */}
       <header
-        className="relative flex shrink-0 items-center gap-1 px-4 pt-[max(0px,env(safe-area-inset-top))]"
-        style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
+        className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.25rem,env(safe-area-inset-top))]"
+        style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
       >
-        {showGreeting ? (
-          <span className="text-[0.9375rem] font-extrabold tracking-tight">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/logo.png"
+            alt="SIMBLIP"
+            width={28}
+            height={28}
+            className="h-7 w-7 object-contain rounded-lg"
+          />
+          <span className="text-[1.0625rem] font-extrabold tracking-tight text-foreground">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
-        ) : (
-          <span className="text-[0.9375rem] font-bold">Notebooks</span>
-        )}
-        <div className="flex-1" />
-        <SyncStatus />
-        <NotificationCenter />
+        </div>
+        <div className="flex items-center gap-1.5">
+          <SyncStatus />
+          <NotificationCenter />
+        </div>
       </header>
-      <main className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-8">
-        {/* One line, not three. The old block spent ~180px on a 40px black
-            "Hello there, {name}" + subtitle before any content — on a 900px
-            phone that's a fifth of the screen given to the app introducing
-            itself. The name still greets you; it just doesn't take the fold. */}
-        {showGreeting && profile && (
-          <h1 className="pb-3 pt-1 text-[1.5rem] font-extrabold tracking-tight leading-tight text-foreground">
-            Hi, {profile.full_name.split(' ')[0]}
-            <span className="text-muted-foreground/70"> — what are we making?</span>
+
+      {/* ── Collapsible Hero Zone: "Welcome Back, {Name}" + Stats + Search Bar ── */}
+      {showGreeting && (
+        <fm.div
+          initial={false}
+          animate={{
+            height: sheetExpanded ? 0 : 'auto',
+            opacity: sheetExpanded ? 0 : 1,
+            marginBottom: sheetExpanded ? 0 : 8,
+          }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+          className="relative z-10 flex flex-col items-center justify-center overflow-hidden px-6 pt-2 text-center"
+        >
+          <h1 className="text-[2.5rem] sm:text-[3rem] font-light tracking-tight text-foreground leading-[1.08]">
+            Welcome<br />
+            Back,<br />
+            <span className="font-normal">{firstName}</span>
           </h1>
-        )}
-        {showGreeting && (
-          <button
-            type="button"
-            onClick={openSearch}
-            className="mb-5 flex w-full items-center gap-2.5 rounded-2xl border border-border/50 bg-card/80 px-4 py-3 text-left shadow-sm backdrop-blur-sm transition-transform active:scale-[0.98]"
-          >
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <span className="text-[0.875rem] text-muted-foreground">Search your notebooks and pages…</span>
-          </button>
-        )}
-        {/* Create grid — the screen's reason to exist, above the fold.
-            Every page kind is one tap from home instead of buried behind
-            "New notebook" → open → "+" → pick a kind. Each tile deep-links
-            into that kind's step in AddPageDialog, so the kind you tapped is
-            never asked again. Color-coded per kind so the grid is scannable
-            by shape and hue, not by reading four labels. */}
-        {showGreeting && (
-          <div className="pb-6">
-            <p className={SECTION_LABEL}>Create</p>
-            <div className="grid grid-cols-4 gap-2">
+
+          {/* Clean Subtitle Stats Row with Clickable Actions */}
+          <div className="mt-4 flex items-center justify-center gap-3 text-[0.8125rem] text-muted-foreground font-medium">
+            <button
+              type="button"
+              onClick={() => {
+                haptic('tick')
+                setSheetExpanded(true)
+              }}
+              className="transition-colors hover:text-foreground active:scale-95"
+            >
+              {allNotebooks.length} {allNotebooks.length === 1 ? 'Notebook' : 'Notebooks'}
+            </button>
+            <span className="text-muted-foreground/40 font-light">|</span>
+            <button
+              type="button"
+              onClick={() => {
+                haptic('tick')
+                useMobileTabStore.getState().setTab('assignments')
+              }}
+              className="transition-colors hover:text-foreground active:scale-95"
+            >
+              {assignmentCount} {assignmentCount === 1 ? 'Assignment' : 'Assignments'}
+            </button>
+            <span className="text-muted-foreground/40 font-light">|</span>
+            <button
+              type="button"
+              onClick={handleOpenRecent}
+              className="font-semibold text-foreground underline decoration-[var(--accent-blue)] decoration-2 underline-offset-4 transition-colors hover:text-[var(--accent-blue)] active:scale-95"
+            >
+              Recent Page
+            </button>
+          </div>
+
+          {/* Search Button Styled as in Picture */}
+          <div className="mt-4 w-full max-w-md pb-2">
+            <button
+              type="button"
+              onClick={openSearch}
+              className="flex w-full items-center gap-3 rounded-full border border-border/70 bg-card/80 dark:bg-card/80 px-4 py-3 shadow-xs backdrop-blur-md transition-all active:scale-[0.98] hover:border-[var(--accent-blue)]/50 hover:shadow-sm"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]">
+                <Search className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-[0.875rem] font-medium text-muted-foreground">
+                Search notebooks, pages & formulas…
+              </span>
+            </button>
+          </div>
+        </fm.div>
+      )}
+
+      {/* ── Collapsible Bottom Sheet Surface ── */}
+      <fm.div
+        className="relative z-20 flex min-h-0 flex-1 flex-col rounded-t-[32px] border-t border-border/50 bg-background/95 shadow-[0_-8px_30px_rgba(0,0,0,0.08)] backdrop-blur-md"
+        animate={{
+          y: 0,
+        }}
+        transition={{ type: 'spring', stiffness: 350, damping: 32 }}
+      >
+        {/* Interactive Sheet Drag Handle & Expansion Indicator */}
+        <button
+          type="button"
+          aria-label={sheetExpanded ? "Open Welcome Back section" : "Expand Quick Create and Notebooks"}
+          onClick={() => {
+            haptic('tick')
+            setSheetExpanded((prev) => !prev)
+          }}
+          className="group flex w-full shrink-0 cursor-pointer flex-col items-center justify-center pt-3 pb-2 touch-none active:opacity-75"
+        >
+          <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30 transition-colors group-hover:bg-muted-foreground/50" />
+        </button>
+
+        {/* Scrollable Container with Auto Scroll Collapse */}
+        <main
+          onScroll={(e) => {
+            const st = e.currentTarget.scrollTop
+            if (st > 15 && !sheetExpanded) {
+              setSheetExpanded(true)
+            } else if (st <= 5 && sheetExpanded) {
+              setSheetExpanded(false)
+            }
+          }}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24"
+        >
+          {/* Quick Create Grid */}
+          <div className="pb-5 pt-1">
+            <p className={SECTION_LABEL}>Quick Create</p>
+            <div className="grid grid-cols-4 gap-2.5">
               {CREATE_TILES.map(({ step, label, icon: Icon, tint }) => (
                 <button
                   key={step}
                   type="button"
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/80 px-1 py-3 shadow-sm transition-transform active:scale-95"
+                  className="group flex flex-col items-center gap-2 rounded-2xl border border-border/50 bg-card/70 px-1 py-3 shadow-xs backdrop-blur-xs transition-all active:scale-95 hover:bg-card hover:shadow-sm"
                   onClick={() => {
-                    // Create into the most recently used notebook when there
-                    // is one — a page has to live somewhere, and asking
-                    // "which notebook?" first is the friction this grid exists
-                    // to remove. Falls back to making one.
+                    haptic('tick')
                     const ws = store.getState()
                     const existing = childrenOf(ws.nodes, null)
                       .find((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
@@ -1355,7 +1648,7 @@ export function MobileShell() {
                   }}
                 >
                   <span
-                    className="flex h-11 w-11 items-center justify-center rounded-2xl"
+                    className="flex h-12 w-12 items-center justify-center rounded-2xl transition-transform group-hover:scale-105"
                     style={{ backgroundColor: `color-mix(in oklch, ${tint} 16%, transparent)` }}
                   >
                     <Icon className="h-5 w-5" style={{ color: tint }} />
@@ -1365,90 +1658,195 @@ export function MobileShell() {
               ))}
             </div>
           </div>
-        )}
-        {showGreeting && <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />}
-        {/* Recent. Labels sit BELOW the thumbnail, not stacked on top of it:
-            the old card had a dark gradient at the top for the notebook name
-            and a solid black bar at the bottom for the page name, which
-            covered a third of the preview and still truncated both to
-            "UNTITLED NOTEBO…". A thumbnail's whole job is to be recognised at
-            a glance — so the image gets the full card, and the text gets
-            real background contrast underneath it. */}
-        {showGreeting && recentPages.length > 0 && (
-          <div className="pb-6">
-            <p className={SECTION_LABEL}>Recent</p>
-            <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1">
-              {recentPages.map(({ page, notebookName }) => {
-                const KindIcon = KIND_ICON[page.pageKind ?? 'board']
-                return (
-                  <button
-                    key={page.id}
-                    type="button"
-                    className="w-32 shrink-0 text-left transition-transform active:scale-95"
-                    onClick={() => openPage(page.id)}
-                  >
-                    {/* The frame takes the page's OWN proportions — an A4 doc
-                        and a 16:9 deck shouldn't both be letterboxed into one
-                        generic 4:3 box. */}
-                    <div
-                      className="relative w-full overflow-hidden rounded-xl border border-border/50 bg-card shadow-sm"
-                      style={{ aspectRatio: pageAspect(page.pageKind) }}
+
+          {/* Jump Back In (Recent Pages Strip) */}
+          {recentPages.length > 0 && (
+            <div className="pb-5">
+              <p className={SECTION_LABEL}>Jump Back In</p>
+              <div className="-mx-4 flex gap-3 overflow-x-auto px-4 pb-1 scrollbar-none">
+                {recentPages.map(({ page, notebookName }) => {
+                  const KindIcon = KIND_ICON[page.pageKind ?? 'board']
+                  return (
+                    <button
+                      key={page.id}
+                      type="button"
+                      className="w-32 shrink-0 text-left transition-transform active:scale-95"
+                      onClick={() => openPage(page.id)}
                     >
-                      <PageThumbnail live pageId={page.id} className="absolute inset-0" />
-                    </div>
-                    <p className="mt-1.5 flex items-center gap-1 truncate text-[0.75rem] font-semibold text-foreground">
-                      <KindIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <span className="truncate">{page.name}</span>
-                    </p>
-                    <p className="truncate text-[0.6875rem] text-muted-foreground">{notebookName}</p>
-                  </button>
-                )
-              })}
+                      <div
+                        className="relative w-full overflow-hidden rounded-2xl border border-border/50 bg-card shadow-xs transition-shadow hover:shadow-sm"
+                        style={{ aspectRatio: pageAspect(page.pageKind) }}
+                      >
+                        <PageThumbnail live pageId={page.id} className="absolute inset-0" />
+                      </div>
+                      <p className="mt-1.5 flex items-center gap-1 truncate text-[0.75rem] font-semibold text-foreground">
+                        <KindIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{page.name}</span>
+                      </p>
+                      <p className="truncate text-[0.6875rem] text-muted-foreground">{notebookName}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Home Due Soon Tasks if any */}
+          <HomeDueSoon onOpen={() => useMobileTabStore.getState().setTab('assignments')} />
+
+          {/* Notebooks Header with Filter Chips & Grid/List View Toggle */}
+          <div className="flex items-center justify-between pb-2 pt-1">
+            <div className="flex items-center gap-2">
+              <p className="text-[0.8125rem] font-bold uppercase tracking-wider text-muted-foreground/80">
+                {showGreeting ? 'Your Notebooks' : 'All Notebooks'}
+              </p>
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[0.6875rem] font-bold text-muted-foreground">
+                {allNotebooks.length}
+              </span>
+            </div>
+            
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                aria-label={viewMode === 'grid' ? 'Switch to list view' : 'Switch to grid view'}
+                onClick={() => {
+                  haptic('tick')
+                  setViewMode(viewMode === 'grid' ? 'list' : 'grid')
+                }}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground active:scale-95"
+              >
+                {viewMode === 'grid' ? <List className="h-4 w-4" /> : <LayoutGrid className="h-4 w-4" />}
+              </button>
             </div>
           </div>
-        )}
-        {showGreeting && <p className={SECTION_LABEL}>Your notebooks</p>}
-        <div className="grid grid-cols-2 gap-4">
-          {childrenOf(nodes, null)
-            .filter((n): n is FolderNode => n.kind === 'folder' && n.name !== SHARED_NB)
-            .map((nb, i) => {
-            const pages = descendantsOf(nodes, nb.id).filter((n) => n.kind === 'page').length
-            return (
+
+          {/* Grid or List Display */}
+          {viewMode === 'grid' ? (
+            <div className="grid grid-cols-2 gap-3.5">
+              {allNotebooks.map((nb, i) => {
+                const pages = descendantsOf(nodes, nb.id).filter((n) => n.kind === 'page').length
+                return (
+                  <fm.div
+                    key={nb.id}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ ...spring, delay: Math.min(i, 7) * 0.04 }}
+                    whileTap={{ scale: 0.96 }}
+                    className="group relative flex flex-col overflow-hidden rounded-[24px] border border-border/50 bg-card shadow-xs transition-shadow hover:shadow-sm"
+                    onClick={() => navigateToView({ kind: 'folder', id: nb.id })}
+                  >
+                    <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={nb.cover ?? COVERS[hashIndex(nb.id, COVERS.length)]}
+                        alt=""
+                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                          <button
+                            type="button"
+                            aria-label={`Actions for ${nb.name}`}
+                            className={CARD_ACTION_BTN}
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-48 rounded-2xl">
+                          <DropdownMenuItem onClick={(e) => {
+                            e.stopPropagation()
+                            setRenameFor({
+                              kind: 'notebook',
+                              name: nb.name,
+                              onRename: (next) => store.getState().renameNotebook(nb.id, next),
+                            })
+                          }}>
+                            <Pencil className="h-4 w-4" /> Rename
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); setCoverFor(nb.id) }}>
+                            <BookOpen className="h-4 w-4" /> Choose cover…
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <SyncDropdownItem
+                            checked={nb.syncEnabled === true}
+                            onToggle={(next) => void setFolderSyncEnabled(nb.id, next)}
+                          />
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem variant="destructive" onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteFor({
+                              kind: 'notebook',
+                              name: nb.name,
+                              detail: 'All of its pages go too.',
+                              onConfirm: () => store.getState().removeNotebook(nb.id),
+                            })
+                          }}>
+                            <Trash2 className="h-4 w-4" /> Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                    <div className="flex flex-col p-3.5">
+                      <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight text-foreground">{nb.name}</span>
+                      <span className="mt-1 text-[0.75rem] font-medium text-muted-foreground">
+                        {pages} page{pages === 1 ? '' : 's'}
+                      </span>
+                    </div>
+                  </fm.div>
+                )
+              })}
               <fm.div
-                key={nb.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ ...spring, delay: Math.min(i, 7) * 0.05 }}
-                whileTap={{ scale: 0.95 }}
-                className="relative flex flex-col overflow-hidden rounded-[20px] border border-border/60 bg-card shadow-sm"
-                onClick={() => navigateToView({ kind: 'folder', id: nb.id })}
+                whileTap={{ scale: 0.96 }}
+                className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[24px] border-2 border-dashed border-border/70 bg-card/30 p-4 text-muted-foreground transition-colors hover:border-[var(--accent-blue)]/50 hover:text-foreground"
+                onClick={() => {
+                  haptic('bump')
+                  const id = store.getState().addNotebook()
+                  const sec = store.getState().addFolder('Section 1', id)
+                  store.getState().addPageIn(sec, 'Page 1')
+                  store.getState().setActivePage(null)
+                  navigateToView({ kind: 'folder', id })
+                }}
               >
-                {/* Cover image instead of an icon — pick one from /cover. */}
-                {/* A notebook with no cover picked used to render a flat pale
-                    wash with a grey book glyph — the same image for every
-                    notebook, so a grid of them was a grid of identical grey
-                    rectangles with nothing to tell them apart but the caption.
-                    The shipped cover art is already there; picking one by id
-                    hash gives each notebook a stable, distinct face from the
-                    moment it's created, and the user can still override it. */}
-                <div className="relative aspect-[3/2] w-full overflow-hidden bg-muted/40">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={nb.cover ?? COVERS[hashIndex(nb.id, COVERS.length)]}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <button
-                        type="button"
-                        aria-label={`Actions for ${nb.name}`}
-                        className={CARD_ACTION_BTN}
-                      >
-                        <MoreVertical className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                  <Plus className="h-5 w-5" />
+                </div>
+                <span className="text-[0.8125rem] font-bold">New notebook</span>
+              </fm.div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {allNotebooks.map((nb) => {
+                const pages = descendantsOf(nodes, nb.id).filter((n) => n.kind === 'page').length
+                return (
+                  <div
+                    key={nb.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-card p-3 shadow-xs transition-colors active:scale-[0.99] hover:bg-card"
+                    onClick={() => navigateToView({ kind: 'folder', id: nb.id })}
+                  >
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={nb.cover ?? COVERS[hashIndex(nb.id, COVERS.length)]}
+                        alt=""
+                        className="h-12 w-12 rounded-xl object-cover shrink-0"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[0.875rem] font-bold text-foreground">{nb.name}</p>
+                        <p className="text-[0.75rem] text-muted-foreground">{pages} page{pages === 1 ? '' : 's'}</p>
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          aria-label={`Actions for ${nb.name}`}
+                          className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground hover:bg-accent"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48 rounded-2xl">
                         <DropdownMenuItem onClick={(e) => {
                           e.stopPropagation()
                           setRenameFor({
@@ -1479,47 +1877,24 @@ export function MobileShell() {
                         }}>
                           <Trash2 className="h-4 w-4" /> Delete
                         </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-                <div className="flex flex-col p-3">
-                  <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight">{nb.name}</span>
-                  {/* Plain sentence case, not bold uppercase: the count is
-                      supporting metadata, and shouting "3 PAGES" at the same
-                      weight as the notebook's own name flattens the card's
-                      hierarchy to nothing. */}
-                  <span className="mt-0.5 text-[0.75rem] text-muted-foreground">
-                    {pages} page{pages === 1 ? '' : 's'}
-                  </span>
-                </div>
-              </fm.div>
-            )
-          })}
-          <fm.div
-            whileTap={{ scale: 0.95 }}
-            className="flex min-h-[140px] flex-col items-center justify-center gap-2 rounded-[20px] border border-dashed border-border/70 bg-muted/20 p-4 text-muted-foreground"
-            onClick={() => {
-              const id = store.getState().addNotebook()
-              const sec = store.getState().addFolder('Section 1', id)
-              store.getState().addPageIn(sec, 'Page 1')
-              store.getState().setActivePage(null)
-              navigateToView({ kind: 'folder', id })
-            }}
-          >
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent text-foreground">
-              <Plus className="h-5 w-5" />
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )
+              })}
             </div>
-            <span className="text-[0.8125rem] font-bold">New notebook</span>
-          </fm.div>
-        </div>
-      </main>
+          )}
+        </main>
+      </fm.div>
+
+
 
       {/* Cover picker — the /public/cover set, one tap to apply. */}
       <AnimatePresence>
         {coverFor && (
           <>
             <fm.div
-              className="fixed inset-0 z-[70] bg-black/40"
+              className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-xs"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
@@ -1530,11 +1905,12 @@ export function MobileShell() {
               animate={{ y: 0 }}
               exit={{ y: '100%' }}
               transition={spring}
-              className="fixed inset-x-0 bottom-0 z-[80] rounded-t-2xl border-t border-border/40 bg-background p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              className="fixed inset-x-0 bottom-0 z-[80] rounded-t-3xl border-t border-border/40 bg-background p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))]"
             >
-              <div className="mb-3 flex items-center justify-between">
-                <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-                  Choose a cover
+              <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-muted-foreground/30" />
+              <div className="mb-4 flex items-center justify-between">
+                <span className="text-[0.875rem] font-bold tracking-tight text-foreground">
+                  Choose a cover art
                 </span>
                 <button
                   type="button"
@@ -1550,8 +1926,9 @@ export function MobileShell() {
                   <button
                     key={c}
                     type="button"
-                    className="overflow-hidden rounded-xl border border-border/60 transition-transform active:scale-95"
+                    className="overflow-hidden rounded-2xl border border-border/60 transition-transform active:scale-95"
                     onClick={() => {
+                      haptic('tick')
                       store.getState().setNotebookCover(coverFor, c)
                       setCoverFor(null)
                     }}
@@ -1563,7 +1940,7 @@ export function MobileShell() {
               </div>
               <button
                 type="button"
-                className="mt-3 w-full rounded-xl border border-dashed border-border/60 py-2 text-[0.8125rem] font-medium text-muted-foreground active:bg-accent"
+                className="mt-4 w-full rounded-2xl border border-dashed border-border/60 py-2.5 text-[0.875rem] font-semibold text-muted-foreground active:bg-accent"
                 onClick={() => {
                   store.getState().setNotebookCover(coverFor, undefined)
                   setCoverFor(null)
@@ -1577,14 +1954,8 @@ export function MobileShell() {
       </AnimatePresence>
 
       <MobileTabBar />
-      {/* Notebook rename/delete live on THIS screen, so the shared dialogs
-          have to be mounted here too — not only on the folder screen. */}
       <RenameDialog target={renameFor} onClose={() => setRenameFor(null)} />
       <ConfirmDeleteDialog target={deleteFor} onClose={() => setDeleteFor(null)} />
-      {/* Same reason: the Create grid above sets addTarget, and the dialog
-          that consumes it is otherwise mounted only inside the folder branch
-          — so every Create tile set state that nothing was listening for and
-          the buttons looked dead. */}
       <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} onOpenSettings={openSettings} />

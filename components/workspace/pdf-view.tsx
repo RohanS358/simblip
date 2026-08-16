@@ -23,7 +23,8 @@
 // the tab bar instead, so reading a PDF doesn't cost any canvas real estate.
 
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
-import { Loader2 } from 'lucide-react'
+import { motion as fm, AnimatePresence } from 'framer-motion'
+import { Loader2, TableOfContents, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
 import { CONVERTIBLE } from '@/lib/store/to-pdf'
@@ -31,6 +32,7 @@ import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { getFile } from '@/lib/storage/manager'
 import { uid } from '@/lib/scene/types'
+import { cn } from '@/lib/utils'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
 import { PdfDropzone } from './pdf-dropzone'
@@ -64,6 +66,9 @@ type PdfDoc = {
     getViewport: (o: { scale: number }) => { width: number; height: number }
     render: (o: { canvasContext: CanvasRenderingContext2D; viewport: unknown }) => { promise: Promise<void> }
   }>
+  getOutline: () => Promise<any[] | null>
+  getDestination: (id: string) => Promise<any[] | null>
+  getPageIndex: (dest: any) => Promise<number>
 }
 
 let pdfjsPromise: Promise<typeof import('pdfjs-dist')> | null = null
@@ -157,7 +162,7 @@ function PdfPage({
   return (
     <div
       ref={hostRef}
-      data-pdf-host={n === 1 ? '' : undefined}
+      data-pdf-page-num={n}
       className="relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
       style={{ aspectRatio: `1 / ${aspect}` }}
       onPointerDownCapture={() => onFocus(n)}
@@ -310,7 +315,7 @@ useLayoutEffect(() => {
   }, [doc])
 
   useEffect(() => {
-    const host = readerRef.current?.querySelector<HTMLElement>('[data-pdf-host]')
+    const host = readerRef.current?.querySelector<HTMLElement>('[data-pdf-page-num]')
     if (!host) return
     const ro = new ResizeObserver(() => {
       setNaturalW(host.offsetWidth)
@@ -407,6 +412,51 @@ useLayoutEffect(() => {
   }, [meta?.fileUrl, fileName])
   const fileUrl = local?.url ?? sharedUrl
 
+  const [tocOpen, setTocOpen] = useState(false)
+  const [tocEntries, setTocEntries] = useState<{ pageNum: number; title: string; level: number }[]>([])
+
+  useEffect(() => {
+    if (!doc) {
+      setTocEntries([])
+      return
+    }
+    let dead = false
+    void (async () => {
+      try {
+        const outline = await doc.getOutline()
+        if (!outline || outline.length === 0) {
+          if (!dead) setTocEntries([])
+          return
+        }
+        const entries: { pageNum: number; title: string; level: number }[] = []
+        const processItems = async (items: any[], level = 0) => {
+          for (const item of items) {
+            let pageIndex = -1
+            if (typeof item.dest === 'string') {
+              const dest = await doc.getDestination(item.dest)
+              if (dest) pageIndex = await doc.getPageIndex(dest[0])
+            } else if (Array.isArray(item.dest)) {
+              pageIndex = await doc.getPageIndex(item.dest[0])
+            }
+            if (pageIndex >= 0 && pageIndex < doc.numPages) {
+              entries.push({ pageNum: pageIndex + 1, title: item.title, level })
+            }
+            if (item.items && item.items.length > 0) {
+              await processItems(item.items, level + 1)
+            }
+          }
+        }
+        await processItems(outline)
+        if (!dead) setTocEntries(entries)
+      } catch {
+        if (!dead) setTocEntries([])
+      }
+    })()
+    return () => {
+      dead = true
+    }
+  }, [doc])
+
   useEffect(() => {
     if (!fileUrl) return
     let dead = false
@@ -483,10 +533,14 @@ useLayoutEffect(() => {
         a.click()
       },
       replace: () => inputRef.current?.click(),
+      scrollToPage: (pageNum: number) => scrollToPage(pageNum),
+      tocOpen,
+      toggleToc: () => setTocOpen((v) => !v),
+      hasToc: tocEntries.length > 0,
     })
     return () => usePdfDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH])
+  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH, tocOpen, tocEntries.length])
 
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
   // page while this is true, targeting whichever pane was last clicked: the
@@ -517,66 +571,144 @@ useLayoutEffect(() => {
     window.addEventListener('pointerup', up)
   }
 
+  const scrollToPage = (pageNum: number) => {
+    const el = readerRef.current
+    if (!el) return
+    const host = el.querySelector<HTMLElement>(`[data-pdf-page-num="${pageNum}"]`)
+    if (host) {
+      host.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      setCurrent(pageNum)
+    }
+  }
+
   const reader = (
-    <div
-      ref={readerRef}
-      className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6"
-      // See doc-view.tsx: without this, native page-zoom competes with
-      // usePinchZoom's own two-finger handling on mobile/tablet.
-      style={{ touchAction: 'pan-y' }}
-      // Only wired while a doc is already loaded — that's the "drop a
-      // replacement file anywhere on the reader" gesture. While empty, the
-      // PdfDropzone below owns drag-and-drop itself; wiring both here would
-      // double-fire attach() on the same drop.
-      onDragOver={doc ? (e) => {
-        e.preventDefault()
-        setDragOver(true)
-      } : undefined}
-      onDragLeave={doc ? () => setDragOver(false) : undefined}
-      onDrop={doc ? (e) => {
-        e.preventDefault()
-        setDragOver(false)
-        const f = e.dataTransfer.files?.[0]
-        if (f) void attach(f)
-      } : undefined}
-    >
-      {dragOver && (
-        <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
-          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[0.75rem] font-semibold shadow duration-150">
-            Drop to open
-          </span>
-        </div>
-      )}
-      {converting ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-[0.75rem]">{converting}</span>
-        </div>
-      ) : !doc ? (
-        <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />
-      ) : (
-        // Spacer reserves the scaled stack's real footprint — see the
-        // ResizeObserver effect above.
-        <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
-          <div
-            ref={contentRef}
-            className="flex flex-col gap-4 pb-28"
-            style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
+    <div className="relative flex h-full w-full min-w-0 flex-1 overflow-hidden">
+      {/* Toggleable Table of Contents Side Rail */}
+      <AnimatePresence>
+        {tocOpen && doc && (
+          <fm.div
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 260, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
+            className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
           >
-            {Array.from({ length: doc.numPages }, (_, i) => (
-              <PdfPage
-                key={i + 1}
-                doc={doc}
-                n={i + 1}
-                annotId={meta?.annotPages?.[i] || null}
-                active={!!meta?.annotPages?.[i] && meta.annotPages[i] === activeSheetId}
-                onCurrent={onCurrent}
-                onFocus={onPageFocus}
-              />
-            ))}
+            <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+                <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
+                <span>Table of Contents</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Close Table of Contents"
+                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                onClick={() => setTocOpen(false)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-0.5">
+              {tocEntries.length > 0 ? (
+                tocEntries.map((item, index) => {
+                  const isSelected = current === item.pageNum
+                  const level = item.level ?? 0
+                  return (
+                    <button
+                      key={`${item.pageNum}-${index}`}
+                      type="button"
+                      onClick={() => scrollToPage(item.pageNum)}
+                      style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
+                      className={cn(
+                        'relative w-full text-left rounded px-2 py-1 text-[0.75rem] transition-colors flex items-center justify-between gap-1.5 group',
+                        isSelected
+                          ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
+                          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                      )}
+                    >
+                      {/* Tree branch line for indented child topics */}
+                      {level > 0 && (
+                        <span
+                          className="absolute left-0 top-1/2 -translate-y-1/2 w-2 border-t border-border/60"
+                          style={{ left: `${(level - 1) * 0.75 + 0.5}rem` }}
+                        />
+                      )}
+                      <span className="truncate leading-tight">{item.title}</span>
+                      <span className="shrink-0 font-mono text-[0.625rem] opacity-40 group-hover:opacity-100 transition-opacity">
+                        p.{item.pageNum}
+                      </span>
+                    </button>
+                  )
+                })
+              ) : (
+                <div className="p-4 text-center text-[0.75rem] text-muted-foreground">
+                  No Table of Contents available for this document.
+                </div>
+              )}
+            </div>
+          </fm.div>
+        )}
+      </AnimatePresence>
+
+      <div
+        ref={readerRef}
+        className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6"
+        // See doc-view.tsx: without this, native page-zoom competes with
+        // usePinchZoom's own two-finger handling on mobile/tablet.
+        style={{ touchAction: 'pan-y' }}
+        // Only wired while a doc is already loaded — that's the "drop a
+        // replacement file anywhere on the reader" gesture. While empty, the
+        // PdfDropzone below owns drag-and-drop itself; wiring both here would
+        // double-fire attach() on the same drop.
+        onDragOver={doc ? (e) => {
+          e.preventDefault()
+          setDragOver(true)
+        } : undefined}
+        onDragLeave={doc ? () => setDragOver(false) : undefined}
+        onDrop={doc ? (e) => {
+          e.preventDefault()
+          setDragOver(false)
+          const f = e.dataTransfer.files?.[0]
+          if (f) void attach(f)
+        } : undefined}
+      >
+        {dragOver && (
+          <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
+            <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[0.75rem] font-semibold shadow duration-150">
+              Drop to open
+            </span>
           </div>
-        </div>
-      )}
+        )}
+        {converting ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <span className="text-[0.75rem]">{converting}</span>
+          </div>
+        ) : !doc ? (
+          <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />
+        ) : (
+          // Spacer reserves the scaled stack's real footprint — see the
+          // ResizeObserver effect above.
+          <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
+            <div
+              ref={contentRef}
+              className="flex flex-col gap-4 pb-28"
+              style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
+            >
+              {Array.from({ length: doc.numPages }, (_, i) => (
+                <PdfPage
+                  key={i + 1}
+                  doc={doc}
+                  n={i + 1}
+                  annotId={meta?.annotPages?.[i] || null}
+                  active={!!meta?.annotPages?.[i] && meta.annotPages[i] === activeSheetId}
+                  onCurrent={onCurrent}
+                  onFocus={onPageFocus}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 

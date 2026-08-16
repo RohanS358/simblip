@@ -7,4 +7,23 @@
 // transition type survives here for page-controls-menu.tsx-adjacent code
 // that still needs it.
 
+import { create } from 'zustand'
+
 export type SlideTransition = 'none' | 'fade' | 'slide'
+
+export interface PresentationDockState {
+  tocOpen: boolean
+  toggleToc: () => void
+  hasToc: boolean
+  goToSlide?: (index: number) => void
+}
+
+interface PresentationDockStore {
+  dock: PresentationDockState | null
+  set: (dock: PresentationDockState | null) => void
+}
+
+export const usePresentationDockStore = create<PresentationDockStore>((set) => ({
+  dock: null,
+  set: (dock) => set({ dock }),
+}))

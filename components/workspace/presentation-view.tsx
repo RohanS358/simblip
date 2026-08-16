@@ -17,12 +17,13 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
   Plus, Trash2, Copy, Loader2, X, ChevronLeft, ChevronRight, ChevronDown,
-  ZoomIn, ZoomOut, Sparkles, Download, MonitorPlay, SlidersHorizontal,
+  ZoomIn, ZoomOut, Sparkles, Download, MonitorPlay, SlidersHorizontal, TableOfContents, List,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
 import type { SlideTransition } from '@/lib/store/presentation-dock'
+import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
 import { LiveFrame } from './page-thumbnail'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
@@ -307,6 +308,86 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [presenting, setPresenting] = useState(false)
+  // State for Table of Contents side rail
+  const [tocOpen, setTocOpen] = useState(false)
+  const [tocEntries, setTocEntries] = useState<{ slideIndex: number; title: string; level: number }[]>([])
+
+  // Extract PDF outline or slide headings whenever slides or source file changes
+  useEffect(() => {
+    let dead = false
+    void (async () => {
+      const entries: { slideIndex: number; title: string; level: number }[] = []
+      const fileId = meta?.fileUrl?.startsWith('opfs:') ? meta.fileUrl.slice('opfs:'.length) : null
+
+      // Try PDF outline first if available
+      if (fileId) {
+        try {
+          const blob = await getFile(fileId)
+          if (blob && (blob.type === 'application/pdf' || meta?.fileMime === 'application/pdf' || meta?.fileName?.endsWith('.pdf'))) {
+            const pdfjs = await import('pdfjs-dist')
+            pdfjs.GlobalWorkerOptions.workerSrc = new URL('pdfjs-dist/build/pdf.worker.min.mjs', import.meta.url).toString()
+            const arrayBuffer = await blob.arrayBuffer()
+            const doc = await pdfjs.getDocument({ data: arrayBuffer }).promise
+            const outline = await doc.getOutline()
+            if (outline && outline.length > 0) {
+              const processItems = async (items: any[], level = 0) => {
+                for (const item of items) {
+                  let pageNum = -1
+                  if (typeof item.dest === 'string') {
+                    const dest = await doc.getDestination(item.dest)
+                    if (dest) pageNum = await doc.getPageIndex(dest[0])
+                  } else if (Array.isArray(item.dest)) {
+                    pageNum = await doc.getPageIndex(item.dest[0])
+                  }
+                  if (pageNum >= 0 && pageNum < slides.length) {
+                    entries.push({ slideIndex: pageNum, title: item.title, level })
+                  }
+                  if (item.items && item.items.length > 0) {
+                    await processItems(item.items, level + 1)
+                  }
+                }
+              }
+              await processItems(outline)
+            }
+          }
+        } catch {
+          // Ignore PDF outline parsing errors, fallback to slide object headings
+        }
+      }
+
+      // If no PDF outline entries were found, extract slide object headings/text
+      if (entries.length === 0 && slides.length > 0) {
+        const { useDocStore } = await import('@/lib/store/document')
+        const pagesState = useDocStore.getState().pages
+        slides.forEach((slideId, idx) => {
+          const page = pagesState[slideId]
+          if (!page || !page.objects) return
+          const objs = Object.values(page.objects)
+          // Find text objects on this slide
+          const textObjs = objs.filter((o) => o.kind === 'text' || o.kind === 'note')
+          let title = ''
+          for (const obj of textObjs) {
+            const rawText = obj.text || ''
+            const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean)
+            if (lines.length > 0) {
+              // Strip markdown/prefix formatting
+              title = lines[0].replace(/^#{1,6}\s+/, '').replace(/^[-*+]\s+/, '')
+              if (title) break
+            }
+          }
+          if (title) {
+            entries.push({ slideIndex: idx, title, level: 0 })
+          }
+        })
+      }
+
+      if (!dead) setTocEntries(entries)
+    })()
+    return () => {
+      dead = true
+    }
+  }, [slides, meta?.fileUrl, meta?.fileName, meta?.fileMime])
+
   // A pure CSS view scale on the rendered slide frame — same model as
   // doc-view.tsx's zoom (transform: scale(zoom)), NOT the canvas's own
   // internal viewport zoom (InfiniteCanvas keeps that permanently locked
@@ -648,9 +729,86 @@ export function PresentationView({ pageId }: { pageId: string }) {
     return () => window.removeEventListener('simblip-remote-slideshow', onRemote)
   }, [])
 
+  useEffect(() => {
+    usePresentationDockStore.getState().set({
+      tocOpen,
+      toggleToc: () => setTocOpen((v) => !v),
+      hasToc: tocEntries.length > 0,
+      goToSlide,
+    })
+    return () => usePresentationDockStore.getState().set(null)
+  }, [tocOpen, tocEntries.length])
+
 
   return (
     <div className="flex h-full w-full flex-col">
+      <div className="relative flex min-h-0 flex-1 overflow-hidden">
+        {/* Toggleable Table of Contents Side Rail */}
+        <AnimatePresence>
+          {tocOpen && (
+            <fm.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 260, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
+            >
+              <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
+                <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+                  <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
+                  <span>Table of Contents</span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Close Table of Contents"
+                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                  onClick={() => setTocOpen(false)}
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-0.5">
+                {tocEntries.length > 0 ? (
+                  tocEntries.map((item, index) => {
+                    const isSelected = current === item.slideIndex
+                    const level = item.level ?? 0
+                    return (
+                      <button
+                        key={`${item.slideIndex}-${index}`}
+                        type="button"
+                        onClick={() => goToSlide(item.slideIndex)}
+                        style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
+                        className={cn(
+                          'relative w-full text-left rounded px-2 py-1 text-[0.75rem] transition-colors flex items-center justify-between gap-1.5 group',
+                          isSelected
+                            ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
+                            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
+                        )}
+                      >
+                        {/* Tree branch line for indented child topics */}
+                        {level > 0 && (
+                          <span
+                            className="absolute left-0 top-1/2 -translate-y-1/2 w-2 border-t border-border/60"
+                            style={{ left: `${(level - 1) * 0.75 + 0.5}rem` }}
+                          />
+                        )}
+                        <span className="truncate leading-tight">{item.title}</span>
+                        <span className="shrink-0 font-mono text-[0.625rem] opacity-40 group-hover:opacity-100 transition-opacity">
+                          s.{item.slideIndex + 1}
+                        </span>
+                      </button>
+                    )
+                  })
+                ) : (
+                  <div className="p-4 text-center text-[0.75rem] text-muted-foreground">
+                    No Table of Contents available for this presentation.
+                  </div>
+                )}
+              </div>
+            </fm.div>
+          )}
+        </AnimatePresence>
+
       {/*
         The stage scrolls when the slide is zoomed past the viewport.
         `transform: scale()` does NOT contribute to a parent's scrollable
@@ -698,6 +856,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </div>
           </div>
         ) : null}
+      </div>
       </div>
 
       {/* The slide rail and the control bar are this view's own bottom chrome.

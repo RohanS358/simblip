@@ -139,9 +139,41 @@ export function PageControlsMenu({
       {showZoom && pdfDock && <Divider />}
       {pdfDock && (
         <div className="flex items-center gap-0.5">
-          <span className="mr-0.5 shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
-            {pdfDock.current}/{pdfDock.numPages}
-          </span>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              const num = parseInt((e.currentTarget.elements.namedItem('pageNum') as HTMLInputElement)?.value, 10)
+              if (num >= 1 && num <= pdfDock.numPages) {
+                pdfDock.scrollToPage?.(num)
+              }
+            }}
+            className="flex items-center gap-0.5 mr-1"
+          >
+            <input
+              key={pdfDock.current}
+              name="pageNum"
+              defaultValue={pdfDock.current}
+              type="number"
+              min={1}
+              max={pdfDock.numPages}
+              aria-label="Jump to page"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.currentTarget.form?.requestSubmit()
+                }
+              }}
+              onBlur={(e) => {
+                const num = parseInt(e.target.value, 10)
+                if (num >= 1 && num <= pdfDock.numPages && num !== pdfDock.current) {
+                  pdfDock.scrollToPage?.(num)
+                }
+              }}
+              className="w-7 h-5 rounded border border-border/50 bg-background/80 px-1 text-center font-mono text-[0.6875rem] tabular-nums text-foreground outline-none focus:border-[var(--accent-blue)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            />
+            <span className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+              /{pdfDock.numPages}
+            </span>
+          </form>
           {showPresent && (
             <DockBtn label="Present on room board…" onClick={() => setPresenting(true)}>
               <MonitorPlay className="h-3.5 w-3.5" />
