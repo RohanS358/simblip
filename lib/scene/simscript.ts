@@ -163,6 +163,9 @@ class ScriptObject {
   get P()   { return { objectId: this.id, property: 'P'   } }
   get omega(){ return { objectId: this.id, property: 'omega' } }
   get angle(){ return { objectId: this.id, property: 'angle' } }
+  /** Angle about the pivot — the pendulum one. `angle` is the body's own
+   *  spin, which stays flat 0 for a bob hanging on a rod. */
+  get swing(){ return { objectId: this.id, property: 'swing' } }
   get x()   { return { objectId: this.id, property: 'x'   } }
   get y()   { return { objectId: this.id, property: 'y'   } }
   get ke()  { return { objectId: this.id, property: 'ke'  } }

@@ -150,6 +150,29 @@ export function applyKindProps(obj: SceneObject, gk: GeometryKind, props: Record
       ? num(Number(v))
       : str(String(v))
   }
+
+  // ── Control wiring ────────────────────────────────────────────────────────
+  // A slider/button/trigger aimed at an object needs BOTH an id and
+  // targetType:"objectParam" — getTargetValue (lib/scene/control-targets.ts)
+  // reads a page variable otherwise and the control drives nothing.
+  //
+  // Two things were broken for scripted controls. The loop above stringifies
+  // every prop, so the natural `targetObjectId: block` (a create() handle)
+  // became the literal "[object Object]"; and targetType stayed at the
+  // factory's "variable" default, so even a correct id was ignored. Both are
+  // fixed here rather than at the call sites: this is the one place every
+  // scripted control is built.
+  if (gk === 'slider' || gk === 'button' || gk === 'trigger') {
+    const raw = props.targetObjectId ?? props.target ?? props.targetObject
+    // A create() handle is `{ id }`; a plain string id is also accepted.
+    const id = typeof raw === 'string' ? raw : (raw as { id?: string } | undefined)?.id
+    if (id) {
+      obj.parameters.targetObjectId = str(id)
+      obj.parameters.targetType = str(String(props.targetType ?? 'objectParam'))
+    } else if (props.targetType !== undefined) {
+      obj.parameters.targetType = str(String(props.targetType))
+    }
+  }
 }
 
 /**
@@ -273,7 +296,10 @@ export const ANCHOR_INDEX: Record<string, Record<string, number>> = {
 // nothing.
 
 /** Motion channels every dynamic rigid body streams (SI units). */
-export const BODY_CHANNELS: readonly string[] = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
+// `swing` is the angle about a body's constraint anchor (see swingAngle in
+// lib/physics/world.ts) — what a pendulum question means by "angle". `angle`
+// remains the body's own rotation, which is what a rolling wheel needs.
+export const BODY_CHANNELS: readonly string[] = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'swing', 'omega', 'ke']
 
 /** Two-terminal electrical parts all report the same three. */
 export const DEFAULT_SYMBOL_CHANNELS: readonly string[] = ['V', 'I', 'P']

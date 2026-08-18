@@ -26,7 +26,9 @@
 // it pulls react-markdown + shiki (multi-MB) to render what is almost always
 // SimScript, which this app already tokenizes for free — see ScriptBlock.
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import katex from 'katex'
+import { blocksToSimScript } from '@/lib/ai/explain'
 import {
   BrainCircuit, Check, Copy, Loader2, Plus, RotateCcw, Sparkle, Square, Trash2, Zap,
 } from 'lucide-react'
@@ -197,6 +199,10 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         const decoder = new TextDecoder()
         let buffer = ''
         let live = ''
+        // Which lane the router picked, sent before the first token so prose
+        // streams into the answer pane and script into the code pane — a
+        // derivation shown in the SimScript highlighter reads as garbage.
+        let lane: 'simulate' | 'explain' | 'both' = 'simulate'
         for (;;) {
           const { done, value } = await reader.read()
           if (done) break
@@ -208,15 +214,31 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             const evt = /^event:\s*(.+)$/m.exec(frame)?.[1]
             const raw = /^data:\s*([\s\S]*)$/m.exec(frame)?.[1]
             if (!evt || raw === undefined) continue
-            if (evt === 'token') {
+            if (evt === 'intent') {
+              lane = JSON.parse(raw) as typeof lane
+              patchTurn(turnId, { intent: lane })
+            } else if (evt === 'token') {
               live += JSON.parse(raw) as string
-              // The live text is a PREVIEW — unverified, never executed.
-              patchTurn(turnId, { script: live })
+              // Live text is a PREVIEW — unverified, never executed.
+              patchTurn(turnId, lane === 'simulate' ? { script: live } : { answer: live })
             } else if (evt === 'done') {
-              const data = JSON.parse(raw) as { message: string; script?: string }
-              if (data.script) {
-                patchTurn(turnId, { script: data.script, message: data.message, status: 'ok' })
-                if (auto) runScript(data.script, turnId)
+              const data = JSON.parse(raw) as {
+                message: string
+                script?: string
+                answer?: string
+                blocks?: { kind: 'text' | 'formula'; content: string }[]
+              }
+              if (data.script || data.answer) {
+                patchTurn(turnId, {
+                  // Clear the streamed preview when this lane produced no
+                  // script, or a half-written scene would linger on screen.
+                  script: data.script ?? '',
+                  answer: data.answer,
+                  blocks: data.blocks,
+                  message: data.message,
+                  status: 'ok',
+                })
+                if (auto && data.script) runScript(data.script, turnId)
               } else {
                 patchTurn(turnId, { message: data.message, status: 'error' })
               }
@@ -293,7 +315,23 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
               </div>
             ) : (
               turns.map((t) => (
-                <Turn key={t.id} turn={t} onAdd={() => runScript(t.script, t.id)} onRetry={() => void send(t.prompt)} />
+                <Turn
+                  key={t.id}
+                  turn={t}
+                  // A written answer is placed as text/formula objects, via
+                  // the SAME executeSimScript path a scene goes through — so
+                  // the AI still cannot put anything on a page that a user
+                  // could not have typed by hand.
+                  onAdd={() =>
+                    runScript(
+                      [t.blocks?.length ? blocksToSimScript(t.blocks) : '', t.script]
+                        .filter(Boolean)
+                        .join('\n'),
+                      t.id
+                    )
+                  }
+                  onRetry={() => void send(t.prompt)}
+                />
               ))
             )}
           </ChatContainerContent>
@@ -337,6 +375,59 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   )
 }
 
+/** A written answer: Markdown headings/lists plus `$…$` maths.
+ *
+ *  Deliberately a small renderer rather than react-markdown + rehype-katex:
+ *  those were removed from this panel once already for bundle weight, and the
+ *  answer format is a known, narrow subset — the same one the notebook's own
+ *  text objects accept (BLOCK_PREFIX_RE in lib/text/marks.ts). */
+function AnswerBlock({ source, streaming }: { source: string; streaming?: boolean }) {
+  const html = useMemo(() => {
+    const inline = (t: string) =>
+      t
+        // Maths first: its braces and backslashes must not be seen by the
+        // bold/italic passes below.
+        .replace(/\$([^$\n]+)\$/g, (_, e) => {
+          try {
+            return katex.renderToString(e, { throwOnError: false })
+          } catch {
+            return e as string
+          }
+        })
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/`([^`]+)`/g, '<code class="rounded bg-muted px-1">$1</code>')
+
+    return source
+      .split('\n')
+      .map((line) => {
+        const h = /^(#{1,6})\s+(.*)$/.exec(line)
+        if (h) {
+          const size = h[1].length <= 2 ? 'text-[0.8125rem]' : 'text-[0.75rem]'
+          return `<p class="${size} font-semibold mt-2 text-foreground">${inline(h[2])}</p>`
+        }
+        const li = /^\s*[-*+]\s+(.*)$/.exec(line)
+        if (li) return `<p class="pl-3 -indent-2">• ${inline(li[1])}</p>`
+        const ol = /^\s*(\d+)\.\s+(.*)$/.exec(line)
+        if (ol) return `<p class="pl-4 -indent-4">${ol[1]}. ${inline(ol[2])}</p>`
+        if (!line.trim()) return '<p class="h-1"></p>'
+        return `<p>${inline(line)}</p>`
+      })
+      .join('')
+  }, [source])
+
+  return (
+    <div
+      className={cn(
+        'space-y-0.5 rounded-lg border border-border/60 bg-card/50 px-2.5 py-2',
+        'text-[0.71875rem] leading-relaxed text-foreground/90',
+        '[&_.katex]:text-[0.95em]',
+        streaming && 'animate-in fade-in-0'
+      )}
+      dangerouslySetInnerHTML={{ __html: html }}
+    />
+  )
+}
+
 function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRetry: () => void }) {
   const [copied, setCopied] = useState(false)
   const streaming = turn.status === 'streaming'
@@ -352,12 +443,16 @@ function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRet
 
       {/* What came back */}
       <div className="space-y-1.5">
-        {streaming && !turn.script && (
+        {streaming && !turn.script && !turn.answer && (
           <div className="flex items-center gap-2 text-[0.71875rem] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             Thinking&hellip;
           </div>
         )}
+
+        {/* The written answer comes first: for a derivation or a numerical it
+            IS the answer, and any scene is the supporting illustration. */}
+        {turn.answer && <AnswerBlock source={turn.answer} streaming={streaming} />}
 
         {turn.script && <ScriptBlock source={turn.script} streaming={streaming} />}
 
@@ -372,11 +467,11 @@ function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRet
           </p>
         )}
 
-        {turn.status === 'ok' && turn.script && (
+        {turn.status === 'ok' && (turn.script || turn.blocks?.length) && (
           <div className="flex items-center gap-1.5 pt-0.5">
             {turn.added ? (
               <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.6875rem] font-medium text-[var(--accent-mint)]">
-                <Check className="h-3 w-3" /> On canvas
+                <Check className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'In notebook' : 'On canvas'}
               </span>
             ) : (
               <Button
@@ -385,7 +480,7 @@ function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRet
                 className="h-6 gap-1 border-[var(--accent-mint)]/50 px-2 text-[0.6875rem] text-[var(--accent-mint)] hover:bg-[var(--accent-mint)]/10"
                 onClick={onAdd}
               >
-                <Plus className="h-3 w-3" /> Add to canvas
+                <Plus className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'Add to notebook' : 'Add to canvas'}
               </Button>
             )}
             <TurnAction

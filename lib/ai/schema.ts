@@ -13,11 +13,28 @@
 
 import { z } from 'zod'
 
+/** One piece of a written answer, ready to become a notebook object.
+ *  `text` carries Markdown, `formula` carries LaTeX. */
+export const answerBlockSchema = z.object({
+  kind: z.enum(['text', 'formula']),
+  content: z.string(),
+})
+
 export const aiResponseSchema = z.object({
   /** Plain-language rationale shown next to the confirm button. */
   message: z.string(),
   /** Verified SimScript, ready to execute. Absent when generation failed. */
   script: z.string().optional(),
+  /** A written answer — derivation, numerical or short note — as Markdown.
+   *  Most coursework is not a simulation (of the course's own 100 questions,
+   *  44 are derivations and 37 numericals), so this is the lane that carries
+   *  the majority of real answers. */
+  answer: z.string().optional(),
+  /** The same answer pre-split into notebook objects, so the client can drop
+   *  it onto a page without re-parsing the Markdown. */
+  blocks: z.array(answerBlockSchema).optional(),
 })
+
+export type AnswerBlock = z.infer<typeof answerBlockSchema>
 
 export type AiResponse = z.infer<typeof aiResponseSchema>

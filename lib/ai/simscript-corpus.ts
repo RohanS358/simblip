@@ -186,6 +186,12 @@ LAYOUT
 - CIRCUITS: do NOT pass x/y — the auto-layout engine draws the schematic (series loops, parallel banks, amplifiers). Just create and connect.
 - MECHANICS/OPTICS/WAVES: DO pass x/y (canvas px, +y is down). There is NO auto-layout here — omit x/y and every body stacks on one pixel and explodes apart. Put ground below falling bodies. Optics sit left-to-right on one axis (same y).
 
+MAKE IT EXPERIMENTABLE
+- When a quantity is worth varying (mass, k, R, V, speed, angle), add a slider bound to the object:
+  var sl = create("slider", { x: 0, y: 420, min: 1, max: 50, value: 10, label: "Mass", targetParamName: "mass", targetObjectId: block });
+  targetObjectId takes the create() handle itself. Without it the slider drives nothing.
+- Pair a scene with a graph of the quantity being studied, so a slider change is visible as a change in the curve.
+
 MAKING A SCENE ACTUALLY MOVE (a scene that draws but does not simulate is a failure)
 - spring/rope/rod/damper ARE the constraint. They do nothing until BOTH ends are attached — the physics binds them to whatever body each endpoint touches. Always connect both ends.
 - To join two physical bodies you MUST name the type: connect(a.centre, b.centre, "rod"). Plain connect() makes a "wire", which is ELECTRICAL and applies zero force — the bodies just fall apart.
@@ -209,7 +215,8 @@ ANCHORS (connect)
 - gnd/probe: .terminal — mechanics/shapes: .centre
 - Never create("graph") — always graph.plot(). Never create("symbol").
 
-CHANNELS for graph.plot: mechanics .x .y .vx .vy .speed .angle .omega .ke — electrical .V .I .P
+CHANNELS for graph.plot: mechanics .x .y .vx .vy .speed .swing .angle .omega .ke — electrical .V .I .P
+- .swing = angle about the pivot (USE THIS for a pendulum). .angle = the body's own spin — flat 0 for a bob on a rod, so plotting it draws a dead line.
 table: headers "SN;x;y;z=x+y" (name=expr makes a live formula column), data rows "1;2;\\n2;5;" or [[1,2],[2,5]].`
 
 // ── Scenario samples (hand-written, high-value) ──────────────────────────────
@@ -404,7 +411,31 @@ graph.plot(block.vy);`),
 var pivot = create("hinge", { x: 300, y: 120 });
 var bob = create("mass", { x: 300, y: 340, mass: 1 });
 connect(pivot.centre, bob.centre, "rod");
-graph.plot(bob.angle);`),
+graph.plot(bob.swing);`),
+
+  S('Simple pendulum I can experiment with — let me change the bob mass and watch the swing.', `
+var pivot = create("hinge", { x: 320, y: 100 });
+var bob = create("mass", { x: 320, y: 340, mass: 1 });
+connect(pivot.centre, bob.centre, "rod");
+var mSlider = create("slider", { x: 60, y: 460, min: 1, max: 20, step: 1, value: 1, label: "Bob mass (kg)", targetParamName: "mass", targetObjectId: bob });
+graph.plot(bob.swing);`),
+
+  S('Spring-mass oscillator with a slider for the spring stiffness, and plot the motion.', `
+var anchor = create("hinge", { x: 300, y: 80 });
+var bob = create("mass", { x: 300, y: 320, mass: 2 });
+var spr = create("spring", { length: 220, k: 30 });
+connect(spr.a, anchor.centre);
+connect(spr.b, bob.centre);
+var kSlider = create("slider", { x: 60, y: 460, min: 5, max: 120, step: 5, value: 30, label: "Stiffness k (N/m)", targetParamName: "k", targetObjectId: spr });
+graph.plot(bob.y);`),
+
+  S('Let me vary the resistance in a simple circuit and see the current change.', `
+var bat = create("battery", { V: 9 });
+var r = create("resistor", { R: 220, name: "R" });
+connect(bat.positive, r.a);
+connect(r.b, bat.negative);
+var rSlider = create("slider", { x: 60, y: 420, min: 10, max: 1000, step: 10, value: 220, label: "R (ohm)", targetParamName: "R", targetObjectId: r });
+graph.plot(r.I);`),
 
   S('Hang a mass from the ceiling on a spring and let it bounce. Plot the height.', `
 var anchor = create("hinge", { x: 300, y: 80 });
@@ -637,7 +668,20 @@ export function buildDataset(paraphrases = REPHRASE.length): ChatSample[] {
 }
 
 /** Ollama Modelfile — `ollama create simblip-simscript -f Modelfile`. */
-export function buildModelfile(base = 'qwen2.5-coder:7b'): string {
+export function buildModelfile(base = 'qwen2.5-coder:7b', shots = 12): string {
+  // MESSAGE pairs bake worked examples into the model itself. Without them
+  // this file produced the base model wearing a system prompt — `ollama show
+  // simblip-simscript` reported "MESSAGE lines: 0" — so all 84 corpus samples
+  // were built, paraphrased, and then never seen by anything.
+  //
+  // These are the baseline every request starts from; lib/ai/few-shot.ts adds
+  // per-request examples chosen for the actual question on top. Both matter:
+  // the baked-in ones set the output shape even when retrieval finds nothing,
+  // and they cost no prompt tokens per request.
+  const examples = SCENARIOS.slice(0, shots).flatMap((s) => [
+    `MESSAGE user """${s.prompt}"""`,
+    `MESSAGE assistant """${s.script.trim()}"""`,
+  ])
   return [
     `FROM ${base}`,
     '',
@@ -647,6 +691,8 @@ export function buildModelfile(base = 'qwen2.5-coder:7b'): string {
     'SYSTEM """',
     SIMSCRIPT_SYSTEM_PROMPT,
     '"""',
+    '',
+    ...examples,
     '',
   ].join('\n')
 }

@@ -23,6 +23,9 @@ import {
   prewarm,
 } from '@/lib/ai/generate'
 import { SIMSCRIPT_SYSTEM_PROMPT } from '@/lib/ai/simscript-corpus'
+import { classifyIntent, type Intent } from '@/lib/ai/route-intent'
+import { explain, EXPLAIN_SYSTEM_PROMPT } from '@/lib/ai/explain'
+import { pickGenerator } from '@/lib/ai/generate'
 
 export const maxDuration = 300
 
@@ -50,6 +53,9 @@ const requestSchema = z.object({
   prompt: z.string().min(1).max(4000),
   /** Opt-in SSE. Off by default so the plain JSON contract still works. */
   stream: z.boolean().optional(),
+  /** Override the router. The UI offers this as an explicit "explain" /
+   *  "simulate" toggle for the cases where a question reads either way. */
+  intent: z.enum(['simulate', 'explain', 'both', 'auto']).optional(),
   pageContext: z
     .object({
       variables: z.array(z.object({ name: z.string(), expr: z.string() })),
@@ -91,21 +97,77 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  // Streaming path. ~2.1s of the ~2.2s generation is token emission, so
-  // showing the script as it is written is the single biggest PERCEIVED
-  // speed win available — it does not make anything faster, it removes the
-  // blank wait. Tokens are display only; the terminating `done` event carries
-  // the authoritative, verified script (a script cannot be checked until it
-  // is complete, and an unverified one must never reach the canvas).
+  const intent: Intent =
+    !parsed.data.intent || parsed.data.intent === 'auto'
+      ? classifyIntent(parsed.data.prompt)
+      : parsed.data.intent
+
+  const system = systemPrompt(parsed.data.pageContext)
+  const userPrompt = parsed.data.prompt
+
+  // Run the explain lane. Shared by both transports so the two paths cannot
+  // drift. No verify/repair loop here, unlike SimScript: nothing about a
+  // derivation is statically checkable, so a second round would buy nothing.
+  const runExplain = async (onToken?: (c: string) => void) => {
+    const generator = await pickGenerator()
+    const result = await explain(userPrompt, {
+      generator,
+      onToken,
+      systemPrompt: EXPLAIN_SYSTEM_PROMPT,
+    })
+    return result
+  }
+
+  // Streaming path. ~2.1s of the ~2.2s SimScript generation is token
+  // emission, and a derivation takes far longer still, so showing text as it
+  // is written is the single biggest PERCEIVED speed win available — it makes
+  // nothing faster, it removes the blank wait. Tokens are display only; the
+  // terminating `done` event carries the authoritative payload (a script
+  // cannot be checked until complete, and an unverified one must never reach
+  // the canvas).
   if (parsed.data.stream) {
-    const system = systemPrompt(parsed.data.pageContext)
-    const userPrompt = parsed.data.prompt
     const encoder = new TextEncoder()
     const body = new ReadableStream({
       async start(controller) {
         const send = (event: string, data: unknown) =>
           controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
         try {
+          // Tell the client which lane won, so it can render prose as prose
+          // and script as script from the very first token.
+          send('intent', intent)
+
+          if (intent === 'explain') {
+            const result = await runExplain((chunk) => send('token', chunk))
+            send('done', {
+              message: 'Answered — review it, then add it to your notebook.',
+              answer: result.markdown,
+              blocks: result.blocks,
+            } satisfies AiResponse)
+            return
+          }
+
+          if (intent === 'both') {
+            // Explanation first: it is the answer, and it streams, so the user
+            // reads while the scene is still being built.
+            const answer = await runExplain((chunk) => send('token', chunk))
+            let script: string | undefined
+            try {
+              script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
+            } catch {
+              // A scene is the bonus here, not the deliverable. Losing it must
+              // never cost the user a correct derivation.
+            }
+            send('done', {
+              message: script
+                ? 'Answered, and built a scene to go with it.'
+                : 'Answered. (No simulation for this one — the working is above.)',
+              answer: answer.markdown,
+              blocks: answer.blocks,
+              script,
+            } satisfies AiResponse)
+            return
+          }
+
           const result = await generateSimScript(userPrompt, {
             systemPrompt: system,
             onToken: (chunk) => send('token', chunk),
@@ -134,9 +196,34 @@ export async function POST(req: Request) {
   }
 
   try {
-    const result = await generateSimScript(parsed.data.prompt, {
-      systemPrompt: systemPrompt(parsed.data.pageContext),
-    })
+    if (intent === 'explain') {
+      const result = await runExplain()
+      return NextResponse.json({
+        message: 'Answered — review it, then add it to your notebook.',
+        answer: result.markdown,
+        blocks: result.blocks,
+      } satisfies AiResponse)
+    }
+
+    if (intent === 'both') {
+      const answer = await runExplain()
+      let script: string | undefined
+      try {
+        script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
+      } catch {
+        // See the streaming path: the derivation is the deliverable.
+      }
+      return NextResponse.json({
+        message: script
+          ? 'Answered, and built a scene to go with it.'
+          : 'Answered. (No simulation for this one — the working is above.)',
+        answer: answer.markdown,
+        blocks: answer.blocks,
+        script,
+      } satisfies AiResponse)
+    }
+
+    const result = await generateSimScript(userPrompt, { systemPrompt: system })
     return NextResponse.json({
       message:
         result.attempts > 1

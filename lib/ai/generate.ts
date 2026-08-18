@@ -24,6 +24,7 @@
 // round. See lib/ai/simscript-lint.ts for what "verify" covers.
 
 import { lintSimScript } from './simscript-lint'
+import { fewShotMessages } from './few-shot'
 import { SIMSCRIPT_SYSTEM_PROMPT } from './simscript-corpus'
 
 /** How many repair attempts before giving up and reporting honestly. A model
@@ -48,7 +49,14 @@ export interface SimScriptGenerator {
    *  the whole perceived-speed win). It is never the authoritative output —
    *  only the verified return value is, because a script can only be checked
    *  once it is complete. */
-  generate(system: string, user: string, onToken?: (chunk: string) => void): Promise<string>
+  generate(
+    system: string,
+    user: string,
+    onToken?: (chunk: string) => void,
+    /** Worked examples inserted as prior turns, before the real question.
+     *  See lib/ai/few-shot.ts for why this is the highest-value lever here. */
+    shots?: { role: 'user' | 'assistant'; content: string }[]
+  ): Promise<string>
 }
 // ── Stream readers ──────────────────────────────────────────────────────────
 // Two wire formats, one job: hand each text chunk to `onToken` and return the
@@ -130,7 +138,7 @@ const OLLAMA_TIMEOUT_MS = 60_000
 
 export const ollamaGenerator: SimScriptGenerator = {
   name: `ollama:${OLLAMA_MODEL}`,
-  async generate(system, user, onToken) {
+  async generate(system, user, onToken, shots) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
     try {
@@ -141,6 +149,7 @@ export const ollamaGenerator: SimScriptGenerator = {
           model: OLLAMA_MODEL,
           messages: [
             { role: 'system', content: system },
+            ...(shots ?? []),
             { role: 'user', content: user },
           ],
           stream: !!onToken,
@@ -190,7 +199,7 @@ const OPENROUTER_TIMEOUT_MS = 60_000
 
 export const openRouterGenerator: SimScriptGenerator = {
   name: `openrouter:${OPENROUTER_MODEL}`,
-  async generate(system, user, onToken) {
+  async generate(system, user, onToken, shots) {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) throw new GeneratorUnavailableError('OPENROUTER_API_KEY is not set')
     const controller = new AbortController()
@@ -210,6 +219,7 @@ export const openRouterGenerator: SimScriptGenerator = {
           model: OPENROUTER_MODEL,
           messages: [
             { role: 'system', content: system },
+            ...(shots ?? []),
             { role: 'user', content: user },
           ],
           temperature: 0.2,
@@ -323,12 +333,25 @@ export async function generateSimScript(
   const generator = opts.generator ?? (await pickGenerator())
   const system = opts.systemPrompt ?? SIMSCRIPT_SYSTEM_PROMPT
 
+  // Worked examples closest to this request. The corpus built these all
+  // along and nothing ever sent them to the model; retrieving four lifted
+  // lint-clean output from 7/15 to 12/15 on held-out course prompts.
+  const shots = fewShotMessages(userPrompt)
+
   let prompt = userPrompt
   let lastScript = ''
   let lastErrors: string[] = []
 
   for (let attempt = 1; attempt <= MAX_REPAIRS + 1; attempt++) {
-    const raw = await generator.generate(system, prompt, attempt === 1 ? opts.onToken : undefined)
+    // Examples go only to the first attempt. A repair turn already carries
+    // the script being fixed, and re-showing four unrelated scenes invites
+    // the model to redesign rather than repair.
+    const raw = await generator.generate(
+      system,
+      prompt,
+      attempt === 1 ? opts.onToken : undefined,
+      attempt === 1 ? shots : undefined
+    )
     const result = lintSimScript(raw)
     lastScript = result.cleaned
     lastErrors = result.errors

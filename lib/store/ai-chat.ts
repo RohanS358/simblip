@@ -28,6 +28,16 @@ export interface AiTurn {
   status: 'streaming' | 'ok' | 'error'
   /** The model's rationale, or the failure explanation. */
   message?: string
+  /** Which lane answered. Most coursework is not a simulation — of the
+   *  course's own 100 questions, 44 are derivations and 37 numericals — so a
+   *  turn very often carries prose instead of (or as well as) a script. */
+  intent?: 'simulate' | 'explain' | 'both'
+  /** A written answer in Markdown: derivation, numerical or short note.
+   *  While streaming this is the live text; the terminating event replaces it
+   *  with the cleaned version (LaTeX delimiters normalised for the notebook). */
+  answer?: string
+  /** The answer pre-split into notebook objects, ready to drop onto a page. */
+  blocks?: { kind: 'text' | 'formula'; content: string }[]
   /** Has this script been executed onto a page? Set by Add, or immediately in
    *  Auto mode. Stops the same scene being added twice by accident. */
   added?: boolean

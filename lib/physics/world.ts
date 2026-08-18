@@ -1219,6 +1219,39 @@ function resetCircuitDom() {
   }
 }
 
+/**
+ * Angle of a constrained body about its anchor, in radians from straight down.
+ *
+ * A pendulum's bob is pinned by a rod/rope constraint; the pivot is that
+ * constraint's world anchor. Returns {} for a free body so the channel simply
+ * does not appear rather than reporting a misleading zero.
+ */
+function swingAngle(w: World, body: Matter.Body): { swing?: number } {
+  for (const c of w.connectors) {
+    const con = c.constraint
+    // The anchor is whichever end is NOT this body. A world-pinned end
+    // (bodyA === null) carries its absolute point in pointA.
+    let pivot: { x: number; y: number } | undefined
+    if (con.bodyB === body) {
+      pivot = con.bodyA
+        ? { x: con.bodyA.position.x + con.pointA.x, y: con.bodyA.position.y + con.pointA.y }
+        : con.pointA
+    } else if (con.bodyA === body) {
+      pivot = con.bodyB
+        ? { x: con.bodyB.position.x + con.pointB.x, y: con.bodyB.position.y + con.pointB.y }
+        : con.pointB
+    }
+    if (!pivot) continue
+    const dx = body.position.x - pivot.x
+    const dy = body.position.y - pivot.y
+    if (Math.hypot(dx, dy) < 1e-6) continue
+    // atan2(dx, dy): zero when the body hangs straight below the pivot
+    // (+y is down in canvas space), positive swinging right.
+    return { swing: Math.atan2(dx, dy) }
+  }
+  return {}
+}
+
 function sample(w: World) {
   if (w.circuit) {
     // electrical readings feed the same graph bus as body channels
@@ -1242,6 +1275,13 @@ function sample(w: World) {
       speed: (Math.hypot(v.x, v.y) * 60) / PX_PER_CM,
       angle: b.body.angle,
       omega: b.body.angularVelocity * 60,
+      // Angle of this body about whatever pins it, measured from straight
+      // down — the quantity a pendulum question actually means by "angle".
+      // `angle` above is the body's OWN rotation, which for a round bob on a
+      // rod is flat 0 forever: it swings through a wide arc without ever
+      // spinning, so graph.plot(bob.angle) drew a dead horizontal line.
+      // Undefined (and so not plotted) when nothing constrains the body.
+      ...swingAngle(w, b.body),
       // Energy is a joule, which is defined in metres — not cm.
       ke: 0.5 * b.body.mass * ((Math.hypot(v.x, v.y) * 60) / PPM) ** 2,
     }
