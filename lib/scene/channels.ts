@@ -70,6 +70,31 @@ export function channelsFor(obj: SceneObject): string[] {
   return [...new Set(out)]
 }
 
+/**
+ * The channels a KIND publishes, without needing a built object.
+ *
+ * `channelsFor` above needs a real SceneObject (it inspects attached
+ * behaviors). The SimScript linter only has source text — it can see
+ * `create("bulb", …)` but has executed nothing — so it needs the same answer
+ * keyed by kind name. Both read the same tables, so they cannot disagree.
+ *
+ * `mechanics` is passed for kinds that carry a rigidBody (mass, block,
+ * wheel…), since motion channels come from the behavior, not the symbol.
+ */
+export function channelsForKind(kind: string, mechanics = false): string[] {
+  const out: string[] = []
+  if (mechanics) out.push(...BODY)
+  if (!SILENT.has(kind)) out.push(...(BY_SYMBOL[kind] ?? []))
+  return [...new Set(out)]
+}
+
+/** Two-terminal electrical default — what any unlisted circuit symbol reports. */
+export const DEFAULT_SYMBOL_CHANNELS = VIP
+/** Motion channels a dynamic body streams. */
+export const BODY_CHANNELS = BODY
+/** Symbols that publish nothing at all. */
+export const SILENT_SYMBOLS = SILENT
+
 // ── Truth-table roles ───────────────────────────────────────────────────────
 // A truth table drives some components and reads others. That used to live in
 // its own symbol allowlists in lib/circuit/truth-table.ts, disconnected from

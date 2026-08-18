@@ -2,8 +2,11 @@ import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { behaviorSpec } from '@/lib/behaviors/registry'
-import { EMPTY_SPEC } from '@/lib/econ/engine'
-import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
+import { createGeometry } from './factory'
+import {
+  CANVAS_KINDS, canvasKindOf, applyKindProps, applyStyleProps, RESERVED_PROPS,
+  ANCHOR_INDEX,
+} from './simscript-props'
 
 // Always read fresh state — Zustand creates new state objects on every set(),
 // so any snapshot captured before an addObject call is immediately stale.
@@ -131,74 +134,6 @@ const CIRCUIT_DEFAULTS: Record<string, Record<string, string>> = {
 // ── Anchor → terminal index map ───────────────────────────────────────────────
 // Maps friendly anchor names to terminal indices in TERMINALS.
 // This covers every named terminal for every symbol.
-const ANCHOR_INDEX: Record<string, Record<string, number>> = {
-  // 2-terminal (T2) components: index 0 = positive/anode/in, index 1 = negative/cathode/out
-  _t2: { positive: 0, negative: 1, anode: 0, cathode: 1, plus: 0, minus: 1, in: 0, out: 1, input: 0, output: 1, a: 0, b: 1 },
-  battery:          { positive: 0, negative: 1, plus: 0, minus: 1 },
-  'ac-source':      { positive: 0, negative: 1 },
-  'current-source': { positive: 0, negative: 1 },
-  resistor:         { input1: 0, input2: 1, in1: 0, in2: 1, a: 0, b: 1, in: 0, out: 1 },
-  bulb:             { input1: 0, input2: 1, in1: 0, in2: 1, a: 0, b: 1 },
-  capacitor:        { positive: 0, negative: 1, a: 0, b: 1 },
-  inductor:         { a: 0, b: 1 },
-  switch:           { a: 0, b: 1 },
-  fuse:             { a: 0, b: 1 },
-  diode:            { anode: 0, cathode: 1, a: 0, k: 1 },
-  led:              { anode: 0, cathode: 1, a: 0, k: 1 },
-  zener:            { anode: 0, cathode: 1 },
-  ammeter:          { a: 0, b: 1 },
-  voltmeter:        { a: 0, b: 1 },
-  'dc-machine':     { positive: 0, negative: 1 },
-  'pressure-plate': { a: 0, b: 1 },
-  'not-gate':       { input: 0, in: 0, output: 1, out: 1 },
-  // 3-terminal
-  potentiometer:    { top: 0, wiper: 1, w: 1, bottom: 2 },
-  bjt:              { base: 0, b: 0, collector: 1, c: 1, emitter: 2, e: 2 },
-  'bjt-pnp':        { base: 0, b: 0, collector: 1, c: 1, emitter: 2, e: 2 },
-  mosfet:           { gate: 0, g: 0, drain: 1, d: 1, source: 2, s: 2 },
-  'mosfet-pmos':    { gate: 0, g: 0, drain: 1, d: 1, source: 2, s: 2 },
-  opamp:            { 'in+': 0, inp: 0, positive: 0, 'in-': 1, inn: 1, negative: 1, out: 2, output: 2 },
-  'sr-latch':       { s: 0, r: 1, q: 2, output: 2 },
-  'd-ff':           { d: 0, clk: 1, clock: 1, q: 2, output: 2 },
-  't-ff':           { t: 0, clk: 1, clock: 1, q: 2, output: 2 },
-  tristate:         { input: 0, in: 0, enable: 1, en: 1, output: 2, out: 2 },
-  // Gates (GATE3 default: [in0, in1, out]) — variable but default 2 inputs
-  'and-gate':       { input1: 0, in1: 0, a: 0, input2: 1, in2: 1, b: 1, output: 2, out: 2 },
-  'or-gate':        { input1: 0, in1: 0, a: 0, input2: 1, in2: 1, b: 1, output: 2, out: 2 },
-  'xor-gate':       { input1: 0, in1: 0, a: 0, input2: 1, in2: 1, b: 1, output: 2, out: 2 },
-  'nand-gate':      { input1: 0, in1: 0, a: 0, input2: 1, in2: 1, b: 1, output: 2, out: 2 },
-  'nor-gate':       { input1: 0, in1: 0, a: 0, input2: 1, in2: 1, b: 1, output: 2, out: 2 },
-  'jk-ff':          { j: 0, clk: 1, clock: 1, k: 2, q: 3, output: 3 },
-  // 4-terminal controlled sources
-  vcvs:             { 'ctrl+': 0, ctrlp: 0, 'ctrl-': 1, ctrln: 1, out: 2, 'out-': 3 },
-  vccs:             { 'ctrl+': 0, ctrlp: 0, 'ctrl-': 1, ctrln: 1, out: 2, 'out-': 3 },
-  ccvs:             { 'ctrl+': 0, ctrlp: 0, 'ctrl-': 1, ctrln: 1, out: 2, 'out-': 3 },
-  cccs:             { 'ctrl+': 0, ctrlp: 0, 'ctrl-': 1, ctrln: 1, out: 2, 'out-': 3 },
-  transformer:      { 'primary+': 0, p1: 0, 'primary-': 1, p2: 1, 'secondary+': 2, s1: 2, 'secondary-': 3, s2: 3 },
-  'transformer-ct': { 'primary+': 0, p1: 0, 'primary-': 1, p2: 1, s1: 2, ct: 3, s2: 4 },
-  wattmeter:        { 'current+': 0, ip: 0, 'current-': 1, in_: 1, 'voltage+': 2, vp: 2, 'voltage-': 3, vn: 3 },
-  // Single terminal
-  gnd:              { terminal: 0, a: 0 },
-  probe:            { terminal: 0, a: 0 },
-  'logic-probe':    { terminal: 0, a: 0 },
-  input:            { output: 0, out: 0, q: 0 },
-  clock:            { output: 0, out: 0, q: 0 },
-  output:           { input: 0, in: 0, d: 0 },
-  // multi-output
-  'three-phase-source': { a: 0, b: 1, c: 2, n: 3, neutral: 3 },
-  'induction-motor':    { a: 0, b: 1, c: 2, n: 3, neutral: 3 },
-  'half-adder':     { a: 0, b: 1, sum: 2, s: 2, carry: 3, cout: 3 },
-  'full-adder':     { a: 0, b: 1, cin: 2, sum: 3, s: 3, carry: 4, cout: 4 },
-  decoder:          { a: 0, b: 1, y0: 2, y1: 3, y2: 4, y3: 5 },
-  comparator:       { a: 0, b: 1, lt: 2, eq: 3, gt: 4 },
-  mux:              { in0: 0, in1: 1, sel: 2, output: 3, out: 3 },
-  demux:            { input: 0, in: 0, sel: 1, out0: 2, out1: 3 },
-  encoder:          { in0: 0, in1: 1, in2: 2, in3: 3, out0: 4, out1: 5 },
-  'seven-seg':      { a: 0, b: 1, c: 2, d: 3, e: 4, f: 5, g: 6 },
-  'bcd-7seg':       { a: 0, b: 1, c: 2, d: 3, qa: 4, qb: 5, qc: 6, qd: 7, qe: 8, qf: 9, qg: 10 },
-  counter4:         { clk: 0, clock: 0, q0: 1, q1: 2, q2: 3, q3: 4 },
-  register4:        { sin: 0, clk: 1, clock: 1, sout: 2 },
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -316,7 +251,10 @@ export function executeSimScript(
       for (const [k, v] of Object.entries(defaults)) params[k] = num(v)
       // Allow user to override defaults
       for (const [k, v] of Object.entries(props)) {
-        if (k !== 'x' && k !== 'y' && k !== 'width' && k !== 'height' && k !== 'rotation' && k !== 'dir' && k !== 'name') {
+        // RESERVED_PROPS covers position, size AND every styling key, so
+        // `create("resistor", { R: 330, fill: "#f00" })` styles the symbol
+        // instead of inventing a bogus `fill` electrical parameter.
+        if (!RESERVED_PROPS.has(k)) {
           params[k] = typeof v === 'number' ? num(String(v)) : str(String(v))
         }
       }
@@ -384,130 +322,42 @@ export function executeSimScript(
         metadata: { render: def.render, nameExplicit: !!props.name },
       }
 
-    // ── Special canvas objects ────────────────────────────────────────────────
-    } else if (normalKind === 'graph') {
-      obj = {
-        id,
-        name: props.name ?? 'Graph',
-        geometry: { kind: 'graph' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 380, h: props.height ?? 260 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { sourceId: str(''), yChannels: str('') },
-        metadata: { nameExplicit: !!props.name },
+    // ── Every other canvas object ─────────────────────────────────────────────
+    // Delegated to lib/scene/factory.ts — the SAME factory the palette, the
+    // tool dock and paste all go through. This used to be a hand-written copy
+    // of each kind's defaults here, which is why `gridtable`, `slider`,
+    // `button`, `trigger`, `surface3d` and `chart` silently came out as blank
+    // rects (four of them were even documented as working): a kind added to
+    // the factory never reached SimScript. Delegating means a new kind is
+    // scriptable the day it's added, and its defaults can't drift.
+    } else if (CANVAS_KINDS.has(canvasKindOf(normalKind))) {
+      const gk = canvasKindOf(normalKind)
+      obj = createGeometry(gk, {
+        x: origin.x + (props.x ?? 0),
+        y: origin.y + (props.y ?? 0),
+      })
+      obj.id = id
+      if (props.name) obj.name = String(props.name)
+      if (props.width !== undefined) obj.size.w = Number(props.width)
+      if (props.height !== undefined) obj.size.h = Number(props.height)
+      obj.metadata.nameExplicit = !!props.name
+      // `system` is a rect with a render tag, not a geometry kind of its own.
+      if (normalKind === 'system') {
+        obj.name = props.name ?? `${String(props.domain ?? 'mechanics')} system`
+        obj.size = { w: props.width ?? 460, h: props.height ?? 320 }
+        obj.z = 1
+        obj.metadata.render = 'system'
+        obj.metadata.domain = String(props.domain ?? 'mechanics')
       }
-    } else if (normalKind === 'table') {
-      // headers: "SN;x;y;z=x+y" or ["SN","x","y","z=x+y"] — "name=expr" makes
-      // a live formula column. data: "1;2;3\n4;5;6" or [[1,2,3],[4,5,6]].
-      const headers = Array.isArray(props.headers) ? props.headers.join(';') : String(props.headers ?? 'SN;x;y;z=x+y')
-      const data = Array.isArray(props.data)
-        ? props.data.map((r: any) => (Array.isArray(r) ? r.join(';') : String(r))).join('\n')
-        : String(props.data ?? '')
-      obj = {
-        id,
-        name: props.name ?? 'Table',
-        geometry: { kind: 'table' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 380, h: props.height ?? 260 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { headers: str(headers), data: str(data), summary: str(String(props.summary ?? 'Sum')) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'text') {
-      obj = {
-        id,
-        name: props.name ?? 'Text',
-        geometry: { kind: 'text' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 320, h: props.height ?? 48 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { text: str(String(props.text ?? '')) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'formula') {
-      obj = {
-        id,
-        name: props.name ?? 'Formula',
-        geometry: { kind: 'formula' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 300, h: props.height ?? 96 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { latex: str(String(props.latex ?? props.text ?? 'F = m \\cdot g')) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'system') {
-      obj = {
-        id,
-        name: props.name ?? `${String(props.domain ?? 'mechanics')} system`,
-        geometry: { kind: 'rect' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 460, h: props.height ?? 320 },
-        rotation: 0, z: 1, behaviors: [],
-        parameters: {},
-        metadata: { render: 'system', domain: String(props.domain ?? 'mechanics'), nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'code' || normalKind === 'ide' || normalKind === 'simscript') {
-      obj = {
-        id,
-        name: props.name ?? 'SimScript IDE',
-        geometry: { kind: 'code' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 420, h: props.height ?? 300 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { source: str(String(props.source ?? '// Write SimScript here...\n')) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'note') {
-      obj = {
-        id,
-        name: props.name ?? 'Note',
-        geometry: { kind: 'note' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 220, h: props.height ?? 180 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { text: str(props.text ?? '') },
-        metadata: { color: props.color ?? 'amber', nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'cashflow') {
-      obj = {
-        id,
-        name: props.name ?? 'Cash Flow',
-        geometry: { kind: 'cashflow' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 480, h: props.height ?? 300 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { spec: str(JSON.stringify(EMPTY_SPEC)) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'dsa' || normalKind === 'dsa-lab' || normalKind === 'dsalab') {
-      obj = {
-        id,
-        name: props.name ?? 'DSA Lab',
-        geometry: { kind: 'dsa' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 980, h: props.height ?? 620 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { source: str(props.source ?? DEFAULT_DSA_SOURCE) },
-        metadata: { nameExplicit: !!props.name },
-      }
-    } else if (normalKind === 'truthtable' || normalKind === 'truth-table') {
-      obj = {
-        id,
-        name: props.name ?? 'Truth Table',
-        geometry: { kind: 'truthtable' },
-        position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? 320, h: props.height ?? 260 },
-        rotation: 0, z: Date.now(), behaviors: [],
-        parameters: { inputs: str(props.inputs ?? ''), outputs: str(props.outputs ?? '') },
-        metadata: { nameExplicit: !!props.name },
-      }
+      applyKindProps(obj, gk, props)
+
     } else {
       // ── Generic geometry fallback ─────────────────────────────────────────
-      const gk = (normalKind === 'rect' ? 'rect' : normalKind === 'circle' ? 'circle' : normalKind === 'line' ? 'line' : normalKind === 'polygon' ? 'polygon' : 'rect') as GeometryKind
+      // Anything unrecognized becomes a plain rect, as documented.
       obj = {
         id,
         name: props.name ?? kind,
-        geometry: { kind: gk },
+        geometry: { kind: 'rect' },
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? 80, h: props.height ?? 60 },
         rotation: props.rotation ?? 0,
@@ -516,6 +366,10 @@ export function executeSimScript(
         metadata: { nameExplicit: !!props.name },
       }
     }
+
+    // Universal styling — applies to EVERY kind above, so a resistor, a text
+    // block and a slider all take the same fill/stroke/opacity/lock props.
+    applyStyleProps(obj, props)
 
     if (hasExplicitPos) explicitPos.add(id)
     store().addObject(pageId, obj, { history: false })
