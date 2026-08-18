@@ -138,6 +138,25 @@ function anchorNames(kind: string): string[] {
   return [...preferred, ...rest].slice(0, 6)
 }
 
+/** Line-kind mechanics components that ONLY exist as a constraint between two
+ *  bodies. Mirrors MECHANICS_COMPONENTS in lib/scene/simscript.ts. */
+const CONNECTOR_KINDS = new Set(['spring', 'rope', 'rod', 'damper'])
+
+/** Kinds that fall under gravity, so a scene containing one usually wants
+ *  something to land on. */
+const FALLING_KINDS = new Set(['mass', 'block', 'beam', 'wheel', 'motor'])
+
+/** Kinds that are positioned by hand rather than by the circuit auto-layout —
+ *  every mechanics/optics/waves kind. Circuit symbols are deliberately absent:
+ *  passing x/y to those fights the schematic layout engine. */
+const PLACED_KINDS = new Set([
+  ...CONNECTOR_KINDS, ...FALLING_KINDS,
+  'ground', 'hinge', 'charge', 'efield', 'bfield', 'heat-block', 'heatblock',
+  'torsion-pendulum', 'torsionpendulum', 'reference-point',
+  'light-source', 'lightsource', 'thin-lens', 'lens', 'optical-mirror',
+  'optical-screen', 'slit', 'wave-source', 'wave-boundary',
+])
+
 /** The channels a kind really publishes, for graph.plot checking. */
 function channelsOf(kind: string): string[] {
   if (MECHANICS_KINDS.has(kind)) return [...BODY_CHANNELS]
@@ -299,6 +318,89 @@ export function lintSimScript(source: string): LintResult {
   }
 
   // 6. Soft signals.
+  // 6. Mechanics soundness — the scenes that lint clean and simulate DEAD.
+  //
+  // Everything above checks that the script is well-formed. None of it checks
+  // that the result moves. These three failures all produce a canvas that
+  // looks built and does nothing, which is the regression users actually
+  // report ("the simulation stopped working"), so they are errors, not
+  // warnings: the repair loop can fix each one with a single added call.
+  const createdKinds = new Set(Object.values(kinds))
+
+  // (a) A spring/rope/rod/damper IS a constraint. Created and never connected,
+  // it is a line on the canvas that binds nothing — buildWorld pairs it to
+  // bodies by what its endpoints touch, and an unconnected one touches air.
+  for (const [varName, kind] of Object.entries(kinds)) {
+    if (!CONNECTOR_KINDS.has(kind)) continue
+    const used = new RegExp(`connect\\s*\\([^()]*\\b${varName}\\s*\\.`).test(code)
+    if (!used) {
+      errors.push(
+        `"${varName}" is a ${kind} — a ${kind} only does something once both ends are attached; ` +
+          `add connect(${varName}.a, <body>.centre); and connect(${varName}.b, <other>.centre);`
+      )
+    }
+  }
+
+  // (b) connect() between two physical bodies with no type makes a "wire" —
+  // an ELECTRICAL behavior. It draws a line and applies zero physics, so the
+  // bodies just fall independently.
+  const typedConnectRe = /connect\s*\(([^()]*)\)/g
+  let cm: RegExpExecArray | null
+  while ((cm = typedConnectRe.exec(code)) !== null) {
+    const args = cm[1].split(',').map((a) => a.trim()).filter(Boolean)
+    if (args.length !== 2) continue // a third arg is the type — already fine
+    const kindOfArg = (a: string) => kinds[splitAccess(a)?.varName ?? a]
+    const [k1, k2] = [kindOfArg(args[0]), kindOfArg(args[1])]
+    if (!k1 || !k2) continue
+    // Only flag body↔body. A connector endpoint (rod.a) is bound geometrically
+    // and needs no type, and circuit symbols legitimately take the wire default.
+    const physical = (k: string) => FALLING_KINDS.has(k) || k === 'ground' || k === 'hinge'
+    if (physical(k1) && physical(k2)) {
+      errors.push(
+        `connect(${cm[1].trim()}) joins two physical bodies with a "wire", which is electrical and applies no force — ` +
+          `add a type: connect(${args[0]}, ${args[1]}, "rod") (or "rope"/"spring"/"damper")`
+      )
+    }
+  }
+
+  // (c) Mechanics kinds are placed by hand — the circuit auto-layout never
+  // touches them. Omitting x/y stacks every body on the same origin pixel,
+  // so they start interpenetrating and explode apart on the first frame.
+  const placedNoPos: string[] = []
+  const createCallRe = /(?:var|let|const)?\s*([a-zA-Z_$][\w$]*)\s*=\s*create\s*\(\s*(['"])([^'"]+)\2\s*(?:,\s*(\{[^{}]*\}))?\s*\)/g
+  while ((cm = createCallRe.exec(code)) !== null) {
+    const kind = cm[3].toLowerCase()
+    if (!PLACED_KINDS.has(kind)) continue
+    // A connector's span comes from `length`, and its position from the ends
+    // connect() drags it to — it genuinely does not need x/y.
+    if (CONNECTOR_KINDS.has(kind)) continue
+    const props = cm[4] ?? ''
+    // A body held by a connector is placed by that link, not by x/y — the
+    // connector drags its endpoints onto whatever it was told to bind.
+    const linked = new RegExp(`connect\\s*\\([^()]*\\b${cm[1]}\\s*\\.`).test(code)
+    if (linked) continue
+    if (!/\bx\s*:/.test(props) || !/\by\s*:/.test(props)) placedNoPos.push(cm[1])
+  }
+  if (placedNoPos.length > 1) {
+    errors.push(
+      `${placedNoPos.map((v) => `"${v}"`).join(', ')} are mechanics/optics components with no x/y — ` +
+        `these are NOT auto-laid-out like circuits, so they all stack on one point. Give each an x and y (canvas px, +y is down).`
+    )
+  }
+
+  // (d) A body under gravity with nothing to land on falls forever, off-canvas
+  // within a second. A warning, not an error: free-fall and projectile scenes
+  // are legitimately groundless, and a graph of the fall is a real answer.
+  const hasFalling = [...createdKinds].some((k) => FALLING_KINDS.has(k))
+  const hasSupport = [...createdKinds].some((k) =>
+    k === 'ground' || k === 'hinge' || CONNECTOR_KINDS.has(k))
+  if (hasFalling && !hasSupport) {
+    warnings.push(
+      'nothing in this scene supports the bodies — they fall off-canvas in about a second. ' +
+        'Add create("ground", { x, y, width }) below them unless free fall is the point.'
+    )
+  }
+
   if (/\bawait\b|\basync\b/.test(code)) warnings.push('SimScript is synchronous — async/await does nothing')
   if (/document\.|window\./.test(code)) warnings.push('DOM access does nothing inside SimScript')
 

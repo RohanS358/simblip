@@ -429,6 +429,19 @@ export function executeSimScript(
     explicitPos.add(connId) // pinned by geometry — auto-layout must not move it
   }
 
+  // Every endpoint→body binding connect() made, replayed after the script ends.
+  // A script is free to connect() first and position later
+  //   connect(rod.b, bob.centre); bob.set({ x: 400, y: 400 })
+  // and the endpoint we stamped at connect() time would be left behind at the
+  // bob's OLD centre, hitting nothing. Physics reads geometry, not intent, so
+  // the binding has to be re-stamped once every position is final.
+  const mechBindings: { connId: string; index: 0 | 1; bodyId: string }[] = []
+
+  const applyBinding = (connId: string, index: 0 | 1, bodyId: string) => {
+    const target = bodyPoint(bodyId)
+    if (target) moveEndpoint(connId, index, target)
+  }
+
   // Returns a truthy marker when it handled the pair as a mechanics link.
   const mechConnect = (a: any, b: any) => {
     const connA = connectorOf(a.objectId)
@@ -440,7 +453,9 @@ export function executeSimScript(
     const connSide = connA ? a : b
     const target = bodyPoint(bodySide.objectId)
     if (!target) return undefined
-    moveEndpoint(conn.id, endpointIndex(connSide.anchor) as 0 | 1, target)
+    const index = endpointIndex(connSide.anchor) as 0 | 1
+    moveEndpoint(conn.id, index, target)
+    mechBindings.push({ connId: conn.id, index, bodyId: bodySide.objectId })
     explicitPos.add(bodySide.objectId) // don't let circuit layout drag the body away
     return wrapProxy(new ScriptObject(conn.id, pageId))
   }
@@ -609,6 +624,10 @@ export function executeSimScript(
   // writes them constantly), so this must not depend on the last line.
   const fn = new Function('sandbox', `with(sandbox) {\n${transpiled}\n}`)
   fn(sandbox)
+
+  // Re-stamp every mechanics endpoint now that positions are final, so a
+  // connect()-then-move script still hands the solver a real attachment.
+  for (const b of mechBindings) applyBinding(b.connId, b.index, b.bodyId)
 
   // ── Smart circuit auto-layout ──────────────────────────────────────────────
   // Runs only when there are edges and at least some nodes without explicit positions.

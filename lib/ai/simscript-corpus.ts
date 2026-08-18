@@ -184,7 +184,13 @@ var k = 25;                           // bare numbers become page variables
 
 LAYOUT
 - CIRCUITS: do NOT pass x/y — the auto-layout engine draws the schematic (series loops, parallel banks, amplifiers). Just create and connect.
-- MECHANICS/OPTICS/WAVES: DO pass x/y (canvas px, +y is down). Put ground below falling bodies. Optics sit left-to-right on one axis (same y).
+- MECHANICS/OPTICS/WAVES: DO pass x/y (canvas px, +y is down). There is NO auto-layout here — omit x/y and every body stacks on one pixel and explodes apart. Put ground below falling bodies. Optics sit left-to-right on one axis (same y).
+
+MAKING A SCENE ACTUALLY MOVE (a scene that draws but does not simulate is a failure)
+- spring/rope/rod/damper ARE the constraint. They do nothing until BOTH ends are attached — the physics binds them to whatever body each endpoint touches. Always connect both ends.
+- To join two physical bodies you MUST name the type: connect(a.centre, b.centre, "rod"). Plain connect() makes a "wire", which is ELECTRICAL and applies zero force — the bodies just fall apart.
+- Give bodies something to rest on or hang from: create("ground", …) below them, or a hinge/rod above. A body with no support falls off-canvas in about a second (fine only if free fall IS the question).
+- A hinge is a fixed pivot: hang a rod from it for a pendulum.
 
 KINDS (create) — params in ()
 - electrical: battery(V) ac-source(V,f) current-source(I) resistor(R) bulb(R) capacitor(C) inductor(L) potentiometer(R,ratio) switch(closed) fuse(Imax) gnd voltmeter ammeter wattmeter probe vcvs(gain) vccs(gm) ccvs(r) cccs(beta) transformer(n) three-phase-source(V,f) dc-machine electric-motor induction-motor pressure-plate
@@ -399,6 +405,29 @@ var pivot = create("hinge", { x: 300, y: 120 });
 var bob = create("mass", { x: 300, y: 340, mass: 1 });
 connect(pivot.centre, bob.centre, "rod");
 graph.plot(bob.angle);`),
+
+  S('Hang a mass from the ceiling on a spring and let it bounce. Plot the height.', `
+var anchor = create("hinge", { x: 300, y: 80 });
+var bob = create("mass", { x: 300, y: 300, mass: 2 });
+var spr = create("spring", { length: 200, k: 40 });
+connect(spr.a, anchor.centre);
+connect(spr.b, bob.centre);
+graph.plot(bob.y);`),
+
+  S('Two blocks on the ground joined by a rod, pushed along together.', `
+var floor = create("ground", { x: 0, y: 500, width: 900 });
+var b1 = create("block", { x: 200, y: 420, mass: 4, vx: 6 });
+var b2 = create("block", { x: 400, y: 420, mass: 4 });
+connect(b1.centre, b2.centre, "rod");
+graph.plot(b2.vx);`),
+
+  S('A mass swinging on a rope from a fixed point.', `
+var top = create("hinge", { x: 320, y: 100 });
+var ball = create("mass", { x: 480, y: 260, mass: 1 });
+var line = create("rope", { length: 240 });
+connect(line.a, top.centre);
+connect(line.b, ball.centre);
+graph.plot(ball.speed);`),
 
   S('Projectile motion: launch a ball at 45 degrees and plot its trajectory (y vs x).', `
 var floor = create("ground", { x: 0, y: 520, width: 900 });
