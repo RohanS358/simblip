@@ -288,12 +288,17 @@ export function executeSimScript(
         params: { ...(def.behavior === 'rigidBody' ? { mass: num(String(props.mass ?? 1)) } : {}), ...fromProps(def.behavior) },
       }]
       if (def.extraBehaviors) for (const bt of def.extraBehaviors) behaviors.push({ id: uid(), type: bt, enabled: true, params: fromProps(bt) })
+      // `length` is what everyone (the AI especially) calls a rod/spring/rope's
+      // span, but it's a geometry fact, not a behavior param — none of these
+      // behaviors declare it, so it used to be dropped on the floor and every
+      // rod came out the stock 150px regardless of what the script asked for.
+      const span = def.kind === 'line' ? Number(props.length ?? props.width ?? def.w) : def.w
       obj = {
         id,
         name: props.name ?? normalKind,
-        geometry: { kind: def.kind, points: def.kind === 'line' ? [[0,0],[def.w,0]] : undefined },
+        geometry: { kind: def.kind, points: def.kind === 'line' ? [[0,0],[span,0]] : undefined },
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
-        size: { w: props.width ?? def.w, h: props.height ?? def.h },
+        size: { w: def.kind === 'line' ? span : (props.width ?? def.w), h: props.height ?? def.h },
         rotation: props.rotation ?? (props.dir === 'up' ? -90 : props.dir === 'down' ? 90 : props.dir === 'left' ? 180 : 0),
         z: Date.now(),
         behaviors,
@@ -376,6 +381,70 @@ export function executeSimScript(
     return wrapProxy(new ScriptObject(id, pageId))
   }
 
+  // ── Mechanics connector binding ─────────────────────────────────────────────
+  // A rod/spring/rope/damper is bound to its bodies by GEOMETRY: buildWorld
+  // runs Matter.Query.point at each of the connector's two endpoints and
+  // attaches to whatever body it hits. `connect(rod.a, bob.centre)` therefore
+  // has to physically drag that endpoint onto the bob, which is what this does.
+  //
+  // Endpoint naming: `a`/`start`/`p0`/`0`/`in` = endpoint 0, anything else = 1.
+  const MECH_CONNECTOR_BEHAVIORS = new Set(['rod', 'spring', 'rope', 'damper'])
+
+  const connectorOf = (id: string) => {
+    const o = store().pages[pageId]?.objects?.[id]
+    return o?.behaviors?.some(bh => bh.enabled && MECH_CONNECTOR_BEHAVIORS.has(bh.type)) ? o : undefined
+  }
+
+  const END0 = new Set(['a', 'start', 'p0', '0', 'in', 'from', 'head'])
+  const endpointIndex = (anchor: string) => (END0.has(String(anchor).toLowerCase()) ? 0 : 1)
+
+  // Centre of the body an endpoint should grab. Uses the object's own centre;
+  // that point is inside every body geometry we support, so Query.point hits.
+  const bodyPoint = (id: string) => {
+    const o = store().pages[pageId]?.objects?.[id]
+    if (!o) return undefined
+    return { x: o.position.x + o.size.w / 2, y: o.position.y + o.size.h / 2 }
+  }
+
+  // Move one endpoint of `conn` to world point `p`, keeping the other fixed.
+  // Rewrites geometry.points (NOT rotation) because endpointWorld in
+  // world.ts reads points+position and ignores rotation entirely.
+  const moveEndpoint = (connId: string, index: 0 | 1, p: { x: number; y: number }) => {
+    const c = store().pages[pageId]?.objects?.[connId]
+    if (!c) return
+    const pts = c.geometry.points ?? [[0, 0], [c.size.w, 0]]
+    const world = pts.map(pt => ({ x: c.position.x + pt[0], y: c.position.y + pt[1] }))
+    world[index === 0 ? 0 : world.length - 1] = p
+    const minX = Math.min(...world.map(w => w.x))
+    const minY = Math.min(...world.map(w => w.y))
+    store().updateObject(pageId, connId, {
+      position: { x: minX, y: minY },
+      geometry: { ...c.geometry, points: world.map(w => [w.x - minX, w.y - minY] as [number, number]) },
+      size: {
+        w: Math.max(...world.map(w => w.x)) - minX || 2,
+        h: Math.max(...world.map(w => w.y)) - minY || 2,
+      },
+      rotation: 0, // endpoints now carry the angle; a leftover rotation would double it
+    }, { history: false })
+    explicitPos.add(connId) // pinned by geometry — auto-layout must not move it
+  }
+
+  // Returns a truthy marker when it handled the pair as a mechanics link.
+  const mechConnect = (a: any, b: any) => {
+    const connA = connectorOf(a.objectId)
+    const connB = connectorOf(b.objectId)
+    // Connector-to-connector isn't a body attachment; leave it to the wire path.
+    if (!connA === !connB) return undefined
+    const conn = (connA ?? connB)!
+    const bodySide = connA ? b : a
+    const connSide = connA ? a : b
+    const target = bodyPoint(bodySide.objectId)
+    if (!target) return undefined
+    moveEndpoint(conn.id, endpointIndex(connSide.anchor) as 0 | 1, target)
+    explicitPos.add(bodySide.objectId) // don't let circuit layout drag the body away
+    return wrapProxy(new ScriptObject(conn.id, pageId))
+  }
+
   // ── connect() ───────────────────────────────────────────────────────────────
   // Resolves anchor names to real terminal world coordinates,
   // then adds a wire line object and records the edge for auto-layout.
@@ -385,6 +454,15 @@ export function executeSimScript(
       return
     }
 
+    // ── Mechanics connectors bind GEOMETRICALLY, not by edge list ────────────
+    // buildWorld (lib/physics/world.ts) pairs a rod/spring/rope/damper to its
+    // two bodies with Matter.Query.point at the connector's own endpoints —
+    // whatever body sits under an endpoint IS the attachment. So for these,
+    // connect() must MOVE the endpoint onto the target, not draw a wire; the
+    // old wire-drawing path produced a cosmetic line and zero physics, which
+    // is why scripted pendulums fell apart instead of swinging.
+    const mech = mechConnect(a, b)
+    if (mech) return mech
     circuitEdges.push({ fromId: a.objectId, fromAnchor: a.anchor, toId: b.objectId, toAnchor: b.anchor })
 
     const objA = store().pages[pageId]?.objects?.[a.objectId]

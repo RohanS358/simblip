@@ -9,7 +9,10 @@ import { NextRequest, NextResponse } from 'next/server'
 function buildCsp(nonce: string) {
   return [
     `default-src 'self'`,
-    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' https:`,
+    // 'unsafe-eval' is load-bearing: SimScript (lib/scene/simscript.ts) runs
+    // user/AI-authored scripts through `new Function` in the browser — that
+    // execution IS the product, so there is nothing to sandbox away here.
+    `script-src 'self' 'nonce-${nonce}' 'strict-dynamic' 'unsafe-inline' 'unsafe-eval' https:`,
     // Inline style="" is load-bearing here (canvas object positions/transforms
     // are set via style attrs, not classes) — a strict style-src would break
     // every object on the board.

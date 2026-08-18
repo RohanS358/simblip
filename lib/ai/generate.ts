@@ -50,7 +50,6 @@ export interface SimScriptGenerator {
    *  once it is complete. */
   generate(system: string, user: string, onToken?: (chunk: string) => void): Promise<string>
 }
-
 // ── Stream readers ──────────────────────────────────────────────────────────
 // Two wire formats, one job: hand each text chunk to `onToken` and return the
 // full text at the end. Both must tolerate a chunk boundary landing mid-line,
@@ -117,6 +116,13 @@ async function readSse(res: Response, onToken: (chunk: string) => void): Promise
 }
 
 // ── Local: Ollama ───────────────────────────────────────────────────────────
+
+/** ~4 chars/token is the standard rough figure and is plenty here — this only
+ *  ever sizes a context window upward, so erring high is free and erring low
+ *  is a truncated generation. */
+const estimateTokens = (s: string) => Math.ceil(s.length / 4)
+/** Ollama is happiest with power-of-two context windows. */
+const nextPow2 = (n: number) => 2 ** Math.ceil(Math.log2(Math.max(1, n)))
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
@@ -207,7 +213,7 @@ export const openRouterGenerator: SimScriptGenerator = {
             { role: 'user', content: user },
           ],
           temperature: 0.2,
-          max_tokens: 700,
+          max_tokens: 2000,
           stream: !!onToken,
         }),
         signal: controller.signal,
