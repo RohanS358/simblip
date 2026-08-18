@@ -3,6 +3,8 @@ import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { behaviorSpec } from '@/lib/behaviors/registry'
 import { createGeometry } from './factory'
+import { channelsFor } from './channels'
+import { latexToExpr } from '@/lib/formula/latex'
 import {
   CANVAS_KINDS, canvasKindOf, applyKindProps, applyStyleProps, RESERVED_PROPS,
   ANCHOR_INDEX,
@@ -234,6 +236,8 @@ export function executeSimScript(
   const circuitEdges: { fromId: string; fromAnchor: string; toId: string; toAnchor: string }[] = []
   // IDs of objects the user explicitly positioned (had x/y in props → skip auto-layout)
   const explicitPos = new Set<string>()
+  // Every object this run created, in creation order.
+  const created: string[] = []
 
   // ── create() ────────────────────────────────────────────────────────────────
   const create = (kind: string, props: Record<string, any> = {}): ScriptObject => {
@@ -381,6 +385,7 @@ export function executeSimScript(
     applyStyleProps(obj, props)
 
     if (hasExplicitPos) explicitPos.add(id)
+    created.push(id)
     store().addObject(pageId, obj, { history: false })
     return wrapProxy(new ScriptObject(id, pageId))
   }
@@ -574,12 +579,56 @@ export function executeSimScript(
   // graph.plot(obj.vy, obj.vx)              → y vs x
   // graph.plot(obj.vy, 'bar')               → bar style vs time
   // graph.plot(obj.V, obj.I, 'scatter')     → scatter
+  // graph.plot(formulaObj)                  → plot the card's maths
+  // graph.plot(bodyObj)                     → plot its first live channel
+  const PLOT_STYLES = new Set(['line', 'bar', 'scatter', 'area', 'step'])
+
+  /** What a graph.plot() argument actually means.
+   *
+   *  A bare object used to fall through `yVar?.property` into the anchor
+   *  proxy, which answers ANY property with a descriptor object — so the
+   *  series came out as the literal string "[object Object]:[object Object]"
+   *  and the graph plotted nothing. An object on its own is a legitimate
+   *  thing to plot, so it's resolved here instead: a Formula card by its
+   *  maths, anything else by the first channel it actually streams. */
+  const plotTarget = (v: any): { expr: string } | { objectId: string; property: string } | null => {
+    if (v == null) return null
+    if (v instanceof ScriptObject) {
+      const o = store().pages[pageId]?.objects?.[v.id]
+      if (!o) return null
+      if (o.geometry.kind === 'formula') {
+        const latex = o.parameters.latex?.kind === 'string' ? o.parameters.latex.value : ''
+        const parsed = latexToExpr(latex)
+        if (!parsed) { console.warn('[SimScript] graph.plot: no expression in', latex); return null }
+        return { expr: parsed.expr }
+      }
+      const channel = channelsFor(o)[0]
+      if (!channel) { console.warn('[SimScript] graph.plot: nothing to plot on', o.name); return null }
+      return { objectId: v.id, property: channel }
+    }
+    if (typeof v.objectId === 'string' && typeof v.property === 'string') return v
+    console.warn('[SimScript] graph.plot: not a plottable value', v)
+    return null
+  }
+
   const graph = {
     plot: (yVar: any, xVarOrStyle?: any, styleArg: string = 'line') => {
       let xVar: any = null
       let style = styleArg
-      if (typeof xVarOrStyle === 'string') style = xVarOrStyle
-      else if (xVarOrStyle != null) xVar = xVarOrStyle
+      let xChannelName = ''
+      // A string second argument is the plot style — unless it isn't one, in
+      // which case it names the x axis (`graph.plot(E, "x")` reads as "E
+      // against x" to everyone who writes it, and used to silently become a
+      // bogus plot style).
+      if (typeof xVarOrStyle === 'string') {
+        if (PLOT_STYLES.has(xVarOrStyle)) style = xVarOrStyle
+        else xChannelName = xVarOrStyle
+      } else if (xVarOrStyle != null) xVar = xVarOrStyle
+
+      const y = plotTarget(yVar)
+      if (!y) return
+      const x = xVar ? plotTarget(xVar) : null
+      if (x && 'objectId' in x) xChannelName = x.property
 
       let graphObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o => o.geometry.kind === 'graph')
 
@@ -590,18 +639,19 @@ export function executeSimScript(
         behaviors: [], parameters: {}, metadata: {},
       }
 
-      const yProp = yVar?.property ?? String(yVar)
-      const yId   = yVar?.objectId ?? ''
-      const xIsTime = !xVar
-      const xProp = xIsTime ? 't' : (xVar?.property ?? String(xVar))
-      const xId   = !xIsTime ? (xVar?.objectId ?? '') : ''
+      const append = (key: string, value: string) => {
+        const prev = newGraph.parameters[key]?.kind === 'string' ? (newGraph.parameters[key] as any).value : ''
+        return prev.split(';').map((e: string) => e.trim()).includes(value)
+          ? prev
+          : prev ? `${prev}; ${value}` : value
+      }
 
-      const seriesStr = yId ? `${yId}:${yProp}` : ''
-      const oldSeries = newGraph.parameters.series?.kind === 'string' ? newGraph.parameters.series.value : ''
       newGraph.parameters = {
         ...newGraph.parameters,
-        series: str(seriesStr ? (oldSeries ? `${oldSeries};${seriesStr}` : seriesStr) : oldSeries),
-        ...(xIsTime ? {} : { xChannel: str(xProp) }),
+        ...('expr' in y
+          ? { formulas: str(append('formulas', y.expr)) }
+          : { series: str(append('series', `${y.objectId}:${y.property}`)) }),
+        ...(xChannelName ? { xChannel: str(xChannelName) } : {}),
         plot_style: str(style),
       }
       store().addObject(pageId, newGraph, { history: false })
@@ -1225,9 +1275,70 @@ export function executeSimScript(
     }
   }
 
+  // ── Unplaced cards stack, they don't pile up ──────────────────────────────
+  // A card created without x/y lands at the origin — and so does the next one,
+  // and the answer text already sitting there. Anything the script didn't
+  // position explicitly is pushed clear of what's already on the page, in
+  // creation order, so a script that writes two formulas gets two readable
+  // formulas instead of one illegible overlap. Only cards move: a body or a
+  // connector's position is physics, not layout.
+  const CARD_KINDS = new Set(['formula', 'text', 'note', 'graph', 'chart', 'table', 'gridtable', 'surface3d', 'code', 'cashflow', 'truthtable'])
+  const movable = created.filter((id) => {
+    const o = store().pages[pageId]?.objects?.[id]
+    return !!o && !explicitPos.has(id) && CARD_KINDS.has(o.geometry.kind)
+  })
+  if (movable.length > 0) {
+    const movableSet = new Set(movable)
+    const rectOf = (o: SceneObject) => ({ x1: o.position.x, y1: o.position.y, x2: o.position.x + o.size.w, y2: o.position.y + o.size.h })
+    const GAP = 16
+    const occupied = Object.values(store().pages[pageId]?.objects ?? {})
+      .filter((o) => !movableSet.has(o.id))
+      .map(rectOf)
+    for (const id of movable) {
+      const o = store().pages[pageId]?.objects?.[id]
+      if (!o) continue
+      let r = rectOf(o)
+      // Each push can slide it into something else, so keep going until it
+      // sits clear (bounded: every step moves strictly down past one box).
+      for (let guard = 0; guard < occupied.length + 1; guard++) {
+        const hit = occupied.find((b) => r.x2 > b.x1 && r.x1 < b.x2 && r.y2 > b.y1 && r.y1 < b.y2)
+        if (!hit) break
+        const dy = hit.y2 + GAP - r.y1
+        r = { ...r, y1: r.y1 + dy, y2: r.y2 + dy }
+      }
+      if (r.y1 !== o.position.y) store().updateObject(pageId, id, { position: { x: o.position.x, y: r.y1 } }, { history: false })
+      occupied.push(r)
+    }
+  }
+
   // ── Sync variables to page sidebar ────────────────────────────────────────────
-  const currentVars = store().pages[pageId]?.variables ?? []
-  const newVars = [...currentVars]
+  // A script's variable names are the only names these things have, so they
+  // become the object's name on the canvas and the variable's name on the page.
+
+  /** A Formula card as maths: its LaTeX, converted. */
+  const cardExpr = (id: string) => {
+    const o = store().pages[pageId]?.objects?.[id]
+    if (o?.geometry.kind !== 'formula') return null
+    return latexToExpr(o.parameters.latex?.kind === 'string' ? o.parameters.latex.value : '')
+  }
+
+  // Formula cards created by this script, with the name each would take.
+  const cards = Object.entries(sandboxVars)
+    .filter(([, v]) => v instanceof ScriptObject)
+    .map(([scriptName, v]) => ({ scriptName, parsed: cardExpr((v as ScriptObject).id) }))
+    .filter((c): c is { scriptName: string; parsed: NonNullable<ReturnType<typeof cardExpr>> } => !!c.parsed)
+    .map((c) => ({ name: c.parsed.name ?? c.scriptName, expr: c.parsed.expr, defined: !!c.parsed.name }))
+
+  const pending: { name: string; expr: string }[] = []
+
+  // A card earns a page variable when it DEFINES something — either it says so
+  // ("E = σ/ε") or another card's maths reads its name. Registering every card
+  // would bury the Variables panel under the f0…fN of a written answer, which
+  // nothing refers to; registering none leaves `u = ½ε₀|E|²` unable to find E.
+  for (const c of cards) {
+    if (c.defined || cards.some((o) => o !== c && new RegExp(`\\b${c.name}\\b`).test(o.expr)))
+      pending.push({ name: c.name, expr: c.expr })
+  }
 
   for (const [k, v] of Object.entries(sandboxVars)) {
     if (v instanceof ScriptObject || (v && typeof v === 'object' && 'objectId' in v && !('property' in v))) {
@@ -1235,29 +1346,23 @@ export function executeSimScript(
       const objId = v instanceof ScriptObject ? v.id : v.objectId
       if (objId) {
         const current = store().pages[pageId]?.objects?.[objId]
-        if (current && !current.metadata.nameExplicit && current.name !== k) {
-          store().updateObject(pageId, objId, { name: k }, { history: false })
+        const name = cardExpr(objId)?.name ?? k
+        if (current && !current.metadata.nameExplicit && current.name !== name) {
+          store().updateObject(pageId, objId, { name }, { history: false })
         }
       }
       continue
     }
 
     if (typeof v === 'number' || typeof v === 'string') {
-      const existing = newVars.find(x => x.name === k)
-      if (existing) { existing.value = Number(v); existing.expr = String(v) }
-      else newVars.push({ id: uid(), name: k, expr: String(v), value: Number(v) })
+      pending.push({ name: k, expr: String(v) })
     } else if (v && typeof v === 'object' && 'property' in v) {
       // Dynamic binding — e.g. vx = block.vx
-      const expr = `${v.objectId}.${v.property}`
-      const existing = newVars.find(x => x.name === k)
-      if (existing) existing.expr = expr
-      else newVars.push({ id: uid(), name: k, expr, value: 0 })
+      pending.push({ name: k, expr: `${v.objectId}.${v.property}` })
     }
   }
 
-  useDocStore.setState(s => {
-    const p = s.pages[pageId]
-    if (!p) return s
-    return { ...s, pages: { ...s.pages, [pageId]: { ...p, variables: newVars } } }
-  })
+  // Through the store action, so the page scope is re-solved with them in it —
+  // a variable nothing can see is a variable no formula can use.
+  for (const v of pending) store().upsertVariable(pageId, v.name, v.expr)
 }

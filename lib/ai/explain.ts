@@ -127,13 +127,23 @@ const collapse = (expr: string): string => expr.replace(/\s*\n\s*/g, ' ').trim()
  * Blocks stack down the page, each sized to its own content, so a long
  * derivation reads as a column of notes rather than one clipped box.
  */
-export function blocksToSimScript(blocks: AnswerBlock[], width = 520): string {
+/** Column width of a placed answer — callers lay things out beside it. */
+export const ANSWER_WIDTH = 520
+
+export function blocksToSimScript(blocks: AnswerBlock[], width = ANSWER_WIDTH): string {
   const lines: string[] = []
   let y = 0
   blocks.forEach((b, i) => {
     if (b.kind === 'formula') {
-      lines.push(`var f${i} = create("formula", { x: 0, y: ${y}, width: ${width}, latex: ${js(b.content)} });`)
-      y += 96
+      // Height is estimated, not the factory's flat 96: a fraction, a stack
+      // or a \\begin{aligned} block is far taller than one line, and a fixed
+      // 96 dropped the next block straight on top of it. Over-estimating is
+      // safe here (the card centres its content); under-estimating overlaps.
+      const h = formulaHeight(b.content)
+      lines.push(
+        `var f${i} = create("formula", { x: 0, y: ${y}, width: ${width}, height: ${h}, latex: ${js(b.content)} });`
+      )
+      y += h + 12
     } else {
       // ~92 characters per line at this width, plus one line per hard break.
       const rows = b.content.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 92)), 0)
@@ -143,6 +153,23 @@ export function blocksToSimScript(blocks: AnswerBlock[], width = 520): string {
     }
   })
   return lines.join('\n')
+}
+
+/** Rough rendered height of a display-mode expression, in px.
+ *
+ *  KaTeX's real height is only knowable after typesetting, which cannot
+ *  happen here (this runs before the object exists). These are deliberately
+ *  generous: a gap between cards looks fine, an overlap does not. */
+function formulaHeight(latex: string): number {
+  // Explicit row breaks in aligned/gathered/matrix environments.
+  const rows = (latex.match(/\\\\/g) ?? []).length + 1
+  // A fraction, binomial, integral or big operator roughly doubles line height;
+  // nested ones stack further.
+  const tall = (latex.match(/\\(frac|dfrac|binom|int|oint|sum|prod|sqrt)\b/g) ?? []).length
+  // Superscript-on-superscript and stacked limits add a little more.
+  const deep = (latex.match(/[_^]\s*\{[^}]*[_^]/g) ?? []).length
+  const perRow = 34 + Math.min(tall, 3) * 16 + Math.min(deep, 2) * 8
+  return Math.max(64, rows * perRow + 28)
 }
 
 /** A JS string literal safe to paste into generated SimScript. */

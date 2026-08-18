@@ -17,6 +17,7 @@ import { renameInExpr } from '@/lib/scene/bindings'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
+import { CONSTANTS, paramScopeOf } from '@/lib/formula/scope'
 import { readBuffer, type Sample } from '@/lib/physics/bus'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import * as archive from '@/lib/store/page-archive'
@@ -157,7 +158,11 @@ function solveParam(
 /** Re-solve variables, then re-evaluate every numeric expression on the page —
  * object content params AND behavior params. One scope, spreadsheet semantics. */
 function reevaluate(content: PageContent): { content: PageContent; scope: Scope } {
-  const { variables, scope } = solveScope(content.variables, liveScopeOf(content))
+  const { variables, scope } = solveScope(content.variables, {
+    ...CONSTANTS,
+    ...paramScopeOf(content),
+    ...liveScopeOf(content),
+  })
   const objects: Record<string, SceneObject> = {}
   for (const [id, obj] of Object.entries(content.objects)) {
     let changed = false
@@ -320,6 +325,10 @@ interface DocState {
   ) => void
 
   addVariable: (pageId: string, name?: string, expr?: string) => void
+  /** Define (or redefine) a variable BY NAME, without a history entry — the
+   *  script path, where the same run re-executed must not stack up `E1`,
+   *  `E2`, `E3` the way addVariable's unique-name suffixing would. */
+  upsertVariable: (pageId: string, name: string, expr: string) => void
   updateVariable: (pageId: string, id: string, patch: { name?: string; expr?: string }) => void
   removeVariable: (pageId: string, id: string) => void
 
@@ -769,6 +778,23 @@ export const useDocStore = create<DocState>()(
           let i = 1
           while (page.variables.some((v) => v.name === candidate)) candidate = `${base}${i++}`
           const variables = [...page.variables, { id: uid(), name: candidate, expr, value: 0 }]
+          const { content, scope } = reevaluate({ ...page, variables })
+          return {
+            pages: { ...s.pages, [pageId]: content },
+            scopes: { ...s.scopes, [pageId]: scope },
+          }
+        })
+      },
+
+      upsertVariable: (pageId, name, expr) => {
+        get().ensurePage(pageId)
+        set((s) => {
+          const page = s.pages[pageId]
+          if (!page) return s
+          const existing = page.variables.find((v) => v.name === name)
+          const variables = existing
+            ? page.variables.map((v) => (v.id === existing.id ? { ...v, expr } : v))
+            : [...page.variables, { id: uid(), name, expr, value: 0 }]
           const { content, scope } = reevaluate({ ...page, variables })
           return {
             pages: { ...s.pages, [pageId]: content },

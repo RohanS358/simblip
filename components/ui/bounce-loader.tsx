@@ -10,6 +10,16 @@ import { useEffect, useRef } from 'react'
 
 import { cn } from '@/lib/utils'
 
+// Custom element (dashed name) so the browser accepts it — a bare <shape> is an
+// unknown HTML tag and React warns on every render.
+declare module 'react' {
+  namespace JSX {
+    interface IntrinsicElements {
+      'bounce-shape': React.DetailedHTMLProps<React.HTMLAttributes<HTMLElement>, HTMLElement>
+    }
+  }
+}
+
 const TYPES = ['circle', 'semi-circle', 'square', 'triangle', 'triangle-2', 'rectangle']
 const COLORS = ['#836ee5', '#fe94b4', '#49d2f5', '#ff5354', '#00b1b4', '#ffe465', '#0071ff', '#03274b']
 const rand = (n: number) => Math.random() * n
@@ -35,7 +45,7 @@ export function BounceLoader({
 
     const timers: number[] = []
 
-    el.querySelectorAll('shape').forEach((node, i) => {
+    el.querySelectorAll('bounce-shape').forEach((node, i) => {
       const shape = node as HTMLElement
       const hop = () => {
         const cl = shape.classList
@@ -81,7 +91,7 @@ export function BounceLoader({
         style={{ '--stage-h': `${size}px` } as React.CSSProperties}
       >
         {Array.from({ length: shapes }, (_, i) => (
-          <shape key={i} />
+          <bounce-shape key={i} />
         ))}
       </div>
       {label && (

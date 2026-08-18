@@ -28,7 +28,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import katex from 'katex'
-import { blocksToSimScript } from '@/lib/ai/explain'
+import { ANSWER_WIDTH, blocksToSimScript } from '@/lib/ai/explain'
 import {
   BrainCircuit, Check, Copy, Loader2, Plus, RotateCcw, Sparkle, Square, Trash2, Zap,
 } from 'lucide-react'
@@ -143,14 +143,14 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
 
   /** Run a script onto the canvas. The single path from chat to page. */
   const runScript = useCallback(
-    (script: string, turnId: string) => {
+    (script: string, turnId: string, dx = 0) => {
       if (!pageId) {
         toast.error('Open a page first.')
         return false
       }
       const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
       // Drop into the middle of what the user is currently looking at.
-      const origin = { x: -v.x / v.zoom + 320, y: -v.y / v.zoom + 240 }
+      const origin = { x: -v.x / v.zoom + 320 + dx, y: -v.y / v.zoom + 240 }
       try {
         executeSimScript(pageId, script, origin)
       } catch (e) {
@@ -322,14 +322,15 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   // the SAME executeSimScript path a scene goes through — so
                   // the AI still cannot put anything on a page that a user
                   // could not have typed by hand.
-                  onAdd={() =>
-                    runScript(
-                      [t.blocks?.length ? blocksToSimScript(t.blocks) : '', t.script]
-                        .filter(Boolean)
-                        .join('\n'),
-                      t.id
-                    )
-                  }
+                  // Two runs, not one joined script: the answer is a column
+                  // of cards at the origin and the scene starts to its right,
+                  // so a script that positions nothing can't land on top of
+                  // the derivation it belongs to.
+                  onAdd={() => {
+                    const answer = t.blocks?.length ? blocksToSimScript(t.blocks) : ''
+                    if (answer && !runScript(answer, t.id)) return
+                    if (t.script) runScript(t.script, t.id, answer ? ANSWER_WIDTH + 80 : 0)
+                  }}
                   onRetry={() => void send(t.prompt)}
                 />
               ))

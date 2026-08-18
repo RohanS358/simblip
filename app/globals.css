@@ -1197,13 +1197,23 @@ html {
 .bounce-stage {
   --stage-h: 220px;
   position: relative;
-  width: 100%;
+  /* Every shape is absolutely positioned, so this box has no in-flow content.
+     As a flex item (the loader wrapper is a flex column) that collapses the
+     cross axis to 0 and `overflow: hidden` then clips every shape away —
+     width:100% of a zero-width flex line is still zero. Give it an explicit
+     basis tied to the stage height so it works in flex, grid and block.
+     1.5x, not 1x: shapes hop out to +-0.45*--stage-h and are up to
+     0.21*--stage-h wide, so the outermost edge sits at ~0.56*--stage-h from
+     centre. A 1x box clips the widest hops. */
+  width: calc(1.5 * var(--stage-h));
+  flex: none;
+  align-self: center;
   height: var(--stage-h);
   overflow: hidden;
   pointer-events: none;
 }
 
-.bounce-stage shape {
+.bounce-stage bounce-shape {
   --base_scale: 0.16;
   --bounce-variance: 0;
   --offset: 0;
@@ -1219,30 +1229,30 @@ html {
   transform: translate(-50%, 0);
 }
 
-.bounce-stage shape.circle {
+.bounce-stage bounce-shape.circle {
   border-radius: 50%;
 }
-.bounce-stage shape.semi-circle {
+.bounce-stage bounce-shape.semi-circle {
   border-radius: 100% 100% 0 0;
 }
-.bounce-stage shape.square {
+.bounce-stage bounce-shape.square {
   border-radius: 2px;
 }
-.bounce-stage shape.rectangle {
+.bounce-stage bounce-shape.rectangle {
   height: calc(var(--base_scale) * var(--stage-h) / 2);
   border-radius: 2px;
 }
-.bounce-stage shape.triangle {
+.bounce-stage bounce-shape.triangle {
   clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
 }
-.bounce-stage shape.triangle-2 {
+.bounce-stage bounce-shape.triangle-2 {
   clip-path: polygon(0% 0%, 100% 100%, 0% 100%);
 }
 
-.bounce-stage shape.bounce-up {
+.bounce-stage bounce-shape.bounce-up {
   animation: shape-bounce-up 400ms cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
 }
-.bounce-stage shape.bounce-down {
+.bounce-stage bounce-shape.bounce-down {
   animation: shape-bounce-down 340ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
 }
 
