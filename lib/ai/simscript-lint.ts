@@ -17,10 +17,10 @@
 // they recover from "invalid anchor".
 
 import { KNOWN_KINDS } from './simscript-corpus'
-import { ANCHOR_INDEX } from '@/lib/scene/simscript-props'
 import {
-  channelsForKind, DEFAULT_SYMBOL_CHANNELS, BODY_CHANNELS, SILENT_SYMBOLS,
-} from '@/lib/scene/channels'
+  ANCHOR_INDEX, CHANNELS_BY_SYMBOL, DEFAULT_SYMBOL_CHANNELS, BODY_CHANNELS,
+  SILENT_SYMBOLS,
+} from '@/lib/scene/simscript-props'
 
 export interface LintResult {
   ok: boolean
@@ -140,12 +140,11 @@ function anchorNames(kind: string): string[] {
 
 /** The channels a kind really publishes, for graph.plot checking. */
 function channelsOf(kind: string): string[] {
-  const mech = MECHANICS_KINDS.has(kind)
-  if (mech) return [...BODY_CHANNELS]
-  if (SILENT_SYMBOLS.has(kind)) return []
-  const named = channelsForKind(kind)
+  if (MECHANICS_KINDS.has(kind)) return [...BODY_CHANNELS]
+  if (SILENT_SYMBOLS.includes(kind)) return []
+  const named = CHANNELS_BY_SYMBOL[kind]
   // A circuit symbol with no named entry reports the standard V/I/P.
-  if (named.length > 0) return named
+  if (named) return [...named]
   return KNOWN_KINDS.has(kind) ? [...DEFAULT_SYMBOL_CHANNELS] : []
 }
 

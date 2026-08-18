@@ -39,6 +39,7 @@ import {
   type SidebarSectionId,
 } from '@/lib/store/sidebar-sections'
 import { NotebookPanel } from './notebook-panel'
+import { AiPanel } from './ai-panel'
 import { Palette } from './palette'
 import { ToolsPanel } from './tools-panel'
 import { UploadsPanel } from './uploads-panel'
@@ -223,6 +224,7 @@ export function Sidebar({
   const panelSections = (
     <>
       {activeSection === 'notebook' && <NotebookPanel />}
+      {activeSection === 'assistant' && <AiPanel pageId={contentPageId} />}
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
       {activeSection === 'uploads' && (

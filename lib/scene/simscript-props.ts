@@ -259,3 +259,48 @@ export const ANCHOR_INDEX: Record<string, Record<string, number>> = {
   counter4:         { clk: 0, clock: 0, q0: 1, q1: 2, q2: 3, q3: 4 },
   register4:        { sin: 0, clk: 1, clock: 1, sout: 2 },
 }
+
+// ── Channel tables ─────────────────────────────────────────────────────────
+// What each component publishes to a graph. These live in THIS module — which
+// has no imports and no 'use client' — because both a client renderer and the
+// server-side linter need them.
+//
+// They are plain arrays, deliberately. A `Set` re-exported across a
+// 'use client' boundary arrives on the server as a plain object with no
+// prototype, so `.has()` is undefined at runtime: that is exactly the
+// "SILENT_SYMBOLS.has is not a function" crash this replaced. Arrays survive
+// the boundary intact, and these are small enough that `.includes()` costs
+// nothing.
+
+/** Motion channels every dynamic rigid body streams (SI units). */
+export const BODY_CHANNELS: readonly string[] = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
+
+/** Two-terminal electrical parts all report the same three. */
+export const DEFAULT_SYMBOL_CHANNELS: readonly string[] = ['V', 'I', 'P']
+
+/** symbol → the exact channels that symbol's reading pushes. */
+export const CHANNELS_BY_SYMBOL: Record<string, readonly string[]> = {
+  potentiometer: ['Vtop', 'Vwiper', 'Vbottom'],
+  'induction-motor': ['omega', 'torque', 'slip', 'I'],
+  'dc-machine': ['V', 'I', 'P', 'omega', 'torque'],
+  vcvs: ['Vctrl', 'Vout', 'I'],
+  vccs: ['Vctrl', 'Vout', 'I'],
+  ccvs: ['Isense', 'Vout', 'I'],
+  cccs: ['Isense', 'Vout', 'I'],
+  transformer: ['Vprimary', 'Vsecondary', 'I'],
+  'transformer-ct': ['Vprimary', 'Vsec1', 'Vsec2'],
+  'three-phase-source': ['Va', 'Vb', 'Vc', 'Vab'],
+  probe: ['V'],
+  'logic-probe': ['level'],
+  output: ['value'],
+  clock: ['value'],
+  input: ['value'],
+}
+
+/** Symbols with no reading at all — gates, wiring, decoration. */
+export const SILENT_SYMBOLS: readonly string[] = [
+  'gnd', 'and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate', 'not-gate',
+  'd-ff', 'jk-ff', 't-ff', 'sr-latch', 'mux', 'demux', 'decoder', 'encoder',
+  'half-adder', 'full-adder', 'comparator', 'tristate', 'seven-seg', 'bcd-7seg',
+  'register4', 'counter4',
+]

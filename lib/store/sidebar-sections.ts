@@ -10,11 +10,11 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { BookOpen, FolderUp, LibraryBig, Shapes, SlidersHorizontal, Wrench } from 'lucide-react'
+import { BookOpen, BrainCircuit, FolderUp, LibraryBig, Shapes, SlidersHorizontal, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 
-export type SidebarSectionId = 'notebook' | 'components' | 'tools' | 'uploads' | 'library' | 'properties'
+export type SidebarSectionId = 'notebook' | 'assistant' | 'components' | 'tools' | 'uploads' | 'library' | 'properties'
 
 export interface SidebarSectionMeta {
   id: SidebarSectionId
@@ -24,6 +24,9 @@ export interface SidebarSectionMeta {
 
 export const SIDEBAR_SECTIONS: SidebarSectionMeta[] = [
   { id: 'notebook', label: 'Notebook', icon: BookOpen },
+  // Second, right after Notebook: describing a scene is a primary way to
+  // work here, not an accessory tucked at the bottom.
+  { id: 'assistant', label: 'Assistant', icon: BrainCircuit },
   { id: 'components', label: 'Components', icon: Shapes },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'uploads', label: 'Uploads', icon: FolderUp },

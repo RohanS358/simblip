@@ -12,39 +12,21 @@
 // variable).
 
 import type { SceneObject } from './types'
+// The tables live in simscript-props.ts — a module with no imports and no
+// 'use client' — so the server-side SimScript linter can read the same data
+// this renderer does without pulling a client module into a route.
+import {
+  BODY_CHANNELS as BODY,
+  DEFAULT_SYMBOL_CHANNELS as VIP,
+  CHANNELS_BY_SYMBOL as BY_SYMBOL,
+  SILENT_SYMBOLS,
+} from './simscript-props'
 
-/** Motion channels every dynamic rigid body streams (SI units). */
-const BODY = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'omega', 'ke']
+const SILENT = { has: (k: string) => SILENT_SYMBOLS.includes(k) }
 
-/** Two-terminal electrical parts all report the same three. */
-const VIP = ['V', 'I', 'P']
 
-/** symbol → the exact channels that symbol's reading pushes. */
-const BY_SYMBOL: Record<string, string[]> = {
-  potentiometer: ['Vtop', 'Vwiper', 'Vbottom'],
-  'induction-motor': ['omega', 'torque', 'slip', 'I'],
-  'dc-machine': ['V', 'I', 'P', 'omega', 'torque'],
-  vcvs: ['Vctrl', 'Vout', 'I'],
-  vccs: ['Vctrl', 'Vout', 'I'],
-  ccvs: ['Isense', 'Vout', 'I'],
-  cccs: ['Isense', 'Vout', 'I'],
-  transformer: ['Vprimary', 'Vsecondary', 'I'],
-  'transformer-ct': ['Vprimary', 'Vsec1', 'Vsec2'],
-  'three-phase-source': ['Va', 'Vb', 'Vc', 'Vab'],
-  probe: ['V'],
-  'logic-probe': ['level'],
-  output: ['value'],
-  clock: ['value'],
-  input: ['value'],
-}
 
-/** Symbols with no reading at all — gates, wiring, decoration. */
-const SILENT = new Set([
-  'gnd', 'and-gate', 'or-gate', 'xor-gate', 'nand-gate', 'nor-gate', 'not-gate',
-  'd-ff', 'jk-ff', 't-ff', 'sr-latch', 'mux', 'demux', 'decoder', 'encoder',
-  'half-adder', 'full-adder', 'comparator', 'tristate', 'seven-seg', 'bcd-7seg',
-  'register4', 'counter4',
-])
+
 
 const has = (obj: SceneObject, type: string) =>
   obj.behaviors.some((b) => b.enabled && b.type === type)
@@ -70,30 +52,6 @@ export function channelsFor(obj: SceneObject): string[] {
   return [...new Set(out)]
 }
 
-/**
- * The channels a KIND publishes, without needing a built object.
- *
- * `channelsFor` above needs a real SceneObject (it inspects attached
- * behaviors). The SimScript linter only has source text — it can see
- * `create("bulb", …)` but has executed nothing — so it needs the same answer
- * keyed by kind name. Both read the same tables, so they cannot disagree.
- *
- * `mechanics` is passed for kinds that carry a rigidBody (mass, block,
- * wheel…), since motion channels come from the behavior, not the symbol.
- */
-export function channelsForKind(kind: string, mechanics = false): string[] {
-  const out: string[] = []
-  if (mechanics) out.push(...BODY)
-  if (!SILENT.has(kind)) out.push(...(BY_SYMBOL[kind] ?? []))
-  return [...new Set(out)]
-}
-
-/** Two-terminal electrical default — what any unlisted circuit symbol reports. */
-export const DEFAULT_SYMBOL_CHANNELS = VIP
-/** Motion channels a dynamic body streams. */
-export const BODY_CHANNELS = BODY
-/** Symbols that publish nothing at all. */
-export const SILENT_SYMBOLS = SILENT
 
 // ── Truth-table roles ───────────────────────────────────────────────────────
 // A truth table drives some components and reads others. That used to live in
