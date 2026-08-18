@@ -35,8 +35,8 @@ const MARK_ORDER: Mark['kind'][] = ['color', 'size', 'weight', 'font', 'link', '
 /** Renders one run's plain text wrapped in every mark that covers it, KaTeX
  *  inline math ($expr$) already resolved. Innermost-first per MARK_ORDER so
  *  wrapping order is deterministic. */
-function renderRun(run: Run, mathHtml: string | null): string {
-  const inner = mathHtml ?? escapeHtml(run.text)
+function renderRun(run: Run): string {
+  const inner = renderInlineMath(run.text)
   const byKind = new Map<Mark['kind'], Mark>()
   for (const m of run.marks) byKind.set(m.kind, m)
 
@@ -91,27 +91,46 @@ function wrapMark(kind: Mark['kind'], value: string | undefined, html: string): 
 /** Inline math ($expr$, not $$expr$$ block math — that's the Formula
  *  object). Requires no space right after the opening $ or before the
  *  closing $, same disambiguation Obsidian uses so "it costs $5 and $10"
- *  isn't misread as an expression. Returns the KaTeX HTML for any run whose
- *  ENTIRE text is a math expression — math runs are just plain text that
- *  happens to render as an equation, not a mark, since no formatting can
- *  meaningfully apply to only part of an expression here. */
-const MATH_RE = /^\$(\S(?:[^$\n]*\S)?)\$$/
+ *  isn't misread as an expression.
+ *
+ *  Matched ANYWHERE in a run, not just when the run is nothing but the
+ *  expression. It used to be anchored (/^\$...\$$/), which meant a sentence
+ *  like "permittivities $\\epsilon_1$ and $\\epsilon_2$" rendered as literal
+ *  source: runs are split at MARK boundaries only (runsForLine), so an
+ *  unformatted sentence is ONE run whose full text is not an expression, and
+ *  the anchors never matched. Inline maths therefore only ever worked when an
+ *  expression happened to occupy a whole run by itself. */
+const MATH_RE = /\$(\S(?:[^$\n]*\S)?)\$/g
 
-function mathHtmlFor(text: string): string | null {
-  const m = MATH_RE.exec(text)
-  if (!m) return null
-  try {
-    return katex.renderToString(m[1], { throwOnError: false })
-  } catch {
-    return null
+/** Escaped text with every $expr$ span replaced by rendered KaTeX. Splitting
+ *  here rather than in runsForLine keeps maths out of the marks model
+ *  entirely — a mark still wraps the whole run, expression included. */
+function renderInlineMath(text: string): string {
+  MATH_RE.lastIndex = 0
+  let out = ''
+  let last = 0
+  for (const m of text.matchAll(MATH_RE)) {
+    const at = m.index ?? 0
+    out += escapeHtml(text.slice(last, at))
+    let html: string | null = null
+    try {
+      html = katex.renderToString(m[1], { throwOnError: false })
+    } catch {
+      html = null
+    }
+    // A KaTeX failure falls back to the literal source rather than dropping
+    // the student's expression on the floor.
+    out += html ?? escapeHtml(m[0])
+    last = at + m[0].length
   }
+  return out + escapeHtml(text.slice(last))
 }
 
 /** Renders one line's inline content (marks + math), the single function
  *  every block-level case below calls. */
 export function renderLine(text: string, marks: Mark[], lineStart: number): string {
   return runsForLine(text, marks, lineStart)
-    .map((run) => renderRun(run, mathHtmlFor(run.text)))
+    .map((run) => renderRun(run))
     .join('')
 }
 
