@@ -186,6 +186,7 @@ var k = 25;                           // bare numbers become page variables
 LAYOUT
 - CIRCUITS: do NOT pass x/y — the auto-layout engine draws the schematic (series loops, parallel banks, amplifiers). Just create and connect.
 - MECHANICS/OPTICS/WAVES: DO pass x/y (canvas px, +y is down). There is NO auto-layout here — omit x/y and every body stacks on one pixel and explodes apart. Put ground below falling bodies. Optics sit left-to-right on one axis (same y).
+- ANY scene with 2+ mechanics/optics/waves components: create the system FIRST, before anything else, sized to fit what you're about to place — var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 360 }); (domain: mechanics|electrical|electronics|digital|waves|quantum; optics also uses "optics"). Then every component's x/y goes a bit inside those bounds (roughly 40..width-40, 40..height-40) — NOT scattered across the whole page. The system is not decoration: its Play/Step/Reset only simulates what's inside it (by centre), so a component placed outside the box you declared is silently dropped from the run. A single lone component (one region, one probe) does not need a system.
 
 MAKE IT EXPERIMENTABLE
 - When a quantity is worth varying (mass, k, R, V, speed, angle), add a slider bound to the object:
@@ -397,24 +398,28 @@ connect(cnt.q2, q2.terminal);
 connect(cnt.q3, q3.terminal);`),
 
   S('Drop a 2 kg ball onto the ground and plot its height and speed over time.', `
-var floor = create("ground", { x: 0, y: 500 });
-var ball = create("mass", { x: 200, y: 100, mass: 2 });
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 560 });
+var floor = create("ground", { x: 20, y: 500 });
+var ball = create("mass", { x: 220, y: 100, mass: 2 });
 graph.plot(ball.y);
 graph.plot(ball.speed);`),
 
   S('Spring–mass oscillator: a block hanging from a spring anchored to the ground above, with a velocity plot.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 460 });
 var anchor = create("ground", { x: 100, y: 80, width: 200 });
 var block = create("block", { x: 160, y: 400, mass: 4 });
 connect(anchor.centre, block.centre, "spring");
 graph.plot(block.vy);`),
 
   S('Simple pendulum: a mass on a rod pinned by a hinge, released to swing. Plot its angle.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 400 });
 var pivot = create("hinge", { x: 300, y: 120 });
 var bob = create("mass", { x: 300, y: 340, mass: 1 });
 connect(pivot.centre, bob.centre, "rod");
 graph.plot(bob.swing);`),
 
   S('Simple pendulum I can experiment with — let me change the bob mass and watch the swing.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 500 });
 var pivot = create("hinge", { x: 320, y: 100 });
 var bob = create("mass", { x: 320, y: 340, mass: 1 });
 connect(pivot.centre, bob.centre, "rod");
@@ -422,6 +427,7 @@ var mSlider = create("slider", { x: 60, y: 460, min: 1, max: 20, step: 1, value:
 graph.plot(bob.swing);`),
 
   S('Spring-mass oscillator with a slider for the spring stiffness, and plot the motion.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 500 });
 var anchor = create("hinge", { x: 300, y: 80 });
 var bob = create("mass", { x: 300, y: 320, mass: 2 });
 var spr = create("spring", { length: 220, k: 30 });
@@ -439,6 +445,7 @@ var rSlider = create("slider", { x: 60, y: 420, min: 10, max: 1000, step: 10, va
 graph.plot(r.I);`),
 
   S('Hang a mass from the ceiling on a spring and let it bounce. Plot the height.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 460 });
 var anchor = create("hinge", { x: 300, y: 80 });
 var bob = create("mass", { x: 300, y: 300, mass: 2 });
 var spr = create("spring", { length: 200, k: 40 });
@@ -447,13 +454,15 @@ connect(spr.b, bob.centre);
 graph.plot(bob.y);`),
 
   S('Two blocks on the ground joined by a rod, pushed along together.', `
-var floor = create("ground", { x: 0, y: 500, width: 900 });
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 900, height: 560 });
+var floor = create("ground", { x: 20, y: 500, width: 860 });
 var b1 = create("block", { x: 200, y: 420, mass: 4, vx: 6 });
 var b2 = create("block", { x: 400, y: 420, mass: 4 });
 connect(b1.centre, b2.centre, "rod");
 graph.plot(b2.vx);`),
 
   S('A mass swinging on a rope from a fixed point.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 560, height: 360 });
 var top = create("hinge", { x: 320, y: 100 });
 var ball = create("mass", { x: 480, y: 260, mass: 1 });
 var line = create("rope", { length: 240 });
@@ -462,8 +471,9 @@ connect(line.b, ball.centre);
 graph.plot(ball.speed);`),
 
   S('Projectile motion: launch a ball at 45 degrees and plot its trajectory (y vs x).', `
-var floor = create("ground", { x: 0, y: 520, width: 900 });
-var ball = create("mass", { x: 60, y: 480, mass: 1, vx: 8, vy: -8 });
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 900, height: 580 });
+var floor = create("ground", { x: 20, y: 520, width: 860 });
+var ball = create("mass", { x: 80, y: 480, mass: 1, vx: 8, vy: -8 });
 graph.plot(ball.y, ball.x);`),
 
   S('Two infinite parallel plates with surface charge densities +sigma and -sigma separated by a dielectric of relative permittivity 4 — find the electric field intensity and the energy density between them.', `
@@ -472,20 +482,24 @@ var er = create("slider", { x: 200, y: 420, min: 1, max: 12, value: 4, label: "R
 graph.plot(slab.E);`),
 
   S('A charged particle flying through a magnetic field region pointing out of the page — show the circular path.', `
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 620, height: 460 });
 var field = create("bfield", { x: 250, y: 150, width: 320, height: 260, Bz: 2 });
 var particle = create("charge", { x: 100, y: 280, q: 1, vx: 10, showTrail: 1 });`),
 
   S('Block sliding down: give a block friction and elasticity, resting on the ground.', `
-var floor = create("ground", { x: 0, y: 500, width: 800 });
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 800, height: 560 });
+var floor = create("ground", { x: 20, y: 500, width: 760 });
 var box = create("block", { x: 200, y: 420, mass: 5 });
 box.set({ friction: 0.3, restitution: 0.1 });`),
 
   S('Converging lens imaging: light source, thin lens with 150 px focal length, and a screen to the right.', `
+var sys = create("system", { x: 0, y: 0, domain: "optics", width: 720, height: 400 });
 var src = create("light-source", { x: 80, y: 260 });
 var lens = create("thin-lens", { x: 320, y: 200, f: 150 });
 var scr = create("optical-screen", { x: 620, y: 180 });`),
 
   S('Plane wave hitting a boundary between two media.', `
+var sys = create("system", { x: 0, y: 0, domain: "waves", width: 500, height: 380 });
 var src = create("wave-source", { x: 100, y: 240 });
 var boundary = create("wave-boundary", { x: 380, y: 180 });`),
 
@@ -626,7 +640,8 @@ connect(ff.q, q.in);`)
   if (k.domain === 'mechanics') {
     if (k.kind === 'ground') return S('Add a ground platform near the bottom of the page.', `var floor = create("ground", { x: 0, y: 500, width: 800 });`)
     return S(`Add a ${k.label} resting above the ground.`, `
-var floor = create("ground", { x: 0, y: 500, width: 800 });
+var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 800, height: 560 });
+var floor = create("ground", { x: 20, y: 500, width: 760 });
 var ${v} = create("${k.kind}", { x: 300, y: 380${k.params ? ', ' + Object.entries(k.params).map(([key, val]) => `${key}: ${val}`).join(', ') : ''} });`)
   }
   if (k.domain === 'waves' || k.domain === 'quantum') {

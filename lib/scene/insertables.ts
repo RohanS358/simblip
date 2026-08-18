@@ -113,12 +113,35 @@ export function insertAt(pageId: string, item: Insertable, center: Vec2): SceneO
   return obj
 }
 
-/** Page coordinates of the middle of the visible canvas. */
+/** Page coordinates of the middle of the visible canvas.
+ *
+ *  Reads the canvas's live on-screen rect via the data-canvas-root bridge
+ *  (see canvas.tsx / alignObjectToViewport in inspector.tsx, the same
+ *  pattern) rather than window.innerWidth/innerHeight — the canvas never
+ *  spans the full window (the left rail and, when open, the AI panel both
+ *  cut into it), so a full-window center lands well right-and-down of what
+ *  the user is actually looking at, worse the wider those panels are. */
 export function viewportCenter(pageId: string): Vec2 {
+  const b = viewportBounds(pageId)
+  return { x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 }
+}
+
+/** Page-coordinate rect of the visible canvas — the "document boundary" a
+ *  caller clamps placement to, not just its midpoint. Same data-canvas-root
+ *  bridge as viewportCenter (see its doc comment); the two share one rect
+ *  read so they can never disagree about what "visible" means. */
+export function viewportBounds(pageId: string): { left: number; top: number; right: number; bottom: number } {
   const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-  const w = typeof window === 'undefined' ? 1200 : window.innerWidth
-  const h = typeof window === 'undefined' ? 800 : window.innerHeight
-  return { x: (w / 2 - v.x) / v.zoom, y: (h / 2 - v.y) / v.zoom }
+  const root =
+    typeof document === 'undefined'
+      ? undefined
+      : (Array.from(document.querySelectorAll('[data-canvas-root]')).find(
+          (el) => (el as HTMLElement).dataset.canvasRoot === pageId
+        ) as HTMLElement | undefined)
+  const rect = root?.getBoundingClientRect()
+  const w = rect?.width ?? (typeof window === 'undefined' ? 1200 : window.innerWidth)
+  const h = rect?.height ?? (typeof window === 'undefined' ? 800 : window.innerHeight)
+  return { left: -v.x / v.zoom, top: -v.y / v.zoom, right: (w - v.x) / v.zoom, bottom: (h - v.y) / v.zoom }
 }
 
 /** Natural pixel size of an image blob, capped to something sane for a

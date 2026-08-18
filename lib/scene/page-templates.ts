@@ -81,7 +81,7 @@ export function docTemplate(id: DocTemplateId): SceneObject[] {
 
 // ── Presentation (slides: one array of SceneObjects per slide) ─────────────
 
-function slideTitle(text: string): SceneObject {
+export function slideTitle(text: string): SceneObject {
   const obj = baseObject('text', { x: 60, y: 200 })
   obj.size = { w: 840, h: 80 }
   obj.parameters.text = styledText(text, [
@@ -98,7 +98,7 @@ function slideSubtitle(text: string): SceneObject {
   return obj
 }
 
-function slideHeading(text: string): SceneObject {
+export function slideHeading(text: string): SceneObject {
   const obj = baseObject('text', { x: 60, y: 50 })
   obj.size = { w: 840, h: 60 }
   obj.parameters.text = styledText(text, [
@@ -108,7 +108,7 @@ function slideHeading(text: string): SceneObject {
   return obj
 }
 
-function slideBody(text: string, y = 140): SceneObject {
+export function slideBody(text: string, y = 140): SceneObject {
   const obj = baseObject('text', { x: 60, y })
   obj.size = { w: 840, h: 300 }
   obj.parameters.text = str(text)

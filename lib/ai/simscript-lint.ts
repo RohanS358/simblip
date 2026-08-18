@@ -416,7 +416,69 @@ export function lintSimScript(source: string): LintResult {
     )
   }
 
-  // (d) A body under gravity with nothing to land on falls forever, off-canvas
+  // (d) Placed components belong inside a system boundary, not loose on the
+  // page. The system is the unit buildWorld() actually scopes a Play/Step/
+  // Reset run to (lib/physics/world.ts's scopeId — an object counts as
+  // inside when its CENTRE falls in the system's rect), and it is also what
+  // keeps an AI-authored scene from sprawling across the whole document: a
+  // system sized to the visible page, with children placed at small literal
+  // offsets from its own (x, y), is what makes repeated generations land
+  // consistently instead of each guessing fresh absolute coordinates.
+  //
+  // A single loose component (a lone charge next to a field, say) is normal
+  // and not worth flagging — the rule is for genuine multi-body scenes.
+  createCallRe.lastIndex = 0
+  const systemBounds: { x: number; y: number; w: number; h: number }[] = []
+  const placedCenters: { varName: string; cx: number; cy: number }[] = []
+  // Typical factory size for a kind with no explicit width/height — close
+  // enough for a centre estimate; buildWorld's real check uses the object's
+  // actual size, this is only for catching an obviously-outside placement.
+  const DEFAULT_SIZE = 64
+  while ((cm = createCallRe.exec(code)) !== null) {
+    const kind = cm[3].toLowerCase()
+    const props = cm[4] ?? ''
+    const num = (re: RegExp) => {
+      const m = re.exec(props)
+      return m ? Number(m[1]) : undefined
+    }
+    if (kind === 'system') {
+      const x = num(/\bx\s*:\s*(-?\d+(?:\.\d+)?)/) ?? 0
+      const y = num(/\by\s*:\s*(-?\d+(?:\.\d+)?)/) ?? 0
+      const w = num(/\bwidth\s*:\s*(-?\d+(?:\.\d+)?)/) ?? 460
+      const h = num(/\bheight\s*:\s*(-?\d+(?:\.\d+)?)/) ?? 320
+      systemBounds.push({ x, y, w, h })
+      continue
+    }
+    if (!PLACED_KINDS.has(kind) || CONNECTOR_KINDS.has(kind)) continue
+    const x = num(/\bx\s*:\s*(-?\d+(?:\.\d+)?)/)
+    const y = num(/\by\s*:\s*(-?\d+(?:\.\d+)?)/)
+    if (x === undefined || y === undefined) continue
+    const w = num(/\bwidth\s*:\s*(-?\d+(?:\.\d+)?)/) ?? DEFAULT_SIZE
+    const h = num(/\bheight\s*:\s*(-?\d+(?:\.\d+)?)/) ?? DEFAULT_SIZE
+    placedCenters.push({ varName: cm[1], cx: x + w / 2, cy: y + h / 2 })
+  }
+  if (placedCenters.length > 1 && systemBounds.length === 0) {
+    errors.push(
+      `this scene places ${placedCenters.length} mechanics/optics components but never creates a "system" — ` +
+        `wrap them: var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 520, height: 360 }); then give each component an x/y a bit inside those bounds (e.g. 40..480, 40..320). ` +
+        `The system is what Play/Step actually scopes a run to, and it keeps every generation landing in the same place instead of sprawling.`
+    )
+  } else if (systemBounds.length > 0) {
+    // Matches buildWorld's own inScope test (lib/physics/world.ts): centre
+    // inside the rect, any system counts (a scene can legitimately hold more
+    // than one boundary).
+    const outside = placedCenters.filter(
+      (p) => !systemBounds.some((s) => p.cx >= s.x && p.cx <= s.x + s.w && p.cy >= s.y && p.cy <= s.y + s.h)
+    )
+    if (outside.length > 0) {
+      errors.push(
+        `${outside.map((p) => `"${p.varName}"`).join(', ')} ${outside.length === 1 ? 'is' : 'are'} positioned outside every system's bounds — ` +
+          `a component outside its system's rect is dropped from that system's Play/Step run (buildWorld scopes by centre-in-rect). Move ${outside.length === 1 ? 'it' : 'them'} inside, or widen the system's width/height.`
+      )
+    }
+  }
+
+  // (e) A body under gravity with nothing to land on falls forever, off-canvas
   // within a second. A warning, not an error: free-fall and projectile scenes
   // are legitimately groundless, and a graph of the fall is a real answer.
   const hasFalling = [...createdKinds].some((k) => FALLING_KINDS.has(k))

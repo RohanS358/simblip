@@ -41,6 +41,11 @@ export interface AiTurn {
   /** Has this script been executed onto a page? Set by Add, or immediately in
    *  Auto mode. Stops the same scene being added twice by accident. */
   added?: boolean
+  /** Has a presentation already been built from this turn's blocks? Purely
+   *  informational (unlike `added`, making slides again is never blocked —
+   *  see "Place again" in ai-panel.tsx) — just lets the button read "Slides
+   *  made" instead of always "Make slides". */
+  slidesMade?: boolean
 }
 
 interface AiChatState {

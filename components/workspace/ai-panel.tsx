@@ -28,9 +28,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import katex from 'katex'
-import { ANSWER_WIDTH, blocksToSimScript } from '@/lib/ai/explain'
+import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
+import { blocksToSlides } from '@/lib/ai/slides'
+import { viewportBounds, viewportCenter } from '@/lib/scene/insertables'
 import {
-  BrainCircuit, Check, Copy, Loader2, Plus, RotateCcw, Sparkle, Square, Trash2, Zap,
+  BrainCircuit, Check, Copy, Loader2, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, Trash2, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -41,6 +43,7 @@ import {
 import { ScrollButton } from '@/components/ui/scroll-button'
 import { Button } from '@/components/ui/button'
 import { useDocStore } from '@/lib/store/document'
+import { useWorkspaceStore } from '@/lib/store/workspace'
 import { executeSimScript } from '@/lib/scene/simscript'
 import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnostics'
 import { useAiChat, type AiTurn } from '@/lib/store/ai-chat'
@@ -141,16 +144,17 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   // keeps running and writes into a store nobody is showing.
   useEffect(() => () => abortRef.current?.abort(), [])
 
-  /** Run a script onto the canvas. The single path from chat to page. */
+  /** Run a script onto the canvas, its (0,0) landing at `origin`'s top-left
+   *  rather than guessing — callers that want the result CENTERED on the
+   *  viewport pass an origin already offset by half the content's own size
+   *  (see the onAdd handler below), the same convention insertAt() uses for
+   *  a pasted image or dragged-in component. */
   const runScript = useCallback(
-    (script: string, turnId: string, dx = 0) => {
+    (script: string, turnId: string, origin: { x: number; y: number }) => {
       if (!pageId) {
         toast.error('Open a page first.')
         return false
       }
-      const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-      // Drop into the middle of what the user is currently looking at.
-      const origin = { x: -v.x / v.zoom + 320 + dx, y: -v.y / v.zoom + 240 }
       try {
         executeSimScript(pageId, script, origin)
       } catch (e) {
@@ -161,6 +165,34 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       }
       patchTurn(turnId, { added: true })
       return true
+    },
+    [pageId, patchTurn]
+  )
+
+  /** Build a real .pptx-kind page from an answer's blocks — the SAME
+   *  SceneObject[]-per-slide shape AddPageDialog's own presentation
+   *  templates use (lib/ai/slides.ts blocksToSlides -> addDocSheet +
+   *  addObject, mirroring createPptx in add-page-dialog.tsx), so the result
+   *  edits, exports and runs Present mode exactly like a hand-built deck.
+   *  Lands as a sibling of the page currently open — "near where the user
+   *  is working" — rather than needing a folder picker for every slide ask. */
+  const makeSlides = useCallback(
+    (turn: AiTurn) => {
+      if (!turn.blocks?.length) return
+      const ws = useWorkspaceStore.getState()
+      const parentId = pageId ? ws.nodes[pageId]?.parentId : null
+      if (!parentId) {
+        toast.error('Open a notebook page first.')
+        return
+      }
+      const id = ws.addPageIn(parentId, turn.prompt.slice(0, 60) || 'Untitled Presentation', 'pptx')
+      const slides = blocksToSlides(turn.blocks, turn.prompt)
+      for (const objects of slides) {
+        const slideId = useWorkspaceStore.getState().addDocSheet(id)
+        for (const obj of objects) useDocStore.getState().addObject(slideId, obj)
+      }
+      patchTurn(turn.id, { slidesMade: true })
+      toast.success(`${slides.length} slide${slides.length === 1 ? '' : 's'} created.`)
     },
     [pageId, patchTurn]
   )
@@ -238,7 +270,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   message: data.message,
                   status: 'ok',
                 })
-                if (auto && data.script) runScript(data.script, turnId)
+                if (auto && data.script && pageId) runScript(data.script, turnId, viewportCenter(pageId))
               } else {
                 patchTurn(turnId, { message: data.message, status: 'error' })
               }
@@ -326,12 +358,47 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   // of cards at the origin and the scene starts to its right,
                   // so a script that positions nothing can't land on top of
                   // the derivation it belongs to.
+                  //
+                  // Both runs are centered on the SAME point (the viewport's
+                  // middle), each offset by half ITS OWN size — the general
+                  // insertAt() convention (lib/scene/insertables.ts) every
+                  // other "drop this on the canvas" action already uses.
+                  // Previously the origin was the point itself (a fixed
+                  // guess at the panel's width, +320/+240), which put the
+                  // block's top-left corner — not its middle — under the
+                  // cursor: everything landed visibly down-and-right of
+                  // center, worse the wider the answer column got.
+                  //
+                  // The answer column additionally CLAMPS to the visible
+                  // document boundary (viewportBounds), not just centered on
+                  // a point — a long derivation is taller than the visible
+                  // canvas, and centering alone pushes it past both the top
+                  // AND bottom edges. Notes read top-to-bottom, so when it
+                  // doesn't fit, anchoring the TOP at the boundary (rather
+                  // than centering and losing the opening lines above the
+                  // fold) keeps the start of the answer in view; horizontal
+                  // stays centered either way since the column's fixed
+                  // width almost always fits.
                   onAdd={() => {
+                    if (!pageId) return
                     const answer = t.blocks?.length ? blocksToSimScript(t.blocks) : ''
-                    if (answer && !runScript(answer, t.id)) return
-                    if (t.script) runScript(t.script, t.id, answer ? ANSWER_WIDTH + 80 : 0)
+                    const center = viewportCenter(pageId)
+                    if (answer) {
+                      const size = answerColumnSize(t.blocks!)
+                      const bounds = viewportBounds(pageId)
+                      const fitsVertically = size.h <= bounds.bottom - bounds.top
+                      const origin = {
+                        x: center.x - size.w / 2,
+                        y: fitsVertically ? center.y - size.h / 2 : bounds.top + 24,
+                      }
+                      if (!runScript(answer, t.id, origin)) return
+                      if (t.script) runScript(t.script, t.id, { x: origin.x + size.w + 80, y: origin.y })
+                    } else if (t.script) {
+                      runScript(t.script, t.id, center)
+                    }
                   }}
                   onRetry={() => void send(t.prompt)}
+                  onMakeSlides={t.blocks?.length ? () => makeSlides(t) : undefined}
                 />
               ))
             )}
@@ -429,7 +496,16 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
   )
 }
 
-function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRetry: () => void }) {
+function Turn({
+  turn, onAdd, onRetry, onMakeSlides,
+}: {
+  turn: AiTurn
+  onAdd: () => void
+  onRetry: () => void
+  /** Only set for a turn that has written blocks — a pure scene has nothing
+   *  to put on a slide, so there's no button to show. */
+  onMakeSlides?: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const streaming = turn.status === 'streaming'
 
@@ -471,9 +547,17 @@ function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRet
         {turn.status === 'ok' && (turn.script || turn.blocks?.length) && (
           <div className="flex items-center gap-1.5 pt-0.5">
             {turn.added ? (
-              <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.6875rem] font-medium text-[var(--accent-mint)]">
-                <Check className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'In notebook' : 'On canvas'}
-              </span>
+              <>
+                <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.6875rem] font-medium text-[var(--accent-mint)]">
+                  <Check className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'In notebook' : 'On canvas'}
+                </span>
+                {/* Placing once no longer blocks placing again — a diagram or
+                    derivation you want in two spots (this page and another,
+                    or twice on a wide board) shouldn't need a re-generate. */}
+                <TurnAction label="Place again" onClick={onAdd}>
+                  <Plus className="h-3 w-3" />
+                </TurnAction>
+              </>
             ) : (
               <Button
                 size="sm"
@@ -500,6 +584,20 @@ function Turn({ turn, onAdd, onRetry }: { turn: AiTurn; onAdd: () => void; onRet
             <TurnAction label="Try again" onClick={onRetry}>
               <RotateCcw className="h-3 w-3" />
             </TurnAction>
+            {/* A written answer (Given:/Derivation:/Result: headings) turns
+                into an actual presentation — one Markdown heading per slide,
+                the SAME real .pptx page a hand-picked template creates (see
+                makeSlides in AiPanel). Never blocked by having built one
+                already: a second click makes a fresh deck, same as
+                "Place again" for the canvas. */}
+            {onMakeSlides && (
+              <TurnAction
+                label={turn.slidesMade ? 'Make slides again' : 'Make slides'}
+                onClick={onMakeSlides}
+              >
+                <PresentationIcon className="h-3 w-3" />
+              </TurnAction>
+            )}
           </div>
         )}
 

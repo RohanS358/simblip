@@ -283,6 +283,16 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
   let paragraph: { raw: string; start: number; level: number }[] = []
   let listType: 'ul' | 'ol' | null = null
   let listItems: string[] = []
+  // The <ol start> value for whichever ordered list is currently open — the
+  // first item's own source digit. A derivation's steps are routinely
+  // interrupted by an unindented explanation paragraph between items (every
+  // real model output tested wrote it this way), which flushList() treats as
+  // the end of that list — a fresh <ol> always counts from 1 unless told
+  // otherwise, so "1,2,3,4,5" rendered as "1,1,1,1,1". Recording the digit
+  // the list OPENED with (not the next predicted one — that was the bug:
+  // reading a value already advanced for the next item) fixes it without
+  // requiring one unbroken list block.
+  let olStart = 1
 
   const padCss = (level: number) => (level > 0 ? `padding-left:${level * INDENT_EM}em` : '')
   const padStyle = (level: number) => {
@@ -309,7 +319,10 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
     paragraph = []
   }
   const flushList = () => {
-    if (listType && listItems.length) out.push(`<${listType}>${listItems.join('')}</${listType}>`)
+    if (listType && listItems.length) {
+      const startAttr = listType === 'ol' && olStart !== 1 ? ` start="${olStart}"` : ''
+      out.push(`<${listType}${startAttr}>${listItems.join('')}</${listType}>`)
+    }
     listType = null
     listItems = []
   }
@@ -387,7 +400,7 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
 
     const checkbox = rest.match(/^[-*+]\s+\[( |x|X)\]\s+(.*)$/)
     const bullet = !checkbox && rest.match(/^[-*+]\s+(.*)$/)
-    const numbered = rest.match(/^\d+\.\s+(.*)$/)
+    const numbered = rest.match(/^(\d+)\.\s+(.*)$/)
 
     if (checkbox) {
       flushParagraph()
@@ -421,9 +434,10 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
       if (listType !== 'ol') {
         flushList()
         listType = 'ol'
+        olStart = Number(numbered[1])
       }
-      const bodyStart = bodyStart0 + rest.length - numbered[1].length
-      listItems.push(`<li${padStyle(level)}>${renderLine(numbered[1], marks, bodyStart)}</li>`)
+      const bodyStart = bodyStart0 + rest.length - numbered[2].length
+      listItems.push(`<li${padStyle(level)}>${renderLine(numbered[2], marks, bodyStart)}</li>`)
       offset += line.length + 1
       i++
       continue
