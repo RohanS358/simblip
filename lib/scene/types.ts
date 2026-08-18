@@ -86,6 +86,7 @@ export type BehaviorType =
   | 'charge' // point charge on a rigid body: Coulomb force + qE, qv×B
   | 'efield' // region behavior (rect/circle): uniform electric field inside it
   | 'bfield' // region behavior (rect/circle): uniform B field (out of plane) inside it
+  | 'dielectric' // region (rect/circle): relative permittivity — real SI E, D and energy density
   | 'torsionSpring' // on a hinge: angular restoring torque toward a rest angle
   | 'heatSource' // thermal emission — see Phase F
   | 'sensor' // roadmap: triggers/measurement region

@@ -17,8 +17,10 @@
 // they recover from "invalid anchor".
 
 import { KNOWN_KINDS } from './simscript-corpus'
+import { BEHAVIOR_SPECS } from '@/lib/behaviors/registry'
 import {
   ANCHOR_INDEX, CHANNELS_BY_SYMBOL, DEFAULT_SYMBOL_CHANNELS, BODY_CHANNELS,
+  DIELECTRIC_CHANNELS,
   SILENT_SYMBOLS,
 } from '@/lib/scene/simscript-props'
 
@@ -159,6 +161,7 @@ const PLACED_KINDS = new Set([
 
 /** The channels a kind really publishes, for graph.plot checking. */
 function channelsOf(kind: string): string[] {
+  if (kind === 'dielectric') return [...DIELECTRIC_CHANNELS]
   if (MECHANICS_KINDS.has(kind)) return [...BODY_CHANNELS]
   if (SILENT_SYMBOLS.includes(kind)) return []
   const named = CHANNELS_BY_SYMBOL[kind]
@@ -313,6 +316,31 @@ export function lintSimScript(source: string): LintResult {
     if (isCircuit && /^(rigidBody|staticBody|spring|rope|rod|damper|hinge|motor)$/i.test(m[3])) {
       errors.push(
         `addproperty(${m[1]}, "${m[3]}") — "${kind}" is a circuit component, not a physical body; drop this line`
+      )
+    }
+  }
+
+  // 5b. Params that do not exist.
+  //
+  // addproperty() copies EVERY key straight into behavior.params
+  // (lib/scene/simscript.ts) — nothing checks the name against the registry.
+  // So `addproperty(slab, "efield", { epsr: 4 })` stored epsr, the solver
+  // never read it, and the script "succeeded" while modelling nothing. That
+  // is the worst failure mode available: silent, and indistinguishable from
+  // success. A question about a dielectric got a scene with no dielectric.
+  //
+  // The registry already declares every valid param, so this is a lookup.
+  const addFull = /addproperty\s*\(\s*([a-zA-Z_$][\w$]*)\s*,\s*(['"])([^'"]+)\2\s*,\s*\{([^}]*)\}/g
+  while ((m = addFull.exec(code)) !== null) {
+    const spec = BEHAVIOR_SPECS.find((b) => b.type === m![3])
+    if (!spec) continue
+    const allowed = new Set(spec.params.map((p) => p.name))
+    if (allowed.size === 0) continue
+    for (const km of m[4].matchAll(/([a-zA-Z_$][\w$]*)\s*:/g)) {
+      if (allowed.has(km[1])) continue
+      const list = [...allowed].join(', ')
+      errors.push(
+        `addproperty(${m[1]}, "${m[3]}", { ${km[1]}: … }) — "${m[3]}" has no "${km[1]}" param, so it would be silently ignored. Valid: ${list}`
       )
     }
   }

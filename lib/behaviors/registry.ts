@@ -165,6 +165,18 @@ export const BEHAVIOR_SPECS: BehaviorSpec[] = [
     params: [{ name: 'Bz', label: 'Bz (T)', default: '1' }],
   },
   {
+    type: 'dielectric',
+    label: 'Dielectric Medium',
+    geometry: ['rect', 'circle'],
+    hint: 'Syllabus §2.7/§2.9: relative permittivity of the region. With a surface charge density σ it solves the parallel-plate case for real — E = σ/(ε₀εr), D = σ, and energy density u = ½εE² in SI units, not pedagogical ones.',
+    live: true,
+    params: [
+      { name: 'epsr', label: 'Relative permittivity εr', default: '1' },
+      { name: 'sigma', label: 'Surface charge density σ (µC/m²)', default: '0' },
+      { name: 'mur', label: 'Relative permeability μr', default: '1' },
+    ],
+  },
+  {
     type: 'torsionSpring',
     label: 'Torsion Spring',
     geometry: ['circle', 'symbol'],

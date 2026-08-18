@@ -362,6 +362,13 @@ export const COMPONENTS: ComponentDef[] = [
     o.metadata.fieldKind = 'e'
     return withBehaviors(o, createBehavior('efield'))
   }),
+  mech('dielectric', 'Dielectric Medium', (p) => {
+    const o = baseObject('rect', p, autoName('Dielectric'))
+    o.size = { w: 260, h: 180 }
+    o.metadata.render = 'field'
+    o.metadata.fieldKind = 'e'
+    return withBehaviors(o, createBehavior('dielectric'))
+  }),
   mech('bfield', 'B-Field Region', (p) => {
     const o = baseObject('rect', p, autoName('B-Field'))
     o.size = { w: 260, h: 180 }

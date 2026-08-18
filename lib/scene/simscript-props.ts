@@ -301,6 +301,11 @@ export const ANCHOR_INDEX: Record<string, Record<string, number>> = {
 // remains the body's own rotation, which is what a rolling wheel needs.
 export const BODY_CHANNELS: readonly string[] = ['x', 'y', 'vx', 'vy', 'speed', 'angle', 'swing', 'omega', 'ke']
 
+/** A dielectric region publishes real SI electrostatics, not motion — the
+ *  quantities ENEX 254 §2.7/§2.9 questions ask for. See dielectricValues()
+ *  in lib/physics/world.ts. */
+export const DIELECTRIC_CHANNELS: readonly string[] = ['E', 'D', 'u', 'epsr', 'C']
+
 /** Two-terminal electrical parts all report the same three. */
 export const DEFAULT_SYMBOL_CHANNELS: readonly string[] = ['V', 'I', 'P']
 

@@ -116,6 +116,7 @@ export const KIND_CATALOG: KindInfo[] = [
   { kind: 'charge', domain: 'mechanics', label: 'charged ball', params: { q: 1 }, scenarioOnly: true },
   { kind: 'efield', domain: 'mechanics', label: 'E-field region', scenarioOnly: true },
   { kind: 'bfield', domain: 'mechanics', label: 'B-field region', scenarioOnly: true },
+  { kind: 'dielectric', domain: 'mechanics', label: 'dielectric medium', scenarioOnly: true },
   { kind: 'heat-block', domain: 'mechanics', label: 'heat source block' },
   { kind: 'torsion-pendulum', domain: 'mechanics', label: 'torsion pendulum', scenarioOnly: true },
   { kind: 'reference-point', domain: 'mechanics', label: 'reference point', scenarioOnly: true },
@@ -202,7 +203,7 @@ KINDS (create) — params in ()
 - electrical: battery(V) ac-source(V,f) current-source(I) resistor(R) bulb(R) capacitor(C) inductor(L) potentiometer(R,ratio) switch(closed) fuse(Imax) gnd voltmeter ammeter wattmeter probe vcvs(gain) vccs(gm) ccvs(r) cccs(beta) transformer(n) three-phase-source(V,f) dc-machine electric-motor induction-motor pressure-plate
 - electronics: diode(Vf) led(Vf) zener(Vz) bjt(beta) bjt-pnp mosfet(Vt) mosfet-pmos opamp(gain)
 - digital: input(value) clock(f) output logic-probe and/or/xor/nand/nor/not-gate d-ff jk-ff t-ff sr-latch tristate mux demux encoder decoder half-adder full-adder comparator seven-seg bcd-7seg register4 counter4(mod)
-- mechanics: mass(mass) block(mass) beam wheel ground spring rope rod damper hinge motor(speed) charge(q,vx,vy) efield(Ex,Ey) bfield(Bz) heat-block torsion-pendulum reference-point — rigidBody props: mass,friction,restitution,vx,vy,omega,showTrail
+- mechanics: mass(mass) block(mass) beam wheel ground spring rope rod damper hinge motor(speed) charge(q,vx,vy) efield(Ex,Ey) bfield(Bz) dielectric(epsr,sigma,mur) heat-block torsion-pendulum reference-point — rigidBody props: mass,friction,restitution,vx,vy,omega,showTrail
 - optics: light-source thin-lens(f) optical-mirror optical-screen slit
 - waves/quantum: wave-source wave-boundary transmission-line quantum-well tunnel-barrier
 - widgets: note(text,color) text(text) formula(latex) table(headers,data,summary) truthtable(inputs,outputs) cashflow dsa(source: C++ code) system(domain) code(source)
@@ -464,6 +465,11 @@ graph.plot(ball.speed);`),
 var floor = create("ground", { x: 0, y: 520, width: 900 });
 var ball = create("mass", { x: 60, y: 480, mass: 1, vx: 8, vy: -8 });
 graph.plot(ball.y, ball.x);`),
+
+  S('Two infinite parallel plates with surface charge densities +sigma and -sigma separated by a dielectric of relative permittivity 4 — find the electric field intensity and the energy density between them.', `
+var slab = create("dielectric", { x: 200, y: 180, width: 360, height: 200, epsr: 4, sigma: 1 });
+var er = create("slider", { x: 200, y: 420, min: 1, max: 12, value: 4, label: "Relative permittivity", targetParamName: "epsr", targetObjectId: slab });
+graph.plot(slab.E);`),
 
   S('A charged particle flying through a magnetic field region pointing out of the page — show the circular path.', `
 var field = create("bfield", { x: 250, y: 150, width: 320, height: 260, Bz: 2 });

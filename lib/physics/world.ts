@@ -110,6 +110,17 @@ interface FieldRegion {
   Bz?: (s: Scope) => number
 }
 
+/** A dielectric region. Unlike every other force in this engine these are
+ *  REAL SI quantities, not pedagogical ones (see COULOMB_K): a question that
+ *  asks for "the energy density between the plates in J/m³" wants 3.6e-3,
+ *  and no visual scale factor can be allowed to corrupt that number. */
+interface DielectricEntry {
+  objectId: string
+  epsr: (s: Scope) => number
+  sigma: (s: Scope) => number
+  mur: (s: Scope) => number
+}
+
 interface TorsionEntry {
   body: Matter.Body
   angle0: number
@@ -147,6 +158,7 @@ interface World {
   connectors: ConnectorEntry[]
   charges: ChargeEntry[]
   fields: FieldRegion[]
+  dielectrics: DielectricEntry[]
   torsions: TorsionEntry[]
   thermal: ThermalEntry[]
   circuit: Circuit | null
@@ -368,6 +380,7 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
   const connectors: ConnectorEntry[] = []
   const charges: ChargeEntry[] = []
   const fields: FieldRegion[] = []
+  const dielectrics: DielectricEntry[] = []
   const torsions: TorsionEntry[] = []
   const thermal: ThermalEntry[] = []
 
@@ -458,6 +471,14 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
     }
     if (obj.behaviors.some((b) => b.enabled && b.type === 'bfield')) {
       fields.push({ kind: 'b', objectId: obj.id, Bz: compiledParam(pageId, obj.id, 'bfield', 'Bz', 1) })
+    }
+    if (obj.behaviors.some((b) => b.enabled && b.type === 'dielectric')) {
+      dielectrics.push({
+        objectId: obj.id,
+        epsr: compiledParam(pageId, obj.id, 'dielectric', 'epsr', 1),
+        sigma: compiledParam(pageId, obj.id, 'dielectric', 'sigma', 0),
+        mur: compiledParam(pageId, obj.id, 'dielectric', 'mur', 1),
+      })
     }
   }
 
@@ -589,6 +610,7 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
     connectors,
     charges,
     fields,
+    dielectrics,
     torsions,
     thermal,
     circuit,
@@ -1252,6 +1274,42 @@ function swingAngle(w: World, body: Matter.Body): { swing?: number } {
   return {}
 }
 
+/** Vacuum permittivity and permeability — real SI, deliberately exact.
+ *  Electrostatics is the one part of this engine that must answer numerical
+ *  questions ("find E and the energy density"), so these are NOT scaled the
+ *  way COULOMB_K is for visible motion. */
+const EPS0 = 8.8541878128e-12
+const MU0 = 4e-7 * Math.PI
+
+/**
+ * The parallel-plate/dielectric relations from ENEX 254 §2.7 and §2.9.
+ *
+ * σ is entered in µC/m² because that is the magnitude coursework uses; every
+ * output is plain SI. Returns the four quantities a dielectric question asks
+ * for, so `graph.plot(slab.E)` and the properties panel show real numbers:
+ *
+ *   D = σ                (C/m², free surface charge — independent of the medium)
+ *   E = σ / (ε₀ εr)      (V/m)
+ *   u = ½ ε₀ εr E²       (J/m³, energy density)
+ *   C_A = ε₀ εr / d      (F/m², capacitance per unit area, d from the region's height)
+ */
+export function dielectricValues(
+  sigmaMicro: number,
+  epsr: number,
+  gapMetres: number
+): { D: number; E: number; u: number; capPerArea: number; eps: number } {
+  const eps = EPS0 * (epsr || 1)
+  const D = sigmaMicro * 1e-6
+  const E = D / eps
+  return {
+    D,
+    E,
+    u: 0.5 * eps * E * E,
+    capPerArea: gapMetres > 0 ? eps / gapMetres : 0,
+    eps,
+  }
+}
+
 function sample(w: World) {
   if (w.circuit) {
     // electrical readings feed the same graph bus as body channels
@@ -1293,6 +1351,25 @@ function sample(w: World) {
     pushSample(b.objectId, { t: w.t, channels })
     notify(b.objectId)
   }
+  // Dielectric regions are not bodies and never move, but they DO carry
+  // live values a numerical question needs plotted and read.
+  if (w.dielectrics.length > 0) {
+    const pageObjs = useDocStore.getState().pages[w.pageId]?.objects ?? {}
+    const scope = { ...(useDocStore.getState().scopes[w.pageId] ?? {}), t: w.t }
+    for (const d of w.dielectrics) {
+      const region = pageObjs[d.objectId]
+      if (!region) continue
+      const epsr = d.epsr(scope)
+      const { D, E, u, capPerArea } = dielectricValues(
+        d.sigma(scope),
+        epsr,
+        region.size.h / PPM // plate separation, in metres
+      )
+      pushSample(d.objectId, { t: w.t, channels: { E, D, u, epsr, C: capPerArea } })
+      notify(d.objectId)
+    }
+  }
+
   // Static bodies (heat sinks/reservoirs) carry temperature but no motion —
   // stream just the temp channel for them.
   for (const th of thermalByObj.values()) {

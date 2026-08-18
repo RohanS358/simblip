@@ -61,6 +61,7 @@ const MECHANICS_COMPONENTS: Record<string, { kind: GeometryKind; behavior: Behav
   charge:          { kind: 'circle', behavior: 'rigidBody',   w: 46,  h: 46,  render: 'charge', extraBehaviors: ['charge'] },
   efield:          { kind: 'rect',   behavior: 'efield',      w: 260, h: 180, render: 'field' },
   bfield:          { kind: 'rect',   behavior: 'bfield',      w: 260, h: 180, render: 'field' },
+  dielectric:      { kind: 'rect',   behavior: 'dielectric',  w: 260, h: 180, render: 'field' },
   heatblock:       { kind: 'rect',   behavior: 'staticBody',  w: 100, h: 100, extraBehaviors: ['heatSource'] },
   'heat-block':    { kind: 'rect',   behavior: 'staticBody',  w: 100, h: 100, extraBehaviors: ['heatSource'] },
   torsionpendulum: { kind: 'circle', behavior: 'hinge',       w: 22,  h: 22,  render: 'hinge', extraBehaviors: ['torsionSpring'] },
