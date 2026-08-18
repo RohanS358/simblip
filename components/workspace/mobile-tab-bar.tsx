@@ -5,7 +5,8 @@
 // design language with animated active pills, tactile haptics, and
 // fluid transitions.
 
-import { useRouter, usePathname } from 'next/navigation'
+import { useNav } from '@/lib/use-nav'
+import { usePathname } from 'next/navigation'
 import { motion as fm } from 'framer-motion'
 import {
   ClipboardList,
@@ -28,7 +29,7 @@ const TABS: { id: MobileTab; label: string; icon: typeof Home }[] = [
 ]
 
 export function MobileTabBar() {
-  const router = useRouter()
+  const router = useNav()
   const pathname = usePathname()
   const tab = useMobileTabStore((s) => s.tab)
   const setTab = useMobileTabStore((s) => s.setTab)

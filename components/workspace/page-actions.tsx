@@ -4,8 +4,8 @@
 // create an assignment from a page, and present a page on a room board.
 // All three ship frozen copies — the original page is never exposed.
 
+import { useNav } from '@/lib/use-nav'
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { Loader2, MonitorPlay } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
@@ -264,7 +264,7 @@ export function PresentDialog({
   page: PageRef | null
   onOpenChange: (open: boolean) => void
 }) {
-  const router = useRouter()
+  const router = useNav()
   const [boards, setBoards] = useState<Array<BoardRow & { roomName: string }>>([])
   const [boardId, setBoardId] = useState('')
   const [code, setCode] = useState('')

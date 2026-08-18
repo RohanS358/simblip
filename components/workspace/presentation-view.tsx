@@ -13,6 +13,7 @@
 // open (lib/store/pptx-import.ts) — best-effort fidelity, not pixel-perfect.
 // Export walks the slide object trees back into a real .pptx via pptxgenjs.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
 import {
@@ -825,9 +826,8 @@ export function PresentationView({ pageId }: { pageId: string }) {
         style={{ touchAction: 'pan-x pan-y pinch-zoom', WebkitOverflowScrolling: 'touch' }}
       >
         {importing ? (
-          <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-[0.75rem]">Importing presentation…</span>
+          <div className="flex h-full items-center justify-center">
+            <BounceLoader size={200} label="Opening presentation…" />
           </div>
         ) : activeSlideId ? (
           <div

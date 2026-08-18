@@ -3,11 +3,11 @@
 // The AI corner bubble (UX masterplan §5/§19): a fixed, always-in-the-same-
 // place surface, deliberately off the primary toolbar — AI is a distinct,
 // non-deterministic interaction mode, not a placement tool. Drafts only:
-// the model calls /api/ai's tool-calling agent to build a scene, and
-// "Add to canvas" (lib/ai/import.ts) is the only path from draft to page,
-// same contract the backend already documents. The response always shows
-// the model's plain-language rationale for what it built, right next to the
-// confirmation button, so accepting a draft is also a worked micro-example.
+// /api/ai returns VERIFIED SimScript and "Add to canvas" (executeSimScript)
+// is the only path from draft to page. The response shows the model's
+// plain-language rationale AND the script itself, so accepting a draft is a
+// worked micro-example the user can read, learn from, and edit before
+// committing — which an opaque JSON payload never allowed.
 
 import { useState } from 'react'
 import { Sparkles, X, Loader2 } from 'lucide-react'
@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { useDocStore } from '@/lib/store/document'
-import { importSimulation } from '@/lib/ai/import'
+import { executeSimScript } from '@/lib/scene/simscript'
 import type { AiResponse } from '@/lib/ai/schema'
 import { cn } from '@/lib/utils'
 
@@ -55,10 +55,17 @@ export function AiBubble({ pageId }: { pageId: string }) {
   }
 
   const addToCanvas = () => {
-    if (!result?.simulation) return
+    if (!result?.script) return
     const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-    const dropPoint = { x: -v.x / v.zoom + 320, y: -v.y / v.zoom + 240 }
-    importSimulation(pageId, result.simulation, dropPoint)
+    const origin = { x: -v.x / v.zoom + 320, y: -v.y / v.zoom + 240 }
+    try {
+      executeSimScript(pageId, result.script, origin)
+    } catch (e) {
+      // The script passed the verifier, so this is a runtime surprise rather
+      // than a known failure mode — surface it instead of failing silently.
+      toast.error(e instanceof Error ? e.message : 'Could not run the script.')
+      return
+    }
     toast.success('Added to canvas')
     setResult(null)
     setPrompt('')
@@ -112,6 +119,15 @@ export function AiBubble({ pageId }: { pageId: string }) {
         <div className="rounded-lg bg-accent/40 p-2 text-[0.71875rem] leading-relaxed">{result.message}</div>
       )}
 
+      {result?.script && (
+        // Showing the script is the point, not decoration: SimScript is the
+        // app's own language, so a draft doubles as a worked example the user
+        // can read and reuse.
+        <pre className="max-h-40 overflow-auto rounded-lg bg-card/70 p-2 font-mono text-[0.65625rem] leading-relaxed">
+          {result.script}
+        </pre>
+      )}
+
       <div className="flex items-center gap-2">
         <Button
           size="sm"
@@ -122,7 +138,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
           {loading && <Loader2 className="h-3 w-3 animate-spin" />}
           {loading ? 'Building…' : 'Generate'}
         </Button>
-        {result?.simulation && (
+        {result?.script && (
           <Button
             size="sm"
             variant="outline"

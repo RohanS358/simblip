@@ -13,7 +13,7 @@ var obj = create("resistor", { R: 330, x: 0, y: 0 });
 - `kind` is case-insensitive.
 - `x`/`y` are relative to script origin. **Only non-zero `x` or `y` counts as "explicit position"** — `{x:0,y:0}` or omitted still lets the auto-layout engine reposition the object once it's wired via `connect()`.
 - `rotation` (degrees) or `dir: "up"|"down"|"left"` (→ -90/90/180; anything else/omitted = 0). **Optics, waves, and quantum kinds ignore rotation/dir entirely — always 0.**
-- Any prop other than `x, y, width, height, rotation, dir, name` becomes a **live parameter** on circuit-symbol kinds (electrical values like `R`, `V`, `beta`...).
+- Any prop that is not positional (`x, y, width, height, rotation, dir, name, z`) and not one of the **styling props** below becomes a **live parameter** on circuit-symbol kinds (electrical values like `R`, `V`, `beta`...). So `create("resistor", { R: 330, fill: "#f00" })` sets a resistance *and* a fill, with no collision.
 - Returns a Proxy-wrapped handle: **any property you access on it that isn't a reserved name (`id`, `pageId`, `set`, `vx`,`vy`,`ax`,`ay`,`V`,`I`,`P`,`omega`,`angle`,`x`,`y`,`ke`,`pe`,`speed`) becomes an anchor descriptor**, e.g. `q1.base`, `myThing.whateverName`.
 
 ```javascript
@@ -197,25 +197,82 @@ Rotation/dir ignored (always 0). Rendered as vertical/point elements you positio
 
 ## Canvas / data objects
 
+Every one of these is built by the same factory the tool dock and palette use
+(`lib/scene/factory.ts`), so a kind added to the app is scriptable the same day.
+
 ```javascript
 var t = create("table", {                                            // 380x260, Excel-style formula table
   headers: "SN;t;d;v=d/t",           // or array; "name=expr" = live formula column
   data: [[1, 1, 4.9], [2, 2, 19.6]], // or "1;1;4.9\n2;2;19.6"
   summary: "Avg",                    // Sum|Avg|Min|Max|Count|Stddev|Stderr|First|Last|Range|None
 });
-var gt = create("gridtable", { transparent: 1, rows: 3, cols: 3 });  // 360x220 transparent Canva / MS Word style grid table
-var sld = create("slider", { min: 0, max: 100, targetParamName: "mass" }); // 240x80 placeable real-time control slider
-var btn = create("button", { label: "Pulse", actionType: "toggle" });       // 160x54 interactive click button
-var trg = create("trigger", { condition: ">", threshold: 50 });            // 230x90 conditional comparison trigger
+var gt = create("gridtable", {                                       // 360x220 transparent Canva / MS Word grid table
+  rows: 2, cols: 3,
+  cells: [["Name","Mass","Speed"], ["Block","20","8"]],  // 2-D array or pre-encoded JSON
+  transparent: 1,
+});                                  // rows/cols WITHOUT cells generates that many empty cells
+var ch = create("chart", {                                           // 380x280 bar/line/area/scatter/pie
+  type: "bar",                       // or chartType
+  labels: ["Q1","Q2","Q3","Q4"],     // or "Q1;Q2;Q3;Q4"
+  series: { Sales: [12, 19, 14, 22] },   // or [["Sales",[…]],…] or "Sales|12;19;14;22"
+});
+var s3 = create("surface3d", { formula: "sin(x)*cos(y)", axis: "z" }); // 420x340 3D surface / implicit plotter
+                                     // aliases: "graph3d", "surface-3d", "3d"; `formulas: [...]` for several
+var sld = create("slider", { min: 0, max: 100, step: 1, value: 50, label: "Mass",
+                             targetParamName: "mass" });             // 240x80 real-time control slider
+var btn = create("button", { label: "Pulse", actionType: "toggle" }); // 160x54 interactive click button
+var trg = create("trigger", { condition: ">", threshold: 50,
+                              actionType: "toggle" });               // 230x90 conditional comparison trigger
+var pic = create("picture", { src: "opfs:<fileId>" });               // placed raster image ("image"/"img")
+                                     // a bare id is accepted — "abc" becomes "opfs:abc"
 var n = create("note", { text: "reminder", color: "amber" });        // 220x180, color default "amber"
-var tx = create("text", { text: "Heading" });                        // 320x48 markdown text block
-var f = create("formula", { latex: "s = ut + \\frac{1}{2}at^2" });  // 300x96 KaTeX + solver
+var tx = create("text", { text: "# Heading" });                      // 320x48 markdown text block
+var f = create("formula", { latex: "s = ut + \\frac{1}{2}at^2" });    // 300x96 KaTeX + solver
 var cf = create("cashflow", {});                                     // 480x300, empty spec pre-filled
 var tt = create("truthtable", { inputs: "A,B", outputs: "Q" });      // 320x260
 var lab = create("dsa", { source: "int main() { ... }" });           // 980x620 DSA Lab (aliases: "dsa-lab")
 var sys = create("system", { domain: "mechanics" });                 // 460x320 dashed system boundary
-var ide = create("code", { source: "// SimScript…" });               // 420x300 nested SimScript IDE
+var ide = create("code", { source: "// SimScript…" });               // 420x300 nested SimScript IDE (alias "ide")
 ```
+
+Any parameter the factory declares for a kind is settable by name, even if it
+is not listed above — that is what keeps this list from going stale.
+
+---
+
+## Styling — works on EVERY kind
+
+The same appearance props apply to a resistor, a text block and a slider alike.
+They are never confused with live parameters, so `create("resistor", { R: 330,
+fill: "#f00" })` sets a 330 Ω resistance **and** a red fill.
+
+| prop | meaning |
+|---|---|
+| `fill` / `fillColor` | body fill, any CSS colour |
+| `stroke` / `strokeColor` | outline colour |
+| `strokeWidth` | outline width in px |
+| `radius` / `cornerRadius` | corner rounding in px |
+| `opacity` / `fillOpacity` | `0`–`1` **or** `0`–`100`; both normalise to percent |
+| `textColor` | text colour |
+| `align` | `left` \| `center` \| `right` |
+| `verticalAlign` / `valign` | `top` \| `middle` \| `bottom` |
+| `lineHeight`, `letterSpacing` | text metrics (letterSpacing is a % of font size) |
+| `locked` | `true` pins the object against dragging/editing |
+| `hidden` | `true` hides it without deleting it |
+| `flipH`, `flipV` | mirror horizontally / vertically |
+| `z` | explicit stacking order |
+
+```javascript
+var box   = create("rect", { width: 420, height: 90, fill: "#fee2e2",
+                             stroke: "#ef4444", strokeWidth: 2, radius: 16, opacity: 0.5 });
+var title = create("text", { text: "# Experiment 1", textColor: "#991b1b", align: "center" });
+var r     = create("resistor", { R: 470, opacity: 0.4, locked: true });
+```
+
+Text content itself is markdown — `#` headings, `**bold**`, lists and checkboxes
+all render, so `create("text", { text: "# Title" })` produces a real heading.
+
+---
 
 `dsa` is the **DSA Lab**: a C++ IDE that interprets the `source` prop line by line and animates memory blocks, pointer arrows, the recursion tree, and measured Big-O analysis. Pass complete C++ (a `main()`, or loose top-level statements) in `source`; it re-runs automatically on every edit.
 
@@ -239,7 +296,13 @@ Do **not** `create("graph", {...})` for a chart — use `graph.plot(...)` (see t
 ```javascript
 var shape = create("rect", { x: 0, y: 0, width: 40, height: 40 });
 addproperty(shape, "rigidBody", { mass: 2 });
+
+// line/polygon take explicit vertices, relative to the object's position
+var tri = create("polygon", { points: [[0, 0], [80, 0], [40, 60]] });
 ```
+
+All four accept the full styling set (`fill`, `stroke`, `strokeWidth`, `radius`,
+`opacity`, `locked`, …) like every other kind.
 
 ---
 

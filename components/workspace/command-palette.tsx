@@ -5,8 +5,8 @@
 // it straight onto the open page. Also exposes quick actions and role-aware
 // navigation. The canvas "/" menu searches the same registry.
 
+import { useNav } from '@/lib/use-nav'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import {
   BookOpen,
   ClipboardList,
@@ -50,7 +50,7 @@ export function CommandPalette({
   onOpenSettings?: () => void
   onOpenLibrary?: () => void
 }) {
-  const router = useRouter()
+  const router = useNav()
   const { resolvedTheme, setTheme } = useTheme()
   const nodes = useWorkspaceStore((s) => s.nodes)
   const profile = useAuthStore((s) => s.profile)

@@ -1,7 +1,7 @@
 'use client'
 
+import { useNav } from '@/lib/use-nav'
 import { useCallback, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { CalendarClock, ClipboardList, Loader2, NotebookPen, Send, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/auth/store'
@@ -59,7 +59,7 @@ const dueLabel = (a: AssignmentRow) =>
 // ── Student view ────────────────────────────────────────────────────────────
 
 function StudentAssignments() {
-  const router = useRouter()
+  const router = useNav()
   const profile = useAuthStore((s) => s.profile)!
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [subs, setSubs] = useState<SubmissionRow[]>([])
@@ -186,7 +186,7 @@ function StudentAssignments() {
 // ── Teacher dashboard ───────────────────────────────────────────────────────
 
 function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
-  const router = useRouter()
+  const router = useNav()
   const [assignments, setAssignments] = useState<AssignmentRow[]>([])
   const [subsByAssignment, setSubsByAssignment] = useState<Record<string, SubmissionRow[]>>({})
 

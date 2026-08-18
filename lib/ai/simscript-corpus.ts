@@ -142,6 +142,13 @@ export const KIND_CATALOG: KindInfo[] = [
   { kind: 'dsa', domain: 'widget', label: 'DSA Lab (C++ visualizer)', scenarioOnly: true },
   { kind: 'system', domain: 'widget', label: 'system boundary', scenarioOnly: true },
   { kind: 'code', domain: 'widget', label: 'SimScript IDE' },
+  { kind: 'gridtable', domain: 'widget', label: 'grid table', scenarioOnly: true },
+  { kind: 'chart', domain: 'widget', label: 'chart', scenarioOnly: true },
+  { kind: 'surface3d', domain: 'widget', label: '3D surface plot', scenarioOnly: true },
+  { kind: 'slider', domain: 'widget', label: 'slider control', scenarioOnly: true },
+  { kind: 'button', domain: 'widget', label: 'button control', scenarioOnly: true },
+  { kind: 'trigger', domain: 'widget', label: 'conditional trigger', scenarioOnly: true },
+  { kind: 'picture', domain: 'widget', label: 'placed image', scenarioOnly: true },
   // bare shapes
   { kind: 'rect', domain: 'shape', label: 'rectangle', scenarioOnly: true },
   { kind: 'circle', domain: 'shape', label: 'circle', scenarioOnly: true },
@@ -155,6 +162,7 @@ export const KNOWN_KINDS = new Set<string>([
   'lens', 'lightsource', 'mirror', 'screen', 'wavesource', 'waveboundary', 'transmissionline',
   'quantumwell', 'tunnelbarrier', 'heatblock', 'torsionpendulum', 'truth-table', 'dsa-lab',
   'dsalab', 'ide', 'simscript',
+  'grid-table', 'graph3d', 'surface-3d', '3d', 'image', 'img',
 ])
 
 // ── System prompt ────────────────────────────────────────────────────────────
@@ -208,6 +216,30 @@ interface Sample {
 const S = (prompt: string, script: string): Sample => ({ prompt, script: script.trim() + '\n' })
 
 export const SCENARIOS: Sample[] = [
+  S('Add a styled title and a red-filled rounded box behind it.', `
+var box = create("rect", { x: 0, y: 0, width: 420, height: 90, fill: "#fee2e2", stroke: "#ef4444", strokeWidth: 2, radius: 16 });
+var title = create("text", { x: 20, y: 24, text: "# Experiment 1", textColor: "#991b1b", align: "center" });`),
+
+  S('Make a bar chart of quarterly sales.', `
+var ch = create("chart", { type: "bar", labels: ["Q1", "Q2", "Q3", "Q4"], series: { Sales: [12, 19, 14, 22] } });`),
+
+  S('Plot the 3D surface z = sin(x)*cos(y).', `
+var s3 = create("surface3d", { formula: "sin(x)*cos(y)", axis: "z" });`),
+
+  S('Add a 2x3 grid table with headers.', `
+var gt = create("gridtable", { rows: 2, cols: 3, cells: [["Name", "Mass", "Speed"], ["Block", "20", "8"]] });`),
+
+  S('Add a slider that controls the mass of a block in real time.', `
+var block = create("block", { x: 0, y: 0, mass: 20 });
+var sl = create("slider", { x: 0, y: 220, min: 1, max: 50, step: 1, value: 20, label: "Mass", targetParamName: "mass" });`),
+
+  S('Add a button that toggles a value and a trigger that fires when speed passes 30.', `
+var btn = create("button", { label: "Pulse", actionType: "toggle" });
+var trg = create("trigger", { x: 0, y: 120, sourceParamName: "speed", condition: ">", threshold: 30, actionType: "toggle" });`),
+
+  S('Dim a resistor and lock it so it cannot be dragged.', `
+var r = create("resistor", { R: 470, opacity: 0.4, locked: true });`),
+
   S('Build a voltage divider: 9V battery with 1k and 2k resistors in series, and measure the output across the 2k.', `
 var bat = create("battery", { V: 9 });
 var r1 = create("resistor", { R: 1000, name: "R1" });

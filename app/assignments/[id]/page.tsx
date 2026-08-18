@@ -5,8 +5,10 @@
 // instead of the notebook sidebar's inline expandable row. Teacher-only
 // (students track their own assignments in the notebook Assignments panel).
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
+import { useNav } from '@/lib/use-nav'
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import { CalendarClock, Eye, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { RequireAuth } from '@/components/auth/require-auth'
@@ -59,7 +61,7 @@ const dueLabel = (a: AssignmentRow) =>
   a.due_at ? `Due ${new Date(a.due_at).toLocaleString()}` : 'No due date'
 
 function AssignmentDashboard({ id }: { id: string }) {
-  const router = useRouter()
+  const router = useNav()
   const profile = useAuthStore((s) => s.profile)!
   const [assignment, setAssignment] = useState<AssignmentRow | null>(null)
   const [subs, setSubs] = useState<SubmissionRow[]>([])
@@ -193,7 +195,7 @@ function AssignmentDashboard({ id }: { id: string }) {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <BounceLoader size={200} label="Loading assignment…" />
       </div>
     )
   }

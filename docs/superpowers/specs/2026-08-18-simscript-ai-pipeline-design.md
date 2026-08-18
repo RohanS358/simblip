@@ -91,13 +91,16 @@ interface SimScriptGenerator {
 Two implementations, identical prompt and output format:
 
 - **`OllamaGenerator`** — local, free, offline, used when reachable.
-- **`GatewayGenerator`** — Claude Haiku via Vercel AI Gateway (`"provider/model"`
-  string, no provider SDK lock-in). The only option that works for deployed
-  users, who cannot run Ollama at all.
+- **`openRouterGenerator`** — OpenRouter (`openrouter/free` by default). It is
+  OpenAI-compatible, so this is a plain `fetch` rather than another SDK, and
+  the free tier costs nothing. The only path that works for deployed users,
+  who cannot run Ollama at all. Model is overridable via `OPENROUTER_MODEL`.
 
-Selection: local when `OLLAMA_HOST` answers, hosted otherwise. The ~1k-token
-prompt is what makes the hosted per-request cost trivial — the representation
-choice is what makes the hosted option affordable.
+Selection: local when `OLLAMA_HOST` answers (probed with a 400ms timeout so a
+missing local server costs ~0.4s, not a full request timeout), hosted
+otherwise. `AI_BACKEND=ollama|openrouter` forces one. The ~1k-token prompt is
+what makes the hosted per-request cost trivial — the representation choice is
+what makes the hosted option affordable.
 
 ### [2] Verify — `lib/ai/simscript-lint.ts`
 
@@ -208,3 +211,40 @@ The verifier is pure, so it is directly unit-testable with no store or network.
 Multi-page/slide/deck generation. SimScript cannot create pages or slides
 today, and long multi-page generations fight the latency goal. Revisit once
 the single-page path is fast and correct.
+
+---
+
+## Implementation notes
+
+Built and verified 2026-08-18. Live end-to-end results (RTX 4060, local 7B):
+
+| prompt | time | passes | result |
+|---|---|---|---|
+| battery → switch → bulb | 8.9 s | 3 | 7 objects, 3 connections |
+| mass on a spring, plot vy | 3.0 s | 1 | 4 objects, 2 connections |
+| voltage divider + probe | 8.0 s | 2 | 9 objects, 4 connections |
+
+All three generate, verify **and execute** on a real doc store. A clean first
+pass is ~3 s; repairs cost ~3 s each, which is why the cap matters.
+
+### Bugs the end-to-end run exposed
+
+Static checks were not enough — each of these passed lint but broke in
+practice, and none would have been found without executing real model output:
+
+1. **Trailing `// comment` threw `Unexpected token ')'`.** The `with(sandbox)
+   { … }` wrapper put the body on one line, so a final comment swallowed the
+   closing brace. Present in **both** the linter and `executeSimScript`, so
+   fixing only the linter produced scripts that verified and then threw. Fixed
+   at both sites. This was a pre-existing runtime bug, not a new one.
+2. **A prose preamble ("Here is the script:") failed.** Now stripped like
+   fences — a ~2 s model round is far too expensive to spend on chit-chat.
+   Guarded so an all-prose reply still fails loudly rather than silently
+   becoming an empty "valid" script.
+3. **Commented-out code was still flagged.** The model's most common way to
+   obey "drop this line" is to comment it out; re-flagging it made the repair
+   loop unwinnable and burned all three attempts. Comments are now blanked
+   (preserving offsets) before the semantic scans.
+
+Lesson worth keeping: the verifier and the runtime must agree on what parses.
+Any future syntax handling belongs in one place, or they will drift again.

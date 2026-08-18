@@ -55,7 +55,29 @@ const POSITIONAL_ANCHOR = /^(?:centre|center|in|out|positive|negative|anode|cath
  */
 function stripFences(source: string): string {
   const fenced = source.match(/```(?:[a-zA-Z]*)\n([\s\S]*?)```/)
-  return (fenced ? fenced[1] : source.replace(/```[a-zA-Z]*\n?/g, '')).trim()
+  const body = (fenced ? fenced[1] : source.replace(/```[a-zA-Z]*\n?/g, '')).trim()
+  if (fenced) return body
+  // Unfenced prose preamble ("Here is the script:") — drop everything before
+  // the first line that actually looks like SimScript. Same reasoning as
+  // fences: a model round is far too expensive to spend on chit-chat we can
+  // strip for free. Only trims when a real statement is found, so a script
+  // that is ALL prose still fails loudly rather than becoming empty.
+  const lines = body.split('\n')
+  const first = lines.findIndex((l) => /^\s*(?:var|let|const)\s|^\s*(?:connect|create|addproperty|graph)\s*[.(]|^\s*\/\//.test(l))
+  return first > 0 ? lines.slice(first).join('\n').trim() : body
+}
+
+/**
+ * Blank out comments, keeping the string the same length.
+ *
+ * Replacing with spaces rather than deleting keeps every character offset
+ * intact, so positions reported from the scanned text still line up with the
+ * source the user (and the model) sees.
+ */
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length))
 }
 
 /**
@@ -125,8 +147,11 @@ export function lintSimScript(source: string): LintResult {
   // surfaces here.
   const transpiled = cleaned.replace(/\b(var|let|const)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)/g, '$2')
   try {
+    // The newlines are load-bearing: without them a script ending in a
+    // `// comment` swallows the closing brace and every valid trailing
+    // comment reads as a syntax error.
     // eslint-disable-next-line no-new-func
-    new Function('sandbox', `with(sandbox) { ${transpiled} }`)
+    new Function('sandbox', `with(sandbox) {\n${transpiled}\n}`)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     // Name the actual cause when it is the usual one: "Unexpected token '='"
@@ -140,12 +165,18 @@ export function lintSimScript(source: string): LintResult {
     return fail()
   }
 
-  const kinds = varKinds(cleaned)
+  // Every check below scans text, so commented-out code would still match —
+  // and a model that fixes an error by commenting the line out (a correct
+  // fix, and the one it reaches for most) would be flagged forever, making
+  // the repair loop unwinnable. Blank the comments, preserving offsets so
+  // any future line-number reporting stays accurate.
+  const code = stripComments(cleaned)
+  const kinds = varKinds(code)
 
   // 2. create() kinds.
   const createRe = /create\s*\(\s*(['"])([^'"]+)\1/g
   let m: RegExpExecArray | null
-  while ((m = createRe.exec(cleaned)) !== null) {
+  while ((m = createRe.exec(code)) !== null) {
     const kind = m[2].toLowerCase()
     if (kind === 'graph') {
       errors.push('create("graph") is wrong — use graph.plot(obj.channel) instead')
@@ -166,7 +197,7 @@ export function lintSimScript(source: string): LintResult {
   // silently wires to nothing, producing a scene that LOOKS built but is not
   // connected — the worst failure mode, because it is invisible.
   const connectRe = /connect\s*\(([^()]*)\)/g
-  while ((m = connectRe.exec(cleaned)) !== null) {
+  while ((m = connectRe.exec(code)) !== null) {
     const raw = m[1]
     const args = raw.split(',').map((s) => s.trim()).filter(Boolean)
     if (args.length < 2) {
@@ -204,7 +235,7 @@ export function lintSimScript(source: string): LintResult {
   // 4. graph.plot() channels. `graph.plot(bulb.channel)` parses fine and
   // plots nothing; the model invents `.channel`, `.value`, `.output` freely.
   const plotRe = /graph\s*\.\s*plot\s*\(([^()]*)\)/g
-  while ((m = plotRe.exec(cleaned)) !== null) {
+  while ((m = plotRe.exec(code)) !== null) {
     for (const arg of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
       if (/^['"]/.test(arg)) continue // a style string ("line", "bar", …)
       const parts = arg.match(/^([a-zA-Z_$][\w$]*)\s*\.\s*([a-zA-Z_$][\w$]*)$/)
@@ -224,7 +255,7 @@ export function lintSimScript(source: string): LintResult {
   // 5. addproperty() sanity. Physics on a battery is nonsense, and the model
   // reaches for rigidBody reflexively on anything it has just created.
   const addRe = /addproperty\s*\(\s*([a-zA-Z_$][\w$]*)\s*,\s*(['"])([^'"]+)\2/g
-  while ((m = addRe.exec(cleaned)) !== null) {
+  while ((m = addRe.exec(code)) !== null) {
     const kind = kinds[m[1]]
     if (!kind) continue
     const isCircuit = ANCHOR_INDEX[kind] !== undefined
@@ -236,8 +267,8 @@ export function lintSimScript(source: string): LintResult {
   }
 
   // 6. Soft signals.
-  if (/\bawait\b|\basync\b/.test(cleaned)) warnings.push('SimScript is synchronous — async/await does nothing')
-  if (/document\.|window\./.test(cleaned)) warnings.push('DOM access does nothing inside SimScript')
+  if (/\bawait\b|\basync\b/.test(code)) warnings.push('SimScript is synchronous — async/await does nothing')
+  if (/document\.|window\./.test(code)) warnings.push('DOM access does nothing inside SimScript')
 
   return { ok: errors.length === 0, errors, warnings, cleaned }
 }

@@ -6,8 +6,9 @@
 // Self-contained: owns its own drag-over feedback and file input, so it
 // works standalone with nothing wrapping it.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useRef, useState } from 'react'
-import { FileUp, Loader2 } from 'lucide-react'
+import { FileUp } from 'lucide-react'
 
 export function PdfDropzone({
   onFile,
@@ -50,10 +51,9 @@ export function PdfDropzone({
           </span>
         </div>
       )}
-      {converting ? (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <span className="text-[0.75rem]">{converting}</span>
+      {converting || openingLabel ? (
+        <div className="flex h-full flex-col items-center justify-center">
+          <BounceLoader size={200} label={converting || openingLabel || undefined} />
         </div>
       ) : (
         <button
@@ -63,18 +63,12 @@ export function PdfDropzone({
         >
           <FileUp className="h-8 w-8" />
           <span className="max-w-72 text-center text-[0.8125rem] leading-relaxed">
-            {openingLabel ? (
-              openingLabel
-            ) : (
-              <>
-                Upload a PDF or PowerPoint to read here
-                <br />
-                <span className="text-[0.6875rem] opacity-70">
-                  Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
-                  devices download their own copy the first time they open it.
-                </span>
-              </>
-            )}
+            Upload a PDF or PowerPoint to read here
+            <br />
+            <span className="text-[0.6875rem] opacity-70">
+              Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
+              devices download their own copy the first time they open it.
+            </span>
           </span>
         </button>
       )}

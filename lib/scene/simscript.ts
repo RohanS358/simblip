@@ -525,7 +525,11 @@ export function executeSimScript(
   })
 
   const transpiled = source.replace(/\b(var|let|const)\s+([a-zA-Z_$][0-9a-zA-Z_$]*)/g, '$2')
-  const fn = new Function('sandbox', `with(sandbox) { ${transpiled} }`)
+  // The newlines around the body are load-bearing: on one line, a script
+  // ending in a `// comment` swallows the closing brace and throws
+  // "Unexpected token ')'". Comments are ordinary, valid SimScript (the AI
+  // writes them constantly), so this must not depend on the last line.
+  const fn = new Function('sandbox', `with(sandbox) {\n${transpiled}\n}`)
   fn(sandbox)
 
   // ── Smart circuit auto-layout ──────────────────────────────────────────────

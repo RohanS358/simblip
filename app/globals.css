@@ -1187,3 +1187,87 @@ html {
     transform: translateY(0) scale(1);
   }
 }
+
+
+/* Bounce loader: shapes that re-roll their form, colour and arc on every hop.
+   JS writes a fresh randomised set of custom properties per hop, so the
+   keyframes only describe the up/down halves of the arc. Every length is a
+   unitless multiple of --stage-h, so the same markup works full-screen or
+   tucked into a viewer pane. */
+.bounce-stage {
+  --stage-h: 220px;
+  position: relative;
+  width: 100%;
+  height: var(--stage-h);
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.bounce-stage shape {
+  --base_scale: 0.16;
+  --bounce-variance: 0;
+  --offset: 0;
+  --rotation: 0deg;
+  --color: var(--accent-blue);
+  position: absolute;
+  bottom: calc(-0.14 * var(--stage-h));
+  left: calc(50% + var(--offset) * var(--stage-h));
+  display: block;
+  width: calc(var(--base_scale) * var(--stage-h));
+  height: calc(var(--base_scale) * var(--stage-h));
+  background: var(--color);
+  transform: translate(-50%, 0);
+}
+
+.bounce-stage shape.circle {
+  border-radius: 50%;
+}
+.bounce-stage shape.semi-circle {
+  border-radius: 100% 100% 0 0;
+}
+.bounce-stage shape.square {
+  border-radius: 2px;
+}
+.bounce-stage shape.rectangle {
+  height: calc(var(--base_scale) * var(--stage-h) / 2);
+  border-radius: 2px;
+}
+.bounce-stage shape.triangle {
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+.bounce-stage shape.triangle-2 {
+  clip-path: polygon(0% 0%, 100% 100%, 0% 100%);
+}
+
+.bounce-stage shape.bounce-up {
+  animation: shape-bounce-up 400ms cubic-bezier(0.2, 0.7, 0.4, 1) forwards;
+}
+.bounce-stage shape.bounce-down {
+  animation: shape-bounce-down 340ms cubic-bezier(0.55, 0, 0.85, 0.35) forwards;
+}
+
+@keyframes shape-bounce-up {
+  from {
+    transform: translate(-50%, 0) rotate(0deg);
+  }
+  to {
+    transform: translate(-50%, calc((-0.62 - var(--bounce-variance)) * var(--stage-h)))
+      rotate(var(--rotation));
+  }
+}
+
+@keyframes shape-bounce-down {
+  from {
+    transform: translate(-50%, calc((-0.62 - var(--bounce-variance)) * var(--stage-h)))
+      rotate(var(--rotation));
+  }
+  to {
+    transform: translate(-50%, 0) rotate(calc(var(--rotation) * 2));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bounce-stage {
+    display: none;
+  }
+}

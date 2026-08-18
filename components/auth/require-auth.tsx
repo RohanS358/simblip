@@ -4,9 +4,9 @@
 // store, blocks anonymous access, enforces role access, and applies the
 // institution's branding (accent color) to the shell.
 
+import { useNav } from '@/lib/use-nav'
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/lib/auth/store'
 import { homeFor, type Role } from '@/lib/auth/types'
 
@@ -18,7 +18,7 @@ export function RequireAuth({
   allow?: Role[]
   children: React.ReactNode
 }) {
-  const router = useRouter()
+  const router = useNav()
   const status = useAuthStore((s) => s.status)
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -51,11 +51,11 @@ export function RequireAuth({
 
   if (status !== 'authed' || !profile || (allow && !allow.includes(profile.role))) {
     return (
-      <div className="flex h-dvh flex-col items-center justify-center gap-3 bg-background">
+      <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
+        <BounceLoader size={240} />
         <span className="text-[14px] font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
-        {status === 'loading' && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
         <span className="text-[12px] text-muted-foreground">
           {status === 'loading' ? 'Checking your session…' : 'Redirecting to sign in…'}
         </span>

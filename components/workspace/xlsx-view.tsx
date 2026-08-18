@@ -10,6 +10,7 @@
 // mounted imperatively into a ref'd container, same pattern pdf.js's canvas
 // rendering uses elsewhere in this codebase.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -169,9 +170,8 @@ export function XlsxView({ pageId }: { pageId: string }) {
       </div>
       <div className="relative min-h-0 flex-1">
         {importing && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-background/80 text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin" />
-            <span className="text-[0.75rem]">Importing spreadsheet…</span>
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">
+            <BounceLoader size={190} label="Opening spreadsheet…" />
           </div>
         )}
         <div ref={containerRef} className="h-full w-full" />

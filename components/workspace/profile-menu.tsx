@@ -3,7 +3,7 @@
 // The signed-in identity, top-right of every shell. Role-aware navigation
 // (admin console, assignments), settings, and sign-out.
 
-import { useRouter } from 'next/navigation'
+import { useNav } from '@/lib/use-nav'
 import { useState } from 'react'
 import { Bug, ClipboardList, LogOut, NotebookPen, Settings, ShieldCheck } from 'lucide-react'
 import { BugReportDialog } from './bug-report-dialog'
@@ -29,7 +29,7 @@ const initials = (name: string) =>
     .join('')
 
 export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void }) {
-  const router = useRouter()
+  const router = useNav()
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
   const [bugOpen, setBugOpen] = useState(false)

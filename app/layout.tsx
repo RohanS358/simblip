@@ -18,6 +18,7 @@ import { TermsGate } from '@/components/legal/terms-gate'
 import { StorageNotice } from '@/components/legal/storage-notice'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
+import { RouteLoader } from '@/components/route-loader'
 import { InstallPrompt } from '@/components/install-prompt'
 import { Toaster } from '@/components/ui/sonner'
 import 'katex/dist/katex.min.css'
@@ -197,6 +198,7 @@ export default async function RootLayout({
               account is signed in, and both skip room-board displays. */}
           <TermsGate />
           <StorageNotice />
+          <RouteLoader />
           <Toaster position="bottom-right" />
         </ThemeProvider>
         <PwaRegister />

@@ -5,6 +5,7 @@
 // panel, notification center and a status bar. The notebook is the medium;
 // the simulation engine is the product — the transport sits front and center.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
@@ -522,8 +523,11 @@ export function WorkspaceShell() {
 
   if (!ready) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-background">
-        <span className="text-[0.8125rem] tracking-wide text-muted-foreground">SIMBLIP</span>
+      <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
+        <BounceLoader size={240} />
+        <span className="text-[0.8125rem] font-extrabold tracking-tight">
+          SIM<span className="text-[var(--accent-blue)]">BLIP</span>
+        </span>
       </div>
     )
   }

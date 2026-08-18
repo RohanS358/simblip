@@ -5,10 +5,10 @@
 // & page list) → editor (full-bleed canvas, no sidebar, properties as a
 // bottom sheet, the top-right actions collapsed into one menu).
 
+import { useNav } from '@/lib/use-nav'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { useRouter } from 'next/navigation'
 import {
   ArrowLeft,
   ArrowRight,
@@ -274,7 +274,7 @@ function FileSyncDropdownItem({ fileId }: { fileId: string }) {
 }
 
 export function MobileShell() {
-  const router = useRouter()
+  const router = useNav()
   const { resolvedTheme, setTheme } = useTheme()
   // Mirrored into the persisted mobile-tab store on every change, so
   // reopening the app returns to the same screen. Local state stays the

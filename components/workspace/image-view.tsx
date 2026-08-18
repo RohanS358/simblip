@@ -5,6 +5,7 @@
 // per-page annotation layer — the shell's real board dock (pen/eraser/undo)
 // draws right on top of the image. No pixel editing of the image itself.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
@@ -71,7 +72,7 @@ export function ImageView({ pageId }: { pageId: string }) {
   return (
     <div className="flex h-full w-full items-center justify-center overflow-auto bg-muted/40 p-3 sm:p-6">
       {!url ? (
-        <span className="text-[0.75rem] text-muted-foreground">Loading…</span>
+        <BounceLoader size={170} label="Opening image…" />
       ) : (
         <div
           ref={hostRef}

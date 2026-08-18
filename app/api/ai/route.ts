@@ -1,18 +1,35 @@
-// AI gateway — backed by a LOCAL Ollama model with native tool-calling.
-// Every palette component is a generated tool (lib/ai/tools.ts, derived from
-// the same COMPONENTS/BEHAVIOR_SPECS registries the palette and Inspector
-// read); the model calls them to build a real draft scene, which is
-// validated against the Simulation JSON schema and returned. Nothing here
-// ever touches the canvas directly — the client's "Add to canvas" button is
-// still the only path in (lib/ai/import.ts), same contract as before.
+// AI gateway — one SimScript generation, statically verified before it can
+// reach a canvas.
+//
+// This replaced a 103-tool function-calling agent whose tool schemas alone
+// were ~17,981 prompt tokens, re-sent on every step of a loop that ran up to
+// 24 times. The SimScript prompt is ~1,021 tokens and runs once: measured
+// ~11.9s/round -> ~2.2s total on an RTX 4060. See
+// docs/superpowers/specs/2026-08-18-simscript-ai-pipeline-design.md.
+//
+// The contract with the client is unchanged in spirit: NOTHING here touches
+// the canvas. The route returns verified script text, and the user's "Add to
+// canvas" button still executes it (now via executeSimScript rather than the
+// old JSON importer), so the AI remains an assistant that produces the same
+// thing a user could have typed by hand.
 
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { aiResponseSchema, type AiResponse } from '@/lib/ai/schema'
-import { runAgent, OllamaUnreachableError } from '@/lib/ai/ollama'
-import { draftToPayload } from '@/lib/ai/tools'
+import type { AiResponse } from '@/lib/ai/schema'
+import {
+  generateSimScript,
+  GenerationFailedError,
+  GeneratorUnavailableError,
+  prewarm,
+} from '@/lib/ai/generate'
+import { SIMSCRIPT_SYSTEM_PROMPT } from '@/lib/ai/simscript-corpus'
 
 export const maxDuration = 300
+
+// Load the local model's weights once at module init rather than making the
+// first user pay the 8.7s cold start. Fire-and-forget: a machine with no
+// local Ollama is a supported configuration and this fails silently there.
+void prewarm()
 
 const requestSchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -24,30 +41,24 @@ const requestSchema = z.object({
     .optional(),
 })
 
+/** The base language card plus whatever the page already contains, so the
+ *  model reuses existing variables instead of redefining them and doesn't
+ *  stack new objects on top of old ones. */
 function systemPrompt(pageContext?: { variables: { name: string; expr: string }[]; objectCount: number }): string {
-  const existingVars =
-    pageContext && pageContext.variables.length > 0
-      ? `The page already has these variables — reuse them by name instead of redefining: ${pageContext.variables.map((v) => `${v.name}=${v.expr}`).join(', ')}.`
-      : ''
-  const pageState =
-    pageContext && pageContext.objectCount > 0
-      ? `The page already has ${pageContext.objectCount} object(s) on it — place new ones so they don't overlap what's there.`
-      : ''
-  return [
-    "You are SIMBLIP's simulation-building assistant. Build the user's request by calling the",
-    'provided placement tools (each one drops a real component — mass, spring, resistor, etc. —',
-    'exactly as if the user had drawn and attached behaviors to it by hand), then call `finish` once.',
-    existingVars,
-    pageState,
-    '',
-    'When you call `finish`, write `message` as a short, plain-language rationale in the language of',
-    "the lesson, not a changelog — say what you added and WHY, the way a teacher would explain it,",
-    'e.g. "I added a spring (k defaults to moderate stiffness) and a mass below it, with a ground so',
-    'it has something to rest against." One or two sentences. Never mention tool names or internal',
-    'IDs in that message.',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  const extra: string[] = []
+  if (pageContext && pageContext.variables.length > 0) {
+    extra.push(
+      `The page already defines these variables — reuse them by name instead of redefining: ${pageContext.variables
+        .map((v) => `${v.name}=${v.expr}`)
+        .join(', ')}.`
+    )
+  }
+  if (pageContext && pageContext.objectCount > 0) {
+    extra.push(
+      `The page already has ${pageContext.objectCount} object(s); give new components explicit x/y so they don't overlap.`
+    )
+  }
+  return extra.length > 0 ? `${SIMSCRIPT_SYSTEM_PROMPT}\n\nPAGE CONTEXT\n${extra.join('\n')}` : SIMSCRIPT_SYSTEM_PROMPT
 }
 
 export async function POST(req: Request) {
@@ -63,31 +74,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
-  let response: AiResponse
   try {
-    const agent = await runAgent(systemPrompt(parsed.data.pageContext), parsed.data.prompt)
-    response = {
-      message: agent.message,
-      simulation:
-        agent.draft.objects.length > 0
-          ? draftToPayload(agent.draft, parsed.data.prompt.slice(0, 60), agent.message)
-          : undefined,
-    }
+    const result = await generateSimScript(parsed.data.prompt, {
+      systemPrompt: systemPrompt(parsed.data.pageContext),
+    })
+    return NextResponse.json({
+      message:
+        result.attempts > 1
+          ? `Built it (took ${result.attempts} passes to get right).`
+          : 'Built it — review the script, then add it to the canvas.',
+      script: result.script,
+    } satisfies AiResponse)
   } catch (e) {
-    if (e instanceof OllamaUnreachableError) {
+    // A model that couldn't converge is reported honestly rather than
+    // shipping a broken scene. The last attempt is returned so the user can
+    // still read (and fix) what it tried.
+    if (e instanceof GenerationFailedError) {
+      return NextResponse.json({
+        message: `${e.message}\n\nWhat went wrong: ${e.errors.slice(0, 3).join(' · ')}`,
+        script: e.script || undefined,
+      } satisfies AiResponse)
+    }
+    if (e instanceof GeneratorUnavailableError) {
       return NextResponse.json({ message: e.message } satisfies AiResponse)
     }
-    return NextResponse.json({ message: `AI pipeline error: ${e instanceof Error ? e.message : String(e)}` } satisfies AiResponse)
-  }
-
-  // Validate our own output — the model's tool arguments can still be
-  // malformed (e.g. a non-existent behavior param), so this is the same
-  // gate any future non-Ollama backend would have to pass too.
-  const validated = aiResponseSchema.safeParse(response)
-  if (!validated.success) {
     return NextResponse.json({
-      message: `${response.message}\n\n(Note: the built simulation failed validation and was dropped: ${validated.error.issues[0]?.message ?? 'unknown error'})`,
+      message: `AI pipeline error: ${e instanceof Error ? e.message : String(e)}`,
     } satisfies AiResponse)
   }
-  return NextResponse.json(validated.data)
 }

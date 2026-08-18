@@ -22,9 +22,10 @@
 // they're published to usePdfDockStore and rendered from PageControlsMenu in
 // the tab bar instead, so reading a PDF doesn't cost any canvas real estate.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
-import { Loader2, TableOfContents, X } from 'lucide-react'
+import { TableOfContents, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
 import { CONVERTIBLE } from '@/lib/store/to-pdf'
@@ -771,9 +772,8 @@ useLayoutEffect(() => {
           </div>
         )}
         {converting ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <span className="text-[0.75rem]">{converting}</span>
+          <div className="flex h-full flex-col items-center justify-center">
+            <BounceLoader size={200} label={converting} />
           </div>
         ) : !doc ? (
           <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />

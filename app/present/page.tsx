@@ -5,8 +5,10 @@
 // (?session=…). Drives the whole lifecycle: pick a page → Present → live →
 // End → merge the board's temporary copy back or discard it.
 
+import { BounceLoader } from '@/components/ui/bounce-loader'
+import { useNav } from '@/lib/use-nav'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import {
   CheckCircle2,
   ChevronLeft,
@@ -81,7 +83,7 @@ type Phase =
 
 function PresentController() {
   const params = useSearchParams()
-  const router = useRouter()
+  const router = useNav()
   const [phase, setPhase] = useState<Phase>('resolving')
   const [board, setBoard] = useState<BoardRow | null>(null)
   const [room, setRoom] = useState<RoomRow | null>(null)
@@ -245,8 +247,8 @@ function PresentController() {
   return (
     <div className="mx-auto max-w-md space-y-4 pt-8">
       {phase === 'resolving' && (
-        <div className="flex items-center justify-center gap-2 py-16 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Connecting to the board…
+        <div className="flex items-center justify-center py-10">
+          <BounceLoader size={180} label="Connecting to the board…" />
         </div>
       )}
 
@@ -797,8 +799,8 @@ export default function PresentPage() {
       <PageShell title="Present">
         <Suspense
           fallback={
-            <div className="flex items-center justify-center py-16 text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
+            <div className="flex items-center justify-center py-10">
+              <BounceLoader size={180} label="Loading…" />
             </div>
           }
         >

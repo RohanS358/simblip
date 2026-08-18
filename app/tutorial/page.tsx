@@ -1,10 +1,10 @@
 'use client'
 
+import { useNav } from '@/lib/use-nav'
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 
 export default function TutorialPage() {
-  const router = useRouter()
+  const router = useNav()
   useEffect(() => {
     router.replace('/notebook')
   }, [router])
