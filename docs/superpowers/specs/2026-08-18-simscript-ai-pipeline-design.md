@@ -248,3 +248,24 @@ practice, and none would have been found without executing real model output:
 
 Lesson worth keeping: the verifier and the runtime must agree on what parses.
 Any future syntax handling belongs in one place, or they will drift again.
+
+### Streaming (implemented)
+
+Measured: **first token at 236 ms**, full result at 2,046 ms. Nothing got
+faster — the blank wait disappeared, which is the whole point.
+
+`/api/ai` takes `stream: true` and answers with SSE: `event: token` frames for
+display, then one `event: done` carrying the verified script. Tokens are
+**display only**; a script cannot be verified until complete, so only the
+`done` payload may reach the canvas. Streaming is suppressed on repair
+attempts — watching the script get rewritten reads as a glitch, not progress.
+
+### A fourth bug, caught by the HTTP test
+
+`graph.plot(battery.channel.V)` came back from a real streamed request and
+passed the verifier: the anchor/channel regexes matched only single-level
+access, so a chain slipped through and would have plotted nothing. Chained
+access is never valid SimScript (an anchor or channel is always exactly one
+property), and it is what the model reaches for when unsure of a name. Now
+rejected in both `connect()` and `graph.plot()`, with the real one-level form
+suggested.

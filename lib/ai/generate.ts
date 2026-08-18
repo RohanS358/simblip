@@ -43,7 +43,77 @@ export class GeneratorUnavailableError extends Error {}
  */
 export interface SimScriptGenerator {
   readonly name: string
-  generate(system: string, user: string): Promise<string>
+  /** `onToken` is DISPLAY ONLY. It fires as text arrives so the UI can show
+   *  the script being written (~2.1s of the ~2.2s is generation, so this is
+   *  the whole perceived-speed win). It is never the authoritative output —
+   *  only the verified return value is, because a script can only be checked
+   *  once it is complete. */
+  generate(system: string, user: string, onToken?: (chunk: string) => void): Promise<string>
+}
+
+// ── Stream readers ──────────────────────────────────────────────────────────
+// Two wire formats, one job: hand each text chunk to `onToken` and return the
+// full text at the end. Both must tolerate a chunk boundary landing mid-line,
+// which is why the trailing partial line is carried over rather than parsed.
+
+/** Ollama: newline-delimited JSON, one object per token. */
+async function readNdjson(
+  res: Response,
+  pick: (o: unknown) => string | undefined,
+  onToken: (chunk: string) => void
+): Promise<string> {
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let full = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? '' // last element may be a partial line
+    for (const line of lines) {
+      if (!line.trim()) continue
+      try {
+        const piece = pick(JSON.parse(line))
+        if (piece) { full += piece; onToken(piece) }
+      } catch {
+        // A malformed line is not worth failing the whole generation over.
+      }
+    }
+  }
+  return full
+}
+
+/** OpenAI-compatible SSE: `data: {...}` lines, ending with `data: [DONE]`. */
+async function readSse(res: Response, onToken: (chunk: string) => void): Promise<string> {
+  const reader = res.body?.getReader()
+  if (!reader) return ''
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let full = ''
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    const lines = buffer.split('\n')
+    buffer = lines.pop() ?? ''
+    for (const line of lines) {
+      const trimmed = line.trim()
+      if (!trimmed.startsWith('data:')) continue
+      const payload = trimmed.slice(5).trim()
+      if (payload === '[DONE]') continue
+      try {
+        const o = JSON.parse(payload) as { choices?: { delta?: { content?: string } }[] }
+        const piece = o.choices?.[0]?.delta?.content
+        if (piece) { full += piece; onToken(piece) }
+      } catch {
+        // ditto
+      }
+    }
+  }
+  return full
 }
 
 // ── Local: Ollama ───────────────────────────────────────────────────────────
@@ -54,7 +124,7 @@ const OLLAMA_TIMEOUT_MS = 60_000
 
 export const ollamaGenerator: SimScriptGenerator = {
   name: `ollama:${OLLAMA_MODEL}`,
-  async generate(system, user) {
+  async generate(system, user, onToken) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
     try {
@@ -67,7 +137,7 @@ export const ollamaGenerator: SimScriptGenerator = {
             { role: 'system', content: system },
             { role: 'user', content: user },
           ],
-          stream: false,
+          stream: !!onToken,
           // Cold start measured at 8.7s — nearly 4x the warm generation
           // itself, and the single largest component of perceived latency.
           // Keeping the weights resident removes it entirely.
@@ -83,8 +153,12 @@ export const ollamaGenerator: SimScriptGenerator = {
         const text = await res.text().catch(() => '')
         throw new Error(`Ollama responded ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`)
       }
-      const json = (await res.json()) as { message?: { content?: string } }
-      return json.message?.content ?? ''
+      if (!onToken) {
+        const json = (await res.json()) as { message?: { content?: string } }
+        return json.message?.content ?? ''
+      }
+      // Ollama streams newline-delimited JSON, one object per token.
+      return await readNdjson(res, (o) => (o as { message?: { content?: string } }).message?.content, onToken)
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
         throw new GeneratorUnavailableError(`Ollama timed out after ${OLLAMA_TIMEOUT_MS / 1000}s`)
@@ -110,7 +184,7 @@ const OPENROUTER_TIMEOUT_MS = 60_000
 
 export const openRouterGenerator: SimScriptGenerator = {
   name: `openrouter:${OPENROUTER_MODEL}`,
-  async generate(system, user) {
+  async generate(system, user, onToken) {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) throw new GeneratorUnavailableError('OPENROUTER_API_KEY is not set')
     const controller = new AbortController()
@@ -134,6 +208,7 @@ export const openRouterGenerator: SimScriptGenerator = {
           ],
           temperature: 0.2,
           max_tokens: 700,
+          stream: !!onToken,
         }),
         signal: controller.signal,
       })
@@ -141,8 +216,12 @@ export const openRouterGenerator: SimScriptGenerator = {
         const text = await res.text().catch(() => '')
         throw new Error(`OpenRouter responded ${res.status}${text ? `: ${text.slice(0, 200)}` : ''}`)
       }
-      const json = (await res.json()) as { choices?: { message?: { content?: string } }[] }
-      return json.choices?.[0]?.message?.content ?? ''
+      if (!onToken) {
+        const json = (await res.json()) as { choices?: { message?: { content?: string } }[] }
+        return json.choices?.[0]?.message?.content ?? ''
+      }
+      // OpenAI-compatible SSE: `data: {...}` lines, terminated by `data: [DONE]`.
+      return await readSse(res, onToken)
     } catch (e) {
       if (e instanceof Error && e.name === 'AbortError') {
         throw new GeneratorUnavailableError(`OpenRouter timed out after ${OPENROUTER_TIMEOUT_MS / 1000}s`)
@@ -226,7 +305,14 @@ function repairPrompt(script: string, errors: string[]): string {
  */
 export async function generateSimScript(
   userPrompt: string,
-  opts: { generator?: SimScriptGenerator; systemPrompt?: string } = {}
+  opts: {
+    generator?: SimScriptGenerator
+    systemPrompt?: string
+    /** Display-only token callback; see SimScriptGenerator.generate. Fires on
+     *  the FIRST attempt only — streaming a repair would show the user the
+     *  script being rewritten, which reads as a glitch rather than progress. */
+    onToken?: (chunk: string) => void
+  } = {}
 ): Promise<GenerateResult> {
   const generator = opts.generator ?? (await pickGenerator())
   const system = opts.systemPrompt ?? SIMSCRIPT_SYSTEM_PROMPT
@@ -236,7 +322,7 @@ export async function generateSimScript(
   let lastErrors: string[] = []
 
   for (let attempt = 1; attempt <= MAX_REPAIRS + 1; attempt++) {
-    const raw = await generator.generate(system, prompt)
+    const raw = await generator.generate(system, prompt, attempt === 1 ? opts.onToken : undefined)
     const result = lintSimScript(raw)
     lastScript = result.cleaned
     lastErrors = result.errors

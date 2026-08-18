@@ -24,12 +24,16 @@ export function AiBubble({ pageId }: { pageId: string }) {
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<AiResponse | null>(null)
+  // Live token preview. Display only — the canvas never sees this, because a
+  // script can't be verified until it's complete. Cleared once `done` lands.
+  const [streamed, setStreamed] = useState('')
 
   const submit = async () => {
     const text = prompt.trim()
     if (!text || loading) return
     setLoading(true)
     setResult(null)
+    setStreamed('')
     try {
       const page = useDocStore.getState().pages[pageId]
       const res = await fetch('/api/ai', {
@@ -37,6 +41,7 @@ export function AiBubble({ pageId }: { pageId: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: text,
+          stream: true,
           pageContext: page
             ? {
                 variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
@@ -45,8 +50,27 @@ export function AiBubble({ pageId }: { pageId: string }) {
             : undefined,
         }),
       })
-      const data = (await res.json()) as AiResponse
-      setResult(data)
+      const reader = res.body?.getReader()
+      if (!reader) throw new Error('No response body')
+      const decoder = new TextDecoder()
+      let buffer = ''
+      for (;;) {
+        const { done, value } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        // SSE frames are separated by a blank line; the tail may be partial.
+        const frames = buffer.split('\n\n')
+        buffer = frames.pop() ?? ''
+        for (const frame of frames) {
+          const evt = /^event:\s*(.+)$/m.exec(frame)?.[1]
+          const raw = /^data:\s*([\s\S]*)$/m.exec(frame)?.[1]
+          if (!evt || raw === undefined) continue
+          if (evt === 'token') setStreamed((prev) => prev + (JSON.parse(raw) as string))
+          // `done` carries the VERIFIED script — the streamed text was only
+          // ever a preview and is replaced by it, never added to the canvas.
+          else if (evt === 'done') setResult(JSON.parse(raw) as AiResponse)
+        }
+      }
     } catch (e) {
       setResult({ message: e instanceof Error ? e.message : 'Request failed.' })
     } finally {
@@ -119,12 +143,14 @@ export function AiBubble({ pageId }: { pageId: string }) {
         <div className="rounded-lg bg-accent/40 p-2 text-[0.71875rem] leading-relaxed">{result.message}</div>
       )}
 
-      {result?.script && (
+      {(result?.script || (loading && streamed)) && (
         // Showing the script is the point, not decoration: SimScript is the
         // app's own language, so a draft doubles as a worked example the user
-        // can read and reuse.
+        // can read and reuse. While generating, this shows the live stream —
+        // ~2.1s of the ~2.2s is token emission, so watching it appear removes
+        // the blank wait entirely.
         <pre className="max-h-40 overflow-auto rounded-lg bg-card/70 p-2 font-mono text-[0.65625rem] leading-relaxed">
-          {result.script}
+          {result?.script ?? streamed}
         </pre>
       )}
 

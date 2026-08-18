@@ -94,6 +94,23 @@ function varKinds(source: string): Record<string, string> {
   return out
 }
 
+/**
+ * Split `obj.member` into its two parts.
+ *
+ * Returns null for anything that is not exactly one level deep. Chained
+ * access (`battery.channel.V`, `bulb.a.x`) is never valid SimScript — an
+ * anchor or channel is always a single property — and the model reaches for
+ * it when it is unsure of the real name. Matching loosely here let those
+ * through silently, producing a plot of nothing.
+ */
+function splitAccess(arg: string): { varName: string; member: string } | null {
+  const m = arg.match(/^([a-zA-Z_$][\w$]*)\s*\.\s*([a-zA-Z_$][\w$]*)$/)
+  return m ? { varName: m[1], member: m[2] } : null
+}
+
+/** Is this a deeper property chain than SimScript allows? */
+const isChained = (arg: string): boolean => /^[a-zA-Z_$][\w$]*(?:\s*\.\s*[a-zA-Z_$][\w$]*){2,}$/.test(arg)
+
 /** Does `kind` accept `anchor`? Mirrors resolveAnchor's lookup order exactly
  *  (raw name, then input→in / output→out normalized, then _t2, then the
  *  positional fallbacks) so a name the runtime WOULD resolve never errors. */
@@ -205,7 +222,14 @@ export function lintSimScript(source: string): LintResult {
       continue
     }
     for (const arg of args.slice(0, 2)) {
-      const parts = arg.match(/^([a-zA-Z_$][\w$]*)\s*\.\s*([a-zA-Z_$][\w$]*)$/)
+      if (isChained(arg)) {
+        const root = arg.split('.')[0].trim()
+        errors.push(
+          `connect(${raw.trim()}) — "${arg}" goes too deep; an anchor is one property, e.g. ${root}.${anchorNames(kinds[root] ?? '')[0] ?? 'a'}`
+        )
+        continue
+      }
+      const parts = splitAccess(arg)
       if (!parts) {
         // A bare identifier that we know is an object is the missing-anchor case.
         const bare = arg.match(/^([a-zA-Z_$][\w$]*)$/)
@@ -219,7 +243,7 @@ export function lintSimScript(source: string): LintResult {
         }
         continue
       }
-      const [, varName, anchor] = parts
+      const { varName, member: anchor } = parts
       const kind = kinds[varName]
       if (!kind) continue // unknown variable — not this check's business
       if (!anchorValid(kind, anchor)) {
@@ -238,9 +262,18 @@ export function lintSimScript(source: string): LintResult {
   while ((m = plotRe.exec(code)) !== null) {
     for (const arg of m[1].split(',').map((s) => s.trim()).filter(Boolean)) {
       if (/^['"]/.test(arg)) continue // a style string ("line", "bar", …)
-      const parts = arg.match(/^([a-zA-Z_$][\w$]*)\s*\.\s*([a-zA-Z_$][\w$]*)$/)
+      if (isChained(arg)) {
+        const root = arg.split('.')[0].trim()
+        const legal = channelsOf(kinds[root] ?? '')
+        errors.push(
+          `graph.plot(${arg}) — "${arg}" goes too deep; plot a channel directly` +
+            (legal.length > 0 ? `, e.g. ${root}.${legal[0]} (valid: ${legal.join(', ')})` : '')
+        )
+        continue
+      }
+      const parts = splitAccess(arg)
       if (!parts) continue
-      const [, varName, channel] = parts
+      const { varName, member: channel } = parts
       const kind = kinds[varName]
       if (!kind) continue
       const legal = channelsOf(kind)

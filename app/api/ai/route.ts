@@ -31,8 +31,25 @@ export const maxDuration = 300
 // local Ollama is a supported configuration and this fails silently there.
 void prewarm()
 
+/** Both response paths shape failures identically, so the client only ever
+ *  has one thing to render. A model that couldn't converge is reported
+ *  honestly rather than shipping a broken scene; its last attempt still comes
+ *  back so the user can read (and fix) what it tried. */
+function errorResponse(e: unknown): AiResponse {
+  if (e instanceof GenerationFailedError) {
+    return {
+      message: `${e.message}\n\nWhat went wrong: ${e.errors.slice(0, 3).join(' · ')}`,
+      script: e.script || undefined,
+    }
+  }
+  if (e instanceof GeneratorUnavailableError) return { message: e.message }
+  return { message: `AI pipeline error: ${e instanceof Error ? e.message : String(e)}` }
+}
+
 const requestSchema = z.object({
   prompt: z.string().min(1).max(4000),
+  /** Opt-in SSE. Off by default so the plain JSON contract still works. */
+  stream: z.boolean().optional(),
   pageContext: z
     .object({
       variables: z.array(z.object({ name: z.string(), expr: z.string() })),
@@ -74,6 +91,48 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
   }
 
+  // Streaming path. ~2.1s of the ~2.2s generation is token emission, so
+  // showing the script as it is written is the single biggest PERCEIVED
+  // speed win available — it does not make anything faster, it removes the
+  // blank wait. Tokens are display only; the terminating `done` event carries
+  // the authoritative, verified script (a script cannot be checked until it
+  // is complete, and an unverified one must never reach the canvas).
+  if (parsed.data.stream) {
+    const system = systemPrompt(parsed.data.pageContext)
+    const userPrompt = parsed.data.prompt
+    const encoder = new TextEncoder()
+    const body = new ReadableStream({
+      async start(controller) {
+        const send = (event: string, data: unknown) =>
+          controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+        try {
+          const result = await generateSimScript(userPrompt, {
+            systemPrompt: system,
+            onToken: (chunk) => send('token', chunk),
+          })
+          send('done', {
+            message:
+              result.attempts > 1
+                ? `Built it (took ${result.attempts} passes to get right).`
+                : 'Built it — review the script, then add it to the canvas.',
+            script: result.script,
+          } satisfies AiResponse)
+        } catch (e) {
+          send('done', errorResponse(e))
+        } finally {
+          controller.close()
+        }
+      },
+    })
+    return new Response(body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        Connection: 'keep-alive',
+      },
+    })
+  }
+
   try {
     const result = await generateSimScript(parsed.data.prompt, {
       systemPrompt: systemPrompt(parsed.data.pageContext),
@@ -89,17 +148,6 @@ export async function POST(req: Request) {
     // A model that couldn't converge is reported honestly rather than
     // shipping a broken scene. The last attempt is returned so the user can
     // still read (and fix) what it tried.
-    if (e instanceof GenerationFailedError) {
-      return NextResponse.json({
-        message: `${e.message}\n\nWhat went wrong: ${e.errors.slice(0, 3).join(' · ')}`,
-        script: e.script || undefined,
-      } satisfies AiResponse)
-    }
-    if (e instanceof GeneratorUnavailableError) {
-      return NextResponse.json({ message: e.message } satisfies AiResponse)
-    }
-    return NextResponse.json({
-      message: `AI pipeline error: ${e instanceof Error ? e.message : String(e)}`,
-    } satisfies AiResponse)
+    return NextResponse.json(errorResponse(e))
   }
 }
