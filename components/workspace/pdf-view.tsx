@@ -581,6 +581,98 @@ useLayoutEffect(() => {
     }
   }
 
+  // ── Reading position ──────────────────────────────────────────────────────
+  // Where you were in a PDF is part of the page, not of this component: a
+  // reader that always reopens at page 1 makes a long document unusable.
+  //
+  // It is stored as {page, offset-within-that-page} rather than a scrollTop,
+  // because scrollTop is meaningless the moment the zoom or the window size
+  // changes — the same pixel lands on a different page. Page + fraction is
+  // stable across both.
+
+  /** Read the live position off the DOM: the topmost page still crossing the
+   *  viewport top, and how far into it we are. */
+  const readScrollPos = useCallback((): { page: number; offset: number } | null => {
+    const el = readerRef.current
+    if (!el) return null
+    const hosts = el.querySelectorAll<HTMLElement>('[data-pdf-page-num]')
+    const top = el.getBoundingClientRect().top
+    let best: { page: number; offset: number } | null = null
+    for (const host of Array.from(hosts)) {
+      const r = host.getBoundingClientRect()
+      if (r.height <= 0) continue
+      if (r.top - top <= 1) best = {
+        page: Number(host.dataset.pdfPageNum),
+        offset: Math.min(1, Math.max(0, (top - r.top) / r.height)),
+      }
+      else break // hosts are in document order; the first one below the fold ends it
+    }
+    return best
+  }, [])
+
+  // Persist on a debounce while scrolling (and once on unmount, so closing the
+  // tab straight after a scroll still records where you were).
+  const savedPosRef = useRef<{ page: number; offset: number } | null>(null)
+  useEffect(() => {
+    const el = readerRef.current
+    if (!el || !doc) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const save = () => {
+      timer = null
+      const pos = readScrollPos()
+      if (!pos) return
+      const prev = savedPosRef.current
+      if (prev && prev.page === pos.page && Math.abs(prev.offset - pos.offset) < 0.01) return
+      savedPosRef.current = pos
+      useWorkspaceStore.getState().updatePageMeta(pageId, { pdfScroll: pos })
+    }
+    const onScroll = () => {
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(save, 300)
+    }
+    el.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      el.removeEventListener('scroll', onScroll)
+      if (timer) clearTimeout(timer)
+      save()
+    }
+  }, [doc, pageId, readScrollPos])
+
+  // Restore once per opened document. Waits for the target page host to have
+  // real height — pages are virtualised and start at an assumed aspect ratio,
+  // so scrolling before layout settles lands in the wrong place.
+  const restoredRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!doc) return
+    const saved = findPageMeta(useWorkspaceStore.getState().nodes, pageId)?.pdfScroll
+    if (!saved || saved.page <= 1 && saved.offset === 0) {
+      restoredRef.current = pageId
+      return
+    }
+    if (restoredRef.current === pageId) return
+    restoredRef.current = pageId
+    let tries = 0
+    const attempt = () => {
+      const el = readerRef.current
+      const host = el?.querySelector<HTMLElement>(`[data-pdf-page-num="${saved.page}"]`)
+      if (el && host && host.offsetHeight > 0) {
+        // offsetTop/offsetHeight are LAYOUT metrics — unaffected by the
+        // contentRef `transform: scale()` zoom — while scrollTop lives in
+        // scaled space, so the target has to be multiplied back up.
+        el.scrollTop = (host.offsetTop + host.offsetHeight * saved.offset) * zoom
+        setCurrent(saved.page)
+        return
+      }
+      if (tries++ < 40) requestAnimationFrame(attempt)
+    }
+    requestAnimationFrame(attempt)
+    // `zoom` is read inside attempt() but deliberately not a dependency:
+    // restoredRef makes this run exactly once per opened document, and
+    // re-running it on a later zoom change would yank the reader back to the
+    // saved spot mid-gesture.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, pageId])
+
   const reader = (
     <div className="relative flex h-full w-full min-w-0 flex-1 overflow-hidden">
       {/* Toggleable Table of Contents Side Rail */}

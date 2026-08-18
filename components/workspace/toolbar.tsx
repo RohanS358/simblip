@@ -443,7 +443,13 @@ export function Toolbar({
   const toolbarRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const handleClickOutside = (e: PointerEvent) => {
-      if (toolbarRef.current && !toolbarRef.current.contains(e.target as Node)) {
+      const target = e.target as Node
+      // Radix popovers/menus opened from inside a flyout (the pen colour
+      // picker, above all) render in a portal at the body root, so a click
+      // in them is "outside" the toolbar by DOM containment and would slam
+      // the flyout shut mid-pick. Anything in a portal layer counts as inside.
+      if (target instanceof Element && target.closest('[data-radix-popper-content-wrapper],[data-radix-portal]')) return
+      if (toolbarRef.current && !toolbarRef.current.contains(target)) {
         setShowPen(false)
         setShowShapes(false)
         setShowMore(false)

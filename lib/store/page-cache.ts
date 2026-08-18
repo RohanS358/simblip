@@ -22,6 +22,7 @@
 // explicit delete removes content (lib/store/deleted-pages.ts).
 
 import { useDocStore } from '@/lib/store/document'
+import { setProtectedPages } from '@/lib/store/page-archive'
 
 export const GRACE_MS = 3 * 60 * 1000 // how long a closed page may linger
 const SWEEP_MS = 15_000 // how often we check
@@ -89,6 +90,9 @@ export function setLivePages(ids: string[]): void {
   for (const id of liveIds) if (!next.has(id) && id !== activeId) closedAt.set(id, now)
   for (const id of next) closedAt.delete(id)
   liveIds = next
+  // On-screen pages are also off-limits to the ARCHIVE's quota eviction —
+  // freeing space must never delete the local copy of a canvas being drawn on.
+  setProtectedPages(activeId ? [...next, activeId] : next)
 }
 
 function evict(ids: string[]) {
@@ -133,6 +137,7 @@ export function setActivePage(pageId: string): void {
   if (activeId) closedAt.set(activeId, now) // starts its 3-minute clock
   activeId = pageId
   closedAt.delete(pageId) // reopened — it's live again
+  setProtectedPages([...liveIds, pageId])
 
   startPressureSensor()
   // A page opening is exactly when memory grows, so check right away rather

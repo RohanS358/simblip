@@ -226,6 +226,12 @@ export interface PageNode extends NodeBase {
   annotPages?: string[]
   /** pdf: id of the free-form notes doc opened beside the reader. */
   notesDocId?: string
+  /** pdf: where the reader was left — the 1-based page number plus the
+   *  fraction of that page already scrolled past, so reopening lands on the
+   *  exact spot rather than back at page 1. Stored as an offset WITHIN a
+   *  page (not a raw scrollTop) so it survives a zoom change or a different
+   *  window size, where pixel offsets would not. */
+  pdfScroll?: { page: number; offset: number }
   /** pdf/image/xlsx/pptx: the source file, `opfs:<fileId>` resolving via
    *  lib/storage/manager.ts. For pdf this is a legacy attachment path for
    *  pages created before file nodes existed — prefer a FileNode leaf for

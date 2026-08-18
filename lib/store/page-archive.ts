@@ -43,31 +43,77 @@ export function readPage(pageId: string): PageDoc | null {
   }
 }
 
+/** Page ids that must NOT be evicted to reclaim quota — the pages the user
+ *  is looking at or drawing on right now (the open page, its split pane, a
+ *  doc's sheets, a PDF's per-page ink overlays). Published by the page cache
+ *  via `setProtectedPages`; empty means "nothing pinned yet", not "evict
+ *  anything". Without this, reclaiming space for one page could delete the
+ *  archive of the annotation canvas being drawn on — which read to the user
+ *  as ink silently not saving. */
+let protectedIds = new Set<string>()
+
+export function setProtectedPages(ids: Iterable<string>): void {
+  protectedIds = new Set(ids)
+}
+
+/** When a page's archive entry was last written — the LRU signal quota
+ *  eviction sorts on. localStorage has no timestamps of its own, and key
+ *  index order is insertion order, not recency, so an entry rewritten every
+ *  few seconds still sat at a low index and got evicted first. */
+const writtenAt = new Map<string, number>()
+
+/**
+ * Free space for `keepKey` by dropping the least-recently-written page
+ * archives belonging to THIS user, never touching a protected page.
+ * Returns true if anything was removed.
+ */
+export function evictArchives(keepKey: string, want = 10): boolean {
+  const prefix = userPrefix()
+  const candidates: { k: string; at: number }[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i)
+    if (!k || !k.startsWith(prefix) || k === keepKey) continue
+    if (protectedIds.has(k.slice(prefix.length))) continue
+    candidates.push({ k, at: writtenAt.get(k) ?? 0 })
+  }
+  if (candidates.length === 0) return false
+  candidates.sort((a, b) => a.at - b.at) // oldest write first
+  for (const { k } of candidates.slice(0, Math.min(want, candidates.length))) {
+    localStorage.removeItem(k)
+    writtenAt.delete(k)
+  }
+  return true
+}
+
 export function writePage(pageId: string, content: PageDoc): void {
   if (typeof window === 'undefined') return
+  const k = key(pageId)
+  const value = JSON.stringify(content)
   try {
-    localStorage.setItem(key(pageId), JSON.stringify(content))
+    localStorage.setItem(k, value)
+    writtenAt.set(k, Date.now())
   } catch (e) {
     if (!(e instanceof DOMException && (e.name === 'QuotaExceededError' || e.name === 'NS_ERROR_DOM_QUOTA_REACHED'))) return
-    // Evict the oldest page archives to make room, then retry once.
-    try {
-      const prefix = userPrefix()
-      const pageKeys: string[] = []
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i)
-        if (k && k.startsWith(prefix) && k !== key(pageId)) pageKeys.push(k)
+    // Evict the least-recently-written unprotected archives to make room and
+    // retry — repeatedly, since one round of 10 may not cover a big page.
+    for (let round = 0; round < 5; round++) {
+      if (!evictArchives(k)) break
+      try {
+        localStorage.setItem(k, value)
+        writtenAt.set(k, Date.now())
+        return
+      } catch {
+        // still over quota — evict another round
       }
-      pageKeys.slice(0, Math.min(10, pageKeys.length)).forEach((k) => localStorage.removeItem(k))
-      localStorage.setItem(key(pageId), JSON.stringify(content))
-    } catch {
-      // Still over quota — silently drop; cloud sync is the durable copy.
     }
+    console.warn('[simblip] could not archive page', pageId, '— localStorage is full')
   }
 }
 
 export function dropPage(pageId: string): void {
   if (typeof window === 'undefined') return
   try {
+    writtenAt.delete(key(pageId))
     localStorage.removeItem(key(pageId))
   } catch {
     /* nothing to do */

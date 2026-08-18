@@ -7,6 +7,7 @@
 
 import { createJSONStorage } from 'zustand/middleware'
 import { ACTIVE_USER_KEY } from '@/lib/auth/store'
+import { evictArchives } from '@/lib/store/page-archive'
 
 function scopedKey(name: string): string {
   if (typeof window === 'undefined') return name
@@ -14,27 +15,28 @@ function scopedKey(name: string): string {
   return user ? `${name}:${user}` : name
 }
 
-/** Evict the oldest simblip-page:* archive entries to free space, then retry. */
+/**
+ * Evict page archives to free space, then retry.
+ *
+ * Delegates to the page archive's own eviction (lib/store/page-archive.ts):
+ * least-recently-written first, this user's pages only, and never a page
+ * that's currently on screen. The old version here swept every
+ * `simblip-page*` key across ALL users in localStorage index order, which
+ * could delete the archive of the PDF annotation canvas the user was drawing
+ * on at that moment — ink that had been saved a second earlier just vanished.
+ */
 function evictAndRetry(key: string, value: string): void {
   if (typeof window === 'undefined') return
-  try {
-    // Find all page archive keys and sort by recency (localStorage has no
-    // built-in LRU, so we use index order as a proxy — pages archived earlier
-    // appear at lower indices).
-    const pageKeys: string[] = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const k = localStorage.key(i)
-      if (k && k.startsWith('simblip-page')) pageKeys.push(k)
+  for (let round = 0; round < 5; round++) {
+    if (!evictArchives(key)) break
+    try {
+      localStorage.setItem(key, value)
+      return
+    } catch {
+      // still over quota — evict another round
     }
-    // Evict up to 10 pages at a time to make room.
-    const toEvict = pageKeys.slice(0, Math.min(10, pageKeys.length))
-    toEvict.forEach((k) => localStorage.removeItem(k))
-    localStorage.setItem(key, value)
-  } catch {
-    // If still over quota after eviction, silently drop — the cloud copy is
-    // still the durable source of truth, so nothing is permanently lost.
-    console.warn('[simblip] localStorage quota exceeded even after eviction; write dropped for', key)
   }
+  console.warn('[simblip] localStorage quota exceeded even after eviction; write dropped for', key)
 }
 
 function safeSetItem(key: string, value: string): void {
