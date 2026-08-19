@@ -73,13 +73,37 @@ const AUTHOR_RE =
 const SCENE_RE =
   /\b(?:simulate|simulation|circuit|pendulum|oscillat|spring[- ]mass|projectile|rectifier|amplifier|filter|motor|transformer|counter|flip-?flop|inclined plane|free fall|collision)\b/i
 
+/** Explicitly about things that are already here. When one of these is
+ *  present the user is describing the CURRENT contents, so a scene word later
+ *  in the sentence is a goal ("...to make a proper simulation"), not a
+ *  request to build a second one.
+ *
+ *  Measured failure this fixes: "can you edit their positions to make proper
+ *  simulation as these are weird" matched SCENE_RE on "simulation" and was
+ *  pulled out of the edit lane, so it re-created the entire page — a
+ *  duplicate pendulum, ground, graph and system box — instead of moving the
+ *  three objects the user had selected. */
+const REFERS_TO_EXISTING_RE =
+  /\b(?:their|these|those|them|this one|it)\b|\bthe selected\b|\bselection\b|\balready\b|\bcurrent\b/i
+
 export function wantsEdit(prompt: string, hasContext: boolean, selected = false): boolean {
   if (!hasContext) return false
-  // A scene is built, never patched together from ops.
-  if (SCENE_RE.test(prompt)) return false
-  if (EDIT_RE.test(prompt)) return true
+
+  const editish = EDIT_RE.test(prompt)
+  // A scene word only wins when the prompt is NOT plainly about existing
+  // objects. "Simulate a pendulum" builds; "fix their positions to make a
+  // proper simulation" edits what is already there.
+  if (SCENE_RE.test(prompt) && !(editish && REFERS_TO_EXISTING_RE.test(prompt)) && !selectedEditish(prompt, selected)) {
+    return false
+  }
+  if (editish) return true
   return selected && AUTHOR_RE.test(prompt)
 }
+
+/** With objects selected, a repair verb means "repair THESE" — a user does
+ *  not select three things and then ask for a fourth scene. */
+const REPAIR_RE = /\b(?:fix|repair|correct|sort out|clean up|tidy|rearrange|arrange|align|reposition|adjust|make (?:it|this|these|them) (?:a )?proper)\b/i
+const selectedEditish = (prompt: string, selected: boolean) => selected && REPAIR_RE.test(prompt)
 
 /** Asks for worked mathematics: a derivation, a proof, a calculation. */
 const EXPLAIN_RE = new RegExp(

@@ -72,6 +72,18 @@ export function registerElement(objectId: string, el: HTMLElement | null) {
   else elements.delete(objectId)
 }
 
+/** Unregister a SPECIFIC element (React 19 ref-callback cleanup).
+ *
+ *  The same page can be mounted by two canvases at once — a slide shows in
+ *  the editor AND in Present mode / the slide rail — and the second to mount
+ *  wins the map. When it unmounts, a blind delete takes the survivor's entry
+ *  with it, leaving the still-mounted canvas with no element to move: a later
+ *  run animates nothing. Only the element currently registered may remove
+ *  itself. */
+export function unregisterElement(objectId: string, el: HTMLElement) {
+  if (elements.get(objectId) === el) elements.delete(objectId)
+}
+
 // ── World internals ─────────────────────────────────────────────────────────
 
 interface BodyEntry {

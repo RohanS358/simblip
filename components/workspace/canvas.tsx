@@ -53,7 +53,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { useDocStore, type Viewport, type Tool } from '@/lib/store/document'
 import { useSlashMenuStore } from '@/lib/store/slash-menu'
-import { registerElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
+import { registerElement, unregisterElement, getElement, useRuntimeStore, play, pause, stepFrame, stepBack, stop } from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import { ProbeLayer } from './probe-layer'
 import {
@@ -782,7 +782,10 @@ const ObjectView = memo(function ObjectView({
     // transform during Play. Edit-time rotation lives on the inner div so the
     // two never fight over one style property.
     <div
-      ref={(el) => registerElement(object.id, el)}
+      ref={(el) => {
+        registerElement(object.id, el)
+        return () => { if (el) unregisterElement(object.id, el) }
+      }}
       data-object-id={object.id}
       // touch-action must be decided before the browser sees the first
       // touchmove (a JS timer can't override it after the fact), so a plain

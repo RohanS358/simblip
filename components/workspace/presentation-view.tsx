@@ -28,6 +28,7 @@ import { usePresentationDockStore } from '@/lib/store/presentation-dock'
 import { InfiniteCanvas } from './canvas'
 import { LiveFrame } from './page-thumbnail'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
+import { play, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
 import { parse } from '@/lib/text/marks'
@@ -160,6 +161,26 @@ function PresentOverlay({
   }, [onClose])
 
   const slideId = slides[i]
+
+  // Run the slide.
+  //
+  // Present mode mounts its canvas with `viewer active={false}` and shows no
+  // dock — no transport, no per-system Play button — so a slide carrying a
+  // pendulum, a circuit or a wave just sat there frozen while presenting,
+  // even though the same slide simulates fine in the editor. Nothing else in
+  // the app starts a world; play() is the only entry point.
+  //
+  // Unconditional on purpose: a world with nothing to simulate ticks an empty
+  // engine, which costs nothing, and any "does this slide have a simulation?"
+  // heuristic would have to know about bodies, circuits, charges, fields,
+  // thermal and tracers separately — six chances to be wrong for no gain.
+  // The run only mutates the DOM (syncDom), never the stored scene, so
+  // leaving a slide resets it exactly as Stop does in the editor.
+  useEffect(() => {
+    if (!slideId) return
+    play(slideId)
+    return () => stop()
+  }, [slideId])
 
   // The slide's own content is positioned in SIMBLIP's fixed SLIDE_W×SLIDE_H
   // coordinate space (lib/scene/frames — the same frame pptx-import.ts maps
