@@ -206,7 +206,12 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         return false
       }
       try {
-        executeSimScript(pageId, script, origin)
+        // Placement is decided by geometry, not by the model: the script's
+        // coordinates are a layout, and this is where it actually goes.
+        executeSimScript(pageId, script, origin, {
+          bounds: viewportBounds(pageId),
+          fixedFrame: pageKind === 'pptx' || pageKind === 'doc',
+        })
       } catch (e) {
         // It passed the verifier, so this is a genuine surprise rather than a
         // known failure mode — say so instead of failing silently.
@@ -216,7 +221,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       patchTurn(turnId, { added: true })
       return true
     },
-    [pageId, patchTurn]
+    [pageId, patchTurn, pageKind]
   )
 
   /** Build a real .pptx-kind page from an answer's blocks — the SAME

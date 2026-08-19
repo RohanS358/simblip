@@ -4,6 +4,7 @@ import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str }
 import { behaviorSpec } from '@/lib/behaviors/registry'
 import { createGeometry } from './factory'
 import { channelsFor } from './channels'
+import { planPlacement, unionRect, type Bounds } from './auto-layout'
 import { latexToExpr } from '@/lib/formula/latex'
 import {
   CANVAS_KINDS, canvasKindOf, applyKindProps, applyStyleProps, RESERVED_PROPS,
@@ -229,7 +230,11 @@ function wrapProxy(obj: ScriptObject): ScriptObject {
 export function executeSimScript(
   pageId: string,
   source: string,
-  origin: { x: number; y: number } = { x: 200, y: 100 }
+  origin: { x: number; y: number } = { x: 200, y: 100 },
+  /** Where the finished scene may go. Supplied by the caller (which can see
+   *  the viewport and the page kind) so this module needs no browser stores.
+   *  Omitted means no layout pass — the script's own coordinates stand. */
+  layoutSurface?: { bounds: Bounds; fixedFrame: boolean }
 ) {
 
   // Track connections for post-run auto-layout
@@ -1377,4 +1382,75 @@ export function executeSimScript(
   // Through the store action, so the page scope is re-solved with them in it —
   // a variable nothing can see is a variable no formula can use.
   for (const v of pending) store().upsertVariable(pageId, v.name, v.expr)
+
+  // ── Final placement, decided by geometry rather than by the model ─────────
+  // Every coordinate above came from a language model that cannot see the
+  // page: it does not know the board is scrolled to y=1600, that a note
+  // already sits where it aimed, or that this is a 960x540 slide. So the
+  // script's absolute positions are treated as a LAYOUT, not a location, and
+  // the whole scene is translated (and scaled only if it cannot fit) as one
+  // rigid group — preserving every endpoint binding physics depends on.
+  // Placement is decided by the CALLER, which knows the page frame. Keeping
+  // it out of here leaves this module free of the browser stores — the reason
+  // it stays testable headlessly.
+  applySceneLayout(pageId, created, layoutSurface)
+}
+
+/**
+ * Translate a freshly created scene into the right place on the page.
+ *
+ * Separated from executeSimScript so it is testable without running a script,
+ * and so the edit lane can reuse it. Pure decision (lib/scene/auto-layout.ts),
+ * impure application: the geometry is decided by code, then written through
+ * the same store actions a drag uses.
+ */
+export function applySceneLayout(
+  pageId: string,
+  createdIds: string[],
+  /** The space to place into. Passed in rather than read from the browser
+   *  stores so this module stays headless-testable and has no dependency on
+   *  the workspace store. Omitted (no DOM, a caller that does not care) means
+   *  no layout pass: the script's own coordinates stand. */
+  surface?: { bounds: Bounds; fixedFrame: boolean }
+): void {
+  if (createdIds.length === 0) return
+  const page = store().pages[pageId]
+  if (!page) return
+
+  const rectOf = (o: SceneObject) => ({ x: o.position.x, y: o.position.y, w: o.size.w, h: o.size.h })
+  const madeSet = new Set(createdIds)
+  const made = createdIds.map((id) => page.objects[id]).filter(Boolean)
+  if (made.length === 0) return
+
+  const occupied = Object.values(page.objects)
+    .filter((o) => !madeSet.has(o.id))
+    .map(rectOf)
+
+  if (!surface) return
+
+  const { dx, dy, scale } = planPlacement({
+    scene: made.map(rectOf),
+    occupied,
+    bounds: surface.bounds,
+    fixedFrame: surface.fixedFrame,
+  })
+
+  if (dx === 0 && dy === 0 && scale === 1) return
+
+  // Scale about the scene's own top-left so relative geometry is preserved
+  // exactly — a spring's endpoints move with the bodies they are bound to.
+  const box = unionRect(made.map(rectOf))!
+  for (const o of made) {
+    const nx = box.x + (o.position.x - box.x) * scale + dx
+    const ny = box.y + (o.position.y - box.y) * scale + dy
+    const patch: Partial<SceneObject> = { position: { x: nx, y: ny } }
+    if (scale !== 1) {
+      patch.size = { w: o.size.w * scale, h: o.size.h * scale }
+      // Line-ish geometry carries its shape in `points`, not in size alone.
+      if (o.geometry.points) {
+        patch.geometry = { ...o.geometry, points: o.geometry.points.map(([px, py]) => [px * scale, py * scale]) }
+      }
+    }
+    store().updateObject(pageId, o.id, patch, { history: false })
+  }
 }
