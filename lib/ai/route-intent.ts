@@ -31,15 +31,41 @@ const EDIT_RE = new RegExp(
     'move|shift|align|resize|rotate|scale|reposition|centre|center',
     'delete|remove|get rid of|clear',
     'recolou?r|colou?r it|make it|set the|set its|increase|decrease|double|halve',
-    // referring to what is already there
-    'this (?:page|slide|note|object|one)|these|the selected|selection',
+    // Writing INTO something that already exists. This is the case the verb
+    // list missed: "write the definition of IRR in this textbox" is not a
+    // request for a new note, it is a request to fill the one selected — and
+    // it routed to simulate, which created a second note beside it.
+    '\\b(?:write|put|add|insert|type|fill|enter|paste)\\b[^.]*\\b(?:in|into|inside|on|to)\\b\\s+(?:this|that|the|it|here)',
+    '\\bfill (?:this|that|it|them)\\b|\\bfill in\\b',
+    // referring to what is already there. The noun list was too short: a
+    // user says textbox/box/label/card for the same thing the code calls a
+    // note or a text object.
+    'this (?:page|slide|note|object|one|text ?box|box|text|label|card|component|shape|table|graph|chart)',
+    '\\bthese\\b|\\bthe selected\\b|\\bselection\\b|\\bselected (?:one|object|item)s?\\b',
   ].join('|'),
   'i'
 )
 
-/** Does this ask to change what is already on the page? */
-export function wantsEdit(prompt: string, hasContext: boolean): boolean {
-  return hasContext && EDIT_RE.test(prompt)
+/** Writing/authoring verbs. Alone these are ambiguous — "write a note about
+ *  X" on an empty board is a build — but with something SELECTED the user is
+ *  almost always talking about the thing they just clicked. */
+const AUTHOR_RE =
+  /\b(?:write|rewrite|summari[sz]e|describe|explain|define|label|title|caption|list|answer|complete|expand|shorten|translate|reword|rephrase)\b/i
+
+/**
+ * Does this ask to change what is already on the page?
+ *
+ * `selected` is the strong signal. A user who has clicked an object and then
+ * types an instruction means THAT object: "write the definition of IRR in
+ * this textbox" created a second note beside the selected one until the
+ * selection was allowed to carry this weight. With nothing selected the
+ * decision falls back to explicit edit vocabulary, so an empty board still
+ * routes builds to SimScript.
+ */
+export function wantsEdit(prompt: string, hasContext: boolean, selected = false): boolean {
+  if (!hasContext) return false
+  if (EDIT_RE.test(prompt)) return true
+  return selected && AUTHOR_RE.test(prompt)
 }
 
 /** Asks for worked mathematics: a derivation, a proof, a calculation. */
@@ -147,12 +173,12 @@ const WRITTEN_ARTEFACT_RE =
  * the common shape of an exam question, so getting it wrong in the safe
  * direction (an extra scene) beats losing the derivation entirely.
  */
-export function classifyIntent(prompt: string, hasContext = false): Intent {
+export function classifyIntent(prompt: string, hasContext = false, selected = false): Intent {
   const p = prompt.trim()
   // An edit beats every other lane: the user is pointing at something on
   // their page and asking for it to change, which neither a fresh scene nor a
   // derivation answers. Gated on context so this can never fire by accident.
-  if (wantsEdit(p, hasContext)) return 'edit'
+  if (wantsEdit(p, hasContext, selected)) return 'edit'
   // A slide deck is written output, so it counts as a written artefact even
   // though "make me slides..." opens with a build verb. Same for "make me
   // notes/a summary on X" — but NOT "add a note" (a canvas object), which is

@@ -45,12 +45,12 @@ import {
 import { ScrollButton } from '@/components/ui/scroll-button'
 import { Button } from '@/components/ui/button'
 import { useDocStore } from '@/lib/store/document'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { findPageMeta, useWorkspaceStore } from '@/lib/store/workspace'
 import { executeSimScript } from '@/lib/scene/simscript'
 import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnostics'
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
-import { buildDigest } from '@/lib/ai/page-context'
+import { buildDigest, describeSurface } from '@/lib/ai/page-context'
 import type { PageDoc } from '@/lib/scene/types'
 import { applyPlan } from '@/lib/ai/apply-ops'
 import { describePlan, type EditPlan } from '@/lib/ai/edit-ops'
@@ -169,6 +169,10 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const [useContext, setUseContext] = useState(true)
   const selection = useDocStore((s) => s.selection)
   const docPages = useDocStore((s) => s.pages)
+  /** A slide, a doc sheet and a board constrain placement differently. */
+  const pageKind = useWorkspaceStore(
+    (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
+  )
   const pageObjectCount = useDocStore((s) =>
     pageId ? Object.keys(s.pages[pageId]?.objects ?? {}).length : 0
   )
@@ -360,9 +364,18 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           if (!useContext || !page || !pageId) return null
           const sel = useDocStore.getState().selection
           const digest = buildDigest(page, sel)
-          if (!digest.text) return null
+          // The space to work in, even when the page is empty — an empty
+          // board still has a viewport, and that is exactly when knowing it
+          // matters most.
+          const surface = describeSurface(
+            { kind: pageKind, bounds: viewportBounds(pageId) },
+            page
+          )
+          if (!digest.text && !surface) return null
           return {
             pageDigest: digest.text,
+            pageSurface: surface,
+            hasSelection: sel.length > 0,
             pageLabel: sel.length > 0 ? `${sel.length} selected object(s)` : 'the page you are on',
             // Ids and parameter NAMES only — enough to verify an edit plan
             // server-side, without shipping the document itself.

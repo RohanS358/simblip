@@ -17,7 +17,18 @@
 // something that already exists), only parameters a human would name, and a
 // hard cap with selected objects kept first.
 
-import type { PageDoc, SceneObject } from '@/lib/scene/types'
+import type { PageDoc, PageKind, SceneObject } from '@/lib/scene/types'
+
+/** The space the model is writing into. Without this it picks coordinates
+ *  blind and the placement layer clamps them afterwards — which keeps a scene
+ *  on-page but cannot make it fit the space, use the empty half of a board, or
+ *  respect a slide's margins. */
+export interface Surface {
+  kind: PageKind
+  /** Page-coordinate rect the user can actually see (a board's scrolled and
+   *  zoomed region) or that content must live inside (a slide/sheet frame). */
+  bounds: { left: number; top: number; right: number; bottom: number }
+}
 
 /** What the user pointed the assistant at. */
 export type ContextRef =
@@ -148,6 +159,83 @@ export function buildDigest(doc: PageDoc | undefined, selectedIds: string[] = []
   if (shown < all.length) parts.push(`(${all.length - shown} more not listed)`)
 
   return { text: parts.join('\n'), objectCount: all.length, shown }
+}
+
+/** How each page kind constrains what may be placed. A slide is not a board:
+ *  content outside its frame does not render in Present mode and does not
+ *  survive export, so "anywhere" is a real mistake there. */
+const SURFACE_RULES: Partial<Record<PageKind, string>> = {
+  pptx: 'This is a SLIDE. Anything outside the frame is invisible in Present mode and lost on export — keep every object fully inside, and leave a margin.',
+  doc: 'This is a DOCUMENT SHEET of fixed size. Content must fit inside it; it does not scroll.',
+  board: 'This is an INFINITE BOARD, but only the region below is on screen. Place things where the user is looking.',
+}
+
+/**
+ * Describe the space available, and where in it is free.
+ *
+ * The free-column scan is the part that makes placement precise. Clamping
+ * after the fact (lib/ai/placement.ts) keeps a scene on the page but cannot
+ * stop it landing on top of what is already there — so tell the model which
+ * band is empty and let it choose properly.
+ */
+export function describeSurface(surface: Surface, doc: PageDoc | undefined): string {
+  const { left, top, right, bottom } = surface.bounds
+  const w = Math.round(right - left)
+  const h = Math.round(bottom - top)
+  const lines = [
+    `Visible area: x ${Math.round(left)}..${Math.round(right)}, y ${Math.round(top)}..${Math.round(bottom)} (${w} x ${h} px).`,
+  ]
+  const rule = SURFACE_RULES[surface.kind]
+  if (rule) lines.push(rule)
+
+  const objects = Object.values(doc?.objects ?? {})
+  if (objects.length === 0) {
+    lines.push('The area is empty — a new scene can use all of it. Centre it.')
+    return lines.join('\n')
+  }
+
+  // Occupied extent, clipped to what is visible: an object scrolled far off
+  // screen should not make the model think the whole page is full.
+  const occupied = objects
+    .map((o) => ({
+      l: o.position.x,
+      t: o.position.y,
+      r: o.position.x + o.size.w,
+      b: o.position.y + o.size.h,
+    }))
+    .filter((r) => r.r > left && r.l < right && r.b > top && r.t < bottom)
+
+  if (occupied.length === 0) {
+    lines.push('Nothing is in view — the visible area is free.')
+    return lines.join('\n')
+  }
+
+  const used = {
+    l: Math.min(...occupied.map((r) => r.l)),
+    t: Math.min(...occupied.map((r) => r.t)),
+    r: Math.max(...occupied.map((r) => r.r)),
+    b: Math.max(...occupied.map((r) => r.b)),
+  }
+  lines.push(
+    `Existing content occupies x ${Math.round(used.l)}..${Math.round(used.r)}, y ${Math.round(used.t)}..${Math.round(used.b)}.`
+  )
+
+  // The widest empty band on each axis, so "put it beside/below" has a number.
+  const GAP = 40
+  const rightFree = Math.round(right - used.r)
+  const leftFree = Math.round(used.l - left)
+  const belowFree = Math.round(bottom - used.b)
+  const spots: string[] = []
+  if (rightFree > 120) spots.push(`to the RIGHT from x=${Math.round(used.r + GAP)} (${rightFree}px)`)
+  if (leftFree > 120) spots.push(`to the LEFT up to x=${Math.round(used.l - GAP)} (${leftFree}px)`)
+  if (belowFree > 120) spots.push(`BELOW from y=${Math.round(used.b + GAP)} (${belowFree}px)`)
+  lines.push(
+    spots.length > 0
+      ? `Free space: ${spots.join('; ')}. Put new objects there, not on top of existing ones.`
+      : 'The visible area is crowded — place new objects clear of the content above, or replace what is there.'
+  )
+
+  return lines.join('\n')
 }
 
 /** Fold the digest into the prompt.

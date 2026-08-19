@@ -46,7 +46,10 @@ OPS
 
 RULES
 - Object ids come from the page listing. NEVER invent one. If the request names something not on the page, add it instead.
-- An object marked <SELECTED> is what the user means by "this", "it" or "the selected one".
+- An object marked <SELECTED> is what the user means by "this", "it", "here", "this textbox", "this note" or "the selected one".
+- WRITING INTO SOMETHING THAT EXISTS IS setParam, NOT add. "Write the definition of X in this textbox" with a note selected is ONE op: {"op":"setParam","id":"<the selected id>","name":"text","value":"<the definition>"}. Adding a second note beside the one the user selected is wrong.
+- You write the CONTENT, not a placeholder. Put the actual definition, answer or summary in "value" — never "…" or "your text here".
+- Text lives in the "text" parameter for note/text objects and "latex" for a formula. The page listing shows which parameters each object has.
 - Positions are page pixels, x right, y down. Place a new object clear of the ones already listed.
 - Do not restate the page. Only emit ops that change something.
 
