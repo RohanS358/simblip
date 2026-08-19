@@ -410,6 +410,48 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const setZoom = (z: number) => setZoomRaw(Math.min(3, Math.max(0.25, z)))
 
+  // The stage viewport's own size, so the slide can be placed in JS instead
+  // of by flex.
+  //
+  // The old markup centered it with `flex min-h-full items-center` + `p-6`.
+  // `min-height: 100%` resolves against the scroller's CONTENT box, but the
+  // wrapper's own 24px padding is then added OUTSIDE that (border-box sizing
+  // applies to `height`, not to a percentage `min-height` resolved this way)
+  // — so the wrapper ended up taller than the stage, its centre fell below
+  // the stage's centre, and the slide rendered visibly high. Measured on a
+  // 1400×700 stage: 24px above vs 136px below at 100% zoom, up to 312px off
+  // across viewports/zooms.
+  //
+  // doc-view.tsx already solved this for sheets: measure the viewport and
+  // place the content from its SCALED footprint. (See stageH/padTop below.)
+  const [viewW, setViewW] = useState(0)
+  const [viewH, setViewH] = useState(0)
+  useLayoutEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      setViewW(el.clientWidth)
+      setViewH(el.clientHeight)
+    })
+    ro.observe(el)
+    setViewW(el.clientWidth)
+    setViewH(el.clientHeight)
+    return () => ro.disconnect()
+  }, [])
+
+  // The scrollable stage is at least the viewport (so a zoomed-out slide has
+  // room to sit centered in) and grows to the slide's real scaled footprint
+  // once that overflows (so the scroller has somewhere to scroll). padLeft/
+  // padTop then place the slide: centered while it fits, flush at 0 when it
+  // doesn't. STAGE_PAD keeps the old breathing room around the slide.
+  const STAGE_PAD = 32
+  const scaledW = SLIDE_W * zoom + STAGE_PAD
+  const scaledH = SLIDE_H * zoom + STAGE_PAD
+  const stageW = Math.max(viewW, scaledW)
+  const stageH = Math.max(viewH, scaledH)
+  const padLeft = (stageW - SLIDE_W * zoom) / 2
+  const padTop = (stageH - SLIDE_H * zoom) / 2
+
   /**
    * The scale that fits the slide in the stage.
    *
@@ -825,11 +867,11 @@ export function PresentationView({ pageId }: { pageId: string }) {
         The stage scrolls when the slide is zoomed past the viewport.
         `transform: scale()` does NOT contribute to a parent's scrollable
         area — the box keeps its unscaled 960×540 size for layout — so the
-        old negative-margin trick only approximated it and broke entirely
-        when zoomed out. A wrapper sized to the SCALED dimensions gives the
-        scroll container something real to measure, and `touch-action` +
-        `-webkit-overflow-scrolling` are what make it actually drag on iOS,
-        where the default here was "nothing moves".
+        wrapper below is sized to the SCALED footprint (stageW/stageH) to
+        give the scroll container something real to measure, and the slide is
+        positioned inside it at (padLeft, padTop) rather than centered by
+        flex. `touch-action` + `-webkit-overflow-scrolling` are what make it
+        actually drag on iOS, where the default here was "nothing moves".
       */}
       <div
         ref={stageRef}
@@ -841,18 +883,19 @@ export function PresentationView({ pageId }: { pageId: string }) {
             <BounceLoader size={200} label="Opening presentation…" />
           </div>
         ) : activeSlideId ? (
+          <div className="relative" style={{ width: stageW, height: stageH }}>
           <div
-            className="flex min-h-full items-center justify-center p-4 sm:p-6"
-            // The scaled footprint, so the scroll container can measure it.
-            style={{ minWidth: SLIDE_W * zoom + 32, minHeight: SLIDE_H * zoom + 32 }}
-          >
-          <div
-            className="relative shrink-0 overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+            className="absolute overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
             style={{
+              left: padLeft,
+              top: padTop,
               width: SLIDE_W,
               height: SLIDE_H,
               transform: `scale(${zoom})`,
-              transformOrigin: 'center center',
+              // top left, so the scaled box grows from exactly the (padLeft,
+              // padTop) the math above placed it at — `center center` would
+              // spill half the growth back across that computed origin.
+              transformOrigin: 'top left',
             }}
           >
             <TransitionSlide
@@ -919,10 +962,27 @@ export function PresentationView({ pageId }: { pageId: string }) {
               </div>
               <ContextMenu>
                 <ContextMenuTrigger asChild>
-                  <button
-                    type="button"
+                  {/* A div, not a button: the tile renders a LIVE slide via
+                      LiveFrame, and a slide can legitimately contain its own
+                      controls — a system boundary's Run/Step buttons, a
+                      slider — which made this a <button> inside a <button>.
+                      That is invalid HTML and broke hydration. Nothing native
+                      is lost: selection runs off onPointerDown, never a click
+                      or a form submit, so the role/tabIndex/keydown below
+                      restore everything the element was actually providing. */}
+                  <div
                     data-slide-tile
+                    role="button"
+                    tabIndex={0}
+                    aria-current={i === current ? 'true' : undefined}
+                    aria-label={`Slide ${i + 1}`}
                     onPointerDown={onTilePointerDown(id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        goToSlide(i)
+                      }
+                    }}
                     onMouseEnter={() => setHoverGap(null)}
                     className={cn(
                       // touch-pan-x, not touch-none: the tiles cover nearly the
@@ -944,7 +1004,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                     <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
                       {i + 1}
                     </span>
-                  </button>
+                  </div>
                 </ContextMenuTrigger>
                 <ContextMenuContent>
                   <ContextMenuItem onClick={() => void duplicateSlide(id)}>

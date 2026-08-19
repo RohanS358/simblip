@@ -31,7 +31,8 @@ import katex from 'katex'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
 import { blocksToSlides, deckTitle } from '@/lib/ai/slides'
 import { wantsSlides } from '@/lib/ai/route-intent'
-import { viewportBounds, viewportCenter } from '@/lib/scene/insertables'
+import { placeAnswerAndScene } from '@/lib/ai/placement'
+import { viewportBounds } from '@/lib/scene/insertables'
 import {
   BrainCircuit, Check, Copy, Loader2, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, Trash2, Zap,
 } from 'lucide-react'
@@ -275,7 +276,14 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   message: data.message,
                   status: 'ok',
                 })
-                if (auto && data.script && pageId) runScript(data.script, turnId, viewportCenter(pageId))
+                if (auto && data.script && pageId) {
+                  // Same clamped placement as the Add button. This used to
+                  // pass viewportCenter directly, which puts the scene's
+                  // TOP-LEFT at the centre — so it always hung off the
+                  // bottom-right, and off a slide entirely.
+                  const spot = placeAnswerAndScene(null, true, viewportBounds(pageId)).scene
+                  if (spot) runScript(data.script, turnId, spot)
+                }
                 // "Make me slides on X" asked for a deck, not for a button
                 // that makes one — build it now. Gated on wantsSlides so an
                 // ordinary derivation still just answers; the manual "Make
@@ -393,21 +401,21 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   // width almost always fits.
                   onAdd={() => {
                     if (!pageId) return
+                    // All the arithmetic lives in placeAnswerAndScene, which
+                    // clamps to the page's real boundary — a slide's fixed
+                    // 960x540, not the scrolled viewport. Placing the scene
+                    // beside the answer (origin.x + column + 80) is what ran
+                    // it off the right edge of a deck slide.
                     const answer = t.blocks?.length ? blocksToSimScript(t.blocks) : ''
-                    const center = viewportCenter(pageId)
-                    if (answer) {
-                      const size = answerColumnSize(t.blocks!)
-                      const bounds = viewportBounds(pageId)
-                      const fitsVertically = size.h <= bounds.bottom - bounds.top
-                      const origin = {
-                        x: center.x - size.w / 2,
-                        y: fitsVertically ? center.y - size.h / 2 : bounds.top + 24,
-                      }
-                      if (!runScript(answer, t.id, origin)) return
-                      if (t.script) runScript(t.script, t.id, { x: origin.x + size.w + 80, y: origin.y })
-                    } else if (t.script) {
-                      runScript(t.script, t.id, center)
+                    const spots = placeAnswerAndScene(
+                      answer ? answerColumnSize(t.blocks!) : null,
+                      !!t.script,
+                      viewportBounds(pageId)
+                    )
+                    if (answer && spots.answer) {
+                      if (!runScript(answer, t.id, spots.answer)) return
                     }
+                    if (t.script && spots.scene) runScript(t.script, t.id, spots.scene)
                   }}
                   onRetry={() => void send(t.prompt)}
                   onMakeSlides={t.blocks?.length ? () => makeSlides(t) : undefined}

@@ -8,6 +8,8 @@
 import { COMPONENTS, createGeometry, baseObject } from './factory'
 import { useDocStore } from '@/lib/store/document'
 import type { SceneObject, Vec2 } from './types'
+import { findPageMeta, useWorkspaceStore } from '@/lib/store/workspace'
+import { SHEET_H, SHEET_W, SLIDE_H, SLIDE_W } from './frames'
 
 export interface Insertable {
   id: string
@@ -126,11 +128,38 @@ export function viewportCenter(pageId: string): Vec2 {
   return { x: (b.left + b.right) / 2, y: (b.top + b.bottom) / 2 }
 }
 
+/**
+ * The fixed frame a page's content is authored against, or null for a
+ * freeform board.
+ *
+ * `pageId` here is a CONTENT page (a slide, a doc sheet), which is not the
+ * same id as the notebook page that owns it — findPageMeta resolves either,
+ * matching on docPages, so this works from a slide id directly.
+ *
+ * Only 'pptx' and 'doc' are framed. 'board' is genuinely infinite, and the
+ * file-backed kinds (pdf/image/xlsx/web) do not take inserted scene objects
+ * on a canvas at all, so they keep the viewport behaviour.
+ */
+function pageFrame(pageId: string): { w: number; h: number } | null {
+  const meta = findPageMeta(useWorkspaceStore.getState().nodes, pageId)
+  if (meta?.pageKind === 'pptx') return { w: SLIDE_W, h: SLIDE_H }
+  if (meta?.pageKind === 'doc') return { w: SHEET_W, h: SHEET_H }
+  return null
+}
+
 /** Page-coordinate rect of the visible canvas — the "document boundary" a
  *  caller clamps placement to, not just its midpoint. Same data-canvas-root
  *  bridge as viewportCenter (see its doc comment); the two share one rect
  *  read so they can never disagree about what "visible" means. */
 export function viewportBounds(pageId: string): { left: number; top: number; right: number; bottom: number } {
+  // A slide or a doc sheet is NOT an infinite canvas: its content lives in a
+  // frame of a known size, and anything outside that frame is invisible —
+  // it does not render in Present mode and it does not survive export. The
+  // scrolled/zoomed viewport is the wrong boundary there, which is why an AI
+  // scene added to a deck landed outside the visible slide. Use the frame.
+  const frame = pageFrame(pageId)
+  if (frame) return { left: 0, top: 0, right: frame.w, bottom: frame.h }
+
   const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
   const root =
     typeof document === 'undefined'
