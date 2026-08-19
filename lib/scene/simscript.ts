@@ -675,8 +675,27 @@ export function executeSimScript(
     },
   }
 
+  // ── ref(): address an object that already exists ──────────────────────────
+  // SimScript was create-only — create() minted a fresh uid and nothing could
+  // name an object already on the page. So "connect the new spring to the mass
+  // that's already there" had no form, and every edit degenerated into
+  // rebuilding the whole scene beside the old one.
+  //
+  // ref(id) returns the SAME ScriptObject handle create() returns, so every
+  // existing verb — set(), connect(), addproperty(), anchors — works on live
+  // objects unchanged. That single addition is what makes the language
+  // editing-capable rather than append-only.
+  const ref = (id: string) => {
+    if (!store().pages[pageId]?.objects?.[id]) {
+      throw new Error(`ref("${id}"): no such object on this page`)
+    }
+    // NOT added to `created`: the layout pass must never move an object the
+    // user already placed.
+    return wrapProxy(new ScriptObject(id, pageId))
+  }
+
   // ── Sandbox ───────────────────────────────────────────────────────────────────
-  const builtins: Record<string, any> = { create, connect, addproperty, graph, console, Math }
+  const builtins: Record<string, any> = { create, connect, addproperty, graph, ref, console, Math }
   const sandboxVars: Record<string, any> = {}
   const sandbox = new Proxy(builtins, {
     has() { return true },

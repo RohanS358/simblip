@@ -3059,6 +3059,20 @@ export function InfiniteCanvas({
     setCtxMenu(null)
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     if ((tool !== 'select' && editing) || e.button !== 0) return
+    // A pointerdown that lands on a real control belongs to the control, not
+    // to the object it happens to sit in. Without this, dragging a Slider's
+    // thumb ALSO dragged the slider object across the page ("when I slide the
+    // slider, the slider slides"): the same pointer both moved the thumb and
+    // ran an object-move gesture. Every interactive object used to have to
+    // remember its own stopPropagation (chart, truth-table, code, dsa, probe
+    // buttons all carry one); Slider and the grid-table cell input didn't.
+    // One guard here covers every control, including ones not written yet.
+    // Propagation still stops so the background handler doesn't open a
+    // marquee underneath the drag.
+    if ((e.target as HTMLElement).closest('input, textarea, select, [role="slider"], [data-slot^="slider"], [contenteditable="true"]')) {
+      e.stopPropagation()
+      return
+    }
     const segEl = (e.target as HTMLElement).closest('[data-connector-segment]') as HTMLElement | null
     if (segEl && editing) {
       e.stopPropagation()

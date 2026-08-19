@@ -62,8 +62,21 @@ const AUTHOR_RE =
  * decision falls back to explicit edit vocabulary, so an empty board still
  * routes builds to SimScript.
  */
+/** Builds a SCENE — a connected simulation, circuit or mechanism.
+ *
+ *  These must never route to the edit lane. Its op vocabulary can add a
+ *  spring and a mass but cannot join them, so "simulate a pendulum on this
+ *  page" produced loose parts instead of something that swings. SimScript
+ *  expresses the wiring, so a scene request belongs there even when a page is
+ *  attached — page-awareness comes from the digest and deterministic
+ *  placement, not from changing lanes. */
+const SCENE_RE =
+  /\b(?:simulate|simulation|circuit|pendulum|oscillat|spring[- ]mass|projectile|rectifier|amplifier|filter|motor|transformer|counter|flip-?flop|inclined plane|free fall|collision)\b/i
+
 export function wantsEdit(prompt: string, hasContext: boolean, selected = false): boolean {
   if (!hasContext) return false
+  // A scene is built, never patched together from ops.
+  if (SCENE_RE.test(prompt)) return false
   if (EDIT_RE.test(prompt)) return true
   return selected && AUTHOR_RE.test(prompt)
 }

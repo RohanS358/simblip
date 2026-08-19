@@ -51,6 +51,7 @@ import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnosti
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
 import { buildDigest, describeSurface } from '@/lib/ai/page-context'
+import { verifyScene } from '@/lib/scene/verify-scene'
 import type { PageDoc } from '@/lib/scene/types'
 import { applyPlan } from '@/lib/ai/apply-ops'
 import { describePlan, type EditPlan } from '@/lib/ai/edit-ops'
@@ -217,6 +218,16 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         // known failure mode — say so instead of failing silently.
         toast.error(e instanceof Error ? e.message : 'Could not run the script.')
         return false
+      }
+      // Did it actually build something that WORKS? A script can pass every
+      // static check and still leave a spring attached to nothing, which
+      // looks right and does nothing on Play. Report it instead of letting
+      // the user discover it by pressing Play.
+      const built = useDocStore.getState().pages[pageId]
+      if (built) {
+        const report = verifyScene(Object.values(built.objects))
+        const errors = report.issues.filter((i) => i.level === 'error')
+        if (errors.length > 0) toast.warning(errors[0].message)
       }
       patchTurn(turnId, { added: true })
       return true
