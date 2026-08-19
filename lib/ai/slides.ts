@@ -78,7 +78,12 @@ function aiSlideHeading(text: string): SceneObject {
 function stripSlideNumber(raw: string): string {
   const inner = /^\s*\*\*(.+?)\*\*\s*$/.exec(raw.trim())
   const text = (inner ? inner[1] : raw).trim()
-  return text.replace(/^slide\s*\d+\s*(?:[:.–—-]\s*)?/i, '').trim()
+  return text
+    .replace(/^slide\s*\d+\s*(?:[:.–—-]\s*)?/i, '')
+    // The model writes its sub-headings as "### Given:" — a trailing colon
+    // reads as an unfinished sentence once the line is a slide title.
+    .replace(/\s*:\s*$/, '')
+    .trim()
 }
 
 /**
@@ -185,12 +190,30 @@ interface Section {
  *  body under a generic title) rather than dropped. */
 function splitSections(markdown: string): Section[] {
   const sections: Section[] = [{ heading: '', lines: [] }]
+  // The nearest #/## above the current line, so a ### sub-section can say
+  // which part of the answer it belongs to.
+  let parent = ''
   for (const raw of markdown.split('\n')) {
-    const h = /^(#{1,2})\s+(.*)$/.exec(raw)
+    // Levels 3 and 4 both split: the pendulum answer put its "Given/To Find"
+    // at ### and its numbered derivation steps at ####, so stopping at ###
+    // left all four steps crushed into one "To Find" body.
+    const h = /^(#{1,4})\s+(.*)$/.exec(raw)
     if (h) {
       // "## Slide 5" with no title after the number strips to nothing; the
       // section survives on its body, and gets the "Notes" fallback below.
-      sections.push({ heading: stripSlideNumber(h[2]), lines: [] })
+      const label = stripSlideNumber(h[2])
+      if (h[1].length <= 2) {
+        parent = label
+        sections.push({ heading: label, lines: [] })
+      } else {
+        // A ### sub-section is its own slide. Measured on a real pendulum
+        // answer, the model wrote four "### Step N:" sub-sections under one
+        // "## Derivation"; folding them into the body split that section by
+        // LINE COUNT instead, giving four slides all titled "Derivation
+        // (continued)" when the natural break was already in the source.
+        // The parent stays as a prefix so a bare "Step 2" still says what of.
+        sections.push({ heading: parent && label ? `${parent} — ${label}` : label || parent, lines: [] })
+      }
     } else {
       sections[sections.length - 1].lines.push(raw)
     }

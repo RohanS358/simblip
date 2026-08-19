@@ -151,7 +151,14 @@ export const EXPLAIN_TOKENS = 2000
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
-const OLLAMA_TIMEOUT_MS = 60_000
+/** Per-call ceiling. 60s was sized for a lone SimScript scene (~2.2s warm),
+ *  but a "both" request runs the explain lane AND the script lane back to
+ *  back on one GPU, and a prose answer now has a 2000-token budget. Measured:
+ *  a pendulum "slides + simulation" turn spent long enough on the answer that
+ *  the scene call hit 60s and was dropped, surfacing as a deck with no
+ *  simulation. The route itself allows 300s (maxDuration), so this was the
+ *  binding limit, not a safety one. */
+const OLLAMA_TIMEOUT_MS = 120_000
 
 export const ollamaGenerator: SimScriptGenerator = {
   name: `ollama:${OLLAMA_MODEL}`,

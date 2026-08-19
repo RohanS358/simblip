@@ -151,16 +151,23 @@ export async function POST(req: Request) {
             // reads while the scene is still being built.
             const answer = await runExplain((chunk) => send('token', chunk))
             let script: string | undefined
+            let sceneError: string | undefined
             try {
               script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
-            } catch {
+            } catch (e) {
               // A scene is the bonus here, not the deliverable. Losing it must
-              // never cost the user a correct derivation.
+              // never cost the user a correct derivation — but say WHY it was
+              // lost: a bare "no simulation for this one" reads as "this topic
+              // has no simulation", when the real cause is usually a timeout
+              // or a model that couldn't converge, both of which a retry fixes.
+              sceneError = e instanceof Error ? e.message : String(e)
             }
             send('done', {
               message: script
                 ? 'Answered, and built a scene to go with it.'
-                : 'Answered. (No simulation for this one — the working is above.)',
+                : sceneError
+                  ? `Answered — but the simulation failed to build: ${sceneError}`
+                  : 'Answered. (No simulation for this one — the working is above.)',
               answer: answer.markdown,
               blocks: answer.blocks,
               script,
@@ -208,15 +215,20 @@ export async function POST(req: Request) {
     if (intent === 'both') {
       const answer = await runExplain()
       let script: string | undefined
+      let sceneError: string | undefined
       try {
         script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
-      } catch {
-        // See the streaming path: the derivation is the deliverable.
+      } catch (e) {
+        // See the streaming path: the derivation is the deliverable, but a
+        // silently-dropped scene is indistinguishable from "no scene exists".
+        sceneError = e instanceof Error ? e.message : String(e)
       }
       return NextResponse.json({
         message: script
           ? 'Answered, and built a scene to go with it.'
-          : 'Answered. (No simulation for this one — the working is above.)',
+          : sceneError
+            ? `Answered — but the simulation failed to build: ${sceneError}`
+            : 'Answered. (No simulation for this one — the working is above.)',
         answer: answer.markdown,
         blocks: answer.blocks,
         script,
