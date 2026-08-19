@@ -188,6 +188,13 @@ LAYOUT
 - MECHANICS/OPTICS/WAVES: DO pass x/y (canvas px, +y is down). There is NO auto-layout here — omit x/y and every body stacks on one pixel and explodes apart. Put ground below falling bodies. Optics sit left-to-right on one axis (same y).
 - ANY scene with 2+ mechanics/optics/waves components: create the system FIRST, before anything else, sized to fit what you're about to place — var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 460, height: 360 }); (domain: mechanics|electrical|electronics|digital|waves|quantum; optics also uses "optics"). Then every component's x/y goes a bit inside those bounds (roughly 40..width-40, 40..height-40) — NOT scattered across the whole page. The system is not decoration: its Play/Step/Reset only simulates what's inside it (by centre), so a component placed outside the box you declared is silently dropped from the run. A single lone component (one region, one probe) does not need a system.
 
+WHEN THE TOPIC IS NOT SIMULATABLE (read this before writing anything)
+- The KINDS list below is the WHOLE engine. There is no thermodynamics, no phase change, no chemistry, no molecular/particle-scale matter, no economics, no biology. If the request is about something not in that list, DO NOT approximate it with unrelated components.
+- Concretely: "states of matter" is NOT three blocks joined by springs; "diffusion" is NOT bouncing balls; "the water cycle" is NOT a wave source. A scene whose components do not mean what the question is about teaches the student something false, which is worse than no scene.
+- In that case emit ONLY a note stating what is being shown and that the written explanation carries the answer:
+  var n = create("note", { x: 0, y: 0, width: 420, text: "States of matter is a thermal/molecular topic — SIMBLIP's engine has no thermodynamic model, so the written answer covers it instead." });
+  Emit nothing else. A short honest note is a correct answer here; an invented mechanics scene is not.
+
 MAKE IT EXPERIMENTABLE
 - When a quantity is worth varying (mass, k, R, V, speed, angle), add a slider bound to the object:
   var sl = create("slider", { x: 0, y: 420, min: 1, max: 50, value: 10, label: "Mass", targetParamName: "mass", targetObjectId: block });

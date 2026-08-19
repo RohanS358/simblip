@@ -14,7 +14,7 @@
 // Output lands in the notebook as text/note/formula objects, so an answer is
 // an ordinary editable page — not a chat bubble that vanishes.
 
-import type { SimScriptGenerator } from './generate'
+import { EXPLAIN_TOKENS, type SimScriptGenerator } from './generate'
 
 /** What the notebook's text renderer actually supports, and nothing else.
  *  Block prefixes come from BLOCK_PREFIX_RE (lib/text/marks.ts); inline maths
@@ -231,7 +231,11 @@ export async function explain(
   const raw = await opts.generator.generate(
     opts.systemPrompt ?? EXPLAIN_SYSTEM_PROMPT,
     question,
-    opts.onToken
+    opts.onToken,
+    undefined,
+    // A derivation is far longer than a scene, and the SimScript-sized
+    // default silently cut answers mid-word — see EXPLAIN_TOKENS.
+    EXPLAIN_TOKENS
   )
   const markdown = cleanAnswer(raw)
   return { markdown, blocks: toAnswerBlocks(markdown), backend: opts.generator.name }

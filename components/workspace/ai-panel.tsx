@@ -29,7 +29,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import katex from 'katex'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
-import { blocksToSlides } from '@/lib/ai/slides'
+import { blocksToSlides, deckTitle } from '@/lib/ai/slides'
+import { wantsSlides } from '@/lib/ai/route-intent'
 import { viewportBounds, viewportCenter } from '@/lib/scene/insertables'
 import {
   BrainCircuit, Check, Copy, Loader2, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, Trash2, Zap,
@@ -177,7 +178,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
    *  Lands as a sibling of the page currently open — "near where the user
    *  is working" — rather than needing a folder picker for every slide ask. */
   const makeSlides = useCallback(
-    (turn: AiTurn) => {
+    (turn: Pick<AiTurn, 'id' | 'prompt' | 'blocks'>) => {
       if (!turn.blocks?.length) return
       const ws = useWorkspaceStore.getState()
       const parentId = pageId ? ws.nodes[pageId]?.parentId : null
@@ -185,7 +186,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         toast.error('Open a notebook page first.')
         return
       }
-      const id = ws.addPageIn(parentId, turn.prompt.slice(0, 60) || 'Untitled Presentation', 'pptx')
+      // Name the page after the deck's subject, not the request: the raw
+      // prompt showed up in the sidebar as "make me slides on different
+      // states of matter and their related gr…".
+      const markdown = turn.blocks.map((b) => b.content).join('\n\n')
+      const id = ws.addPageIn(parentId, deckTitle(markdown, turn.prompt) || 'Untitled Presentation', 'pptx')
       const slides = blocksToSlides(turn.blocks, turn.prompt)
       for (const objects of slides) {
         const slideId = useWorkspaceStore.getState().addDocSheet(id)
@@ -271,6 +276,13 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   status: 'ok',
                 })
                 if (auto && data.script && pageId) runScript(data.script, turnId, viewportCenter(pageId))
+                // "Make me slides on X" asked for a deck, not for a button
+                // that makes one — build it now. Gated on wantsSlides so an
+                // ordinary derivation still just answers; the manual "Make
+                // slides" action stays for turning any answer into a deck.
+                if (data.blocks?.length && wantsSlides(prompt)) {
+                  makeSlides({ id: turnId, prompt, blocks: data.blocks })
+                }
               } else {
                 patchTurn(turnId, { message: data.message, status: 'error' })
               }

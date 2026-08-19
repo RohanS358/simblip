@@ -55,7 +55,12 @@ export interface SimScriptGenerator {
     onToken?: (chunk: string) => void,
     /** Worked examples inserted as prior turns, before the real question.
      *  See lib/ai/few-shot.ts for why this is the highest-value lever here. */
-    shots?: { role: 'user' | 'assistant'; content: string }[]
+    shots?: { role: 'user' | 'assistant'; content: string }[],
+    /** Output budget in tokens. Defaults to the SimScript figure — a scene is
+     *  short. A prose answer is not: measured, a filters short-note ran 2445
+     *  characters and was cut mid-word at the 700-token default, which then
+     *  surfaced downstream as an orphaned `**` on a slide. See EXPLAIN_TOKENS. */
+    maxTokens?: number
   ): Promise<string>
 }
 // ── Stream readers ──────────────────────────────────────────────────────────
@@ -132,13 +137,25 @@ const estimateTokens = (s: string) => Math.ceil(s.length / 4)
 /** Ollama is happiest with power-of-two context windows. */
 const nextPow2 = (n: number) => 2 ** Math.ceil(Math.log2(Math.max(1, n)))
 
+/** Output budget for a SimScript scene. A scene is a handful of create()
+ *  calls; 700 tokens has always been ample. */
+export const SCRIPT_TOKENS = 700
+
+/** Output budget for a prose answer. A derivation or a multi-part short note
+ *  is far longer than a scene: measured, "explain high-pass, low-pass,
+ *  band-pass and band-stop filters" ran 2445 characters and was still cut
+ *  mid-word at 700 tokens, losing the last section outright. Truncation is
+ *  silent — the answer simply stops — so this is sized to clear the longest
+ *  answers in the course's own question set with headroom. */
+export const EXPLAIN_TOKENS = 2000
+
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
 const OLLAMA_TIMEOUT_MS = 60_000
 
 export const ollamaGenerator: SimScriptGenerator = {
   name: `ollama:${OLLAMA_MODEL}`,
-  async generate(system, user, onToken, shots) {
+  async generate(system, user, onToken, shots, maxTokens) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
     try {
@@ -159,8 +176,14 @@ export const ollamaGenerator: SimScriptGenerator = {
           keep_alive: '30m',
           // The prompt is ~1k tokens, so a large context window buys nothing
           // and costs KV cache on an 8GB card. (The old tool path needed
-          // 32768 purely to fit its own tool schemas.)
-          options: { temperature: 0.2, num_ctx: 4096, num_predict: 700 },
+          // 32768 purely to fit its own tool schemas.) num_ctx must still
+          // cover prompt + output, so it grows with an enlarged budget —
+          // otherwise a longer answer silently pushes the prompt out.
+          options: {
+            temperature: 0.2,
+            num_ctx: nextPow2(estimateTokens(system + user) + (maxTokens ?? SCRIPT_TOKENS) + 512),
+            num_predict: maxTokens ?? SCRIPT_TOKENS,
+          },
         }),
         signal: controller.signal,
       })
@@ -199,7 +222,7 @@ const OPENROUTER_TIMEOUT_MS = 60_000
 
 export const openRouterGenerator: SimScriptGenerator = {
   name: `openrouter:${OPENROUTER_MODEL}`,
-  async generate(system, user, onToken, shots) {
+  async generate(system, user, onToken, shots, maxTokens) {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) throw new GeneratorUnavailableError('OPENROUTER_API_KEY is not set')
     const controller = new AbortController()
@@ -223,7 +246,7 @@ export const openRouterGenerator: SimScriptGenerator = {
             { role: 'user', content: user },
           ],
           temperature: 0.2,
-          max_tokens: 2000,
+          max_tokens: maxTokens ?? EXPLAIN_TOKENS,
           stream: !!onToken,
         }),
         signal: controller.signal,

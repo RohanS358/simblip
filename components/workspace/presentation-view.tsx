@@ -30,6 +30,7 @@ import { LiveFrame } from './page-thumbnail'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
 import { cn } from '@/lib/utils'
 import { uid } from '@/lib/scene/types'
+import { parse } from '@/lib/text/marks'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useBottomChrome } from '@/hooks/use-dock-clearance'
 import {
@@ -364,12 +365,22 @@ export function PresentationView({ pageId }: { pageId: string }) {
           const page = pagesState[slideId]
           if (!page || !page.objects) return
           const objs = Object.values(page.objects)
-          // Find text objects on this slide
-          const textObjs = objs.filter((o) => o.kind === 'text' || o.kind === 'note')
+          // Find text objects on this slide. The object's type lives in
+          // geometry.kind and its content in parameters.text as a SERIALIZED
+          // {text, marks} blob (lib/text/marks.ts) — `o.kind`/`o.text` are
+          // not fields on SceneObject at all, so this loop previously matched
+          // nothing and every deck silently got an empty outline. Same
+          // extraction pptx-export.ts uses.
+          const textObjs = objs.filter(
+            (o) => o.geometry.kind === 'text' || o.geometry.kind === 'note'
+          )
           let title = ''
           for (const obj of textObjs) {
-            const rawText = obj.text || ''
-            const lines = rawText.split('\n').map((l) => l.trim()).filter(Boolean)
+            const rawParam = obj.parameters.text
+            const raw = rawParam?.kind === 'string' ? rawParam.value : ''
+            if (!raw) continue
+            const rawText = parse(raw).text
+            const lines = rawText.split('\n').map((l: string) => l.trim()).filter(Boolean)
             if (lines.length > 0) {
               // Strip markdown/prefix formatting
               title = lines[0].replace(/^#{1,6}\s+/, '').replace(/^[-*+]\s+/, '')

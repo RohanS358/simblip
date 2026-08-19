@@ -62,6 +62,39 @@ const SIMULATE_RE = new RegExp(
  *  timing diagram that carry most of the marks. */
 const BUILD_ONLY_RE = /^\s*(?:simulate|animate|build|create|make|add|place|put)\b/i
 
+/** Asks for a slide deck. A deck is WRITTEN output: its content is prose the
+ *  explain lane produces, so this must beat BUILD_ONLY_RE even though every
+ *  natural phrasing opens with a build verb ("make me slides on...").
+ *
+ *  Measured failure this fixes: "make me slides on different states of matter
+ *  and their related graphs" matched BUILD_ONLY_RE on "make", routed to
+ *  simulate-only, and came back as three blocks joined by springs — with an
+ *  empty deck, because slide-building consumes the explain lane's blocks and
+ *  that lane never ran.
+ *
+ *  `slide` alone is not enough: a block SLIDING down an incline is mechanics,
+ *  so the noun is matched only in its deck sense (plural, or next to a deck
+ *  word), never as the verb. */
+const SLIDES_RE =
+  /\bslides\b|\bslide deck\b|\bdeck\b|\bpresentation\b|\bpowerpoint\b|\bppt\b|\bpptx\b/i
+
+/**
+ * Does this prompt ask for a presentation?
+ *
+ * Separate from the lane router because it answers a different question:
+ * `classifyIntent` decides how to GENERATE, this decides what to DO with the
+ * result. A deck still needs the explain lane's prose behind it, so the two
+ * compose rather than compete.
+ */
+export function wantsSlides(prompt: string): boolean {
+  return SLIDES_RE.test(prompt)
+}
+
+/** Written deliverables that open with a build verb. "Make me notes on X" and
+ *  "make me slides on X" are requests for prose, not for canvas objects —
+ *  the same trap BUILD_ONLY_RE fell into, one noun wider. */
+const WRITTEN_DELIVERABLE_RE = /\bnotes?\b|\bsummary\b|\bsummarise\b|\bsummarize\b|\breport\b|\bessay\b/i
+
 /** Deliverables that are written, not built. If a prompt asks for one of
  *  these it needs the explain lane no matter which verb opened it — a truth
  *  table, a state diagram or a K-map is an answer, not a canvas object. */
@@ -79,7 +112,17 @@ const WRITTEN_ARTEFACT_RE =
  */
 export function classifyIntent(prompt: string): Intent {
   const p = prompt.trim()
-  const written = WRITTEN_ARTEFACT_RE.test(p)
+  // A slide deck is written output, so it counts as a written artefact even
+  // though "make me slides..." opens with a build verb. Same for "make me
+  // notes/a summary on X" — but NOT "add a note" (a canvas object), which is
+  // why this needs the topic preposition rather than the noun alone.
+  //
+  // The preposition is load-bearing: "make me notes ON the states of matter"
+  // asks for writing about a topic, while "add a note summarising the
+  // experiment" asks for a note object on the canvas. Matching the bare noun
+  // would swallow the second and break the simulate lane.
+  const asksForWriting = WRITTEN_DELIVERABLE_RE.test(p) && /\b(?:on|about|for|covering)\b/i.test(p)
+  const written = WRITTEN_ARTEFACT_RE.test(p) || wantsSlides(p) || asksForWriting
   if (BUILD_ONLY_RE.test(p) && !written) return 'simulate'
 
   const explains = EXPLAIN_RE.test(p) || written
