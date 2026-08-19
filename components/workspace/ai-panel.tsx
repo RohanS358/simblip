@@ -34,7 +34,7 @@ import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
 import {
-  BrainCircuit, Check, Copy, Loader2, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, Trash2, Zap,
+  BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -48,7 +48,11 @@ import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { executeSimScript } from '@/lib/scene/simscript'
 import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnostics'
-import { useAiChat, type AiTurn } from '@/lib/store/ai-chat'
+import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
+import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
+import {
+  deleteSession, listSessions, loadSession, type AiSessionMeta,
+} from '@/lib/store/ai-sessions'
 import { cn } from '@/lib/utils'
 
 /** Same palette the Code IDE uses (components/objects/code.tsx), so a script
@@ -130,15 +134,32 @@ const SUGGESTIONS = [
   'A block sliding down a ramp with friction',
 ]
 
+/** "today" / "3d" / "2w" — enough to find a thread, short enough for a row. */
+function relativeDay(ts: number): string {
+  const days = Math.floor((Date.now() - ts) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
+  if (days < 7) return `${days}d`
+  if (days < 30) return `${Math.floor(days / 7)}w`
+  return `${Math.floor(days / 30)}mo`
+}
+
 export function AiPanel({ pageId }: { pageId: string | null }) {
   const turns = useAiChat((s) => s.turns)
   const auto = useAiChat((s) => s.auto)
+  const sessionTitle = useAiChat((s) => s.sessionTitle)
+  const openSession = useAiChat((s) => s.openSession)
+  const newSession = useAiChat((s) => s.newSession)
   const setAuto = useAiChat((s) => s.setAuto)
   const addTurn = useAiChat((s) => s.addTurn)
   const patchTurn = useAiChat((s) => s.patchTurn)
   const clear = useAiChat((s) => s.clear)
 
   const [input, setInput] = useState('')
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([])
+  const [reading, setReading] = useState(false)
+  const [sessions, setSessions] = useState<AiSessionMeta[] | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -203,6 +224,62 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
     [pageId, patchTurn]
   )
 
+  /** Read dropped/picked files into text. Extraction is browser-side and can
+   *  take a second for a large PDF or an OCR pass, so the composer shows a
+   *  reading state rather than appearing to hang. */
+  const attachFiles = useCallback(async (files: FileList | File[]) => {
+    const list = Array.from(files).filter(isSupported)
+    if (list.length === 0) return
+    setReading(true)
+    try {
+      const read = await Promise.all(
+        list.map(async (f) => {
+          const { text, warning } = await extractFileText(f)
+          return { name: f.name, text, warning } satisfies ChatAttachment
+        })
+      )
+      setAttachments((prev) => [...prev, ...read])
+      for (const a of read) if (a.warning) toast.warning(`${a.name}: ${a.warning}`)
+    } finally {
+      setReading(false)
+    }
+  }, [])
+
+  /** Paste an image (or a file) straight into the composer.
+   *
+   *  A screenshot on the clipboard arrives as a File with an empty or generic
+   *  name, which isSupported() would reject on extension — so name it from
+   *  its MIME type before handing it on. This is the common path for a
+   *  student: screenshot an exam question, paste, ask. */
+  const pasteFiles = useCallback(
+    (e: React.ClipboardEvent) => {
+      const files = Array.from(e.clipboardData.files)
+      if (files.length === 0) return
+      e.preventDefault()
+      const named = files.map((f) => {
+        if (f.name && f.name.includes('.')) return f
+        const ext = (f.type.split('/')[1] ?? 'png').replace('jpeg', 'jpg')
+        return new File([f], `pasted-${Date.now()}.${ext}`, { type: f.type })
+      })
+      void attachFiles(named)
+    },
+    [attachFiles]
+  )
+
+  const refreshSessions = useCallback(async () => {
+    setSessions(await listSessions())
+  }, [])
+
+  const resume = useCallback(
+    async (id: string) => {
+      const session = await loadSession(id)
+      if (!session) return
+      openSession(session)
+      setSessions(null)
+    },
+    [openSession]
+  )
+
   const send = useCallback(
     async (text: string) => {
       const prompt = text.trim()
@@ -210,7 +287,16 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       setInput('')
       setBusy(true)
 
-      const turnId = addTurn({ prompt, script: '', status: 'streaming' })
+      // Attachments belong to THIS turn; clear them so the next prompt starts
+      // clean rather than silently re-sending the same file.
+      const sent = attachments
+      setAttachments([])
+      const turnId = addTurn({
+        prompt,
+        script: '',
+        status: 'streaming',
+        ...(sent.length > 0 ? { attachments: sent } : {}),
+      })
       const controller = new AbortController()
       abortRef.current = controller
 
@@ -221,7 +307,9 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           headers: { 'Content-Type': 'application/json' },
           signal: controller.signal,
           body: JSON.stringify({
-            prompt,
+            // The model sees the file contents folded in; the turn keeps the
+            // user's own words, so the thread stays readable.
+            prompt: withAttachments(prompt, sent),
             stream: true,
             // What was said before, so "add a graph to that" resolves. Read
             // at send time rather than from the render closure: the turn we
@@ -321,18 +409,48 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         setBusy(false)
       }
     },
-    [busy, addTurn, patchTurn, pageId, auto, runScript]
+    [busy, addTurn, patchTurn, pageId, auto, runScript, attachments]
   )
 
   const empty = turns.length === 0
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div
+      className="flex h-full min-h-0 flex-col"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={(e) => {
+        e.preventDefault()
+        void attachFiles(e.dataTransfer.files)
+      }}
+      onPaste={pasteFiles}
+    >
       {/* Header */}
       <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
         <BrainCircuit className="h-4 w-4 text-[var(--accent-violet)]" />
-        <span className="flex-1 text-[0.8125rem] font-semibold">Assistant</span>
+        <span className="flex-1 truncate text-[0.8125rem] font-semibold" title={sessionTitle || 'Assistant'}>
+          {sessionTitle || 'Assistant'}
+        </span>
         <ModeToggle auto={auto} onChange={setAuto} />
+        <button
+          type="button"
+          aria-label="Saved sessions"
+          title="Saved sessions"
+          onClick={() => (sessions ? setSessions(null) : void refreshSessions())}
+          className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <History className="h-3.5 w-3.5" />
+        </button>
+        {!empty && (
+          <button
+            type="button"
+            aria-label="New session"
+            title="New session — the current one stays saved"
+            onClick={newSession}
+            className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <SquarePen className="h-3.5 w-3.5" />
+          </button>
+        )}
         {!empty && (
           <button
             type="button"
@@ -345,6 +463,45 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           </button>
         )}
       </div>
+
+      {/* Saved sessions. A panel rather than a dropdown: the list is the
+          primary way back into old work, so it gets room to breathe. */}
+      {sessions && (
+        <div className="max-h-56 shrink-0 overflow-y-auto border-b border-border/60 bg-muted/30 p-1.5">
+          {sessions.length === 0 ? (
+            <p className="px-2 py-3 text-center text-[0.71875rem] text-muted-foreground">
+              No saved sessions yet.
+            </p>
+          ) : (
+            sessions.map((sn) => (
+              <div key={sn.id} className="group flex items-center gap-1 rounded px-1 hover:bg-background/70">
+                <button
+                  type="button"
+                  onClick={() => void resume(sn.id)}
+                  className="flex-1 truncate py-1.5 text-left text-[0.71875rem]"
+                  title={sn.title}
+                >
+                  <span className="font-medium">{sn.title}</span>
+                  <span className="ml-1.5 text-muted-foreground">
+                    {sn.turnCount} turn{sn.turnCount === 1 ? '' : 's'} · {relativeDay(sn.updatedAt)}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  aria-label={`Delete session ${sn.title}`}
+                  onClick={async () => {
+                    await deleteSession(sn.id)
+                    void refreshSessions()
+                  }}
+                  className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
 
       {/* Thread */}
       <div className="relative min-h-0 flex-1">
@@ -441,6 +598,51 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
 
       {/* Composer */}
       <div className="shrink-0 border-t border-border/60 p-2">
+        {/* Attached files. Text-only: the extracted words are what the model
+            gets, so a chip shows the name and, when nothing could be read,
+            says so instead of pretending the file was understood. */}
+        {(attachments.length > 0 || reading) && (
+          <div className="mb-1.5 flex flex-wrap gap-1">
+            {attachments.map((a, i) => (
+              <span
+                key={`${a.name}-${i}`}
+                title={a.warning ?? `${a.text.length} characters read`}
+                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[0.65625rem] ${
+                  a.warning
+                    ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
+                    : 'border-border/60 text-muted-foreground'
+                }`}
+              >
+                <Paperclip className="h-2.5 w-2.5 shrink-0" />
+                <span className="truncate">{a.name}</span>
+                <button
+                  type="button"
+                  aria-label={`Remove ${a.name}`}
+                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                  className="shrink-0 hover:text-foreground"
+                >
+                  <X className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            ))}
+            {reading && (
+              <span className="inline-flex items-center gap-1 text-[0.65625rem] text-muted-foreground">
+                <Loader2 className="h-2.5 w-2.5 animate-spin" /> Reading…
+              </span>
+            )}
+          </div>
+        )}
+        <input
+          ref={fileRef}
+          type="file"
+          multiple
+          accept={ACCEPTED_TYPES}
+          className="hidden"
+          onChange={(e) => {
+            if (e.target.files) void attachFiles(e.target.files)
+            e.target.value = '' // let the same file be picked again
+          }}
+        />
         <PromptInput
           value={input}
           onValueChange={setInput}
@@ -453,14 +655,26 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             className="text-[0.78125rem]"
           />
           <PromptInputActions className="justify-between pt-1.5">
-            <span className="pl-1 text-[0.65625rem] text-muted-foreground">
-              {auto ? 'Adds to canvas automatically' : 'You review before adding'}
-            </span>
+            <div className="flex items-center gap-1">
+              <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="rounded-full"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                </Button>
+              </PromptInputAction>
+              <span className="text-[0.65625rem] text-muted-foreground">
+                {auto ? 'Adds to canvas automatically' : 'You review before adding'}
+              </span>
+            </div>
             <PromptInputAction tooltip={busy ? 'Stop' : 'Send'}>
               <Button
                 size="icon-sm"
                 className="rounded-full"
-                disabled={!busy && !input.trim()}
+                disabled={!busy && !input.trim() && attachments.length === 0}
                 onClick={() => (busy ? abortRef.current?.abort() : void send(input))}
               >
                 {busy ? <Square className="h-3 w-3 fill-current" /> : <BrainCircuit className="h-3.5 w-3.5" />}
@@ -544,6 +758,20 @@ function Turn({
       {/* What was asked */}
       <Message className="justify-end">
         <MessageContent className="max-w-[85%] rounded-2xl rounded-br-md bg-[color-mix(in_oklch,var(--accent-violet)_16%,var(--card))] px-3 py-1.5 text-[0.75rem]">
+          {turn.attachments && turn.attachments.length > 0 && (
+            <span className="mb-1 flex flex-wrap gap-1">
+              {turn.attachments.map((a, i) => (
+                <span
+                  key={`${a.name}-${i}`}
+                  title={a.warning ?? undefined}
+                  className="inline-flex items-center gap-1 rounded-full bg-background/50 px-1.5 py-0.5 text-[0.625rem]"
+                >
+                  <Paperclip className="h-2 w-2" />
+                  {a.name}
+                </span>
+              ))}
+            </span>
+          )}
           {turn.prompt}
         </MessageContent>
       </Message>
