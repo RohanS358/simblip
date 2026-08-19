@@ -54,6 +54,12 @@ export interface AiTurn {
   answer?: string
   /** The answer pre-split into notebook objects, ready to drop onto a page. */
   blocks?: { kind: 'text' | 'formula'; content: string }[]
+  /** A proposed set of edits to the page, awaiting confirmation. Typed as
+   *  unknown so the store stays free of the op vocabulary; ai-panel.tsx
+   *  narrows it and re-verifies before applying. */
+  editPlan?: { ops: unknown[]; summary: string }
+  /** Has the edit plan been applied? Stops a double-apply. */
+  editApplied?: boolean
   /** Has this script been executed onto a page? Set by Add, or immediately in
    *  Auto mode. Stops the same scene being added twice by accident. */
   added?: boolean

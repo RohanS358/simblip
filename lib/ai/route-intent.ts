@@ -16,7 +16,31 @@
 // This is a pure function on the prompt text — no model call, no latency. A
 // classifier round would cost more than the generation it is routing.
 
-export type Intent = 'simulate' | 'explain' | 'both'
+export type Intent = 'simulate' | 'explain' | 'both' | 'edit'
+
+/** Changing something that already exists, rather than building something
+ *  new. The verbs alone are not enough — "add a graph" is a build on an empty
+ *  board and an edit when a mass is selected — so classifyIntent only returns
+ *  'edit' when the caller says a page/selection is attached. That keeps this
+ *  conservative: with no context, nothing routes to edit and every existing
+ *  behaviour is unchanged. */
+const EDIT_RE = new RegExp(
+  [
+    // direct mutation verbs
+    'change|edit|modify|update|adjust|tweak|fix|correct|replace|rename',
+    'move|shift|align|resize|rotate|scale|reposition|centre|center',
+    'delete|remove|get rid of|clear',
+    'recolou?r|colou?r it|make it|set the|set its|increase|decrease|double|halve',
+    // referring to what is already there
+    'this (?:page|slide|note|object|one)|these|the selected|selection',
+  ].join('|'),
+  'i'
+)
+
+/** Does this ask to change what is already on the page? */
+export function wantsEdit(prompt: string, hasContext: boolean): boolean {
+  return hasContext && EDIT_RE.test(prompt)
+}
 
 /** Asks for worked mathematics: a derivation, a proof, a calculation. */
 const EXPLAIN_RE = new RegExp(
@@ -123,8 +147,12 @@ const WRITTEN_ARTEFACT_RE =
  * the common shape of an exam question, so getting it wrong in the safe
  * direction (an extra scene) beats losing the derivation entirely.
  */
-export function classifyIntent(prompt: string): Intent {
+export function classifyIntent(prompt: string, hasContext = false): Intent {
   const p = prompt.trim()
+  // An edit beats every other lane: the user is pointing at something on
+  // their page and asking for it to change, which neither a fresh scene nor a
+  // derivation answers. Gated on context so this can never fire by accident.
+  if (wantsEdit(p, hasContext)) return 'edit'
   // A slide deck is written output, so it counts as a written artefact even
   // though "make me slides..." opens with a build verb. Same for "make me
   // notes/a summary on X" — but NOT "add a note" (a canvas object), which is

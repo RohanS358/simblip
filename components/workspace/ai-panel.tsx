@@ -34,7 +34,7 @@ import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
 import {
-  BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
+  AtSign, BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -50,6 +50,10 @@ import { executeSimScript } from '@/lib/scene/simscript'
 import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnostics'
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
+import { buildDigest } from '@/lib/ai/page-context'
+import type { PageDoc } from '@/lib/scene/types'
+import { applyPlan } from '@/lib/ai/apply-ops'
+import { describePlan, type EditPlan } from '@/lib/ai/edit-ops'
 import {
   deleteSession, listSessions, loadSession, type AiSessionMeta,
 } from '@/lib/store/ai-sessions'
@@ -159,6 +163,25 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const [attachments, setAttachments] = useState<ChatAttachment[]>([])
   const [reading, setReading] = useState(false)
   const [sessions, setSessions] = useState<AiSessionMeta[] | null>(null)
+  /** Is the page attached to the next prompt? On by default — the assistant
+   *  being aware of what you are looking at is the point — but revocable, so
+   *  it is never secretly reading the page. */
+  const [useContext, setUseContext] = useState(true)
+  const selection = useDocStore((s) => s.selection)
+  const docPages = useDocStore((s) => s.pages)
+  const pageObjectCount = useDocStore((s) =>
+    pageId ? Object.keys(s.pages[pageId]?.objects ?? {}).length : 0
+  )
+
+  /** What the chip says, and what gets sent. A selection is more specific
+   *  than the page, so it wins when there is one. */
+  const contextLabel = useMemo(() => {
+    if (!pageId || pageObjectCount === 0) return null
+    if (selection.length > 0) {
+      return `${selection.length} selected`
+    }
+    return `this page · ${pageObjectCount} object${pageObjectCount === 1 ? '' : 's'}`
+  }, [pageId, pageObjectCount, selection.length])
   const fileRef = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
@@ -266,6 +289,33 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
     [attachFiles]
   )
 
+  /** Apply a proposed edit after the user confirms.
+   *
+   *  The whole batch is one history entry (see lib/ai/apply-ops.ts), so a
+   *  regretted edit is a single Ctrl+Z — which is what makes letting the
+   *  assistant touch the page acceptable at all. */
+  const applyEdit = useCallback(
+    (turn: AiTurn) => {
+      if (!pageId) {
+        toast.error('Open a page first.')
+        return
+      }
+      if (!turn.editPlan) return
+      const result = applyPlan(pageId, turn.editPlan as EditPlan)
+      if (!result.ok) {
+        // Usually the page changed under the plan — an object it addressed
+        // was deleted. Say so rather than applying a partial patch.
+        toast.error(result.errors[0] ?? 'That edit no longer fits this page.')
+        return
+      }
+      patchTurn(turn.id, { editApplied: true })
+      toast.success(`Applied ${result.applied} change${result.applied === 1 ? '' : 's'}.`, {
+        action: { label: 'Undo', onClick: () => useDocStore.getState().undo(pageId) },
+      })
+    },
+    [pageId, patchTurn]
+  )
+
   const refreshSessions = useCallback(async () => {
     setSessions(await listSessions())
   }, [])
@@ -302,6 +352,28 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
 
       try {
         const page = pageId ? useDocStore.getState().pages[pageId] : undefined
+
+        // The page the user is looking at, digested. Sent only when the
+        // context chip is on — the toggle is what makes this visible rather
+        // than the assistant silently reading their work.
+        const ctx = (() => {
+          if (!useContext || !page || !pageId) return null
+          const sel = useDocStore.getState().selection
+          const digest = buildDigest(page, sel)
+          if (!digest.text) return null
+          return {
+            pageDigest: digest.text,
+            pageLabel: sel.length > 0 ? `${sel.length} selected object(s)` : 'the page you are on',
+            // Ids and parameter NAMES only — enough to verify an edit plan
+            // server-side, without shipping the document itself.
+            pageObjects: Object.fromEntries(
+              Object.values(page.objects).map((o) => [
+                o.id,
+                { kind: o.geometry.kind, params: Object.keys(o.parameters) },
+              ])
+            ),
+          }
+        })()
         const res = await fetch('/api/ai', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -311,6 +383,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             // user's own words, so the thread stays readable.
             prompt: withAttachments(prompt, sent),
             stream: true,
+            ...(ctx ?? {}),
             // What was said before, so "add a graph to that" resolves. Read
             // at send time rather than from the render closure: the turn we
             // just added is already in the store, and a stale closure would
@@ -363,8 +436,18 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                 script?: string
                 answer?: string
                 blocks?: { kind: 'text' | 'formula'; content: string }[]
+                editPlan?: EditPlan
               }
-              if (data.script || data.answer) {
+              if (data.editPlan) {
+                // A plan is a PROPOSAL. It is verified but not applied — the
+                // user confirms it below, and applying re-verifies against
+                // the page as it is at that moment.
+                patchTurn(turnId, {
+                  editPlan: data.editPlan,
+                  message: data.message,
+                  status: 'ok',
+                })
+              } else if (data.script || data.answer) {
                 patchTurn(turnId, {
                   // Clear the streamed preview when this lane produced no
                   // script, or a half-written scene would linger on screen.
@@ -409,7 +492,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         setBusy(false)
       }
     },
-    [busy, addTurn, patchTurn, pageId, auto, runScript, attachments]
+    [busy, addTurn, patchTurn, pageId, auto, runScript, attachments, useContext]
   )
 
   const empty = turns.length === 0
@@ -537,6 +620,9 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                 <Turn
                   key={t.id}
                   turn={t}
+                  onApplyEdit={applyEdit}
+                  onDiscardEdit={(turn) => patchTurn(turn.id, { editPlan: undefined })}
+                  docPage={pageId ? docPages[pageId] : undefined}
                   // A written answer is placed as text/formula objects, via
                   // the SAME executeSimScript path a scene goes through — so
                   // the AI still cannot put anything on a page that a user
@@ -601,6 +687,24 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         {/* Attached files. Text-only: the extracted words are what the model
             gets, so a chip shows the name and, when nothing could be read,
             says so instead of pretending the file was understood. */}
+        {/* What the assistant can see. Auto-attached from the page/selection
+            and revocable — the toggle is why this is transparent rather than
+            the assistant silently reading your work. */}
+        {contextLabel && (
+          <button
+            type="button"
+            onClick={() => setUseContext((v) => !v)}
+            title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
+            className={`mb-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.65625rem] transition-colors ${
+              useContext
+                ? 'border-[var(--accent-violet)]/40 bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
+                : 'border-border/60 text-muted-foreground line-through'
+            }`}
+          >
+            <AtSign className="h-2.5 w-2.5 shrink-0" />
+            <span className="truncate">{contextLabel}</span>
+          </button>
+        )}
         {(attachments.length > 0 || reading) && (
           <div className="mb-1.5 flex flex-wrap gap-1">
             {attachments.map((a, i) => (
@@ -741,7 +845,7 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
 }
 
 function Turn({
-  turn, onAdd, onRetry, onMakeSlides,
+  turn, onAdd, onRetry, onMakeSlides, onApplyEdit, onDiscardEdit, docPage,
 }: {
   turn: AiTurn
   onAdd: () => void
@@ -749,6 +853,10 @@ function Turn({
   /** Only set for a turn that has written blocks — a pure scene has nothing
    *  to put on a slide, so there's no button to show. */
   onMakeSlides?: () => void
+  onApplyEdit: (turn: AiTurn) => void
+  onDiscardEdit: (turn: AiTurn) => void
+  /** The live page, so an op's object id renders as that object's name. */
+  docPage: PageDoc | undefined
 }) {
   const [copied, setCopied] = useState(false)
   const streaming = turn.status === 'streaming'
@@ -778,6 +886,41 @@ function Turn({
 
       {/* What came back */}
       <div className="space-y-1.5">
+        {/* A proposed edit to the page. Shown as plain language, never
+            applied until confirmed — and one Ctrl+Z reverses the whole
+            batch once it is. */}
+        {turn.editPlan && (
+          <div className="rounded-lg border border-border/60 bg-card/60 p-2">
+            <p className="mb-1 text-[0.71875rem] font-medium">{turn.editPlan.summary}</p>
+            <ul className="mb-2 space-y-0.5">
+              {describePlan(turn.editPlan as EditPlan, docPage).map((line, i) => (
+                <li key={i} className="flex gap-1.5 text-[0.6875rem] text-muted-foreground">
+                  <span className="text-[var(--accent-violet)]">•</span>
+                  <span>{line}</span>
+                </li>
+              ))}
+            </ul>
+            {turn.editApplied ? (
+              <span className="inline-flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
+                <Check className="h-3 w-3" /> Applied
+              </span>
+            ) : (
+              <div className="flex gap-1.5">
+                <Button size="sm" className="h-6 px-2 text-[0.6875rem]" onClick={() => onApplyEdit(turn)}>
+                  Apply
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 px-2 text-[0.6875rem]"
+                  onClick={() => onDiscardEdit(turn)}
+                >
+                  Discard
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
         {streaming && !turn.script && !turn.answer && (
           <div className="flex items-center gap-2 text-[0.71875rem] text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />

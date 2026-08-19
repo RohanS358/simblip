@@ -33,6 +33,13 @@ export const aiResponseSchema = z.object({
   /** The same answer pre-split into notebook objects, so the client can drop
    *  it onto a page without re-parsing the Markdown. */
   blocks: z.array(answerBlockSchema).optional(),
+  /** A verified plan of edits to the page the user is on. Verified, NOT
+   *  applied — the client previews it and the user confirms. Typed loosely
+   *  here so lib/ai/edit-ops.ts stays the single source of truth for the op
+   *  vocabulary; it is re-verified against the live page before applying. */
+  editPlan: z
+    .object({ ops: z.array(z.unknown()), summary: z.string() })
+    .optional(),
 })
 
 export type AnswerBlock = z.infer<typeof answerBlockSchema>
