@@ -1,0 +1,61 @@
+// 50 prompts for the AI sweep: 20 canvas, 20 slides, 10 doc.
+// Drawn from the course's own subject spread (public/100_Questions_All_Subjects.md
+// and the syllabuses) so the sweep exercises real coursework, not toy prompts.
+
+export const PROMPTS = [
+  // ---- 20 CANVAS: things that must BUILD and RUN on the board ----
+  { surface: 'canvas', prompt: 'Simulate a simple pendulum with a length slider' },
+  { surface: 'canvas', prompt: 'Build a mass-spring oscillator with a damping control' },
+  { surface: 'canvas', prompt: 'Simulate projectile motion and plot its trajectory' },
+  { surface: 'canvas', prompt: 'Create a block sliding down an inclined plane with friction' },
+  { surface: 'canvas', prompt: 'Simulate an elastic collision between two balls' },
+  { surface: 'canvas', prompt: 'Build an RLC series circuit and graph the current response' },
+  { surface: 'canvas', prompt: 'Make a voltage divider with two resistors and show the output voltage' },
+  { surface: 'canvas', prompt: 'Simulate a half-wave rectifier with a diode and show the output waveform' },
+  { surface: 'canvas', prompt: 'Build a common-emitter BJT amplifier circuit' },
+  { surface: 'canvas', prompt: 'Create an inverting op-amp circuit with a gain slider' },
+  { surface: 'canvas', prompt: 'Simulate a low-pass RC filter and plot its frequency response' },
+  { surface: 'canvas', prompt: 'Build a full adder from logic gates' },
+  { surface: 'canvas', prompt: 'Simulate a JK flip-flop with a clock' },
+  { surface: 'canvas', prompt: 'Create a 4-bit ripple counter' },
+  { surface: 'canvas', prompt: 'Build a 4-to-1 multiplexer' },
+  { surface: 'canvas', prompt: 'Simulate a DC motor with a speed control slider' },
+  { surface: 'canvas', prompt: 'Show a converging lens forming an image of an object' },
+  { surface: 'canvas', prompt: 'Simulate two-source wave interference' },
+  { surface: 'canvas', prompt: 'Animate a charged particle moving in a magnetic field' },
+  { surface: 'canvas', prompt: 'Build a transformer with a turns-ratio slider' },
+
+  // ---- 20 SLIDES: written output that must become a readable deck ----
+  { surface: 'slides', prompt: 'Make me slides on Newton\'s laws of motion' },
+  { surface: 'slides', prompt: 'Create a presentation on the different states of matter' },
+  { surface: 'slides', prompt: 'Make a slide deck explaining Ohm\'s law and its applications' },
+  { surface: 'slides', prompt: 'Slides on Kirchhoff\'s current and voltage laws' },
+  { surface: 'slides', prompt: 'Make a presentation about semiconductor diodes and their characteristics' },
+  { surface: 'slides', prompt: 'Create slides on the working of a bipolar junction transistor' },
+  { surface: 'slides', prompt: 'Make me a deck on logic gates and their truth tables' },
+  { surface: 'slides', prompt: 'Slides explaining the laws of thermodynamics' },
+  { surface: 'slides', prompt: 'Presentation on simple harmonic motion' },
+  { surface: 'slides', prompt: 'Make slides about electromagnetic waves and the spectrum' },
+  { surface: 'slides', prompt: 'Create a presentation on Maxwell\'s equations' },
+  { surface: 'slides', prompt: 'Slides on the photoelectric effect and quantum theory' },
+  { surface: 'slides', prompt: 'Make a deck explaining Thevenin and Norton theorems' },
+  { surface: 'slides', prompt: 'Presentation on data structures: arrays, stacks and queues' },
+  { surface: 'slides', prompt: 'Make slides on sorting algorithms and their time complexity' },
+  { surface: 'slides', prompt: 'Slides covering the operation of a DC motor and generator' },
+  { surface: 'slides', prompt: 'Create a presentation on lenses, mirrors and image formation' },
+  { surface: 'slides', prompt: 'Make me slides on the Bohr model of the atom' },
+  { surface: 'slides', prompt: 'Presentation on AC circuits: impedance, reactance and phasors' },
+  { surface: 'slides', prompt: 'Slides about the binary number system and number conversions' },
+
+  // ---- 10 DOC: prose/derivation answers that land as notes on a sheet ----
+  { surface: 'doc', prompt: 'Derive the expression for the time period of a simple pendulum' },
+  { surface: 'doc', prompt: 'Derive Gauss\'s law from Coulomb\'s law' },
+  { surface: 'doc', prompt: 'Calculate the equivalent resistance of three resistors in parallel: 4, 6 and 12 ohms' },
+  { surface: 'doc', prompt: 'Make me notes on the working principle of a transformer' },
+  { surface: 'doc', prompt: 'Explain the difference between BJT and MOSFET transistors' },
+  { surface: 'doc', prompt: 'Derive the quadratic formula by completing the square' },
+  { surface: 'doc', prompt: 'Write notes on the first and second laws of thermodynamics' },
+  { surface: 'doc', prompt: 'Determine the current through a 220 ohm resistor connected to 12 V' },
+  { surface: 'doc', prompt: 'Explain the photoelectric effect and Einstein\'s photoelectric equation' },
+  { surface: 'doc', prompt: 'Derive the lens maker\'s formula' },
+]

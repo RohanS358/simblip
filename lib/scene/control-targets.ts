@@ -115,6 +115,17 @@ export function writeTargetValue(
   val: number
 ) {
   if (!page || !targetParamName) return
+  // A control must never write a non-finite value. The geometry branches below
+  // assign straight into position/size, and JSON.stringify turns NaN into
+  // `null` on save — a null coordinate renders at left:0 and then passes every
+  // bounds check (`null > right` is false), so the object is invisibly
+  // off-frame with nothing reporting it.
+  //
+  // Reachable from a scripted control whose targetParamName names a param the
+  // target does not have (the AI writes `targetParamName: "length"` on a mass,
+  // which is not a real param): the slider reads a fallback, arithmetic on it
+  // goes non-finite, and the write lands in position.x.
+  if (!Number.isFinite(val)) return
   const docStore = useDocStore.getState()
 
   if (targetType === 'variable') {

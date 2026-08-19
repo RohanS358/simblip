@@ -1,0 +1,1231 @@
+[
+  {
+    "i": 0,
+    "surface": "canvas",
+    "prompt": "Simulate a simple pendulum with a length slider",
+    "ms": 5118,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 500,
+      "from": "system"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(460x500 vs 520x400)"
+    ]
+  },
+  {
+    "i": 1,
+    "surface": "canvas",
+    "prompt": "Build a mass-spring oscillator with a damping control",
+    "ms": 16381,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 500,
+      "from": "system"
+    },
+    "issues": [
+      "LINT(1)",
+      "SCENE-BIGGER-THAN-ASSUMED(460x500 vs 520x400)"
+    ]
+  },
+  {
+    "i": 2,
+    "surface": "canvas",
+    "prompt": "Simulate projectile motion and plot its trajectory",
+    "ms": 3011,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 900,
+      "h": 580,
+      "from": "system"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(900x580 vs 520x400)"
+    ]
+  },
+  {
+    "i": 3,
+    "surface": "canvas",
+    "prompt": "Create a block sliding down an inclined plane with friction",
+    "ms": 7881,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 4,
+    "surface": "canvas",
+    "prompt": "Simulate an elastic collision between two balls",
+    "ms": 3960,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 5,
+    "surface": "canvas",
+    "prompt": "Build an RLC series circuit and graph the current response",
+    "ms": 10237,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 6,
+    "surface": "canvas",
+    "prompt": "Make a voltage divider with two resistors and show the output voltage",
+    "ms": 6746,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 7,
+    "surface": "canvas",
+    "prompt": "Simulate a half-wave rectifier with a diode and show the output waveform",
+    "ms": 13446,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 1,
+    "script": true,
+    "answerH": 860,
+    "frameH": 800,
+    "place": {
+      "answer": {
+        "x": 40,
+        "y": 0
+      },
+      "scene": {
+        "x": 640,
+        "y": 0
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": [
+      "ANSWER-OVERFLOW-Y(60px)"
+    ]
+  },
+  {
+    "i": 8,
+    "surface": "canvas",
+    "prompt": "Build a common-emitter BJT amplifier circuit",
+    "ms": 6337,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 9,
+    "surface": "canvas",
+    "prompt": "Create an inverting op-amp circuit with a gain slider",
+    "ms": 17408,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 120,
+      "h": 300,
+      "from": "extent"
+    },
+    "issues": [
+      "LINT(1)"
+    ]
+  },
+  {
+    "i": 10,
+    "surface": "canvas",
+    "prompt": "Simulate a low-pass RC filter and plot its frequency response",
+    "ms": 15505,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": [
+      "LINT(1)"
+    ]
+  },
+  {
+    "i": 11,
+    "surface": "canvas",
+    "prompt": "Build a full adder from logic gates",
+    "ms": 24825,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 12,
+    "surface": "canvas",
+    "prompt": "Simulate a JK flip-flop with a clock",
+    "ms": 2557,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 13,
+    "surface": "canvas",
+    "prompt": "Create a 4-bit ripple counter",
+    "ms": 2490,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 14,
+    "surface": "canvas",
+    "prompt": "Build a 4-to-1 multiplexer",
+    "ms": 9631,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 470,
+      "h": 480,
+      "from": "extent"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(470x480 vs 520x400)"
+    ]
+  },
+  {
+    "i": 15,
+    "surface": "canvas",
+    "prompt": "Simulate a DC motor with a speed control slider",
+    "ms": 5116,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 520,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 16,
+    "surface": "canvas",
+    "prompt": "Show a converging lens forming an image of an object",
+    "ms": 3435,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 720,
+      "h": 400,
+      "from": "system"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(720x400 vs 520x400)"
+    ]
+  },
+  {
+    "i": 17,
+    "surface": "canvas",
+    "prompt": "Simulate two-source wave interference",
+    "ms": 7630,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 500,
+      "h": 380,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 18,
+    "surface": "canvas",
+    "prompt": "Animate a charged particle moving in a magnetic field",
+    "ms": 3448,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 620,
+      "h": 460,
+      "from": "system"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(620x460 vs 520x400)"
+    ]
+  },
+  {
+    "i": 19,
+    "surface": "canvas",
+    "prompt": "Build a transformer with a turns-ratio slider",
+    "ms": 4124,
+    "intent": "simulate",
+    "wantsSlides": false,
+    "blocks": 0,
+    "script": true,
+    "answerH": 0,
+    "frameH": 800,
+    "place": {
+      "scene": {
+        "x": 340,
+        "y": 200
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 180,
+      "h": 540,
+      "from": "extent"
+    },
+    "issues": [
+      "SCENE-BIGGER-THAN-ASSUMED(180x540 vs 520x400)"
+    ]
+  },
+  {
+    "i": 20,
+    "surface": "slides",
+    "prompt": "Make me slides on Newton's laws of motion",
+    "ms": 17231,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 1872,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 14,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 21,
+    "surface": "slides",
+    "prompt": "Create a presentation on the different states of matter",
+    "ms": 18595,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 1762,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 19,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 22,
+    "surface": "slides",
+    "prompt": "Make a slide deck explaining Ohm's law and its applications",
+    "ms": 13226,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 1212,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 8,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 23,
+    "surface": "slides",
+    "prompt": "Slides on Kirchhoff's current and voltage laws",
+    "ms": 6046,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 728,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 8,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 24,
+    "surface": "slides",
+    "prompt": "Make a presentation about semiconductor diodes and their characteristics",
+    "ms": 41127,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 5,
+    "script": true,
+    "answerH": 1906,
+    "frameH": 540,
+    "place": {
+      "scene": {
+        "x": 220,
+        "y": 70
+      }
+    },
+    "deck": {
+      "count": 14,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 25,
+    "surface": "slides",
+    "prompt": "Create slides on the working of a bipolar junction transistor",
+    "ms": 43382,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 9,
+    "script": false,
+    "answerH": 2614,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 22,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": [
+      "ERROR-MSG"
+    ]
+  },
+  {
+    "i": 26,
+    "surface": "slides",
+    "prompt": "Make me a deck on logic gates and their truth tables",
+    "ms": 45921,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": true,
+    "answerH": 2664,
+    "frameH": 540,
+    "place": {
+      "scene": {
+        "x": 220,
+        "y": 70
+      }
+    },
+    "deck": {
+      "count": 11,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": {
+      "w": 420,
+      "h": 80,
+      "from": "extent"
+    },
+    "issues": []
+  },
+  {
+    "i": 27,
+    "surface": "slides",
+    "prompt": "Slides explaining the laws of thermodynamics",
+    "ms": 13676,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 7,
+    "script": false,
+    "answerH": 1766,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 8,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 28,
+    "surface": "slides",
+    "prompt": "Presentation on simple harmonic motion",
+    "ms": 12332,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 9,
+    "script": false,
+    "answerH": 1434,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 8,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 29,
+    "surface": "slides",
+    "prompt": "Make slides about electromagnetic waves and the spectrum",
+    "ms": 37855,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 3,
+    "script": false,
+    "answerH": 2278,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 18,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": [
+      "ERROR-MSG"
+    ]
+  },
+  {
+    "i": 30,
+    "surface": "slides",
+    "prompt": "Create a presentation on Maxwell's equations",
+    "ms": 23452,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 9,
+    "script": false,
+    "answerH": 2296,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 13,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 31,
+    "surface": "slides",
+    "prompt": "Slides on the photoelectric effect and quantum theory",
+    "ms": 13285,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 7,
+    "script": false,
+    "answerH": 1450,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 7,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 32,
+    "surface": "slides",
+    "prompt": "Make a deck explaining Thevenin and Norton theorems",
+    "ms": 19118,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 1762,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 12,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 33,
+    "surface": "slides",
+    "prompt": "Presentation on data structures: arrays, stacks and queues",
+    "ms": 11989,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 1256,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 14,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 34,
+    "surface": "slides",
+    "prompt": "Make slides on sorting algorithms and their time complexity",
+    "ms": 25223,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": false,
+    "answerH": 2356,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 15,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 35,
+    "surface": "slides",
+    "prompt": "Slides covering the operation of a DC motor and generator",
+    "ms": 14413,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 1,
+    "script": true,
+    "answerH": 1278,
+    "frameH": 540,
+    "place": {
+      "scene": {
+        "x": 220,
+        "y": 70
+      }
+    },
+    "deck": {
+      "count": 9,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": {
+      "w": 420,
+      "h": 80,
+      "from": "extent"
+    },
+    "issues": []
+  },
+  {
+    "i": 36,
+    "surface": "slides",
+    "prompt": "Create a presentation on lenses, mirrors and image formation",
+    "ms": 44710,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 9,
+    "script": true,
+    "answerH": 2116,
+    "frameH": 540,
+    "place": {
+      "scene": {
+        "x": 220,
+        "y": 70
+      }
+    },
+    "deck": {
+      "count": 13,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 37,
+    "surface": "slides",
+    "prompt": "Make me slides on the Bohr model of the atom",
+    "ms": 20207,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 7,
+    "script": false,
+    "answerH": 2114,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 14,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 38,
+    "surface": "slides",
+    "prompt": "Presentation on AC circuits: impedance, reactance and phasors",
+    "ms": 48729,
+    "intent": "both",
+    "wantsSlides": true,
+    "blocks": 4,
+    "script": true,
+    "answerH": 1632,
+    "frameH": 540,
+    "place": {
+      "scene": {
+        "x": 220,
+        "y": 70
+      }
+    },
+    "deck": {
+      "count": 14,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": {
+      "w": 460,
+      "h": 360,
+      "from": "system"
+    },
+    "issues": []
+  },
+  {
+    "i": 39,
+    "surface": "slides",
+    "prompt": "Slides about the binary number system and number conversions",
+    "ms": 16424,
+    "intent": "explain",
+    "wantsSlides": true,
+    "blocks": 6,
+    "script": false,
+    "answerH": 1668,
+    "frameH": 540,
+    "place": null,
+    "deck": {
+      "count": 10,
+      "empty": 0,
+      "off": 0,
+      "maxBottom": 500
+    },
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 40,
+    "surface": "doc",
+    "prompt": "Derive the expression for the time period of a simple pendulum",
+    "ms": 24329,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 19,
+    "script": false,
+    "answerH": 1840,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": [
+      "ERROR-MSG",
+      "ANSWER-OVERFLOW-Y(717px)"
+    ]
+  },
+  {
+    "i": 41,
+    "surface": "doc",
+    "prompt": "Derive Gauss's law from Coulomb's law",
+    "ms": 26096,
+    "intent": "explain",
+    "wantsSlides": false,
+    "blocks": 28,
+    "script": false,
+    "answerH": 2462,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": [
+      "ANSWER-OVERFLOW-Y(1339px)"
+    ]
+  },
+  {
+    "i": 42,
+    "surface": "doc",
+    "prompt": "Calculate the equivalent resistance of three resistors in parallel: 4, 6 and 12 ohms",
+    "ms": 10065,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 9,
+    "script": true,
+    "answerH": 676,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 11.5
+      },
+      "scene": {
+        "x": 137,
+        "y": 711.5
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 43,
+    "surface": "doc",
+    "prompt": "Make me notes on the working principle of a transformer",
+    "ms": 17690,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 5,
+    "script": true,
+    "answerH": 1268,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      },
+      "scene": {
+        "x": 137,
+        "y": 1268
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 420,
+      "h": 80,
+      "from": "extent"
+    },
+    "issues": [
+      "ANSWER-OVERFLOW-Y(145px)",
+      "SCENE-OVERFLOW-Y(545px)"
+    ]
+  },
+  {
+    "i": 44,
+    "surface": "doc",
+    "prompt": "Explain the difference between BJT and MOSFET transistors",
+    "ms": 15688,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 1,
+    "script": true,
+    "answerH": 860,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      },
+      "scene": {
+        "x": 137,
+        "y": 860
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 420,
+      "h": 80,
+      "from": "extent"
+    },
+    "issues": [
+      "SCENE-OVERFLOW-Y(137px)"
+    ]
+  },
+  {
+    "i": 45,
+    "surface": "doc",
+    "prompt": "Derive the quadratic formula by completing the square",
+    "ms": 14681,
+    "intent": "explain",
+    "wantsSlides": false,
+    "blocks": 22,
+    "script": false,
+    "answerH": 1656,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": [
+      "ANSWER-OVERFLOW-Y(533px)"
+    ]
+  },
+  {
+    "i": 46,
+    "surface": "doc",
+    "prompt": "Write notes on the first and second laws of thermodynamics",
+    "ms": 10883,
+    "intent": "explain",
+    "wantsSlides": false,
+    "blocks": 1,
+    "script": false,
+    "answerH": 992,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 65.5
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 47,
+    "surface": "doc",
+    "prompt": "Determine the current through a 220 ohm resistor connected to 12 V",
+    "ms": 6192,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 8,
+    "script": true,
+    "answerH": 718,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      },
+      "scene": {
+        "x": 137,
+        "y": 723
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": []
+  },
+  {
+    "i": 48,
+    "surface": "doc",
+    "prompt": "Explain the photoelectric effect and Einstein's photoelectric equation",
+    "ms": 13016,
+    "intent": "explain",
+    "wantsSlides": false,
+    "blocks": 3,
+    "script": false,
+    "answerH": 1288,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      }
+    },
+    "deck": null,
+    "ext": null,
+    "issues": [
+      "ANSWER-OVERFLOW-Y(165px)"
+    ]
+  },
+  {
+    "i": 49,
+    "surface": "doc",
+    "prompt": "Derive the lens maker's formula",
+    "ms": 25453,
+    "intent": "both",
+    "wantsSlides": false,
+    "blocks": 24,
+    "script": true,
+    "answerH": 2264,
+    "frameH": 1123,
+    "place": {
+      "answer": {
+        "x": 137,
+        "y": 0
+      },
+      "scene": {
+        "x": 137,
+        "y": 2264
+      }
+    },
+    "deck": null,
+    "ext": {
+      "w": 120,
+      "h": 140,
+      "from": "extent"
+    },
+    "issues": [
+      "ANSWER-OVERFLOW-Y(1141px)",
+      "SCENE-OVERFLOW-Y(1541px)"
+    ]
+  }
+]

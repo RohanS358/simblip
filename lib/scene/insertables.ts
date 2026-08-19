@@ -160,7 +160,18 @@ export function viewportBounds(pageId: string): { left: number; top: number; rig
   const frame = pageFrame(pageId)
   if (frame) return { left: 0, top: 0, right: frame.w, bottom: frame.h }
 
-  const v = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+  // `?? { zoom: 1 }` only covers a MISSING viewport. A stored one whose zoom
+  // is 0 or undefined (a page restored before its canvas ever measured, or a
+  // partially-hydrated sync payload) divides to Infinity/NaN below and the
+  // caller places content at a null coordinate — see the finite() note in
+  // lib/ai/placement.ts. Validate the field, not just the object.
+  const stored = useDocStore.getState().viewports[pageId]
+  const zoom = Number.isFinite(stored?.zoom) && (stored?.zoom ?? 0) > 0 ? stored!.zoom : 1
+  const v = {
+    x: Number.isFinite(stored?.x) ? stored!.x : 0,
+    y: Number.isFinite(stored?.y) ? stored!.y : 0,
+    zoom,
+  }
   const root =
     typeof document === 'undefined'
       ? undefined

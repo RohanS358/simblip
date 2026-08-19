@@ -99,7 +99,7 @@ export function PenSettings() {
 
       <Field
         label="Style"
-        hint="Ink follows stylus pressure. Pen writes at one flat thickness. Highlighter is flat and translucent."
+        hint="Ink follows stylus pressure. Pen writes at one flat thickness. Highlighter is flat and translucent. Pointer is presenter ink — it fades away after 5 seconds and is never saved to the page."
       >
         <Choice<PenStyle>
           value={PEN_STYLES[pen.style] ? pen.style : 'ink'}

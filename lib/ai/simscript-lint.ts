@@ -170,6 +170,35 @@ function channelsOf(kind: string): string[] {
   return KNOWN_KINDS.has(kind) ? [...DEFAULT_SYMBOL_CHANNELS] : []
 }
 
+/** Behaviors each mechanics kind carries. Mirrors MECHANICS_COMPONENTS in
+ *  lib/scene/simscript.ts (which is module-private), same as MECHANICS_KINDS
+ *  above — only the kinds a control is plausibly aimed at. */
+const BEHAVIORS_BY_KIND: Record<string, string[]> = {
+  mass: ['rigidBody'], block: ['rigidBody'], beam: ['rigidBody'], wheel: ['rigidBody'],
+  ground: ['staticBody'], spring: ['spring'], rope: ['rope'], rod: ['rod'],
+  damper: ['damper'], hinge: ['hinge'],
+  motor: ['rigidBody', 'motor'], charge: ['rigidBody', 'charge'],
+  efield: ['efield'], bfield: ['bfield'], dielectric: ['dielectric'],
+  torsionpendulum: ['hinge', 'torsionSpring'],
+  'torsion-pendulum': ['hinge', 'torsionSpring'],
+}
+
+/** Param names a kind's own behaviors declare — what a slider/button may
+ *  legally aim at, beyond the geometry properties every object has.
+ *
+ *  Returns [] for a kind we cannot resolve (a circuit symbol, an unknown),
+ *  and the caller treats that as "cannot check" rather than "illegal" — a
+ *  false positive here would reject a working script. */
+function paramsOf(kind: string): string[] {
+  const behaviors = BEHAVIORS_BY_KIND[kind]
+  if (!behaviors) return []
+  const out = new Set<string>()
+  for (const b of behaviors) {
+    for (const p of BEHAVIOR_SPECS.find((sp) => sp.type === b)?.params ?? []) out.add(p.name)
+  }
+  return [...out]
+}
+
 export function lintSimScript(source: string): LintResult {
   const errors: string[] = []
   const warnings: string[] = []
@@ -303,6 +332,44 @@ export function lintSimScript(source: string): LintResult {
       } else if (!legal.includes(channel)) {
         errors.push(`graph.plot(${arg}) — "${kind}" has no channel "${channel}"; use one of: ${legal.join(', ')}`)
       }
+    }
+  }
+
+  // 4b. Control wiring — a slider/button/trigger that drives nothing.
+  //
+  // `targetParamName` is the name of the thing the control moves, and the
+  // model invents it freely: the measured escape is a pendulum whose length
+  // slider was wired with `targetParamName: "length"` on a `mass`, which has
+  // no such param. Nothing rejected it, so the control shipped inert — the
+  // user asked for "a length slider", got a slider, and dragging it did
+  // nothing.
+  //
+  // Worse than inert: an unresolvable name falls back to the SLIDER'S OWN
+  // value, and a control still wired to the geometry defaults (the factory
+  // ships targetParamName:"x") then writes that number straight into the
+  // target's position — which is how AI scenes ended up with objects
+  // hundreds of px outside their system box.
+  //
+  // Legal names are the geometry properties every object has, plus the
+  // params the target's own behaviors declare.
+  const GEOMETRY_PARAMS = ['x', 'y', 'width', 'height', 'rotation']
+  const controlRe = /create\s*\(\s*['"](slider|button|trigger)['"]\s*,\s*\{([^}]*)\}/g
+  while ((m = controlRe.exec(code)) !== null) {
+    const [, control, propsRaw] = m
+    const nameM = /targetParamName\s*:\s*['"]([^'"]+)['"]/.exec(propsRaw)
+    if (!nameM) continue
+    const param = nameM[1]
+    if (GEOMETRY_PARAMS.includes(param)) continue
+    // Which object is it aimed at? Only a create() handle is checkable.
+    const targetM = /target(?:ObjectId|Object|)\s*:\s*([A-Za-z_$][\w$]*)/.exec(propsRaw)
+    if (!targetM) continue
+    const targetKind = kinds[targetM[1]]
+    if (!targetKind) continue
+    const legal = paramsOf(targetKind)
+    if (legal.length > 0 && !legal.includes(param)) {
+      errors.push(
+        `create("${control}", { targetParamName: "${param}" }) — "${targetKind}" has no param "${param}", so the ${control} drives nothing; use one of: ${[...GEOMETRY_PARAMS, ...legal].join(', ')}`
+      )
     }
   }
 

@@ -375,6 +375,11 @@ interface Gesture {
 // domain part) when the pen rests in place this long before lifting.
 const HOLD_MS = 500
 
+/** Pointer pen style: a finished stroke holds at full strength this long,
+ *  then fades over POINTER_FADE_OUT_MS — 5s from pen-up to gone. */
+const POINTER_FADE_MS = 2000
+const POINTER_FADE_OUT_MS = 3000
+
 /** Centroid travel before a three-finger swipe counts as undo/redo. Large
  *  enough that resting three fingers while thinking never fires it. */
 const THREE_FINGER_PX = 60
@@ -1075,6 +1080,31 @@ export function InfiniteCanvas({
         : pointsToPath(v)
     )
   }
+  // Presenter ink (Pointer pen style): strokes that live only here —
+  // they are never objects, so they never hit history, autosave or sync.
+  // Each one starts a CSS opacity transition and drops itself after
+  // POINTER_FADE_MS + POINTER_FADE_OUT_MS.
+  const [fadingStrokes, setFadingStrokes] = useState<{ id: number; d: string; color: string; opacity: number }[]>([])
+  const fadingIdRef = useRef(0)
+  const addFadingStroke = (points: number[][]) => {
+    const pen = penPrefs()
+    const id = ++fadingIdRef.current
+    const stroke = {
+      id,
+      d: inkPath(points, { size: pen.size, thinning: liveThinning(), last: true }),
+      color: pen.color,
+      opacity: PEN_STYLES[pen.style]?.opacity ?? 1,
+    }
+    setFadingStrokes((prev) => [...prev, stroke])
+    // Two timers: one flips opacity to start the CSS fade, one unmounts.
+    setTimeout(() => {
+      setFadingStrokes((prev) => prev.map((f) => (f.id === id ? { ...f, opacity: 0 } : f)))
+    }, POINTER_FADE_MS)
+    setTimeout(() => {
+      setFadingStrokes((prev) => prev.filter((f) => f.id !== id))
+    }, POINTER_FADE_MS + POINTER_FADE_OUT_MS)
+  }
+
   // Draw-and-hold: true once the pen has rested HOLD_MS in place — the live
   // ink tints to signal "release now to convert into a component".
   const [holdReady, setHoldReady] = useState(false)
@@ -1901,7 +1931,9 @@ export function InfiniteCanvas({
             }
           }
           if (restarted) setHoldReady(false)
-          if (store.tool === 'pen' && store.inkToShape) {
+          // Pointer ink never becomes a component, so the hold ring must
+          // not arm under it — it would promise a conversion that can't happen.
+          if (store.tool === 'pen' && store.inkToShape && !PEN_STYLES[penPrefs().style]?.fade) {
             if (holdTimerRef.current) clearTimeout(holdTimerRef.current)
             holdTimerRef.current = setTimeout(
               () => setHoldReady(true),
@@ -2263,6 +2295,15 @@ export function InfiniteCanvas({
           const points = strokeRef.current
           setStroke(null)
           if (!points || points.length < 2) return
+
+          // Presenter ink (Pointer style): never enters the document — no
+          // object, so no history, autosave or sync. It lives in local state
+          // and fades itself out. Checked before every commit path so the
+          // stroke can't be beautified into a shape or a connector either.
+          if (PEN_STYLES[penPrefs().style]?.fade) {
+            addFadingStroke(points)
+            return
+          }
 
           const endAnchor =
             store.tool === 'shaper'
@@ -3387,6 +3428,24 @@ export function InfiniteCanvas({
             />
           ))}
         </svg>
+
+        {/* Presenter ink — local only, fades and unmounts itself. */}
+        {fadingStrokes.length > 0 && (
+          <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+            {fadingStrokes.map((f) => (
+              <path
+                key={f.id}
+                d={f.d}
+                fill={f.color}
+                stroke="none"
+                style={{
+                  opacity: f.opacity,
+                  transition: `opacity ${POINTER_FADE_OUT_MS}ms linear`,
+                }}
+              />
+            ))}
+          </svg>
+        )}
 
         {interactiveObjects.map((obj) => {
           const isSelected = selectedSet.has(obj.id)

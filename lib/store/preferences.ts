@@ -13,7 +13,7 @@ import { persist } from 'zustand/middleware'
 export type ScrollAxis = 'free' | 'vertical' | 'horizontal'
 export type GridType = 'dots' | 'lines' | 'graph' | 'none'
 export type DockSide = 'bottom' | 'top' | 'left' | 'right'
-export type PenStyle = 'ink' | 'pen' | 'highlighter'
+export type PenStyle = 'ink' | 'pen' | 'highlighter' | 'pointer'
 
 export interface PenPrefs {
   /** Smoothness: how much the finished outline is rounded (0 keeps every
@@ -242,13 +242,19 @@ export const DEFAULT_NOTEBOOK: NotebookPrefs = {
 
 /** Per-style overrides applied on top of the sliders. `pressure: false`
  *  means the stroke is drawn flat at the base thickness — the sensitivity
- *  slider only applies to pressure styles. (Old stored styles 'marker' and
+ *  slider only applies to pressure styles. `fade` marks presenter ink: the
+ *  stroke is never committed to the page, it just fades out (see
+ *  POINTER_FADE_MS in canvas.tsx). (Old stored styles 'marker' and
  *  'technical' migrate to 'pen'; committed strokes carrying those names
  *  still render via the `?? 1` opacity fallbacks at the call sites.) */
-export const PEN_STYLES: Record<PenStyle, { label: string; opacity: number; pressure: boolean }> = {
+export const PEN_STYLES: Record<
+  PenStyle,
+  { label: string; opacity: number; pressure: boolean; fade?: boolean }
+> = {
   ink: { label: 'Ink', opacity: 1, pressure: true },
   pen: { label: 'Pen', opacity: 1, pressure: false },
   highlighter: { label: 'Highlighter', opacity: 0.35, pressure: false },
+  pointer: { label: 'Pointer', opacity: 1, pressure: false, fade: true },
 }
 
 export const PEN_COLORS = [

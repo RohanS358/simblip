@@ -1,0 +1,74 @@
+[
+  {
+    "i": 0,
+    "surface": "canvas",
+    "prompt": "Simulate a simple pendulum with a length slider",
+    "ms": 5118,
+    "status": 200,
+    "message": "Built it — review the script, then add it to the canvas.",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 500 });\nvar pivot = create(\"hinge\", { x: 320, y: 100 });\nvar bob = create(\"mass\", { x: 320, y: 340, mass: 1 });\nconnect(pivot.centre, bob.centre, \"rod\");\nvar lSlider = create(\"slider\", { x: 60, y: 460, min: 50, max: 300, step: 10, value: 200, label: \"Pendulum length (px)\", targetParamName: \"length\" });\nlSlider.set({ targetObjectId: bob, targetParamName: \"y\", expression: \"pivot.y + lSlider.value / 2\" });\ngraph.plot(bob.swing);"
+  },
+  {
+    "i": 1,
+    "surface": "canvas",
+    "prompt": "Build a mass-spring oscillator with a damping control",
+    "ms": 16381,
+    "status": 200,
+    "message": "Built it (took 2 passes to get right).",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 500 });\nvar anchor = create(\"ground\", { x: 230, y: 80, width: 100 });\nvar block = create(\"mass\", { x: 230, y: 320, mass: 2 });\nvar spring = create(\"spring\", { length: 220, k: 50 });\nvar damper = create(\"damper\", { dampingCoefficient: 10 });\nconnect(anchor.centre, block.centre, \"rod\");\nconnect(spring.a, anchor.centre);\nconnect(spring.b, block.centre);\nconnect(damper.a, spring.b);\nconnect(damper.b, block.centre);\nvar kSlider = create(\"slider\", { x: 60, y: 420, min: 10, max: 150, step: 10, value: 50, label: \"Stiffness k (N/m)\", targetParamName: \"k\", targetObjectId: spring });\nvar cSlider = create(\"slider\", { x: 60, y: 460, min: 2, max: 30, step: 1, value: 10, label: \"Damping c (Ns/m)\", targetParamName: \"dampingCoefficient\", targetObjectId: damper });\ngraph.plot(block.y);"
+  },
+  {
+    "i": 2,
+    "surface": "canvas",
+    "prompt": "Simulate projectile motion and plot its trajectory",
+    "ms": 3011,
+    "status": 200,
+    "message": "Built it — review the script, then add it to the canvas.",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 900, height: 580 });\nvar floor = create(\"ground\", { x: 20, y: 520, width: 860 });\nvar ball = create(\"mass\", { x: 80, y: 480, mass: 1, vx: 8, vy: -8 });\ngraph.plot(ball.y, ball.x);"
+  },
+  {
+    "i": 3,
+    "surface": "canvas",
+    "prompt": "Create a block sliding down an inclined plane with friction",
+    "ms": 7881,
+    "status": 200,
+    "message": "Built it (took 2 passes to get right).",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 360 });\nvar floor = create(\"ground\", { x: 20, y: 320, width: 760 });\nvar block = create(\"block\", { x: 180, y: 200, mass: 5 });\nvar ramp = create(\"beam\", { x: 200, y: 240, length: 200, angle: -30 });\nconnect(block.centre, ramp.centre, \"rod\");\nblock.set({ friction: 0.3 });"
+  },
+  {
+    "i": 4,
+    "surface": "canvas",
+    "prompt": "Simulate an elastic collision between two balls",
+    "ms": 3960,
+    "status": 200,
+    "message": "Built it — review the script, then add it to the canvas.",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 360 });\nvar m1 = create(\"mass\", { mass: 2, x: 50, y: 180, name: \"m1\" });\nvar m2 = create(\"mass\", { mass: 3, x: 350, y: 180, vx: -5, name: \"m2\" });\naddproperty(m1, \"rigidBody\");\naddproperty(m2, \"rigidBody\");\nconnect(m1.centre, m2.centre, \"rod\");"
+  },
+  {
+    "i": 5,
+    "surface": "canvas",
+    "prompt": "Build an RLC series circuit and graph the current response",
+    "ms": 10237,
+    "status": 200,
+    "message": "Built it (took 2 passes to get right).",
+    "hasAnswer": false,
+    "blockCount": 0,
+    "hasScript": true,
+    "script": "var rlc_sys = create(\"system\", { x: 0, y: 0, domain: \"electrical\", width: 460, height: 360 });\nvar bat = create(\"battery\", { V: 9 }, { parent: rlc_sys });\nvar r = create(\"resistor\", { R: 1000 }, { parent: rlc_sys });\nvar l = create(\"inductor\", { L: 0.1 }, { parent: rlc_sys });\nvar c = create(\"capacitor\", { C: 1e-6 }, { parent: rlc_sys });\nvar vm = create(\"voltmeter\", {}, { parent: rlc_sys });\nconnect(bat.positive, r.a);\nconnect(r.b, l.a);\nconnect(l.b, c.a);\nconnect(c.b, bat.negative);\nconnect(vm.a, r.b);\nconnect(vm.b, l.b);\ngraph.plot(rlc_sys.I);"
+  }
+]

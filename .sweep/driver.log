@@ -1,0 +1,53 @@
+[0] canvas :: Simulate a simple pendulum with a length slider... 5118ms blocks=0 script=true
+[1] canvas :: Build a mass-spring oscillator with a damping control... 16381ms blocks=0 script=true
+[2] canvas :: Simulate projectile motion and plot its trajectory... 3011ms blocks=0 script=true
+[3] canvas :: Create a block sliding down an inclined plane with friction... 7881ms blocks=0 script=true
+[4] canvas :: Simulate an elastic collision between two balls... 3960ms blocks=0 script=true
+[5] canvas :: Build an RLC series circuit and graph the current response... 10237ms blocks=0 script=true
+[6] canvas :: Make a voltage divider with two resistors and show the outpu... 6746ms blocks=0 script=true
+[7] canvas :: Simulate a half-wave rectifier with a diode and show the out... 13446ms blocks=1 script=true
+[8] canvas :: Build a common-emitter BJT amplifier circuit... 6337ms blocks=0 script=true
+[9] canvas :: Create an inverting op-amp circuit with a gain slider... 17408ms blocks=0 script=true
+[10] canvas :: Simulate a low-pass RC filter and plot its frequency respons... 15505ms blocks=0 script=true
+[11] canvas :: Build a full adder from logic gates... 24825ms blocks=0 script=true
+[12] canvas :: Simulate a JK flip-flop with a clock... 2557ms blocks=0 script=true
+[13] canvas :: Create a 4-bit ripple counter... 2490ms blocks=0 script=true
+[14] canvas :: Build a 4-to-1 multiplexer... 9631ms blocks=0 script=true
+[15] canvas :: Simulate a DC motor with a speed control slider... 5116ms blocks=0 script=true
+[16] canvas :: Show a converging lens forming an image of an object... 3435ms blocks=0 script=true
+[17] canvas :: Simulate two-source wave interference... 7630ms blocks=0 script=true
+[18] canvas :: Animate a charged particle moving in a magnetic field... 3448ms blocks=0 script=true
+[19] canvas :: Build a transformer with a turns-ratio slider... 4124ms blocks=0 script=true
+[20] slides :: Make me slides on Newton's laws of motion... 17231ms blocks=1 script=false
+[21] slides :: Create a presentation on the different states of matter... 18595ms blocks=1 script=false
+[22] slides :: Make a slide deck explaining Ohm's law and its applications... 13226ms blocks=1 script=false
+[23] slides :: Slides on Kirchhoff's current and voltage laws... 6046ms blocks=1 script=false
+[24] slides :: Make a presentation about semiconductor diodes and their cha... 41127ms blocks=5 script=true
+[25] slides :: Create slides on the working of a bipolar junction transisto... 43382ms blocks=9 script=false
+[26] slides :: Make me a deck on logic gates and their truth tables... 45921ms blocks=1 script=true
+[27] slides :: Slides explaining the laws of thermodynamics... 13676ms blocks=7 script=false
+[28] slides :: Presentation on simple harmonic motion... 12332ms blocks=9 script=false
+[29] slides :: Make slides about electromagnetic waves and the spectrum... 37855ms blocks=3 script=false
+[30] slides :: Create a presentation on Maxwell's equations... 23452ms blocks=9 script=false
+[31] slides :: Slides on the photoelectric effect and quantum theory... 13285ms blocks=7 script=false
+[32] slides :: Make a deck explaining Thevenin and Norton theorems... 19118ms blocks=1 script=false
+[33] slides :: Presentation on data structures: arrays, stacks and queues... 11989ms blocks=1 script=false
+[34] slides :: Make slides on sorting algorithms and their time complexity... 25223ms blocks=1 script=false
+[35] slides :: Slides covering the operation of a DC motor and generator... 14413ms blocks=1 script=true
+[36] slides :: Create a presentation on lenses, mirrors and image formation... 44710ms blocks=9 script=true
+[37] slides :: Make me slides on the Bohr model of the atom... 20207ms blocks=7 script=false
+[38] slides :: Presentation on AC circuits: impedance, reactance and phasor... 48729ms blocks=4 script=true
+[39] slides :: Slides about the binary number system and number conversions... 16424ms blocks=6 script=false
+[40] doc :: Derive the expression for the time period of a simple pendul... 24329ms blocks=19 script=false
+[41] doc :: Derive Gauss's law from Coulomb's law... 26096ms blocks=28 script=false
+[42] doc :: Calculate the equivalent resistance of three resistors in pa... 10065ms blocks=9 script=true
+[43] doc :: Make me notes on the working principle of a transformer... 17690ms blocks=5 script=true
+[44] doc :: Explain the difference between BJT and MOSFET transistors... 15688ms blocks=1 script=true
+[45] doc :: Derive the quadratic formula by completing the square... 14681ms blocks=22 script=false
+[46] doc :: Write notes on the first and second laws of thermodynamics... 10883ms blocks=1 script=false
+[47] doc :: Determine the current through a 220 ohm resistor connected t... 6192ms blocks=8 script=true
+[48] doc :: Explain the photoelectric effect and Einstein's photoelectri... 13016ms blocks=3 script=false
+[49] doc :: Derive the lens maker's formula... 25453ms blocks=24 script=true
+{
+  "count": 50
+}

@@ -53,9 +53,32 @@ const SCENE: Size = { w: 520, h: 400 }
  */
 export function clampToBounds(pos: { x: number; y: number }, size: Size, b: Bounds): { x: number; y: number } {
   return {
-    x: Math.max(b.left, Math.min(pos.x, b.right - size.w)),
-    y: Math.max(b.top, Math.min(pos.y, b.bottom - size.h)),
+    x: finite(Math.max(b.left, Math.min(pos.x, b.right - size.w)), 0),
+    y: finite(Math.max(b.top, Math.min(pos.y, b.bottom - size.h)), 0),
   }
+}
+
+/**
+ * Guarantee a real number reaches the store.
+ *
+ * Every coordinate this module produces is arithmetic over `Bounds`, and a
+ * single non-finite edge poisons the whole expression: Math.max(NaN, …) is
+ * NaN, which the store serialises to `null`. A null position is far worse
+ * than a wrong one — it renders at left:0 AND slips through every bounds
+ * check downstream (`null > right` is false), so the object is silently
+ * off-frame with nothing reporting it out of bounds.
+ *
+ * Measured: an AI-built pendulum whose length slider was scripted at x:60
+ * arrived on the canvas with position.x === null and rendered ~1000px right
+ * of its system box, off the visible area. viewportBounds() had handed back
+ * a NaN edge (a viewport entry with zoom 0/undefined divides to NaN), and
+ * nothing between there and the store rejected it.
+ *
+ * Clamping to a finite fallback keeps the object visible and, more
+ * importantly, keeps it CHECKABLE by the callers that verify placement.
+ */
+function finite(n: number, fallback: number): number {
+  return Number.isFinite(n) ? n : fallback
 }
 
 /**

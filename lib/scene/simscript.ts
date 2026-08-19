@@ -632,9 +632,21 @@ export function executeSimScript(
 
       let graphObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o => o.geometry.kind === 'graph')
 
+      // Sit the graph just right of whatever this script actually built,
+      // not at a fixed +600. The scene's real width is only known now (the
+      // system box is 460 wide in most corpus examples but 900 in others),
+      // so a constant either buries the graph inside a wide scene or leaves
+      // a gap of dead space beside a narrow one — and on a 960px slide,
+      // 600 + 380 = 980 puts it off the frame entirely.
+      const GRAPH_GAP = 24
+      const sceneRight = Object.values(store().pages[pageId]?.objects ?? {})
+        .filter((o) => created.includes(o.id) && o.geometry.kind !== 'graph')
+        .reduce((mx, o) => Math.max(mx, o.position.x + o.size.w), origin.x)
+      const graphX = Number.isFinite(sceneRight) ? sceneRight + GRAPH_GAP : origin.x + 600
+
       const newGraph: SceneObject = graphObj ? { ...graphObj } : {
         id: uid(), name: 'Graph', geometry: { kind: 'graph' },
-        position: { x: origin.x + 600, y: origin.y },
+        position: { x: graphX, y: origin.y },
         size: { w: 380, h: 260 }, rotation: 0, z: Date.now(),
         behaviors: [], parameters: {}, metadata: {},
       }
