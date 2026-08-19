@@ -223,6 +223,16 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
           body: JSON.stringify({
             prompt,
             stream: true,
+            // What was said before, so "add a graph to that" resolves. Read
+            // at send time rather than from the render closure: the turn we
+            // just added is already in the store, and a stale closure would
+            // silently drop the most recent exchange — the one a follow-up
+            // almost always refers to. Only settled turns are useful context,
+            // so the in-flight one (and any failure) is filtered out.
+            history: useAiChat
+              .getState()
+              .turns.filter((t) => t.id !== turnId && t.status === 'ok')
+              .map((t) => ({ prompt: t.prompt, answer: t.answer, script: t.script })),
             pageContext: page
               ? {
                   variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),

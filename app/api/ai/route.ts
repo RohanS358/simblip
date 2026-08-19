@@ -62,7 +62,69 @@ const requestSchema = z.object({
       objectCount: z.number(),
     })
     .optional(),
+  /** Earlier turns of this conversation, oldest first. The panel keeps the
+   *  whole thread (lib/store/ai-chat.ts) but sends only the tail — see
+   *  HISTORY_TURNS. Optional: a first turn has none, and every existing
+   *  caller that omits it keeps working. */
+  history: z
+    .array(
+      z.object({
+        prompt: z.string(),
+        answer: z.string().optional(),
+        script: z.string().optional(),
+      })
+    )
+    .max(20)
+    .optional(),
 })
+
+/** How much of the thread the model sees. A follow-up refers to the LAST
+ *  thing built ("add a graph to that"), essentially never to turn 1, and this
+ *  text is re-sent on every request — the whole point of replacing the
+ *  103-tool agent was keeping the prompt near ~1k tokens. Three turns covers
+ *  the referential cases without reintroducing that cost. */
+const HISTORY_TURNS = 3
+
+/** Longest excerpt kept per earlier turn. A derivation can run for pages;
+ *  what a follow-up needs is WHAT was answered, not the full working. */
+const HISTORY_CHARS = 600
+
+/**
+ * Fold recent turns into the prompt.
+ *
+ * Why this is prompt text rather than a chat-message array: both lanes go
+ * through generators that take one system string and one user string
+ * (`generateSimScript`, `explain`), and the SimScript lane's few-shots
+ * already occupy the assistant role. Threading real multi-turn messages
+ * through would mean changing both signatures and interleaving history with
+ * the corpus examples the model is meant to imitate — for no gain, since the
+ * model reads either form the same way.
+ *
+ * The transcript is explicitly labelled as context, not instruction: without
+ * that framing a model tends to re-answer the previous question, or blend it
+ * with the new one.
+ */
+function withHistory(prompt: string, history?: { prompt: string; answer?: string; script?: string }[]): string {
+  if (!history || history.length === 0) return prompt
+  const recent = history.slice(-HISTORY_TURNS)
+  const lines = recent.map((h) => {
+    const out: string[] = [`User: ${h.prompt}`]
+    // Prefer prose, fall back to the script: a turn has one or the other
+    // depending on which lane answered it.
+    const said = (h.answer ?? h.script ?? '').trim()
+    if (said) {
+      const clipped = said.length > HISTORY_CHARS ? `${said.slice(0, HISTORY_CHARS)}…` : said
+      out.push(`You: ${clipped}`)
+    }
+    return out.join('\n')
+  })
+  return [
+    'CONVERSATION SO FAR (context only — do NOT answer these again; they are here so that words like "it", "that" or "the same" in the new request resolve to the right thing):',
+    lines.join('\n\n'),
+    '',
+    `NEW REQUEST: ${prompt}`,
+  ].join('\n')
+}
 
 /** The base language card plus whatever the page already contains, so the
  *  model reuses existing variables instead of redefining them and doesn't
@@ -103,7 +165,7 @@ export async function POST(req: Request) {
       : parsed.data.intent
 
   const system = systemPrompt(parsed.data.pageContext)
-  const userPrompt = parsed.data.prompt
+  const userPrompt = withHistory(parsed.data.prompt, parsed.data.history)
 
   // Run the explain lane. Shared by both transports so the two paths cannot
   // drift. No verify/repair loop here, unlike SimScript: nothing about a
