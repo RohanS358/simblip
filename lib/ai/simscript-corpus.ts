@@ -215,6 +215,13 @@ KINDS (create) — params in ()
 - optics: light-source thin-lens(f) optical-mirror optical-screen slit
 - waves/quantum: wave-source wave-boundary transmission-line quantum-well tunnel-barrier
 - widgets: note(text,color) text(text) formula(latex) table(headers,data,summary) truthtable(inputs,outputs) cashflow dsa(source: C++ code) system(domain) code(source)
+
+DSA LAB — create("dsa", { source: "…C++…" })
+- ANY data-structures or algorithms request (sorting, searching, traversal, recursion, linked lists, trees, graphs) is a DSA Lab, NOT a note and NOT a mechanics scene. The lab runs the C++ and animates every step.
+- source is ONE string of real C++ with \\n between lines. Needs #include <iostream>, using namespace std; and int main() { … return 0; }.
+- The interpreter is real: vector, stack, queue, deque, priority_queue, map, unordered_map, set, unordered_set, pair, string, struct, classes, pointers, references and recursion all execute. Prefer the STL container that fits — a raw array is only right when the question is about arrays.
+- A struct with left/right pointers renders as a live binary-tree view; map/set render as tables. Keep the data small (5-8 elements) so each step is watchable.
+- Use cout << … << endl to narrate what the algorithm just did; the output panel is part of the visualisation.
 - shapes: rect circle line polygon (then addproperty to make them physical)
 
 ANCHORS (connect)
@@ -529,6 +536,31 @@ var f = create("formula", { x: 0, y: 60, latex: "s = ut + \\\\frac{1}{2}at^2" })
   S('Open a DSA Lab with bubble sort in C++ so students can watch the array sort itself.', `
 var lab = create("dsa", {
   source: "#include <iostream>\\nusing namespace std;\\nint main() {\\n  int a[6] = {5, 2, 8, 1, 9, 3};\\n  int n = 6;\\n  for (int i = 0; i < n - 1; i++) {\\n    for (int j = 0; j < n - 1 - i; j++) {\\n      if (a[j] > a[j + 1]) {\\n        int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t;\\n      }\\n    }\\n  }\\n  cout << \\"done\\" << endl;\\n  return 0;\\n}\\n",
+});`),
+
+  S('Show me binary search running on a sorted vector.', `
+var lab = create("dsa", {
+  source: "#include <iostream>\\n#include <vector>\\nusing namespace std;\\nint main() {\\n  vector<int> a = {2, 5, 8, 12, 16, 23, 38};\\n  int target = 16;\\n  int lo = 0, hi = a.size() - 1, found = -1;\\n  while (lo <= hi) {\\n    int mid = (lo + hi) / 2;\\n    cout << \\"probe \\" << mid << \\" -> \\" << a[mid] << endl;\\n    if (a[mid] == target) { found = mid; break; }\\n    if (a[mid] < target) lo = mid + 1;\\n    else hi = mid - 1;\\n  }\\n  cout << \\"index \\" << found << endl;\\n  return 0;\\n}\\n",
+});`),
+
+  S('Build a binary search tree and show the insertions and an inorder traversal.', `
+var lab = create("dsa", {
+  source: "#include <iostream>\\nusing namespace std;\\nstruct Node {\\n  int val;\\n  Node* left;\\n  Node* right;\\n};\\nNode* insert(Node* root, int v) {\\n  if (root == nullptr) {\\n    Node* n = new Node();\\n    n->val = v;\\n    n->left = nullptr;\\n    n->right = nullptr;\\n    return n;\\n  }\\n  if (v < root->val) root->left = insert(root->left, v);\\n  else root->right = insert(root->right, v);\\n  return root;\\n}\\nvoid inorder(Node* root) {\\n  if (root == nullptr) return;\\n  inorder(root->left);\\n  cout << root->val << \\" \\";\\n  inorder(root->right);\\n}\\nint main() {\\n  Node* root = nullptr;\\n  int vals[7] = {50, 30, 70, 20, 40, 60, 80};\\n  for (int i = 0; i < 7; i++) root = insert(root, vals[i]);\\n  inorder(root);\\n  cout << endl;\\n  return 0;\\n}\\n",
+});`),
+
+  S('Demonstrate a stack and a queue side by side so students see LIFO versus FIFO.', `
+var lab = create("dsa", {
+  source: "#include <iostream>\\n#include <stack>\\n#include <queue>\\nusing namespace std;\\nint main() {\\n  stack<int> s;\\n  queue<int> q;\\n  for (int i = 1; i <= 4; i++) {\\n    s.push(i);\\n    q.push(i);\\n  }\\n  cout << \\"stack pops: \\";\\n  while (!s.empty()) { cout << s.top() << \\" \\"; s.pop(); }\\n  cout << endl << \\"queue pops: \\";\\n  while (!q.empty()) { cout << q.front() << \\" \\"; q.pop(); }\\n  cout << endl;\\n  return 0;\\n}\\n",
+});`),
+
+  S('Count word frequencies with an unordered_map to show how a hash map works.', `
+var lab = create("dsa", {
+  source: "#include <iostream>\\n#include <unordered_map>\\n#include <string>\\nusing namespace std;\\nint main() {\\n  string words[6] = {\\"red\\", \\"blue\\", \\"red\\", \\"green\\", \\"blue\\", \\"red\\"};\\n  unordered_map<string, int> freq;\\n  for (int i = 0; i < 6; i++) {\\n    freq[words[i]]++;\\n    cout << words[i] << \\" -> \\" << freq[words[i]] << endl;\\n  }\\n  return 0;\\n}\\n",
+});`),
+
+  S('Trace the recursion for fibonacci so the call stack is visible.', `
+var lab = create("dsa", {
+  source: "#include <iostream>\\nusing namespace std;\\nint fib(int n) {\\n  if (n <= 1) return n;\\n  return fib(n - 1) + fib(n - 2);\\n}\\nint main() {\\n  for (int i = 0; i <= 6; i++) {\\n    cout << \\"fib(\\" << i << \\") = \\" << fib(i) << endl;\\n  }\\n  return 0;\\n}\\n",
 });`),
 
   S('Set up an engineering-economics cash-flow diagram and a note asking for NPV at 8% MARR.', `
