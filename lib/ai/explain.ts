@@ -15,6 +15,7 @@
 // an ordinary editable page — not a chat bubble that vanishes.
 
 import { EXPLAIN_TOKENS, type SimScriptGenerator } from './generate'
+import { checkArithmetic, type ArithmeticFix } from './arithmetic'
 
 /** What the notebook's text renderer actually supports, and nothing else.
  *  Block prefixes come from BLOCK_PREFIX_RE (lib/text/marks.ts); inline maths
@@ -31,6 +32,8 @@ FORMAT
 HOW TO ANSWER
 - DERIVATION: state what is given and what is to be found, then derive step by step. Every step must follow from the one above it. Box the result by ending with a line "**Result:** <expression>".
 - NUMERICAL: list the given values with units, write the formula symbolically, substitute numbers, then compute. Carry units through. End with "**Answer:** <value with unit>".
+- ALWAYS show the substitution and its result on ONE line, as "<formula> = <numbers substituted> = <result>". Write the numbers you actually divide and multiply — 0.025 / 0.004394 = 5.69, not a result that appears from nowhere. A substitution written out in full is checked and corrected automatically; a result with no visible arithmetic cannot be, so it is the one place an error survives.
+- Convert units to SI BEFORE substituting (5 cm -> 0.05 m, 100 µF -> 100e-6 F), and substitute the converted number. Mixing a value in cm into a formula expecting metres is the most common wrong answer in this subject.
 - SHORT NOTE: a tight definition first, then the physical meaning, then where it matters in practice. Use a bullet list when comparing things.
 
 YOU ARE INSIDE A SIMULATOR
@@ -139,10 +142,58 @@ export const ANSWER_WIDTH = 520
  *  blocksToSimScript() (layout) and answerColumnSize() (centering the
  *  finished column on the viewport) advance by, so the two can never
  *  disagree about how tall a block is. */
-function blockHeight(b: AnswerBlock): number {
-  return b.kind === 'formula'
-    ? formulaHeight(b.content)
-    : Math.max(56, b.content.split('\n').reduce((n, l) => n + Math.max(1, Math.ceil(l.length / 92)), 0) * 22 + 24)
+function blockHeight(b: AnswerBlock, width = ANSWER_WIDTH): number {
+  return b.kind === 'formula' ? formulaHeight(b.content) : textHeight(b.content, width)
+}
+
+/**
+ * Rendered height of a Markdown text block, in px.
+ *
+ * This is the overlap bug: the old estimate wrapped at a flat 92 chars per
+ * line at 22px each. A 520px column at the Text object's default 15px sans
+ * fits ~66 characters, a bulleted line fewer still, and a heading renders at
+ * up to 1.9em with its own margins — so a real answer (headings, bullets,
+ * bold labels) came out 1.5-2x taller than estimated and the next block was
+ * written straight on top of it. Text boxes auto-grow to fit their content
+ * (fit() in components/objects/text.tsx) but nothing below them moves down,
+ * so an under-estimate here is visible as the formula card sitting in the
+ * middle of the paragraph above it.
+ *
+ * Modelled on the actual CSS (.markdown-view in app/globals.css): 15px base,
+ * 1.625 line-height, h1/h2/h3 at 1.9/1.28/1.14em with 0.45em+0.2em margins,
+ * lists indented 1.3em with 0.4em of block margin. Over-estimating is safe
+ * (the card centres its content); under-estimating overlaps, so every
+ * rounding here goes up.
+ */
+function textHeight(md: string, width: number): number {
+  const FONT = 15
+  const LINE = FONT * 1.625
+  // Average glyph advance for the default sans at 15px, measured wide on
+  // purpose — a line of prose that wraps one row early costs 24px of slack,
+  // one row late costs an overlap.
+  const CHAR = FONT * 0.5
+  let h = 0
+  for (const raw of md.split('\n')) {
+    const line = raw.trim()
+    if (!line) continue
+    // Markdown syntax that renders as nothing (or as a marker) shouldn't
+    // count toward the wrap width.
+    const heading = /^(#{1,6})\s+/.exec(line)
+    const list = /^([-*+]|\d+[.)])\s+/.test(line)
+    const text = line.replace(/^(#{1,6}|[-*+]|\d+[.)]|>)\s+/, '').replace(/[*_`]/g, '')
+    if (heading) {
+      const em = [1.9, 1.28, 1.14][heading[1].length - 1] ?? 1
+      const font = FONT * em
+      const rows = Math.max(1, Math.ceil((text.length * font * 0.5) / width))
+      h += rows * font * 1.2 + font * 0.65
+    } else {
+      const avail = list ? width - FONT * 1.3 : width
+      h += Math.max(1, Math.ceil((text.length * CHAR) / avail)) * LINE
+      // Per-block margin: 0.15em each side on <li>, 0.4em on <p>.
+      h += list ? FONT * 0.3 : FONT * 0.4
+    }
+  }
+  return Math.max(56, Math.ceil(h) + 16)
 }
 
 export function blocksToSimScript(blocks: AnswerBlock[], width = ANSWER_WIDTH): string {
@@ -153,7 +204,7 @@ export function blocksToSimScript(blocks: AnswerBlock[], width = ANSWER_WIDTH): 
     // a \\begin{aligned} block is far taller than one line, and a fixed 96
     // dropped the next block straight on top of it. Over-estimating is safe
     // here (the card centres its content); under-estimating overlaps.
-    const h = blockHeight(b)
+    const h = blockHeight(b, width)
     // x: 1, not 0 — executeSimScript()'s "unplaced card" auto-layout
     // (lib/scene/simscript.ts) treats x:0 AND y:0 together as "never
     // positioned" and is free to shove that card down to dodge whatever
@@ -180,7 +231,7 @@ export function blocksToSimScript(blocks: AnswerBlock[], width = ANSWER_WIDTH): 
  *  position is written relative to (0,0), not to its own center. */
 export function answerColumnSize(blocks: AnswerBlock[], width = ANSWER_WIDTH): { w: number; h: number } {
   if (blocks.length === 0) return { w: width, h: 0 }
-  const h = blocks.reduce((y, b) => y + blockHeight(b) + 12, 0) - 12
+  const h = blocks.reduce((y, b) => y + blockHeight(b, width) + 12, 0) - 12
   return { w: width, h }
 }
 
@@ -214,6 +265,10 @@ export interface ExplainResult {
   /** The same answer split into notebook objects. */
   blocks: AnswerBlock[]
   backend: string
+  /** Substitutions whose arithmetic was wrong and has been corrected.
+   *  Surfaced for debugging and measurement, not shown to the student — the
+   *  answer they read is simply right. */
+  arithmeticFixes: ArithmeticFix[]
 }
 
 /**
@@ -242,6 +297,15 @@ export async function explain(
     // default silently cut answers mid-word — see EXPLAIN_TOKENS.
     EXPLAIN_TOKENS
   )
-  const markdown = cleanAnswer(raw)
-  return { markdown, blocks: toAnswerBlocks(markdown), backend: opts.generator.name }
+  // The model picks the formula and substitutes correctly, then guesses the
+  // digits — so recompute every completed substitution and correct the ones
+  // that are provably wrong. See lib/ai/arithmetic.ts for why this is a
+  // calculator rather than a better prompt.
+  const { markdown, fixes } = checkArithmetic(cleanAnswer(raw))
+  return {
+    markdown,
+    blocks: toAnswerBlocks(markdown),
+    backend: opts.generator.name,
+    arithmeticFixes: fixes,
+  }
 }
