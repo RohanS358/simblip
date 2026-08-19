@@ -171,7 +171,9 @@ export async function POST(req: Request) {
   // drift. No verify/repair loop here, unlike SimScript: nothing about a
   // derivation is statically checkable, so a second round would buy nothing.
   const runExplain = async (onToken?: (c: string) => void) => {
-    const generator = await pickGenerator()
+    // The explain lane may run a different local model to the script lane —
+    // prose and mathematics want a different model to SimScript codegen.
+    const generator = await pickGenerator('explain')
     const result = await explain(userPrompt, {
       generator,
       onToken,

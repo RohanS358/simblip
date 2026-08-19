@@ -150,7 +150,24 @@ export const SCRIPT_TOKENS = 700
 export const EXPLAIN_TOKENS = 2000
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
+/** The default for both lanes. `simblip-simscript` is not a stock model: it
+ *  is built by buildModelfile() (lib/ai/simscript-corpus.ts) with the
+ *  SimScript prompt and twelve few-shots baked into its template. */
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
+
+/** Per-lane model overrides.
+ *
+ *  The two lanes want different things from a model and are separate calls,
+ *  so there is no reason they must share one. Writing SimScript is a coding
+ *  task — the default is a code-specialised base (qwen2.5-coder) fine-tuned
+ *  on the corpus. Writing a derivation is prose and mathematics, where a
+ *  larger general model is often better and none of the SimScript tuning
+ *  applies.
+ *
+ *  Falls back to OLLAMA_MODEL, so setting nothing keeps today's behaviour
+ *  exactly and setting only OLLAMA_MODEL still moves both lanes together. */
+const OLLAMA_SCRIPT_MODEL = process.env.OLLAMA_SCRIPT_MODEL ?? OLLAMA_MODEL
+const OLLAMA_EXPLAIN_MODEL = process.env.OLLAMA_EXPLAIN_MODEL ?? OLLAMA_MODEL
 /** Per-call ceiling. 60s was sized for a lone SimScript scene (~2.2s warm),
  *  but a "both" request runs the explain lane AND the script lane back to
  *  back on one GPU, and a prose answer now has a 2000-token budget. Measured:
@@ -160,8 +177,12 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'simblip-simscript'
  *  binding limit, not a safety one. */
 const OLLAMA_TIMEOUT_MS = 120_000
 
-export const ollamaGenerator: SimScriptGenerator = {
-  name: `ollama:${OLLAMA_MODEL}`,
+/** Build a generator bound to one Ollama model. Everything below is
+ *  model-agnostic — a plain /api/chat call with a system role — so the model
+ *  name is the only thing that varies between lanes. */
+export function makeOllamaGenerator(model: string): SimScriptGenerator {
+  return {
+  name: `ollama:${model}`,
   async generate(system, user, onToken, shots, maxTokens) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
@@ -170,7 +191,7 @@ export const ollamaGenerator: SimScriptGenerator = {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: OLLAMA_MODEL,
+          model,
           messages: [
             { role: 'system', content: system },
             ...(shots ?? []),
@@ -209,13 +230,21 @@ export const ollamaGenerator: SimScriptGenerator = {
         throw new GeneratorUnavailableError(`Ollama timed out after ${OLLAMA_TIMEOUT_MS / 1000}s`)
       }
       throw new GeneratorUnavailableError(
-        `Couldn't reach Ollama at ${OLLAMA_HOST} (model "${OLLAMA_MODEL}"). Run \`ollama serve\`, then try again.`
+        `Couldn't reach Ollama at ${OLLAMA_HOST} (model "${model}"). Run \`ollama serve\`, then try again.`
       )
     } finally {
       clearTimeout(timer)
     }
   },
+  }
 }
+
+/** The script lane's generator, and the default everything else picks up. */
+export const ollamaGenerator: SimScriptGenerator = makeOllamaGenerator(OLLAMA_SCRIPT_MODEL)
+
+/** The explain lane's generator. Identical unless OLLAMA_EXPLAIN_MODEL is set. */
+export const ollamaExplainGenerator: SimScriptGenerator =
+  OLLAMA_EXPLAIN_MODEL === OLLAMA_SCRIPT_MODEL ? ollamaGenerator : makeOllamaGenerator(OLLAMA_EXPLAIN_MODEL)
 
 // ── Hosted: OpenRouter ──────────────────────────────────────────────────────
 // OpenAI-compatible, so this is a plain fetch rather than another SDK — the
@@ -288,15 +317,22 @@ export const openRouterGenerator: SimScriptGenerator = {
  * probe is a cheap GET with a short timeout so a missing local server costs
  * ~200ms, not a full request timeout.
  */
-export async function pickGenerator(): Promise<SimScriptGenerator> {
+/** Which lane is asking. Only affects WHICH local model is chosen; the
+ *  hosted fallback is one model either way (OpenRouter bills per token, and
+ *  splitting that has no upside). Defaults to 'script' so existing callers
+ *  keep the behaviour they had. */
+export type Lane = 'script' | 'explain'
+
+export async function pickGenerator(lane: Lane = 'script'): Promise<SimScriptGenerator> {
+  const local = lane === 'explain' ? ollamaExplainGenerator : ollamaGenerator
   if (process.env.AI_BACKEND === 'openrouter') return openRouterGenerator
-  if (process.env.AI_BACKEND === 'ollama') return ollamaGenerator
+  if (process.env.AI_BACKEND === 'ollama') return local
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 400)
     const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal })
     clearTimeout(timer)
-    if (res.ok) return ollamaGenerator
+    if (res.ok) return local
   } catch {
     // not running locally — fall through
   }
@@ -413,12 +449,21 @@ export async function generateSimScript(
  * optimisation, and a machine with no Ollama is a supported configuration.
  */
 export async function prewarm(): Promise<void> {
+  // Both lanes, when they differ: a "both" request runs them back to back, so
+  // leaving the second model cold just moves the 8.7s cold start onto the
+  // first user who asks a question that needs it. Deduped, so the common
+  // single-model setup still fires exactly one warmup.
+  const models = [...new Set([OLLAMA_SCRIPT_MODEL, OLLAMA_EXPLAIN_MODEL])]
+  await Promise.all(models.map((m) => warmOne(m)))
+}
+
+async function warmOne(model: string): Promise<void> {
   try {
     await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: OLLAMA_MODEL,
+        model,
         messages: [{ role: 'user', content: 'hi' }],
         stream: false,
         keep_alive: '30m',
