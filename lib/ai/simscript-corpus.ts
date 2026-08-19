@@ -222,6 +222,13 @@ DSA LAB — create("dsa", { source: "…C++…" })
 - The interpreter is real: vector, stack, queue, deque, priority_queue, map, unordered_map, set, unordered_set, pair, string, struct, classes, pointers, references and recursion all execute. Prefer the STL container that fits — a raw array is only right when the question is about arrays.
 - A struct with left/right pointers renders as a live binary-tree view; map/set render as tables. Keep the data small (5-8 elements) so each step is watchable.
 - Use cout << … << endl to narrate what the algorithm just did; the output panel is part of the visualisation.
+
+CASH FLOW — create("cashflow", { spec: {…} })
+- ANY engineering-economics question (NPV/present worth, IRR, annual or future worth, payback, benefit-cost, depreciation, salvage) is a cashflow card. NEVER create it empty: an empty card makes the student do the data entry the question already gave you.
+- spec takes a real object: { description, marr, discrete: [{t, amount}], annuities: [{start, periods, every, amount}], salvage }.
+- marr is PERCENT per year (8 = 8%). amount is + for an inflow (up arrow) and − for an outflow (down arrow), so the initial investment is negative.
+- t and start are in YEARS and may be fractional: every: 0.5 is semiannual, 0.25 quarterly. An annuity's first payment lands at start + every.
+- The card computes present/future/annual worth, IRR, capital recovery and benefit-cost from the spec and shows them live — do NOT hand-calculate them into a note; put the numbers in the spec and let it solve.
 - shapes: rect circle line polygon (then addproperty to make them physical)
 
 ANCHORS (connect)
@@ -564,8 +571,21 @@ var lab = create("dsa", {
 });`),
 
   S('Set up an engineering-economics cash-flow diagram and a note asking for NPV at 8% MARR.', `
-var cf = create("cashflow", {});
-var n = create("note", { x: 520, y: 0, text: "Fill in the investments and annuities, MARR = 8%. NPV updates live.", color: "amber" });`),
+var cf = create("cashflow", { spec: { description: "Machine purchase", marr: 8, discrete: [{ t: 0, amount: -1000 }], annuities: [{ start: 0, periods: 4, every: 1, amount: 300 }], salvage: 0 } });
+var n = create("note", { x: 520, y: 0, text: "MARR = 8%. Present worth, IRR and annual worth update live on the card.", color: "amber" });`),
+
+  S('Draw the cash flow for a $10,000 machine returning $3,000 a year for 5 years, salvage $2,000, MARR 10%.', `
+var cf = create("cashflow", { spec: { description: "Machine, 5-year life", marr: 10, discrete: [{ t: 0, amount: -10000 }], annuities: [{ start: 0, periods: 5, every: 1, amount: 3000 }], salvage: 2000 } });`),
+
+  S('Find the IRR of a project costing 50000 up front that returns 15000 per year for 5 years.', `
+var cf = create("cashflow", { spec: { description: "IRR of the project", marr: 10, discrete: [{ t: 0, amount: -50000 }], annuities: [{ start: 0, periods: 5, every: 1, amount: 15000 }], salvage: 0 } });
+var n = create("note", { x: 520, y: 0, text: "IRR is the rate where present worth crosses zero — read it off the card.", color: "amber" });`),
+
+  S('Cash flow with semiannual payments of $800 for 3 years after a $4000 investment at 6% MARR.', `
+var cf = create("cashflow", { spec: { description: "Semiannual receipts", marr: 6, discrete: [{ t: 0, amount: -4000 }], annuities: [{ start: 0, periods: 3, every: 0.5, amount: 800 }], salvage: 0 } });`),
+
+  S('Compare present worth of an asset with an overhaul cost at year 3.', `
+var cf = create("cashflow", { spec: { description: "Asset with mid-life overhaul", marr: 12, discrete: [{ t: 0, amount: -25000 }, { t: 3, amount: -5000 }], annuities: [{ start: 0, periods: 6, every: 1, amount: 7000 }], salvage: 3000 } });`),
 
   S('Draw a mechanics system box, then a wheel on the ground inside it driven by a motor.', `
 var sys = create("system", { x: 0, y: 0, domain: "mechanics", width: 520, height: 360 });
@@ -686,7 +706,7 @@ var ${v} = create("${k.kind}", { x: 300, y: 380${k.params ? ', ' + Object.entrie
   if (k.domain === 'waves' || k.domain === 'quantum') {
     return S(`Add a ${k.label} to the page.`, `var ${v} = create("${k.kind}", { x: 100, y: 100 });`)
   }
-  if (k.kind === 'cashflow') return S('Add an empty cash-flow diagram to fill in.', `var cf = create("cashflow", {});`)
+  if (k.kind === 'cashflow') return S('Add a cash-flow diagram for a 1000 investment paying 300 a year at 8% MARR.', `var cf = create("cashflow", { spec: { description: "Investment", marr: 8, discrete: [{ t: 0, amount: -1000 }], annuities: [{ start: 0, periods: 4, every: 1, amount: 300 }], salvage: 0 } });`)
   if (k.kind === 'code') return S('Add a SimScript IDE block with a starter comment.', `var ide = create("code", { source: "// build something here\\n" });`)
   if (k.kind === 'line') return S('Draw a bare line shape.', `var l = create("line", { x: 100, y: 100, width: 200 });`)
   if (k.kind === 'polygon') return S('Draw a bare polygon shape.', `var p = create("polygon", { x: 100, y: 100, width: 90, height: 90 });`)
