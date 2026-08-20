@@ -843,18 +843,18 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         </PromptInput>
         {/* Mode and model live BELOW the box: both change what the next send
             does, so they belong beside the send button, not in the header. */}
-        <div className="mt-1.5 flex items-center justify-between gap-2">
-          <ModeToggle auto={auto} onChange={setAuto} />
+        <div className="mt-1.5 flex min-w-0 items-center gap-2">
+          <div className="shrink-0">
+            <ModeToggle auto={auto} onChange={setAuto} />
+          </div>
           {models.models.length > 0 && (
             <select
               value={model}
               onChange={(e) => setModel(e.target.value)}
               title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
-              className="max-w-[55%] truncate rounded-full border border-border/60 bg-card/60 px-2 py-[3px] text-[0.6875rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
+              className="min-w-0 flex-1 truncate rounded-full border border-border/60 bg-card/60 px-2 py-[3px] text-[0.6875rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
             >
-              <option value="">
-                {models.backend === 'ollama' ? 'Local' : 'Hosted'} default — {models.default}
-              </option>
+              <option value="">{models.default} (default)</option>
               {models.models.map((m) => (
                 <option key={m} value={m}>
                   {m}
