@@ -57,6 +57,9 @@ const requestSchema = z.object({
   /** Override the router. The UI offers this as an explicit "explain" /
    *  "simulate" toggle for the cases where a question reads either way. */
   intent: z.enum(['simulate', 'explain', 'both', 'auto']).optional(),
+  /** Which local model to run, chosen in the panel. Ignored when no local
+   *  Ollama is reachable. Omitted = the configured per-lane default. */
+  model: z.string().max(120).optional(),
   pageContext: z
     .object({
       variables: z.array(z.object({ name: z.string(), expr: z.string() })),
@@ -194,6 +197,7 @@ export async function POST(req: Request) {
       ? classifyIntent(parsed.data.prompt, hasContext, parsed.data.hasSelection ?? false)
       : parsed.data.intent
 
+  const scriptGenerator = () => pickGenerator('script', parsed.data.model)
   const system = systemPrompt(parsed.data.pageContext, parsed.data.pageSurface)
   // Page state first, then conversation, then the request: the model reads
   // what the user is looking at before what they said about it.
@@ -216,7 +220,7 @@ export async function POST(req: Request) {
   const runExplain = async (onToken?: (c: string) => void) => {
     // The explain lane may run a different local model to the script lane —
     // prose and mathematics want a different model to SimScript codegen.
-    const generator = await pickGenerator('explain')
+    const generator = await pickGenerator('explain', parsed.data.model)
     const result = await explain(userPrompt, {
       generator,
       onToken,
@@ -246,7 +250,7 @@ export async function POST(req: Request) {
           if (intent === 'edit') {
             // A plan is verified but NOT applied: the client previews it and
             // the user confirms. Nothing here can touch a page.
-            const generator = await pickGenerator('script')
+            const generator = await pickGenerator('script', parsed.data.model)
             const doc = parsed.data.pageObjects
               ? {
                   objects: Object.fromEntries(
@@ -296,7 +300,12 @@ export async function POST(req: Request) {
             let script: string | undefined
             let sceneError: string | undefined
             try {
-              script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
+              script = (
+                await generateSimScript(userPrompt, {
+                  systemPrompt: system,
+                  generator: await scriptGenerator(),
+                })
+              ).script
             } catch (e) {
               // A scene is the bonus here, not the deliverable. Losing it must
               // never cost the user a correct derivation — but say WHY it was
@@ -320,6 +329,7 @@ export async function POST(req: Request) {
 
           const result = await generateSimScript(userPrompt, {
             systemPrompt: system,
+            generator: await scriptGenerator(),
             onToken: (chunk) => send('token', chunk),
           })
           send('done', {
@@ -360,7 +370,12 @@ export async function POST(req: Request) {
       let script: string | undefined
       let sceneError: string | undefined
       try {
-        script = (await generateSimScript(userPrompt, { systemPrompt: system })).script
+        script = (
+                await generateSimScript(userPrompt, {
+                  systemPrompt: system,
+                  generator: await scriptGenerator(),
+                })
+              ).script
       } catch (e) {
         // See the streaming path: the derivation is the deliverable, but a
         // silently-dropped scene is indistinguishable from "no scene exists".
@@ -378,7 +393,10 @@ export async function POST(req: Request) {
       } satisfies AiResponse)
     }
 
-    const result = await generateSimScript(userPrompt, { systemPrompt: system })
+    const result = await generateSimScript(userPrompt, {
+      systemPrompt: system,
+      generator: await scriptGenerator(),
+    })
     return NextResponse.json({
       message:
         result.attempts > 1

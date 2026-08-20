@@ -156,6 +156,26 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const openSession = useAiChat((s) => s.openSession)
   const newSession = useAiChat((s) => s.newSession)
   const setAuto = useAiChat((s) => s.setAuto)
+  const model = useAiChat((s) => s.model)
+  const setModel = useAiChat((s) => s.setModel)
+  // What the live backend offers — local Ollama models when one is running,
+  // the OpenRouter catalogue when deployed. Fetched once per panel mount:
+  // the list changes when a model is pulled, not while you are typing.
+  const [models, setModels] = useState<{ backend: string; models: string[]; default: string }>({
+    backend: '',
+    models: [],
+    default: '',
+  })
+  useEffect(() => {
+    let alive = true
+    void fetch('/api/ai/models')
+      .then((r) => r.json())
+      .then((d) => alive && setModels(d))
+      .catch(() => {})
+    return () => {
+      alive = false
+    }
+  }, [])
   const addTurn = useAiChat((s) => s.addTurn)
   const patchTurn = useAiChat((s) => s.patchTurn)
   const clear = useAiChat((s) => s.clear)
@@ -163,6 +183,9 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const [input, setInput] = useState('')
   const [attachments, setAttachments] = useState<ChatAttachment[]>([])
   const [reading, setReading] = useState(false)
+  /** What extraction is doing right now. Only OCR reports this — it is the
+   *  one path that downloads ~7MB before it can read a character. */
+  const [readPhase, setReadPhase] = useState('')
   const [sessions, setSessions] = useState<AiSessionMeta[] | null>(null)
   /** Is the page attached to the next prompt? On by default — the assistant
    *  being aware of what you are looking at is the point — but revocable, so
@@ -274,10 +297,13 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
     const list = Array.from(files).filter(isSupported)
     if (list.length === 0) return
     setReading(true)
+    setReadPhase('')
     try {
       const read = await Promise.all(
         list.map(async (f) => {
-          const { text, warning } = await extractFileText(f)
+          const { text, warning } = await extractFileText(f, (phase, progress) =>
+            setReadPhase(`${phase} ${Math.round(progress * 100)}%`)
+          )
           return { name: f.name, text, warning } satisfies ChatAttachment
         })
       )
@@ -412,6 +438,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             // user's own words, so the thread stays readable.
             prompt: withAttachments(prompt, sent),
             stream: true,
+            ...(model ? { model } : {}),
             ...(ctx ?? {}),
             // What was said before, so "add a graph to that" resolves. Read
             // at send time rather than from the render closure: the turn we
@@ -521,7 +548,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         setBusy(false)
       }
     },
-    [busy, addTurn, patchTurn, pageId, auto, runScript, attachments, useContext]
+    [busy, addTurn, patchTurn, pageId, auto, model, runScript, attachments, useContext]
   )
 
   const empty = turns.length === 0
@@ -542,7 +569,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         <span className="flex-1 truncate text-[0.8125rem] font-semibold" title={sessionTitle || 'Assistant'}>
           {sessionTitle || 'Assistant'}
         </span>
-        <ModeToggle auto={auto} onChange={setAuto} />
         <button
           type="button"
           aria-label="Saved sessions"
@@ -760,7 +786,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             ))}
             {reading && (
               <span className="inline-flex items-center gap-1 text-[0.65625rem] text-muted-foreground">
-                <Loader2 className="h-2.5 w-2.5 animate-spin" /> Reading…
+                <Loader2 className="h-2.5 w-2.5 animate-spin" /> {readPhase || 'Reading…'}
               </span>
             )}
           </div>
@@ -815,6 +841,28 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             </PromptInputAction>
           </PromptInputActions>
         </PromptInput>
+        {/* Mode and model live BELOW the box: both change what the next send
+            does, so they belong beside the send button, not in the header. */}
+        <div className="mt-1.5 flex items-center justify-between gap-2">
+          <ModeToggle auto={auto} onChange={setAuto} />
+          {models.models.length > 0 && (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
+              className="max-w-[55%] truncate rounded-full border border-border/60 bg-card/60 px-2 py-[3px] text-[0.6875rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
+            >
+              <option value="">
+                {models.backend === 'ollama' ? 'Local' : 'Hosted'} default — {models.default}
+              </option>
+              {models.models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
     </div>
   )

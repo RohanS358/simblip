@@ -256,8 +256,10 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL ?? 'openrouter/free'
 const OPENROUTER_TIMEOUT_MS = 60_000
 
-export const openRouterGenerator: SimScriptGenerator = {
-  name: `openrouter:${OPENROUTER_MODEL}`,
+/** Bound to one hosted model, so the panel's picker can choose it. */
+export function makeOpenRouterGenerator(model: string = OPENROUTER_MODEL): SimScriptGenerator {
+  return {
+  name: `openrouter:${model}`,
   async generate(system, user, onToken, shots, maxTokens) {
     const key = process.env.OPENROUTER_API_KEY
     if (!key) throw new GeneratorUnavailableError('OPENROUTER_API_KEY is not set')
@@ -275,7 +277,7 @@ export const openRouterGenerator: SimScriptGenerator = {
           'X-Title': 'SIMBLIP',
         },
         body: JSON.stringify({
-          model: OPENROUTER_MODEL,
+          model,
           messages: [
             { role: 'system', content: system },
             ...(shots ?? []),
@@ -307,7 +309,12 @@ export const openRouterGenerator: SimScriptGenerator = {
       )
     }
   },
+  }
 }
+
+/** The default hosted generator — what everything picks up when the user has
+ *  not chosen a model. */
+export const openRouterGenerator: SimScriptGenerator = makeOpenRouterGenerator()
 
 /**
  * Which backend to use.
@@ -323,9 +330,20 @@ export const openRouterGenerator: SimScriptGenerator = {
  *  keep the behaviour they had. */
 export type Lane = 'script' | 'explain'
 
-export async function pickGenerator(lane: Lane = 'script'): Promise<SimScriptGenerator> {
-  const local = lane === 'explain' ? ollamaExplainGenerator : ollamaGenerator
-  if (process.env.AI_BACKEND === 'openrouter') return openRouterGenerator
+export async function pickGenerator(
+  lane: Lane = 'script',
+  /** Explicit local model, chosen by the user in the AI panel. Ignored when
+   *  no local Ollama is reachable — the hosted fallback is one model. */
+  model?: string
+): Promise<SimScriptGenerator> {
+  const local = model
+    ? makeOllamaGenerator(model)
+    : lane === 'explain'
+      ? ollamaExplainGenerator
+      : ollamaGenerator
+  if (process.env.AI_BACKEND === 'openrouter') {
+    return model ? makeOpenRouterGenerator(model) : openRouterGenerator
+  }
   if (process.env.AI_BACKEND === 'ollama') return local
   try {
     const controller = new AbortController()
@@ -336,7 +354,7 @@ export async function pickGenerator(lane: Lane = 'script'): Promise<SimScriptGen
   } catch {
     // not running locally — fall through
   }
-  return openRouterGenerator
+  return model ? makeOpenRouterGenerator(model) : openRouterGenerator
 }
 
 // ── The pipeline ────────────────────────────────────────────────────────────
@@ -472,5 +490,59 @@ async function warmOne(model: string): Promise<void> {
     })
   } catch {
     // No local model here — the hosted backend needs no warming.
+  }
+}
+
+/** What the panel's model picker may offer.
+ *
+ *  Only the LIVE backend's models: local when Ollama is reachable, the
+ *  OpenRouter catalogue otherwise. Offering both would let the user pick a
+ *  name the active backend has never heard of.
+ *
+ *  The hosted catalogue is fetched once per server process — it is ~680KB of
+ *  JSON and changes daily at most, so re-fetching it per panel open would be
+ *  pure waste. */
+let hostedCache: { at: number; models: string[] } | null = null
+
+export async function listModels(): Promise<{
+  backend: 'ollama' | 'openrouter'
+  models: string[]
+  default: string
+}> {
+  const local = await ollamaTags()
+  if (local) return { backend: 'ollama', models: local, default: OLLAMA_SCRIPT_MODEL }
+  return { backend: 'openrouter', models: await openRouterModels(), default: OPENROUTER_MODEL }
+}
+
+/** Model names Ollama has pulled, or null when no local server answered. */
+async function ollamaTags(): Promise<string[] | null> {
+  if (process.env.AI_BACKEND === 'openrouter') return null
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 800)
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal })
+    clearTimeout(timer)
+    if (!res.ok) return null
+    const json = (await res.json()) as { models?: { name?: string }[] }
+    return (json.models ?? []).map((m) => m.name).filter((n): n is string => !!n).sort()
+  } catch {
+    return null
+  }
+}
+
+async function openRouterModels(): Promise<string[]> {
+  if (hostedCache && Date.now() - hostedCache.at < 6 * 60 * 60 * 1000) return hostedCache.models
+  try {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch('https://openrouter.ai/api/v1/models', { signal: controller.signal })
+    clearTimeout(timer)
+    if (!res.ok) return hostedCache?.models ?? []
+    const json = (await res.json()) as { data?: { id?: string }[] }
+    const models = (json.data ?? []).map((m) => m.id).filter((id): id is string => !!id).sort()
+    hostedCache = { at: Date.now(), models }
+    return models
+  } catch {
+    return hostedCache?.models ?? []
   }
 }

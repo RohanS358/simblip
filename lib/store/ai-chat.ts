@@ -88,6 +88,9 @@ interface AiChatState {
    *  because the verifier gates it — see components/workspace/ai-panel.tsx. */
   auto: boolean
   setAuto: (auto: boolean) => void
+  /** Local model to generate with. Empty = the server's configured default. */
+  model: string
+  setModel: (model: string) => void
   addTurn: (turn: Omit<AiTurn, 'id'>) => string
   patchTurn: (id: string, patch: Partial<AiTurn>) => void
   clear: () => void
@@ -101,6 +104,8 @@ export const useAiChat = create<AiChatState>()(
       sessionTitle: '',
       auto: false, // review-first by default; opting into Auto is deliberate
       setAuto: (auto) => set({ auto }),
+      model: '',
+      setModel: (model) => set({ model }),
       openSession: (session) =>
         set({ turns: session.turns, sessionId: session.id, sessionTitle: session.title }),
       newSession: () => set({ turns: [], sessionId: null, sessionTitle: '' }),
@@ -140,6 +145,7 @@ export const useAiChat = create<AiChatState>()(
       partialize: (s) => ({
         turns: s.turns,
         auto: s.auto,
+        model: s.model,
         sessionId: s.sessionId,
         sessionTitle: s.sessionTitle,
       }),

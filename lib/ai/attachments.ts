@@ -26,6 +26,10 @@ import type { ChatAttachment } from '@/lib/store/ai-chat'
  *  window, which pushes the SYSTEM prompt out and produces nonsense. */
 export const MAX_EXTRACT_CHARS = 12_000
 
+/** Progress reporter for the slow paths (OCR). `phase` is human-readable,
+ *  `progress` is 0–1 within that phase. */
+export type ProgressFn = (phase: string, progress: number) => void
+
 export interface ExtractResult {
   text: string
   /** Set when there is nothing useful to send — an image with no legible
@@ -139,17 +143,57 @@ async function extractSheet(file: File): Promise<ExtractResult> {
 
 // ── Images (OCR) ────────────────────────────────────────────────────────────
 
+/** An OCR pass that has stalled is indistinguishable from one that is just
+ *  slow, so cap it. The wasm core (~4MB) and the English model (~3MB) are
+ *  fetched from a CDN on the FIRST image of a session and cached by
+ *  tesseract.js in IndexedDB afterwards, so this ceiling is sized for that
+ *  cold first pass on a slow connection — a warm one runs in a few seconds. */
+const OCR_TIMEOUT_MS = 120_000
+
+type Recognize = (
+  image: File | string,
+  langs: string,
+  options: { logger: (m: { status?: string; progress?: number }) => void }
+) => Promise<{ data: { text?: string } }>
+
 /**
  * Read the text out of an image.
  *
  * Loaded on demand: tesseract.js pulls a WASM core and a language model of
  * several megabytes, and most sessions never attach an image. Paying that on
  * every page load to serve a minority path would be the wrong trade.
+ *
+ * That download is also why this reports progress. Without it the first image
+ * of a session looks like a hang: ~7MB arrives before a single character is
+ * recognised, with nothing on screen to say so.
  */
-async function extractImage(file: File): Promise<ExtractResult> {
+async function extractImage(file: File, onProgress?: ProgressFn): Promise<ExtractResult> {
+  let timer: ReturnType<typeof setTimeout> | undefined
   try {
-    const { recognize } = await import('tesseract.js')
-    const { data } = await recognize(file, 'eng')
+    // tesseract.js is CommonJS. Depending on the bundler's interop, the
+    // named export can come back undefined and only `default` carries the
+    // API — which failed as a bare "could not read this image". Take
+    // whichever form this build produced.
+    const mod = (await import('tesseract.js')) as unknown as {
+      recognize?: Recognize
+      default?: { recognize?: Recognize }
+    }
+    const recognize = mod.recognize ?? mod.default?.recognize
+    if (!recognize) throw new Error('the OCR library failed to load')
+    const run = recognize(file, 'eng', {
+      logger: (m: { status?: string; progress?: number }) => {
+        // tesseract's own phases: fetching the core, the language data, then
+        // 'recognizing text'. Reported verbatim — they are already readable.
+        if (m.status) onProgress?.(m.status, m.progress ?? 0)
+      },
+    })
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(
+        () => reject(new Error(`OCR timed out after ${OCR_TIMEOUT_MS / 1000}s`)),
+        OCR_TIMEOUT_MS
+      )
+    })
+    const { data } = await Promise.race([run, timeout])
     const text = (data.text ?? '').replace(/\s+\n/g, '\n').trim()
     if (!text) {
       return {
@@ -159,8 +203,16 @@ async function extractImage(file: File): Promise<ExtractResult> {
       }
     }
     return { text: clip(text) }
-  } catch {
-    return { text: '', warning: 'Could not read this image.' }
+  } catch (e) {
+    // The reason matters: an offline machine cannot fetch the OCR model at
+    // all, and "Could not read this image" sent the user looking at their
+    // photo instead of at their connection.
+    return {
+      text: '',
+      warning: `Could not read this image: ${e instanceof Error ? e.message : String(e)}`,
+    }
+  } finally {
+    clearTimeout(timer)
   }
 }
 
@@ -187,7 +239,10 @@ export function isSupported(file: File): boolean {
 /** Read a file into text for the prompt. Never throws: a failed extraction
  *  becomes a warning the user can see and act on, because the alternative is
  *  a chat that silently ignores the file they just attached. */
-export async function extractFileText(file: File): Promise<ExtractResult> {
+export async function extractFileText(
+  file: File,
+  onProgress?: ProgressFn
+): Promise<ExtractResult> {
   try {
     switch (ext(file.name)) {
       case 'pdf':
@@ -209,7 +264,7 @@ export async function extractFileText(file: File): Promise<ExtractResult> {
       case 'webp':
       case 'gif':
       case 'bmp':
-        return await extractImage(file)
+        return await extractImage(file, onProgress)
       default:
         return { text: '', warning: `${ext(file.name).toUpperCase()} files are not supported.` }
     }
