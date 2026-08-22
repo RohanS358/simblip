@@ -452,7 +452,7 @@ export function LibraryPanel({
               ? Object.keys((a.content as PageDoc).objects).length
               : (a.content as SceneObject[]).length
           return (
-            <div key={a.id} className="group rounded-xl border border-border/60 p-2.5 transition-colors hover:border-border">
+            <div key={a.id} className="group rounded-xl border border-border/60 p-2.5 transition-colors duration-150 hover:bg-accent/50">
               <div className="flex items-start gap-2">
                 {a.kind === 'page' ? (
                   <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-blue)]" />

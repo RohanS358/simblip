@@ -28,6 +28,7 @@ import { ChevronLeft, TableOfContents } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { startSeamDrag } from '@/lib/seam-drag'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
@@ -188,6 +189,38 @@ export function Sidebar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sidebarOpen, panelW])
 
+  // The panel floats over the canvas so its glass has something to sample,
+  // which on its own would hide whatever sits under it. Shifting the page
+  // viewport by the panel's width gives the same visual result as the canvas
+  // being squeezed — content moves out from under the panel — while the canvas
+  // keeps painting behind it.
+  //
+  // Published as a CSS variable too, so floating canvas chrome (the dock, the
+  // transport) can inset itself past the panel. See canvas-controls.tsx.
+  // Rail included: the canvas runs under the whole sidebar, so the whole
+  // sidebar is what content has to clear. 40px matches railNav's w-[40px].
+  const visibleW = 40 + (sidebarOpen ? panelW : 0)
+  const lastVisibleW = useRef(visibleW)
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-panel-w', `${visibleW}px`)
+    const delta = visibleW - lastVisibleW.current
+    lastVisibleW.current = visibleW
+    if (delta === 0) return
+    const doc = useDocStore.getState()
+    const id = useWorkspaceStore.getState().activePageId
+    if (!id) return
+    const v = doc.viewports[id]
+    if (!v) return
+    doc.setViewport(id, { ...v, x: v.x + delta })
+  }, [visibleW])
+
+  useEffect(
+    () => () => {
+      document.documentElement.style.removeProperty('--sidebar-panel-w')
+    },
+    []
+  )
+
   const selectSection = (id: SidebarSectionId) => {
     if (sidebarOpen && activeSection === id) {
       togglePanel('sidebar') // same section tapped again — collapse the pane
@@ -309,9 +342,11 @@ export function Sidebar({
   }
 
   return (
-    // Not a floating card: the rail is flush window chrome (like an activity
-    // bar), and the content pane folds out of it with an interruptible
-    // spring. Only the pane carries the soft glass edge.
+    // NOTE: this element keeps an inline `transform` from Framer's entrance
+    // animation, which makes it a BACKDROP ROOT — a backdrop-filter anywhere
+    // inside can only sample this subtree, so the glass renders opaque. The
+    // sidebar's translucent material therefore lives in shell.tsx, outside
+    // the transform, sized from --sidebar-panel-w.
     <fm.aside
       initial={{ x: -16, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
@@ -319,7 +354,7 @@ export function Sidebar({
       className="relative z-30 flex min-h-0 flex-row"
       aria-label="Sidebar"
     >
-      <div className="flex min-h-0 flex-col border-r bg-sidebar/85 backdrop-blur-xl">
+      <div className="relative z-10 flex min-h-0 flex-col">
         {railNav}
       </div>
 
@@ -339,8 +374,9 @@ export function Sidebar({
       >
         <div
           style={{ width: 'var(--panel-w)' }}
-          className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-r-2xl "
+          className="relative flex h-full min-h-0 flex-col rounded-r-2xl"
         >
+
           <div
             role="separator"
             aria-label="Resize sidebar"
@@ -373,7 +409,9 @@ export function Sidebar({
             }}
           />
 
-          {panelSections}
+          <div className="relative z-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+            {panelSections}
+          </div>
         </div>
       </fm.div>
 
@@ -384,7 +422,7 @@ export function Sidebar({
         onClick={() => togglePanel('sidebar')}
         className={cn(
           'group/bulge absolute top-1/2 z-30 flex h-7 w-4 -translate-y-1/2',
-          'items-center justify-center border-y border-r border-border/60 bg-sidebar/85 backdrop-blur-xl shadow-sm',
+          'items-center justify-center border-y border-r border-border/40 bg-[var(--chrome-glass)] backdrop-blur-sm shadow-sm',
           'transition-[left,height,width,border-color,box-shadow] duration-200 ease-out hover:h-8 hover:w-[18px] hover:border-sky-400 hover:shadow-md',
           'active:scale-95'
         )}

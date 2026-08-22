@@ -1189,6 +1189,23 @@ html {
 /* OS-level reduce-motion: movement becomes instant app-wide. Spinners and
    live-status pulses keep animating — they communicate state, and reduced
    motion means gentler, not broken. */
+/* The chrome material: one tint for every floating glass surface (the header
+   and the sidebar, see shell.tsx). Dark themes need a heavier tint than light
+   ones — 50% over a bright canvas object leaves chrome text barely readable,
+   which light themes never hit because their own background is already close
+   to the page. Kept as a variable so all the surfaces stay in step. */
+:root {
+  --chrome-glass: color-mix(in oklch, var(--background) 55%, transparent);
+}
+.dark,
+.dim,
+.midnight,
+.contrast,
+.mountains,
+.diva {
+  --chrome-glass: color-mix(in oklch, var(--background) 74%, transparent);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   ::before,

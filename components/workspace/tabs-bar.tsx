@@ -53,7 +53,23 @@ export function TabsBar({
 
   return (
     <div className="relative flex min-w-0 flex-1 items-center overflow-hidden">
-      <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 pr-3">
+      {/* The tabs fade out before they reach the transport controls, rather
+          than sliding under an opaque plate. That plate's clip-path gave it
+          hard top and bottom edges which landed on the header's own bottom
+          edge and read as a border across the whole bar. */}
+      <div
+        className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto px-1 pr-3"
+        style={
+          controls
+            ? {
+                maskImage:
+                  'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 2rem), rgb(0 0 0 / 0) 100%)',
+                WebkitMaskImage:
+                  'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 2rem), rgb(0 0 0 / 0) 100%)',
+              }
+            : undefined
+        }
+      >
         {openTabs.map((id) => {
           const meta = findPageMeta(nodes, id)
           if (!meta) return null
@@ -140,7 +156,7 @@ export function TabsBar({
         })}
       </div>
       {controls && (
-        <div className="relative z-10 flex shrink-0 items-center bg-background pl-1.5 shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.12)] dark:shadow-[-12px_0_16px_-4px_rgba(0,0,0,0.5)] [clip-path:inset(0_0_0_-20px)]">
+        <div className="relative z-10 flex shrink-0 items-center pl-1.5">
           {controls}
         </div>
       )}

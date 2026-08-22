@@ -570,9 +570,33 @@ export function WorkspaceShell() {
 
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
-      <header className="z-40 flex h-12 shrink-0 items-center gap-2 border-b border-border/40 bg-background">
+      <header className="absolute inset-x-0 top-0 z-40 flex h-12 shrink-0 items-center gap-2">
+        {/* The material is its OWN layer, masked to fade out at the bottom.
+            Put on the <header> itself it ended on a hard line — a 50% tint and
+            a blur that simply stop, which reads as exactly the border we were
+            trying to get rid of. The mask lets the surface dissolve while the
+            content above it stays at full strength. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-x-0 -bottom-4 top-0 bg-[var(--chrome-glass)] backdrop-blur-sm"
+          style={{
+            // One vertical fade, full width. It clips the layer's whole
+            // composited result, so the tint AND the backdrop-blur fade
+            // together and this element IS the progressive blur.
+            //
+            // Deliberately NOT masked horizontally around the sidebar. Ramping
+            // it in beside the rail put a vertical gradient band exactly at the
+            // rail's edge, which reads as a border — a vertical seam is far
+            // more visible than a horizontal one. The sidebar's material fades
+            // in underneath this instead, so the only join is horizontal.
+            maskImage:
+              'linear-gradient(to bottom, rgb(0 0 0) 0%, rgb(0 0 0) 72%, rgb(0 0 0 / 0.5) 88%, rgb(0 0 0 / 0) 100%)',
+            WebkitMaskImage:
+              'linear-gradient(to bottom, rgb(0 0 0) 0%, rgb(0 0 0) 72%, rgb(0 0 0 / 0.5) 88%, rgb(0 0 0 / 0) 100%)',
+          }}
+        />
         {/* Left zone: branding + institution + tabs — allowed to shrink and truncate */}
-        <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden pl-4">
+        <div className="relative z-10 flex min-w-0 flex-1 items-center gap-2 overflow-hidden pl-4">
           {institution?.logo_url ? (
             <Image
               src={String(institution.logo_url)}
@@ -600,7 +624,7 @@ export function WorkspaceShell() {
         </div>
 
         {/* Right zone: always-visible controls — shrink-0 so they're never hidden */}
-        <div className="relative z-10 flex shrink-0 items-center gap-1 bg-background pr-4">
+        <div className="relative z-10 flex shrink-0 items-center gap-1 pr-4">
           <button
             type="button"
             aria-label="Search (Ctrl+K)"
@@ -636,8 +660,47 @@ export function WorkspaceShell() {
         </div>
       </header>
 
+      {/* The dock FLOATS over the canvas: in flow it had nothing painted
+          behind it, so its blur had no backdrop and the glass looked opaque.
+          Content still moves out from under it — the sidebar shifts the page
+          viewport by its own width instead (see sidebar.tsx), which is the
+          same visual result as the canvas being squeezed, but leaves the
+          canvas painting behind the panel for the material to sample.
+          NOTHING is reserved, not even the rail: a reserved column means the
+          canvas starts to its right, leaving only the opaque root background
+          behind it to sample — which is exactly why the rail kept rendering
+          solid. --sidebar-panel-w covers rail + panel. */}
       <div className="relative flex min-h-0 flex-1">
-        {leftDock}
+        {/* The sidebar's material, OUTSIDE the dock. It cannot live on the
+            <aside>: Framer leaves an inline transform there from the entrance
+            animation, and a transformed ancestor is a backdrop root — a
+            backdrop-filter inside it samples only that subtree and renders
+            opaque. Here nothing in the chain transforms, so it samples the
+            canvas. Masked so it fades out to the right rather than stopping
+            on a line, exactly like the header's. */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 left-0 z-20 bg-[var(--chrome-glass)] backdrop-blur-sm"
+          style={{
+            width: 'calc(var(--sidebar-panel-w, 0px) + 1rem)',
+            // Two masks, intersected: fade out at the right edge, and fade IN
+            // under the header. The second one is what removes the corner
+            // artifact — the top edge dissolves into the header's own material
+            // instead of cutting across it, and because both joins are now
+            // horizontal there is no vertical seam beside the rail.
+            maskImage: [
+              'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 1rem), rgb(0 0 0 / 0.5) calc(100% - 0.4rem), rgb(0 0 0 / 0) 100%)',
+              'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
+            ].join(','),
+            WebkitMaskImage: [
+              'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 1rem), rgb(0 0 0 / 0.5) calc(100% - 0.4rem), rgb(0 0 0 / 0) 100%)',
+              'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
+            ].join(','),
+            maskComposite: 'intersect',
+            WebkitMaskComposite: 'source-in',
+          }}
+        />
+        <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
 
         {splitScreenObject && (
           <>

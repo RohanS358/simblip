@@ -469,7 +469,15 @@ export function AddPageDialog({
             <PdfDropzone
               onFile={(f) => void createFromAnyUpload(f)}
               converting={converting}
-              openingLabel="Upload a PDF, Word, Excel, PowerPoint, or image file"
+              prompt={
+                <>
+                  Drag &amp; drop a file here
+                  <br />
+                  <span className="text-ui-xs opacity-70">
+                    Or click to browse — PDF, Word, Excel, PowerPoint, or image.
+                  </span>
+                </>
+              }
               accept=".pdf,.docx,.xlsx,.pptx,image/*,.txt,.md"
             />
           </div>

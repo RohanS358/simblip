@@ -107,7 +107,11 @@ export function SettingCard({
   className?: string
 }) {
   return (
-    <div className={cn('rounded-xl border border-border/50 bg-muted/20 dark:bg-muted/10 p-4 sm:p-5 space-y-4 shadow-2xs', className)}>
+    // @container so the rows inside measure THIS card, not the viewport. The
+    // settings dialog is a narrow panel in a wide window, so a viewport `sm:`
+    // stayed "large" and kept a side-by-side row that had no room for it —
+    // which is what squeezed labels down to one word per line.
+    <div className={cn('@container rounded-xl border border-border/50 bg-muted/20 dark:bg-muted/10 p-4 sm:p-5 space-y-4 shadow-2xs', className)}>
       {title && (
         <h3 className="text-ui-xs font-bold text-muted-foreground/80 tracking-wider uppercase">
           {title}
@@ -135,12 +139,22 @@ export function ObsidianPrefRow({
   className?: string
 }) {
   return (
-    <div className={cn('flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-6 pt-3.5 first:pt-0', className)}>
-      <div className="flex flex-col flex-1 min-w-0 pr-2">
+    // 30rem, not Tailwind's `sm`: a control group here is a slider plus its
+    // value plus a reset button, and it is shrink-0. Below roughly that width
+    // it starves the label instead of the row wrapping, so the row goes
+    // vertical well before things get tight.
+    <div
+      className={cn(
+        'flex flex-col justify-between gap-3 pt-3.5 first:pt-0',
+        '@min-[30rem]:flex-row @min-[30rem]:items-center @min-[30rem]:gap-6',
+        className
+      )}
+    >
+      <div className="flex min-w-0 flex-1 flex-col @min-[30rem]:pr-2">
         <p className="text-ui-md font-medium text-foreground">{label}</p>
-        {detail && <p className="text-ui-sm text-muted-foreground leading-relaxed mt-0.5">{detail}</p>}
+        {detail && <p className="mt-0.5 text-ui-sm leading-relaxed text-muted-foreground">{detail}</p>}
       </div>
-      <div className="shrink-0 flex items-center justify-end gap-2.5 pt-0.5 sm:pt-0 self-start sm:self-center max-w-full">
+      <div className="flex w-full max-w-full shrink-0 items-center gap-2.5 @min-[30rem]:w-auto @min-[30rem]:justify-end @min-[30rem]:self-center @min-[30rem]:pt-0">
         {action ?? children}
       </div>
     </div>

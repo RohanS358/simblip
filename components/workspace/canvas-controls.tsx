@@ -173,6 +173,15 @@ export function CanvasControls({
             paddingBottom: edgeToolbar
               ? chromeBottom
               : `calc(max(1rem, env(safe-area-inset-bottom)) + ${chromeBottom}px)`,
+            // Both the sidebar and the header float over the canvas, so
+            // inset-0 reaches under them and centred chrome would drift
+            // behind. --sidebar-panel-w is published by sidebar.tsx and is
+            // the rail's width while collapsed; 3rem is the header's h-12, in rem so it
+            // tracks Interface scale rather than drifting from it.
+            paddingLeft: edgeToolbar
+              ? 'var(--sidebar-panel-w, 0px)'
+              : 'calc(1rem + var(--sidebar-panel-w, 0px))',
+            paddingTop: edgeToolbar ? '3rem' : 'calc(1rem + 3rem)',
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>

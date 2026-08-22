@@ -89,7 +89,7 @@ export function ToolsPanel() {
               'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
               calcOpen
                 ? 'border-[var(--accent-violet)] bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
-                : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground'
             )}
             onClick={() => togglePanel('calc')}
           >
@@ -115,7 +115,7 @@ export function ToolsPanel() {
                       'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
                       active
                         ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                        : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                     )}
                     onClick={() => setTool(active ? 'select' : t)}
                   >
@@ -145,7 +145,7 @@ export function ToolsPanel() {
                       'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
                       active
                         ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
-                        : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
+                        : 'border-transparent text-muted-foreground hover:bg-accent/50 hover:text-foreground'
                     )}
                     onClick={() => setTool(active ? 'select' : t)}
                   >

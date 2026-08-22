@@ -34,7 +34,7 @@ import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
 import {
-  AtSign, BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
+  ArrowUp, AtSign, BrainCircuit, Check, Copy, History, Loader2, Paperclip, Plus, Presentation as PresentationIcon, RotateCcw, Sparkle, Square, SquarePen, Trash2, X, Zap,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ChatContainerContent, ChatContainerRoot } from '@/components/ui/chat-container'
@@ -44,6 +44,7 @@ import {
 } from '@/components/ui/prompt-input'
 import { ScrollButton } from '@/components/ui/scroll-button'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useDocStore } from '@/lib/store/document'
 import { findPageMeta, useWorkspaceStore } from '@/lib/store/workspace'
 import { executeSimScript } from '@/lib/scene/simscript'
@@ -126,6 +127,9 @@ function ModeToggle({ auto, onChange }: { auto: boolean; onChange: (v: boolean) 
     </div>
   )
 }
+
+/** Stands in for the store's empty-string model — see the Select below. */
+const DEFAULT_MODEL = '__default__'
 
 const SUGGESTIONS = [
   'A 9V battery lighting a bulb through a switch',
@@ -671,7 +675,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                       key={s}
                       type="button"
                       onClick={() => void send(s)}
-                      className="rounded-lg border border-border/60 bg-card/50 px-2.5 py-2 text-left text-ui-xs text-muted-foreground transition-colors duration-150 hover:border-[var(--accent-violet)]/40 hover:text-foreground"
+                      className="rounded-lg border border-border/60 bg-card/50 px-2.5 py-2 text-left text-ui-xs text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground"
                     >
                       {s}
                     </button>
@@ -767,29 +771,43 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             the composer reads top-down as context → prompt → actions. */}
         <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
           {models.models.length > 0 && (
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              aria-label="Model"
-              title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
-              className="min-w-0 max-w-[9rem] truncate rounded-md bg-transparent px-1 py-[2px] text-ui-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
+            // The app's own Select, not a native <select>: a native one paints
+            // the OS menu, which looks nothing like every other dropdown in
+            // this workspace. Radix gives the same popover, ticks and hover
+            // states as the account menu and Settings.
+            // Radix reserves value="" for "cleared", so the store's own empty
+            // string (meaning "whatever the backend defaults to") rides a
+            // sentinel through the control and is mapped back on the way out.
+            <Select
+              value={model || DEFAULT_MODEL}
+              onValueChange={(v) => setModel(v === DEFAULT_MODEL ? '' : v)}
             >
-              <option value="">{models.default}</option>
-              {models.models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger
+                size="sm"
+                aria-label="Model"
+                title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
+                className="min-w-0 max-w-[11rem] flex-1 text-ui-xs font-medium"
+              >
+                <SelectValue placeholder={models.default} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={DEFAULT_MODEL} className="text-ui-xs">
+                  {models.default}
+                </SelectItem>
+                {models.models.map((m) => (
+                  <SelectItem key={m} value={m} className="text-ui-xs">
+                    {m}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
           <div className="shrink-0">
             <ModeToggle auto={auto} onChange={setAuto} />
           </div>
           {/* Kept visible, not just a tooltip on the toggle: this is the one
               piece of state that decides whether a send mutates the canvas. */}
-          <span className="min-w-0 truncate text-ui-2xs text-muted-foreground">
-            {auto ? 'Adds to canvas automatically' : 'You review before adding'}
-          </span>
+          
         </div>
         <PromptInput
           value={input}
@@ -832,8 +850,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                     title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
                     className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-ui-2xs transition-colors ${
                       useContext
-                        ? 'border-[var(--accent-violet)]/40 bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
-                        : 'border-border/60 text-muted-foreground line-through'
+                        ? 'bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
+                        : 'text-muted-foreground line-through'
                     }`}
                   >
                     <AtSign className="h-2.5 w-2.5 shrink-0" />
@@ -848,8 +866,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                         title={a.warning ?? `${a.text.length} characters read`}
                         className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-ui-2xs ${
                           a.warning
-                            ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
-                            : 'border-border/60 text-muted-foreground'
+                            ? 'text-amber-600 dark:text-amber-400'
+                            : 'text-muted-foreground'
                         }`}
                       >
                         <Paperclip className="h-2.5 w-2.5 shrink-0" />
@@ -880,7 +898,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                 disabled={!busy && !input.trim() && attachments.length === 0}
                 onClick={() => (busy ? abortRef.current?.abort() : void send(input))}
               >
-                {busy ? <Square className="h-3 w-3 fill-current" /> : <BrainCircuit className="h-3.5 w-3.5" />}
+                {busy ? <Square className="h-3 w-3 fill-current" /> : <ArrowUp className="h-4 w-4" strokeWidth={2.5} />}
               </Button>
             </PromptInputAction>
           </PromptInputActions>
@@ -932,7 +950,7 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
           }
         })
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/`([^`]+)`/g, '<code class="rounded bg-muted px-1">$1</code>')
+        .replace(/`([^`]+)`/g, '<code class="rounded bg-muted px-1 font-mono text-[0.9em]">$1</code>')
 
     return source
       .split('\n')
@@ -940,24 +958,35 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
         const h = /^(#{1,6})\s+(.*)$/.exec(line)
         if (h) {
           const size = h[1].length <= 2 ? 'text-ui-md' : 'text-ui-sm'
-          return `<p class="${size} font-semibold mt-2 text-foreground">${inline(h[2])}</p>`
+          return `<p class="${size} font-semibold text-foreground">${inline(h[2])}</p>`
         }
         const li = /^\s*[-*+]\s+(.*)$/.exec(line)
-        if (li) return `<p class="pl-3 -indent-2">• ${inline(li[1])}</p>`
+        if (li)
+          return `<p class="flex gap-2"><span class="select-none text-muted-foreground">•</span><span class="min-w-0 flex-1">${inline(li[1])}</span></p>`
         const ol = /^\s*(\d+)\.\s+(.*)$/.exec(line)
-        if (ol) return `<p class="pl-4 -indent-4">${ol[1]}. ${inline(ol[2])}</p>`
-        if (!line.trim()) return '<p class="h-1"></p>'
+        if (ol)
+          return `<p class="flex gap-2"><span class="select-none tabular-nums text-muted-foreground">${ol[1]}.</span><span class="min-w-0 flex-1">${inline(ol[2])}</span></p>`
+        if (!line.trim()) return '<p class="h-2"></p>'
         return `<p>${inline(line)}</p>`
       })
       .join('')
   }, [source])
 
   return (
+    // No card, no border, no tinted background. The answer is the assistant
+    // SPEAKING — it should read as prose on the panel, the way every modern
+    // chat renders a reply, not as one more boxed control in a workspace full
+    // of them. The user's own message keeps its bubble (see Turn below), which
+    // is what makes the two sides distinguishable without giving both chrome.
+    //
+    // Chrome stays only where it carries meaning: a ScriptBlock is code and is
+    // still boxed, because that block is a thing you copy and run.
     <div
       className={cn(
-        'space-y-0.5 rounded-lg border border-border/60 bg-card/50 px-2.5 py-2',
-        'text-ui-xs leading-relaxed text-foreground/90',
+        'space-y-1 text-ui-sm leading-[1.65] text-foreground',
         '[&_.katex]:text-[0.95em]',
+        // Headings get air above them, but never before the first line.
+        '[&>p.font-semibold]:mt-3 [&>p.font-semibold:first-child]:mt-0',
         streaming && 'animate-in fade-in-0'
       )}
       dangerouslySetInnerHTML={{ __html: html }}

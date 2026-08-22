@@ -35,14 +35,15 @@ export function PanelHeader({
 }) {
   return (
     <div
-      // --card is LIGHTER than --sidebar in every theme (light: 0.995 vs
-      // 0.982; dark: 0.215 vs 0.17), so a card-tinted header read as a bright
-      // white band sitting on the panel rather than part of it. And at /60
-      // opacity the canvas showed through as it scrolled. The header belongs
-      // to the panel, so it takes the panel's own surface, opaque.
+      // A LIGHT tint only, and no blur of its own. The sidebar already paints
+      // one translucent material across the whole aside (sidebar.tsx), so a
+      // second 65% tint stacked on it composited to roughly 82% — which is
+      // why the sidebar read as noticeably more solid than the shell header
+      // at the same nominal opacity. This is just enough to keep content from
+      // reading through the sticky shelf as it scrolls under.
       className={cn(
-        'sticky top-0 z-20 shrink-0 ',
-'bg-sidebar'
+        'sticky top-0 z-20 shrink-0',
+        'bg-[color-mix(in_oklch,var(--background)_22%,transparent)]'
       )}
     >
       <div className="flex h-10 items-center gap-2 px-3">

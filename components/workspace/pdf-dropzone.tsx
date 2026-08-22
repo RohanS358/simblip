@@ -15,6 +15,7 @@ export function PdfDropzone({
   converting,
   openingLabel,
   accept = '.pdf,.pptx,.ppt,.docx,.txt,.md',
+  prompt,
 }: {
   onFile: (file: File) => void
   /** Non-null while a dropped/picked file is being converted to PDF —
@@ -25,6 +26,10 @@ export function PdfDropzone({
   openingLabel?: string | null
   /** Native file picker filter — defaults to the PDF-page's original set. */
   accept?: string
+  /** Idle prompt copy. Defaults to the PDF page's wording; the add-page
+   *  dialog accepts more formats and says so. NOT the same thing as
+   *  `openingLabel`, which means "a file is already loading". */
+  prompt?: React.ReactNode
 }) {
   const [dragOver, setDragOver] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -63,12 +68,16 @@ export function PdfDropzone({
         >
           <FileUp className="h-8 w-8" />
           <span className="max-w-72 text-center text-ui-md leading-relaxed">
-            Upload a PDF or PowerPoint to read here
-            <br />
-            <span className="text-ui-xs opacity-70">
-              Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
-              devices download their own copy the first time they open it.
-            </span>
+            {prompt ?? (
+              <>
+                Upload a PDF or PowerPoint to read here
+                <br />
+                <span className="text-ui-xs opacity-70">
+                  Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
+                  devices download their own copy the first time they open it.
+                </span>
+              </>
+            )}
           </span>
         </button>
       )}
