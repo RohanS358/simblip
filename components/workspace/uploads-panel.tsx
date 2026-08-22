@@ -17,7 +17,6 @@ import {
   Search,
   Trash2,
   UploadCloud,
-  X,
   FileSpreadsheet,
   FileCode,
   File as FileIcon,
@@ -33,6 +32,7 @@ import type { SceneObject } from '@/lib/scene/types'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { PanelHeader } from './panel-header'
+import { segmentedTab, segmentedTrack } from './panel-header'
 import { cn } from '@/lib/utils'
 
 export interface UploadItem {
@@ -84,12 +84,10 @@ function viewCenter(pageId: string): { x: number; y: number } {
 
 export function UploadsPanel({
   open,
-  onClose,
   pageId,
   inline = false,
 }: {
   open: boolean
-  onClose: () => void
   pageId: string | null
   inline?: boolean
 }) {
@@ -294,6 +292,8 @@ export function UploadsPanel({
     }
   }
 
+  const pictureCount = useMemo(() => items.filter((i) => i.isImage).length, [items])
+
   // Filtered items based on tab & query
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -332,14 +332,6 @@ export function UploadsPanel({
             >
               <Plus className="h-4 w-4" />
             </button>
-            <button
-              type="button"
-              aria-label="Close uploads"
-              className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
-              onClick={onClose}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
           </>
         }
       >
@@ -355,21 +347,25 @@ export function UploadsPanel({
             />
           </div>
 
-          {/* Category Filter Tabs */}
-          <div className="flex gap-1.5 overflow-x-auto no-scrollbar">
-            {(['all', 'pictures', 'documents'] as const).map((cat) => (
+          {/* One segmented control, not a scrolling chip row: there are exactly
+              three mutually-exclusive views, and a segmented track shows all
+              three plus their counts without ever scrolling. */}
+          <div className={segmentedTrack(3)} role="tablist">
+            {([
+              { id: 'all' as const, label: 'All', n: items.length },
+              { id: 'pictures' as const, label: 'Pictures', n: pictureCount },
+              { id: 'documents' as const, label: 'Documents', n: items.length - pictureCount },
+            ]).map((t) => (
               <button
-                key={cat}
+                key={t.id}
                 type="button"
-                className={cn(
-                  'shrink-0 rounded-full px-2.5 py-1 text-ui-xs capitalize transition-[color,background-color,transform] duration-150 ease-strong active:scale-[0.97]',
-                  filter === cat
-                    ? 'bg-[color-mix(in_oklch,var(--accent-blue)_16%,transparent)] font-medium text-foreground'
-                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                )}
-                onClick={() => setFilter(cat)}
+                role="tab"
+                aria-selected={filter === t.id}
+                className={segmentedTab(filter === t.id)}
+                onClick={() => setFilter(t.id)}
               >
-                {cat === 'all' ? `All (${items.length})` : cat}
+                <span className="truncate">{t.label}</span>
+                <span className="shrink-0 text-ui-2xs tabular-nums opacity-60">{t.n}</span>
               </button>
             ))}
           </div>

@@ -6,6 +6,7 @@ import {
   type ThemeProviderProps,
 } from 'next-themes'
 import { usePrefs } from '@/lib/store/preferences'
+import { useAuthStore } from '@/lib/auth/store'
 
 // Every selectable appearance theme, in display order. Light and dark each
 // come in flavors: Sepia is warm paper, Lily is baby pink/orange, Dim is
@@ -36,18 +37,30 @@ export function isDarkTheme(theme: string | undefined): boolean {
   return !!theme && DARK_FAMILY.has(theme)
 }
 
-// The chosen tint overrides --accent-blue at the root; every "blue" surface
-// (selection, buttons, active states) follows, per theme, with no re-render.
-// It lives HERE — not in any one shell — so the mobile shell, room boards,
-// assignments and the presenter all wear the same tint.
+// --accent-blue is the app's single accent channel: every "blue" surface
+// (selection, buttons, active states) reads it, per theme, with no re-render.
+//
+// It has exactly ONE writer, here. It used to have two — this component for the
+// user's Accent Tint, and RequireAuth for the institution's brand colour — both
+// setting the same inline property on documentElement. RequireAuth mounts lower
+// and re-ran on every auth change, so it silently clobbered the user's choice:
+// picking green in Settings did nothing on any page inside an institution.
+//
+// Precedence, highest first:
+//   1. an explicit user tint (anything other than the 'blue' default)
+//   2. the institution's brand colour
+//   3. the theme's own --accent-blue, by removing the override entirely
 function AccentApplier() {
   const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
   const customAccent = usePrefs((s) => s.appearance.customAccent) ?? '#3b82f6'
+  const brand = useAuthStore((s) => s.institution?.accent_color) ?? null
   React.useEffect(() => {
-    if (accent === 'blue') document.documentElement.style.removeProperty('--accent-blue')
-    else if (accent === 'custom') document.documentElement.style.setProperty('--accent-blue', customAccent)
-    else document.documentElement.style.setProperty('--accent-blue', `var(--accent-${accent})`)
-  }, [accent, customAccent])
+    const root = document.documentElement
+    if (accent === 'custom') root.style.setProperty('--accent-blue', customAccent)
+    else if (accent !== 'blue') root.style.setProperty('--accent-blue', `var(--accent-${accent})`)
+    else if (brand) root.style.setProperty('--accent-blue', brand)
+    else root.style.removeProperty('--accent-blue')
+  }, [accent, customAccent, brand])
   return null
 }
 

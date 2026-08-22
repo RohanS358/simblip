@@ -41,7 +41,7 @@ export function PanelHeader({
       // opacity the canvas showed through as it scrolled. The header belongs
       // to the panel, so it takes the panel's own surface, opaque.
       className={cn(
-        'sticky top-0 z-20 shrink-0 border-b border-border/60',
+        'sticky top-0 z-20 shrink-0 ',
 'bg-sidebar'
       )}
     >
@@ -54,5 +54,33 @@ export function PanelHeader({
       </div>
       {children && <div className="space-y-2 px-3 pb-2">{children}</div>}
     </div>
+  )
+}
+
+/** A segmented control, styled as a shadcn Tabs list: an inset track, equal
+ *  halves, and the ACTIVE segment lifted onto bg-background with a border and
+ *  shadow. Not a Radix Tabs — these drive local state, not panels — so the
+ *  TabsList/TabsTrigger recipe is written out here and shared.
+ *
+ *  Lives here (not sidebar.tsx) because sidebar.tsx imports the panels — a
+ *  panel importing back from it would be a cycle.
+ */
+export function segmentedTrack(cols: number) {
+  return cn(
+    'grid h-8 w-full items-center rounded-lg bg-accent/50 p-[3px] text-muted-foreground',
+    cols === 2 ? 'grid-cols-2' : cols === 3 ? 'grid-cols-3' : 'grid-cols-4'
+  )
+}
+
+export function segmentedTab(active: boolean) {
+  return cn(
+    'inline-flex h-[calc(100%-1px)] min-w-0 items-center justify-center gap-1.5',
+    'whitespace-nowrap rounded-md border border-transparent px-2 py-1',
+    'text-ui-xs font-medium transition-[color,box-shadow]',
+    'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-ring',
+    'focus-visible:ring-[3px] focus-visible:outline-1',
+    active
+      ? 'bg-background text-foreground shadow-sm dark:border-input dark:bg-input/30 dark:text-foreground'
+      : 'text-foreground dark:text-muted-foreground'
   )
 }

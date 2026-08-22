@@ -18,6 +18,7 @@ import { TermsGate } from '@/components/legal/terms-gate'
 import { StorageNotice } from '@/components/legal/storage-notice'
 import { ThemeProvider } from '@/components/theme-provider'
 import { PwaRegister } from '@/components/pwa-register'
+import { WheelToHorizontal } from '@/components/wheel-to-horizontal'
 import { RouteLoader } from '@/components/route-loader'
 import { InstallPrompt } from '@/components/install-prompt'
 import { Toaster } from '@/components/ui/sonner'
@@ -201,6 +202,7 @@ export default async function RootLayout({
           <RouteLoader />
           <Toaster position="bottom-right" />
         </ThemeProvider>
+        <WheelToHorizontal />
         <PwaRegister />
         <InstallPrompt />
         <ConsentedAnalytics />

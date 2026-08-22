@@ -185,10 +185,7 @@ export function CommandPalette({
             value="new notebook create"
             onSelect={() =>
               run(() => {
-                const ws = useWorkspaceStore.getState()
-                const id = ws.addNotebook()
-                const sec = ws.addFolder('Section 1', id)
-                ws.addPageIn(sec, 'Page 1')
+                useWorkspaceStore.getState().addNotebook()
               })
             }
           >

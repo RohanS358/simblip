@@ -103,6 +103,7 @@ import {
 import { pxToCmRounded, cmToPx } from '@/lib/scene/units'
 import { truthCandidates, MAX_INPUTS } from '@/lib/circuit/truth-table'
 import { InfoPopover } from './info-popover'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { ColumnPicker } from './column-picker'
 import {
   scopeItems,
@@ -270,8 +271,10 @@ function ExprInput({
         // now appears only where dragging actually scrubs.
         canScrub ? 'cursor-ew-resize' : 'cursor-text',
         suffix && 'pr-5',
-        // Room for the [ ] chip so it never overlaps the value.
-        scope.length > 0 && !disabled && !suffix && 'pr-7'
+        // Room for the chevron so it never overlaps the value. The old `[ ]`
+        // chip needed pr-7; a 12px icon needs pr-5, giving every expression
+        // field two more characters of visible value.
+        scope.length > 0 && !disabled && !suffix && 'pr-5'
       )}
       role={scope.length ? 'combobox' : undefined}
       aria-expanded={scope.length ? openList : undefined}
@@ -392,15 +395,23 @@ function ExprInput({
       {/* The affordance. A field that accepts `g` or [Mass 1(vx)] cannot look
           identical to one that only takes a number — that was the entire
           discovery failure. This appears on hover/focus only, so a panel of
-          number boxes stays calm until you engage with one. */}
+          number boxes stays calm until you engage with one.
+
+          It was a mono `[ ]` chip: it read as a literal to type rather than a
+          control to press, and at two glyphs plus padding it ate real width in
+          a narrow field. A chevron is the standard "opens a list" sign, needs
+          about half the room, and can rotate to show the list is open. */}
       {scope.length > 0 && !disabled && !suffix && (
         <button
           type="button"
           tabIndex={-1}
           aria-label={`Insert a variable or live value into ${ariaLabel}`}
+          aria-haspopup="listbox"
+          aria-expanded={openList}
           title="Insert a variable or live value  ·  or just type ["
           className={cn(
-            'absolute right-1 top-1/2 -translate-y-1/2 rounded px-1 py-0.5 font-mono text-ui-2xs leading-none transition-opacity duration-150',
+            'absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-0.5',
+            'transition-opacity duration-150',
             // Base is VISIBLE-but-quiet, not hidden. A hover-only reveal
             // would leave the chip unreachable on a tablet, where there is no
             // hover and a tap gives focus (not :focus-visible). Hover-capable
@@ -428,7 +439,9 @@ function ExprInput({
             inputRef.current?.focus()
           }}
         >
-          [ ]
+          <ChevronDown
+            className={cn('h-3 w-3 transition-transform duration-150', openList && 'rotate-180')}
+          />
         </button>
       )}
 
@@ -516,30 +529,37 @@ function TracerToggle({
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={`Tracer: ${label}`}
-      onClick={onClick}
-      className={cn(
-        'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-ui-2xs font-medium transition-colors',
-        on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
-      )}
-      style={
-        on
-          ? { background: `color-mix(in oklch, ${color} 22%, transparent)`, color, borderColor: color }
-          : undefined
-      }
-    >
-      <Icon className="h-3.5 w-3.5" />
-      <span className="flex min-w-0 max-w-full items-center gap-1">
-        <span className="truncate">{label}</span>
-        <span className="shrink-0" onPointerDown={(e) => e.stopPropagation()}>
-          <InfoPopover description={hint} />
-        </span>
-      </span>
-    </button>
+    // The hint used to be an InfoPopover rendered inside this button — a
+    // <button> in a <button>, which is invalid HTML and broke hydration. It is
+    // a Tooltip on the toggle itself now: same information, no second control
+    // crowding a 3-across row, and the same hover assist the sidebar rail and
+    // the component palette use.
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-label={`Tracer: ${label}`}
+          onClick={onClick}
+          className={cn(
+            'flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg border px-1 py-1.5 text-ui-2xs font-medium transition-colors',
+            on ? 'border-transparent' : 'border-border/70 text-muted-foreground hover:text-foreground'
+          )}
+          style={
+            on
+              ? { background: `color-mix(in oklch, ${color} 22%, transparent)`, color, borderColor: color }
+              : undefined
+          }
+        >
+          <Icon className="h-3.5 w-3.5" />
+          <span className="min-w-0 max-w-full truncate">{label}</span>
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-52 text-ui-xs">
+        {hint}
+      </TooltipContent>
+    </Tooltip>
   )
 }
 

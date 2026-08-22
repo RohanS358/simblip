@@ -85,5 +85,17 @@ export function scopeItems(
       })
     }
   }
-  return items
+
+  // Two objects can carry the same name (duplicate a BJT and you have two
+  // "BJT (NPN) 3"), which produced two IDENTICAL rows: same label, same hint,
+  // and the same text spliced in either way. Useless to pick between, and it
+  // collided React's keys in the autocomplete list.
+  //
+  // Deduping here rather than at the one call site keeps every consumer of
+  // scopeItems honest. NOTE this only hides the ambiguity in the picker — the
+  // token `[BJT (NPN) 3(V)]` still resolves to whichever object the binding
+  // layer finds first. Making same-named objects individually bindable is a
+  // model change (stable ids in the token), not a UI one.
+  const seen = new Set<string>()
+  return items.filter((it) => (seen.has(it.insert) ? false : (seen.add(it.insert), true)))
 }

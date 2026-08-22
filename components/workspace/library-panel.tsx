@@ -201,12 +201,10 @@ export function PublishDialog({
 
 export function LibraryPanel({
   open,
-  onClose,
   pageId,
   inline = false,
 }: {
   open: boolean
-  onClose: () => void
   pageId: string | null
   /** Rendered inside the notebook sidebar (no floating chrome of its own). */
   inline?: boolean
@@ -313,14 +311,6 @@ export function LibraryPanel({
                 <Upload className="h-3.5 w-3.5" />
               </button>
             )}
-            <button
-              type="button"
-              aria-label="Close library"
-              className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
-              onClick={onClose}
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
           </>
         }
       >

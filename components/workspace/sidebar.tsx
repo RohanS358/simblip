@@ -22,10 +22,11 @@
 // scarce width, and a phone has height to spare — with the open section's
 // panel sliding up above it as a capped-height sheet, not sideways.
 
-import { useEffect, useState } from 'react'
-import { motion as fm, AnimatePresence } from 'framer-motion'
+import { useEffect, useRef, useState } from 'react'
+import { motion as fm, AnimatePresence, useMotionValue, animate } from 'framer-motion'
 import { ChevronLeft, TableOfContents } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
+import { startSeamDrag } from '@/lib/seam-drag'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
@@ -170,6 +171,23 @@ export function Sidebar({
     return Number(localStorage.getItem('simblip-sidebar-w')) || 288
   })
 
+  // Written to directly during a seam drag so a resize never re-renders the
+  // panel (and the canvas beside it) per pointermove — see startSeamDrag.
+  const foldRef = useRef<HTMLDivElement>(null)
+  const bulgeRef = useRef<HTMLButtonElement>(null)
+
+  // The fold's width is a motion value, not an `animate` prop: a drag writes
+  // it straight to the DOM, so the spring below can't try to re-animate from
+  // a stale value and snap the panel back when the drag commits. It springs
+  // only for the open/close fold.
+  const foldW = useMotionValue(sidebarOpen ? panelW : 0)
+  useEffect(() => {
+    const controls = animate(foldW, sidebarOpen ? panelW : 0, motion)
+    return () => controls.stop()
+    // `motion` is a stable spring config from useSpring().
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidebarOpen, panelW])
+
   const selectSection = (id: SidebarSectionId) => {
     if (sidebarOpen && activeSection === id) {
       togglePanel('sidebar') // same section tapped again — collapse the pane
@@ -228,10 +246,10 @@ export function Sidebar({
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
       {activeSection === 'uploads' && (
-        <UploadsPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
+        <UploadsPanel inline open pageId={activePageId} />
       )}
       {activeSection === 'library' && (
-        <LibraryPanel inline open onClose={() => togglePanel('sidebar')} pageId={activePageId} />
+        <LibraryPanel inline open pageId={activePageId} />
       )}
       {activeSection === 'properties' &&
         (contentPageId ? (
@@ -306,15 +324,21 @@ export function Sidebar({
       </div>
 
       {/* Width animates; the content keeps its TRUE width inside the
-          overflow-hidden fold so text never reflows mid-motion. */}
+          overflow-hidden fold so text never reflows mid-motion.
+          While dragging the seam the width is driven straight through
+          --panel-w (see the separator below) — the spring is for the
+          open/close fold only, and springing toward the cursor is exactly
+          what made resizing feel laggy. */}
       <fm.div
+        ref={foldRef}
         initial={false}
-        animate={{ width: sidebarOpen ? panelW : 0, opacity: sidebarOpen ? 1 : 0 }}
+        animate={{ opacity: sidebarOpen ? 1 : 0 }}
         transition={motion}
+        style={{ width: foldW, ['--panel-w' as string]: `${panelW}px` }}
         className="relative z-30 min-h-0 overflow-hidden"
       >
         <div
-          style={{ width: panelW }}
+          style={{ width: 'var(--panel-w)' }}
           className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-r-2xl "
         >
           <div
@@ -322,24 +346,30 @@ export function Sidebar({
             aria-label="Resize sidebar"
             className="group absolute right-0 top-0 z-30 h-full w-3 touch-none cursor-col-resize border-r-2 border-border/60 transition-colors duration-150 hover:border-sky-400"
             onPointerDown={(e) => {
-              e.preventDefault()
-              e.currentTarget.setPointerCapture(e.pointerId)
               const startX = e.clientX
               const startW = panelW
-              const move = (ev: PointerEvent) =>
-                setPanelW(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
-              const up = (ev: PointerEvent) => {
-                window.removeEventListener('pointermove', move)
-                window.removeEventListener('pointerup', up)
-                try {
-                  localStorage.setItem(
-                    'simblip-sidebar-w',
-                    String(Math.min(480, Math.max(200, startW + (ev.clientX - startX))))
-                  )
-                } catch {}
-              }
-              window.addEventListener('pointermove', move)
-              window.addEventListener('pointerup', up)
+              startSeamDrag(
+                e,
+                (ev) => Math.min(480, Math.max(200, startW + (ev.clientX - startX))),
+                (w) => {
+                  foldW.set(w)
+                  foldRef.current?.style.setProperty('--panel-w', `${w}px`)
+                  // The bulge's `left` is CSS-transitioned for the open/close
+                  // fold; that same easing would make it trail the cursor
+                  // here, so it's suppressed for the gesture.
+                  if (bulgeRef.current) {
+                    bulgeRef.current.style.transitionProperty = 'none'
+                    bulgeRef.current.style.left = `${w + 40}px`
+                  }
+                },
+                (w) => {
+                  if (bulgeRef.current) bulgeRef.current.style.transitionProperty = ''
+                  setPanelW(w)
+                  try {
+                    localStorage.setItem('simblip-sidebar-w', String(w))
+                  } catch {}
+                }
+              )
             }}
           />
 
@@ -348,6 +378,7 @@ export function Sidebar({
       </fm.div>
 
       <button
+        ref={bulgeRef}
         type="button"
         aria-label={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}
         onClick={() => togglePanel('sidebar')}

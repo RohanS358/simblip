@@ -59,7 +59,7 @@ import {
   deleteSession, listSessions, loadSession, type AiSessionMeta,
 } from '@/lib/store/ai-sessions'
 import { cn } from '@/lib/utils'
-import { PanelHeader } from './panel-header'
+import { PanelHeader, segmentedTab, segmentedTrack } from './panel-header'
 
 /** Same palette the Code IDE uses (components/objects/code.tsx), so a script
  *  looks identical whether it is read here or edited there. */
@@ -102,11 +102,12 @@ function ScriptBlock({ source, streaming }: { source: string; streaming?: boolea
   )
 }
 
-/** Two states, one control. Auto is visually distinct (amber, filled) because
- *  it changes what a send DOES — it is a mode, not a preference. */
+/** Two states, one control. Wears the shared segmented-control recipe (see
+ *  segmentedTrack/segmentedTab in panel-header.tsx) so it matches the Uploads
+ *  filter rather than being a second, slightly-different toggle. */
 function ModeToggle({ auto, onChange }: { auto: boolean; onChange: (v: boolean) => void }) {
   return (
-    <div className="flex items-center gap-0.5 rounded-full border border-border/60 bg-card/60 p-0.5">
+    <div className={cn(segmentedTrack(2), 'w-fit')}>
       {([false, true] as const).map((v) => (
         <button
           key={String(v)}
@@ -116,14 +117,7 @@ function ModeToggle({ auto, onChange }: { auto: boolean; onChange: (v: boolean) 
             ? 'Auto — verified scripts are added to the canvas immediately'
             : 'Manual — review each script, then add it yourself'}
           onClick={() => onChange(v)}
-          className={cn(
-            'flex items-center gap-1 rounded-full px-2 py-[3px] text-ui-xs font-medium transition-colors duration-150',
-            auto === v
-              ? v
-                ? 'bg-[var(--accent-amber)] text-black'
-                : 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:text-foreground'
-          )}
+          className={segmentedTab(auto === v)}
         >
           {v ? <Zap className="h-3 w-3" /> : <Sparkle className="h-3 w-3" />}
           {v ? 'Auto' : 'Manual'}
@@ -756,55 +750,6 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         {/* Attached files. Text-only: the extracted words are what the model
             gets, so a chip shows the name and, when nothing could be read,
             says so instead of pretending the file was understood. */}
-        {/* What the assistant can see. Auto-attached from the page/selection
-            and revocable — the toggle is why this is transparent rather than
-            the assistant silently reading your work. */}
-        {contextLabel && (
-          <button
-            type="button"
-            onClick={() => setUseContext((v) => !v)}
-            title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
-            className={`mb-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-ui-2xs transition-colors ${
-              useContext
-                ? 'border-[var(--accent-violet)]/40 bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
-                : 'border-border/60 text-muted-foreground line-through'
-            }`}
-          >
-            <AtSign className="h-2.5 w-2.5 shrink-0" />
-            <span className="truncate">{contextLabel}</span>
-          </button>
-        )}
-        {(attachments.length > 0 || reading) && (
-          <div className="mb-1.5 flex flex-wrap gap-1">
-            {attachments.map((a, i) => (
-              <span
-                key={`${a.name}-${i}`}
-                title={a.warning ?? `${a.text.length} characters read`}
-                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-ui-2xs ${
-                  a.warning
-                    ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
-                    : 'border-border/60 text-muted-foreground'
-                }`}
-              >
-                <Paperclip className="h-2.5 w-2.5 shrink-0" />
-                <span className="truncate">{a.name}</span>
-                <button
-                  type="button"
-                  aria-label={`Remove ${a.name}`}
-                  onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
-                  className="shrink-0 hover:text-foreground"
-                >
-                  <X className="h-2.5 w-2.5" />
-                </button>
-              </span>
-            ))}
-            {reading && (
-              <span className="inline-flex items-center gap-1 text-ui-2xs text-muted-foreground">
-                <Loader2 className="h-2.5 w-2.5 animate-spin" /> {readPhase || 'Reading…'}
-              </span>
-            )}
-          </div>
-        )}
         <input
           ref={fileRef}
           type="file"
@@ -857,17 +802,77 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             placeholder={auto ? 'Describe it — I’ll build it straight away' : 'Describe a simulation…'}
             className="text-ui-sm"
           />
-          <PromptInputActions className="justify-between pt-1.5">
-            <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
-              <Button
-                size="icon-sm"
-                variant="ghost"
-                className="rounded-full transition-transform duration-150 ease-strong active:scale-90"
-                onClick={() => fileRef.current?.click()}
-              >
-                <Paperclip className="h-3.5 w-3.5" />
-              </Button>
-            </PromptInputAction>
+          <PromptInputActions className="justify-between gap-1.5 pt-1.5">
+            {/* What the assistant can see: auto-attached from the page or
+                selection and revocable — the toggle is why this is transparent
+                rather than the assistant silently reading your work.
+
+                Attach button and what IS attached read as one unit, on one
+                line. These chips used to stack ABOVE the composer, pushing the
+                text area down a row for every context or file, and putting the
+                evidence a long way from the control that produced it. */}
+            <div className="flex min-w-0 flex-1 items-center gap-1.5">
+              <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  className="shrink-0 rounded-full transition-transform duration-150 ease-strong active:scale-90"
+                  onClick={() => fileRef.current?.click()}
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                </Button>
+              </PromptInputAction>
+              {/* Scrolls rather than wraps: a wrapping row would grow the
+                  composer's height again, which is what this move fixed. */}
+              <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
+        {contextLabel && (
+                  <button
+                    type="button"
+                    onClick={() => setUseContext((v) => !v)}
+                    title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
+                    className={`inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-ui-2xs transition-colors ${
+                      useContext
+                        ? 'border-[var(--accent-violet)]/40 bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
+                        : 'border-border/60 text-muted-foreground line-through'
+                    }`}
+                  >
+                    <AtSign className="h-2.5 w-2.5 shrink-0" />
+                    <span className="truncate">{contextLabel}</span>
+                  </button>
+                )}
+        {(attachments.length > 0 || reading) && (
+                  <div className="flex min-w-0 items-center gap-1">
+                    {attachments.map((a, i) => (
+                      <span
+                        key={`${a.name}-${i}`}
+                        title={a.warning ?? `${a.text.length} characters read`}
+                        className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-ui-2xs ${
+                          a.warning
+                            ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
+                            : 'border-border/60 text-muted-foreground'
+                        }`}
+                      >
+                        <Paperclip className="h-2.5 w-2.5 shrink-0" />
+                        <span className="truncate">{a.name}</span>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${a.name}`}
+                          onClick={() => setAttachments((prev) => prev.filter((_, j) => j !== i))}
+                          className="shrink-0 hover:text-foreground"
+                        >
+                          <X className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    ))}
+                    {reading && (
+                      <span className="inline-flex items-center gap-1 text-ui-2xs text-muted-foreground">
+                        <Loader2 className="h-2.5 w-2.5 animate-spin" /> {readPhase || 'Reading…'}
+                      </span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
             <PromptInputAction tooltip={busy ? 'Stop' : 'Send'}>
               <Button
                 size="icon-sm"
@@ -884,14 +889,19 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             SUGGESTIONS above only ever show on an empty thread. Clicking one
             fills the box rather than sending, so the prompt can be edited
             first; that's the difference between a shortcut and a trapdoor. */}
-        <div className="mt-1.5 flex flex-wrap gap-1">
+        {/* One scrolling line, not a wrapping block: four labels wrapped to two
+            rows and cost the conversation twice the vertical space these
+            shortcuts are worth. Borderless too — four outlined pills under an
+            outlined composer read as another control surface rather than as
+            the quiet suggestions they are. */}
+        <div className="no-scrollbar -mx-0.5 mt-1.5 flex items-center gap-1 overflow-x-auto px-0.5">
           {QUICK_ACTIONS.map((a) => (
             <button
               key={a.label}
               type="button"
               disabled={busy}
               onClick={() => setInput(a.prompt)}
-              className="rounded-full border border-border/60 px-2 py-[3px] text-ui-2xs text-muted-foreground transition-[color,background-color,border-color,transform] duration-150 ease-strong hover:border-border hover:bg-accent/50 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40"
+              className="shrink-0 whitespace-nowrap rounded-full px-2 py-[3px] text-ui-2xs text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent/60 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40"
             >
               {a.label}
             </button>

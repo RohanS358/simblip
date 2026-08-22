@@ -7,7 +7,7 @@
 import { useState } from 'react'
 import { Share2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf, findNode } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { TreeNode, SHARED_NB, type TreeHandlers } from './notebook-tree'
@@ -44,6 +44,15 @@ export function SharedPanel() {
   const [addTarget, setAddTarget] = useState<{ parentId: string } | null>(null)
   const [uploadTarget, setUploadTarget] = useState<string | null>(null)
 
+  // The folder holding the active page renders its children as a segmented
+  // track (see FolderRow in notebook-tree.tsx).
+  const activeParentId = useWorkspaceStore(
+    (s) => findNode(s.nodes, s.activePageId)?.parentId ?? null
+  )
+  const activeGrandParentId = useWorkspaceStore(
+    (s) => findNode(s.nodes, findNode(s.nodes, s.activePageId)?.parentId ?? null)?.parentId ?? null
+  )
+
   const selectPage = (id: string) => store.getState().setActivePage(id)
   const duplicatePage = (parentId: string, page: PageRef) => {
     importPageInto(parentId, parentId, `${page.name} copy`, bundlePage(page.id), true)
@@ -54,6 +63,8 @@ export function SharedPanel() {
 
   const handlers: TreeHandlers = {
     activePageId,
+    activeParentId,
+    activeGrandParentId,
     renaming,
     setRenaming,
     selectPage,

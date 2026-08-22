@@ -264,6 +264,10 @@ export function startSync() {
         // still on the array shape is the only case that needs migrating).
         const migrated = migrateNotebooksToNodes(remote.nodes) ?? (remote.nodes as Record<string, Node>)
         useWorkspaceStore.setState({ nodes: migrated })
+        // The pulled tree replaces whatever this browser had (including a
+        // first-run seed), so anything open that isn't in it must go — else
+        // the canvas shows a page the notebook tree doesn't contain.
+        useWorkspaceStore.getState().pruneMissingPages()
         // Land the pulled content in the ARCHIVE, not in memory — pulling a
         // whole notebook into the store would undo the lazy loading. Only
         // the page the user opens is hydrated (doc store ensurePage reads

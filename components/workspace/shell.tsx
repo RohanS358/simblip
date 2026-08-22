@@ -28,6 +28,7 @@ import { CanvasControls, showsCanvasDock, contentPageIdFor } from './canvas-cont
 import { PageView } from './page-view'
 import { TabsBar } from './tabs-bar'
 import { SyncStatus } from './sync-status'
+import { syncConfigured, useSyncStore } from '@/lib/sync/cloud'
 import { UndoRedo } from './undo-redo'
 import { NotificationCenter } from './notifications'
 import { ProfileMenu } from './profile-menu'
@@ -36,6 +37,7 @@ import { str, num } from '@/lib/scene/types'
 import { Kbd } from '@/components/ui/kbd'
 import { matchesCombo, resolveCombo } from '@/lib/keymap'
 import { cn } from '@/lib/utils'
+import { startSeamDrag } from '@/lib/seam-drag'
 import { FileObject } from '@/components/objects/file-view'
 
 // Code-split every panel that isn't needed for first paint: the touch shell
@@ -125,18 +127,29 @@ const V_SEAM = `h-1.5 cursor-row-resize ${SEAM_BASE}`
 /** Fraction below which a pane is snapped closed. */
 const CLOSE_THRESHOLD = 0.12
 
-function useDragger(dir: 'h' | 'v', hostRef: React.RefObject<HTMLDivElement | null>, onMove: (f: number) => void) {
+// A seam drag previews through a CSS variable on the host (one DOM write per
+// frame, no React involved) and only commits the ratio — to component state
+// or the workspace store — on pointerup. Committing per pointermove
+// re-rendered every pane's canvas ~100×/second, which is what made resizing
+// crawl. `varName` is the custom property the sized child reads its
+// width/height from.
+function useDragger(
+  dir: 'h' | 'v',
+  hostRef: React.RefObject<HTMLDivElement | null>,
+  varName: string,
+  onCommit: (f: number) => void
+) {
   return useCallback((e: React.PointerEvent) => {
-    e.preventDefault()
-    const move = (ev: PointerEvent) => {
-      const host = hostRef.current?.getBoundingClientRect()
-      if (!host) return
-      onMove(dir === 'h' ? (ev.clientX - host.left) / host.width : (ev.clientY - host.top) / host.height)
-    }
-    const up = () => { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up) }
-    window.addEventListener('pointermove', move)
-    window.addEventListener('pointerup', up)
-  }, [dir, hostRef, onMove])
+    const host = hostRef.current?.getBoundingClientRect()
+    if (!host) return
+    startSeamDrag(
+      e,
+      (ev) => (dir === 'h' ? (ev.clientX - host.left) / host.width : (ev.clientY - host.top) / host.height),
+      (f) => hostRef.current?.style.setProperty(varName, `${Math.min(95, Math.max(5, f * 100))}%`),
+      onCommit,
+      dir === 'h' ? 'col-resize' : 'row-resize'
+    )
+  }, [dir, hostRef, varName, onCommit])
 }
 
 function PaneCell({
@@ -205,10 +218,10 @@ function Pane2({ panes, activePaneIndex, splitRatio }: { panes: string[]; active
       useWorkspaceStore.getState().setSplitRatio(f)
     }
   }, [])
-  const drag = useDragger('h', host, handleH)
+  const drag = useDragger('h', host, '--split', handleH)
   return (
-    <div ref={host} className="flex h-full w-full">
-      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={2} style={{ width: `${splitRatio * 100}%` }} />
+    <div ref={host} className="flex h-full w-full" style={{ '--split': `${splitRatio * 100}%` } as React.CSSProperties}>
+      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={2} style={{ width: 'var(--split)' }} />
       <div role="separator" aria-label="Resize split" className={H_SEAM} onPointerDown={drag} />
       <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={2} className="flex-1" />
     </div>
@@ -239,14 +252,14 @@ function Pane3({ panes, activePaneIndex, splitRatio }: { panes: string[]; active
       setVRatio(Math.min(0.8, Math.max(0.2, f)))
     }
   }, [])
-  const dragH = useDragger('h', host, handleH3)
-  const dragV = useDragger('v', rightHost, handleV3)
+  const dragH = useDragger('h', host, '--split', handleH3)
+  const dragV = useDragger('v', rightHost, '--vsplit', handleV3)
   return (
-    <div ref={host} className="flex h-full w-full">
-      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={3} style={{ width: `${splitRatio * 100}%` }} />
+    <div ref={host} className="flex h-full w-full" style={{ '--split': `${splitRatio * 100}%` } as React.CSSProperties}>
+      <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={3} style={{ width: 'var(--split)' }} />
       <div role="separator" aria-label="Resize columns" className={H_SEAM} onPointerDown={dragH} />
-      <div ref={rightHost} className="flex flex-1 flex-col">
-        <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={3} style={{ height: `${vRatio * 100}%` }} />
+      <div ref={rightHost} className="flex flex-1 flex-col" style={{ '--vsplit': `${vRatio * 100}%` } as React.CSSProperties}>
+        <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={3} style={{ height: 'var(--vsplit)' }} />
         <div role="separator" aria-label="Resize rows" className={V_SEAM} onPointerDown={dragV} />
         <PaneCell id={panes[2]} index={2} activePaneIndex={activePaneIndex} paneCount={3} className="flex-1" />
       </div>
@@ -292,19 +305,19 @@ function Pane4({ panes, activePaneIndex }: { panes: string[]; activePaneIndex: n
       setRightRatio(Math.min(0.8, Math.max(0.2, f)))
     }
   }, [])
-  const dragV = useDragger('v', host, handleV4)
-  const dragL = useDragger('h', topHost, handleL4)
-  const dragR = useDragger('h', botHost, handleR4)
+  const dragV = useDragger('v', host, '--vsplit', handleV4)
+  const dragL = useDragger('h', topHost, '--lsplit', handleL4)
+  const dragR = useDragger('h', botHost, '--rsplit', handleR4)
   return (
-    <div ref={host} className="flex h-full w-full flex-col">
-      <div ref={topHost} className="flex min-h-0" style={{ height: `${vRatio * 100}%` }}>
-        <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: `${leftRatio * 100}%` }} />
+    <div ref={host} className="flex h-full w-full flex-col" style={{ '--vsplit': `${vRatio * 100}%` } as React.CSSProperties}>
+      <div ref={topHost} className="flex min-h-0" style={{ height: 'var(--vsplit)', '--lsplit': `${leftRatio * 100}%` } as React.CSSProperties}>
+        <PaneCell id={panes[0]} index={0} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: 'var(--lsplit)' }} />
         <div role="separator" aria-label="Resize top columns" className={H_SEAM} onPointerDown={dragL} />
         <PaneCell id={panes[1]} index={1} activePaneIndex={activePaneIndex} paneCount={4} className="flex-1" />
       </div>
       <div role="separator" aria-label="Resize rows" className={V_SEAM} onPointerDown={dragV} />
-      <div ref={botHost} className="flex min-h-0 flex-1">
-        <PaneCell id={panes[2]} index={2} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: `${rightRatio * 100}%` }} />
+      <div ref={botHost} className="flex min-h-0 flex-1" style={{ '--rsplit': `${rightRatio * 100}%` } as React.CSSProperties}>
+        <PaneCell id={panes[2]} index={2} activePaneIndex={activePaneIndex} paneCount={4} style={{ width: 'var(--rsplit)' }} />
         <div role="separator" aria-label="Resize bottom columns" className={H_SEAM} onPointerDown={dragR} />
         <PaneCell id={panes[3]} index={3} activePaneIndex={activePaneIndex} paneCount={4} className="flex-1" />
       </div>
@@ -416,9 +429,23 @@ export function WorkspaceShell() {
   useShareInbox()
 
   useEffect(() => {
-    if (seedFirstRun()) {
-      setTimeout(() => walkthroughEngine.start(), 500)
+    // Seeding a fresh account's first notebook has to wait for the cloud pull
+    // to land, or a returning user on a NEW device gets seeded before their
+    // real tree arrives — and lands on a Welcome page the tree doesn't have.
+    const seed = () => {
+      if (seedFirstRun()) setTimeout(() => walkthroughEngine.start(), 500)
     }
+    if (syncConfigured && useAuthStore.getState().profile) {
+      const settled = () => useSyncStore.getState().phase !== 'syncing'
+      if (settled() && useSyncStore.getState().lastSyncedAt) seed()
+      else {
+        const unsub = useSyncStore.subscribe((s) => {
+          if (s.phase === 'syncing') return
+          unsub()
+          seed()
+        })
+      }
+    } else seed()
     // Small screens: the canvas is the workspace — panels open on demand.
     if (window.matchMedia('(max-width: 767px)').matches)
       useWorkspaceStore.setState({ sidebarOpen: false, inspectorOpen: false })
@@ -626,16 +653,15 @@ export function WorkspaceShell() {
               aria-label="Resize document pane"
               className="w-1.5 shrink-0 cursor-col-resize bg-border/50 transition-colors hover:bg-[var(--accent-blue)]/50"
               onPointerDown={(e) => {
-                e.preventDefault()
-                const host = (e.currentTarget.parentElement as HTMLElement).getBoundingClientRect()
-                const move = (ev: PointerEvent) =>
-                  setDocSplitW(Math.min(0.75, Math.max(0.25, (ev.clientX - host.left) / host.width)))
-                const up = () => {
-                  window.removeEventListener('pointermove', move)
-                  window.removeEventListener('pointerup', up)
-                }
-                window.addEventListener('pointermove', move)
-                window.addEventListener('pointerup', up)
+                const seam = e.currentTarget
+                const pane = seam.previousElementSibling as HTMLElement
+                const host = (seam.parentElement as HTMLElement).getBoundingClientRect()
+                startSeamDrag(
+                  e,
+                  (ev) => Math.min(0.75, Math.max(0.25, (ev.clientX - host.left) / host.width)),
+                  (f) => { pane.style.width = `${f * 100}%` },
+                  setDocSplitW
+                )
               }}
             />
           </>

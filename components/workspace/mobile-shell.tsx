@@ -1801,8 +1801,6 @@ export function MobileShell() {
                 onClick={() => {
                   haptic('bump')
                   const id = store.getState().addNotebook()
-                  const sec = store.getState().addFolder('Section 1', id)
-                  store.getState().addPageIn(sec, 'Page 1')
                   store.getState().setActivePage(null)
                   navigateToView({ kind: 'folder', id })
                 }}

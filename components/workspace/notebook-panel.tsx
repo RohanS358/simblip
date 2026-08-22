@@ -69,7 +69,13 @@ export function NotebookPanel() {
           headers carried an icon each, but "Shared" and "Assignments" already
           say what those icons said. */}
       <div className="flex shrink-0 items-center gap-1 border-b border-border/40 px-3 pt-2">
-        <div role="tablist" aria-label="Notebook view" className="flex flex-1 items-center gap-1">
+        {/* The sidebar is user-resizable down to 200px, where three labels no
+            longer fit — the row scrolls instead of clipping the last tab. */}
+        <div
+          role="tablist"
+          aria-label="Notebook view"
+          className="no-scrollbar flex min-w-0 flex-1 items-center gap-1 overflow-x-auto"
+        >
           {VIEWS.map((v) => (
             <button
               key={v.id}
@@ -78,8 +84,8 @@ export function NotebookPanel() {
               aria-selected={view === v.id}
               onClick={() => setView(v.id)}
               className={cn(
-                'relative rounded-t-md px-2 py-1.5 text-ui-xs transition-colors duration-150 ease-strong',
-                'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors after:duration-150',
+                'relative shrink-0 whitespace-nowrap rounded-t-md px-2 py-1.5 text-ui-xs transition-colors duration-150 ease-strong',
+                'after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:transition-colors after:duration-150',
                 view === v.id
                   ? 'font-medium text-foreground after:bg-[var(--accent-blue)]'
                   : 'text-muted-foreground after:bg-transparent hover:text-foreground'
@@ -94,12 +100,9 @@ export function NotebookPanel() {
             type="button"
             title="New notebook"
             aria-label="New notebook"
-            className="mb-1 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+            className="mb-1 shrink-0 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
             onClick={() => {
-              const store = useWorkspaceStore
-              const id = store.getState().addNotebook()
-              const sec = store.getState().addFolder('Section 1', id)
-              store.getState().addPageIn(sec, 'Page 1')
+              useWorkspaceStore.getState().addNotebook()
             }}
           >
             <Plus className="h-3.5 w-3.5" />
@@ -109,7 +112,7 @@ export function NotebookPanel() {
             href="/assignments/insights"
             title="Insights"
             aria-label="Assignment insights"
-            className="mb-1 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+            className="mb-1 shrink-0 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
           >
             <BarChart3 className="h-3.5 w-3.5" />
           </Link>

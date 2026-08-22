@@ -33,7 +33,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
+import { useWorkspaceStore, childrenOf, findNode } from '@/lib/store/workspace'
 import type { FileNode, FolderNode, Node, PageNode } from '@/lib/scene/types'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -59,6 +59,7 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Switch } from '@/components/ui/switch'
+import { segmentedTab } from './panel-header'
 import { cn } from '@/lib/utils'
 
 /** Route a dropped/picked file into parentId — a PDF, or plain text/markdown/
@@ -239,6 +240,15 @@ function InlineName({
  *  at each recursion level. */
 export interface TreeHandlers {
   activePageId: string | null
+  /** The active page's folder, and that folder's own parent. Together with
+   *  activePageId these are the only three rows that show their actions at
+   *  rest — the path you are working in. Every other row stays hover-only,
+   *  or the tree turns into a wall of icons. */
+  activeGrandParentId: string | null
+  /** The folder DIRECTLY holding the active page. That folder renders its
+   *  children as a segmented track (see FolderRow), so the group you are
+   *  working in reads as one surface and its pages read as tabs within it. */
+  activeParentId: string | null
   renaming: string | null
   setRenaming: (id: string | null) => void
   selectPage: (id: string) => void
@@ -264,6 +274,14 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
   const children = useWorkspaceStore(useShallow((s) => childrenOf(s.nodes, node.id)))
   const isNotebook = node.parentId === null
   const isCollapsed = handlers.collapsed[node.id]
+  const holdsActive = handlers.activeParentId === node.id
+  // Actions sit at rest only along the active path (page, its folder, that
+  // folder's notebook); everywhere else they wait for hover.
+  const revealed =
+    node.id === handlers.activePageId ||
+    node.id === handlers.activeParentId ||
+    node.id === handlers.activeGrandParentId
+
   const [dropOver, setDropOver] = useState(false)
 
   return (
@@ -276,6 +294,10 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
               isNotebook ? 'rounded-lg' : 'rounded-md',
               isNotebook ? 'py-1.5 text-ui-sm font-medium' : 'gap-2 text-ui-sm font-normal text-muted-foreground',
+              // On the active path: accent, full strength, medium weight. These
+              // two rows (the page's folder and that folder's notebook) are the
+              // answer to "which notebook and section am I in".
+              revealed && 'font-medium text-[color:var(--accent-blue)]',
               dropOver && 'ring-2 ring-inset ring-[var(--accent-blue)]/60 bg-[var(--accent-blue)]/5'
             )}
             // ── DnD: accept both OS files and internal node moves ──
@@ -335,7 +357,10 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               onEditDone={() => handlers.setRenaming(null)}
               onRename={(name) => store.getState().renameNode(node.id, name)}
             />
-            <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
+            <div className={cn(
+              'flex items-center transition-opacity duration-200 ease-strong group-hover:opacity-100 group-focus-within:opacity-100',
+              revealed ? 'opacity-35' : 'opacity-0'
+            )}>
               <button
                 type="button"
                 aria-label="New folder"
@@ -416,10 +441,43 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
           isCollapsed ? 'grid-rows-[0fr]' : 'grid-rows-[1fr]'
         )}
       >
-        <div className="min-h-0 overflow-hidden">
-          {children.map((child) => (
-            <TreeNode key={child.id} node={child} depth={depth + 1} handlers={handlers} />
-          ))}
+        <div className="relative min-h-0 overflow-hidden">
+          {/* The folder you are working inside becomes one raised division —
+              an inset track, the same surface a segmented control uses — and
+              its pages become the segments. Everything else in the tree stays
+              flat, so the track alone says "you are here".
+
+              It is painted as a BACKGROUND LAYER, not a wrapper: a wrapper
+              with padding shifts every row inside it, which broke the tree's
+              indentation. This sits behind the rows and touches nothing. Its
+              left edge is aligned to where the children's own indent already
+              puts them, so it hugs the group instead of spanning the panel. */}
+          {holdsActive && (
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-y-0 right-0 rounded-lg bg-accent/50"
+              style={{ left: `${(depth + 1) * 16 - 3}px` }}
+            />
+          )}
+          {/* Indent guide: a hairline dropping from this folder through
+              everything it contains, so a row's owner is readable without
+              counting pixels. It takes the accent along the active path, which
+              makes the notebook > section > page chain trace itself. */}
+          {children.length > 0 && (
+            <div
+              aria-hidden
+              className={cn(
+                'pointer-events-none absolute inset-y-0 w-px transition-colors duration-150',
+                revealed ? 'bg-[var(--accent-blue)]/45' : 'bg-border/70'
+              )}
+              style={{ left: `${(depth + 1) * 16 - 9}px` }}
+            />
+          )}
+          <div className={cn('relative', holdsActive && 'space-y-px py-[3px] pr-[3px]')}>
+            {children.map((child) => (
+              <TreeNode key={child.id} node={child} depth={depth + 1} handlers={handlers} />
+            ))}
+          </div>
         </div>
       </div>
     </div>
@@ -430,17 +488,33 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
   const store = useWorkspaceStore
   const KindIcon = KIND_ICON[node.pageKind ?? 'board']
   const active = handlers.activePageId === node.id
+  const inTrack = handlers.activeParentId === node.parentId
+  // Actions sit at rest only along the active path (page, its folder, that
+  // folder's notebook); everywhere else they wait for hover.
+  const revealed =
+    node.id === handlers.activePageId ||
+    node.id === handlers.activeParentId ||
+    node.id === handlers.activeGrandParentId
 
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group ml-4 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm transition-colors duration-150',
+            'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm',
             'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
-            active
-              ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
-              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+            inTrack
+              // Inside the track this row IS a tab: same lift, border and
+              // shadow as a segmented control's active segment. Left aligned
+              // and full width, because a page name is not a label centred
+              // in a pill.
+              ? cn(segmentedTab(active), 'flex h-7 justify-start gap-2 px-2 font-normal')
+              : cn(
+                  'ml-4 transition-colors duration-150',
+                  active
+                    ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
+                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
+                )
           )}
           style={{ marginLeft: `${depth * 16}px` }}
           // ── DnD: dragging a page chip sets both tokens ──
@@ -464,7 +538,10 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
-          <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
+          <div className={cn(
+              'flex items-center transition-opacity duration-200 ease-strong group-hover:opacity-100 group-focus-within:opacity-100',
+              revealed ? 'opacity-35' : 'opacity-0'
+            )}>
             <button
               type="button"
               aria-label="Rename"
@@ -575,6 +652,14 @@ function SyncMenuItem({
 
 /** A raw uploaded file, direct leaf of a folder (not wrapped in a page). */
 function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; handlers: TreeHandlers }) {
+  const inTrack = handlers.activeParentId === node.parentId
+  // Actions sit at rest only along the active path (page, its folder, that
+  // folder's notebook); everywhere else they wait for hover.
+  const revealed =
+    node.id === handlers.activePageId ||
+    node.id === handlers.activeParentId ||
+    node.id === handlers.activeGrandParentId
+
   const store = useWorkspaceStore
   // Per-file cross-device sync, opt-in (see manifest-types.ts). Read lazily
   // when the menu opens rather than on every tree render — this is one
@@ -598,8 +683,15 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground",
-            "focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]"
+            'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm',
+            'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
+            inTrack
+              // A file opens INTO a page (open-file.ts), so inside the track it
+              // is a peer of the pages and wears the same segment shape. It is
+              // never the active one — opening it hands off to the page it
+              // creates — so it only renders in the inactive state.
+              ? cn(segmentedTab(false), 'flex h-7 justify-start gap-2 px-2 font-normal')
+              : 'text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground'
           )}
           style={{ marginLeft: `${16 + depth * 16}px` }}
           // also tag as a node so folders can reparent it.
@@ -623,7 +715,10 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
-          <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
+          <div className={cn(
+              'flex items-center transition-opacity duration-200 ease-strong group-hover:opacity-100 group-focus-within:opacity-100',
+              revealed ? 'opacity-35' : 'opacity-0'
+            )}>
             <button
               type="button"
               aria-label="Rename"
@@ -716,8 +811,18 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
     uploadInputRef.current?.click()
   }
 
+  // Walk up once here rather than making every FolderRow test its own subtree.
+  const activeParentId = useWorkspaceStore(
+    (s) => findNode(s.nodes, s.activePageId)?.parentId ?? null
+  )
+  const activeGrandParentId = useWorkspaceStore(
+    (s) => findNode(s.nodes, findNode(s.nodes, s.activePageId)?.parentId ?? null)?.parentId ?? null
+  )
+
   const handlers: TreeHandlers = {
     activePageId,
+    activeParentId,
+    activeGrandParentId,
     renaming,
     setRenaming,
     selectPage,
@@ -783,9 +888,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
                 type="button"
                 className="rounded-md border border-border/60 px-2.5 py-1 text-ui-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
                 onClick={() => {
-                  const id = store.getState().addNotebook()
-                  const sec = store.getState().addFolder('Section 1', id)
-                  store.getState().addPageIn(sec, 'Page 1')
+                  store.getState().addNotebook()
                 }}
               >
                 New notebook

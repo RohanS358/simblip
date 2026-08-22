@@ -201,6 +201,10 @@ interface WorkspaceState {
   toggleTouchMeasureMode: () => void
   setSplitScreenDocumentId: (id: string | null) => void
   setSyncScroll: (sync: boolean) => void
+  /** Drop open tabs/panes pointing at nodes that no longer exist. Needed
+   *  whenever `nodes` is replaced wholesale (a cloud pull on a new device),
+   *  which otherwise leaves the canvas showing a page absent from the tree. */
+  pruneMissingPages: () => void
 }
 
 export const SECTION_COLORS = ['blue', 'mint', 'amber', 'violet', 'rose']
@@ -465,6 +469,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         })
         return annotId
       },
+
+      pruneMissingPages: () =>
+        set((s) => {
+          const exists = (id: string) => Boolean(s.nodes[id])
+          const openTabs = s.openTabs.filter(exists)
+          const panes = s.panes.filter(exists)
+          if (openTabs.length === s.openTabs.length && panes.length === s.panes.length) return {}
+          const activePaneIndex = Math.min(s.activePaneIndex, Math.max(panes.length - 1, 0))
+          return { openTabs, panes, activePaneIndex, ...panesAliases(panes, activePaneIndex) }
+        }),
 
       setActivePage: (id) =>
         set((s) => {
