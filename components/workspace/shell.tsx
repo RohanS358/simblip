@@ -525,7 +525,7 @@ export function WorkspaceShell() {
     return (
       <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
         <BounceLoader size={240} />
-        <span className="text-[0.8125rem] font-extrabold tracking-tight">
+        <span className="text-ui-md font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
       </div>
@@ -556,11 +556,11 @@ export function WorkspaceShell() {
               className="h-5 w-5 shrink-0 rounded object-contain"
             />
           ) : null}
-          <span className="shrink-0 text-[0.875rem] font-extrabold tracking-tight">
+          <span className="shrink-0 text-ui-lg font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           {institution && (
-            <span className="hidden min-w-0 truncate text-[0.75rem] text-muted-foreground lg:inline">
+            <span className="hidden min-w-0 truncate text-ui-sm text-muted-foreground lg:inline">
               · {institution.name}
             </span>
           )}
@@ -577,12 +577,12 @@ export function WorkspaceShell() {
           <button
             type="button"
             aria-label="Search (Ctrl+K)"
-            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[0.75rem] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:flex"
+            className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-ui-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground xl:flex"
             onClick={() => setCommandOpen(true)}
           >
             <Search className="h-3.5 w-3.5" />
             Search
-            <Kbd className="text-[0.625rem]">⌘K</Kbd>
+            <Kbd className="text-ui-2xs">⌘K</Kbd>
           </button>
           <button
             type="button"
@@ -702,8 +702,8 @@ export function WorkspaceShell() {
             </>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-              <p className="text-[0.9375rem] font-semibold">No page open</p>
-              <p className="max-w-64 text-[0.78125rem] leading-relaxed text-muted-foreground">
+              <p className="text-ui-xl font-semibold">No page open</p>
+              <p className="max-w-64 text-ui-sm leading-relaxed text-muted-foreground">
                 Pick a page in the sidebar, or create a notebook to start a new workspace.
               </p>
             </div>
@@ -711,7 +711,7 @@ export function WorkspaceShell() {
         </main>
       </div>
 
-      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[0.65625rem] text-muted-foreground">
+      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-ui-2xs text-muted-foreground">
         {profile && (
           <span className="font-medium">
             {profile.full_name} · {ROLE_LABEL[profile.role]}

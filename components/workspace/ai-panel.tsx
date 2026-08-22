@@ -59,6 +59,7 @@ import {
   deleteSession, listSessions, loadSession, type AiSessionMeta,
 } from '@/lib/store/ai-sessions'
 import { cn } from '@/lib/utils'
+import { PanelHeader } from './panel-header'
 
 /** Same palette the Code IDE uses (components/objects/code.tsx), so a script
  *  looks identical whether it is read here or edited there. */
@@ -81,7 +82,7 @@ function ScriptBlock({ source, streaming }: { source: string; streaming?: boolea
   return (
     <pre
       className={cn(
-        'overflow-x-auto rounded-lg border border-border/60 bg-[var(--card)] p-2.5 font-mono text-[0.6875rem] leading-[1.6]',
+        'overflow-x-auto rounded-lg border border-border/60 bg-[var(--card)] p-2.5 font-mono text-ui-xs leading-[1.6]',
         streaming && 'animate-in fade-in-0'
       )}
     >
@@ -116,7 +117,7 @@ function ModeToggle({ auto, onChange }: { auto: boolean; onChange: (v: boolean) 
             : 'Manual — review each script, then add it yourself'}
           onClick={() => onChange(v)}
           className={cn(
-            'flex items-center gap-1 rounded-full px-2 py-[3px] text-[0.6875rem] font-medium transition-colors duration-150',
+            'flex items-center gap-1 rounded-full px-2 py-[3px] text-ui-xs font-medium transition-colors duration-150',
             auto === v
               ? v
                 ? 'bg-[var(--accent-amber)] text-black'
@@ -137,6 +138,17 @@ const SUGGESTIONS = [
   'A mass on a spring, plot its velocity',
   'A voltage divider with two resistors',
   'A block sliding down a ramp with friction',
+]
+
+/** Always-available actions under the composer, distinct from SUGGESTIONS
+ *  above: those are full example prompts shown only on an empty thread, these
+ *  are short verbs that stay reachable mid-conversation. Each is a prompt
+ *  prefix the user can send as-is or keep typing after. */
+const QUICK_ACTIONS = [
+  { label: 'Explain this scene', prompt: 'Explain what this scene does, step by step.' },
+  { label: 'Check the physics', prompt: 'Check this scene against real physics and list anything wrong.' },
+  { label: 'Add a force', prompt: 'Add a force to this scene and show how it changes the motion.' },
+  { label: 'Plot a quantity', prompt: 'Plot a useful quantity from this simulation over time.' },
 ]
 
 /** "today" / "3d" / "2w" — enough to find a thread, short enough for a row. */
@@ -563,51 +575,53 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       }}
       onPaste={pasteFiles}
     >
-      {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2">
-        <BrainCircuit className="h-4 w-4 text-[var(--accent-violet)]" />
-        <span className="flex-1 truncate text-[0.8125rem] font-semibold" title={sessionTitle || 'Assistant'}>
-          {sessionTitle || 'Assistant'}
-        </span>
-        <button
-          type="button"
-          aria-label="Saved sessions"
-          title="Saved sessions"
-          onClick={() => (sessions ? setSessions(null) : void refreshSessions())}
-          className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <History className="h-3.5 w-3.5" />
-        </button>
-        {!empty && (
-          <button
-            type="button"
-            aria-label="New session"
-            title="New session — the current one stays saved"
-            onClick={newSession}
-            className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <SquarePen className="h-3.5 w-3.5" />
-          </button>
-        )}
-        {!empty && (
-          <button
-            type="button"
-            aria-label="Clear conversation"
-            title="Clear conversation"
-            onClick={clear}
-            className="rounded p-1 text-muted-foreground transition-colors hover:text-foreground"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        )}
-      </div>
+      <PanelHeader
+        icon={BrainCircuit}
+        title={sessionTitle || 'Assistant'}
+        accent="var(--accent-violet)"
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label="Saved sessions"
+              title="Saved sessions"
+              onClick={() => (sessions ? setSessions(null) : void refreshSessions())}
+              className="rounded p-1 text-muted-foreground transition-[color,transform] duration-150 ease-strong hover:text-foreground active:scale-90"
+            >
+              <History className="h-3.5 w-3.5" />
+            </button>
+            {!empty && (
+              <button
+                type="button"
+                aria-label="New session"
+                title="New session — the current one stays saved"
+                onClick={newSession}
+                className="rounded p-1 text-muted-foreground transition-[color,transform] duration-150 ease-strong hover:text-foreground active:scale-90"
+              >
+                <SquarePen className="h-3.5 w-3.5" />
+              </button>
+            )}
+            {!empty && (
+              <button
+                type="button"
+                aria-label="Clear conversation"
+                title="Clear conversation"
+                onClick={clear}
+                className="rounded p-1 text-muted-foreground transition-[color,transform] duration-150 ease-strong hover:text-foreground active:scale-90"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </>
+        }
+      />
 
       {/* Saved sessions. A panel rather than a dropdown: the list is the
           primary way back into old work, so it gets room to breathe. */}
       {sessions && (
         <div className="max-h-56 shrink-0 overflow-y-auto border-b border-border/60 bg-muted/30 p-1.5">
           {sessions.length === 0 ? (
-            <p className="px-2 py-3 text-center text-[0.71875rem] text-muted-foreground">
+            <p className="px-2 py-3 text-center text-ui-xs text-muted-foreground">
               No saved sessions yet.
             </p>
           ) : (
@@ -616,7 +630,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                 <button
                   type="button"
                   onClick={() => void resume(sn.id)}
-                  className="flex-1 truncate py-1.5 text-left text-[0.71875rem]"
+                  className="flex-1 truncate py-1.5 text-left text-ui-xs"
                   title={sn.title}
                 >
                   <span className="font-medium">{sn.title}</span>
@@ -651,8 +665,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[color-mix(in_oklch,var(--accent-violet)_14%,transparent)]">
                     <BrainCircuit className="h-5 w-5 text-[var(--accent-violet)]" />
                   </div>
-                  <p className="text-[0.8125rem] font-semibold">Describe a simulation</p>
-                  <p className="max-w-[15rem] text-[0.71875rem] leading-relaxed text-muted-foreground">
+                  <p className="text-ui-md font-semibold">Describe a simulation</p>
+                  <p className="max-w-[15rem] text-ui-xs leading-relaxed text-muted-foreground">
                     It writes SimScript — the same language the Code IDE runs — so you can
                     read and edit anything it builds.
                   </p>
@@ -663,7 +677,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                       key={s}
                       type="button"
                       onClick={() => void send(s)}
-                      className="rounded-lg border border-border/60 bg-card/50 px-2.5 py-2 text-left text-[0.71875rem] text-muted-foreground transition-colors duration-150 hover:border-[var(--accent-violet)]/40 hover:text-foreground"
+                      className="rounded-lg border border-border/60 bg-card/50 px-2.5 py-2 text-left text-ui-xs text-muted-foreground transition-colors duration-150 hover:border-[var(--accent-violet)]/40 hover:text-foreground"
                     >
                       {s}
                     </button>
@@ -750,7 +764,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             type="button"
             onClick={() => setUseContext((v) => !v)}
             title={useContext ? 'Attached — click to detach' : 'Detached — click to attach'}
-            className={`mb-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.65625rem] transition-colors ${
+            className={`mb-1.5 inline-flex max-w-full items-center gap-1 rounded-md border px-1.5 py-0.5 text-ui-2xs transition-colors ${
               useContext
                 ? 'border-[var(--accent-violet)]/40 bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
                 : 'border-border/60 text-muted-foreground line-through'
@@ -766,7 +780,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
               <span
                 key={`${a.name}-${i}`}
                 title={a.warning ?? `${a.text.length} characters read`}
-                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[0.65625rem] ${
+                className={`inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-ui-2xs ${
                   a.warning
                     ? 'border-amber-500/40 text-amber-600 dark:text-amber-400'
                     : 'border-border/60 text-muted-foreground'
@@ -785,7 +799,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
               </span>
             ))}
             {reading && (
-              <span className="inline-flex items-center gap-1 text-[0.65625rem] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-ui-2xs text-muted-foreground">
                 <Loader2 className="h-2.5 w-2.5 animate-spin" /> {readPhase || 'Reading…'}
               </span>
             )}
@@ -802,6 +816,36 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             e.target.value = '' // let the same file be picked again
           }}
         />
+        {/* Header bar: what the next send will USE — which model answers and
+            which mode it lands in. Both were below the box previously; they
+            moved up here so the row under the composer is actions only, and
+            the composer reads top-down as context → prompt → actions. */}
+        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
+          {models.models.length > 0 && (
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              aria-label="Model"
+              title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
+              className="min-w-0 max-w-[9rem] truncate rounded-md bg-transparent px-1 py-[2px] text-ui-xs font-medium text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
+            >
+              <option value="">{models.default}</option>
+              {models.models.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          )}
+          <div className="shrink-0">
+            <ModeToggle auto={auto} onChange={setAuto} />
+          </div>
+          {/* Kept visible, not just a tooltip on the toggle: this is the one
+              piece of state that decides whether a send mutates the canvas. */}
+          <span className="min-w-0 truncate text-ui-2xs text-muted-foreground">
+            {auto ? 'Adds to canvas automatically' : 'You review before adding'}
+          </span>
+        </div>
         <PromptInput
           value={input}
           onValueChange={setInput}
@@ -811,28 +855,23 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         >
           <PromptInputTextarea
             placeholder={auto ? 'Describe it — I’ll build it straight away' : 'Describe a simulation…'}
-            className="text-[0.78125rem]"
+            className="text-ui-sm"
           />
           <PromptInputActions className="justify-between pt-1.5">
-            <div className="flex items-center gap-1">
-              <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
-                <Button
-                  size="icon-sm"
-                  variant="ghost"
-                  className="rounded-full"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                </Button>
-              </PromptInputAction>
-              <span className="text-[0.65625rem] text-muted-foreground">
-                {auto ? 'Adds to canvas automatically' : 'You review before adding'}
-              </span>
-            </div>
+            <PromptInputAction tooltip="Attach a PDF, slide deck, document, sheet or image">
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                className="rounded-full transition-transform duration-150 ease-strong active:scale-90"
+                onClick={() => fileRef.current?.click()}
+              >
+                <Paperclip className="h-3.5 w-3.5" />
+              </Button>
+            </PromptInputAction>
             <PromptInputAction tooltip={busy ? 'Stop' : 'Send'}>
               <Button
                 size="icon-sm"
-                className="rounded-full"
+                className="rounded-full transition-transform duration-150 ease-strong active:scale-90"
                 disabled={!busy && !input.trim() && attachments.length === 0}
                 onClick={() => (busy ? abortRef.current?.abort() : void send(input))}
               >
@@ -841,27 +880,22 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             </PromptInputAction>
           </PromptInputActions>
         </PromptInput>
-        {/* Mode and model live BELOW the box: both change what the next send
-            does, so they belong beside the send button, not in the header. */}
-        <div className="mt-1.5 flex min-w-0 items-center gap-2">
-          <div className="shrink-0">
-            <ModeToggle auto={auto} onChange={setAuto} />
-          </div>
-          {models.models.length > 0 && (
-            <select
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              title={`Which model answers — running ${models.backend === 'ollama' ? 'locally' : 'on OpenRouter'}`}
-              className="min-w-0 flex-1 truncate rounded-full border border-border/60 bg-card/60 px-2 py-[3px] text-[0.6875rem] text-muted-foreground outline-none transition-colors hover:text-foreground focus:text-foreground"
+        {/* Quick actions sit UNDER the composer and stay put mid-conversation —
+            SUGGESTIONS above only ever show on an empty thread. Clicking one
+            fills the box rather than sending, so the prompt can be edited
+            first; that's the difference between a shortcut and a trapdoor. */}
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {QUICK_ACTIONS.map((a) => (
+            <button
+              key={a.label}
+              type="button"
+              disabled={busy}
+              onClick={() => setInput(a.prompt)}
+              className="rounded-full border border-border/60 px-2 py-[3px] text-ui-2xs text-muted-foreground transition-[color,background-color,border-color,transform] duration-150 ease-strong hover:border-border hover:bg-accent/50 hover:text-foreground active:scale-[0.97] disabled:pointer-events-none disabled:opacity-40"
             >
-              <option value="">{models.default} (default)</option>
-              {models.models.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          )}
+              {a.label}
+            </button>
+          ))}
         </div>
       </div>
     </div>
@@ -895,7 +929,7 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
       .map((line) => {
         const h = /^(#{1,6})\s+(.*)$/.exec(line)
         if (h) {
-          const size = h[1].length <= 2 ? 'text-[0.8125rem]' : 'text-[0.75rem]'
+          const size = h[1].length <= 2 ? 'text-ui-md' : 'text-ui-sm'
           return `<p class="${size} font-semibold mt-2 text-foreground">${inline(h[2])}</p>`
         }
         const li = /^\s*[-*+]\s+(.*)$/.exec(line)
@@ -912,7 +946,7 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
     <div
       className={cn(
         'space-y-0.5 rounded-lg border border-border/60 bg-card/50 px-2.5 py-2',
-        'text-[0.71875rem] leading-relaxed text-foreground/90',
+        'text-ui-xs leading-relaxed text-foreground/90',
         '[&_.katex]:text-[0.95em]',
         streaming && 'animate-in fade-in-0'
       )}
@@ -942,14 +976,14 @@ function Turn({
     <div className="space-y-2">
       {/* What was asked */}
       <Message className="justify-end">
-        <MessageContent className="max-w-[85%] rounded-2xl rounded-br-md bg-[color-mix(in_oklch,var(--accent-violet)_16%,var(--card))] px-3 py-1.5 text-[0.75rem]">
+        <MessageContent className="max-w-[85%] rounded-2xl rounded-br-md bg-[color-mix(in_oklch,var(--accent-violet)_16%,var(--card))] px-3 py-1.5 text-ui-sm">
           {turn.attachments && turn.attachments.length > 0 && (
             <span className="mb-1 flex flex-wrap gap-1">
               {turn.attachments.map((a, i) => (
                 <span
                   key={`${a.name}-${i}`}
                   title={a.warning ?? undefined}
-                  className="inline-flex items-center gap-1 rounded-full bg-background/50 px-1.5 py-0.5 text-[0.625rem]"
+                  className="inline-flex items-center gap-1 rounded-full bg-background/50 px-1.5 py-0.5 text-ui-2xs"
                 >
                   <Paperclip className="h-2 w-2" />
                   {a.name}
@@ -968,28 +1002,28 @@ function Turn({
             batch once it is. */}
         {turn.editPlan && (
           <div className="rounded-lg border border-border/60 bg-card/60 p-2">
-            <p className="mb-1 text-[0.71875rem] font-medium">{turn.editPlan.summary}</p>
+            <p className="mb-1 text-ui-xs font-medium">{turn.editPlan.summary}</p>
             <ul className="mb-2 space-y-0.5">
               {describePlan(turn.editPlan as EditPlan, docPage).map((line, i) => (
-                <li key={i} className="flex gap-1.5 text-[0.6875rem] text-muted-foreground">
+                <li key={i} className="flex gap-1.5 text-ui-xs text-muted-foreground">
                   <span className="text-[var(--accent-violet)]">•</span>
                   <span>{line}</span>
                 </li>
               ))}
             </ul>
             {turn.editApplied ? (
-              <span className="inline-flex items-center gap-1 text-[0.6875rem] text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-ui-xs text-muted-foreground">
                 <Check className="h-3 w-3" /> Applied
               </span>
             ) : (
               <div className="flex gap-1.5">
-                <Button size="sm" className="h-6 px-2 text-[0.6875rem]" onClick={() => onApplyEdit(turn)}>
+                <Button size="sm" className="h-6 px-2 text-ui-xs" onClick={() => onApplyEdit(turn)}>
                   Apply
                 </Button>
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="h-6 px-2 text-[0.6875rem]"
+                  className="h-6 px-2 text-ui-xs"
                   onClick={() => onDiscardEdit(turn)}
                 >
                   Discard
@@ -999,7 +1033,7 @@ function Turn({
           </div>
         )}
         {streaming && !turn.script && !turn.answer && (
-          <div className="flex items-center gap-2 text-[0.71875rem] text-muted-foreground">
+          <div className="flex items-center gap-2 text-ui-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             Thinking&hellip;
           </div>
@@ -1014,7 +1048,7 @@ function Turn({
         {turn.message && (
           <p
             className={cn(
-              'text-[0.71875rem] leading-relaxed',
+              'text-ui-xs leading-relaxed',
               turn.status === 'error' ? 'text-[var(--accent-rose)]' : 'text-muted-foreground'
             )}
           >
@@ -1026,7 +1060,7 @@ function Turn({
           <div className="flex items-center gap-1.5 pt-0.5">
             {turn.added ? (
               <>
-                <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[0.6875rem] font-medium text-[var(--accent-mint)]">
+                <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-ui-xs font-medium text-[var(--accent-mint)]">
                   <Check className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'In notebook' : 'On canvas'}
                 </span>
                 {/* Placing once no longer blocks placing again — a diagram or
@@ -1040,7 +1074,7 @@ function Turn({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-6 gap-1 border-[var(--accent-mint)]/50 px-2 text-[0.6875rem] text-[var(--accent-mint)] hover:bg-[var(--accent-mint)]/10"
+                className="h-6 gap-1 border-[var(--accent-mint)]/50 px-2 text-ui-xs text-[var(--accent-mint)] hover:bg-[var(--accent-mint)]/10"
                 onClick={onAdd}
               >
                 <Plus className="h-3 w-3" /> {turn.blocks?.length && !turn.script ? 'Add to notebook' : 'Add to canvas'}
@@ -1080,7 +1114,7 @@ function Turn({
         )}
 
         {turn.status === 'error' && (
-          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-[0.6875rem]" onClick={onRetry}>
+          <Button size="sm" variant="outline" className="h-6 gap-1 px-2 text-ui-xs" onClick={onRetry}>
             <RotateCcw className="h-3 w-3" /> Try again
           </Button>
         )}
@@ -1102,7 +1136,7 @@ function TurnAction({
       aria-label={label}
       title={label}
       onClick={onClick}
-      className="rounded-md p-1 text-muted-foreground transition-colors duration-150 hover:bg-accent hover:text-foreground"
+      className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
     >
       {children}
     </button>

@@ -34,7 +34,7 @@ export function PeerCursorOverlay({
           strokeWidth="1"
         />
       </svg>
-      <span className="ml-3 -mt-1 inline-block rounded-md bg-[var(--accent-blue)] px-1.5 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+      <span className="ml-3 -mt-1 inline-block rounded-md bg-[var(--accent-blue)] px-1.5 py-0.5 text-ui-3xs font-semibold text-white shadow-sm">
         {label}
       </span>
     </div>

@@ -13,13 +13,14 @@
 
 import { useMemo, useState } from 'react'
 import { motion as fm, AnimatePresence } from 'framer-motion'
-import { Search, X } from 'lucide-react'
+import { Search, Shapes, X } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { COMPONENTS } from '@/lib/scene/factory'
 import { useDocStore } from '@/lib/store/document'
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Input } from '@/components/ui/input'
+import { PanelHeader } from './panel-header'
 import { ComponentIcon } from './component-icons'
 import { cn } from '@/lib/utils'
 
@@ -70,27 +71,23 @@ export function Palette() {
   const currentDomainValid = domain === null || packages[domain] !== false
 
   return (
-    <div className="flex h-full min-h-0 flex-col py-1" aria-label="Component palette">
-      {/* Sticky Header: Search Bar & Domain Filters */}
-      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 px-2.5 pb-2 pt-1 border-b border-border/50 mb-2 space-y-2">
-         <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Components
-          </span>
+    <div className="flex h-full min-h-0 flex-col" aria-label="Component palette">
+      <PanelHeader icon={Shapes} title="Components" accent="var(--accent-amber)">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search components…"
-            className="h-8 pl-8 text-[0.78125rem]"
+            className="h-8 pl-8 text-ui-sm"
           />
         </div>
 
-        <div className="no-scrollbar -mx-2.5 flex items-center gap-1 overflow-x-auto px-2.5">
+        <div className="no-scrollbar -mx-3 flex items-center gap-1 overflow-x-auto px-3">
           <button
             type="button"
             className={cn(
-              'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+              'shrink-0 rounded-full px-2.5 py-1 text-ui-xs font-medium transition-colors',
               (domain === null || !currentDomainValid)
                 ? 'bg-foreground text-background font-semibold'
                 : 'bg-accent text-muted-foreground hover:text-foreground'
@@ -104,7 +101,7 @@ export function Palette() {
               key={d.id}
               type="button"
               className={cn(
-                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
+                'shrink-0 rounded-full px-2.5 py-1 text-ui-xs font-medium transition-colors',
                 domain === d.id
                   ? 'bg-foreground text-background font-semibold'
                   : 'bg-accent text-muted-foreground hover:text-foreground'
@@ -115,9 +112,9 @@ export function Palette() {
             </button>
           ))}
         </div>
-      </div>
+      </PanelHeader>
 
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto px-2.5">
+      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto px-3 pt-2">
         {filtered.map((c) => {
           const armed = tool === 'place' && toolOption === c.id
           return (
@@ -129,7 +126,7 @@ export function Palette() {
               // the icon is what makes a part recognizable at a glance; the
               // accent border/tint on top of that just marks "armed."
               className={cn(
-                'flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-[0.71875rem] transition-colors',
+                'flex flex-col items-center gap-1 rounded-xl border px-1.5 py-2 text-ui-xs transition-colors',
                 armed
                   ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                   : 'border-border/60 text-muted-foreground hover:border-border hover:bg-accent/40 hover:text-foreground'
@@ -149,7 +146,7 @@ export function Palette() {
                   domains together — otherwise the selected pill already
                   says which one this is. "symbol" always matters, though. */}
               {(domain === null || !c.live) && (
-                <span className="text-[0.5625rem] uppercase tracking-wide opacity-60">
+                <span className="text-ui-3xs uppercase tracking-wide opacity-60">
                   {[domain === null ? DOMAIN_LABEL[c.domain as DomainId] : null, !c.live ? 'symbol' : null]
                     .filter(Boolean)
                     .join(' · ')}
@@ -159,13 +156,13 @@ export function Palette() {
           )
         })}
         {filtered.length === 0 && (
-          <p className="col-span-3 py-6 text-center text-[0.75rem] text-muted-foreground">
+          <p className="col-span-3 py-6 text-center text-ui-sm text-muted-foreground">
             No components match “{query}”.
           </p>
         )}
       </div>
       {tool === 'place' && (
-        <p className="mt-2 text-center text-[0.6875rem] text-muted-foreground">
+        <p className="mt-2 text-center text-ui-xs text-muted-foreground">
           Click the canvas to place · Esc to stop
         </p>
       )}

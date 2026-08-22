@@ -92,8 +92,8 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string;
     <div className="glass flex items-center gap-3 rounded-2xl p-4">
       <Icon className="h-5 w-5 text-[var(--accent-blue)]" />
       <div>
-        <p className="text-[20px] font-extrabold leading-none">{value}</p>
-        <p className="mt-1 text-[11.5px] text-muted-foreground">{label}</p>
+        <p className="text-ui-2xl font-extrabold leading-none">{value}</p>
+        <p className="mt-1 text-ui-2xs text-muted-foreground">{label}</p>
       </div>
     </div>
   )
@@ -104,7 +104,7 @@ const CHART_COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#f43f5e']
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
+      <p className="mb-2 text-ui-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
       <div className="h-52">{children}</div>
     </div>
   )
@@ -217,7 +217,7 @@ function Overview({
       </div>
 
       <div className="col-span-2 md:col-span-4">
-        <div className="glass rounded-2xl p-4 text-[12.5px] leading-relaxed text-muted-foreground">
+        <div className="glass rounded-2xl p-4 text-ui-xs leading-relaxed text-muted-foreground">
           <p className="font-semibold text-foreground">Provisioning</p>
           {dbMode === 'local' ? (
             <p>
@@ -303,7 +303,7 @@ function PeopleTab({
   return (
     <div className="space-y-4 pt-4">
       <div className="glass rounded-2xl p-4">
-        <p className="mb-3 text-[13px] font-semibold">Invite a person</p>
+        <p className="mb-3 text-ui-sm font-semibold">Invite a person</p>
         <div className="grid gap-2 md:grid-cols-2">
           <Input placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} />
           <Input placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -320,7 +320,7 @@ function PeopleTab({
         <div className="mt-3">
           {role === 'student' ? (
             <div className="max-w-56 space-y-1.5">
-              <p className="text-[11.5px] font-medium text-muted-foreground">Room</p>
+              <p className="text-ui-2xs font-medium text-muted-foreground">Room</p>
               <Select value={roomId} onValueChange={setRoomId}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Assign a room…" />
@@ -335,7 +335,7 @@ function PeopleTab({
               </Select>
             </div>
           ) : (
-            <p className="text-[11.5px] text-muted-foreground">
+            <p className="text-ui-2xs text-muted-foreground">
               Teachers are independent — they can assign, share and present to any room.
             </p>
           )}
@@ -349,24 +349,24 @@ function PeopleTab({
         {people.map((p) => (
           <div key={p.id} className="flex flex-wrap items-center gap-2 border-b border-border/40 px-4 py-2.5 last:border-0">
             <div className="min-w-40">
-              <p className="text-[13px] font-semibold">{p.full_name}</p>
-              <p className="text-[11px] text-muted-foreground">{p.email}</p>
+              <p className="text-ui-sm font-semibold">{p.full_name}</p>
+              <p className="text-ui-2xs text-muted-foreground">{p.email}</p>
             </div>
-            <Badge variant="secondary" className="text-[10.5px]">{ROLE_LABEL[p.role as Role]}</Badge>
-            {p.department && <span className="text-[11px] text-muted-foreground">{p.department}</span>}
+            <Badge variant="secondary" className="text-ui-2xs">{ROLE_LABEL[p.role as Role]}</Badge>
+            {p.department && <span className="text-ui-2xs text-muted-foreground">{p.department}</span>}
             {roomsOf(p.id).map((roomName) => (
-              <Badge key={roomName} variant="outline" className="text-[10px]">
+              <Badge key={roomName} variant="outline" className="text-ui-3xs">
                 {roomName}
               </Badge>
             ))}
             <div className="flex-1" />
             {p.role !== 'admin' && (
-              <Button size="sm" variant="ghost" className="h-6 px-2 text-[11px]" onClick={() => void doReset(p)}>
+              <Button size="sm" variant="ghost" className="h-6 px-2 text-ui-2xs" onClick={() => void doReset(p)}>
                 <KeyRound className="h-3 w-3" /> Reset password
               </Button>
             )}
             {p.role !== 'admin' && (
-              <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+              <label className="flex items-center gap-1.5 text-ui-2xs text-muted-foreground">
                 Active
                 <Switch
                   checked={p.active}
@@ -486,7 +486,7 @@ function RoomsTab({
               {renamingId === room.id ? (
                 <Input
                   autoFocus
-                  className="h-9 flex-1 text-base md:h-7 md:text-[13px]"
+                  className="h-9 flex-1 text-ui-xl md:h-7 md:text-ui-sm"
                   value={renameDraft}
                   onChange={(e) => setRenameDraft(e.target.value)}
                   onBlur={() => void commitRename(room)}
@@ -496,7 +496,7 @@ function RoomsTab({
                   }}
                 />
               ) : (
-                <p className="flex-1 text-[14px] font-bold">{room.name}</p>
+                <p className="flex-1 text-ui-md font-bold">{room.name}</p>
               )}
               <button
                 type="button"
@@ -518,7 +518,7 @@ function RoomsTab({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
               {board ? (
-                <Badge variant="secondary" className="text-[10.5px]">
+                <Badge variant="secondary" className="text-ui-2xs">
                   <MonitorPlay className="mr-1 h-3 w-3" /> Board: {boardProfile?.email ?? 'configured'} · code{' '}
                   <span className="ml-1 font-mono">{board.pairing_code}</span>
                 </Badge>
@@ -526,11 +526,11 @@ function RoomsTab({
                 <div className="flex items-center gap-1.5">
                   <Input
                     placeholder="Board password"
-                    className="h-9 w-36 text-base md:h-7 md:text-[11.5px]"
+                    className="h-9 w-36 text-ui-xl md:h-7 md:text-ui-2xs"
                     value={boardPw[room.id] ?? ''}
                     onChange={(e) => setBoardPw((s) => ({ ...s, [room.id]: e.target.value }))}
                   />
-                  <Button size="sm" variant="outline" className="h-7 text-[11.5px]" disabled={!boardPw[room.id]} onClick={() => void addBoard(room)}>
+                  <Button size="sm" variant="outline" className="h-7 text-ui-2xs" disabled={!boardPw[room.id]} onClick={() => void addBoard(room)}>
                     <MonitorPlay className="h-3.5 w-3.5" /> Create board
                   </Button>
                 </div>
@@ -546,7 +546,7 @@ function RoomsTab({
                     return (
                       <span
                         key={m.profile_id}
-                        className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-[12px] font-medium"
+                        className="flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-ui-xs font-medium"
                       >
                         {student.full_name}
                         <button
@@ -567,14 +567,14 @@ function RoomsTab({
                     )
                   })}
                 {roomMembers.filter((m) => m.member_role === 'student').length === 0 && (
-                  <span className="text-[12px] text-muted-foreground">No students enrolled yet.</span>
+                  <span className="text-ui-xs text-muted-foreground">No students enrolled yet.</span>
                 )}
                 <div className="ml-auto">
                   <Select
                     value={pick[room.id] ?? ''}
                     onValueChange={(v) => void enrollStudent(room, v)}
                   >
-                    <SelectTrigger className="h-7 w-52 text-[12px]">
+                    <SelectTrigger className="h-7 w-52 text-ui-xs">
                       <SelectValue placeholder="Add student…" />
                     </SelectTrigger>
                     <SelectContent>
@@ -606,27 +606,27 @@ function RoomsTab({
 function LibraryTab({ assets, refresh }: { assets: LibraryAssetRow[]; refresh: () => void }) {
   return (
     <div className="space-y-2 pt-4">
-      <p className="text-[12.5px] text-muted-foreground">
+      <p className="text-ui-xs text-muted-foreground">
         Approved assets are visible to students. Teachers always see everything in the library.
       </p>
       {assets.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-12 text-center">
           <LibraryBig className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-[13px] text-muted-foreground">The library is empty.</p>
+          <p className="text-ui-sm text-muted-foreground">The library is empty.</p>
         </div>
       )}
       {assets.map((a) => (
         <div key={a.id} className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 truncate text-[13px] font-semibold">
+            <p className="flex items-center gap-1.5 truncate text-ui-sm font-semibold">
               {a.title}
               {a.approved && <BadgeCheck className="h-3.5 w-3.5 text-[var(--accent-mint)]" />}
             </p>
-            <p className="text-[11px] text-muted-foreground">
+            <p className="text-ui-2xs text-muted-foreground">
               {a.uploader_name} · <span className="capitalize">{a.category.replace('-', ' ')}</span>
             </p>
           </div>
-          <label className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+          <label className="flex items-center gap-1.5 text-ui-2xs text-muted-foreground">
             Student-visible
             <Switch checked={a.approved} onCheckedChange={(v) => void setApproved(a.id, v).then(refresh)} />
           </label>
@@ -677,8 +677,8 @@ function AnnouncementsTab({ rooms }: { rooms: RoomRow[] }) {
       </div>
       {items.map((a) => (
         <div key={a.id} className="glass rounded-2xl px-4 py-3">
-          <p className="text-[13px]">{a.body}</p>
-          <p className="mt-1 text-[10.5px] text-muted-foreground">
+          <p className="text-ui-sm">{a.body}</p>
+          <p className="mt-1 text-ui-2xs text-muted-foreground">
             {a.room_id ? rooms.find((r) => r.id === a.room_id)?.name ?? 'Room' : 'Whole institution'} ·{' '}
             {new Date(a.created_at).toLocaleString()}
           </p>
@@ -711,15 +711,15 @@ function BrandingTab() {
   return (
     <div className="glass mt-4 max-w-md space-y-3 rounded-2xl p-4">
       <div className="space-y-1.5">
-        <Label className="text-[12px]">Institution name</Label>
+        <Label className="text-ui-xs">Institution name</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-[12px]">Logo URL</Label>
+        <Label className="text-ui-xs">Logo URL</Label>
         <Input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="https://…/logo.svg" />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-[12px]">Accent color</Label>
+        <Label className="text-ui-xs">Accent color</Label>
         <div className="flex items-center gap-2">
           <input
             type="color"
@@ -728,7 +728,7 @@ function BrandingTab() {
             value={accent}
             onChange={(e) => setAccent(e.target.value)}
           />
-          <Input value={accent} onChange={(e) => setAccent(e.target.value)} className="w-28 font-mono text-base md:text-[12px]" />
+          <Input value={accent} onChange={(e) => setAccent(e.target.value)} className="w-28 font-mono text-ui-xl md:text-ui-xs" />
         </div>
       </div>
       <Button onClick={() => void save()} disabled={!name.trim()}>Save branding</Button>

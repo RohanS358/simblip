@@ -21,8 +21,8 @@ function DemoCard({
         {children}
       </div>
       <div className="border-t border-border/60 p-4">
-        <h3 className="text-[14px] font-semibold">{title}</h3>
-        <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{caption}</p>
+        <h3 className="text-ui-md font-semibold">{title}</h3>
+        <p className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">{caption}</p>
       </div>
     </div>
   )
@@ -189,7 +189,7 @@ export function Landing() {
       <header className="fixed inset-x-0 top-0 z-50">
         <div className="progressive-blur-top !h-16" />
         <div className="relative flex items-center justify-between px-4 py-3 sm:px-8">
-          <span className="liquid-glass rounded-full px-4 py-1.5 text-[15px] font-bold tracking-tight">
+          <span className="liquid-glass rounded-full px-4 py-1.5 text-ui-lg font-bold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <nav className="liquid-glass hidden items-center gap-1 rounded-full p-1 md:flex">
@@ -203,7 +203,7 @@ export function Landing() {
               <a
                 key={href}
                 href={href}
-                className="rounded-full px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+                className="rounded-full px-3.5 py-1.5 text-ui-xs font-medium text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
               >
                 {label}
               </a>
@@ -211,7 +211,7 @@ export function Landing() {
           </nav>
           <SignInLink
             signedOutLabel="Sign in"
-            className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+            className="rounded-full bg-[var(--accent-blue)] px-4 py-1.5 text-ui-sm font-semibold text-primary-foreground shadow-[0_8px_24px_color-mix(in_oklch,var(--accent-blue)_45%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
           />
         </div>
       </header>
@@ -225,7 +225,7 @@ export function Landing() {
               Your <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
               <span className="text-[var(--accent-mint)]">experiments</span>
             </h1>
-            <p className="mt-6 max-w-xl text-pretty text-[15px] leading-relaxed text-muted-foreground sm:text-[17px]">
+            <p className="mt-6 max-w-xl text-pretty text-ui-lg leading-relaxed text-muted-foreground sm:text-ui-xl">
               Sketch mechanics, wire circuits, build logic, fire photons at a double slit — then
               press Play. One canvas, real physics, real Kirchhoff, real interference. Everything
               editable while it runs.
@@ -233,11 +233,11 @@ export function Landing() {
             <div className="mt-9 flex flex-wrap items-center gap-3">
               <SignInLink
                 signedOutLabel="Sign in to your institution"
-                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-[14.5px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-ui-md font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
               />
               <a
                 href="#demos"
-                className="liquid-glass rounded-full px-7 py-3 text-[14.5px] font-medium text-foreground transition-transform active:scale-[0.97]"
+                className="liquid-glass rounded-full px-7 py-3 text-ui-md font-medium text-foreground transition-transform active:scale-[0.97]"
               >
                 See it in action
               </a>
@@ -259,8 +259,8 @@ export function Landing() {
             ['Algorithms', 'C++ runs in the page — data structures animate live.'],
           ].map(([t, b]) => (
             <div key={t} className="glass rounded-2xl p-4 text-left">
-              <p className="text-[13px] font-bold">{t}</p>
-              <p className="mt-1 text-[11.5px] leading-relaxed text-muted-foreground">{b}</p>
+              <p className="text-ui-sm font-bold">{t}</p>
+              <p className="mt-1 text-ui-2xs leading-relaxed text-muted-foreground">{b}</p>
             </div>
           ))}
         </div>
@@ -282,8 +282,8 @@ export function Landing() {
             ['Tabs & split screen', 'Open several boards, docs and PDFs at once in header tabs, drop any two side by side in a resizable split, and take linked per-page notes.', 'var(--accent-mint)'],
           ].map(([t, b, c]) => (
             <div key={t} className="liquid-glass rounded-2xl p-5">
-              <p className="text-[13px] font-bold" style={{ color: c }}>{t}</p>
-              <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
+              <p className="text-ui-sm font-bold" style={{ color: c }}>{t}</p>
+              <p className="mt-1.5 text-ui-xs leading-relaxed text-muted-foreground">{b}</p>
             </div>
           ))}
         </div>
@@ -294,7 +294,7 @@ export function Landing() {
           <h2 className="max-w-[16ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">
             Six things your paper notebook can&apos;t do
           </h2>
-          <p className="max-w-sm text-[13.5px] leading-relaxed text-muted-foreground">
+          <p className="max-w-sm text-ui-sm leading-relaxed text-muted-foreground">
             Every card below is the real engine rendered small — the same solver, the same ink,
             the same math you get on the canvas.
           </p>
@@ -328,7 +328,7 @@ export function Landing() {
             <h2 className="max-w-[14ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em]">
               Light that behaves like <span className="text-[var(--accent-violet)]">light</span>
             </h2>
-            <p className="mt-4 text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
+            <p className="mt-4 text-ui-md leading-relaxed text-muted-foreground sm:text-ui-lg">
               Build a double-slit experiment on the canvas — a coherent source, a slit mask, a
               screen — and SIMBLIP performs a Huygens–Fresnel phasor sum over the open apertures
               at real dimensions (1 px = 1 µm). The single-slit diffraction envelope and the
@@ -345,8 +345,8 @@ export function Landing() {
               ['Wells & barriers', 'Particle-in-a-box eigenstates and tunneling transmission, solved from the Schrödinger picture with live parameters.'],
             ].map(([t, b]) => (
               <div key={t} className="liquid-glass rounded-2xl p-5">
-                <p className="text-[13px] font-bold text-[var(--accent-violet)]">{t}</p>
-                <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
+                <p className="text-ui-sm font-bold text-[var(--accent-violet)]">{t}</p>
+                <p className="mt-1.5 text-ui-xs leading-relaxed text-muted-foreground">{b}</p>
               </div>
             ))}
           </div>
@@ -359,7 +359,7 @@ export function Landing() {
           <h2 className="max-w-[18ch] text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.05] tracking-[-0.02em]">
             A whole <span className="text-[var(--accent-blue)]">classroom</span> operating system
           </h2>
-          <p className="max-w-md text-[14px] leading-relaxed text-muted-foreground">
+          <p className="max-w-md text-ui-md leading-relaxed text-muted-foreground">
             SIMBLIP is not a lone notebook — it is the environment an engineering institution
             runs on. Teachers teach from it, boards present it, students submit through it.
           </p>
@@ -372,8 +372,8 @@ export function Landing() {
             ['4 · Review', 'A live dashboard tracks opened → in progress → submitted → reviewed, with feedback flowing back instantly.'],
           ].map(([t, b], i) => (
             <div key={t} className={cnStep(i)}>
-              <p className="text-[13px] font-bold">{t}</p>
-              <p className="mt-1.5 text-[12.5px] leading-relaxed text-muted-foreground">{b}</p>
+              <p className="text-ui-sm font-bold">{t}</p>
+              <p className="mt-1.5 text-ui-xs leading-relaxed text-muted-foreground">{b}</p>
             </div>
           ))}
         </div>
@@ -383,8 +383,8 @@ export function Landing() {
         <div data-fx="domino" className="grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map(([title, body]) => (
             <div key={title} className="border-l-2 border-[color-mix(in_oklch,var(--accent-blue)_35%,transparent)] pl-4">
-              <h3 className="text-[14px] font-semibold">{title}</h3>
-              <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">{body}</p>
+              <h3 className="text-ui-md font-semibold">{title}</h3>
+              <p className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">{body}</p>
             </div>
           ))}
         </div>
@@ -397,7 +397,7 @@ export function Landing() {
             <h2 className="max-w-[16ch] text-[clamp(2rem,5vw,3.6rem)] font-bold leading-[1.02] tracking-[-0.025em]">
               Built for <span className="text-[var(--accent-blue)]">institutions</span>, not accounts
             </h2>
-            <p className="mt-4 max-w-2xl text-pretty text-[14px] leading-relaxed text-muted-foreground sm:text-[15px]">
+            <p className="mt-4 max-w-2xl text-pretty text-ui-md leading-relaxed text-muted-foreground sm:text-ui-lg">
               SIMBLIP is licensed to universities, colleges and schools as a complete engineering
               education platform — role-based workspaces for admins, teachers and students,
               QR-paired classroom boards, an institution library, and a live assignment workflow.
@@ -408,19 +408,19 @@ export function Landing() {
           <div className="flex flex-col items-start gap-3 lg:items-end">
             <a
               href="mailto:licensing@simblip.app?subject=SIMBLIP%20institution%20licensing"
-              className="rounded-full bg-[var(--accent-blue)] px-8 py-3.5 text-[15px] font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+              className="rounded-full bg-[var(--accent-blue)] px-8 py-3.5 text-ui-lg font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
             >
               Contact us for licensing
             </a>
             <SignInLink
               signedOutLabel="Already licensed? Sign in"
-              className="liquid-glass rounded-full px-8 py-3.5 text-[15px] font-medium text-foreground transition-transform active:scale-[0.97]"
+              className="liquid-glass rounded-full px-8 py-3.5 text-ui-lg font-medium text-foreground transition-transform active:scale-[0.97]"
             />
           </div>
         </div>
       </section>
 
-      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-4 py-8 text-[12px] text-muted-foreground sm:px-8">
+      <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-4 py-8 text-ui-xs text-muted-foreground sm:px-8">
         <span>
           © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
         </span>

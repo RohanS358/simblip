@@ -99,8 +99,8 @@ export function SyncStatus() {
         <div className="flex items-center gap-2 border-b border-border/60 pb-2.5">
           <Icon className={cn('h-4 w-4 shrink-0', view.cls)} />
           <div className="min-w-0 flex-1">
-            <p className="text-[0.8125rem] font-medium leading-none text-foreground">{view.label}</p>
-            <p className="mt-1 text-[0.6875rem] text-muted-foreground">
+            <p className="text-ui-md font-medium leading-none text-foreground">{view.label}</p>
+            <p className="mt-1 text-ui-xs text-muted-foreground">
               Storage budget: 1GB • Local-first storage
             </p>
           </div>
@@ -108,7 +108,7 @@ export function SyncStatus() {
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-[0.75rem] font-semibold text-foreground">Active Online Devices</span>
+            <span className="text-ui-sm font-semibold text-foreground">Active Online Devices</span>
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -119,15 +119,15 @@ export function SyncStatus() {
               >
                 <RotateCw className={cn('h-3.5 w-3.5', refreshing && 'animate-spin')} />
               </button>
-              <span className="text-[0.6875rem] font-mono text-muted-foreground">{others.length} online</span>
+              <span className="text-ui-xs font-mono text-muted-foreground">{others.length} online</span>
             </div>
           </div>
 
           {others.length === 0 ? (
             <div className="rounded-lg border border-dashed border-border/60 p-3 text-center">
               <Laptop className="mx-auto h-5 w-5 text-muted-foreground/50" />
-              <p className="mt-1.5 text-[0.75rem] font-medium text-foreground">No other active devices</p>
-              <p className="mt-0.5 text-[0.6875rem] text-muted-foreground leading-normal">
+              <p className="mt-1.5 text-ui-sm font-medium text-foreground">No other active devices</p>
+              <p className="mt-0.5 text-ui-xs text-muted-foreground leading-normal">
                 Make sure SIMBLIP is open on your second device and signed in to the same account.
               </p>
             </div>
@@ -138,18 +138,18 @@ export function SyncStatus() {
                 return (
                   <div
                     key={device.id}
-                    className="flex items-center justify-between rounded-lg border border-border/60 bg-card/60 p-2 text-[0.78125rem]"
+                    className="flex items-center justify-between rounded-lg border border-border/60 bg-card/60 p-2 text-ui-sm"
                   >
                     <div className="min-w-0 flex-1 pr-2">
                       <p className="font-medium truncate text-foreground">{device.label}</p>
-                      <p className="text-[0.6875rem] text-muted-foreground">Online now</p>
+                      <p className="text-ui-xs text-muted-foreground">Online now</p>
                     </div>
                     <Button
                       size="sm"
                       variant="outline"
                       disabled={isSyncing || syncingTargetId !== null}
                       onClick={() => void handlePushToDevice(device)}
-                      className="h-7 text-[0.6875rem] gap-1 shrink-0"
+                      className="h-7 text-ui-xs gap-1 shrink-0"
                     >
                       {isSyncing ? (
                         <>
@@ -170,7 +170,7 @@ export function SyncStatus() {
           )}
         </div>
 
-        <p className="text-[0.6875rem] text-muted-foreground leading-normal pt-1 border-t border-border/40">
+        <p className="text-ui-xs text-muted-foreground leading-normal pt-1 border-t border-border/40">
           Files are pushed to cloud storage temporarily and deleted immediately after the receiving device downloads them.
         </p>
       </PopoverContent>

@@ -74,8 +74,8 @@ export function SharedPanel() {
     return (
       <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
         <Share2 className="h-6 w-6 text-muted-foreground/50" />
-        <p className="text-sm text-muted-foreground">Nothing shared with you yet.</p>
-        <p className="max-w-[24ch] text-xs leading-relaxed text-muted-foreground/70">
+        <p className="text-ui-sm text-muted-foreground">Nothing shared with you yet.</p>
+        <p className="max-w-[24ch] text-ui-xs leading-relaxed text-muted-foreground/70">
           Pages your teachers share land here automatically.
         </p>
       </div>

@@ -45,7 +45,7 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
       <DropdownMenuTrigger asChild>
         <button type="button" aria-label="Account menu" className="rounded-full transition-opacity hover:opacity-80">
           <Avatar className="h-7 w-7">
-            <AvatarFallback className="bg-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] text-[0.625rem] font-bold">
+            <AvatarFallback className="bg-[color-mix(in_oklch,var(--accent-blue)_18%,transparent)] text-ui-2xs font-bold">
               {initials(profile.full_name)}
             </AvatarFallback>
           </Avatar>
@@ -53,9 +53,9 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel>
-          <span className="block text-[0.8125rem] font-semibold">{profile.full_name}</span>
-          <span className="block text-[0.6875rem] font-normal text-muted-foreground">{profile.email}</span>
-          <span className="mt-1 inline-block rounded-md bg-accent px-1.5 py-0.5 text-[0.625rem] font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className="block text-ui-md font-semibold">{profile.full_name}</span>
+          <span className="block text-ui-xs font-normal text-muted-foreground">{profile.email}</span>
+          <span className="mt-1 inline-block rounded-md bg-accent px-1.5 py-0.5 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
             {ROLE_LABEL[profile.role]}
           </span>
         </DropdownMenuLabel>

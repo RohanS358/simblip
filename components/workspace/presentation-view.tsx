@@ -291,7 +291,7 @@ function PresentOverlay({
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
-        <span className="font-mono text-[0.8125rem] tabular-nums">
+        <span className="font-mono text-ui-md tabular-nums">
           {i + 1} / {slides.length}
         </span>
         <button
@@ -829,7 +829,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
               className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
             >
               <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
-                <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+                <div className="flex items-center gap-2 text-foreground font-semibold text-ui-xs uppercase tracking-wider">
                   <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
                   <span>Table of Contents</span>
                 </div>
@@ -854,7 +854,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                         onClick={() => goToSlide(item.slideIndex)}
                         style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
                         className={cn(
-                          'relative w-full text-left rounded px-2 py-1 text-[0.75rem] transition-colors flex items-center justify-between gap-1.5 group',
+                          'relative w-full text-left rounded px-2 py-1 text-ui-sm transition-colors flex items-center justify-between gap-1.5 group',
                           isSelected
                             ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
                             : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
@@ -868,14 +868,14 @@ export function PresentationView({ pageId }: { pageId: string }) {
                           />
                         )}
                         <span className="truncate leading-tight">{item.title}</span>
-                        <span className="shrink-0 font-mono text-[0.625rem] opacity-40 group-hover:opacity-100 transition-opacity">
+                        <span className="shrink-0 font-mono text-ui-2xs opacity-40 group-hover:opacity-100 transition-opacity">
                           s.{item.slideIndex + 1}
                         </span>
                       </button>
                     )
                   })
                 ) : (
-                  <div className="p-4 text-center text-[0.75rem] text-muted-foreground">
+                  <div className="p-4 text-center text-ui-sm text-muted-foreground">
                     No Table of Contents available for this presentation.
                   </div>
                 )}
@@ -1022,7 +1022,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                     {/* The real slide, not a bbox sketch — a deck's tiles all
                         look alike otherwise. See page-thumbnail.tsx. */}
                     <LiveFrame pageId={id} w={SLIDE_W} h={SLIDE_H} background={meta?.sheetColors?.[id]} />
-                    <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-[0.5625rem] font-semibold text-white">
+                    <span className="absolute left-1 top-1 z-10 rounded bg-black/40 px-1 text-ui-3xs font-semibold text-white">
                       {i + 1}
                     </span>
                   </div>
@@ -1102,7 +1102,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
             className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 py-1.5 pl-2.5 pr-2 transition-transform active:scale-95"
             onClick={() => setRailOpen((v) => !v)}
           >
-            <span className="font-mono text-[0.8125rem] font-semibold tabular-nums text-foreground">
+            <span className="font-mono text-ui-md font-semibold tabular-nums text-foreground">
               {current + 1}
               <span className="text-muted-foreground/70">/{slides.length}</span>
             </span>
@@ -1171,7 +1171,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           <button
             type="button"
             disabled={importing || slides.length === 0}
-            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-[0.8125rem] font-semibold text-primary-foreground shadow-sm transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-ui-md font-semibold text-primary-foreground shadow-sm transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => setPresenting(true)}
           >
             <MonitorPlay className="h-4 w-4" />
@@ -1197,7 +1197,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           >
             <ZoomOut className="h-3.5 w-3.5" />
           </button>
-          <span className="min-w-11 shrink-0 text-center font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+          <span className="min-w-11 shrink-0 text-center font-mono text-ui-xs tabular-nums text-muted-foreground">
             {Math.round(zoom * 100)}%
           </span>
           <button
@@ -1210,7 +1210,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           </button>
           <button
             type="button"
-            className="shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="shrink-0 rounded-md px-2 py-1 text-ui-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
             onClick={fitWidth}
           >
             Fit width
@@ -1224,7 +1224,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
               type="button"
               aria-pressed={transition === t}
               className={cn(
-                'shrink-0 rounded-md px-2 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
+                'shrink-0 rounded-md px-2 py-1 text-ui-xs font-medium capitalize transition-colors',
                 transition === t
                   ? 'bg-[var(--accent-blue)] text-primary-foreground'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground'
@@ -1236,7 +1236,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           ))}
         </div>
 
-        <span className="shrink-0 font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+        <span className="shrink-0 font-mono text-ui-xs tabular-nums text-muted-foreground">
           Slide {current + 1} of {slides.length}
         </span>
 
@@ -1244,7 +1244,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           <button
             type="button"
             disabled={exporting || importing}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-[0.75rem] font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-ui-sm font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
             onClick={() => void exportPptx()}
           >
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
@@ -1253,7 +1253,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
           <button
             type="button"
             disabled={importing || slides.length === 0}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-3 py-1.5 text-[0.75rem] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
+            className="flex shrink-0 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-3 py-1.5 text-ui-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => setPresenting(true)}
           >
             <MonitorPlay className="h-3.5 w-3.5" />
@@ -1273,12 +1273,12 @@ export function PresentationView({ pageId }: { pageId: string }) {
           className="gap-0 rounded-t-2xl pb-[max(1rem,env(safe-area-inset-bottom))]"
         >
           <SheetHeader className="pb-2">
-            <SheetTitle className="text-[0.9375rem]">Slide options</SheetTitle>
+            <SheetTitle className="text-ui-xl">Slide options</SheetTitle>
           </SheetHeader>
 
           <div className="flex flex-col gap-5 px-4 pt-2">
             <div>
-              <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+              <p className="mb-2 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70">
                 Zoom
               </p>
               <div className="flex items-center gap-2">
@@ -1290,7 +1290,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                 >
                   <ZoomOut className="h-4 w-4" />
                 </button>
-                <span className="min-w-14 text-center font-mono text-[0.9375rem] font-semibold tabular-nums">
+                <span className="min-w-14 text-center font-mono text-ui-xl font-semibold tabular-nums">
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
@@ -1303,7 +1303,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                 </button>
                 <button
                   type="button"
-                  className="ml-auto shrink-0 rounded-xl border border-border/60 bg-background/60 px-4 py-2.5 text-[0.8125rem] font-medium transition-transform active:scale-95"
+                  className="ml-auto shrink-0 rounded-xl border border-border/60 bg-background/60 px-4 py-2.5 text-ui-md font-medium transition-transform active:scale-95"
                   onClick={fitWidth}
                 >
                   Fit width
@@ -1312,7 +1312,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
             </div>
 
             <div>
-              <p className="mb-2 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+              <p className="mb-2 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70">
                 Transition
               </p>
               <div className="flex gap-2">
@@ -1322,7 +1322,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
                     type="button"
                     aria-pressed={transition === t}
                     className={cn(
-                      'flex-1 rounded-xl border px-3 py-2.5 text-[0.8125rem] font-medium capitalize transition-transform active:scale-95',
+                      'flex-1 rounded-xl border px-3 py-2.5 text-ui-md font-medium capitalize transition-transform active:scale-95',
                       transition === t
                         ? 'border-transparent bg-[var(--accent-blue)] text-primary-foreground'
                         : 'border-border/60 bg-background/60 text-muted-foreground'
@@ -1338,7 +1338,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
             <div className="flex flex-col gap-2">
               <button
                 type="button"
-                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-[0.875rem] font-medium transition-transform active:scale-95"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-ui-lg font-medium transition-transform active:scale-95"
                 onClick={() => {
                   useWorkspaceStore.getState().addDocSheet(pageId)
                   setCurrent(slides.length)
@@ -1351,7 +1351,7 @@ export function PresentationView({ pageId }: { pageId: string }) {
               <button
                 type="button"
                 disabled={exporting || importing}
-                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-[0.875rem] font-medium transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border/60 bg-background/60 px-4 py-3 text-ui-lg font-medium transition-transform active:scale-95 disabled:pointer-events-none disabled:opacity-40"
                 onClick={() => void exportPptx()}
               >
                 {exporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}

@@ -113,7 +113,7 @@ export function ShareDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
-          <Label className="text-[0.75rem]">Send a copy to</Label>
+          <Label className="text-ui-sm">Send a copy to</Label>
           <Select value={target} onValueChange={setTarget}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Choose a room or a person…" />
@@ -201,11 +201,11 @@ export function AssignDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Title</Label>
+            <Label className="text-ui-sm">Title</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Instructions</Label>
+            <Label className="text-ui-sm">Instructions</Label>
             <Textarea
               rows={3}
               value={instructions}
@@ -214,14 +214,14 @@ export function AssignDialog({
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Due date</Label>
+            <Label className="text-ui-sm">Due date</Label>
             <Input type="datetime-local" value={dueAt} onChange={(e) => setDueAt(e.target.value)} />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Rooms</Label>
+            <Label className="text-ui-sm">Rooms</Label>
             <div className="space-y-1.5">
               {rooms.map((r) => (
-                <label key={r.id} className="flex cursor-pointer items-center gap-2 text-[0.8125rem]">
+                <label key={r.id} className="flex cursor-pointer items-center gap-2 text-ui-md">
                   <Checkbox
                     checked={roomIds.has(r.id)}
                     onCheckedChange={(v) =>
@@ -237,7 +237,7 @@ export function AssignDialog({
                 </label>
               ))}
               {rooms.length === 0 && (
-                <p className="text-[0.75rem] text-muted-foreground">No rooms yet — ask your admin to create one.</p>
+                <p className="text-ui-sm text-muted-foreground">No rooms yet — ask your admin to create one.</p>
               )}
             </div>
           </div>
@@ -323,7 +323,7 @@ export function PresentDialog({
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-1.5">
-          <Label className="text-[0.75rem]">Room board</Label>
+          <Label className="text-ui-sm">Room board</Label>
           <Select value={boardId} onValueChange={setBoardId}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Choose a room…" />
@@ -337,7 +337,7 @@ export function PresentDialog({
             </SelectContent>
           </Select>
           <div className="space-y-1.5 pt-2">
-            <Label className="text-[0.75rem]">Pairing code</Label>
+            <Label className="text-ui-sm">Pairing code</Label>
             <Input
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
@@ -347,7 +347,7 @@ export function PresentDialog({
               className="font-mono tracking-[0.2em]"
             />
           </div>
-          <p className="pt-1 text-[0.71875rem] text-muted-foreground">
+          <p className="pt-1 text-ui-xs text-muted-foreground">
             The code sits bottom-left on the board and rotates after every presentation. In the
             classroom? Scanning the QR with your phone fills it in for you.
           </p>

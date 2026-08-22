@@ -76,7 +76,7 @@ export function MobileTabBar() {
             </div>
             <span
               className={cn(
-                'mt-0.5 text-[0.6875rem] font-semibold tracking-tight transition-colors duration-150',
+                'mt-0.5 text-ui-xs font-semibold tracking-tight transition-colors duration-150',
                 active ? 'text-[var(--accent-blue)] font-bold' : 'text-muted-foreground'
               )}
             >
@@ -102,7 +102,7 @@ export function MobileTabBar() {
           )}
           <span
             className={cn(
-              'relative z-10 flex h-5 w-5 items-center justify-center rounded-full text-[0.625rem] font-bold text-white shadow-xs transition-transform duration-200',
+              'relative z-10 flex h-5 w-5 items-center justify-center rounded-full text-ui-2xs font-bold text-white shadow-xs transition-transform duration-200',
               tab === 'more'
                 ? 'scale-110 bg-[var(--accent-blue)] ring-2 ring-[var(--accent-blue)]/30'
                 : 'bg-muted-foreground/70'
@@ -113,7 +113,7 @@ export function MobileTabBar() {
         </div>
         <span
           className={cn(
-            'mt-0.5 text-[0.6875rem] font-semibold tracking-tight transition-colors duration-150',
+            'mt-0.5 text-ui-xs font-semibold tracking-tight transition-colors duration-150',
             tab === 'more' ? 'text-[var(--accent-blue)] font-bold' : 'text-muted-foreground'
           )}
         >

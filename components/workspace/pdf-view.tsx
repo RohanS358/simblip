@@ -185,7 +185,7 @@ function PdfPage({
           </div>
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 right-2 z-20 rounded-md bg-black/35 px-1.5 py-0.5 text-[0.625rem] font-medium text-white/90 backdrop-blur-sm">
+      <span className="pointer-events-none absolute bottom-1.5 right-2 z-20 rounded-md bg-black/35 px-1.5 py-0.5 text-ui-2xs font-medium text-white/90 backdrop-blur-sm">
         {n}
       </span>
     </div>
@@ -687,7 +687,7 @@ useLayoutEffect(() => {
             className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
           >
             <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-xs uppercase tracking-wider">
+              <div className="flex items-center gap-2 text-foreground font-semibold text-ui-xs uppercase tracking-wider">
                 <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
                 <span>Table of Contents</span>
               </div>
@@ -712,7 +712,7 @@ useLayoutEffect(() => {
                       onClick={() => scrollToPage(item.pageNum)}
                       style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
                       className={cn(
-                        'relative w-full text-left rounded px-2 py-1 text-[0.75rem] transition-colors flex items-center justify-between gap-1.5 group',
+                        'relative w-full text-left rounded px-2 py-1 text-ui-sm transition-colors flex items-center justify-between gap-1.5 group',
                         isSelected
                           ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
                           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
@@ -726,14 +726,14 @@ useLayoutEffect(() => {
                         />
                       )}
                       <span className="truncate leading-tight">{item.title}</span>
-                      <span className="shrink-0 font-mono text-[0.625rem] opacity-40 group-hover:opacity-100 transition-opacity">
+                      <span className="shrink-0 font-mono text-ui-2xs opacity-40 group-hover:opacity-100 transition-opacity">
                         p.{item.pageNum}
                       </span>
                     </button>
                   )
                 })
               ) : (
-                <div className="p-4 text-center text-[0.75rem] text-muted-foreground">
+                <div className="p-4 text-center text-ui-sm text-muted-foreground">
                   No Table of Contents available for this document.
                 </div>
               )}
@@ -766,7 +766,7 @@ useLayoutEffect(() => {
       >
         {dragOver && (
           <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
-            <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[0.75rem] font-semibold shadow duration-150">
+            <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-ui-sm font-semibold shadow duration-150">
               Drop to open
             </span>
           </div>
@@ -825,12 +825,12 @@ useLayoutEffect(() => {
                 linkedNoteId ? (
                   <div className="relative h-full w-full bg-background">
                     <InfiniteCanvas key={linkedNoteId} pageId={linkedNoteId} active={activeSheetId === linkedNoteId} />
-                    <span className="pointer-events-none absolute left-3 top-2 z-10 text-[0.65625rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <span className="pointer-events-none absolute left-3 top-2 z-10 text-ui-2xs font-semibold uppercase tracking-wider text-muted-foreground">
                       Notes · page {current}
                     </span>
                   </div>
                 ) : (
-                  <div className="flex h-full items-center justify-center text-[0.75rem] text-muted-foreground">
+                  <div className="flex h-full items-center justify-center text-ui-sm text-muted-foreground">
                     Preparing note page…
                   </div>
                 )
@@ -845,7 +845,7 @@ useLayoutEffect(() => {
       </div>
 
       {zoomHud && doc && (
-        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-[0.6875rem] text-muted-foreground">
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-30 rounded-full px-3 py-1 font-mono text-ui-xs text-muted-foreground">
           {Math.round(zoom * 100)}%
         </div>
       )}

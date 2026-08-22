@@ -119,16 +119,16 @@ export function StoragePanel() {
   }
 
   if (entries === null) {
-    return <p className="text-[0.75rem] text-muted-foreground">Loading storage…</p>
+    return <p className="text-ui-sm text-muted-foreground">Loading storage…</p>
   }
 
   if (entries.length === 0) {
-    return <p className="text-[0.75rem] text-muted-foreground">No files stored on this device yet.</p>
+    return <p className="text-ui-sm text-muted-foreground">No files stored on this device yet.</p>
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between text-[0.75rem]">
+      <div className="flex items-center justify-between text-ui-sm">
         <span className="text-muted-foreground">Total on this device</span>
         <span className="font-medium">{fmtBytes(totalSize)}</span>
       </div>
@@ -152,8 +152,8 @@ export function StoragePanel() {
                 >
                   <ChevronDown className={cn('h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform', !isOpen && '-rotate-90')} />
                   <Icon className="h-3.5 w-3.5 shrink-0" style={{ color: CATEGORY_COLOR[cat] }} />
-                  <span className="text-[0.75rem] font-medium">{CATEGORY_LABEL[cat]}</span>
-                  <span className="text-[0.6875rem] text-muted-foreground">
+                  <span className="text-ui-sm font-medium">{CATEGORY_LABEL[cat]}</span>
+                  <span className="text-ui-xs text-muted-foreground">
                     {files.length} · {fmtBytes(catSize)}
                   </span>
                 </button>
@@ -174,10 +174,10 @@ export function StoragePanel() {
                 <div className="space-y-0.5 pb-1.5 pl-8 pr-2">
                   {files.map((f) => (
                     <div key={f.id} className="flex items-center gap-2 rounded px-1.5 py-1 hover:bg-accent">
-                      <span className="flex-1 truncate text-[0.6875rem]" title={f.name}>
+                      <span className="flex-1 truncate text-ui-xs" title={f.name}>
                         {f.name}
                       </span>
-                      <span className="shrink-0 text-[0.625rem] text-muted-foreground">{fmtBytes(f.size)}</span>
+                      <span className="shrink-0 text-ui-2xs text-muted-foreground">{fmtBytes(f.size)}</span>
                       <button
                         type="button"
                         aria-label={`Delete ${f.name}`}
@@ -199,7 +199,7 @@ export function StoragePanel() {
           )
         })}
       </div>
-      <p className="text-[0.65625rem] leading-relaxed text-muted-foreground">
+      <p className="text-ui-2xs leading-relaxed text-muted-foreground">
         Deleting a file removes it from this device (and the cloud backup, if synced). Pages that still embed it may show a broken preview.
       </p>
     </div>
@@ -227,14 +227,14 @@ function UsageChart({ grouped, categories }: { grouped: Map<Category, FileManife
       <div className="space-y-1.5" role="img" aria-label="Storage used by file type">
         {catSizes.map(({ cat, size }) => (
           <div key={cat} className="flex items-center gap-2">
-            <span className="w-20 shrink-0 text-[0.625rem] text-muted-foreground">{CATEGORY_LABEL[cat]}</span>
+            <span className="w-20 shrink-0 text-ui-2xs text-muted-foreground">{CATEGORY_LABEL[cat]}</span>
             <div className="h-2 flex-1 overflow-hidden rounded-full bg-muted">
               <div
                 className="h-full rounded-full"
                 style={{ width: `${(size / max) * 100}%`, background: CATEGORY_COLOR[cat] }}
               />
             </div>
-            <span className="w-14 shrink-0 text-right text-[0.625rem] text-muted-foreground">{fmtBytes(size)}</span>
+            <span className="w-14 shrink-0 text-right text-ui-2xs text-muted-foreground">{fmtBytes(size)}</span>
           </div>
         ))}
       </div>
@@ -285,7 +285,7 @@ function UsageChart({ grouped, categories }: { grouped: Map<Category, FileManife
       </svg>
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {categories.map((cat) => (
-          <span key={cat} className="flex items-center gap-1 text-[0.625rem] text-muted-foreground">
+          <span key={cat} className="flex items-center gap-1 text-ui-2xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full" style={{ background: CATEGORY_COLOR[cat] }} />
             {CATEGORY_LABEL[cat]}
           </span>

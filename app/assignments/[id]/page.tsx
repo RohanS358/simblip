@@ -51,7 +51,7 @@ const STATUS_LABEL: Record<SubmissionStatus | 'assigned', string> = {
 
 function StatusChip({ status }: { status: SubmissionStatus | 'assigned' }) {
   return (
-    <span className={cn('rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold', STATUS_STYLE[status])}>
+    <span className={cn('rounded-md px-1.5 py-0.5 text-ui-2xs font-semibold', STATUS_STYLE[status])}>
       {STATUS_LABEL[status]}
     </span>
   )
@@ -203,7 +203,7 @@ function AssignmentDashboard({ id }: { id: string }) {
   if (!assignment) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-        <p className="text-[13px] text-muted-foreground">Assignment not found.</p>
+        <p className="text-ui-sm text-muted-foreground">Assignment not found.</p>
       </div>
     )
   }
@@ -213,13 +213,13 @@ function AssignmentDashboard({ id }: { id: string }) {
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_260px] lg:items-start lg:gap-3">
       <div className="lg:grid lg:auto-rows-min lg:grid-cols-12 lg:gap-3">
         <div className="glass rounded-2xl p-4 lg:col-span-8">
-          <p className="text-[16px] font-semibold">{assignment.title}</p>
-          <p className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted-foreground">
+          <p className="text-ui-xl font-semibold">{assignment.title}</p>
+          <p className="mt-0.5 flex items-center gap-1.5 text-ui-xs text-muted-foreground">
             <CalendarClock className="h-3.5 w-3.5" /> {dueLabel(assignment)} ·{' '}
             {assignment.room_ids.map((r) => roomNames[r] ?? 'Room').join(', ')}
           </p>
           {assignment.instructions && (
-            <p className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">
+            <p className="mt-2 whitespace-pre-wrap text-ui-xs leading-relaxed text-muted-foreground">
               {assignment.instructions}
             </p>
           )}
@@ -237,30 +237,30 @@ function AssignmentDashboard({ id }: { id: string }) {
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4 lg:col-span-6 lg:mt-3">
-          <p className="mb-3 text-[12px] font-semibold text-muted-foreground">Status breakdown</p>
+          <p className="mb-3 text-ui-xs font-semibold text-muted-foreground">Status breakdown</p>
           <StatusBreakdownBar subs={subs} total={stats.total} />
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4 lg:col-span-6 lg:mt-3">
-          <p className="mb-3 text-[12px] font-semibold text-muted-foreground">Submission timing vs. due date</p>
+          <p className="mb-3 text-ui-xs font-semibold text-muted-foreground">Submission timing vs. due date</p>
           <TimingChart subs={subs} dueAt={assignment.due_at} />
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4 lg:col-span-5 lg:mt-3">
-          <p className="mb-1 text-[12px] font-semibold text-muted-foreground">Class on-time trend</p>
-          <p className="mb-3 text-[11px] text-muted-foreground">Average on-time rate, assignment over assignment.</p>
+          <p className="mb-1 text-ui-xs font-semibold text-muted-foreground">Class on-time trend</p>
+          <p className="mb-3 text-ui-2xs text-muted-foreground">Average on-time rate, assignment over assignment.</p>
           <OnTimeTrendChart points={onTimeTrend} />
           <div className="mt-4 border-t border-border/50 pt-3">
-            <p className="mb-1 text-[12px] font-semibold text-muted-foreground">Per-student on-time rate</p>
-            <p className="mb-3 text-[11px] text-muted-foreground">Across every assignment this teacher has given.</p>
+            <p className="mb-1 text-ui-xs font-semibold text-muted-foreground">Per-student on-time rate</p>
+            <p className="mb-3 text-ui-2xs text-muted-foreground">Across every assignment this teacher has given.</p>
             <OnTimeRateChart rows={onTimeRows} />
           </div>
         </div>
 
         <div className="glass mt-4 rounded-2xl p-4 lg:col-span-7 lg:mt-3">
-          <p className="mb-2 text-[12px] font-semibold text-muted-foreground">Students</p>
+          <p className="mb-2 text-ui-xs font-semibold text-muted-foreground">Students</p>
           {targets.length === 0 && (
-            <p className="text-[12px] text-muted-foreground">No students enrolled in the targeted rooms.</p>
+            <p className="text-ui-xs text-muted-foreground">No students enrolled in the targeted rooms.</p>
           )}
           <div className="space-y-1.5">
             {targets.map((student) => {
@@ -269,16 +269,16 @@ function AssignmentDashboard({ id }: { id: string }) {
               const reviewable = sub && (status === 'submitted' || status === 'late')
               return (
                 <div key={student.id} className="flex flex-wrap items-center gap-2 rounded-lg px-2 py-1.5 hover:bg-accent/40">
-                  <span className="min-w-32 text-[12.5px] font-medium">{student.full_name}</span>
+                  <span className="min-w-32 text-ui-xs font-medium">{student.full_name}</span>
                   <StatusChip status={status} />
                   {sub?.submitted_at && (
-                    <span className="text-[10.5px] text-muted-foreground">
+                    <span className="text-ui-2xs text-muted-foreground">
                       {new Date(sub.submitted_at).toLocaleString()}
                     </span>
                   )}
                   <div className="flex-1" />
                   {sub?.content && (
-                  <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]" onClick={() => viewSubmission(assignment, sub)}>
+                  <Button size="sm" variant="outline" className="h-6 px-2 text-ui-2xs" onClick={() => viewSubmission(assignment, sub)}>
                     <Eye className="h-3 w-3" /> View copy
                   </Button>
                 )}
@@ -288,15 +288,15 @@ function AssignmentDashboard({ id }: { id: string }) {
                       value={feedback[sub.id] ?? ''}
                       onChange={(e) => setFeedback((f) => ({ ...f, [sub.id]: e.target.value }))}
                       placeholder="Feedback…"
-                      className="h-6 w-40 text-[11.5px]"
+                      className="h-6 w-40 text-ui-2xs"
                     />
-                    <Button size="sm" className="h-6 px-2 text-[11px]" onClick={() => void review(sub)}>
+                    <Button size="sm" className="h-6 px-2 text-ui-2xs" onClick={() => void review(sub)}>
                       Mark reviewed
                     </Button>
                   </>
                 )}
                 {status === 'reviewed' && sub?.feedback && (
-                  <span className="max-w-48 truncate text-[11px] text-muted-foreground">"{sub.feedback}"</span>
+                  <span className="max-w-48 truncate text-ui-2xs text-muted-foreground">"{sub.feedback}"</span>
                 )}
               </div>
             )
@@ -306,7 +306,7 @@ function AssignmentDashboard({ id }: { id: string }) {
       </div>
 
       <div className="glass mt-4 rounded-2xl p-3 lg:mt-0 lg:max-h-[calc(100dvh-6rem)] lg:overflow-y-auto">
-        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="mb-2 px-1 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
           Your assignments
         </p>
         <div className="space-y-1">
@@ -325,10 +325,10 @@ function AssignmentDashboard({ id }: { id: string }) {
                   isCurrent ? 'bg-accent' : 'hover:bg-accent/50'
                 )}
               >
-                <span className={cn('truncate text-[12px]', isCurrent ? 'font-semibold' : 'font-medium text-muted-foreground')}>
+                <span className={cn('truncate text-ui-xs', isCurrent ? 'font-semibold' : 'font-medium text-muted-foreground')}>
                   {a.title}
                 </span>
-                <span className="text-[10.5px] text-muted-foreground">{count} submitted</span>
+                <span className="text-ui-2xs text-muted-foreground">{count} submitted</span>
               </button>
             )
           })}

@@ -74,7 +74,7 @@ export function TabsBar({
                 e.dataTransfer.effectAllowed = 'move'
               }}
               className={cn(
-                'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-[0.75rem] transition-colors',
+                'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-ui-sm transition-colors',
                 active
                   ? 'bg-accent text-foreground'
                   : 'bg-muted/60 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
@@ -124,7 +124,7 @@ export function TabsBar({
               >
                 <Columns2 className="h-3 w-3" />
                 {paneCount > 1 && inPane && (
-                  <span className="text-[0.625rem] font-semibold leading-none">{paneIdx + 1}</span>
+                  <span className="text-ui-2xs font-semibold leading-none">{paneIdx + 1}</span>
                 )}
               </button>
               <button

@@ -53,10 +53,10 @@ export function RequireAuth({
     return (
       <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
         <BounceLoader size={240} />
-        <span className="text-[14px] font-extrabold tracking-tight">
+        <span className="text-ui-md font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
-        <span className="text-[12px] text-muted-foreground">
+        <span className="text-ui-xs text-muted-foreground">
           {status === 'loading' ? 'Checking your session…' : 'Redirecting to sign in…'}
         </span>
       </div>

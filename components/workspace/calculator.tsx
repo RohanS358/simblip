@@ -155,7 +155,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       key={k}
       type="button"
       className={cn(
-        'rounded-xl py-2.5 text-[0.84375rem] font-semibold transition-[transform,background-color] duration-100 active:scale-95',
+        'rounded-xl py-2.5 text-ui-md font-semibold transition-[transform,background-color] duration-100 active:scale-95',
         k === '='
           ? 'bg-[var(--accent-blue)] text-white shadow-[0_2px_10px_-2px_var(--accent-blue)]'
           : OPS.has(k)
@@ -190,7 +190,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         onPointerCancel={onDragPointerUp}
       >
         <GripHorizontal className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="flex-1 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <span className="flex-1 text-ui-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Calculator
         </span>
         <button
@@ -198,7 +198,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
           aria-label="Scientific keys"
           aria-pressed={sci}
           className={cn(
-            'rounded px-1.5 text-[0.625rem] font-bold',
+            'rounded px-1.5 text-ui-2xs font-bold',
             sci ? 'text-[var(--accent-blue)]' : 'text-muted-foreground hover:text-foreground'
           )}
           onClick={() => setSci((v) => !v)}
@@ -222,7 +222,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
       <input
         ref={inputRef}
         aria-label="Expression"
-        className="w-full rounded-lg bg-transparent px-2 pt-1 text-right font-mono text-base text-muted-foreground outline-none select-all md:text-[0.8125rem]"
+        className="w-full rounded-lg bg-transparent px-2 pt-1 text-right font-mono text-ui-xl text-muted-foreground outline-none select-all md:text-ui-md"
         style={{ touchAction: 'auto', caretColor: 'transparent' }}
         value={expr}
         placeholder="0"
@@ -238,7 +238,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
         }}
       />
       <div className="mb-1.5 flex min-h-8 items-center justify-end gap-1.5 px-2">
-        <span className="truncate font-mono text-[1.375rem] font-semibold tracking-tight">
+        <span className="truncate font-mono text-ui-3xl font-semibold tracking-tight">
           {result || (expr ? '' : '0')}
         </span>
         {expr && (
@@ -262,7 +262,7 @@ export function Calculator({ onClose }: { onClose: () => void }) {
 
       <button
         type="button"
-        className="mt-1 w-full rounded-lg py-1 text-[0.6875rem] text-muted-foreground hover:text-foreground"
+        className="mt-1 w-full rounded-lg py-1 text-ui-xs text-muted-foreground hover:text-foreground"
         onClick={() => {
           setExpr('')
           setResult('')
@@ -281,8 +281,8 @@ export function Calculator({ onClose }: { onClose: () => void }) {
               title="Reuse this result"
               onClick={() => setExpr(h.value)}
             >
-              <span className="truncate font-mono text-[0.625rem] text-muted-foreground">{h.expr}</span>
-              <span className="shrink-0 font-mono text-[0.6875rem]">{h.value}</span>
+              <span className="truncate font-mono text-ui-2xs text-muted-foreground">{h.expr}</span>
+              <span className="shrink-0 font-mono text-ui-xs">{h.value}</span>
             </button>
           ))}
         </div>

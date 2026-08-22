@@ -59,7 +59,7 @@ export function HomeDueSoon({ onOpen }: { onOpen: () => void }) {
 
   return (
     <div className="pb-6">
-      <p className="mb-2 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">
+      <p className="mb-2 px-0.5 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70">
         Due soon
       </p>
       <div className="flex flex-col gap-2">
@@ -84,10 +84,10 @@ export function HomeDueSoon({ onOpen }: { onOpen: () => void }) {
                 <CalendarClock className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[0.8125rem] font-semibold text-foreground">{a.title}</p>
-                <p className="truncate text-[0.75rem] text-muted-foreground">{a.teacher_name}</p>
+                <p className="truncate text-ui-md font-semibold text-foreground">{a.title}</p>
+                <p className="truncate text-ui-sm text-muted-foreground">{a.teacher_name}</p>
               </div>
-              <span className={cn('shrink-0 text-[0.75rem] font-semibold', due.urgent ? 'text-[var(--accent-rose)]' : 'text-muted-foreground')}>
+              <span className={cn('shrink-0 text-ui-sm font-semibold', due.urgent ? 'text-[var(--accent-rose)]' : 'text-muted-foreground')}>
                 {due.label}
               </span>
             </button>

@@ -62,7 +62,7 @@ export function RenameDialog({
     <AlertDialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
       <AlertDialogContent className="max-w-[min(24rem,calc(100vw-2rem))] rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-[0.9375rem]">Rename {target?.kind}</AlertDialogTitle>
+          <AlertDialogTitle className="text-ui-xl">Rename {target?.kind}</AlertDialogTitle>
         </AlertDialogHeader>
         <Input
           autoFocus
@@ -111,12 +111,12 @@ export function ConfirmDeleteDialog({
     <AlertDialog open={target !== null} onOpenChange={(o) => !o && onClose()}>
       <AlertDialogContent className="max-w-[min(24rem,calc(100vw-2rem))] rounded-2xl">
         <AlertDialogHeader>
-          <AlertDialogTitle className="text-[0.9375rem]">
+          <AlertDialogTitle className="text-ui-xl">
             Delete {target?.kind}?
           </AlertDialogTitle>
           {/* Names the thing and the consequence. The old confirm() said only
               'Delete page "X"?' and left "can this be undone?" unanswered. */}
-          <AlertDialogDescription className="text-[0.8125rem] leading-relaxed">
+          <AlertDialogDescription className="text-ui-md leading-relaxed">
             <span className="font-semibold text-foreground">{target?.name}</span> will be
             deleted. {target?.detail ? `${target.detail} ` : ''}This can&apos;t be undone.
           </AlertDialogDescription>

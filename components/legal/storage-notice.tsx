@@ -51,15 +51,15 @@ export function StorageNotice() {
             <div className="px-5 pt-4">
               <div className="flex items-center gap-2">
                 <Database className="size-4 text-[var(--accent-blue)]" />
-                <h2 className="text-[0.875rem] font-semibold">What SIMBLIP keeps on this device</h2>
+                <h2 className="text-ui-lg font-semibold">What SIMBLIP keeps on this device</h2>
               </div>
-              <p className="mt-2 text-[0.75rem] leading-relaxed text-muted-foreground">
+              <p className="mt-2 text-ui-sm leading-relaxed text-muted-foreground">
                 SIMBLIP sets no cookies and runs no ad trackers. It uses this browser&rsquo;s local
                 storage for three things:
               </p>
               <ul className="mt-2.5 space-y-1.5">
                 {LOCAL_STORAGE_USES.map((u) => (
-                  <li key={u.title} className="flex gap-2 text-[0.75rem] leading-relaxed">
+                  <li key={u.title} className="flex gap-2 text-ui-sm leading-relaxed">
                     <span aria-hidden className="mt-[0.4rem] size-1 shrink-0 rounded-full bg-muted-foreground/50" />
                     <span>
                       <span className="font-medium">{u.title}.</span>{' '}
@@ -68,7 +68,7 @@ export function StorageNotice() {
                   </li>
                 ))}
               </ul>
-              <p className="mt-3 text-[0.75rem] leading-relaxed text-muted-foreground">
+              <p className="mt-3 text-ui-sm leading-relaxed text-muted-foreground">
                 Anonymous usage analytics are <span className="font-medium text-foreground">off</span>.
                 Turn them on to help find slow pages — you can change this any time in Settings →
                 Privacy.

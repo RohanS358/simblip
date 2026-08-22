@@ -71,7 +71,7 @@ export default function TrainPage() {
           <GraduationCap className="h-5 w-5 text-[var(--accent-amber)]" /> Train the sketch
           recognizer
         </h1>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-ui-sm leading-relaxed text-muted-foreground">
           Draw a component symbol the way you naturally would — multiple strokes are fine
           (lift the pen between battery bars or capacitor plates; try to keep the same stroke
           order you use on the canvas) — pick which component it means,
@@ -120,7 +120,7 @@ export default function TrainPage() {
                 )
             )}
           </svg>
-          <div className="space-y-1 text-[12px] text-muted-foreground">
+          <div className="space-y-1 text-ui-xs text-muted-foreground">
             <div className="flex items-center gap-2">
               {match ? (
                 <span>
@@ -135,12 +135,12 @@ export default function TrainPage() {
             {/* The decision tree explains itself — these are the questions it
                 asked to tell this symbol apart from the others. */}
             {match?.why && match.why.length > 0 && (
-              <p className="flex flex-wrap items-center gap-1 text-[11px]">
+              <p className="flex flex-wrap items-center gap-1 text-ui-2xs">
                 <span className="text-muted-foreground/70">because</span>
                 {match.why.map((q, k) => (
                   <span key={k} className="flex items-center gap-1">
                     {k > 0 && <span className="text-muted-foreground/50">→</span>}
-                    <code className="rounded bg-accent px-1 py-px font-mono text-[10.5px]">{q}</code>
+                    <code className="rounded bg-accent px-1 py-px font-mono text-ui-2xs">{q}</code>
                   </span>
                 ))}
               </p>
@@ -150,13 +150,13 @@ export default function TrainPage() {
 
         <div className="space-y-3">
           <label className="block space-y-1">
-            <span className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-ui-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
               This drawing is a…
             </span>
             <select
               value={componentId}
               onChange={(e) => setComponentId(e.target.value)}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-[13px]"
+              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-ui-sm"
             >
               {COMPONENTS.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -175,14 +175,14 @@ export default function TrainPage() {
           </div>
 
           <div className="space-y-1.5">
-            <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <p className="text-ui-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Trained examples ({templates.length})
             </p>
             <div className="max-h-56 space-y-1 overflow-y-auto pr-1">
               {templates.map((t) => (
                 <div
                   key={t.id}
-                  className="flex items-center justify-between rounded-lg border border-border/60 px-2.5 py-1.5 text-[12.5px]"
+                  className="flex items-center justify-between rounded-lg border border-border/60 px-2.5 py-1.5 text-ui-xs"
                 >
                   <span className="truncate">{t.name}</span>
                   <button
@@ -199,7 +199,7 @@ export default function TrainPage() {
                 </div>
               ))}
               {templates.length === 0 && (
-                <p className="text-[12px] text-muted-foreground">Nothing trained yet.</p>
+                <p className="text-ui-xs text-muted-foreground">Nothing trained yet.</p>
               )}
             </div>
           </div>
@@ -208,10 +208,10 @@ export default function TrainPage() {
 
       {/* ── SimScript → local LLM pipeline ── */}
       <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
-        <h2 className="flex items-center gap-2 text-[15px] font-extrabold tracking-tight">
+        <h2 className="flex items-center gap-2 text-ui-lg font-extrabold tracking-tight">
           <Bot className="h-4 w-4 text-[var(--accent-violet)]" /> Train a local LLM to write SimScript
         </h2>
-        <p className="text-[13px] leading-relaxed text-muted-foreground">
+        <p className="text-ui-sm leading-relaxed text-muted-foreground">
           Everything the notebook can do — circuits, mechanics, optics, waves, quantum, tables,
           formulas, graphs, the DSA Lab — is captured as a lint-checked instruction→SimScript
           dataset. Fastest path: bake the language card into a model with Ollama. Better results:
@@ -241,7 +241,7 @@ export default function TrainPage() {
             </a>
           </Button>
         </div>
-        <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 font-mono text-[11.5px] leading-relaxed text-foreground">
+        <pre className="overflow-x-auto rounded-xl bg-muted/40 p-3 font-mono text-ui-2xs leading-relaxed text-foreground">
 {`# prompt-baked model (no training needed)
 curl -o Modelfile "http://localhost:3000/api/train/simscript?format=modelfile"
 ollama create simblip-simscript -f Modelfile

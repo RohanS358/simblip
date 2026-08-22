@@ -95,7 +95,7 @@ export function BounceLoader({
         ))}
       </div>
       {label && (
-        <span role="status" className="text-[0.75rem] tracking-wide text-muted-foreground">
+        <span role="status" className="text-ui-sm tracking-wide text-muted-foreground">
           {label}
         </span>
       )}

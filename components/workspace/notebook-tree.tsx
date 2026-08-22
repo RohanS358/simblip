@@ -275,7 +275,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               'group flex items-center gap-1.5 px-2 py-1 transition-colors duration-150 hover:bg-accent/50',
               'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
               isNotebook ? 'rounded-lg' : 'rounded-md',
-              isNotebook ? 'py-1.5 text-sm font-medium' : 'gap-2 text-sm font-normal text-muted-foreground',
+              isNotebook ? 'py-1.5 text-ui-sm font-medium' : 'gap-2 text-ui-sm font-normal text-muted-foreground',
               dropOver && 'ring-2 ring-inset ring-[var(--accent-blue)]/60 bg-[var(--accent-blue)]/5'
             )}
             // ── DnD: accept both OS files and internal node moves ──
@@ -436,7 +436,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group ml-4 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors duration-150',
+            'group ml-4 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm transition-colors duration-150',
             'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
             active
               ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
@@ -598,7 +598,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground",
+            "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground",
             "focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]"
           )}
           style={{ marginLeft: `${16 + depth * 16}px` }}
@@ -773,7 +773,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
       >
         {roots.filter((nb) => nb.name !== SHARED_NB).length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
-            <p className="text-sm leading-relaxed text-muted-foreground">
+            <p className="text-ui-sm leading-relaxed text-muted-foreground">
               No notebooks yet.
               <br />
               Create one to start working.
@@ -781,7 +781,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-ui-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
                 onClick={() => {
                   const id = store.getState().addNotebook()
                   const sec = store.getState().addFolder('Section 1', id)
@@ -792,7 +792,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
               </button>
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-ui-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
                 onClick={() => store.getState().addFolder('New Folder', null)}
               >
                 New folder

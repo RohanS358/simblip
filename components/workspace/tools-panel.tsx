@@ -24,10 +24,12 @@ import {
   BarChart3,
   Ruler,
   Search,
+  Wrench,
 } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { Input } from '@/components/ui/input'
+import { PanelHeader } from './panel-header'
 import { cn } from '@/lib/utils'
 
 const QUICK_INSERT: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -65,32 +67,26 @@ export function ToolsPanel() {
   )
 
   return (
-    <div className="flex h-full min-h-0 flex-col py-1" aria-label="Tools panel">
-      {/* Sticky Header: Search Bar */}
-      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 px-2.5 pb-2 pt-1 border-b border-border/50 mb-2 space-y-2">
-        <div className="flex items-center justify-between px-0.5">
-          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Tools
-          </span>
-        </div>
+    <div className="flex h-full min-h-0 flex-col" aria-label="Tools panel">
+      <PanelHeader icon={Wrench} title="Tools" accent="var(--accent-violet)">
         <div className="relative">
           <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search tools…"
-            className="h-8 pl-8 text-[0.78125rem]"
+            className="h-8 pl-8 text-ui-sm"
           />
         </div>
-      </div>
+      </PanelHeader>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-2.5 pb-3">
+      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {(!q || 'calculator'.includes(q)) && (
           <button
             type="button"
             aria-pressed={calcOpen}
             className={cn(
-              'flex items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors w-full',
+              'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
               calcOpen
                 ? 'border-[var(--accent-violet)] bg-[color-mix(in_oklch,var(--accent-violet)_10%,transparent)] text-foreground'
                 : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -104,8 +100,8 @@ export function ToolsPanel() {
 
         {filteredInteractive.length > 0 && (
           <div>
-            <span className="px-1 pb-1 text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground/70 block">
-              Interactive Controls
+            <span className="block px-1 pb-1 text-ui-2xs font-medium text-muted-foreground">
+              Interactive controls
             </span>
             <div className="space-y-1">
               {filteredInteractive.map(({ tool: t, icon: Icon, label }) => {
@@ -116,7 +112,7 @@ export function ToolsPanel() {
                     type="button"
                     aria-pressed={active}
                     className={cn(
-                      'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors',
+                      'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
                       active
                         ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                         : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -134,7 +130,7 @@ export function ToolsPanel() {
 
         {filteredQuickInsert.length > 0 && (
           <div>
-            <span className="px-1 pb-1 text-[0.625rem] font-bold uppercase tracking-[0.1em] text-muted-foreground/70 block">
+            <span className="block px-1 pb-1 text-ui-2xs font-medium text-muted-foreground">
               Quick insert
             </span>
             <div className="space-y-1">
@@ -146,7 +142,7 @@ export function ToolsPanel() {
                     type="button"
                     aria-pressed={active}
                     className={cn(
-                      'flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-[0.8125rem] font-medium transition-colors',
+                      'flex w-full items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-ui-sm transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.99]',
                       active
                         ? 'border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_10%,transparent)] text-foreground'
                         : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
@@ -163,11 +159,11 @@ export function ToolsPanel() {
         )}
 
         {tool === 'table' || tool === 'graph' || tool === 'surface3d' || tool === 'chart' || tool === 'code' || tool === 'slider' || tool === 'button' || tool === 'trigger' ? (
-          <p className="mt-3 px-1 text-center text-[0.6875rem] text-muted-foreground">
+          <p className="mt-1 rounded-lg bg-accent/50 px-2.5 py-1.5 text-ui-xs text-muted-foreground">
             Click the canvas to place · Esc to stop
           </p>
         ) : tool === 'measurement' ? (
-          <p className="mt-3 px-1 text-center text-[0.6875rem] text-muted-foreground">
+          <p className="mt-1 rounded-lg bg-accent/50 px-2.5 py-1.5 text-ui-xs text-muted-foreground">
             Click-drag across the canvas to measure · Esc to stop
           </p>
         ) : null}

@@ -182,7 +182,7 @@ const ICON_BTN =
 
 /** Section heading above a grid or strip on the home/folder screens. */
 const SECTION_LABEL =
-  'mb-2.5 px-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70'
+  'mb-2.5 px-0.5 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70'
 
 /**
  * The home screen's create grid.
@@ -602,7 +602,7 @@ export function MobileShell() {
         className="relative z-10 flex shrink-0 items-center justify-between px-5 pt-[max(0.5rem,env(safe-area-inset-top))]"
         style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
       >
-        <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Account & App</span>
+        <span className="text-ui-2xl font-extrabold tracking-tight text-foreground">Account & App</span>
         <SyncStatus />
       </header>
       <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-2">
@@ -613,18 +613,18 @@ export function MobileShell() {
               {profile?.full_name?.charAt(0) || 'U'}
             </div>
             <div className="flex min-w-0 flex-1 flex-col">
-              <span className="truncate text-[1.0625rem] font-bold tracking-tight text-foreground">
+              <span className="truncate text-ui-xl font-bold tracking-tight text-foreground">
                 {profile?.full_name || 'SIMBLIP User'}
               </span>
-              <span className="truncate text-[0.75rem] font-medium text-muted-foreground">
+              <span className="truncate text-ui-sm font-medium text-muted-foreground">
                 {profile?.email || 'rohan.nandu358@gmail.com'}
               </span>
               <div className="mt-2 flex items-center gap-1.5">
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-blue)]/12 px-2.5 py-0.5 text-[0.6875rem] font-bold uppercase tracking-wider text-[var(--accent-blue)]">
+                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-blue)]/12 px-2.5 py-0.5 text-ui-xs font-bold uppercase tracking-wider text-[var(--accent-blue)]">
                   {profile?.role || 'Student'}
                 </span>
                 {institution?.name && (
-                  <span className="truncate text-[0.6875rem] font-medium text-muted-foreground">
+                  <span className="truncate text-ui-xs font-medium text-muted-foreground">
                     • {institution.name}
                   </span>
                 )}
@@ -638,7 +638,7 @@ export function MobileShell() {
           <div className="overflow-hidden rounded-[24px] border border-border/50 bg-card/75 shadow-xs backdrop-blur-md">
             {staff && (
               <button
-                className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+                className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
                 onClick={() => useMobileTabStore.getState().setTab('assignments')}
               >
                 <div className="flex items-center gap-3.5">
@@ -647,12 +647,12 @@ export function MobileShell() {
                   </div>
                   <span>Assignments & Review</span>
                 </div>
-                <span className="text-xs font-semibold text-muted-foreground">Staff</span>
+                <span className="text-ui-xs font-semibold text-muted-foreground">Staff</span>
               </button>
             )}
 
             <button
-              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
               onClick={openTutorial}
             >
               <div className="flex items-center gap-3.5">
@@ -664,7 +664,7 @@ export function MobileShell() {
             </button>
 
             <button
-              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
               onClick={() => setTheme(isDarkTheme(resolvedTheme) ? 'light' : 'dark')}
             >
               <div className="flex items-center gap-3.5">
@@ -673,13 +673,13 @@ export function MobileShell() {
                 </div>
                 <span>Display Theme</span>
               </div>
-              <span className="text-xs font-semibold text-muted-foreground capitalize">
+              <span className="text-ui-xs font-semibold text-muted-foreground capitalize">
                 {isDarkTheme(resolvedTheme) ? 'Dark' : 'Light'}
               </span>
             </button>
 
             <button
-              className="flex w-full items-center justify-between px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              className="flex w-full items-center justify-between px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
               onClick={openSettings}
             >
               <div className="flex items-center gap-3.5">
@@ -693,7 +693,7 @@ export function MobileShell() {
 
           <div className="overflow-hidden rounded-[24px] border border-border/50 bg-card/75 shadow-xs backdrop-blur-md">
             <button
-              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-[0.875rem] font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
               {...bugHold.handlers}
               style={{ WebkitTouchCallout: 'none', userSelect: 'none' }}
               onClick={() => {
@@ -710,7 +710,7 @@ export function MobileShell() {
             </button>
 
             <button
-              className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left text-[0.875rem] font-medium text-destructive transition-colors active:bg-destructive/10 hover:bg-destructive/10"
+              className="flex w-full items-center gap-3.5 px-4 py-3.5 text-left text-ui-lg font-medium text-destructive transition-colors active:bg-destructive/10 hover:bg-destructive/10"
               onClick={() => useAuthStore.getState().logout()}
             >
               <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-destructive/10 text-destructive">
@@ -742,12 +742,12 @@ export function MobileShell() {
           className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
           style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
         >
-          <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Assignments</span>
+          <span className="text-ui-2xl font-extrabold tracking-tight text-foreground">Assignments</span>
           <div className="flex items-center gap-1.5">
             {staff && (
               <button
                 type="button"
-                className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+                className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-ui-2xs font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
                 onClick={() => router.push('/assignments/insights')}
               >
                 <BarChart3 className="h-3.5 w-3.5" /> Insights
@@ -783,11 +783,11 @@ export function MobileShell() {
           className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
           style={{ height: 'calc(3.25rem + env(safe-area-inset-top))' }}
         >
-          <span className="text-[1.125rem] font-extrabold tracking-tight text-foreground">Shared with me</span>
+          <span className="text-ui-2xl font-extrabold tracking-tight text-foreground">Shared with me</span>
           <div className="flex items-center gap-1.5">
             {/* <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-ui-2xs font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
               onClick={() => setAddTarget({ parentId: sharedId })}
             >
               <Plus className="h-3.5 w-3.5" /> Add page
@@ -802,15 +802,15 @@ export function MobileShell() {
                 <Share2 className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-[0.9375rem] font-bold text-foreground">Nothing shared yet</p>
-                <p className="mt-1 text-[0.75rem] text-muted-foreground">Pages and notebooks shared with you will appear here.</p>
+                <p className="text-ui-xl font-bold text-foreground">Nothing shared yet</p>
+                <p className="mt-1 text-ui-sm text-muted-foreground">Pages and notebooks shared with you will appear here.</p>
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               {subFolders.length > 0 && (
                 <div>
-                  <p className="mb-2 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">Folders</p>
+                  <p className="mb-2 px-1 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70">Folders</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                     {subFolders.map((sub, i) => (
                       <fm.div
@@ -822,7 +822,7 @@ export function MobileShell() {
                         onClick={() => navigateToView({ kind: 'folder', id: sub.id })}
                       >
                         <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
-                        <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{sub.name}</span>
+                        <span className="min-w-0 flex-1 truncate text-ui-md font-semibold">{sub.name}</span>
                       </fm.div>
                     ))}
                   </div>
@@ -831,7 +831,7 @@ export function MobileShell() {
 
               {(pages.length > 0 || files.length > 0) && (
                 <div>
-                  <p className="mb-2 px-1 text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground/70">Shared Pages & Files</p>
+                  <p className="mb-2 px-1 text-ui-xs font-bold uppercase tracking-wider text-muted-foreground/70">Shared Pages & Files</p>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                     {pages.map((page, i) => (
                       <fm.div
@@ -848,7 +848,7 @@ export function MobileShell() {
                         >
                           <PageThumbnail live pageId={page.id} className="absolute inset-0" />
                         </div>
-                        <span className="mt-2 line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{page.name}</span>
+                        <span className="mt-2 line-clamp-2 px-0.5 text-ui-sm font-bold leading-tight tracking-tight">{page.name}</span>
                       </fm.div>
                     ))}
                     {files.map((file, i) => (
@@ -860,8 +860,8 @@ export function MobileShell() {
                         className="group relative flex aspect-[3/4] sm:aspect-[4/5] flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-border/40 bg-card p-2.5 text-center shadow-sm"
                         onClick={() => openFile(file)}
                       >
-                        <span className="line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{file.name}</span>
-                        <span className="text-[0.625rem] text-muted-foreground">{file.mime}</span>
+                        <span className="line-clamp-2 px-0.5 text-ui-sm font-bold leading-tight tracking-tight">{file.name}</span>
+                        <span className="text-ui-2xs text-muted-foreground">{file.mime}</span>
                       </fm.div>
                     ))}
                   </div>
@@ -910,11 +910,11 @@ export function MobileShell() {
           ) : null}
           {/* The page title is what matters mid-edit — the wordmark only
               earns its pixels once the screen is tablet-sized. */}
-          <span className="hidden text-[0.875rem] font-extrabold tracking-tight sm:inline">
+          <span className="hidden text-ui-lg font-extrabold tracking-tight sm:inline">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <span className="hidden text-muted-foreground/50 sm:inline">/</span>
-          <span className="min-w-0 flex-1 truncate text-[0.875rem] font-semibold">{pageName}</span>
+          <span className="min-w-0 flex-1 truncate text-ui-lg font-semibold">{pageName}</span>
           <NotificationCenter />
           <UndoRedo pageId={contentPageId ?? activePageId} />
         </header>
@@ -1101,7 +1101,7 @@ export function MobileShell() {
                   </div>
                 )}
                 <div className="flex items-center justify-between px-4 pb-2 pt-1">
-                  <span className="text-[0.75rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                  <span className="text-ui-sm font-bold uppercase tracking-[0.12em] text-muted-foreground">
                     Properties
                   </span>
                   <button
@@ -1156,14 +1156,14 @@ export function MobileShell() {
             >
               <ArrowLeft className="h-4.5 w-4.5" />
             </button>
-            <span className="min-w-0 flex-1 truncate text-[1.125rem] font-extrabold tracking-tight text-foreground">
+            <span className="min-w-0 flex-1 truncate text-ui-2xl font-extrabold tracking-tight text-foreground">
               {folder.name}
             </span>
           </div>
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-[11.5px] font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
+              className="flex h-9 items-center gap-1.5 rounded-full border border-border/50 bg-card/80 px-3 text-ui-2xs font-semibold text-foreground shadow-xs backdrop-blur-xs transition-transform active:scale-95 hover:bg-accent"
               onClick={() => store.getState().addFolder('New Folder', folder.id)}
             >
               <Plus className="h-3.5 w-3.5" /> Folder
@@ -1175,7 +1175,7 @@ export function MobileShell() {
           {subFolders.length > 0 && (
             <div className="mb-6">
               <div className="mb-3 flex items-center gap-2 px-1">
-                <span className="text-[0.8125rem] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+                <span className="text-ui-md font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
                   Folders
                 </span>
               </div>
@@ -1190,7 +1190,7 @@ export function MobileShell() {
                     onClick={() => navigateToView({ kind: 'folder', id: sub.id })}
                   >
                     <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} />
-                    <span className="min-w-0 flex-1 truncate text-[0.8125rem] font-semibold">{sub.name}</span>
+                    <span className="min-w-0 flex-1 truncate text-ui-md font-semibold">{sub.name}</span>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <button
@@ -1255,7 +1255,7 @@ export function MobileShell() {
           )}
 
           <div className="mb-3 flex items-center justify-between px-1">
-            <span className="text-[0.8125rem] font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
+            <span className="text-ui-md font-bold uppercase tracking-[0.08em] text-muted-foreground/80">
               Pages
             </span>
             <div className="flex items-center gap-0.5">
@@ -1279,7 +1279,7 @@ export function MobileShell() {
           </div>
 
           {pages.length === 0 && files.length === 0 ? (
-            <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-[0.75rem] text-muted-foreground">
+            <div className="flex min-h-[100px] items-center justify-center rounded-3xl border border-dashed border-border/60 text-ui-sm text-muted-foreground">
               Add your first page
             </div>
           ) : (
@@ -1390,7 +1390,7 @@ export function MobileShell() {
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                  <span className="mt-2 line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{page.name}</span>
+                  <span className="mt-2 line-clamp-2 px-0.5 text-ui-sm font-bold leading-tight tracking-tight">{page.name}</span>
                 </fm.div>
               ))}
               {files.map((file, i) => (
@@ -1448,8 +1448,8 @@ export function MobileShell() {
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <span className="line-clamp-2 px-0.5 text-[0.75rem] font-bold leading-tight tracking-tight">{file.name}</span>
-                  <span className="text-[0.625rem] text-muted-foreground">{file.mime}</span>
+                  <span className="line-clamp-2 px-0.5 text-ui-sm font-bold leading-tight tracking-tight">{file.name}</span>
+                  <span className="text-ui-2xs text-muted-foreground">{file.mime}</span>
                 </fm.div>
               ))}
             </div>
@@ -1518,7 +1518,7 @@ export function MobileShell() {
             height={28}
             className="h-7 w-7 object-contain rounded-lg"
           />
-          <span className="text-[1.0625rem] font-extrabold tracking-tight text-foreground">
+          <span className="text-ui-xl font-extrabold tracking-tight text-foreground">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
         </div>
@@ -1547,7 +1547,7 @@ export function MobileShell() {
           </h1>
 
           {/* Clean Subtitle Stats Row with Clickable Actions */}
-          <div className="mt-4 flex items-center justify-center gap-3 text-[0.8125rem] text-muted-foreground font-medium">
+          <div className="mt-4 flex items-center justify-center gap-3 text-ui-md text-muted-foreground font-medium">
             <button
               type="button"
               onClick={() => {
@@ -1589,7 +1589,7 @@ export function MobileShell() {
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]">
                 <Search className="h-3.5 w-3.5" />
               </div>
-              <span className="text-[0.875rem] font-medium text-muted-foreground">
+              <span className="text-ui-lg font-medium text-muted-foreground">
                 Search notebooks, pages & formulas…
               </span>
             </button>
@@ -1653,7 +1653,7 @@ export function MobileShell() {
                   >
                     <Icon className="h-5 w-5" style={{ color: tint }} />
                   </span>
-                  <span className="text-[0.6875rem] font-semibold leading-tight text-foreground">{label}</span>
+                  <span className="text-ui-xs font-semibold leading-tight text-foreground">{label}</span>
                 </button>
               ))}
             </div>
@@ -1679,11 +1679,11 @@ export function MobileShell() {
                       >
                         <PageThumbnail live pageId={page.id} className="absolute inset-0" />
                       </div>
-                      <p className="mt-1.5 flex items-center gap-1 truncate text-[0.75rem] font-semibold text-foreground">
+                      <p className="mt-1.5 flex items-center gap-1 truncate text-ui-sm font-semibold text-foreground">
                         <KindIcon className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span className="truncate">{page.name}</span>
                       </p>
-                      <p className="truncate text-[0.6875rem] text-muted-foreground">{notebookName}</p>
+                      <p className="truncate text-ui-xs text-muted-foreground">{notebookName}</p>
                     </button>
                   )
                 })}
@@ -1697,10 +1697,10 @@ export function MobileShell() {
           {/* Notebooks Header with Filter Chips & Grid/List View Toggle */}
           <div className="flex items-center justify-between pb-2 pt-1">
             <div className="flex items-center gap-2">
-              <p className="text-[0.8125rem] font-bold uppercase tracking-wider text-muted-foreground/80">
+              <p className="text-ui-md font-bold uppercase tracking-wider text-muted-foreground/80">
                 {showGreeting ? 'Your Notebooks' : 'All Notebooks'}
               </p>
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[0.6875rem] font-bold text-muted-foreground">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-ui-xs font-bold text-muted-foreground">
                 {allNotebooks.length}
               </span>
             </div>
@@ -1787,8 +1787,8 @@ export function MobileShell() {
                       </DropdownMenu>
                     </div>
                     <div className="flex flex-col p-3.5">
-                      <span className="line-clamp-2 text-[0.9375rem] font-bold tracking-tight text-foreground">{nb.name}</span>
-                      <span className="mt-1 text-[0.75rem] font-medium text-muted-foreground">
+                      <span className="line-clamp-2 text-ui-xl font-bold tracking-tight text-foreground">{nb.name}</span>
+                      <span className="mt-1 text-ui-sm font-medium text-muted-foreground">
                         {pages} page{pages === 1 ? '' : 's'}
                       </span>
                     </div>
@@ -1810,7 +1810,7 @@ export function MobileShell() {
                 <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
                   <Plus className="h-5 w-5" />
                 </div>
-                <span className="text-[0.8125rem] font-bold">New notebook</span>
+                <span className="text-ui-md font-bold">New notebook</span>
               </fm.div>
             </div>
           ) : (
@@ -1831,8 +1831,8 @@ export function MobileShell() {
                         className="h-12 w-12 rounded-xl object-cover shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-[0.875rem] font-bold text-foreground">{nb.name}</p>
-                        <p className="text-[0.75rem] text-muted-foreground">{pages} page{pages === 1 ? '' : 's'}</p>
+                        <p className="truncate text-ui-lg font-bold text-foreground">{nb.name}</p>
+                        <p className="text-ui-sm text-muted-foreground">{pages} page{pages === 1 ? '' : 's'}</p>
                       </div>
                     </div>
 
@@ -1909,7 +1909,7 @@ export function MobileShell() {
             >
               <div className="mx-auto mb-4 h-1.5 w-12 rounded-full bg-muted-foreground/30" />
               <div className="mb-4 flex items-center justify-between">
-                <span className="text-[0.875rem] font-bold tracking-tight text-foreground">
+                <span className="text-ui-lg font-bold tracking-tight text-foreground">
                   Choose a cover art
                 </span>
                 <button
@@ -1940,7 +1940,7 @@ export function MobileShell() {
               </div>
               <button
                 type="button"
-                className="mt-4 w-full rounded-2xl border border-dashed border-border/60 py-2.5 text-[0.875rem] font-semibold text-muted-foreground active:bg-accent"
+                className="mt-4 w-full rounded-2xl border border-dashed border-border/60 py-2.5 text-ui-lg font-semibold text-muted-foreground active:bg-accent"
                 onClick={() => {
                   store.getState().setNotebookCover(coverFor, undefined)
                   setCoverFor(null)

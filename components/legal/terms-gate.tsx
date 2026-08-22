@@ -71,14 +71,14 @@ export function TermsGate() {
           <div className="border-b border-border px-6 py-5">
             <div className="flex items-center gap-2.5">
               <ShieldCheck className="size-[1.125rem] text-[var(--accent-blue)]" />
-              <span className="text-[0.6875rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              <span className="text-ui-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
                 Before you start
               </span>
             </div>
-            <h2 className="mt-2.5 text-[1.375rem] font-bold tracking-tight">
+            <h2 className="mt-2.5 text-ui-3xl font-bold tracking-tight">
               {firstName ? `Welcome, ${firstName}.` : 'Welcome to SIMBLIP.'}
             </h2>
-            <p className="mt-1.5 text-[0.8125rem] leading-relaxed text-muted-foreground">
+            <p className="mt-1.5 text-ui-md leading-relaxed text-muted-foreground">
               Your institution set this account up for you. Confirm each point below — they cover
               what you can expect from SIMBLIP and what it expects from you.
             </p>
@@ -120,8 +120,8 @@ export function TermsGate() {
                         {on && <Check className="size-3 stroke-[3]" />}
                       </span>
                       <span className="min-w-0">
-                        <span className="block text-[0.8125rem] font-semibold">{item.title}</span>
-                        <span className="mt-1 block text-[0.75rem] leading-relaxed text-muted-foreground">
+                        <span className="block text-ui-md font-semibold">{item.title}</span>
+                        <span className="mt-1 block text-ui-sm leading-relaxed text-muted-foreground">
                           {item.body}
                         </span>
                       </span>
@@ -134,7 +134,7 @@ export function TermsGate() {
 
           {/* Footer */}
           <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-4">
-            <p className="font-mono text-[0.6875rem] text-muted-foreground">
+            <p className="font-mono text-ui-xs text-muted-foreground">
               v{TERMS_VERSION} · {EFFECTIVE_DATE}
               <span className="mx-1.5">·</span>
               <span className={allChecked ? 'text-[var(--accent-mint)]' : undefined}>

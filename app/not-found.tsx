@@ -312,20 +312,20 @@ export default function NotFound() {
     <main className="canvas-dots relative flex min-h-dvh flex-col bg-background [background-size:24px_24px]">
       {/* Wordmark */}
       <div className="px-6 pt-6 sm:px-10">
-        <Link href="/" className="text-[18px] font-extrabold tracking-tight">
+        <Link href="/" className="text-ui-2xl font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </Link>
       </div>
 
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-8 sm:px-10">
         <div className="w-full max-w-3xl">
-          <p className="font-mono text-[0.6875rem] uppercase tracking-[0.18em] text-muted-foreground">
+          <p className="font-mono text-ui-xs uppercase tracking-[0.18em] text-muted-foreground">
             Error 404
           </p>
           <h1 className="mt-2 text-[clamp(1.75rem,5vw,2.75rem)] font-bold leading-[1.05] tracking-tight">
             This page went off the canvas.
           </h1>
-          <p className="mt-3 max-w-xl text-[0.875rem] leading-relaxed text-muted-foreground">
+          <p className="mt-3 max-w-xl text-ui-lg leading-relaxed text-muted-foreground">
             {reduced
               ? 'The address you followed does not match a page in SIMBLIP. It may have been renamed, unshared, or deleted.'
               : 'Nothing here to open — so take the cannon instead. Drag anywhere to aim, release to fire, and knock the 404 down.'}
@@ -344,7 +344,7 @@ export default function NotFound() {
               />
 
               {/* Live physics readout — the app's own vocabulary */}
-              <div className="pointer-events-none absolute left-3 top-3 font-mono text-[0.6875rem] leading-relaxed text-muted-foreground">
+              <div className="pointer-events-none absolute left-3 top-3 font-mono text-ui-xs leading-relaxed text-muted-foreground">
                 <div>g = {GRAVITY} px/s²</div>
                 {aim && (
                   <>
@@ -353,13 +353,13 @@ export default function NotFound() {
                   </>
                 )}
               </div>
-              <div className="pointer-events-none absolute right-3 top-3 font-mono text-[0.6875rem] text-muted-foreground">
+              <div className="pointer-events-none absolute right-3 top-3 font-mono text-ui-xs text-muted-foreground">
                 shots: {shots}
               </div>
 
               {cleared && (
                 <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
-                  <span className="pointer-events-auto rounded-full border border-[var(--accent-mint)]/40 bg-background/90 px-3.5 py-1.5 font-mono text-[0.6875rem] text-[var(--accent-mint)] backdrop-blur">
+                  <span className="pointer-events-auto rounded-full border border-[var(--accent-mint)]/40 bg-background/90 px-3.5 py-1.5 font-mono text-ui-xs text-[var(--accent-mint)] backdrop-blur">
                     Cleared in {shots} {shots === 1 ? 'shot' : 'shots'} — the page is still missing, though.
                   </span>
                 </div>

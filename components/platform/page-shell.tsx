@@ -39,13 +39,13 @@ export function PageShell({
               <ArrowLeft className="h-4 w-4" />
             </Link>
           )}
-          <span className="text-[14px] font-extrabold tracking-tight">
+          <span className="text-ui-md font-extrabold tracking-tight">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
           <span className="text-muted-foreground/50">/</span>
-          <span className="truncate text-[13px] font-semibold">{title}</span>
+          <span className="truncate text-ui-sm font-semibold">{title}</span>
           {institution && (
-            <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+            <span className="hidden truncate text-ui-xs text-muted-foreground sm:inline">
               · {institution.name}
             </span>
           )}
@@ -62,7 +62,7 @@ export function PageShell({
         {children}
       </main>
 
-      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+      <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-ui-2xs text-muted-foreground">
         {profile && (
           <span className="font-medium">
             {profile.full_name} · {ROLE_LABEL[profile.role]}

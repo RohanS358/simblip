@@ -46,9 +46,9 @@ function Disclosure({
           )}
         />
         <span className="min-w-0 flex-1">
-          <span className="block text-[0.8125rem] font-medium">{title}</span>
+          <span className="block text-ui-md font-medium">{title}</span>
           {!open && (
-            <span className="mt-0.5 block truncate text-[0.75rem] text-muted-foreground">
+            <span className="mt-0.5 block truncate text-ui-sm text-muted-foreground">
               {summary}
             </span>
           )}
@@ -82,7 +82,7 @@ export function PrivacySettings() {
           {PRIVACY_COMMITMENTS.map((c) => (
             <div key={c} className="flex gap-2.5">
               <ShieldCheck aria-hidden className="mt-px size-3.5 shrink-0 text-[var(--accent-mint)]" />
-              <p className="text-[0.75rem] leading-relaxed text-muted-foreground">{c}</p>
+              <p className="text-ui-sm leading-relaxed text-muted-foreground">{c}</p>
             </div>
           ))}
         </div>
@@ -97,8 +97,8 @@ export function PrivacySettings() {
         />
         <div className="flex items-center justify-between gap-4 pt-3.5">
           <div className="min-w-0">
-            <p className="text-[0.8125rem] font-medium">Terms of use</p>
-            <p className="mt-0.5 text-[0.75rem] text-muted-foreground">
+            <p className="text-ui-md font-medium">Terms of use</p>
+            <p className="mt-0.5 text-ui-sm text-muted-foreground">
               {accepted
                 ? `Accepted ${accepted}${acceptedVersion ? ` · v${acceptedVersion}` : ''}`
                 : 'Not yet accepted on this device.'}
@@ -112,14 +112,14 @@ export function PrivacySettings() {
 
       {/* The policy proper */}
       <SettingCard title={`What data SIMBLIP holds`}>
-        <p className="pt-0.5 text-[0.75rem] leading-relaxed text-muted-foreground">
+        <p className="pt-0.5 text-ui-sm leading-relaxed text-muted-foreground">
           Every category of data the app stores, why it exists, where it physically goes, and how
           long it stays. Expand any row for the detail.
         </p>
         <div className="pt-1">
           {DATA_CATEGORIES.map((c) => (
             <Disclosure key={c.id} title={c.title} summary={c.what}>
-              <dl className="space-y-2 text-[0.75rem] leading-relaxed">
+              <dl className="space-y-2 text-ui-sm leading-relaxed">
                 {(
                   [
                     ['What', c.what],
@@ -129,7 +129,7 @@ export function PrivacySettings() {
                   ] as const
                 ).map(([k, v]) => (
                   <div key={k}>
-                    <dt className="font-mono text-[0.6875rem] uppercase tracking-wide text-muted-foreground/70">
+                    <dt className="font-mono text-ui-xs uppercase tracking-wide text-muted-foreground/70">
                       {k}
                     </dt>
                     <dd className="mt-0.5 text-muted-foreground">{v}</dd>
@@ -146,7 +146,7 @@ export function PrivacySettings() {
         <div className="pt-0.5">
           {TERMS_ITEMS.map((t) => (
             <Disclosure key={t.id} title={t.title} summary={t.body}>
-              <p className="text-[0.75rem] leading-relaxed text-muted-foreground">{t.body}</p>
+              <p className="text-ui-sm leading-relaxed text-muted-foreground">{t.body}</p>
             </Disclosure>
           ))}
         </div>
@@ -154,7 +154,7 @@ export function PrivacySettings() {
 
       {/* Asking for your data back */}
       <SettingCard title="Your rights">
-        <div className="space-y-2.5 pt-0.5 text-[0.75rem] leading-relaxed text-muted-foreground">
+        <div className="space-y-2.5 pt-0.5 text-ui-sm leading-relaxed text-muted-foreground">
           <p>
             You can ask for a copy of your data, ask for it to be corrected, or ask for the account
             to be deleted. Your institution&rsquo;s admin handles these requests — they control the
@@ -167,7 +167,7 @@ export function PrivacySettings() {
         </div>
       </SettingCard>
 
-      <p className="px-1 pb-2 font-mono text-[0.6875rem] text-muted-foreground">
+      <p className="px-1 pb-2 font-mono text-ui-xs text-muted-foreground">
         Privacy policy v{PRIVACY_VERSION} · Terms v{TERMS_VERSION} · Effective {EFFECTIVE_DATE}
       </p>
     </div>

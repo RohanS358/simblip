@@ -37,7 +37,7 @@ export function UndoRedo({ pageId }: { pageId: string }) {
           <Icon className="h-4 w-4" />
         </button>
       </TooltipTrigger>
-      <TooltipContent side="bottom" className="flex items-center gap-1.5 text-xs">
+      <TooltipContent side="bottom" className="flex items-center gap-1.5 text-ui-xs">
         {label} <Kbd>{keys}</Kbd>
       </TooltipContent>
     </Tooltip>

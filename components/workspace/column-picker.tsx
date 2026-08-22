@@ -43,8 +43,8 @@ export function ColumnPicker({
       <p
         className={
           variant === 'chip'
-            ? 'text-[11px] text-muted-foreground'
-            : 'text-[0.71875rem] text-muted-foreground'
+            ? 'text-ui-2xs text-muted-foreground'
+            : 'text-ui-xs text-muted-foreground'
         }
       >
         {empty}
@@ -62,7 +62,7 @@ export function ColumnPicker({
               key={o.id}
               type="button"
               aria-pressed={on}
-              className="rounded-md border px-1.5 py-0.5 font-mono text-[10.5px] transition-colors"
+              className="rounded-md border px-1.5 py-0.5 font-mono text-ui-2xs transition-colors"
               style={{
                 borderColor: on ? color : 'var(--border)',
                 color: on ? color : 'var(--muted-foreground)',
@@ -91,7 +91,7 @@ export function ColumnPicker({
             type="button"
             role="switch"
             aria-checked={on}
-            className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-[0.75rem] transition-colors"
+            className="flex w-full items-center gap-2 rounded-lg border px-2 py-1 text-left text-ui-sm transition-colors"
             style={{
               borderColor: on ? color : 'var(--border)',
               color: on ? 'var(--foreground)' : 'var(--muted-foreground)',
@@ -104,7 +104,7 @@ export function ColumnPicker({
               style={{ background: on ? color : 'var(--border)' }}
             />
             <span className="min-w-0 flex-1 truncate">{o.name}</span>
-            <span className="shrink-0 font-mono text-[0.625rem] opacity-60">
+            <span className="shrink-0 font-mono text-ui-2xs opacity-60">
               {o.geometry.symbol}
             </span>
           </button>

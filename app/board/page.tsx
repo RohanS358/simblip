@@ -118,7 +118,7 @@ function NoticeStack({ items }: { items: BoardNotice[] }) {
   if (items.length === 0) return null
   return (
     <div className="absolute right-6 top-1/2 z-30 hidden w-[min(360px,26vw)] -translate-y-1/2 lg:block">
-      <p className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.16em] text-muted-foreground">
+      <p className="mb-3 flex items-center gap-2 text-ui-2xs font-bold uppercase tracking-[0.16em] text-muted-foreground">
         <Megaphone className="h-3.5 w-3.5" /> Class notices
       </p>
       <div className="space-y-3">
@@ -137,21 +137,21 @@ function NoticeStack({ items }: { items: BoardNotice[] }) {
             >
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span
-                  className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.12em]"
+                  className="flex min-w-0 items-center gap-1.5 text-ui-3xs font-bold uppercase tracking-[0.12em]"
                   style={{ color: meta.color }}
                 >
                   <meta.Icon className="h-3.5 w-3.5 shrink-0" /> {meta.label}
                 </span>
-                <span className="shrink-0 text-[10.5px] text-muted-foreground">
+                <span className="shrink-0 text-ui-2xs text-muted-foreground">
                   {n.scope === 'institution' ? 'Institution · ' : ''}
                   {timeAgo(n.created_at)}
                 </span>
               </div>
-              {n.title && <p className="text-[13.5px] font-bold leading-snug">{n.title}</p>}
+              {n.title && <p className="text-ui-sm font-bold leading-snug">{n.title}</p>}
               {n.body && (
-                <p className="line-clamp-3 text-[12.5px] leading-relaxed text-foreground/90">{n.body}</p>
+                <p className="line-clamp-3 text-ui-xs leading-relaxed text-foreground/90">{n.body}</p>
               )}
-              <p className="mt-1.5 text-[11px] text-muted-foreground">
+              <p className="mt-1.5 text-ui-2xs text-muted-foreground">
                 {n.author}
                 {n.due_at
                   ? ` · due ${new Date(n.due_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}`
@@ -161,7 +161,7 @@ function NoticeStack({ items }: { items: BoardNotice[] }) {
           )
         })}
         {items.length > 4 && (
-          <p className="text-center text-[11px] text-muted-foreground">+{items.length - 4} more</p>
+          <p className="text-center text-ui-2xs text-muted-foreground">+{items.length - 4} more</p>
         )}
       </div>
     </div>
@@ -544,8 +544,8 @@ function BoardSurface() {
     return (
       <div className="flex h-dvh flex-col items-center justify-center gap-2 bg-background text-center">
         <MonitorPlay className="h-6 w-6 text-muted-foreground/60" />
-        <p className="text-[14px] font-semibold">No board configured for this account</p>
-        <p className="max-w-72 text-[12.5px] text-muted-foreground">
+        <p className="text-ui-md font-semibold">No board configured for this account</p>
+        <p className="max-w-72 text-ui-xs text-muted-foreground">
           Ask your institution admin to create a room board and sign in with its credentials.
         </p>
       </div>
@@ -613,18 +613,18 @@ function BoardSurface() {
                 className="h-5 w-5 rounded object-contain"
               />
             ) : null}
-            <span className="text-[14px] font-extrabold tracking-tight">
+            <span className="text-ui-md font-extrabold tracking-tight">
               SIM<span className="text-[var(--accent-blue)]">BLIP</span>
             </span>
             {institution && (
-              <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+              <span className="hidden truncate text-ui-xs text-muted-foreground sm:inline">
                 · {institution.name}
               </span>
             )}
             <span aria-hidden className="hidden text-muted-foreground/50 sm:inline">/</span>
 
             <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden">
-              <span className="glass truncate rounded-lg px-2.5 py-1 text-[12px] font-medium text-foreground">
+              <span className="glass truncate rounded-lg px-2.5 py-1 text-ui-xs font-medium text-foreground">
                 {session
                   ? `${session.page_name} · presented by ${room?.name ?? 'room'}`
                   : 'Temporary whiteboard — nothing is saved'}
@@ -633,7 +633,7 @@ function BoardSurface() {
                 <button
                   type="button"
                   aria-label="End presentation"
-                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 text-[12px] font-medium text-red-500 transition-colors hover:bg-red-500/20"
+                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 text-ui-xs font-medium text-red-500 transition-colors hover:bg-red-500/20"
                   onClick={() => void endSession(session.id)}
                 >
                   <Square className="h-3.5 w-3.5" />
@@ -643,7 +643,7 @@ function BoardSurface() {
                 <button
                   type="button"
                   aria-label="Close whiteboard"
-                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border/60 px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border border-border/60 px-2.5 text-ui-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                   onClick={closeScratch}
                 >
                   <X className="h-3.5 w-3.5" />
@@ -656,12 +656,12 @@ function BoardSurface() {
               <button
                 type="button"
                 aria-label="Search (Ctrl+K)"
-                className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-[12px] text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
+                className="hidden items-center gap-2 rounded-lg border border-border/60 px-2.5 py-1 text-ui-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground md:flex"
                 onClick={() => setCommandOpen(true)}
               >
                 <Search className="h-3.5 w-3.5" />
                 Search
-                <Kbd className="text-[10px]">⌘K</Kbd>
+                <Kbd className="text-ui-3xs">⌘K</Kbd>
               </button>
               <button
                 type="button"
@@ -736,7 +736,7 @@ function BoardSurface() {
             </main>
           </div>
 
-          <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-[10.5px] text-muted-foreground">
+          <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-ui-2xs text-muted-foreground">
             {profile && (
               <span className="font-medium">
                 {profile.full_name} · {ROLE_LABEL[profile.role]}
@@ -770,11 +770,11 @@ function BoardSurface() {
                 className="h-5 w-5 rounded object-contain"
               />
             ) : null}
-            <span className="text-[14px] font-extrabold tracking-tight">
+            <span className="text-ui-md font-extrabold tracking-tight">
               SIM<span className="text-[var(--accent-blue)]">BLIP</span>
             </span>
             {institution && (
-              <span className="hidden truncate text-[12px] text-muted-foreground sm:inline">
+              <span className="hidden truncate text-ui-xs text-muted-foreground sm:inline">
                 · {institution.name}
               </span>
             )}
@@ -785,12 +785,12 @@ function BoardSurface() {
           </header>
 
           <div className="relative z-10 flex flex-1 flex-col items-center justify-center gap-3 text-center">
-            <p className="text-[13px] uppercase tracking-[0.2em] text-muted-foreground">
+            <p className="text-ui-sm uppercase tracking-[0.2em] text-muted-foreground">
               {institution?.name ?? 'SIMBLIP'}
             </p>
             <h1 className="text-5xl font-extrabold tracking-tight">{room?.name ?? 'Room board'}</h1>
-            <p className="text-[15px] text-muted-foreground">{clock}</p>
-            <p className="mt-6 max-w-sm text-[13px] leading-relaxed text-muted-foreground">
+            <p className="text-ui-lg text-muted-foreground">{clock}</p>
+            <p className="mt-6 max-w-sm text-ui-sm leading-relaxed text-muted-foreground">
               Scan the QR code with your phone to present a notebook page on this board.
             </p>
             <Button variant="outline" className="mt-4" onClick={openScratch}>
@@ -802,7 +802,7 @@ function BoardSurface() {
           {/* Same identity bar the active board carries, so who-is-signed-in
               doesn't vanish when the board goes idle. It sits on flat
               background below the aurora, which ends at this bar's top edge. */}
-          <footer className="relative z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 bg-background px-4 text-[10.5px] text-muted-foreground">
+          <footer className="relative z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 bg-background px-4 text-ui-2xs text-muted-foreground">
             {profile && (
               <span className="font-medium">
                 {profile.full_name} · {ROLE_LABEL[profile.role]}
@@ -877,7 +877,7 @@ function BoardSurface() {
             </button>
             <div className="pr-1 text-left min-w-0 flex-1">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+                <p className="text-ui-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
                   Pair to present
                 </p>
                 <button
@@ -889,9 +889,9 @@ function BoardSurface() {
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
-              <p className="font-mono text-[15px] font-bold tracking-[0.2em]">{board.pairing_code}</p>
+              <p className="font-mono text-ui-lg font-bold tracking-[0.2em]">{board.pairing_code}</p>
               {!session && (
-                <p className="mt-0.5 max-w-40 text-[10.5px] leading-snug text-muted-foreground">
+                <p className="mt-0.5 max-w-40 text-ui-2xs leading-snug text-muted-foreground">
                   Scan with your phone, pick a page, press Present.
                 </p>
               )}

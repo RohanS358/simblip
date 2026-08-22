@@ -237,7 +237,7 @@ export function PenSettings() {
 
       {isTouchDevice && (
         <div className="pt-1">
-          <p className="pb-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+          <p className="pb-1 text-ui-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
             Touch assist
           </p>
           <div className="divide-y divide-border/60">
@@ -265,7 +265,7 @@ export function PenSettings() {
 
       <button
         type="button"
-        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-[0.75rem] text-muted-foreground hover:text-foreground"
+        className="mt-2 w-full rounded-lg border border-dashed border-border py-1.5 text-ui-sm text-muted-foreground hover:text-foreground"
         onClick={() => setPen({ ...DEFAULT_PEN, customColors: pen.customColors })}
       >
         Reset pen to defaults

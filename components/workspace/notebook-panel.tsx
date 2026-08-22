@@ -78,7 +78,7 @@ export function NotebookPanel() {
               aria-selected={view === v.id}
               onClick={() => setView(v.id)}
               className={cn(
-                'relative rounded-t-md px-2 py-1.5 text-xs transition-colors duration-150 ease-strong',
+                'relative rounded-t-md px-2 py-1.5 text-ui-xs transition-colors duration-150 ease-strong',
                 'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors after:duration-150',
                 view === v.id
                   ? 'font-medium text-foreground after:bg-[var(--accent-blue)]'
@@ -105,8 +105,7 @@ export function NotebookPanel() {
             <Plus className="h-3.5 w-3.5" />
           </button>
         )}
-        {view === 'assignments' && (
-          <Link
+        {view === 'assignments' && (          <Link
             href="/assignments/insights"
             title="Insights"
             aria-label="Assignment insights"

@@ -39,8 +39,8 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string;
     <div className="glass flex items-center gap-3 rounded-2xl p-4">
       <Icon className="h-5 w-5 text-[var(--accent-blue)]" />
       <div>
-        <p className="text-[20px] font-extrabold leading-none">{value}</p>
-        <p className="mt-1 text-[11.5px] text-muted-foreground">{label}</p>
+        <p className="text-ui-2xl font-extrabold leading-none">{value}</p>
+        <p className="mt-1 text-ui-2xs text-muted-foreground">{label}</p>
       </div>
     </div>
   )
@@ -455,8 +455,8 @@ export default function DevPage() {
                                     checked={Boolean(membership)}
                                     onCheckedChange={(checked) => void toggleMembership(room.id, item.id, item.role === 'teacher' ? 'teacher' : 'student', Boolean(checked))}
                                   />
-                                  <span className="flex-1 truncate text-[12px]">{item.full_name}</span>
-                                  <span className="text-[10px] uppercase text-muted-foreground">{item.role}</span>
+                                  <span className="flex-1 truncate text-ui-xs">{item.full_name}</span>
+                                  <span className="text-ui-3xs uppercase text-muted-foreground">{item.role}</span>
                                 </label>
                               )
                             })}
@@ -523,7 +523,7 @@ export default function DevPage() {
                   </div>
 
                   <div className="space-y-2 border-t border-border/60 pt-3">
-                    <Label className="text-[13px]">Available Packages</Label>
+                    <Label className="text-ui-sm">Available Packages</Label>
                     <div className="grid gap-2 md:grid-cols-3">
                       {COMPONENT_PACKAGES.map((pkg) => {
                         const isChecked = selectedPackages.includes(pkg.domain) || selectedPackages.includes(pkg.id)
@@ -546,8 +546,8 @@ export default function DevPage() {
                               className="mt-0.5"
                             />
                             <div className="min-w-0 flex-1">
-                              <p className="text-[12px] font-semibold">{pkg.name}</p>
-                              <p className="line-clamp-2 text-[10px] text-muted-foreground">{pkg.description}</p>
+                              <p className="text-ui-xs font-semibold">{pkg.name}</p>
+                              <p className="line-clamp-2 text-ui-3xs text-muted-foreground">{pkg.description}</p>
                             </div>
                           </label>
                         )
@@ -586,7 +586,7 @@ export default function DevPage() {
                 </CardHeader>
                 <CardContent className="space-y-3">
                   {bugs.length === 0 ? (
-                    <p className="py-8 text-center text-[13px] text-muted-foreground">
+                    <p className="py-8 text-center text-ui-sm text-muted-foreground">
                       No bug reports yet.
                     </p>
                   ) : (
@@ -599,21 +599,21 @@ export default function DevPage() {
                       >
                         <div className="flex items-start gap-3">
                           <div className="min-w-0 flex-1">
-                            <p className="text-[14px] font-semibold">{bug.title}</p>
-                            <p className="mt-0.5 text-[11.5px] text-muted-foreground">
+                            <p className="text-ui-md font-semibold">{bug.title}</p>
+                            <p className="mt-0.5 text-ui-2xs text-muted-foreground">
                               {profileName(bug.reporter_id)} ·{' '}
                               {new Date(bug.created_at).toLocaleString()}
                             </p>
                             {bug.body && (
-                              <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed">
+                              <p className="mt-2 whitespace-pre-wrap text-ui-sm leading-relaxed">
                                 {bug.body}
                               </p>
                             )}
                             <details className="mt-2">
-                              <summary className="cursor-pointer text-[11.5px] text-muted-foreground">
+                              <summary className="cursor-pointer text-ui-2xs text-muted-foreground">
                                 Environment
                               </summary>
-                              <pre className="mt-1.5 overflow-x-auto rounded-lg bg-muted/50 p-2 text-[11px] leading-relaxed">
+                              <pre className="mt-1.5 overflow-x-auto rounded-lg bg-muted/50 p-2 text-ui-2xs leading-relaxed">
                                 {JSON.stringify(bug.context, null, 2)}
                               </pre>
                             </details>
@@ -647,15 +647,15 @@ export default function DevPage() {
               <CardDescription>{institution?.name ?? 'No active institution'}</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 md:grid-cols-3">
-              <div className="rounded-2xl border border-border/60 p-4 text-[12px] text-muted-foreground">
+              <div className="rounded-2xl border border-border/60 p-4 text-ui-xs text-muted-foreground">
                 <p className="mb-1 text-foreground">Institution</p>
                 <p>{selectedInstitution?.name ?? 'Pick one above'}</p>
               </div>
-              <div className="rounded-2xl border border-border/60 p-4 text-[12px] text-muted-foreground">
+              <div className="rounded-2xl border border-border/60 p-4 text-ui-xs text-muted-foreground">
                 <p className="mb-1 text-foreground">Accounts</p>
                 <p>{selectedProfiles.length} profiles, {selectedProfiles.filter((item) => item.role === 'admin').length} admins</p>
               </div>
-              <div className="rounded-2xl border border-border/60 p-4 text-[12px] text-muted-foreground">
+              <div className="rounded-2xl border border-border/60 p-4 text-ui-xs text-muted-foreground">
                 <p className="mb-1 text-foreground">Rooms / boards</p>
                 <p>{selectedRooms.length} rooms, {selectedBoards.length} boards</p>
               </div>
@@ -711,13 +711,13 @@ function StorageGcCard() {
           {running ? <><Loader2 className="h-4 w-4 animate-spin" /> Scanning…</> : 'Run Storage GC'}
         </Button>
         {result && (
-          <div className="glass rounded-2xl p-4 text-[12px] space-y-1">
+          <div className="glass rounded-2xl p-4 text-ui-xs space-y-1">
             <p><span className="text-foreground font-semibold">Total OPFS files:</span> {result.total}</p>
             <p><span className="text-foreground font-semibold">Orphans deleted:</span> {result.deleted}</p>
             {result.deletedIds.length > 0 && (
               <details className="mt-2">
                 <summary className="cursor-pointer text-muted-foreground">View deleted IDs</summary>
-                <ul className="mt-1 space-y-0.5 font-mono text-[10px] text-muted-foreground">
+                <ul className="mt-1 space-y-0.5 font-mono text-ui-3xs text-muted-foreground">
                   {result.deletedIds.map((id) => <li key={id}>{id}</li>)}
                 </ul>
               </details>

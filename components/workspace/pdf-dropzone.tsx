@@ -46,7 +46,7 @@ export function PdfDropzone({
     >
       {dragOver && (
         <div className="animate-in fade-in-0 pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] duration-150">
-          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-[0.75rem] font-semibold shadow duration-150">
+          <span className="animate-in fade-in-0 zoom-in-95 rounded-lg bg-card px-3 py-1.5 text-ui-sm font-semibold shadow duration-150">
             Drop to open
           </span>
         </div>
@@ -62,10 +62,10 @@ export function PdfDropzone({
           onClick={() => inputRef.current?.click()}
         >
           <FileUp className="h-8 w-8" />
-          <span className="max-w-72 text-center text-[0.8125rem] leading-relaxed">
+          <span className="max-w-72 text-center text-ui-md leading-relaxed">
             Upload a PDF or PowerPoint to read here
             <br />
-            <span className="text-[0.6875rem] opacity-70">
+            <span className="text-ui-xs opacity-70">
               Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
               devices download their own copy the first time they open it.
             </span>

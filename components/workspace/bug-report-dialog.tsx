@@ -101,20 +101,20 @@ export function BugReportDialog({
 
         <div className="flex flex-col gap-3">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[0.75rem] font-semibold text-muted-foreground">What went wrong?</span>
+            <span className="text-ui-sm font-semibold text-muted-foreground">What went wrong?</span>
             <input
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Slides don't scroll on my phone"
-              className="rounded-lg border border-border/60 bg-background px-3 py-2 text-[0.875rem] outline-none focus-visible:border-[var(--accent-blue)]"
+              className="rounded-lg border border-border/60 bg-background px-3 py-2 text-ui-lg outline-none focus-visible:border-[var(--accent-blue)]"
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit()
               }}
             />
           </label>
           <label className="flex flex-col gap-1.5">
-            <span className="text-[0.75rem] font-semibold text-muted-foreground">
+            <span className="text-ui-sm font-semibold text-muted-foreground">
               Steps to reproduce <span className="font-normal">(optional)</span>
             </span>
             <textarea
@@ -122,7 +122,7 @@ export function BugReportDialog({
               onChange={(e) => setBody(e.target.value)}
               rows={4}
               placeholder="1. Open a presentation&#10;2. Try to drag the slide&#10;3. Nothing moves"
-              className="resize-none rounded-lg border border-border/60 bg-background px-3 py-2 text-[0.875rem] outline-none focus-visible:border-[var(--accent-blue)]"
+              className="resize-none rounded-lg border border-border/60 bg-background px-3 py-2 text-ui-lg outline-none focus-visible:border-[var(--accent-blue)]"
             />
           </label>
         </div>
@@ -130,7 +130,7 @@ export function BugReportDialog({
         <DialogFooter>
           <button
             type="button"
-            className="rounded-lg px-3 py-2 text-[0.8125rem] font-medium text-muted-foreground transition-colors hover:bg-accent"
+            className="rounded-lg px-3 py-2 text-ui-md font-medium text-muted-foreground transition-colors hover:bg-accent"
             onClick={() => onOpenChange(false)}
           >
             Cancel
@@ -138,7 +138,7 @@ export function BugReportDialog({
           <button
             type="button"
             disabled={!title.trim() || sending}
-            className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-[0.8125rem] font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-4 py-2 text-ui-md font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
             onClick={() => void submit()}
           >
             {sending && <Loader2 className="h-3.5 w-3.5 animate-spin" />}

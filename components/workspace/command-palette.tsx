@@ -120,7 +120,7 @@ export function CommandPalette({
               >
                 <Shapes className="h-4 w-4" />
                 <span className="truncate">{it.label}</span>
-                <span className="ml-auto text-[0.6875rem] text-muted-foreground">{it.group}</span>
+                <span className="ml-auto text-ui-xs text-muted-foreground">{it.group}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -141,7 +141,7 @@ export function CommandPalette({
               >
                 <FileText className="h-4 w-4" />
                 <span className="truncate">{p.name}</span>
-                <span className="ml-auto truncate text-[0.6875rem] text-muted-foreground">{p.path}</span>
+                <span className="ml-auto truncate text-ui-xs text-muted-foreground">{p.path}</span>
               </CommandItem>
             ))}
           </CommandGroup>
@@ -173,7 +173,7 @@ export function CommandPalette({
               >
                 <LibraryBig className="h-4 w-4" />
                 <span className="truncate">{a.title}</span>
-                <span className="ml-auto text-[0.6875rem] text-muted-foreground">{a.category}</span>
+                <span className="ml-auto text-ui-xs text-muted-foreground">{a.category}</span>
               </CommandItem>
             ))}
           </CommandGroup>

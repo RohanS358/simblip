@@ -229,7 +229,7 @@ export function PageThumbnail({ pageId, className, live }: Props) {
           <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
             <FileText className="h-6 w-6" />
             {meta?.fileName && (
-              <span className="max-w-full truncate px-1 text-[0.5625rem]">{meta.fileName}</span>
+              <span className="max-w-full truncate px-1 text-ui-3xs">{meta.fileName}</span>
             )}
           </div>
         )}

@@ -478,7 +478,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
                           <Icon className="h-3 w-3" />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
+                      <TooltipContent side="top" className="text-ui-xs">
                         {t.label} {t.key && `(${t.key})`}
                       </TooltipContent>
                     </Tooltip>
@@ -501,7 +501,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
                       <ShapesGroupIcon />
                     </div>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
+                  <TooltipContent side="top" className="text-ui-xs">
                     Shapes & Geometry
                   </TooltipContent>
                 </Tooltip>
@@ -520,7 +520,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
                         <Paperclip className="h-3 w-3" />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="text-xs">
+                    <TooltipContent side="top" className="text-ui-xs">
                       Attach Document / Image
                     </TooltipContent>
                   </Tooltip>
@@ -547,7 +547,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
                             {sh.icon}
                           </div>
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs">
+                        <TooltipContent side="top" className="text-ui-xs">
                           {sh.label}
                         </TooltipContent>
                       </Tooltip>
@@ -574,7 +574,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
                           <act.icon className="h-3 w-3" />
                         </div>
                       </TooltipTrigger>
-                      <TooltipContent side="top" className="text-xs">
+                      <TooltipContent side="top" className="text-ui-xs">
                         {act.label}
                       </TooltipContent>
                     </Tooltip>
@@ -611,7 +611,7 @@ export function DialDock({ pageId }: { pageId?: string }) {
       {showPenSettings && expanded && (
         <div className="absolute top-full left-1/2 mt-4 -translate-x-1/2 z-50 glass-strong w-80 max-h-[70dvh] overflow-y-auto rounded-2xl p-3 shadow-2xl">
           <div className="mb-2 flex items-center justify-between">
-            <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">
+            <span className="text-ui-xs font-bold uppercase tracking-wider text-muted-foreground">
               Pen Feel & Palette
             </span>
             <button

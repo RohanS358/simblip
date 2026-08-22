@@ -195,9 +195,9 @@ function ToolButton({
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="top" className="text-xs">
+      <TooltipContent side="top" className="text-ui-xs">
         {label}
-        {shortcut && <span className="ml-1.5 font-mono text-[0.625rem] opacity-60">{shortcut}</span>}
+        {shortcut && <span className="ml-1.5 font-mono text-ui-2xs opacity-60">{shortcut}</span>}
       </TooltipContent>
     </Tooltip>
   )
@@ -232,7 +232,7 @@ function MoreButton({
       style={active ? { background: 'var(--accent-blue)' } : undefined}
     >
       {icon}
-      <span className="w-full truncate text-center text-[0.625rem] font-medium">{label}</span>
+      <span className="w-full truncate text-center text-ui-2xs font-medium">{label}</span>
     </button>
   )
 }
@@ -254,7 +254,7 @@ function DockPageMenu() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
+          className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-ui-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
           title="Current Page"
         >
           <FileText className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
@@ -267,7 +267,7 @@ function DockPageMenu() {
           <DropdownMenuItem
             key={p.id}
             onClick={() => setActivePage(p.id)}
-            className={cn('text-xs', p.id === activePageId && 'font-bold text-[var(--accent-blue)]')}
+            className={cn('text-ui-xs', p.id === activePageId && 'font-bold text-[var(--accent-blue)]')}
           >
             <FileText className="mr-2 h-3.5 w-3.5" />
             <span className="truncate">{p.name || 'Untitled'}</span>
@@ -292,7 +292,7 @@ function DockToolsMenu() {
     <button
       type="button"
       onClick={handleOpenTools}
-      className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
+      className="flex shrink-0 items-center gap-1.5 rounded-xl px-2.5 py-1 text-ui-xs font-medium text-foreground hover:bg-accent/60 transition-colors"
       title="Open Tools & Components Panel"
     >
       <Wrench className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
@@ -532,7 +532,7 @@ export function Toolbar({
       {showPen && (
         <div className={cn('glass-strong absolute z-50 max-h-[70dvh] w-80 overflow-y-auto rounded-2xl p-3', penFlyoutClass)}>
           <div className="mb-1 flex items-center justify-between">
-            <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            <span className="text-ui-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
               Pen
             </span>
             <button
@@ -776,7 +776,7 @@ export function Toolbar({
             >
               <div className={cn('shrink-0 bg-border', vertical ? 'my-1 h-px w-6' : 'mx-1 h-6 w-px')} />
               {selection.length > 1 && (
-                <span className="shrink-0 px-0.5 font-mono text-[0.6875rem] text-muted-foreground">
+                <span className="shrink-0 px-0.5 font-mono text-ui-xs text-muted-foreground">
                   {selection.length}×
                 </span>
               )}
@@ -798,7 +798,7 @@ export function Toolbar({
                       <a.icon className={iconSize} />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="top" className="text-xs">
+                  <TooltipContent side="top" className="text-ui-xs">
                     {a.label}
                   </TooltipContent>
                 </Tooltip>

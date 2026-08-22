@@ -82,7 +82,7 @@ export function RailButton({
           {children}
         </button>
       </TooltipTrigger>
-      <TooltipContent side={tooltipSide} className="text-xs">
+      <TooltipContent side={tooltipSide} className="text-ui-xs">
         {label}
       </TooltipContent>
     </Tooltip>
@@ -237,7 +237,7 @@ export function Sidebar({
         (contentPageId ? (
           <InspectorPane pageId={contentPageId} />
         ) : (
-          <p className="py-6 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
+          <p className="py-6 text-center text-ui-sm leading-relaxed text-muted-foreground">
             Open a page to inspect its objects and variables.
           </p>
         ))}
@@ -311,7 +311,7 @@ export function Sidebar({
         initial={false}
         animate={{ width: sidebarOpen ? panelW : 0, opacity: sidebarOpen ? 1 : 0 }}
         transition={motion}
-        className="relative z-30 my-2 min-h-0 overflow-hidden"
+        className="relative z-30 min-h-0 overflow-hidden"
       >
         <div
           style={{ width: panelW }}
@@ -320,7 +320,7 @@ export function Sidebar({
           <div
             role="separator"
             aria-label="Resize sidebar"
-            className="group absolute right-0 top-0 z-10 h-full w-3 touch-none cursor-col-resize border-r-2 border-border/60 transition-colors duration-150 hover:border-sky-400"
+            className="group absolute right-0 top-0 z-30 h-full w-3 touch-none cursor-col-resize border-r-2 border-border/60 transition-colors duration-150 hover:border-sky-400"
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId)

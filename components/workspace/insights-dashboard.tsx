@@ -38,8 +38,8 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string;
     <div className="glass flex items-center gap-3 rounded-2xl p-4">
       <Icon className="h-5 w-5 text-[var(--accent-blue)]" />
       <div>
-        <p className="text-[20px] font-extrabold leading-none">{value}</p>
-        <p className="mt-1 text-[11.5px] text-muted-foreground">{label}</p>
+        <p className="text-ui-2xl font-extrabold leading-none">{value}</p>
+        <p className="mt-1 text-ui-2xs text-muted-foreground">{label}</p>
       </div>
     </div>
   )
@@ -48,7 +48,7 @@ function Stat({ icon: Icon, label, value }: { icon: typeof Users; label: string;
 function ChartCard({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="mb-2 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
+      <p className="mb-2 text-ui-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">{title}</p>
       <div className="h-56">{children}</div>
     </div>
   )
@@ -147,7 +147,7 @@ export function InsightsDashboard() {
 
       <ChartCard title="Completion rate over time">
         {trend.length === 0 ? (
-          <div className="flex h-full items-center justify-center text-[12.5px] text-muted-foreground">
+          <div className="flex h-full items-center justify-center text-ui-xs text-muted-foreground">
             No assignments yet.
           </div>
         ) : (
@@ -182,17 +182,17 @@ export function InsightsDashboard() {
 
       <div className="glass rounded-2xl p-4">
         <div className="mb-3 flex items-center justify-between">
-          <p className="text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+          <p className="text-ui-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
             Per-assignment breakdown
           </p>
         </div>
         {sortedAssignmentStats.length === 0 ? (
-          <p className="py-8 text-center text-[12.5px] text-muted-foreground">No assignments yet.</p>
+          <p className="py-8 text-center text-ui-xs text-muted-foreground">No assignments yet.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-[12.5px]">
+            <table className="w-full text-ui-xs">
               <thead>
-                <tr className="border-b border-border/50 text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                <tr className="border-b border-border/50 text-left text-ui-2xs uppercase tracking-wider text-muted-foreground">
                   <th className="pb-2 pr-3 font-semibold">Title</th>
                   <th className="pb-2 pr-3 font-semibold">Due</th>
                   {(
@@ -235,11 +235,11 @@ export function InsightsDashboard() {
       </div>
 
       <div className="glass rounded-2xl p-4">
-        <p className="mb-3 text-[12px] font-bold uppercase tracking-[0.1em] text-muted-foreground">
+        <p className="mb-3 text-ui-xs font-bold uppercase tracking-[0.1em] text-muted-foreground">
           Student performance
         </p>
         {studentStats.length === 0 ? (
-          <p className="py-8 text-center text-[12.5px] text-muted-foreground">No students targeted yet.</p>
+          <p className="py-8 text-center text-ui-xs text-muted-foreground">No students targeted yet.</p>
         ) : (
           <div className="space-y-1.5">
             {studentStats.map((s) => {
@@ -249,11 +249,11 @@ export function InsightsDashboard() {
                   key={s.student.id}
                   className="flex items-center gap-3 rounded-lg px-2 py-1.5 hover:bg-accent/40"
                 >
-                  <span className="min-w-32 flex-1 truncate text-[12.5px] font-medium">
+                  <span className="min-w-32 flex-1 truncate text-ui-xs font-medium">
                     {s.student.full_name}
                   </span>
-                  <span className="text-[11.5px] text-muted-foreground">{s.completionRate}% complete</span>
-                  <span className="text-[11.5px] text-muted-foreground">
+                  <span className="text-ui-2xs text-muted-foreground">{s.completionRate}% complete</span>
+                  <span className="text-ui-2xs text-muted-foreground">
                     {s.onTimeStreak > 0 ? `${s.onTimeStreak} on-time streak` : 'no streak'}
                   </span>
                   <TrendIcon className={cn('h-3.5 w-3.5', TREND_COLOR[s.trend])} />

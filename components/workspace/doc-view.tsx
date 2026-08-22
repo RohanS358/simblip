@@ -79,7 +79,7 @@ function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: stri
           onChange={(e) => useWorkspaceStore.getState().updatePageMeta(docPageId, { docDate: e.target.value })}
           onKeyDown={stop}
           aria-label="Document date"
-          className="shrink-0 bg-transparent text-right font-mono text-[0.6875rem] text-neutral-500 outline-none dark:text-neutral-400"
+          className="shrink-0 bg-transparent text-right font-mono text-ui-xs text-neutral-500 outline-none dark:text-neutral-400"
         />
       </div>
       <input
@@ -89,7 +89,7 @@ function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: stri
         onKeyDown={stop}
         placeholder="Subtitle"
         aria-label="Document subtitle"
-        className="mt-0.5 w-full min-w-0 bg-transparent text-[0.8125rem] text-neutral-500 outline-none dark:text-neutral-400"
+        className="mt-0.5 w-full min-w-0 bg-transparent text-ui-md text-neutral-500 outline-none dark:text-neutral-400"
       />
     </div>
   )
@@ -255,11 +255,11 @@ function Sheet({
           </div>
         </div>
       ) : (
-        <div className="flex h-full items-center justify-center text-[0.75rem] text-muted-foreground">
+        <div className="flex h-full items-center justify-center text-ui-sm text-muted-foreground">
           Page {index + 1}
         </div>
       )}
-      <span className="pointer-events-none absolute bottom-1.5 left-2 z-10 rounded-md bg-foreground/8 px-1.5 py-0.5 text-[0.625rem] font-medium text-muted-foreground backdrop-blur-sm">
+      <span className="pointer-events-none absolute bottom-1.5 left-2 z-10 rounded-md bg-foreground/8 px-1.5 py-0.5 text-ui-2xs font-medium text-muted-foreground backdrop-blur-sm">
         {index + 1}
       </span>
       {removable && (
@@ -737,7 +737,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
             ))}
             <button
               type="button"
-              className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-[0.78125rem] text-muted-foreground transition-[color,border-color,transform] duration-150 ease-out hover:border-[var(--accent-blue)] hover:text-foreground active:scale-[0.97]"
+              className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-ui-sm text-muted-foreground transition-[color,border-color,transform] duration-150 ease-out hover:border-[var(--accent-blue)] hover:text-foreground active:scale-[0.97]"
               onClick={() => setActiveSheet(addDocSheet(pageId))}
             >
               <Plus className="h-4 w-4" /> Add page
@@ -749,7 +749,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
           over this same area. On mobile it was rendering on top of both
           the zoom HUD and the sorter below, hiding them. */}
       {zoomHud && !bare && (
-        <div className="glass pointer-events-none absolute bottom-4 right-4 z-50 rounded-full px-3 py-1 font-mono text-[0.6875rem] text-muted-foreground">
+        <div className="glass pointer-events-none absolute bottom-4 right-4 z-50 rounded-full px-3 py-1 font-mono text-ui-xs text-muted-foreground">
           {Math.round(zoom * 100)}%
         </div>
       )}

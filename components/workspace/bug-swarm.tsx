@@ -113,7 +113,7 @@ export function BugSwarm({ onEnd }: { onEnd: () => void }) {
 
       <div className="pointer-events-none fixed inset-0 z-[9999]">
         <div className="pointer-events-none absolute inset-x-0 top-4 flex justify-center">
-          <span className="rounded-full bg-black/75 px-3 py-1 text-[0.75rem] font-medium text-white shadow-lg">
+          <span className="rounded-full bg-black/75 px-3 py-1 text-ui-sm font-medium text-white shadow-lg">
             {squashed ? 'Got it. Sorry about that.' : 'A bug got loose. Find the red one — or press Esc.'}
           </span>
         </div>

@@ -215,7 +215,7 @@ export function WebView({ pageId }: { pageId: string }) {
               value={inputUrl}
               onChange={(e) => setInputUrl(e.target.value)}
               placeholder="Search web or enter URL (e.g. quantum physics)..."
-              className="h-8 border-border/60 bg-background pl-8 pr-8 text-xs focus-visible:ring-1"
+              className="h-8 border-border/60 bg-background pl-8 pr-8 text-ui-xs focus-visible:ring-1"
             />
             <button
               type="submit"
@@ -233,7 +233,7 @@ export function WebView({ pageId }: { pageId: string }) {
             type="button"
             variant="outline"
             size="sm"
-            className={cn('h-8 text-xs gap-1.5 rounded-lg', isCached && 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
+            className={cn('h-8 text-ui-xs gap-1.5 rounded-lg', isCached && 'border-[var(--accent-mint)] text-[var(--accent-mint)]')}
             aria-label={isCached ? 'Saved for offline' : 'Save for offline'}
             disabled={downloading}
             onClick={saveOffline}
@@ -252,7 +252,7 @@ export function WebView({ pageId }: { pageId: string }) {
             type="button"
             variant={penActive ? 'default' : 'outline'}
             size="sm"
-            className="h-8 text-xs gap-1.5 rounded-lg"
+            className="h-8 text-ui-xs gap-1.5 rounded-lg"
             aria-label="Pen overlay"
             aria-pressed={penActive}
             onClick={() => setPenActive((v) => !v)}
@@ -265,7 +265,7 @@ export function WebView({ pageId }: { pageId: string }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            className="h-8 text-ui-xs gap-1 text-muted-foreground hover:text-foreground"
             aria-label={viewMode === 'live' ? 'Switch to reader view' : 'Switch to live view'}
             onClick={() => setViewMode((m) => (m === 'live' ? 'reader' : 'live'))}
           >
@@ -277,7 +277,7 @@ export function WebView({ pageId }: { pageId: string }) {
             type="button"
             variant="ghost"
             size="sm"
-            className="h-8 text-xs gap-1 text-muted-foreground hover:text-foreground"
+            className="h-8 text-ui-xs gap-1 text-muted-foreground hover:text-foreground"
             aria-label="Open in new tab"
             onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
             title="Open in new tab"
@@ -296,11 +296,11 @@ export function WebView({ pageId }: { pageId: string }) {
         >
           {viewMode === 'reader' && meta?.webCachedHtml ? (
             <div
-              className="prose dark:prose-invert max-w-none p-8 leading-relaxed text-foreground text-sm"
+              className="prose dark:prose-invert max-w-none p-8 leading-relaxed text-foreground text-ui-sm"
               dangerouslySetInnerHTML={{ __html: meta.webCachedHtml }}
             />
           ) : viewMode === 'reader' && meta?.webCachedText ? (
-            <div className="p-8 text-foreground text-sm space-y-4">
+            <div className="p-8 text-foreground text-ui-sm space-y-4">
               <h2 className="text-xl font-bold">{meta.webTitle || 'Saved Web Page'}</h2>
               <pre className="font-sans whitespace-pre-wrap leading-relaxed text-muted-foreground">
                 {meta.webCachedText}

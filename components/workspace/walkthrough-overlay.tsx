@@ -83,11 +83,11 @@ export function WalkthroughOverlay() {
             >
               <div className="flex items-center gap-2 mb-1">
                 <HelpCircle className="h-3.5 w-3.5 text-[var(--accent-blue)] shrink-0" />
-                <span className="text-[0.6875rem] font-bold uppercase tracking-wider text-muted-foreground">
+                <span className="text-ui-xs font-bold uppercase tracking-wider text-muted-foreground">
                   {currentAct?.title ?? 'Walkthrough'}
                 </span>
               </div>
-              <p className="text-[0.875rem] font-medium leading-relaxed text-foreground">
+              <p className="text-ui-lg font-medium leading-relaxed text-foreground">
                 {subtitles}
               </p>
             </motion.div>
@@ -103,7 +103,7 @@ export function WalkthroughOverlay() {
           {/* Act Picker Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2.5 text-xs font-semibold">
+              <Button size="sm" variant="ghost" className="h-8 gap-1.5 px-2.5 text-ui-xs font-semibold">
                 <List className="h-4 w-4 text-[var(--accent-blue)]" />
                 <span className="max-w-[120px] truncate">{currentActIndex + 1}/{WALKTHROUGH_ACTS.length} {currentAct?.title.split('.')[1] ?? ''}</span>
               </Button>
@@ -113,7 +113,7 @@ export function WalkthroughOverlay() {
                 <DropdownMenuItem
                   key={act.id}
                   onClick={() => walkthroughEngine.jumpToAct(i)}
-                  className={cn('text-xs py-2', i === currentActIndex && 'font-bold text-[var(--accent-blue)]')}
+                  className={cn('text-ui-xs py-2', i === currentActIndex && 'font-bold text-[var(--accent-blue)]')}
                 >
                   <span className="truncate">{act.title}</span>
                 </DropdownMenuItem>
@@ -126,7 +126,7 @@ export function WalkthroughOverlay() {
           {/* Speed Selector Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-xs font-semibold" title="Playback Speed">
+              <Button size="sm" variant="ghost" className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Playback Speed">
                 <Gauge className="h-3.5 w-3.5 text-[var(--accent-blue)]" />
                 <span>{speed}x</span>
               </Button>
@@ -136,7 +136,7 @@ export function WalkthroughOverlay() {
                 <DropdownMenuItem
                   key={spd}
                   onClick={() => setSpeed(spd)}
-                  className={cn('text-xs py-1.5 justify-center', spd === speed && 'font-bold text-[var(--accent-blue)]')}
+                  className={cn('text-ui-xs py-1.5 justify-center', spd === speed && 'font-bold text-[var(--accent-blue)]')}
                 >
                   {spd}x {spd === 0.75 ? '(Default)' : ''}
                 </DropdownMenuItem>

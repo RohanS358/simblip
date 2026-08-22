@@ -133,7 +133,7 @@ export function HexColorSwatchPicker({
               if (e.key === 'Enter' && HEX_RE.test(hexInput)) confirm(hexInput)
             }}
             placeholder="#000"
-            className="h-6 w-0 min-w-0 flex-1 rounded-md border border-border bg-transparent px-1.5 font-mono text-[0.6875rem] outline-none focus:border-[var(--ring)]"
+            className="h-6 w-0 min-w-0 flex-1 rounded-md border border-border bg-transparent px-1.5 font-mono text-ui-xs outline-none focus:border-[var(--ring)]"
           />
           <button
             type="button"
@@ -147,7 +147,7 @@ export function HexColorSwatchPicker({
         </div>
         {documentSwatches && documentSwatches.length > 0 && (
           <div className="space-y-1 border-t border-border pt-2">
-            <p className="text-[0.625rem] text-muted-foreground">Document colors</p>
+            <p className="text-ui-2xs text-muted-foreground">Document colors</p>
             <div className="flex flex-wrap gap-1">
               {documentSwatches.map((hex) => (
                 <button
@@ -172,7 +172,7 @@ export function HexColorSwatchPicker({
         )}
         {imageSwatches && imageSwatches.length > 0 && (
           <div className="space-y-1.5 border-t border-border pt-2">
-            <p className="text-[0.625rem] text-muted-foreground">Image colors</p>
+            <p className="text-ui-2xs text-muted-foreground">Image colors</p>
             {imageSwatches.map((img, i) => (
               <div key={i} className="flex items-center gap-1.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}

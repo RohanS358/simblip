@@ -84,7 +84,7 @@ function ZoomGroup({
           <button
             type="button"
             aria-label="Zoom options"
-            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-[0.65625rem] tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-ui-2xs tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -168,9 +168,9 @@ export function PageControlsMenu({
                   pdfDock.scrollToPage?.(num)
                 }
               }}
-              className="w-7 h-5 rounded border border-border/50 bg-background/80 px-1 text-center font-mono text-[0.6875rem] tabular-nums text-foreground outline-none focus:border-[var(--accent-blue)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="w-7 h-5 rounded border border-border/50 bg-background/80 px-1 text-center font-mono text-ui-xs tabular-nums text-foreground outline-none focus:border-[var(--accent-blue)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             />
-            <span className="font-mono text-[0.6875rem] tabular-nums text-muted-foreground">
+            <span className="font-mono text-ui-xs tabular-nums text-muted-foreground">
               /{pdfDock.numPages}
             </span>
           </form>

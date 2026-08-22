@@ -45,7 +45,7 @@ export default function LoginPage() {
       {/* Brand panel — full-height statement, not a centered logo */}
       <div className="canvas-dots relative hidden flex-col justify-between overflow-hidden p-10 [background-size:24px_24px] lg:flex">
         <HeroBallpit />
-        <span className="relative text-[18px] font-extrabold tracking-tight">
+        <span className="relative text-ui-2xl font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
         </span>
         <div className="relative">
@@ -53,12 +53,12 @@ export default function LoginPage() {
             Where <span className="text-[var(--accent-blue)]">drawings</span> become{' '}
             <span className="text-[var(--accent-mint)]">experiments</span>
           </h1>
-          <p className="mt-4 max-w-md text-[14px] leading-relaxed text-muted-foreground">
+          <p className="mt-4 max-w-md text-ui-md leading-relaxed text-muted-foreground">
             The engineering education platform for institutions — mechanics, circuits, logic,
             optics and quantum on one living canvas.
           </p>
         </div>
-        <p className="relative text-[11px] text-muted-foreground">
+        <p className="relative text-ui-2xs text-muted-foreground">
           © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
         </p>
         <div className="progressive-blur-bottom !h-16" />
@@ -69,10 +69,10 @@ export default function LoginPage() {
       <div className="pointer-events-none absolute inset-0 opacity-40 lg:hidden"><HeroBallpit className="absolute inset-0" /></div>
       <div className="relative w-full max-w-sm">
         <div className="mb-8 text-center lg:text-left">
-          <span className="text-[22px] font-extrabold tracking-tight lg:hidden">
+          <span className="text-ui-3xl font-extrabold tracking-tight lg:hidden">
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
-          <p className="mt-2 text-[13px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-ui-sm leading-relaxed text-muted-foreground">
             Sign in with the account your institution issued you.
           </p>
         </div>
@@ -85,7 +85,7 @@ export default function LoginPage() {
           }}
         >
           <div className="space-y-1.5">
-            <Label htmlFor="email" className="text-[12px]">
+            <Label htmlFor="email" className="text-ui-xs">
               Email
             </Label>
             <div className="relative">
@@ -104,7 +104,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="password" className="text-[12px]">
+            <Label htmlFor="password" className="text-ui-xs">
               Password
             </Label>
             <div className="relative">
@@ -122,7 +122,7 @@ export default function LoginPage() {
           </div>
 
           {error && (
-            <p role="alert" className="text-[12px] leading-relaxed text-[var(--accent-rose)]">
+            <p role="alert" className="text-ui-xs leading-relaxed text-[var(--accent-rose)]">
               {error}
             </p>
           )}
@@ -131,19 +131,19 @@ export default function LoginPage() {
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign in'}
           </Button>
 
-          <p className="text-center text-[11.5px] leading-relaxed text-muted-foreground">
+          <p className="text-center text-ui-2xs leading-relaxed text-muted-foreground">
             Forgot your password? Ask your institution admin to reset it.
           </p>
         </form>
 
         {!cloudConfigured && (
-          <p className="mt-6 text-center text-[11.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-6 text-center text-ui-2xs leading-relaxed text-muted-foreground">
             Local mode — accounts live in this browser. Sign in as the platform
             operator to provision your institution from the dev console.
           </p>
         )}
 
-        <p className="mt-8 text-center text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-8 text-center text-ui-2xs leading-relaxed text-muted-foreground">
           Institutions license SIMBLIP directly — there is no public sign-up.{' '}
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-foreground">
             Licensing

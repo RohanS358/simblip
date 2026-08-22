@@ -254,8 +254,8 @@ function PresentController() {
 
       {phase === 'invalid' && (
         <div className="glass rounded-2xl p-5 text-center">
-          <p className="text-[14px] font-semibold">This pairing code is no longer valid</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="text-ui-md font-semibold">This pairing code is no longer valid</p>
+          <p className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">
             Codes rotate after each presentation. Scan the QR currently shown on the board.
           </p>
         </div>
@@ -264,16 +264,16 @@ function PresentController() {
       {phase === 'pick' && (
         <div className="glass space-y-4 rounded-2xl p-5">
           <div>
-            <p className="flex items-center gap-2 text-[15px] font-bold">
+            <p className="flex items-center gap-2 text-ui-lg font-bold">
               <MonitorPlay className="h-4 w-4 text-[var(--accent-blue)]" />
               {room?.name ?? 'Room board'}
             </p>
-            <p className="mt-0.5 text-[12px] text-muted-foreground">
+            <p className="mt-0.5 text-ui-xs text-muted-foreground">
               Paired. Choose what to present — the board gets a temporary copy.
             </p>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[12px]">Page</Label>
+            <Label className="text-ui-xs">Page</Label>
             <Command className="rounded-lg border border-input">
               <CommandInput placeholder="Search pages…" />
               <CommandList className="max-h-52">
@@ -286,7 +286,7 @@ function PresentController() {
                     className={cn(pageId === p.id && 'bg-accent')}
                   >
                     <span className="truncate">{p.name}</span>
-                    <span className="ml-auto truncate text-[11px] text-muted-foreground">{p.path}</span>
+                    <span className="ml-auto truncate text-ui-2xs text-muted-foreground">{p.path}</span>
                   </CommandItem>
                 ))}
               </CommandList>
@@ -300,11 +300,11 @@ function PresentController() {
 
       {phase === 'live' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-[12px] font-semibold text-[var(--accent-mint)]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-ui-xs font-semibold text-[var(--accent-mint)]">
             <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-mint)]" /> Live on the board
           </span>
-          <p className="text-[16px] font-bold">{session.page_name}</p>
-          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="text-ui-xl font-bold">{session.page_name}</p>
+          <p className="text-ui-xs leading-relaxed text-muted-foreground">
             The board is working on a temporary copy. Your notebook stays untouched until you decide
             otherwise.
           </p>
@@ -330,8 +330,8 @@ function PresentController() {
 
       {phase === 'decide' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
-          <p className="text-[15px] font-bold">Presentation ended</p>
-          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="text-ui-lg font-bold">Presentation ended</p>
+          <p className="text-ui-xs leading-relaxed text-muted-foreground">
             Keep the annotations and changes made on the board, or discard the temporary copy and
             leave “{session.page_name}” exactly as it was?
           </p>
@@ -349,8 +349,8 @@ function PresentController() {
       {phase === 'classIdle' && (
         <div className="glass rounded-2xl p-5 text-center">
           <MonitorPlay className="mx-auto h-6 w-6 text-muted-foreground/60" />
-          <p className="mt-2 text-[14px] font-semibold">{room?.name ?? 'This board'} is idle</p>
-          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-2 text-ui-md font-semibold">{room?.name ?? 'This board'} is idle</p>
+          <p className="mt-1 text-ui-xs leading-relaxed text-muted-foreground">
             Nothing is being presented right now. Scan again once someone starts presenting — you'll
             get your own live copy of the whiteboard.
           </p>
@@ -359,11 +359,11 @@ function PresentController() {
 
       {phase === 'classLive' && session && (
         <div className="glass space-y-4 rounded-2xl p-5 text-center">
-          <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-[12px] font-semibold text-[var(--accent-mint)]">
+          <span className="inline-flex items-center gap-2 rounded-full bg-[color-mix(in_oklch,var(--accent-mint)_15%,transparent)] px-3 py-1 text-ui-xs font-semibold text-[var(--accent-mint)]">
             <span className="h-2 w-2 animate-pulse rounded-full bg-[var(--accent-mint)]" /> Following the presentation
           </span>
-          <p className="text-[16px] font-bold">{session.page_name}</p>
-          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="text-ui-xl font-bold">{session.page_name}</p>
+          <p className="text-ui-xs leading-relaxed text-muted-foreground">
             A live copy is now in your notebook under{' '}
             <span className="font-medium text-foreground">Shared with me → Whiteboard</span>. It
             mirrors everything the presenter writes until it ends, then saves itself with the date
@@ -384,8 +384,8 @@ function PresentController() {
       {phase === 'classEnded' && (
         <div className="glass space-y-3 rounded-2xl p-5 text-center">
           <CheckCircle2 className="mx-auto h-6 w-6 text-[var(--accent-mint)]" />
-          <p className="text-[14px] font-semibold">Class ended — your copy is saved</p>
-          <p className="text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="text-ui-md font-semibold">Class ended — your copy is saved</p>
+          <p className="text-ui-xs leading-relaxed text-muted-foreground">
             Find it in Shared with me → Whiteboard, stamped with today's date and time. It's yours
             to annotate and extend.
           </p>
@@ -405,7 +405,7 @@ function PresentController() {
       {phase === 'done' && (
         <div className="glass space-y-3 rounded-2xl p-5 text-center">
           <CheckCircle2 className="mx-auto h-6 w-6 text-[var(--accent-mint)]" />
-          <p className="text-[14px] font-semibold">All set</p>
+          <p className="text-ui-md font-semibold">All set</p>
           <Button variant="outline" className="w-full" onClick={() => router.push('/notebook')}>
             Back to notebook
           </Button>
@@ -558,7 +558,7 @@ function DesktopLivePanel({ session, onExit }: { session: BoardSessionRow; onExi
       <button
         type="button"
         onClick={onExit}
-        className="glass fixed right-3 top-3 z-[60] flex h-8 items-center gap-1.5 rounded-lg px-3 text-[12px] font-medium text-foreground shadow-sm"
+        className="glass fixed right-3 top-3 z-[60] flex h-8 items-center gap-1.5 rounded-lg px-3 text-ui-xs font-medium text-foreground shadow-sm"
       >
         <Square className="h-3.5 w-3.5" /> Exit live view
       </button>
@@ -632,12 +632,12 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
 
   return (
     <div className="glass space-y-4 rounded-2xl p-5">
-      <p className="text-[13px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+      <p className="text-ui-sm font-bold uppercase tracking-[0.12em] text-muted-foreground">
         Board remote
       </p>
 
       <div className="space-y-1.5">
-        <Label className="text-[12px]">Simulation</Label>
+        <Label className="text-ui-xs">Simulation</Label>
         <div className="grid grid-cols-3 gap-2">
           <Button variant="outline" size="sm" onClick={() => send({ kind: 'play' })}>
             <Play className="h-4 w-4" /> Play
@@ -653,7 +653,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
 
       {toggables.length > 0 && (
         <div className="space-y-1.5">
-          <Label className="text-[12px]">Controls</Label>
+          <Label className="text-ui-xs">Controls</Label>
           <div className="grid grid-cols-2 gap-2">
             {toggables.map((t) => (
               <button
@@ -664,7 +664,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
                   setFlips((f) => ({ ...f, [t.key]: !t.on }))
                   send({ kind: 'toggle', objectId: t.id, param: t.param })
                 }}
-                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-[12.5px] font-semibold transition-colors ${
+                className={`flex items-center justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-ui-xs font-semibold transition-colors ${
                   t.on
                     ? 'border-[var(--accent-mint)] bg-[color-mix(in_oklch,var(--accent-mint)_14%,transparent)] text-foreground'
                     : 'border-border/70 bg-background text-muted-foreground'
@@ -684,7 +684,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
 
       {isPresentation && (
         <div className="space-y-1.5">
-          <Label className="text-[12px]">Slides — {session.page_name}</Label>
+          <Label className="text-ui-xs">Slides — {session.page_name}</Label>
           <Button
             className="w-full"
             variant={slideshowOn ? 'default' : 'outline'}
@@ -711,7 +711,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
 
       {files.length > 0 && (
         <div className="space-y-1.5">
-          <Label className="text-[12px]">Slides — {files[0].name || 'Document'}</Label>
+          <Label className="text-ui-xs">Slides — {files[0].name || 'Document'}</Label>
           <div className="grid grid-cols-2 gap-2">
             <Button
               variant="outline"
@@ -733,7 +733,7 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
 
       {objects.length > 0 && (
         <div className="space-y-1.5">
-          <Label className="text-[12px]">Object properties</Label>
+          <Label className="text-ui-xs">Object properties</Label>
           <Select
             value={objId}
             onValueChange={(v) => {
@@ -759,13 +759,13 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
               if (numeric.length === 0) return null
               return (
                 <div key={b.id} className="space-y-1 rounded-xl border border-border/60 p-2.5">
-                  <p className="text-[11px] font-semibold capitalize text-muted-foreground">{b.type}</p>
+                  <p className="text-ui-2xs font-semibold capitalize text-muted-foreground">{b.type}</p>
                   {numeric.map(([name, p]) => (
                     <div key={`${b.id}:${name}`} className="flex items-center gap-2">
-                      <span className="w-24 truncate text-[11.5px] text-muted-foreground">{name}</span>
+                      <span className="w-24 truncate text-ui-2xs text-muted-foreground">{name}</span>
                       <input
                         defaultValue={p.kind === 'number' ? p.expr : ''}
-                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-base outline-none focus:border-[var(--ring)] md:text-[12px]"
+                        className="min-w-0 flex-1 rounded-md border border-border bg-background px-2 py-1 font-mono text-ui-xl outline-none focus:border-[var(--ring)] md:text-ui-xs"
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') e.currentTarget.blur()
                         }}
@@ -781,12 +781,12 @@ function RemotePanel({ session }: { session: BoardSessionRow }) {
               )
             })}
           {chosen && chosen.behaviors.every((b) => Object.values(b.params).every((p) => p.kind !== 'number')) && (
-            <p className="text-[11.5px] text-muted-foreground">This object has no tunable numbers.</p>
+            <p className="text-ui-2xs text-muted-foreground">This object has no tunable numbers.</p>
           )}
         </div>
       )}
 
-      <p className="text-[11px] leading-relaxed text-muted-foreground">
+      <p className="text-ui-2xs leading-relaxed text-muted-foreground">
         Commands reach the board instantly in local mode and within about a second in cloud mode.
       </p>
     </div>

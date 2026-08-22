@@ -47,7 +47,7 @@ const STATUS_LABEL: Record<SubmissionStatus | 'assigned', string> = {
 
 function StatusChip({ status }: { status: SubmissionStatus | 'assigned' }) {
   return (
-    <span className={cn('rounded-md px-1.5 py-0.5 text-[10.5px] font-semibold', STATUS_STYLE[status])}>
+    <span className={cn('rounded-md px-1.5 py-0.5 text-ui-2xs font-semibold', STATUS_STYLE[status])}>
       {STATUS_LABEL[status]}
     </span>
   )
@@ -126,8 +126,8 @@ function StudentAssignments() {
       {assignments.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <ClipboardList className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">No assignments yet.</p>
-          <p className="max-w-[26ch] text-xs leading-relaxed text-muted-foreground/70">
+          <p className="text-ui-sm text-muted-foreground">No assignments yet.</p>
+          <p className="max-w-[26ch] text-ui-xs leading-relaxed text-muted-foreground/70">
             Work your teachers assign shows up here.
           </p>
         </div>
@@ -140,31 +140,31 @@ function StudentAssignments() {
           <div key={a.id} className="glass rounded-2xl p-4">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="flex items-center gap-2 text-[14px] font-semibold">
+                <p className="flex items-center gap-2 text-ui-md font-semibold">
                   {a.title} <StatusChip status={status} />
                 </p>
-                <p className="mt-0.5 flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+                <p className="mt-0.5 flex items-center gap-1.5 text-ui-2xs text-muted-foreground">
                   <CalendarClock className="h-3 w-3" /> {dueLabel(a)} · {a.teacher_name}
                 </p>
                 {a.instructions && (
-                  <p className="mt-2 whitespace-pre-wrap text-[12.5px] leading-relaxed text-muted-foreground">
+                  <p className="mt-2 whitespace-pre-wrap text-ui-xs leading-relaxed text-muted-foreground">
                     {a.instructions}
                   </p>
                 )}
                 {sub?.feedback && (
-                  <p className="mt-2 rounded-lg bg-accent/60 p-2 text-[12.5px] leading-relaxed">
+                  <p className="mt-2 rounded-lg bg-accent/60 p-2 text-ui-xs leading-relaxed">
                     <span className="font-semibold">Feedback:</span> {sub.feedback}
                   </p>
                 )}
               </div>
               <div className="flex shrink-0 flex-col gap-1.5">
-                <Button size="sm" variant="outline" className="h-7 text-[12px]" onClick={() => void openInNotebook(a)}>
+                <Button size="sm" variant="outline" className="h-7 text-ui-xs" onClick={() => void openInNotebook(a)}>
                   <NotebookPen className="h-3.5 w-3.5" /> {links[a.id] ? 'Open' : 'Start work'}
                 </Button>
                 {status !== 'reviewed' && (
                   <Button
                     size="sm"
-                    className="h-7 text-[12px]"
+                    className="h-7 text-ui-xs"
                     disabled={busyId === a.id}
                     onClick={() => void submit(a)}
                   >
@@ -211,8 +211,8 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
       {assignments.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <ClipboardList className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-sm text-muted-foreground">No assignments yet.</p>
-          <p className="max-w-[26ch] text-xs leading-relaxed text-muted-foreground/70">
+          <p className="text-ui-sm text-muted-foreground">No assignments yet.</p>
+          <p className="max-w-[26ch] text-ui-xs leading-relaxed text-muted-foreground/70">
             Right-click any page and choose Assign to set one.
           </p>
         </div>
@@ -227,10 +227,10 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
               key={a.id}
               type="button"
               onClick={() => router.push(`/assignments/${a.id}`)}
-              className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-[12.5px] transition-colors hover:bg-accent/40"
+              className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-left text-ui-xs transition-colors hover:bg-accent/40"
             >
               <span className="min-w-0 flex-1 truncate font-medium">{a.title}</span>
-              <span className="shrink-0 text-[11px] text-muted-foreground">{submitted} submitted</span>
+              <span className="shrink-0 text-ui-2xs text-muted-foreground">{submitted} submitted</span>
             </button>
           )
         }
@@ -243,12 +243,12 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
             onClick={() => router.push(`/assignments/${a.id}`)}
           >
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[14px] font-semibold">{a.title}</p>
-              <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">
+              <p className="truncate text-ui-md font-semibold">{a.title}</p>
+              <p className="flex items-center gap-1.5 text-ui-2xs text-muted-foreground">
                 <CalendarClock className="h-3 w-3" /> {dueLabel(a)}
               </p>
             </div>
-            <Badge variant="secondary" className="shrink-0 text-[11px]">
+            <Badge variant="secondary" className="shrink-0 text-ui-2xs">
               {submitted} submitted
             </Badge>
             <button

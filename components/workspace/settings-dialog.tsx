@@ -125,7 +125,7 @@ function DockSettings() {
             <Button
               variant="outline"
               size="sm"
-              className="text-xs rounded-lg"
+              className="text-ui-xs rounded-lg"
               onClick={() => setDock({ dragPosition: null })}
             >
               <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
@@ -360,12 +360,69 @@ function NotebookSettings() {
       <Button
         variant="outline"
         size="sm"
-        className="w-full rounded-xl border-dashed py-2 text-xs text-muted-foreground hover:text-foreground"
+        className="w-full rounded-xl border-dashed py-2 text-ui-xs text-muted-foreground hover:text-foreground"
         onClick={() => setNb({ ...DEFAULT_NOTEBOOK })}
       >
         Reset Notebook Preferences to Default
       </Button>
     </div>
+  )
+}
+
+/** A scale slider with its value shown AT the control and a way back to 100%.
+ *
+ *  All three scale rows previously buried the current percentage in the row's
+ *  description text and offered no reset — once you dragged off the default
+ *  there was no way back except guessing where 100% sat on the track. */
+function ScaleRow({
+  label,
+  detail,
+  ariaLabel,
+  value,
+  min,
+  max,
+  onChange,
+}: {
+  label: string
+  detail: string
+  ariaLabel: string
+  value: number
+  min: number
+  max: number
+  onChange: (v: number) => void
+}) {
+  const pct = Math.round(value * 100)
+  const isDefault = Math.abs(value - 1) < 0.001
+  return (
+    <ObsidianPrefRow label={label} detail={detail}>
+      <div className="flex items-center gap-2.5">
+        <div className="w-32 sm:w-44 md:w-52">
+          <Slider
+            aria-label={ariaLabel}
+            value={[value]}
+            min={min}
+            max={max}
+            step={0.05}
+            onValueChange={([v]) => onChange(v)}
+          />
+        </div>
+        {/* Fixed width + tabular figures so the track doesn't shift as the
+            number changes width while dragging. */}
+        <span className="w-10 shrink-0 text-right text-ui-sm tabular-nums text-foreground">
+          {pct}%
+        </span>
+        <button
+          type="button"
+          onClick={() => onChange(1)}
+          disabled={isDefault}
+          title="Reset to 100%"
+          aria-label={`Reset ${ariaLabel} to 100%`}
+          className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90 disabled:pointer-events-none disabled:opacity-30"
+        >
+          <RotateCcw className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </ObsidianPrefRow>
   )
 }
 
@@ -375,54 +432,38 @@ function InterfaceSettings() {
 
   return (
     <div className="space-y-4">
-      <SettingCard title="Interface & Component Scaling">
-        <ObsidianPrefRow
-          label="Interface UI Scale"
-          detail={`Panels, docks, and chrome scale: ${Math.round(nb.uiScale * 100)}%`}
-        >
-          <div className="w-40 sm:w-56 md:w-64">
-            <Slider
-              aria-label="Interface UI scale"
-              value={[nb.uiScale]}
-              min={0.6}
-              max={1.4}
-              step={0.05}
-              onValueChange={([v]) => setNb({ uiScale: v })}
-            />
-          </div>
-        </ObsidianPrefRow>
+      <SettingCard title="Text &amp; scaling">
+        {/* Three sliders that all end up changing text size is the confusing
+            part, so each one now says WHAT it moves and what it leaves alone. */}
+        <ScaleRow
+          label="Interface scale"
+          detail="Panels, docks and toolbars — everything outside the page itself."
+          ariaLabel="Interface scale"
+          value={nb.uiScale}
+          min={0.8}
+          max={1.4}
+          onChange={(v) => setNb({ uiScale: v })}
+        />
 
-        <ObsidianPrefRow
-          label="Components UI Scale"
-          detail={`Text and chrome inside canvas objects: ${Math.round((nb.componentScale ?? 1) * 100)}%`}
-        >
-          <div className="w-40 sm:w-56 md:w-64">
-            <Slider
-              aria-label="Component scale"
-              value={[nb.componentScale ?? 1]}
-              min={0.8}
-              max={1.6}
-              step={0.05}
-              onValueChange={([v]) => setNb({ componentScale: v })}
-            />
-          </div>
-        </ObsidianPrefRow>
+        <ScaleRow
+          label="Canvas object scale"
+          detail="Text inside tables, graphs and code blocks on the page. Does not affect panels."
+          ariaLabel="Canvas object scale"
+          value={nb.componentScale ?? 1}
+          min={0.8}
+          max={1.6}
+          onChange={(v) => setNb({ componentScale: v })}
+        />
 
-        <ObsidianPrefRow
-          label="Panel Text Size"
-          detail={`Sidebar panel text scale: ${Math.round((nb.panelFontScale ?? 1) * 100)}%`}
-        >
-          <div className="w-40 sm:w-56 md:w-64">
-            <Slider
-              aria-label="Panel font scale"
-              value={[nb.panelFontScale ?? 1]}
-              min={0.85}
-              max={1.3}
-              step={0.05}
-              onValueChange={([v]) => setNb({ panelFontScale: v })}
-            />
-          </div>
-        </ObsidianPrefRow>
+        <ScaleRow
+          label="Sidebar text size"
+          detail="Fine-tunes only the sidebar, on top of the interface scale above."
+          ariaLabel="Sidebar text size"
+          value={nb.panelFontScale ?? 1}
+          min={0.85}
+          max={1.3}
+          onChange={(v) => setNb({ panelFontScale: v })}
+        />
 
         <ObsidianPrefRow
           label="Panel Text Spacing"
@@ -604,10 +645,10 @@ function MathSettings() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border/60 bg-card/60 p-3.5">
-        <p className="mb-2 text-[0.625rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        <p className="mb-2 text-ui-2xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
           Live Math Preview
         </p>
-        <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-[0.8125rem]">
+        <div className="flex flex-wrap gap-x-5 gap-y-1 font-mono text-ui-md">
           {samples.map((v) => (
             <span key={v}>{fmtNum(v)}</span>
           ))}
@@ -687,7 +728,7 @@ function MathSettings() {
       <Button
         variant="outline"
         size="sm"
-        className="w-full rounded-xl border-dashed py-2 text-xs text-muted-foreground hover:text-foreground"
+        className="w-full rounded-xl border-dashed py-2 text-ui-xs text-muted-foreground hover:text-foreground"
         onClick={() => setMath({ ...DEFAULT_MATH })}
       >
         Reset Math Settings to Default
@@ -740,7 +781,7 @@ function HotkeyRow({ actionId, label, when }: { actionId: string; label: string;
       }
       action={
         <div className="flex items-center gap-1.5">
-          {error && <span className="text-[0.6875rem] text-destructive">{error}</span>}
+          {error && <span className="text-ui-xs text-destructive">{error}</span>}
           {/* The Kbd alone read as a static badge — nobody clicked it. Wrap it
               in a visibly interactive shell (border, hover, focus ring, a
               pencil on hover) and say what a click does, so the row announces
@@ -865,7 +906,7 @@ function GestureSettings() {
 
       <button
         type="button"
-        className="text-[0.75rem] font-medium text-muted-foreground hover:text-foreground"
+        className="text-ui-sm font-medium text-muted-foreground hover:text-foreground"
         onClick={() => usePrefs.getState().setGestures({ ...DEFAULT_GESTURES })}
       >
         Reset to defaults
@@ -932,7 +973,7 @@ function SyncPreferencesPanel() {
 
       {globalSync && (
         <div className="pt-2 pl-3 border-l-2 border-[#7f6df2]/30 space-y-2">
-          <p className="text-[0.75rem] font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+          <p className="text-ui-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
             Enabled File Types
           </p>
           {(Object.keys(CAT_LABELS) as SyncCategory[]).map((cat) => (
@@ -950,7 +991,7 @@ function SyncPreferencesPanel() {
           ))}
         </div>
       )}
-      <p className="text-[0.6875rem] text-muted-foreground leading-normal pt-1">
+      <p className="text-ui-xs text-muted-foreground leading-normal pt-1">
         Items can still be individually opted in or out via right-click in the notebook tree.
       </p>
     </div>
@@ -1068,15 +1109,15 @@ export function SettingsDialog({
               <button
                 type="button"
                 onClick={() => setMobileCategoryOpen(false)}
-                className="flex items-center gap-0.5 px-2 py-2 text-[0.9375rem] font-medium text-[var(--accent-blue)]"
+                className="flex items-center gap-0.5 px-2 py-2 text-ui-xl font-medium text-[var(--accent-blue)]"
               >
                 <ChevronLeft className="h-5 w-5" />
                 Settings
               </button>
             ) : (
               <>
-                <span className="flex-1 px-3 text-[0.9375rem] font-extrabold tracking-tight">Settings</span>
-                <DialogPrimitive.Close className="px-3 py-2 text-[0.9375rem] font-medium text-[var(--accent-blue)]">
+                <span className="flex-1 px-3 text-ui-xl font-extrabold tracking-tight">Settings</span>
+                <DialogPrimitive.Close className="px-3 py-2 text-ui-xl font-medium text-[var(--accent-blue)]">
                   Done
                 </DialogPrimitive.Close>
               </>
@@ -1084,12 +1125,12 @@ export function SettingsDialog({
           </div>
         ) : (
           <div className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 bg-muted/20 px-4 select-none">
-            <div className="flex items-center gap-2 text-xs font-semibold text-foreground/80">
+            <div className="flex items-center gap-2 text-ui-xs font-semibold text-foreground/80">
               <span>Settings</span>
               <span className="text-muted-foreground/40">•</span>
               <span className="text-muted-foreground font-normal">{profile?.full_name ?? 'Rohan'}</span>
               <span className="text-muted-foreground/40">•</span>
-              <span className="text-muted-foreground/80 font-mono text-[0.6875rem]">SIMBLIP 1.13.4</span>
+              <span className="text-muted-foreground/80 font-mono text-ui-xs">SIMBLIP 1.13.4</span>
             </div>
             <DialogPrimitive.Close className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors">
               <X className="h-4 w-4" />
@@ -1110,8 +1151,8 @@ export function SettingsDialog({
                 {profile?.full_name?.charAt(0) || 'U'}
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
-                <span className="truncate text-[0.9375rem] font-bold text-foreground">{profile?.full_name || 'User'}</span>
-                <span className="truncate text-[0.75rem] text-muted-foreground">{profile?.email || ''}</span>
+                <span className="truncate text-ui-xl font-bold text-foreground">{profile?.full_name || 'User'}</span>
+                <span className="truncate text-ui-sm text-muted-foreground">{profile?.email || ''}</span>
               </div>
             </div>
 
@@ -1123,7 +1164,7 @@ export function SettingsDialog({
               group.items.length === 0 ? null : (
                 <div key={gi} className="mb-5">
                   {group.title && (
-                    <div className="mb-1.5 px-1 text-[0.6875rem] font-semibold uppercase tracking-wider text-muted-foreground">
+                    <div className="mb-1.5 px-1 text-ui-xs font-semibold uppercase tracking-wider text-muted-foreground">
                       {group.title}
                     </div>
                   )}
@@ -1141,8 +1182,8 @@ export function SettingsDialog({
                           className="flex w-full items-center gap-3 px-4 py-3 text-left active:bg-accent/60"
                         >
                           <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          <span className="flex-1 text-[0.875rem] font-medium text-foreground">{item.label}</span>
-                          <span className="truncate text-[0.75rem] text-muted-foreground">{item.detail}</span>
+                          <span className="flex-1 text-ui-lg font-medium text-foreground">{item.label}</span>
+                          <span className="truncate text-ui-sm text-muted-foreground">{item.detail}</span>
                           <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground/50" />
                         </button>
                       )
@@ -1180,7 +1221,7 @@ export function SettingsDialog({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search settings..."
-                  className="h-8 pl-8 pr-7 text-xs bg-background/80 border-border/60 rounded-lg focus-visible:ring-1"
+                  className="h-8 pl-8 pr-7 text-ui-xs bg-background/80 border-border/60 rounded-lg focus-visible:ring-1"
                 />
                 {searchQuery && (
                   <button
@@ -1203,7 +1244,7 @@ export function SettingsDialog({
                       type="button"
                       onClick={() => setActiveTab(item.id)}
                       className={cn(
-                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-xs font-medium transition-colors',
+                        'flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-ui-xs font-medium transition-colors',
                         isActive
                           ? 'bg-black/5 dark:bg-white/10 text-foreground font-semibold shadow-2xs'
                           : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
@@ -1302,7 +1343,7 @@ export function SettingsDialog({
                     they looked like a printed reference sheet. State the
                     interaction once, up front, instead of hoping the hover
                     styles get discovered. */}
-                <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
+                <p className="text-ui-sm leading-relaxed text-muted-foreground">
                   Click any shortcut to record a new one, then press the key combination you want.{' '}
                   <Kbd>Esc</Kbd> cancels, and a combination already taken by another action is
                   refused rather than silently stealing it. Changed shortcuts get a{' '}
@@ -1317,7 +1358,7 @@ export function SettingsDialog({
                 ))}
                 <button
                   type="button"
-                  className="text-[0.75rem] font-medium text-muted-foreground hover:text-foreground"
+                  className="text-ui-sm font-medium text-muted-foreground hover:text-foreground"
                   onClick={() => usePrefs.getState().setHotkeys({ overrides: {} })}
                 >
                   Reset all to defaults

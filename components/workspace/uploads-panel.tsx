@@ -32,6 +32,7 @@ import { baseObject } from '@/lib/scene/factory'
 import type { SceneObject } from '@/lib/scene/types'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { PanelHeader } from './panel-header'
 import { cn } from '@/lib/utils'
 
 export interface UploadItem {
@@ -56,19 +57,19 @@ function formatBytes(bytes: number): string {
 function getFileIcon(mime: string, name: string) {
   const ext = name.split('.').pop()?.toLowerCase() ?? ''
   if (mime.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(ext)) {
-    return <ImageIcon className="h-4 w-4 text-sky-500 shrink-0" />
+    return <ImageIcon className="h-4 w-4 shrink-0 text-[var(--accent-blue)]" />
   }
   if (mime.includes('pdf') || ext === 'pdf') {
-    return <FileText className="h-4 w-4 text-rose-500 shrink-0" />
+    return <FileText className="h-4 w-4 shrink-0 text-[var(--accent-rose)]" />
   }
   if (mime.includes('sheet') || mime.includes('excel') || ['xlsx', 'xls', 'csv'].includes(ext)) {
-    return <FileSpreadsheet className="h-4 w-4 text-emerald-500 shrink-0" />
+    return <FileSpreadsheet className="h-4 w-4 shrink-0 text-[var(--accent-mint)]" />
   }
   if (mime.includes('presentation') || mime.includes('powerpoint') || ['pptx', 'ppt'].includes(ext)) {
-    return <FileText className="h-4 w-4 text-amber-500 shrink-0" />
+    return <FileText className="h-4 w-4 shrink-0 text-[var(--accent-amber)]" />
   }
   if (['txt', 'md', 'json', 'js', 'ts', 'py', 'cpp', 'c', 'h'].includes(ext)) {
-    return <FileCode className="h-4 w-4 text-indigo-500 shrink-0" />
+    return <FileCode className="h-4 w-4 shrink-0 text-[var(--accent-violet)]" />
   }
   return <FileIcon className="h-4 w-4 text-muted-foreground shrink-0" />
 }
@@ -318,32 +319,31 @@ export function UploadsPanel({
       }
       aria-label="Uploads library"
     >
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 pb-2 pt-1 border-b border-border/50">
-        <div className="flex items-center gap-2 px-3.5 pb-2 pt-2">
-          <FolderUp className="h-4 w-4 text-[var(--accent-blue)]" />
-          <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Uploads Library
-          </span>
-          <button
-            type="button"
-            aria-label="Upload file"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={() => fileInputRef.current?.click()}
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
-            aria-label="Close uploads"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div className="px-3 space-y-2">
+      <PanelHeader
+        icon={FolderUp}
+        title="Uploads"
+        actions={
+          <>
+            <button
+              type="button"
+              aria-label="Upload file"
+              className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Plus className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              aria-label="Close uploads"
+              className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+              onClick={onClose}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </>
+        }
+      >
+        <>
           {/* Search bar */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
@@ -351,7 +351,7 @@ export function UploadsPanel({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search uploaded pictures & files…"
-              className="h-8 pl-8 text-[0.78125rem]"
+              className="h-8 pl-8 text-ui-sm"
             />
           </div>
 
@@ -362,10 +362,10 @@ export function UploadsPanel({
                 key={cat}
                 type="button"
                 className={cn(
-                  'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
+                  'shrink-0 rounded-full px-2.5 py-1 text-ui-xs capitalize transition-[color,background-color,transform] duration-150 ease-strong active:scale-[0.97]',
                   filter === cat
-                    ? 'bg-foreground text-background font-semibold'
-                    : 'bg-accent text-muted-foreground hover:text-foreground'
+                    ? 'bg-[color-mix(in_oklch,var(--accent-blue)_16%,transparent)] font-medium text-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
                 )}
                 onClick={() => setFilter(cat)}
               >
@@ -373,8 +373,8 @@ export function UploadsPanel({
               </button>
             ))}
           </div>
-        </div>
-      </div>
+        </>
+      </PanelHeader>
 
       {/* Upload Drop Zone & Item List */}
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -401,22 +401,22 @@ export function UploadsPanel({
           {uploading ? (
             <div className="flex flex-col items-center gap-1.5 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin text-[var(--accent-blue)]" />
-              <span className="text-[0.75rem] font-medium">Uploading to library…</span>
+              <span className="text-ui-sm font-medium">Uploading to library…</span>
             </div>
           ) : (
             <div className="flex flex-col items-center gap-1 text-muted-foreground">
               <UploadCloud className="h-5 w-5 text-muted-foreground group-hover:text-foreground transition-colors" />
-              <span className="text-[0.75rem] font-semibold text-foreground">
+              <span className="text-ui-sm font-semibold text-foreground">
                 Drop pictures or files here
               </span>
-              <span className="text-[0.6875rem]">or click to browse from device</span>
+              <span className="text-ui-xs">or click to browse from device</span>
             </div>
           )}
         </div>
 
         {/* Empty state */}
         {filtered.length === 0 && !uploading && (
-          <div className="px-2 py-8 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
+          <div className="px-2 py-8 text-center text-ui-sm leading-relaxed text-muted-foreground">
             {items.length === 0
               ? 'No uploads yet. Drag & drop pictures, PDFs, or office files above to add them to your library.'
               : 'No uploads match your search.'}
@@ -498,7 +498,7 @@ function UploadCard({
       ) : (
         <div className="flex flex-col items-center justify-center p-2 text-center">
           {getFileIcon(item.mime, item.name)}
-          <span className="mt-1 max-w-full truncate text-[0.625rem] text-muted-foreground font-medium">
+          <span className="mt-1 max-w-full truncate text-ui-2xs text-muted-foreground font-medium">
             {item.name.split('.').pop()?.toUpperCase() ?? 'FILE'}
           </span>
         </div>
@@ -506,7 +506,7 @@ function UploadCard({
 
       {/* Hover Overlay with Name at Bottom */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent p-1.5 pt-4 opacity-0 transition-opacity duration-150 group-hover:opacity-100">
-        <p className="truncate text-center text-[0.625rem] font-medium text-white drop-shadow-xs">
+        <p className="truncate text-center text-ui-2xs font-medium text-white drop-shadow-xs">
           {item.name}
         </p>
       </div>
@@ -515,7 +515,7 @@ function UploadCard({
       <button
         type="button"
         aria-label="Delete from library"
-        className="absolute top-1 right-1 z-10 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-[opacity,background-color,color] duration-150 ease-out hover:bg-rose-600 hover:text-white group-hover:opacity-100"
+        className="absolute top-1 right-1 z-10 rounded-full bg-black/60 p-1 text-white/90 opacity-0 transition-[opacity,background-color,color] duration-150 ease-out hover:bg-[var(--accent-rose)] hover:text-white group-hover:opacity-100"
         onClick={onDelete}
       >
         <Trash2 className="h-3 w-3" />

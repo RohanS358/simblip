@@ -332,9 +332,9 @@ export function TerminalLoader({
   }
 
   const textSizes = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-base",
+    sm: "text-ui-xs",
+    md: "text-ui-sm",
+    lg: "text-ui-xl",
   }
 
   const containerSizes = {
@@ -375,9 +375,9 @@ export function TextBlinkLoader({
   size?: "sm" | "md" | "lg"
 }) {
   const textSizes = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-base",
+    sm: "text-ui-xs",
+    md: "text-ui-sm",
+    lg: "text-ui-xl",
   }
 
   return (
@@ -403,9 +403,9 @@ export function TextShimmerLoader({
   size?: "sm" | "md" | "lg"
 }) {
   const textSizes = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-base",
+    sm: "text-ui-xs",
+    md: "text-ui-sm",
+    lg: "text-ui-xl",
   }
 
   return (
@@ -433,9 +433,9 @@ export function TextDotsLoader({
   size?: "sm" | "md" | "lg"
 }) {
   const textSizes = {
-    sm: "text-xs",
-    md: "text-sm",
-    lg: "text-base",
+    sm: "text-ui-xs",
+    md: "text-ui-sm",
+    lg: "text-ui-xl",
   }
 
   return (

@@ -114,7 +114,7 @@ export function DocSorter({
             style={{ aspectRatio: '210 / 297' }}
           >
             <PageThumbnail pageId={sheetId} className="pointer-events-none h-full w-full" />
-            <span className="pointer-events-none absolute bottom-0.5 left-1 rounded bg-foreground/10 px-1 text-[0.5625rem] font-medium text-muted-foreground">
+            <span className="pointer-events-none absolute bottom-0.5 left-1 rounded bg-foreground/10 px-1 text-ui-3xs font-medium text-muted-foreground">
               {i + 1}
             </span>
           </fm.div>

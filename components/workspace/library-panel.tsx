@@ -9,11 +9,13 @@ import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
 import {
   BadgeCheck,
+  Check,
   FileText,
   LibraryBig,
   Loader2,
   Search,
   Shapes,
+  SlidersHorizontal,
   Star,
   Trash2,
   Upload,
@@ -39,6 +41,8 @@ import type { PageDoc, SceneObject } from '@/lib/scene/types'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { PanelHeader } from './panel-header'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Dialog,
   DialogContent,
@@ -134,11 +138,11 @@ export function PublishDialog({
         </DialogHeader>
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Title</Label>
+            <Label className="text-ui-sm">Title</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Spring–mass lab template" />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Description</Label>
+            <Label className="text-ui-sm">Description</Label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -148,7 +152,7 @@ export function PublishDialog({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label className="text-[0.75rem]">Category</Label>
+              <Label className="text-ui-sm">Category</Label>
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -163,7 +167,7 @@ export function PublishDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-[0.75rem]">What to publish</Label>
+              <Label className="text-ui-sm">What to publish</Label>
               <Select value={scope} onValueChange={(v) => setScope(v as 'page' | 'selection')}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -178,7 +182,7 @@ export function PublishDialog({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-[0.75rem]">Tags (comma separated)</Label>
+            <Label className="text-ui-sm">Tags (comma separated)</Label>
             <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="oscillation, lab, week-3" />
           </div>
         </div>
@@ -211,7 +215,10 @@ export function LibraryPanel({
   const profile = useAuthStore((s) => s.profile)
   const [assets, setAssets] = useState<LibraryAssetRow[]>([])
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<string | null>(null)
+  /** Empty = no filter (everything shows). Multi-select, so several
+   *  subjects can be on at once — the old single-select row could only ever
+   *  narrow to one. */
+  const [cats, setCats] = useState<Set<string>>(new Set())
   const [favs, setFavs] = useState<Set<string>>(new Set())
   const [publishOpen, setPublishOpen] = useState(false)
 
@@ -224,19 +231,34 @@ export function LibraryPanel({
     return subscribeLibrary(refresh)
   }, [open, profile, refresh])
 
-  const filtered = useMemo(() => {
+  /** Search applied, category NOT — the counts beside each checkbox have to
+   *  reflect what ticking that box would actually reveal. */
+  const searched = useMemo(() => {
     const q = query.trim().toLowerCase()
-    return assets
-      .filter((a) => !category || a.category === category)
-      .filter(
-        (a) =>
-          !q ||
-          a.title.toLowerCase().includes(q) ||
-          (a.description ?? '').toLowerCase().includes(q) ||
-          a.tags.some((t) => t.toLowerCase().includes(q))
-      )
+    return assets.filter(
+      (a) =>
+        !q ||
+        a.title.toLowerCase().includes(q) ||
+        (a.description ?? '').toLowerCase().includes(q) ||
+        a.tags.some((t) => t.toLowerCase().includes(q))
+    )
+  }, [assets, query])
+
+  const filtered = useMemo(() => {
+    return searched
+      .filter((a) => cats.size === 0 || cats.has(a.category))
       .sort((a, b) => Number(favs.has(b.id)) - Number(favs.has(a.id)))
-  }, [assets, query, category, favs])
+  }, [searched, cats, favs])
+
+  /** Categories that actually occur, canonical ones first. Older rows can
+   *  hold a value outside LIBRARY_CATEGORIES, and a checkbox that can never
+   *  match anything is worse than no checkbox. */
+  const presentCategories = useMemo(() => {
+    const present = new Set(assets.map((a) => a.category).filter(Boolean))
+    const canonical = LIBRARY_CATEGORIES.filter((c) => present.has(c))
+    const extra = [...present].filter((c) => !LIBRARY_CATEGORIES.includes(c as never)).sort()
+    return [...canonical, ...extra]
+  }, [assets])
 
   const insert = (asset: LibraryAssetRow) => {
     if (asset.kind === 'page') {
@@ -276,80 +298,163 @@ export function LibraryPanel({
       }
       aria-label="Institution library"
     >
-      {/* Sticky Header: Library Title, Search Bar & Category Filters */}
-      <div className="sticky top-0 z-20 shrink-0 bg-card/80 backdrop-blur-xl supports-[backdrop-filter]:bg-card/60 pb-2 pt-1 border-b border-border/50">
-        <div className="flex items-center gap-2 px-3.5 pb-2 pt-2">
-          <LibraryBig className="h-4 w-4 text-[var(--accent-blue)]" />
-          <span className="flex-1 text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            Institution Library
-          </span>
-          {canPublish && (
+      <PanelHeader
+        icon={LibraryBig}
+        title="Library"
+        actions={
+          <>
+            {canPublish && (
+              <button
+                type="button"
+                aria-label="Publish current page to library"
+                className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+                onClick={() => setPublishOpen(true)}
+              >
+                <Upload className="h-3.5 w-3.5" />
+              </button>
+            )}
             <button
               type="button"
-              aria-label="Publish current page to library"
-              className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              onClick={() => setPublishOpen(true)}
+              aria-label="Close library"
+              className="rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+              onClick={onClose}
             >
-              <Upload className="h-3.5 w-3.5" />
+              <X className="h-3.5 w-3.5" />
             </button>
-          )}
-          <button
-            type="button"
-            aria-label="Close library"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={onClose}
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        <div className="px-3">
+          </>
+        }
+      >
+        <>
           <div className="relative">
             <Search className="pointer-events-none absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
             <Input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search assets…"
-              className="h-8 pl-8 text-[0.78125rem]"
+              className="h-8 pl-8 text-ui-sm"
             />
           </div>
-          <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto">
-            <button
-              type="button"
-              className={cn(
-                'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium transition-colors',
-                category === null ? 'bg-foreground text-background font-semibold' : 'bg-accent text-muted-foreground hover:text-foreground'
-              )}
-              onClick={() => setCategory(null)}
-            >
-              All
-            </button>
-            {LIBRARY_CATEGORIES.map((c) => (
+          {/* Eight categories never fit a ~240px panel, so the old row scrolled
+              sideways — the options past the third were invisible until you
+              dragged. A popover shows all of them at once, and being
+              multi-select means you can watch two subjects rather than
+              flipping between them. */}
+          <div className="flex items-center gap-1.5">
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-md border px-2 py-1 text-ui-xs transition-[color,background-color,border-color,transform] duration-150 ease-strong active:scale-[0.97]',
+                    cats.size > 0
+                      ? 'border-[var(--accent-blue)]/40 bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] text-foreground'
+                      : 'border-border/60 text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                >
+                  <SlidersHorizontal className="h-3 w-3 shrink-0" />
+                  {cats.size === 0 ? 'All subjects' : `${cats.size} selected`}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-52 p-1">
+                <div className="flex items-center justify-between px-2 py-1.5">
+                  <span className="text-ui-2xs font-medium text-muted-foreground">Subjects</span>
+                  {cats.size > 0 && (
+                    <button
+                      type="button"
+                      className="text-ui-2xs text-muted-foreground underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                      onClick={() => setCats(new Set())}
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {presentCategories.map((c) => {
+                  const on = cats.has(c)
+                  // Count from the SEARCH-filtered set, not the raw list, so a
+                  // number here always matches what selecting it would show.
+                  const n = searched.filter((a) => a.category === c).length
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      role="checkbox"
+                      aria-checked={on}
+                      onClick={() =>
+                        setCats((prev) => {
+                          const next = new Set(prev)
+                          if (next.has(c)) next.delete(c)
+                          else next.add(c)
+                          return next
+                        })
+                      }
+                      className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-ui-xs transition-colors duration-150 hover:bg-accent"
+                    >
+                      <span
+                        className={cn(
+                          'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-[3px] border transition-colors duration-150',
+                          on
+                            ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)] text-white'
+                            : 'border-border'
+                        )}
+                      >
+                        {on && <Check className="h-2.5 w-2.5" strokeWidth={3} />}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate capitalize">{c.replace('-', ' ')}</span>
+                      <span className="shrink-0 text-ui-2xs tabular-nums text-muted-foreground">{n}</span>
+                    </button>
+                  )
+                })}
+              </PopoverContent>
+            </Popover>
+            {/* Active subjects stay visible outside the popover, each one its
+                own remove target — otherwise a filter you set two minutes ago
+                silently explains an empty list. */}
+            {[...cats].map((c) => (
               <button
                 key={c}
                 type="button"
-                className={cn(
-                  'shrink-0 rounded-full px-2.5 py-1 text-[0.6875rem] font-medium capitalize transition-colors',
-                  category === c ? 'bg-foreground text-background font-semibold' : 'bg-accent text-muted-foreground hover:text-foreground'
-                )}
-                onClick={() => setCategory(category === c ? null : c)}
+                aria-label={`Remove ${c.replace('-', ' ')} filter`}
+                onClick={() =>
+                  setCats((prev) => {
+                    const next = new Set(prev)
+                    next.delete(c)
+                    return next
+                  })
+                }
+                className="group flex shrink-0 items-center gap-1 rounded-full bg-accent px-2 py-0.5 text-ui-2xs capitalize text-muted-foreground transition-colors duration-150 hover:text-foreground"
               >
                 {c.replace('-', ' ')}
+                <X className="h-2.5 w-2.5 opacity-50 transition-opacity group-hover:opacity-100" />
               </button>
             ))}
           </div>
-        </div>
-      </div>
+        </>
+      </PanelHeader>
 
-      <div className="flex-1 space-y-2 overflow-y-auto px-3 pb-3">
+      <div className="flex-1 space-y-2 overflow-y-auto px-3 py-3">
         {filtered.length === 0 && (
-          <p className="px-2 py-8 text-center text-[0.75rem] leading-relaxed text-muted-foreground">
-            {assets.length === 0
-              ? canPublish
-                ? 'The library is empty. Publish a page to start your institution’s collection.'
-                : 'No approved assets yet — check back soon.'
-              : 'Nothing matches your search.'}
-          </p>
+          <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+            <p className="text-ui-sm leading-relaxed text-muted-foreground">
+              {assets.length === 0
+                ? canPublish
+                  ? 'The library is empty. Publish a page to start your institution’s collection.'
+                  : 'No approved assets yet — check back soon.'
+                : cats.size > 0 && !query.trim()
+                  ? 'Nothing in the subjects you picked.'
+                  : 'Nothing matches your search.'}
+            </p>
+            {/* A filter set earlier is the usual reason an established library
+                looks empty — offer the way out rather than just reporting it. */}
+            {assets.length > 0 && cats.size > 0 && (
+              <button
+                type="button"
+                onClick={() => setCats(new Set())}
+                className="rounded-md border border-border/60 px-2.5 py-1 text-ui-xs text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
+              >
+                Clear subject filter
+              </button>
+            )}
+          </div>
         )}
         {filtered.map((a) => {
           const objectCount =
@@ -365,16 +470,15 @@ export function LibraryPanel({
                   <Shapes className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent-violet)]" />
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1 truncate text-[0.8125rem] font-semibold">
+                  <p className="flex items-center gap-1 truncate text-ui-sm font-medium text-foreground">
                     {a.title}
                     {a.approved && <BadgeCheck className="h-3.5 w-3.5 shrink-0 text-[var(--accent-mint)]" />}
                   </p>
                   {a.description && (
-                    <p className="line-clamp-2 text-[0.71875rem] leading-snug text-muted-foreground">{a.description}</p>
+                    <p className="line-clamp-2 text-ui-xs leading-snug text-muted-foreground">{a.description}</p>
                   )}
-                  <p className="mt-0.5 text-[0.65625rem] text-muted-foreground">
-                    {a.uploader_name} · {objectCount} object{objectCount === 1 ? '' : 's'} ·{' '}
-                    <span className="capitalize">{a.category.replace('-', ' ')}</span>
+                  <p className="mt-0.5 text-ui-2xs text-muted-foreground">
+                    {a.uploader_name} · {objectCount} object{objectCount === 1 ? '' : 's'}
                   </p>
                 </div>
                 <button
@@ -387,17 +491,22 @@ export function LibraryPanel({
                 </button>
               </div>
               <div className="mt-2 flex items-center gap-1.5">
-                <Button size="sm" className="h-6 px-2 text-[0.6875rem]" onClick={() => insert(a)}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="h-6 px-2 text-ui-xs font-medium"
+                  onClick={() => insert(a)}
+                >
                   {a.kind === 'page' ? 'Add as page' : 'Insert'}
                 </Button>
                 {canApprove && (
                   <Button
                     size="sm"
-                    variant="outline"
-                    className="h-6 px-2 text-[0.6875rem]"
+                    variant="ghost"
+                    className="h-6 px-2 text-ui-xs font-normal text-muted-foreground hover:text-foreground"
                     onClick={() => void setApproved(a.id, !a.approved)}
                   >
-                    {a.approved ? 'Unapprove' : 'Approve for students'}
+                    {a.approved ? 'Unapprove' : 'Approve'}
                   </Button>
                 )}
                 {(a.uploader_id === profile.id || canApprove) && (

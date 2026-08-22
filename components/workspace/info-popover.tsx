@@ -22,7 +22,7 @@ export function InfoPopover({
           <Info className="h-3.5 w-3.5" />
         </button>
       </PopoverTrigger>
-      <PopoverContent align="center" side={side} className="w-56 text-xs leading-relaxed">
+      <PopoverContent align="center" side={side} className="w-56 text-ui-xs leading-relaxed">
         {description}
       </PopoverContent>
     </Popover>

@@ -74,8 +74,8 @@ export function BackupSettings() {
   return (
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card/60 p-3">
-        <p className="text-[0.8125rem] font-medium text-foreground">Local backup</p>
-        <p className="mt-1 text-[0.71875rem] leading-normal text-muted-foreground">
+        <p className="text-ui-md font-medium text-foreground">Local backup</p>
+        <p className="mt-1 text-ui-xs leading-normal text-muted-foreground">
           Everything you make stays on this device only — notebooks, ink, and every image or
           document you attach. Download a backup to move to a new device or protect against
           losing this browser's data, and restore it from the same place.
@@ -109,7 +109,7 @@ export function BackupSettings() {
         />
       </div>
 
-      <p className="text-[0.6875rem] text-muted-foreground">
+      <p className="text-ui-xs text-muted-foreground">
         Restoring overwrites any page or file with the same id already on this device — everything
         else is left alone.
       </p>

@@ -49,7 +49,7 @@ function Tooltip({
   if (!visible) return null
   return (
     <div
-      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-border/60 bg-popover px-2 py-1 text-[11px] shadow-lg"
+      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg border border-border/60 bg-popover px-2 py-1 text-ui-2xs shadow-lg"
       style={{ left: x, top: y - 8 }}
     >
       {children}
@@ -114,7 +114,7 @@ export function StatusBreakdownBar({ subs, total }: { subs: SubmissionRow[]; tot
       </Tooltip>
       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
         {STATUS_ORDER.map((status) => (
-          <span key={status} className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
+          <span key={status} className="flex items-center gap-1 text-ui-2xs text-muted-foreground">
             <span className="h-2 w-2 rounded-full" style={{ background: STATUS_HEX[status] }} />
             {STATUS_LABEL[status]} · {counts[status]}
           </span>
@@ -140,10 +140,10 @@ export function TimingChart({ subs, dueAt }: { subs: SubmissionRow[]; dueAt: str
     .sort((a, b) => a.hoursFromDue - b.hoursFromDue)
 
   if (!dueAt) {
-    return <p className="text-[12px] text-muted-foreground">This assignment has no due date — timing isn't tracked.</p>
+    return <p className="text-ui-xs text-muted-foreground">This assignment has no due date — timing isn't tracked.</p>
   }
   if (withTimes.length === 0) {
-    return <p className="text-[12px] text-muted-foreground">No submissions yet.</p>
+    return <p className="text-ui-xs text-muted-foreground">No submissions yet.</p>
   }
 
   const maxAbs = Math.max(1, ...withTimes.map((w) => Math.abs(w.hoursFromDue)))
@@ -196,7 +196,7 @@ export function TimingChart({ subs, dueAt }: { subs: SubmissionRow[]; dueAt: str
           </>
         )}
       </Tooltip>
-      <div className="mt-2 flex items-center justify-between text-[10.5px] text-muted-foreground">
+      <div className="mt-2 flex items-center justify-between text-ui-2xs text-muted-foreground">
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-[var(--accent-mint)]" /> Early / on-time
         </span>
@@ -221,7 +221,7 @@ export function OnTimeRateChart({
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null)
   const sorted = [...rows].filter((r) => r.total > 0).sort((a, b) => a.onTimeRate - b.onTimeRate)
   if (sorted.length === 0) {
-    return <p className="text-[12px] text-muted-foreground">Not enough submission history yet.</p>
+    return <p className="text-ui-xs text-muted-foreground">Not enough submission history yet.</p>
   }
   const rowH = 24
   const W = 100
@@ -260,7 +260,7 @@ export function OnTimeRateChart({
         {sorted.map((r, i) => (
           <div
             key={r.studentId}
-            className="absolute left-0 flex items-center text-[10px] font-medium text-muted-foreground"
+            className="absolute left-0 flex items-center text-ui-3xs font-medium text-muted-foreground"
             style={{ top: `${(i / sorted.length) * 100}%`, height: `${100 / sorted.length}%`, width: '30%' }}
           >
             <span className="truncate">{r.name.split(' ')[0]}</span>
@@ -291,7 +291,7 @@ export function OnTimeTrendChart({
 }) {
   const [hover, setHover] = useState<{ i: number; x: number; y: number } | null>(null)
   if (points.length < 2) {
-    return <p className="text-[12px] text-muted-foreground">Needs at least two assignments with submissions to show a trend.</p>
+    return <p className="text-ui-xs text-muted-foreground">Needs at least two assignments with submissions to show a trend.</p>
   }
   const W = 100
   const H = 56
@@ -334,7 +334,7 @@ export function OnTimeTrendChart({
           </>
         )}
       </Tooltip>
-      <p className="mt-1 text-[10.5px] text-muted-foreground">
+      <p className="mt-1 text-ui-2xs text-muted-foreground">
         {trendUp ? '↗' : '↘'} {Math.round(first)}% → {Math.round(last)}% across {points.length} assignments
       </p>
     </div>
@@ -345,8 +345,8 @@ export function StatTile({ label, value, tone }: { label: string; value: string;
   const toneColor = tone ? `var(--accent-${tone})` : undefined
   return (
     <div className="glass rounded-xl p-3">
-      <p className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={cn('mt-1 text-[22px] font-semibold')} style={toneColor ? { color: toneColor } : undefined}>
+      <p className="text-ui-2xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className={cn('mt-1 text-ui-3xl font-semibold')} style={toneColor ? { color: toneColor } : undefined}>
         {value}
       </p>
     </div>

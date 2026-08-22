@@ -663,6 +663,29 @@ html {
      phone". xs marks the gap between a 360-390px handset and a 430px Pro Max,
      where an extra header control starts to fit. */
   --breakpoint-xs: 25rem; /* 400px */
+  /* Dense-UI type scale. The workspace panels had grown 14 distinct
+     hardcoded sizes (text-[0.65625rem], text-[0.84375rem], …) — fractional
+     one-off nudges with no relationship to each other, so the same kind of
+     label rendered at three sizes depending on which panel it was in.
+     These seven steps replace all of them; the half-pixel values snapped
+     DOWN to their nearest real step (≤0.6px each, so nothing reflows).
+     Distinct from Tailwind's own text-xs/sm/base, which stay untouched for
+     document content — this scale is for chrome.
+
+     Floored at 10px, and nothing below 12px carries prose: measuring the
+     live app showed 11px/400 was doing most of the BODY copy in the panels,
+     which is where the "too small" reading came from. The bottom two steps
+     are for badges and counts only. rem, so the user's UI-scale preference
+     (shell.tsx drives the root font-size) multiplies them as intended. */
+  --text-ui-3xs: 0.625rem;   /* 10px — badge glyphs, superscripts ONLY */
+  --text-ui-2xs: 0.6875rem;  /* 11px — counts, dense metadata */
+  --text-ui-xs: 0.75rem;     /* 12px — secondary labels, hints */
+  --text-ui-sm: 0.8125rem;   /* 13px — default panel body */
+  --text-ui-md: 0.875rem;    /* 14px — panel titles, list rows */
+  --text-ui-lg: 0.9375rem;   /* 15px — section headings */
+  --text-ui-xl: 1rem;        /* 16px — panel header titles */
+  --text-ui-2xl: 1.125rem;   /* 18px — dialog titles, page headings */
+  --text-ui-3xl: 1.375rem;   /* 22px — the largest chrome heading */
   --font-sans: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, sans-serif;
   --font-mono: var(--font-jetbrains), 'JetBrains Mono', ui-monospace, monospace;
   --color-background: var(--background);

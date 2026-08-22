@@ -367,7 +367,7 @@ function ProbeChip({
             type="button"
             aria-label={`Channel: ${label}. Click to change`}
             aria-expanded={open}
-            className="flex items-center gap-1 rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-[10px] shadow-sm backdrop-blur transition-colors"
+            className="flex items-center gap-1 rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-ui-3xs shadow-sm backdrop-blur transition-colors"
             style={{ borderColor: color, color }}
             onClick={onToggle}
           >
@@ -376,7 +376,7 @@ function ProbeChip({
           </button>
         ) : (
           <span
-            className="rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-[10px] shadow-sm backdrop-blur"
+            className="rounded-full border bg-card/95 px-1.5 py-0.5 font-mono text-ui-3xs shadow-sm backdrop-blur"
             style={{ borderColor: color, color }}
           >
             <span className="block max-w-24 truncate">{label || '—'}</span>
@@ -406,7 +406,7 @@ function ProbeChip({
               role="option"
               aria-selected={c === selected}
               className={
-                'block w-full truncate rounded px-1.5 py-1 text-left font-mono text-[10.5px] transition-colors hover:bg-accent ' +
+                'block w-full truncate rounded px-1.5 py-1 text-left font-mono text-ui-2xs transition-colors hover:bg-accent ' +
                 (c === selected ? 'text-foreground' : 'text-muted-foreground')
               }
               onClick={() => onPick(c)}
