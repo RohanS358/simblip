@@ -122,11 +122,14 @@ function StudentAssignments() {
   }
 
   return (
-    <div className="space-y-3 pt-6">
+    <div className="space-y-3 pt-3">
       {assignments.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <ClipboardList className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-[13px] text-muted-foreground">No assignments yet. Enjoy it while it lasts.</p>
+          <p className="text-sm text-muted-foreground">No assignments yet.</p>
+          <p className="max-w-[26ch] text-xs leading-relaxed text-muted-foreground/70">
+            Work your teachers assign shows up here.
+          </p>
         </div>
       )}
       {assignments.map((a) => {
@@ -208,7 +211,10 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
       {assignments.length === 0 && (
         <div className="flex flex-col items-center gap-2 py-16 text-center">
           <ClipboardList className="h-6 w-6 text-muted-foreground/50" />
-          <p className="text-[13px] text-muted-foreground">No assignments yet.</p>
+          <p className="text-sm text-muted-foreground">No assignments yet.</p>
+          <p className="max-w-[26ch] text-xs leading-relaxed text-muted-foreground/70">
+            Right-click any page and choose Assign to set one.
+          </p>
         </div>
       )}
       {assignments.map((a) => {

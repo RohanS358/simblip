@@ -5,6 +5,7 @@
 // tree's own TreeNode recursion instead of a second read model.
 
 import { useState } from 'react'
+import { Share2 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useWorkspaceStore, childrenOf } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
@@ -71,9 +72,13 @@ export function SharedPanel() {
 
   if (!sharedRoot || children.length === 0) {
     return (
-      <p className="px-3.5 py-4 text-[0.75rem] leading-relaxed text-muted-foreground">
-        Nothing shared with you yet.
-      </p>
+      <div className="flex flex-col items-center gap-2 px-6 py-16 text-center">
+        <Share2 className="h-6 w-6 text-muted-foreground/50" />
+        <p className="text-sm text-muted-foreground">Nothing shared with you yet.</p>
+        <p className="max-w-[24ch] text-xs leading-relaxed text-muted-foreground/70">
+          Pages your teachers share land here automatically.
+        </p>
+      </div>
     )
   }
 

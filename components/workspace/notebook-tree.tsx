@@ -58,12 +58,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
@@ -278,8 +272,10 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
         <ContextMenuTrigger asChild>
           <div
             className={cn(
-              'group flex items-center gap-1.5 rounded-lg px-2 py-1 hover:bg-accent/50',
-              isNotebook ? 'text-[0.8125rem] font-semibold py-1.5' : 'gap-2 text-[0.78125rem] font-medium text-muted-foreground',
+              'group flex items-center gap-1.5 px-2 py-1 transition-colors duration-150 hover:bg-accent/50',
+              'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
+              isNotebook ? 'rounded-lg' : 'rounded-md',
+              isNotebook ? 'py-1.5 text-sm font-medium' : 'gap-2 text-sm font-normal text-muted-foreground',
               dropOver && 'ring-2 ring-inset ring-[var(--accent-blue)]/60 bg-[var(--accent-blue)]/5'
             )}
             // ── DnD: accept both OS files and internal node moves ──
@@ -323,7 +319,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               type="button"
               aria-label={isCollapsed ? 'Expand folder' : 'Collapse folder'}
               onClick={() => handlers.toggleCollapsed(node.id)}
-              className="text-muted-foreground"
+              className="rounded text-muted-foreground transition-transform duration-150 ease-strong active:scale-90"
             >
               <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', !isCollapsed && 'rotate-90')} />
             </button>
@@ -339,11 +335,11 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               onEditDone={() => handlers.setRenaming(null)}
               onRename={(name) => store.getState().renameNode(node.id, name)}
             />
-            <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
               <button
                 type="button"
                 aria-label="New folder"
-                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   store.getState().addFolder('New Folder', node.id)
@@ -354,7 +350,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label="Add page"
-                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   handlers.setAddTarget({ parentId: node.id })
@@ -365,7 +361,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label="Rename"
-                className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   handlers.setRenaming(node.id)
@@ -376,7 +372,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label={`Delete ${isNotebook ? 'notebook' : 'folder'}`}
-                className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   store.getState().removeNode(node.id)
@@ -440,7 +436,8 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group ml-4 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] transition-colors',
+            'group ml-4 flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm transition-colors duration-150',
+            'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
             active
               ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
               : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
@@ -467,11 +464,11 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
-          <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
             <button
               type="button"
               aria-label="Rename"
-              className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 handlers.setRenaming(node.id)
@@ -482,7 +479,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             <button
               type="button"
               aria-label="Delete page"
-              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 store.getState().removeNode(node.id)
@@ -600,7 +597,10 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
     <ContextMenu onOpenChange={(open) => open && loadSyncState()}>
       <ContextMenuTrigger asChild>
         <div
-          className="group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-[0.78125rem] text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+          className={cn(
+            "group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-sm text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground",
+            "focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]"
+          )}
           style={{ marginLeft: `${16 + depth * 16}px` }}
           // also tag as a node so folders can reparent it.
           draggable
@@ -623,11 +623,11 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             onEditDone={() => handlers.setRenaming(null)}
             onRename={(name) => store.getState().renameNode(node.id, name)}
           />
-          <div className="flex items-center opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="flex items-center translate-x-1 opacity-0 transition-[opacity,transform] duration-200 ease-strong group-hover:translate-x-0 group-hover:opacity-100 group-focus-within:translate-x-0 group-focus-within:opacity-100">
             <button
               type="button"
               aria-label="Rename"
-              className="rounded p-0.5 text-muted-foreground hover:bg-accent"
+              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 handlers.setRenaming(node.id)
@@ -638,7 +638,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             <button
               type="button"
               aria-label="Delete file"
-              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 store.getState().removeNode(node.id)
@@ -773,7 +773,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
       >
         {roots.filter((nb) => nb.name !== SHARED_NB).length === 0 && (
           <div className="flex flex-col items-center gap-3 px-2 py-6 text-center">
-            <p className="text-[0.75rem] leading-relaxed text-muted-foreground">
+            <p className="text-sm leading-relaxed text-muted-foreground">
               No notebooks yet.
               <br />
               Create one to start working.
@@ -781,7 +781,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
             <div className="flex gap-2">
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[0.75rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
                 onClick={() => {
                   const id = store.getState().addNotebook()
                   const sec = store.getState().addFolder('Section 1', id)
@@ -792,7 +792,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
               </button>
               <button
                 type="button"
-                className="rounded-md border border-border/60 px-2.5 py-1 text-[0.75rem] font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                className="rounded-md border border-border/60 px-2.5 py-1 text-sm font-medium text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-[0.97]"
                 onClick={() => store.getState().addFolder('New Folder', null)}
               >
                 New folder

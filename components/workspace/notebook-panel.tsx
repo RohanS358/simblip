@@ -1,96 +1,101 @@
 'use client'
 
-// The "Notebook" sidebar section — three collapsible divisions stacked in
-// one scroll column: Notebooks (the existing NotebookTree, unmodified),
-// Assignments, and Shared. Assignments and Shared both live inside a
-// notebook's worth of pages anyway (importPageDoc lands them there), so
-// they read as siblings of the notebook list rather than a separate app
-// surface — see docs/superpowers/specs/2026-08-10-unify-assignments-shared-notebook-nav-design.md.
+// The "Notebook" sidebar section — ONE view at a time (Notebooks, Shared,
+// Assignments), picked by a text filter row at the top.
+//
+// This used to stack all three as collapsible accordions in a single scroll
+// column, which quietly re-introduced the vertical split that
+// docs/ui-simplification-plan.md §4 removed from the sidebar itself: "Only one
+// section is expanded at a time — no more permanent internal split fighting
+// over vertical space. The Notebook tree finally gets the *entire* panel
+// height when it's open." Three stacked sections meant the tree got about half
+// of it. Now the active view gets all of it, one level down, for the same
+// reason the rail works that way one level up.
+//
+// The three views are unmodified components (NotebookTree, SharedPanel,
+// AssignmentsPanel) — each already renders standalone, so switching between
+// them is a render choice, not a refactor of any of them.
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { BarChart3, ChevronDown, ClipboardList, Plus, Share2 } from 'lucide-react'
+import { BarChart3, Plus } from 'lucide-react'
 import { NotebookTree } from './notebook-tree'
 import { AssignmentsPanel } from './assignments-panel'
 import { SharedPanel } from './shared-panel'
 import { cn } from '@/lib/utils'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 
-type SectionId = 'notebooks' | 'assignments' | 'shared'
+type ViewId = 'notebooks' | 'shared' | 'assignments'
 
-const STORAGE_KEY = 'simblip-notebook-panel-collapsed'
+const VIEWS: { id: ViewId; label: string }[] = [
+  { id: 'notebooks', label: 'Notebooks' },
+  { id: 'shared', label: 'Shared' },
+  { id: 'assignments', label: 'Assignments' },
+]
 
-function loadCollapsed(): Record<SectionId, boolean> {
-  const fallback: Record<SectionId, boolean> = { notebooks: false, assignments: false, shared: false }
-  if (typeof window === 'undefined') return fallback
+const STORAGE_KEY = 'simblip-notebook-panel-view'
+/** The pre-rework key held three collapsed-booleans. It has no meaning under
+ *  one-view-at-a-time, so it's cleared on first load rather than left to rot. */
+const LEGACY_KEY = 'simblip-notebook-panel-collapsed'
+
+function loadView(): ViewId {
+  if (typeof window === 'undefined') return 'notebooks'
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as Partial<Record<SectionId, boolean>>
-    return { ...fallback, ...saved }
+    localStorage.removeItem(LEGACY_KEY)
+    const saved = localStorage.getItem(STORAGE_KEY)
+    return VIEWS.some((v) => v.id === saved) ? (saved as ViewId) : 'notebooks'
   } catch {
-    return fallback
+    return 'notebooks'
   }
 }
 
-function Section({
-  id,
-  label,
-  icon: Icon,
-  open,
-  onToggle,
-  action,
-  children,
-}: {
-  id: SectionId
-  label: string
-  icon: typeof ClipboardList
-  open: boolean
-  onToggle: (id: SectionId) => void
-  action?: React.ReactNode
-  children: React.ReactNode
-}) {
-  return (
-    <div className={cn('flex min-h-0 flex-col border-b border-border/40 last:border-b-0', open && 'flex-1')}>
-      <div className="flex shrink-0 items-center gap-1.5 px-3.5 py-2">
-        <button type="button" className="flex flex-1 items-center gap-1.5 text-left" onClick={() => onToggle(id)}>
-          <ChevronDown className={cn('h-3.5 w-3.5 text-muted-foreground transition-transform', !open && '-rotate-90')} />
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-[0.6875rem] font-bold uppercase tracking-[0.12em] text-muted-foreground">
-            {label}
-          </span>
-        </button>
-        {action}
-      </div>
-      {open && <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>}
-    </div>
-  )
-}
-
 export function NotebookPanel() {
-  const [collapsed, setCollapsed] = useState<Record<SectionId, boolean>>(() => loadCollapsed())
+  const [view, setView] = useState<ViewId>('notebooks')
+
+  // Read after mount, not in the initializer: this panel renders on the
+  // server too, and seeding state from localStorage during the first render
+  // makes the client tree disagree with the server's.
+  useEffect(() => setView(loadView()), [])
 
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(collapsed))
+      localStorage.setItem(STORAGE_KEY, view)
     } catch {}
-  }, [collapsed])
-
-  const toggle = (id: SectionId) => setCollapsed((c) => ({ ...c, [id]: !c[id] }))
+  }, [view])
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <Section
-        id="notebooks"
-        label="Notebooks"
-        icon={ClipboardList}
-        open={!collapsed.notebooks}
-        onToggle={toggle}
-        action={
+      {/* Filter row: plain labels, underline on the active one. The old
+          headers carried an icon each, but "Shared" and "Assignments" already
+          say what those icons said. */}
+      <div className="flex shrink-0 items-center gap-1 border-b border-border/40 px-3 pt-2">
+        <div role="tablist" aria-label="Notebook view" className="flex flex-1 items-center gap-1">
+          {VIEWS.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="tab"
+              aria-selected={view === v.id}
+              onClick={() => setView(v.id)}
+              className={cn(
+                'relative rounded-t-md px-2 py-1.5 text-xs transition-colors duration-150 ease-strong',
+                'after:absolute after:inset-x-2 after:-bottom-px after:h-0.5 after:rounded-full after:transition-colors after:duration-150',
+                view === v.id
+                  ? 'font-medium text-foreground after:bg-[var(--accent-blue)]'
+                  : 'text-muted-foreground after:bg-transparent hover:text-foreground'
+              )}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        {view === 'notebooks' && (
           <button
             type="button"
             title="New notebook"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={(e) => {
-              e.stopPropagation()
+            aria-label="New notebook"
+            className="mb-1 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+            onClick={() => {
               const store = useWorkspaceStore
               const id = store.getState().addNotebook()
               const sec = store.getState().addFolder('Section 1', id)
@@ -99,36 +104,31 @@ export function NotebookPanel() {
           >
             <Plus className="h-3.5 w-3.5" />
           </button>
-        }
-      >
-        <NotebookTree />
-      </Section>
-      <Section id="shared" label="Shared" icon={Share2} open={!collapsed.shared} onToggle={toggle}>
-        <SharedPanel />
-      </Section>
-
-      <Section
-        id="assignments"
-        label="Assignments"
-        icon={ClipboardList}
-        open={!collapsed.assignments}
-        onToggle={toggle}
-        action={
+        )}
+        {view === 'assignments' && (
           <Link
             href="/assignments/insights"
             title="Insights"
-            className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-            onClick={(e) => e.stopPropagation()}
+            aria-label="Assignment insights"
+            className="mb-1 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
           >
             <BarChart3 className="h-3.5 w-3.5" />
           </Link>
-        }
-      >
-        <div className="px-1">
-          <AssignmentsPanel compact />
-        </div>
-      </Section>
-      
+        )}
+      </div>
+
+      {/* The scroll container lives here, not in the views: NotebookTree
+          scrolls itself, but SharedPanel and AssignmentsPanel are plain
+          content that relied on the old Section wrapper to scroll them. */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {view === 'notebooks' && <NotebookTree />}
+        {view === 'shared' && <SharedPanel />}
+        {view === 'assignments' && (
+          <div className="px-1">
+            <AssignmentsPanel compact />
+          </div>
+        )}
+      </div>
     </div>
   )
 }
