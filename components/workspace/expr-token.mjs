@@ -6,18 +6,27 @@
 /**
  * The token the user is currently typing, if any.
  *
- * Autocomplete opens on `[` and stays open while they narrow it down. We look
- * BACKWARDS from the caret for an unclosed `[` — so `2*[volt` is a live query
- * for "volt", while `2*[A(V)] + ` is not a query at all (that bracket closed).
- * Returns null when the caret isn't inside a token.
+ * Two token shapes, both looking BACKWARDS from the caret:
+ *   • an unclosed `[` — `2*[volt` is a live query for "volt", while
+ *     `2*[A(V)] + ` is not a query at all (that bracket closed);
+ *   • a bare word — `2*vol` queries "vol" too.
+ * Returns null when the caret isn't inside either.
  */
 export function activeToken(text, caret) {
   const before = text.slice(0, caret)
   const open = before.lastIndexOf('[')
-  if (open === -1) return null
   // A `]` after the last `[` means that token is finished, not being typed.
-  if (before.indexOf(']', open) !== -1) return null
-  return { start: open, query: before.slice(open + 1) }
+  if (open !== -1 && before.indexOf(']', open) === -1) {
+    return { start: open, query: before.slice(open + 1) }
+  }
+  // A bare word is just as much a query as `[word` — requiring the bracket
+  // meant you had to already know the syntax to search for anything, which
+  // is the discovery failure this whole feature exists to fix.
+  //
+  // It must START with a letter, so a number is never a query: typing `9.81`
+  // into a numeric field must stay a plain number with no popover.
+  const word = /[A-Za-z_][A-Za-z0-9_]*$/.exec(before)
+  return word ? { start: word.index, query: word[0] } : null
 }
 
 /**
@@ -49,9 +58,21 @@ export function spliceItem(text, caret, item) {
   return { text: next, caret: caret + item.insert.length }
 }
 
-/** Plain substring filter — predictable beats clever for a 10-row list. */
+/** How well an item answers `q`. Lower is better; the list is rendered in
+ *  this order and row 0 is what Enter picks, so this IS "the best match". */
+function rank(item, q) {
+  const name = (item.label ?? '').toLowerCase()
+  if (name === q) return 0
+  if (name.startsWith(q)) return 1
+  if (item.search.startsWith(q)) return 2
+  return 3
+}
+
+/** Plain substring filter — predictable beats clever for a 10-row list —
+ *  ordered so the closest name lands first. Array#sort is stable, so equally
+ *  ranked items keep scopeItems' variables-before-channels order. */
 export function filterScope(items, query) {
   const q = query.trim().toLowerCase()
   if (!q) return items
-  return items.filter((i) => i.search.includes(q))
+  return items.filter((i) => i.search.includes(q)).sort((a, b) => rank(a, q) - rank(b, q))
 }

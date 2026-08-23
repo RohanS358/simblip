@@ -143,6 +143,16 @@ const isNumericValue = (v: string): boolean => v.trim() !== '' && Number.isFinit
  * are mouse/pen only — a touch drag scrolls the panel, because on a tablet
  * that is what dragging a field must do.
  */
+/** The row's full story, kept out of the row itself: hover title and
+ *  accessible name. `insert` is included because the token is what actually
+ *  lands in the field, and it is not always the displayed name. */
+function describe(m: ScopeItem): string {
+  const kind = m.kind === 'variable' ? 'Variable' : 'Live value'
+  return [`${kind}: ${m.label}`, m.hint && `= ${m.hint}`, `inserts ${m.insert}`]
+    .filter(Boolean)
+    .join('  ·  ')
+}
+
 function ExprInput({
   value,
   onCommit,
@@ -203,14 +213,19 @@ function ExprInput({
   const syncToken = (el: HTMLInputElement) => {
     if (!scope.length) return
     const tok = activeToken(el.value, el.selectionStart ?? el.value.length)
-    if (tok) {
+    // Only offer a list that has something in it. A word that matches nothing
+    // is just a word — the field must not flash an empty popover at every
+    // letter of a name the user is inventing.
+    if (tok && filterScope(scope, tok.query).length > 0) {
       setQuery(tok.query)
       setHighlight(0)
       setOpenList(true)
-    } else if (openList && query !== '') {
-      // Only auto-close a token-driven list; the chip-opened one stays put.
-      closeList()
+      return
     }
+    // Auto-close a token-driven list, and a chip-opened one the moment a
+    // token appears that matches nothing. A chip-opened list over text with
+    // no token at all (a bare number) stays put — that one was deliberate.
+    if (openList && (tok || query !== '')) closeList()
   }
   const pick = (item: ScopeItem) => {
     const el = inputRef.current
@@ -408,7 +423,7 @@ function ExprInput({
           aria-label={`Insert a variable or live value into ${ariaLabel}`}
           aria-haspopup="listbox"
           aria-expanded={openList}
-          title="Insert a variable or live value  ·  or just type ["
+          title="Insert a variable or live value  ·  or just start typing a name"
           className={cn(
             'absolute right-1 top-1/2 flex -translate-y-1/2 items-center justify-center rounded p-0.5',
             'transition-opacity duration-150',
@@ -452,39 +467,41 @@ function ExprInput({
           aria-label="Variables and live values"
           className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-md"
         >
+          {/* Name only. The kind badge and the value hint made every row three
+              competing columns in a field barely wide enough for one — the
+              list you scan while typing needs to answer "which name?" and
+              nothing else. The details are still there, on hover and to a
+              screen reader, where they cost no width. */}
           {matches.map((m, i) => (
-            <li
-              key={m.insert}
-              id={`${listId}-${i}`}
-              role="option"
-              aria-selected={i === highlight}
-              className={cn(
-                'flex cursor-pointer items-baseline gap-2 px-2 py-1 text-ui-xs',
-                i === highlight && 'bg-accent'
-              )}
-              onMouseEnter={() => setHighlight(i)}
-              onMouseDown={(e) => {
-                // mousedown, not click: click fires after blur, by which time
-                // the field has already committed and closed the list.
-                e.preventDefault()
-                pick(m)
-              }}
-            >
-              <span
-                className={cn(
-                  'shrink-0 font-mono',
-                  m.kind === 'variable'
-                    ? 'text-[var(--accent-amber)]'
-                    : 'text-[var(--accent-blue)]'
-                )}
-              >
-                {m.kind === 'variable' ? 'var' : 'live'}
-              </span>
-              <span className="min-w-0 flex-1 truncate font-mono">{m.label}</span>
-              <span className="shrink-0 truncate text-ui-2xs text-muted-foreground">
-                {m.hint}
-              </span>
-            </li>
+            <Tooltip key={m.insert}>
+              <TooltipTrigger asChild>
+                <li
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={i === highlight}
+                  aria-label={describe(m)}
+                  className={cn(
+                    'flex cursor-pointer items-baseline gap-2 px-2 py-1 text-ui-xs',
+                    i === highlight && 'bg-accent'
+                  )}
+                  onMouseEnter={() => setHighlight(i)}
+                  onMouseDown={(e) => {
+                    // mousedown, not click: click fires after blur, by which time
+                    // the field has already committed and closed the list.
+                    e.preventDefault()
+                    pick(m)
+                  }}
+                >
+                  <span className="min-w-0 flex-1 truncate font-mono">{m.label}</span>
+                </li>
+              </TooltipTrigger>
+              {/* Right, not the default top/bottom: the list is a stack of
+                  rows, and any vertical side covers the neighbouring row the
+                  user is about to read. */}
+              <TooltipContent side="right" className="max-w-64">
+                {describe(m)}
+              </TooltipContent>
+            </Tooltip>
           ))}
         </ul>
       )}

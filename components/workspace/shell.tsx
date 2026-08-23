@@ -671,28 +671,6 @@ export function WorkspaceShell() {
           behind it to sample — which is exactly why the rail kept rendering
           solid. --sidebar-panel-w covers rail + panel. */}
       <div className="relative flex min-h-0 flex-1">
-        {/* The sidebar's material, OUTSIDE the dock. It cannot live on the
-            <aside>: Framer leaves an inline transform there from the entrance
-            animation, and a transformed ancestor is a backdrop root — a
-            backdrop-filter inside it samples only that subtree and renders
-            opaque. Here nothing in the chain transforms, so it samples the
-            canvas. Only the top is masked, so it dissolves into the header's
-            own material instead of cutting across it; the right edge stops
-            flush with the panel. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-y-0 left-0 z-20 bg-[var(--chrome-glass)] backdrop-blur-sm"
-          style={{
-            width: 'var(--sidebar-panel-w, 0px)',
-            // Geometrically a no-op, but it forces a hard clip on the
-            // composited layer. Without it Chromium lets the blurred backdrop
-            // bleed a few px past the right edge (backdrop-filter + mask-image
-            // defers the clip), which reads as glass spilling over the border.
-            clipPath: 'inset(0)',
-            maskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
-            WebkitMaskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
-          }}
-        />
         <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
 
         {splitScreenObject && (

@@ -342,18 +342,29 @@ export function Sidebar({
   }
 
   return (
-    // NOTE: this element keeps an inline `transform` from Framer's entrance
-    // animation, which makes it a BACKDROP ROOT — a backdrop-filter anywhere
-    // inside can only sample this subtree, so the glass renders opaque. The
-    // sidebar's translucent material therefore lives in shell.tsx, outside
-    // the transform, sized from --sidebar-panel-w.
+    // NOTE: the entrance animation is OPACITY ONLY, deliberately. Any
+    // transform here would make this element a backdrop root, and the glass
+    // layer below could then only sample this subtree — rendering opaque.
     <fm.aside
-      initial={{ x: -16, opacity: 0 }}
-      animate={{ x: 0, opacity: 1 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
       transition={motion}
       className="relative z-30 flex min-h-0 flex-row"
       aria-label="Sidebar"
     >
+      {/* The sidebar's material. Sized by inset-0, so it tracks the rail +
+          fold width exactly as the panel animates. NO top mask: it used to
+          fade in over the first 4rem to dissolve into the header, but the
+          header paints opaque, so the fade just left the top of the panel
+          unblurred. clipPath is geometrically a no-op but forces a hard clip
+          on the composited layer — without it Chromium lets the blurred
+          backdrop bleed a few px past the right edge. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 z-0 bg-[var(--chrome-glass)] backdrop-blur-sm"
+        style={{ clipPath: 'inset(0)' }}
+      />
+
       <div className="relative z-10 flex min-h-0 flex-col">
         {railNav}
       </div>
