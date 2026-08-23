@@ -676,28 +676,21 @@ export function WorkspaceShell() {
             animation, and a transformed ancestor is a backdrop root — a
             backdrop-filter inside it samples only that subtree and renders
             opaque. Here nothing in the chain transforms, so it samples the
-            canvas. Masked so it fades out to the right rather than stopping
-            on a line, exactly like the header's. */}
+            canvas. Only the top is masked, so it dissolves into the header's
+            own material instead of cutting across it; the right edge stops
+            flush with the panel. */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-y-0 left-0 z-20 bg-[var(--chrome-glass)] backdrop-blur-sm"
           style={{
-            width: 'calc(var(--sidebar-panel-w, 0px) + 1rem)',
-            // Two masks, intersected: fade out at the right edge, and fade IN
-            // under the header. The second one is what removes the corner
-            // artifact — the top edge dissolves into the header's own material
-            // instead of cutting across it, and because both joins are now
-            // horizontal there is no vertical seam beside the rail.
-            maskImage: [
-              'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 1rem), rgb(0 0 0 / 0.5) calc(100% - 0.4rem), rgb(0 0 0 / 0) 100%)',
-              'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
-            ].join(','),
-            WebkitMaskImage: [
-              'linear-gradient(to right, rgb(0 0 0) 0%, rgb(0 0 0) calc(100% - 1rem), rgb(0 0 0 / 0.5) calc(100% - 0.4rem), rgb(0 0 0 / 0) 100%)',
-              'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
-            ].join(','),
-            maskComposite: 'intersect',
-            WebkitMaskComposite: 'source-in',
+            width: 'var(--sidebar-panel-w, 0px)',
+            // Geometrically a no-op, but it forces a hard clip on the
+            // composited layer. Without it Chromium lets the blurred backdrop
+            // bleed a few px past the right edge (backdrop-filter + mask-image
+            // defers the clip), which reads as glass spilling over the border.
+            clipPath: 'inset(0)',
+            maskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
+            WebkitMaskImage: 'linear-gradient(to bottom, rgb(0 0 0 / 0) 2rem, rgb(0 0 0) 4rem)',
           }}
         />
         <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
