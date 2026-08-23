@@ -497,7 +497,7 @@ export function AddPageDialog({
                 <>
                   Drag &amp; drop files here
                   <br />
-                  <span className="text-ui-xs opacity-70">
+                  <span className="text-ui-xs">
                     Or click to browse — PDF, Word, Excel, PowerPoint, or image. Pick as many as
                     you like; each becomes its own page.
                   </span>

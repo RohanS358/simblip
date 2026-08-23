@@ -27,7 +27,8 @@
 // SimScript, which this app already tokenizes for free — see ScriptBlock.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import katex from 'katex'
+import { renderMath } from '@/lib/text/katex-lazy'
+import { useKatexReady } from '@/lib/text/use-katex-ready'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
 import { blocksToSlides, deckTitle } from '@/lib/ai/slides'
 import { wantsSlides } from '@/lib/ai/route-intent'
@@ -941,18 +942,17 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
  *  answer format is a known, narrow subset — the same one the notebook's own
  *  text objects accept (BLOCK_PREFIX_RE in lib/text/marks.ts). */
 function AnswerBlock({ source, streaming }: { source: string; streaming?: boolean }) {
+  // KaTeX arrives asynchronously (lib/text/katex-lazy.ts); this tick is what
+  // re-runs the memo below once it has, swapping literal `$…$` for typeset
+  // maths. Streaming answers usually re-render often enough on their own,
+  // but a finished answer would otherwise keep its fallback forever.
+  const katexTick = useKatexReady()
   const html = useMemo(() => {
     const inline = (t: string) =>
       t
         // Maths first: its braces and backslashes must not be seen by the
         // bold/italic passes below.
-        .replace(/\$([^$\n]+)\$/g, (_, e) => {
-          try {
-            return katex.renderToString(e, { throwOnError: false })
-          } catch {
-            return e as string
-          }
-        })
+        .replace(/\$([^$\n]+)\$/g, (_, e) => renderMath(e as string) ?? (e as string))
         .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
         .replace(/`([^`]+)`/g, '<code class="rounded bg-muted px-1 font-mono text-[0.9em]">$1</code>')
 
@@ -974,7 +974,7 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
         return `<p>${inline(line)}</p>`
       })
       .join('')
-  }, [source])
+  }, [source, katexTick])
 
   return (
     // No card, no border, no tinted background. The answer is the assistant

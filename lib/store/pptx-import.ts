@@ -19,6 +19,7 @@ import { baseObject } from '@/lib/scene/factory'
 import { num, str, type SceneObject } from '@/lib/scene/types'
 import { serialize, parse, resolveSizePx, type Mark, type MarkKind } from '@/lib/text/marks'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
+import { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 
 // Slide XML coordinates are EMUs (914400 per inch). SIMBLIP's own slide
 // canvas is a FIXED 960×540px frame (PPT_W_IN×PPT_H_IN in pptx-export.ts,
@@ -556,26 +557,10 @@ function shapeFillAndBorder(
   return { fillColor, strokeColor, strokeWidth }
 }
 
-/** Unit-bbox point sets (0-1 range, scaled by box w/h at call site) for the
- *  polygon prst shapes geometryKindOf recognizes. */
-export const PRST_POLYGON_POINTS: Record<string, number[][]> = {
-  triangle: [[0.5, 0], [1, 1], [0, 1]],
-  rtTriangle: [[0, 0], [0, 1], [1, 1]],
-  diamond: [[0.5, 0], [1, 0.5], [0.5, 1], [0, 0.5]],
-  parallelogram: [[0.25, 0], [1, 0], [0.75, 1], [0, 1]],
-  trapezoid: [[0.25, 0], [0.75, 0], [1, 1], [0, 1]],
-  pentagon: [[0.5, 0], [1, 0.38], [0.82, 1], [0.18, 1], [0, 0.38]],
-  hexagon: [[0.25, 0], [0.75, 0], [1, 0.5], [0.75, 1], [0.25, 1], [0, 0.5]],
-  octagon: [[0.29, 0], [0.71, 0], [1, 0.29], [1, 0.71], [0.71, 1], [0.29, 1], [0, 0.71], [0, 0.29]],
-  star5: [
-    [0.5, 0], [0.62, 0.35], [1, 0.35], [0.69, 0.57], [0.81, 0.91],
-    [0.5, 0.7], [0.19, 0.91], [0.31, 0.57], [0, 0.35], [0.38, 0.35],
-  ],
-  rightArrow: [[0, 0.25], [0.6, 0.25], [0.6, 0], [1, 0.5], [0.6, 1], [0.6, 0.75], [0, 0.75]],
-  leftArrow: [[1, 0.25], [0.4, 0.25], [0.4, 0], [0, 0.5], [0.4, 1], [0.4, 0.75], [1, 0.75]],
-  upArrow: [[0.25, 1], [0.25, 0.4], [0, 0.4], [0.5, 0], [1, 0.4], [0.75, 0.4], [0.75, 1]],
-  downArrow: [[0.25, 0], [0.25, 0.6], [0, 0.6], [0.5, 1], [1, 0.6], [0.75, 0.6], [0.75, 0]],
-}
+// PRST_POLYGON_POINTS now lives in lib/scene/preset-shapes.ts — canvas,
+// toolbar and sundial-dock need the table but not JSZip. Re-exported here
+// so this module stays the single import site for pptx callers.
+export { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 
 /** <a:prstGeom prst="..."/> — mapped onto SIMBLIP's real geometry kinds
  *  (rect/circle/polygon/line); anything unrecognized defaults to rect, since

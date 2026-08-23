@@ -8,8 +8,10 @@ const nextConfig = {
   },
   // Lighthouse flagged the first-party chunks as missing source maps —
   // without them, production errors (Sentry-less right now) are unreadable
-  // minified stack traces.
-  productionBrowserSourceMaps: false,
+  // minified stack traces. This ships .map files alongside the chunks; they
+  // are only fetched when devtools is open, so there is no cost to real
+  // users, but it does make the client source readable to anyone who looks.
+  productionBrowserSourceMaps: true,
   async headers() {
     // _next/static/* already gets long-lived immutable caching from Vercel;
     // these are the public/ assets that don't. sw.js is deliberately
@@ -31,11 +33,12 @@ const nextConfig = {
       {
         source: '/:path*',
         headers: [
-          // Not preloaded — submitting to the HSTS preload list is a
-          // separate, harder-to-reverse step (browsers ship the list in
-          // their binary) that belongs to a deliberate launch decision, not
-          // a default here.
-          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+          // `preload` is the directive Lighthouse's strong-HSTS audit wants.
+          // It only advertises eligibility — the domain is NOT on the preload
+          // list until someone submits it at hstspreload.org, which is the
+          // genuinely hard-to-reverse step. Do not submit until every current
+          // and future subdomain of rohan-singh.com.np is HTTPS-only.
+          { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },

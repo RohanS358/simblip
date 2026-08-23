@@ -21,6 +21,7 @@ import { useDocStore } from '@/lib/store/document'
 import { useActiveTextEditor, type TextEditorHandle } from '@/lib/store/text-editor'
 import { getString, type ObjectRendererProps } from './types'
 import { renderMarkdown, renderEditorLine, htmlToMarkdownSource, stripCaretHost, CARET_HOST_CHAR } from '@/lib/text/render'
+import { useKatexReady } from '@/lib/text/use-katex-ready'
 import {
   applyMark,
   shiftMarks,
@@ -1067,7 +1068,34 @@ export function RichTextArea({
       })
     }
   }
-  useLayoutEffect(fit) // content, editing mode, width and zoom changes all re-measure
+  // Gate the measurement on a signature of everything that can change the
+  // fit. `useLayoutEffect(fit)` with no deps ran on EVERY render of EVERY
+  // text object, and `fit` reads scrollHeight/clientHeight — a synchronous
+  // layout flush each time. That is Lighthouse's "Forced reflow" insight and
+  // the main layout-thrash source on a page full of text boxes. Re-running
+  // on the same inputs could never change the outcome, so skipping it is
+  // free; content, marks, editing mode and box size all still re-measure.
+  const fitSigRef = useRef('')
+  useLayoutEffect(() => {
+    const sig = JSON.stringify([
+      stored.text,
+      stored.marks,
+      editing,
+      object.size.w,
+      object.size.h,
+      object.metadata,
+    ])
+    if (sig === fitSigRef.current) return
+    fitSigRef.current = sig
+    fit()
+  })
+
+  // KaTeX loads on demand (lib/text/katex-lazy.ts), so any `$…$` in this box
+  // renders as its literal source until the chunk lands. This re-renders the
+  // read-only view once it does. The live editor writes lines imperatively
+  // and is not repainted here — in practice you have to look at the rendered
+  // box before you can click into it, so KaTeX is already loaded by then.
+  useKatexReady()
 
   const rendered = renderMarkdown(stored.text, stored.marks)
   // Properties → Text → Line spacing (box-level, like Alignment). 1.625

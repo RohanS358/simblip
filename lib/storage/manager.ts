@@ -85,6 +85,16 @@ export async function getFile(fileId: string): Promise<Blob | null> {
   const missingSince = missingFileIds.get(fileId)
   if (missingSince && Date.now() - missingSince < MISSING_TTL_MS) return null
 
+  // A manifest entry that was never backed up means the bytes provably are
+  // not on the server (putFile is offline-only — see this file's header), so
+  // asking for them can only 404. Skipping the request removes both the
+  // wasted round trip and the "Failed to load resource: 404" the browser
+  // logs for it, which Lighthouse counts as a console error. No entry at all
+  // is the genuinely unknown case (a page shared from another device), and
+  // that one still has to ask.
+  const entry = await manifest.getEntry(fileId).catch(() => null)
+  if (entry && !entry.cloudBackedUp) return null
+
   const token = getAccessToken()
   if (!token) return null
   try {

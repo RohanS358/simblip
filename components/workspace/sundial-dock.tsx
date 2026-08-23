@@ -33,7 +33,7 @@ import { uid, type SceneObject } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PenSettings } from './pen-settings'
-import { PRST_POLYGON_POINTS } from '@/lib/store/pptx-import'
+import { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 
 const PRIMARY_TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },

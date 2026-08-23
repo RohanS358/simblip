@@ -6,7 +6,11 @@
 // step-by-step solution renders inside the card.
 
 import { useMemo, useState } from 'react'
-import katex from 'katex'
+// katex-impl carries the stylesheet with it. This module is only ever
+// reached through OBJECT_RENDERERS' dynamic import, so importing it eagerly
+// here is fine — and unlike text objects, a formula object exists to show
+// maths, so it should not flash literal source while a chunk loads.
+import katex from '@/lib/text/katex-impl'
 import { useDocStore } from '@/lib/store/document'
 import { parseFormula } from '@/lib/formula/steps'
 import { cn } from '@/lib/utils'

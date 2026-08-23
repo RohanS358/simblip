@@ -79,7 +79,10 @@ export function PdfDropzone({
               <>
                 Upload a PDF or PowerPoint to read here
                 <br />
-                <span className="text-ui-xs opacity-70">
+                {/* No opacity here: this text is already --muted-foreground, and
+                    fading it to 70% dropped it to ~2.6:1 (Lighthouse contrast
+                    failure). Size is the hierarchy signal, not alpha. */}
+                <span className="text-ui-xs">
                   Click, or drag &amp; drop. PPT/DOCX convert to PDF in your browser. Your other
                   devices download their own copy the first time they open it.
                 </span>

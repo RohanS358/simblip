@@ -9,7 +9,7 @@
 // still recognized from line-prefix syntax — that part of the old markdown
 // model is unchanged, only inline formatting moved to marks.
 
-import katex from 'katex'
+import { renderMath } from './katex-lazy'
 import { runsForLine, splitIndent, TEXT_COLORS, TEXT_FONTS, TEXT_WEIGHTS, resolveSizePx, type Mark, type Run } from './marks'
 
 // How far one indent level pushes a line in, in em — used only by the
@@ -112,14 +112,11 @@ function renderInlineMath(text: string): string {
   for (const m of text.matchAll(MATH_RE)) {
     const at = m.index ?? 0
     out += escapeHtml(text.slice(last, at))
-    let html: string | null = null
-    try {
-      html = katex.renderToString(m[1], { throwOnError: false })
-    } catch {
-      html = null
-    }
-    // A KaTeX failure falls back to the literal source rather than dropping
-    // the student's expression on the floor.
+    // null means either a KaTeX failure or that the library is still
+    // loading (see katex-lazy.ts) — both fall back to the literal source
+    // rather than dropping the student's expression on the floor. Callers
+    // re-render via useKatexReady once the chunk lands.
+    const html = renderMath(m[1])
     out += html ?? escapeHtml(m[0])
     last = at + m[0].length
   }

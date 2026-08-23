@@ -61,7 +61,7 @@ import { Transport } from './transport'
 import { cn } from '@/lib/utils'
 import { useDockRect } from '@/hooks/use-dock-clearance'
 import { useSidebarSection } from '@/lib/store/sidebar-sections'
-import { PRST_POLYGON_POINTS } from '@/lib/store/pptx-import'
+import { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 
 const TOOLS: { tool: Tool; icon: React.ComponentType<{ className?: string }>; label: string; key: string }[] = [
   { tool: 'select', icon: MousePointer2, label: 'Select', key: 'V' },
@@ -130,7 +130,7 @@ function PointsIcon({ points }: { points: number[][] }) {
 }
 
 // Every shape the presentation (PPTX) importer can render — see
-// PRST_POLYGON_POINTS in lib/store/pptx-import.ts — is placeable from the
+// PRST_POLYGON_POINTS in lib/scene/preset-shapes.ts — is placeable from the
 // dock too, so nothing you can open from a deck is missing from what you can
 // draw yourself.
 const SHAPES: { id: string; label: string; icon: React.ReactNode }[] = [

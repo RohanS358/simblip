@@ -22,7 +22,6 @@ import { WheelToHorizontal } from '@/components/wheel-to-horizontal'
 import { RouteLoader } from '@/components/route-loader'
 import { InstallPrompt } from '@/components/install-prompt'
 import { Toaster } from '@/components/ui/sonner'
-import 'katex/dist/katex.min.css'
 import './globals.css'
 
 const jakarta = localFont({
