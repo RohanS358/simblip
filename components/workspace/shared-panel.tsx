@@ -35,7 +35,7 @@ export function SharedPanel() {
   const store = useWorkspaceStore
   const staff = can(role, 'share-pages')
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const collapsed = useWorkspaceStore((s) => s.collapsedNodes)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
@@ -76,7 +76,7 @@ export function SharedPanel() {
     setPublishFor,
     staff,
     collapsed,
-    toggleCollapsed: (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] })),
+    toggleCollapsed: (id) => store.getState().toggleCollapsed(id),
     uploadFileTo: (parentId) => setUploadTarget(parentId),
     openFile,
   }

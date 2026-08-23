@@ -118,6 +118,11 @@ interface WorkspaceState {
   touchMeasureMode: boolean
   splitScreenDocumentId: string | null
   syncScroll: boolean
+  /** Sidebar tree rows the user folded shut, by node id. Lives here (not in
+   *  the tree component) so it survives reloads alongside the open page, and
+   *  so the Notebooks and Shared trees agree about one node's state. Only
+   *  collapsed ids are kept — expanding deletes the key. */
+  collapsedNodes: Record<string, boolean>
 
   /** Create a top-level folder ("notebook"). */
   addFolder: (name: string | undefined, parentId: string | null) => string
@@ -201,6 +206,8 @@ interface WorkspaceState {
   toggleTouchMeasureMode: () => void
   setSplitScreenDocumentId: (id: string | null) => void
   setSyncScroll: (sync: boolean) => void
+  /** Fold a tree row shut / open it back up. */
+  toggleCollapsed: (id: string) => void
   /** Drop open tabs/panes pointing at nodes that no longer exist. Needed
    *  whenever `nodes` is replaced wholesale (a cloud pull on a new device),
    *  which otherwise leaves the canvas showing a page absent from the tree. */
@@ -251,6 +258,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       touchMeasureMode: false,
       splitScreenDocumentId: null,
       syncScroll: false,
+      collapsedNodes: {},
 
       addFolder: (name = 'New Folder', parentId) => {
         const id = uid()
@@ -617,6 +625,14 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       toggleTouchMeasureMode: () => set((s) => ({ touchMeasureMode: !s.touchMeasureMode })),
       setSplitScreenDocumentId: (id) => set({ splitScreenDocumentId: id }),
       setSyncScroll: (syncScroll) => set({ syncScroll }),
+
+      toggleCollapsed: (id) =>
+        set((s) => {
+          const next = { ...s.collapsedNodes }
+          if (next[id]) delete next[id]
+          else next[id] = true
+          return { collapsedNodes: next }
+        }),
     }),
     {
       name: 'simblip-workspace',

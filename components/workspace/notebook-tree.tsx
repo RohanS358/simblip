@@ -777,7 +777,9 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
   const role = useAuthStore((s) => s.profile?.role ?? null)
   const store = useWorkspaceStore
 
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  // Persisted in the workspace store, not local state: which rows are folded
+  // shut is part of "where I left off", same as the open page.
+  const collapsed = useWorkspaceStore((s) => s.collapsedNodes)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [shareFor, setShareFor] = useState<PageRef | null>(null)
   const [assignFor, setAssignFor] = useState<PageRef | null>(null)
@@ -834,7 +836,7 @@ export function NotebookTree({ onSelectPage }: { onSelectPage?: () => void }) {
     setPublishFor,
     staff,
     collapsed,
-    toggleCollapsed: (id) => setCollapsed((c) => ({ ...c, [id]: !c[id] })),
+    toggleCollapsed: (id) => store.getState().toggleCollapsed(id),
     uploadFileTo,
     openFile,
   }
