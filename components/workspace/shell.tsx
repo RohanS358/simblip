@@ -670,7 +670,14 @@ export function WorkspaceShell() {
           canvas starts to its right, leaving only the opaque root background
           behind it to sample — which is exactly why the rail kept rendering
           solid. --sidebar-panel-w covers rail + panel. */}
-      <div className="relative flex min-h-0 flex-1">
+      {/* paddingLeft is 0 on a board (the sidebar floats over the canvas, see
+          above) and the sidebar's full width on every document kind, where
+          floating would simply cover the page. Published by sidebar.tsx. The
+          dock itself is absolute, so it stays pinned at left:0 either way. */}
+      <div
+        className="relative flex min-h-0 flex-1"
+        style={{ paddingLeft: 'var(--sidebar-reserve-w, 0px)' }}
+      >
         <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
 
         {splitScreenObject && (

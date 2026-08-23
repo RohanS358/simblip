@@ -421,10 +421,19 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // when there isn't — the content can never end up somewhere the stage
   // doesn't reserve room for, which is what made horizontal scrolling
   // actually engage.
+  //
+  // TOP_CLEARANCE is a floor on padTop, not an addition to it: a document
+  // taller than the viewport used to land flush at y=0, tucked under the
+  // floating toolbar with its title half-covered. A short document that is
+  // already centered by the line below keeps its centering — the floor only
+  // bites once centering would give less air than this. It sits OUTSIDE the
+  // scale transform, so the gap stays constant instead of ballooning to
+  // 200px at 200% zoom.
+  const TOP_CLEARANCE = 104
   const stageW = Math.max(viewW, naturalW * zoom)
-  const stageH = Math.max(viewH, naturalH * zoom)
+  const stageH = Math.max(viewH, naturalH * zoom + TOP_CLEARANCE)
   const padLeft = (stageW - naturalW * zoom) / 2
-  const padTop = (stageH - naturalH * zoom) / 2
+  const padTop = Math.max(TOP_CLEARANCE, (stageH - naturalH * zoom) / 2)
   // Passed to every Sheet as its `maxW` — see the comment on Sheet's style
   // for why this has to be a plain pixel number rather than a CSS `100%`.
   const maxSheetW = viewW ? Math.max(MIN_SHEET, viewW - contentPadX) : undefined

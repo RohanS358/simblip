@@ -24,13 +24,12 @@
 
 import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useCallback, useEffect, useRef, useState, useLayoutEffect } from 'react'
-import { motion as fm, AnimatePresence } from 'framer-motion'
-import { TableOfContents, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
 import { CONVERTIBLE } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
+import { useTocStore } from '@/lib/store/toc'
 import { getFile } from '@/lib/storage/manager'
 import { uid } from '@/lib/scene/types'
 import { cn } from '@/lib/utils'
@@ -413,7 +412,6 @@ useLayoutEffect(() => {
   }, [meta?.fileUrl, fileName])
   const fileUrl = local?.url ?? sharedUrl
 
-  const [tocOpen, setTocOpen] = useState(false)
   const [tocEntries, setTocEntries] = useState<{ pageNum: number; title: string; level: number }[]>([])
 
   useEffect(() => {
@@ -535,13 +533,31 @@ useLayoutEffect(() => {
       },
       replace: () => inputRef.current?.click(),
       scrollToPage: (pageNum: number) => scrollToPage(pageNum),
-      tocOpen,
-      toggleToc: () => setTocOpen((v) => !v),
-      hasToc: tocEntries.length > 0,
     })
     return () => usePdfDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH, tocOpen, tocEntries.length])
+  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH])
+
+  // The outline is a left-rail SECTION now (components/toc-panel.tsx), not a
+  // second column this view draws beside the sidebar.
+  useEffect(() => {
+    useTocStore.getState().set(
+      tocEntries.length > 0
+        ? {
+            entries: tocEntries.map((e) => ({
+              index: e.pageNum,
+              title: e.title,
+              level: e.level ?? 0,
+              locator: `p.${e.pageNum}`,
+            })),
+            current,
+            goTo: (pageNum: number) => scrollToPage(pageNum),
+          }
+        : null
+    )
+    return () => useTocStore.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tocEntries, current])
 
   // The shell only mounts the real board dock (Toolbar/Transport) for a PDF
   // page while this is true, targeting whichever pane was last clicked: the
@@ -676,75 +692,9 @@ useLayoutEffect(() => {
 
   const reader = (
     <div className="relative flex h-full w-full min-w-0 flex-1 overflow-hidden">
-      {/* Toggleable Table of Contents Side Rail */}
-      <AnimatePresence>
-        {tocOpen && doc && (
-          <fm.div
-            initial={{ width: 0, opacity: 0 }}
-            animate={{ width: 260, opacity: 1 }}
-            exit={{ width: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: 'easeInOut' }}
-            className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
-          >
-            <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
-              <div className="flex items-center gap-2 text-foreground font-semibold text-ui-xs uppercase tracking-wider">
-                <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
-                <span>Table of Contents</span>
-              </div>
-              <button
-                type="button"
-                aria-label="Close Table of Contents"
-                className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                onClick={() => setTocOpen(false)}
-              >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-0.5">
-              {tocEntries.length > 0 ? (
-                tocEntries.map((item, index) => {
-                  const isSelected = current === item.pageNum
-                  const level = item.level ?? 0
-                  return (
-                    <button
-                      key={`${item.pageNum}-${index}`}
-                      type="button"
-                      onClick={() => scrollToPage(item.pageNum)}
-                      style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
-                      className={cn(
-                        'relative w-full text-left rounded px-2 py-1 text-ui-sm transition-colors flex items-center justify-between gap-1.5 group',
-                        isSelected
-                          ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
-                          : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                      )}
-                    >
-                      {/* Tree branch line for indented child topics */}
-                      {level > 0 && (
-                        <span
-                          className="absolute left-0 top-1/2 -translate-y-1/2 w-2 border-t border-border/60"
-                          style={{ left: `${(level - 1) * 0.75 + 0.5}rem` }}
-                        />
-                      )}
-                      <span className="truncate leading-tight">{item.title}</span>
-                      <span className="shrink-0 font-mono text-ui-2xs opacity-40 group-hover:opacity-100 transition-opacity">
-                        p.{item.pageNum}
-                      </span>
-                    </button>
-                  )
-                })
-              ) : (
-                <div className="p-4 text-center text-ui-sm text-muted-foreground">
-                  No Table of Contents available for this document.
-                </div>
-              )}
-            </div>
-          </fm.div>
-        )}
-      </AnimatePresence>
-
       <div
         ref={readerRef}
-        className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 py-4 sm:px-6"
+        className="relative h-full min-w-0 flex-1 overflow-y-auto bg-muted/40 px-3 pb-4 pt-[104px] sm:px-6"
         // See doc-view.tsx: without this, native page-zoom competes with
         // usePinchZoom's own two-finger handling on mobile/tablet.
         style={{ touchAction: 'pan-y' }}
@@ -776,7 +726,7 @@ useLayoutEffect(() => {
             <BounceLoader size={200} label={converting} />
           </div>
         ) : !doc ? (
-          <PdfDropzone onFile={(f) => void attach(f)} openingLabel={fileUrl ? 'Opening…' : undefined} />
+          <PdfDropzone onFiles={(f) => void attach(f[0])} openingLabel={fileUrl ? 'Opening…' : undefined} />
         ) : (
           // Spacer reserves the scaled stack's real footprint — see the
           // ResizeObserver effect above.

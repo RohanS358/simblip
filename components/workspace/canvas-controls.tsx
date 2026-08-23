@@ -178,10 +178,17 @@ export function CanvasControls({
             // behind. --sidebar-panel-w is published by sidebar.tsx and is
             // the rail's width while collapsed; 3rem is the header's h-12, in rem so it
             // tracks Interface scale rather than drifting from it.
+            // Only the part of the sidebar that FLOATS over this overlay —
+            // on a document kind the shell already reserved its width in
+            // layout (--sidebar-reserve-w), so insetting by the full
+            // --sidebar-panel-w again would double the gap.
             paddingLeft: edgeToolbar
-              ? 'var(--sidebar-panel-w, 0px)'
-              : 'calc(1rem + var(--sidebar-panel-w, 0px))',
-            paddingTop: edgeToolbar ? '3rem' : 'calc(1rem + 3rem)',
+              ? 'calc(var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))'
+              : 'calc(1rem + var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))',
+            // 3rem is the header's h-12; the extra 0.375rem is breathing
+            // room, since at exactly 3rem the edge bar sits flush against the
+            // header's bottom border and the two read as one welded strip.
+            paddingTop: edgeToolbar ? 'calc(3rem + 0.375rem)' : 'calc(1rem + 3rem)',
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>

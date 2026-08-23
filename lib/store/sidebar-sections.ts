@@ -10,11 +10,19 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { BookOpen, BrainCircuit, FolderUp, LibraryBig, Shapes, SlidersHorizontal, Wrench } from 'lucide-react'
+import { BookOpen, BrainCircuit, FolderUp, LibraryBig, Shapes, SlidersHorizontal, TableOfContents, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 
-export type SidebarSectionId = 'notebook' | 'assistant' | 'components' | 'tools' | 'uploads' | 'library' | 'properties'
+export type SidebarSectionId =
+  | 'notebook'
+  | 'assistant'
+  | 'components'
+  | 'tools'
+  | 'uploads'
+  | 'library'
+  | 'properties'
+  | 'toc'
 
 export interface SidebarSectionMeta {
   id: SidebarSectionId
@@ -32,6 +40,10 @@ export const SIDEBAR_SECTIONS: SidebarSectionMeta[] = [
   { id: 'uploads', label: 'Uploads', icon: FolderUp },
   { id: 'library', label: 'Library', icon: LibraryBig },
   { id: 'properties', label: 'Properties', icon: SlidersHorizontal },
+  // Only rendered while the active view actually published an outline (see
+  // lib/store/toc.ts) — a rail slot that is dead on every board page would
+  // be worse than the side rail it replaced.
+  { id: 'toc', label: 'Contents', icon: TableOfContents },
 ]
 
 /** Which section the open pane shows — shared state (not Sidebar-local) so

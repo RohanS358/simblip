@@ -565,7 +565,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col"
+      className="flex h-full min-h-0 min-w-0 flex-col"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault()
@@ -654,7 +654,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       )}
 
       {/* Thread */}
-      <div className="relative min-h-0 flex-1">
+      <div className="relative min-h-0 min-w-0 flex-1">
         <ChatContainerRoot className="h-full">
           <ChatContainerContent className="space-y-4 p-3">
             {empty ? (
@@ -750,7 +750,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       </div>
 
       {/* Composer */}
-      <div className="shrink-0 border-t border-border/60 p-2">
+      <div className="min-w-0 shrink-0 border-t border-border/60 p-2">
         {/* Attached files. Text-only: the extracted words are what the model
             gets, so a chip shows the name and, when nothing could be read,
             says so instead of pretending the file was understood. */}
@@ -769,7 +769,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             which mode it lands in. Both were below the box previously; they
             moved up here so the row under the composer is actions only, and
             the composer reads top-down as context → prompt → actions. */}
-        <div className="mb-1.5 flex min-w-0 items-center gap-1.5">
+        {/* flex-wrap: the panel is user-resizable down to 200px, where a model
+            name and a two-segment toggle cannot share a line — unwrapped, the
+            toggle ran off the right edge. The Select takes the full row and
+            the toggle drops beneath it instead. */}
+        <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
           {models.models.length > 0 && (
             // The app's own Select, not a native <select>: a native one paints
             // the OS menu, which looks nothing like every other dropdown in
@@ -1012,7 +1016,10 @@ function Turn({
   const streaming = turn.status === 'streaming'
 
   return (
-    <div className="space-y-2">
+    // min-w-0: the answer holds a <pre> that scrolls itself, but a flex/grid
+    // child defaults to min-width:auto and would size to its widest line
+    // instead — pushing the whole thread wider than the panel.
+    <div className="min-w-0 space-y-2">
       {/* What was asked */}
       <Message className="justify-end">
         <MessageContent className="max-w-[85%] rounded-2xl rounded-br-md bg-[color-mix(in_oklch,var(--accent-violet)_16%,var(--card))] px-3 py-1.5 text-ui-sm">
@@ -1035,7 +1042,7 @@ function Turn({
       </Message>
 
       {/* What came back */}
-      <div className="space-y-1.5">
+      <div className="min-w-0 space-y-1.5">
         {/* A proposed edit to the page. Shown as plain language, never
             applied until confirmed — and one Ctrl+Z reverses the whole
             batch once it is. */}
@@ -1096,7 +1103,7 @@ function Turn({
         )}
 
         {turn.status === 'ok' && (turn.script || turn.blocks?.length) && (
-          <div className="flex items-center gap-1.5 pt-0.5">
+          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
             {turn.added ? (
               <>
                 <span className="flex items-center gap-1 rounded-md px-1.5 py-1 text-ui-xs font-medium text-[var(--accent-mint)]">

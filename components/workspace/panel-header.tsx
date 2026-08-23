@@ -51,7 +51,9 @@ export function PanelHeader({
         <h2 className="min-w-0 flex-1 truncate text-ui-md font-medium text-foreground" title={title}>
           {title}
         </h2>
-        {actions}
+        {/* shrink-0: these are icon buttons, and a long title must eat the
+            slack (it truncates) instead of squashing them. */}
+        {actions && <div className="flex shrink-0 items-center">{actions}</div>}
       </div>
       {children && <div className="space-y-2 px-3 pb-2">{children}</div>}
     </div>

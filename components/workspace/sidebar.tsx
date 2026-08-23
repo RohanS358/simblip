@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { motion as fm, AnimatePresence, useMotionValue, animate } from 'framer-motion'
-import { ChevronLeft, TableOfContents } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { useSpring } from '@/lib/motion'
 import { startSeamDrag } from '@/lib/seam-drag'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
@@ -33,8 +33,7 @@ import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useAuthStore } from '@/lib/auth/store'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useMobileNavBarStore } from '@/lib/store/mobile-nav-bar'
-import { usePdfDockStore } from '@/lib/store/pdf-dock'
-import { usePresentationDockStore } from '@/lib/store/presentation-dock'
+import { useTocStore } from '@/lib/store/toc'
 import {
   SIDEBAR_SECTIONS,
   useSidebarSection,
@@ -47,6 +46,7 @@ import { ToolsPanel } from './tools-panel'
 import { UploadsPanel } from './uploads-panel'
 import { LibraryPanel } from './library-panel'
 import { InspectorPane } from './inspector'
+import { TocPanel } from './toc-panel'
 import { cn } from '@/lib/utils'
 
 // Rail thickness comes from railNav's own classes (w-[52px] column on
@@ -150,9 +150,17 @@ export function Sidebar({
     }
   }, [hideNotebook, activeSection, setActiveSection])
 
-  const sections = hideNotebook
-    ? SIDEBAR_SECTIONS.filter((s) => s.id !== 'notebook')
-    : SIDEBAR_SECTIONS
+  // Contents is view-dependent: it only exists while the open page is one
+  // that can produce an outline (a PDF with a real outline, a deck with slide
+  // headings), so it is filtered out rather than shown dead.
+  const hasToc = useTocStore((s) => (s.toc?.entries.length ?? 0) > 0)
+  const sections = SIDEBAR_SECTIONS.filter(
+    (s) => !(hideNotebook && s.id === 'notebook') && !(s.id === 'toc' && !hasToc)
+  )
+
+  useEffect(() => {
+    if (!hasToc && activeSection === 'toc') setActiveSection('notebook')
+  }, [hasToc, activeSection, setActiveSection])
 
   // What Properties operates on: boards act on themselves, docs act on the
   // focused sheet, PDF readers on the focused ink/notes canvas — the same
@@ -162,6 +170,10 @@ export function Sidebar({
   const activeKind = useWorkspaceStore(
     (s) => findPageMeta(s.nodes, s.activePageId)?.pageKind ?? 'board'
   )
+  // A board is a canvas: the sidebar floats over it. Everything else is a
+  // document surface that the sidebar must not cover. See the effect below.
+  const floats = activeKind === 'board'
+
   const contentPageId =
     activeKind === 'doc' || activeKind === 'pptx' || (activeKind === 'pdf' && pdfToolsActive)
       ? (activeSheetId ?? activePageId)
@@ -203,20 +215,34 @@ export function Sidebar({
   const lastVisibleW = useRef(visibleW)
   useEffect(() => {
     document.documentElement.style.setProperty('--sidebar-panel-w', `${visibleW}px`)
+    // How much of that width the LAYOUT has to give up. Floating over the
+    // canvas is the right call for a board — the glass needs the canvas
+    // painting behind it, and the viewport shift below moves content out
+    // from under it anyway. A document has no viewport to shift, so floating
+    // there just covers the page: those kinds reserve real space instead
+    // (shell.tsx pads the content row by this) and the sidebar's glass sits
+    // over the page background rather than over the document.
+    document.documentElement.style.setProperty(
+      '--sidebar-reserve-w',
+      floats ? '0px' : `${visibleW}px`
+    )
     const delta = visibleW - lastVisibleW.current
     lastVisibleW.current = visibleW
-    if (delta === 0) return
+    // Reserved space already moved the content — shifting the viewport too
+    // would move it twice.
+    if (delta === 0 || !floats) return
     const doc = useDocStore.getState()
     const id = useWorkspaceStore.getState().activePageId
     if (!id) return
     const v = doc.viewports[id]
     if (!v) return
     doc.setViewport(id, { ...v, x: v.x + delta })
-  }, [visibleW])
+  }, [visibleW, floats])
 
   useEffect(
     () => () => {
       document.documentElement.style.removeProperty('--sidebar-panel-w')
+      document.documentElement.style.removeProperty('--sidebar-reserve-w')
     },
     []
   )
@@ -230,11 +256,6 @@ export function Sidebar({
     if (!sidebarOpen) togglePanel('sidebar')
   }
 
-  const pdfDock = usePdfDockStore((s) => s.dock)
-  const presDock = usePresentationDockStore((s) => s.dock)
-  const hasToc = pdfDock?.hasToc || presDock?.hasToc
-  const tocOpen = pdfDock ? pdfDock.tocOpen : presDock?.tocOpen
-  const toggleToc = pdfDock ? pdfDock.toggleToc : presDock?.toggleToc
 
   const railNav = (
     <nav
@@ -254,16 +275,6 @@ export function Sidebar({
           <s.icon className="h-[18px] w-[18px]" />
         </RailButton>
       ))}
-      {hasToc && toggleToc && (
-        <RailButton
-          label="Table of Contents"
-          tooltipSide={isPhone ? 'top' : 'right'}
-          active={!!tocOpen}
-          onClick={toggleToc}
-        >
-          <TableOfContents className="h-[18px] w-[18px]" />
-        </RailButton>
-      )}
       {bottomRailContent && (
         <div className={cn('flex items-center justify-center', !isPhone && 'mt-auto')}>
           {bottomRailContent}
@@ -278,6 +289,7 @@ export function Sidebar({
       {activeSection === 'assistant' && <AiPanel pageId={contentPageId} />}
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
+      {activeSection === 'toc' && <TocPanel />}
       {activeSection === 'uploads' && (
         <UploadsPanel inline open pageId={activePageId} />
       )}

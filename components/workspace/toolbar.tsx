@@ -622,13 +622,12 @@ export function Toolbar({
           paddingClass,
           vertical ? 'flex-col items-center overflow-y-auto' : 'items-center overflow-x-auto',
           edge
-            ? dockSide === 'bottom'
-              ? 'w-full justify-center rounded-none border-t border-border/50 shadow-2xl'
-              : dockSide === 'top'
-                ? 'w-full justify-center rounded-none border-b border-border/50 shadow-2xl'
-                : dockSide === 'left'
-                  ? 'h-full flex-col justify-center rounded-none border-r border-border/50 shadow-2xl'
-                  : 'h-full flex-col justify-center rounded-none border-l border-border/50 shadow-2xl'
+            ? cn(
+                // Full-bleed bar: no border, no shadow — it blends into the
+                // edge instead of reading as a floating pill.
+                'justify-center rounded-none border-0 shadow-none',
+                vertical ? 'h-full flex-col' : 'w-full'
+              )
             : shapeClass,
           idle && 'opacity-30 hover:opacity-100'
         )}

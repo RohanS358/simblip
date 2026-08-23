@@ -12,9 +12,6 @@ import { create } from 'zustand'
 export type SlideTransition = 'none' | 'fade' | 'slide'
 
 export interface PresentationDockState {
-  tocOpen: boolean
-  toggleToc: () => void
-  hasToc: boolean
   goToSlide?: (index: number) => void
 }
 

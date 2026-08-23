@@ -24,9 +24,6 @@ export interface PdfDockState {
   download: () => void
   replace: () => void
   scrollToPage?: (pageNum: number) => void
-  tocOpen?: boolean
-  toggleToc?: () => void
-  hasToc?: boolean
 }
 
 interface PdfDockStore {

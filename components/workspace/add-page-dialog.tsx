@@ -205,28 +205,35 @@ export function AddPageDialog({
     finish(id)
   }
 
-  const createPdf = async (file: File) => {
-    if (!target) return
+  // These three RETURN the page they made rather than closing the dialog
+  // themselves: an upload can be a batch now, and a per-file `finish()` would
+  // close the dialog — and jump to the first file's tab — while the rest were
+  // still importing. createFromUploads below finishes once, at the end.
+  const createPdf = async (file: File): Promise<string | null> => {
+    if (!target) return null
     const id = useWorkspaceStore
       .getState()
       .addPageIn(target.parentId, file.name.replace(/\.[^.]+$/, ''), 'pdf')
     try {
       await attachPdfToPage(id, file, setConverting)
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not convert this file.')
+      toast.error(
+        `${file.name}: ${err instanceof Error ? err.message : 'could not convert this file.'}`
+      )
       // The page still exists, empty — pdf-view's own dropzone can retry.
-      finish(id)
-      return
     }
-    finish(id)
+    return id
   }
 
   /** Excel/PPT/image go through this — same fileUrl handoff open-file.ts uses
    *  for files already in the tree, so both paths import identically. Word
    *  doesn't anymore: .docx resolves to the 'pdf' kind and takes createPdf's
    *  convert-then-attach path instead. */
-  const createFromUpload = async (kind: 'doc' | 'xlsx' | 'pptx' | 'image', file: File) => {
-    if (!target) return
+  const createFromUpload = async (
+    kind: 'doc' | 'xlsx' | 'pptx' | 'image',
+    file: File
+  ): Promise<string | null> => {
+    if (!target) return null
     setConverting('Uploading…')
     try {
       const { putFile } = await import('@/lib/storage/manager')
@@ -241,9 +248,10 @@ export function AddPageDialog({
         fileName: file.name,
         fileMime: file.type,
       })
-      finish(id)
+      return id
     } catch {
-      toast.error('Could not upload this file.')
+      toast.error(`${file.name}: could not upload this file.`)
+      return null
     } finally {
       setConverting(null)
     }
@@ -252,17 +260,32 @@ export function AddPageDialog({
   /** Upload's single dropzone: read the extension and route to whichever
    *  kind can open it — same resolver a file sitting in the folder tree
    *  uses on click (open-file.ts's pageKindForFile). */
-  const createFromAnyUpload = async (file: File) => {
+  const createFromAnyUpload = async (file: File): Promise<string | null> => {
     const kind = pageKindForFile({ mime: file.type, name: file.name })
     if (!kind) {
-      toast.error("This file type isn't supported yet.")
-      return
+      toast.error(`${file.name}: this file type isn't supported yet.`)
+      return null
     }
-    if (kind === 'pdf') {
-      await createPdf(file)
-      return
+    if (kind === 'pdf') return createPdf(file)
+    return createFromUpload(kind as 'doc' | 'xlsx' | 'pptx' | 'image', file)
+  }
+
+  /** One drop or one pick, however many files it carried.
+   *
+   *  Sequential, not Promise.all: each file adds a page to the same tree and
+   *  PDF conversion is CPU-bound in this tab, so racing them would interleave
+   *  the tree writes and stall the UI. Files that fail are reported by name
+   *  and skipped — one bad file must not lose the rest of the batch. The
+   *  dialog stays open if NOTHING landed, so the error is still on screen. */
+  const createFromUploads = async (files: File[]) => {
+    let last: string | null = null
+    for (const [i, file] of files.entries()) {
+      if (files.length > 1) setConverting(`Adding ${i + 1} of ${files.length} — ${file.name}`)
+      const id = await createFromAnyUpload(file)
+      if (id) last = id
     }
-    await createFromUpload(kind as 'doc' | 'xlsx' | 'pptx' | 'image', file)
+    setConverting(null)
+    if (last) finish(last)
   }
 
   const STEP_TITLES: Record<Step, string> = {
@@ -273,7 +296,7 @@ export function AddPageDialog({
     pptx: 'New presentation',
     xlsx: 'New spreadsheet',
     web: 'New web browser tab',
-    upload: 'Upload a file',
+    upload: 'Upload files',
   }
   const title = STEP_TITLES[step]
   // doc/pptx/xlsx are reached THROUGH doc-kind, so their back arrow returns
@@ -467,14 +490,16 @@ export function AddPageDialog({
         {step === 'upload' && (
           <div className="h-56 overflow-hidden rounded-xl border border-dashed border-border/60">
             <PdfDropzone
-              onFile={(f) => void createFromAnyUpload(f)}
+              multiple
+              onFiles={(files) => void createFromUploads(files)}
               converting={converting}
               prompt={
                 <>
-                  Drag &amp; drop a file here
+                  Drag &amp; drop files here
                   <br />
                   <span className="text-ui-xs opacity-70">
-                    Or click to browse — PDF, Word, Excel, PowerPoint, or image.
+                    Or click to browse — PDF, Word, Excel, PowerPoint, or image. Pick as many as
+                    you like; each becomes its own page.
                   </span>
                 </>
               }

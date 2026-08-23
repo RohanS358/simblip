@@ -25,6 +25,8 @@ import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { getFile } from '@/lib/storage/manager'
 import type { SlideTransition } from '@/lib/store/presentation-dock'
 import { usePresentationDockStore } from '@/lib/store/presentation-dock'
+import { useTocStore } from '@/lib/store/toc'
+import { useDocStore } from '@/lib/store/document'
 import { InfiniteCanvas } from './canvas'
 import { LiveFrame } from './page-thumbnail'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
@@ -331,8 +333,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const [importing, setImporting] = useState(false)
   const [exporting, setExporting] = useState(false)
   const [presenting, setPresenting] = useState(false)
-  // State for Table of Contents side rail
-  const [tocOpen, setTocOpen] = useState(false)
   const [tocEntries, setTocEntries] = useState<{ slideIndex: number; title: string; level: number }[]>([])
 
   // Extract PDF outline or slide headings whenever slides or source file changes
@@ -431,47 +431,17 @@ export function PresentationView({ pageId }: { pageId: string }) {
   const stageRef = useRef<HTMLDivElement>(null)
   const setZoom = (z: number) => setZoomRaw(Math.min(3, Math.max(0.25, z)))
 
-  // The stage viewport's own size, so the slide can be placed in JS instead
-  // of by flex.
+  // Stage sizing is pure CSS: the wrapper is at least the viewport and grows
+  // to the slide's scaled footprint once that overflows, and the slide is
+  // centered by flex with `transform: scale()` growing from its centre.
   //
-  // The old markup centered it with `flex min-h-full items-center` + `p-6`.
-  // `min-height: 100%` resolves against the scroller's CONTENT box, but the
-  // wrapper's own 24px padding is then added OUTSIDE that (border-box sizing
-  // applies to `height`, not to a percentage `min-height` resolved this way)
-  // — so the wrapper ended up taller than the stage, its centre fell below
-  // the stage's centre, and the slide rendered visibly high. Measured on a
-  // 1400×700 stage: 24px above vs 136px below at 100% zoom, up to 312px off
-  // across viewports/zooms.
-  //
-  // doc-view.tsx already solved this for sheets: measure the viewport and
-  // place the content from its SCALED footprint. (See stageH/padTop below.)
-  const [viewW, setViewW] = useState(0)
-  const [viewH, setViewH] = useState(0)
-  useLayoutEffect(() => {
-    const el = stageRef.current
-    if (!el) return
-    const ro = new ResizeObserver(() => {
-      setViewW(el.clientWidth)
-      setViewH(el.clientHeight)
-    })
-    ro.observe(el)
-    setViewW(el.clientWidth)
-    setViewH(el.clientHeight)
-    return () => ro.disconnect()
-  }, [])
-
-  // The scrollable stage is at least the viewport (so a zoomed-out slide has
-  // room to sit centered in) and grows to the slide's real scaled footprint
-  // once that overflows (so the scroller has somewhere to scroll). padLeft/
-  // padTop then place the slide: centered while it fits, flush at 0 when it
-  // doesn't. STAGE_PAD keeps the old breathing room around the slide.
+  // This used to be measured in JS (ResizeObserver -> viewW/viewH -> padLeft/
+  // padTop). That fought every animated width change — opening/closing the
+  // sidebar panel resized the stage each frame while React re-centered a
+  // frame behind, which is exactly what the visible shaking was.
   const STAGE_PAD = 32
   const scaledW = SLIDE_W * zoom + STAGE_PAD
   const scaledH = SLIDE_H * zoom + STAGE_PAD
-  const stageW = Math.max(viewW, scaledW)
-  const stageH = Math.max(viewH, scaledH)
-  const padLeft = (stageW - SLIDE_W * zoom) / 2
-  const padTop = (stageH - SLIDE_H * zoom) / 2
 
   /**
    * The scale that fits the slide in the stage.
@@ -805,118 +775,73 @@ export function PresentationView({ pageId }: { pageId: string }) {
   }, [])
 
   useEffect(() => {
-    usePresentationDockStore.getState().set({
-      tocOpen,
-      toggleToc: () => setTocOpen((v) => !v),
-      hasToc: tocEntries.length > 0,
-      goToSlide,
-    })
+    usePresentationDockStore.getState().set({ goToSlide })
     return () => usePresentationDockStore.getState().set(null)
-  }, [tocOpen, tocEntries.length])
+  }, [goToSlide])
+
+  // The outline is a left-rail SECTION now (components/toc-panel.tsx), not a
+  // second column this view draws beside the sidebar.
+  useEffect(() => {
+    useTocStore.getState().set(
+      tocEntries.length > 0
+        ? {
+            entries: tocEntries.map((e) => ({
+              index: e.slideIndex,
+              title: e.title,
+              level: e.level ?? 0,
+              locator: `s.${e.slideIndex + 1}`,
+            })),
+            current,
+            goTo: (slideIndex: number) => goToSlide(slideIndex),
+          }
+        : null
+    )
+    return () => useTocStore.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tocEntries, current])
 
 
   return (
     <div className="flex h-full w-full flex-col">
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
-        {/* Toggleable Table of Contents Side Rail */}
-        <AnimatePresence>
-          {tocOpen && (
-            <fm.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 260, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: 'easeInOut' }}
-              className="relative flex h-full shrink-0 flex-col border-r border-border/60 bg-background/95 backdrop-blur-md z-20 overflow-hidden shadow-sm"
-            >
-              <div className="flex items-center justify-between border-b border-border/60 px-3 py-2.5">
-                <div className="flex items-center gap-2 text-foreground font-semibold text-ui-xs uppercase tracking-wider">
-                  <TableOfContents className="h-4 w-4 text-[var(--accent-blue)]" />
-                  <span>Table of Contents</span>
-                </div>
-                <button
-                  type="button"
-                  aria-label="Close Table of Contents"
-                  className="flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-                  onClick={() => setTocOpen(false)}
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto py-1.5 px-1.5 space-y-0.5">
-                {tocEntries.length > 0 ? (
-                  tocEntries.map((item, index) => {
-                    const isSelected = current === item.slideIndex
-                    const level = item.level ?? 0
-                    return (
-                      <button
-                        key={`${item.slideIndex}-${index}`}
-                        type="button"
-                        onClick={() => goToSlide(item.slideIndex)}
-                        style={{ paddingLeft: `${level * 0.75 + 0.5}rem` }}
-                        className={cn(
-                          'relative w-full text-left rounded px-2 py-1 text-ui-sm transition-colors flex items-center justify-between gap-1.5 group',
-                          isSelected
-                            ? 'bg-[var(--accent-blue)]/15 text-[var(--accent-blue)] font-medium'
-                            : 'text-muted-foreground hover:bg-accent/60 hover:text-foreground'
-                        )}
-                      >
-                        {/* Tree branch line for indented child topics */}
-                        {level > 0 && (
-                          <span
-                            className="absolute left-0 top-1/2 -translate-y-1/2 w-2 border-t border-border/60"
-                            style={{ left: `${(level - 1) * 0.75 + 0.5}rem` }}
-                          />
-                        )}
-                        <span className="truncate leading-tight">{item.title}</span>
-                        <span className="shrink-0 font-mono text-ui-2xs opacity-40 group-hover:opacity-100 transition-opacity">
-                          s.{item.slideIndex + 1}
-                        </span>
-                      </button>
-                    )
-                  })
-                ) : (
-                  <div className="p-4 text-center text-ui-sm text-muted-foreground">
-                    No Table of Contents available for this presentation.
-                  </div>
-                )}
-              </div>
-            </fm.div>
-          )}
-        </AnimatePresence>
-
       {/*
         The stage scrolls when the slide is zoomed past the viewport.
         `transform: scale()` does NOT contribute to a parent's scrollable
         area — the box keeps its unscaled 960×540 size for layout — so the
-        wrapper below is sized to the SCALED footprint (stageW/stageH) to
-        give the scroll container something real to measure, and the slide is
-        positioned inside it at (padLeft, padTop) rather than centered by
-        flex. `touch-action` + `-webkit-overflow-scrolling` are what make it
+        wrapper below is sized to the SCALED footprint in CSS to give the
+        scroll container something real to measure, and the slide is centered
+        inside it by flex. `touch-action` + `-webkit-overflow-scrolling` are what make it
         actually drag on iOS, where the default here was "nothing moves".
       */}
       <div
         ref={stageRef}
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40"
         style={{ touchAction: 'pan-x pan-y pinch-zoom', WebkitOverflowScrolling: 'touch' }}
+        // Clicking the void around the slide deselects — the canvas only
+        // covers the slide box, so empty-canvas deselect never fires here.
+        onPointerDown={(e) => {
+          if (!(e.target as HTMLElement).closest('[data-slide-box]')) useDocStore.getState().setSelection([])
+        }}
       >
         {importing ? (
           <div className="flex h-full items-center justify-center">
             <BounceLoader size={200} label="Opening presentation…" />
           </div>
         ) : activeSlideId ? (
-          <div className="relative" style={{ width: stageW, height: stageH }}>
           <div
-            className="absolute overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+            className="relative flex items-center justify-center"
+            style={{ width: `max(100%, ${scaledW}px)`, height: `max(100%, ${scaledH}px)` }}
+          >
+          <div
+            data-slide-box
+            className="overflow-hidden rounded-md shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
             style={{
-              left: padLeft,
-              top: padTop,
               width: SLIDE_W,
               height: SLIDE_H,
               transform: `scale(${zoom})`,
-              // top left, so the scaled box grows from exactly the (padLeft,
-              // padTop) the math above placed it at — `center center` would
-              // spill half the growth back across that computed origin.
-              transformOrigin: 'top left',
+              // Centre origin: flex centres the unscaled box, so the scale
+              // grows evenly into the padding the wrapper reserved for it.
+              transformOrigin: 'center center',
             }}
           >
             <TransitionSlide
