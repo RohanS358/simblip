@@ -103,8 +103,6 @@ html {
   --sidebar-ring: oklch(0.55 0.16 255);
 
   --canvas-dot: oklch(0.86 0.01 90);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 .dark {
@@ -155,8 +153,6 @@ html {
   --sidebar-ring: oklch(0.68 0.14 255);
 
   --canvas-dot: oklch(0.3 0.012 270);
-  --glass: color-mix(in oklch, var(--card) 70%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Sepia — warm paper, for long reading sessions. Light family. */
@@ -212,8 +208,6 @@ html {
   --sidebar-ring: oklch(0.58 0.14 255);
 
   --canvas-dot: oklch(0.85 0.025 75);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Lily — baby pink, pinkish-orange and white. Light family. */
@@ -265,8 +259,6 @@ html {
   --sidebar-ring: oklch(0.72 0.13 25);
 
   --canvas-dot: oklch(0.85 0.025 25);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Dim — softened dark on slate, easier in a lit room. Dark family. */
@@ -318,8 +310,6 @@ html {
   --sidebar-ring: oklch(0.68 0.14 255);
 
   --canvas-dot: oklch(0.36 0.017 265);
-  --glass: color-mix(in oklch, var(--card) 70%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Midnight — near-black for OLED screens and dark rooms. Dark family. */
@@ -371,8 +361,6 @@ html {
   --sidebar-ring: oklch(0.68 0.14 255);
 
   --canvas-dot: oklch(0.25 0.012 270);
-  --glass: color-mix(in oklch, var(--card) 70%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Contrast — pure black/white with a high-visibility accent. Dark family,
@@ -425,8 +413,6 @@ html {
   --sidebar-ring: oklch(0.85 0.19 95);
 
   --canvas-dot: oklch(0.35 0 0);
-  --glass: color-mix(in oklch, var(--card) 80%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 92%, transparent);
 }
 
 /* Solarized — the classic precision-tuned Solarized Light palette (base3
@@ -482,8 +468,6 @@ html {
   --sidebar-ring: oklch(0.615 0.139 244.9);
 
   --canvas-dot: oklch(0.82 0.03 90);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Sea — teal #007979, mint #24B1B1, cream #FFF0E4, peach #FFE0C5 (theme/sea.png).
@@ -536,8 +520,6 @@ html {
   --sidebar-ring: oklch(0.522 0.089 194.8);
 
   --canvas-dot: oklch(0.83 0.04 63);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Mountains — misty slate-green stone, cool and quiet. Dark family. */
@@ -589,8 +571,6 @@ html {
   --sidebar-ring: oklch(0.68 0.09 155);
 
   --canvas-dot: oklch(0.32 0.016 185);
-  --glass: color-mix(in oklch, var(--card) 70%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* Im Just A Girl — soft pastel pink and lavender, sparkly and sweet.
@@ -643,8 +623,6 @@ html {
   --sidebar-ring: oklch(0.68 0.15 335);
 
   --canvas-dot: oklch(0.86 0.035 335);
-  --glass: color-mix(in oklch, var(--card) 72%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 /* A little pink heart cursor, just for her. */
@@ -707,8 +685,6 @@ html {
   --sidebar-ring: oklch(0.624 0.174 1.1);
 
   --canvas-dot: oklch(0.26 0.01 340);
-  --glass: color-mix(in oklch, var(--card) 70%, transparent);
-  --glass-strong: color-mix(in oklch, var(--card) 86%, transparent);
 }
 
 @theme inline {
@@ -912,17 +888,31 @@ html {
 
 @layer utilities {
   /* Liquid glass surfaces — one soft shadow, hairline border, frosted blur */
+  /* One material for every floating surface.
+   *
+   * These used to run their own recipe — `--glass`/`--glass-strong` (card at
+   * 72%/86%) with blur(24-32px) and a saturate boost — while the sidebar and
+   * header used `--chrome-glass` with blur(8px) and no saturation. Two glass
+   * languages in one app: flyouts read as milkier and more saturated than the
+   * panel they sat next to. Now both are the chrome material, so a pen flyout
+   * over the canvas matches the sidebar beside it exactly.
+   *
+   * `glass` vs `glass-strong` is now ELEVATION only, not opacity — same tint,
+   * same blur, a heavier edge and drop shadow. Floating surfaces keep the
+   * border and shadow the sidebar does without: the sidebar is anchored to a
+   * screen edge, a popover floating over a busy canvas needs its own edge to
+   * read as a separate plane. */
   .glass {
-    background: var(--glass);
-    backdrop-filter: blur(24px) saturate(140%);
-    -webkit-backdrop-filter: blur(24px) saturate(140%);
+    background: var(--chrome-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
     box-shadow: 0 8px 30px rgb(0 0 0 / 0.06);
   }
   .glass-strong {
-    background: var(--glass-strong);
-    backdrop-filter: blur(32px) saturate(160%);
-    -webkit-backdrop-filter: blur(32px) saturate(160%);
+    background: var(--chrome-glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
     box-shadow: 0 12px 40px rgb(0 0 0 / 0.08);
   }

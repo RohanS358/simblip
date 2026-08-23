@@ -465,7 +465,7 @@ function ExprInput({
           id={listId}
           role="listbox"
           aria-label="Variables and live values"
-          className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border bg-popover py-1 shadow-md"
+          className="absolute left-0 right-0 top-[calc(100%+2px)] z-50 max-h-56 overflow-y-auto rounded-md border border-border glass py-1 shadow-md"
         >
           {/* Name only. The kind badge and the value hint made every row three
               competing columns in a field barely wide enough for one — the
