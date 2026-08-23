@@ -143,6 +143,25 @@ export function CanvasControls({
   // If in Draggable mode, position is controlled by dragPosition or floating overlay
   const isDraggable = dockPrefs.positionMode === 'draggable' && !isMobile
 
+  // How much app chrome FLOATS over this overlay, and therefore has to be
+  // padded around. On the desktop shell the header and the sidebar both paint
+  // on top of the canvas, so inset-0 reaches under them. The mobile shell
+  // (mobile-shell.tsx) puts both in flow instead — the header and tab strip
+  // are shrink-0 rows above <main>, the sidebar rail is a flex sibling inside
+  // it — so inset-0 already starts clear of them, and padding for them again
+  // pushed the dock a header's height down into the page (and a rail's width
+  // to the right of centre).
+  //
+  // Desktop values: 3rem is the header's h-12, in rem so it tracks Interface
+  // scale. --sidebar-panel-w is published by sidebar.tsx (rail + panel), minus
+  // --sidebar-reserve-w because on a document kind the shell already reserved
+  // that width in layout — insetting by the full panel width again would
+  // double the gap.
+  const chromeTop = isMobile ? '0px' : '3rem'
+  const chromeLeft = isMobile
+    ? '0px'
+    : 'calc(var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))'
+
   if (isSundial) {
     return (
       <>
@@ -173,24 +192,14 @@ export function CanvasControls({
             paddingBottom: edgeToolbar
               ? chromeBottom
               : `calc(max(1rem, env(safe-area-inset-bottom)) + ${chromeBottom}px)`,
-            // Both the sidebar and the header float over the canvas, so
-            // inset-0 reaches under them and centred chrome would drift
-            // behind. --sidebar-panel-w is published by sidebar.tsx and is
-            // the rail's width while collapsed; 3rem is the header's h-12, in rem so it
-            // tracks Interface scale rather than drifting from it.
-            // Only the part of the sidebar that FLOATS over this overlay —
-            // on a document kind the shell already reserved its width in
-            // layout (--sidebar-reserve-w), so insetting by the full
-            // --sidebar-panel-w again would double the gap.
-            paddingLeft: edgeToolbar
-              ? 'calc(var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))'
-              : 'calc(1rem + var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))',
-            // 3rem is the header's h-12. An edge bar butts straight up against
-            // it: the header has no bottom border any more (its material is a
-            // masked layer that fades out below itself, see shell.tsx), so
-            // "welded strip" IS the intended read for a fixed bar — a floating
-            // dock is the one that wants air, and it gets its 1rem below.
-            paddingTop: edgeToolbar ? '3rem' : 'calc(1rem + 3rem)',
+            // See chromeLeft/chromeTop above. An edge bar butts straight up
+            // against the header: it has no bottom border any more (its
+            // material is a masked layer that fades out below itself, see
+            // shell.tsx), so "welded strip" IS the intended read for a fixed
+            // bar — a floating dock is the one that wants air, and it gets
+            // its 1rem here.
+            paddingLeft: edgeToolbar ? chromeLeft : `calc(1rem + ${chromeLeft})`,
+            paddingTop: edgeToolbar ? chromeTop : `calc(1rem + ${chromeTop})`,
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>
