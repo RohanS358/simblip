@@ -68,10 +68,15 @@ html {
   --radius: 0.75rem;
 
   /* Calm pastel accents — chrome recedes, state gets color */
-  --accent-blue: oklch(0.58 0.14 255);
+  /* L is pinned at the darkest-but-one step that clears WCAG AA (4.5:1) for
+     NORMAL text on --background and --card, not just the 3:1 large-text bar.
+     It was 0.58 (4.09:1), which Lighthouse flagged on the 15px bold SIMBLIP
+     wordmark — 15px bold is normal text, not large. Verify with
+     `npm run audit:contrast` after any retune. */
+  --accent-blue: oklch(0.55 0.14 255);
   /* Untouched by the tint override below — the Tint picker's "Blue" swatch
      reads this so it doesn't turn into a copy of whatever tint is active. */
-  --accent-blue-base: oklch(0.58 0.14 255);
+  --accent-blue-base: oklch(0.55 0.14 255);
   --accent-violet: oklch(0.58 0.15 295);
   --accent-mint: oklch(0.72 0.12 165);
   --accent-amber: oklch(0.75 0.13 80);
@@ -179,8 +184,8 @@ html {
   --input: oklch(0.89 0.025 75);
   --ring: oklch(0.58 0.14 255);
 
-  --accent-blue: oklch(0.58 0.14 255);
-  --accent-blue-base: oklch(0.58 0.14 255);
+  --accent-blue: oklch(0.545 0.14 255);
+  --accent-blue-base: oklch(0.545 0.14 255);
   --accent-violet: oklch(0.58 0.15 295);
   --accent-mint: oklch(0.72 0.12 165);
   --accent-amber: oklch(0.725 0.1 51.2); /* orange #E98B50, restrained */
@@ -854,6 +859,20 @@ html {
   textarea,
   select {
     touch-action: manipulation;
+  }
+
+  /* iOS Safari auto-zooms the whole page when a text field smaller than 16px
+     takes focus, and never zooms back out. That behaviour — not canvas
+     gestures — is what `user-scalable=no` was really suppressing, at the cost
+     of taking pinch-zoom away from every low-vision user (WCAG 1.4.4).
+     Meeting the 16px floor removes the cause, so zoom can stay enabled.
+     Scoped to coarse pointers: desktop keeps the 13px UI scale. */
+  @media (pointer: coarse) {
+    input:not([type='checkbox']):not([type='radio']):not([type='range']),
+    textarea,
+    select {
+      font-size: max(16px, 1em);
+    }
   }
 }
 
