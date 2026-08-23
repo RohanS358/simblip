@@ -64,9 +64,13 @@ export async function rehydrateUserStores() {
   const { useMobileTabStore } = await import('@/lib/store/mobile-tab')
   const { useConsent } = await import('@/lib/store/consent')
   const { useSyncPrefsStore } = await import('@/lib/sync/sync-prefs')
+  const { useNotesGallery } = await import('@/lib/store/notes-gallery')
   await useWorkspaceStore.persist.rehydrate()
   await useDocStore.persist.rehydrate()
   await useFilePageContentStore.persist.rehydrate()
+  // The note gallery is the account's scrapbook — a login switch must not
+  // leave the previous user's notes and events on screen.
+  await useNotesGallery.persist.rehydrate()
   // Terms acceptance and the analytics choice belong to the account, not the
   // browser — without this a login switch would show the incoming user the
   // previous user's answers.

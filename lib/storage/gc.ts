@@ -104,6 +104,11 @@ export async function runStorageGc(
 
   const treeRefs = collectTreeRefs(nodes)
   const archiveRefs = collectPageRefs()
+  // Images pasted into the Note Gallery live in OPFS by id like any upload,
+  // but hang off no tree node and no page — without this they read as
+  // orphans and a sweep would wipe the user's scrapbook.
+  const { galleryOpfsRefs } = await import('@/lib/store/notes-gallery')
+  const galleryRefs = new Set(galleryOpfsRefs())
   const inMemoryRefs = new Set<string>(
     inMemoryPageIds.flatMap((pid) => docStore.collectPageOpfsRefs(pid))
   )
@@ -115,7 +120,7 @@ export async function runStorageGc(
     allEntries.filter((e) => e.cloudBackedUp && e.cloudUrl).map((e) => e.id)
   )
 
-  const live = new Set([...treeRefs, ...archiveRefs, ...inMemoryRefs, ...cloudRefs])
+  const live = new Set([...treeRefs, ...archiveRefs, ...inMemoryRefs, ...cloudRefs, ...galleryRefs])
   const orphans = opfsIds.filter((id) => !live.has(id))
 
   if (orphans.length > 0) {

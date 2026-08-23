@@ -61,6 +61,7 @@ import {
 import { Switch } from '@/components/ui/switch'
 import { segmentedTab } from './panel-header'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 
 /** Route a dropped/picked file into parentId — a PDF, or plain text/markdown/
  *  csv this app can flatten into one, becomes a reader PAGE (paged reading,
@@ -119,9 +120,23 @@ export async function addFileToFolder(parentId: string, f: File) {
 }
 
 /** Sequential so a multi-file drop lands in tree order (each addFileToFolder
- *  awaits storage) and the last file is the one left open. */
+ *  awaits storage) and the last file is the one left open.
+ *
+ *  Every caller fires this with `void`, so a throw used to vanish into an
+ *  unhandled rejection: the file simply never appeared, with nothing on
+ *  screen explaining why. Storage genuinely can fail (OPFS quota on a full
+ *  disk, a browser with no OPFS at all, a conversion blowing up), and one
+ *  bad file shouldn't abandon the rest of a multi-file drop either. */
 export async function addFilesToFolder(parentId: string, files: FileList | File[]) {
-  for (const f of Array.from(files)) await addFileToFolder(parentId, f)
+  for (const f of Array.from(files)) {
+    try {
+      await addFileToFolder(parentId, f)
+    } catch (err) {
+      toast.error(`Couldn't save "${f.name}"`, {
+        description: err instanceof Error ? err.message : 'This device may be out of storage space.',
+      })
+    }
+  }
 }
 
 /** Drop-anywhere support for rows that aren't folders (pages, files): an OS

@@ -34,8 +34,25 @@ export async function putFile(blob: Blob, name: string, mime: string, ownerId: s
   const hash = await sha256(blob)
   try {
     const all = await manifest.listAllEntries()
-    const existing = all.find((e) => e.sha256 === hash)
-    if (existing) return existing.id
+    // Same owner only: OPFS is per-user (/simblip/<userId>/files, see
+    // opfs.ts), so another account's id names a directory this one can't
+    // read — deduping across owners hands back an id that never resolves.
+    const existing = all.find((e) => e.sha256 === hash && e.ownerId === ownerId)
+    if (existing) {
+      // ...and only if the bytes are STILL here. A manifest row outlives its
+      // blob whenever the browser evicts best-effort storage, or when the row
+      // was pulled from the cloud on a device that never held the file. Handing
+      // that id back is what made a freshly uploaded file refuse to open: the
+      // new page pointed at an id with nothing behind it, and re-uploading —
+      // the obvious thing to try — deduped straight back onto the same hole.
+      // Rewriting the bytes under the SAME id instead of minting a new one
+      // heals every page and picture object already referencing it.
+      const local = await opfs.readFile(existing.id)
+      if (local && local.size === blob.size) return existing.id
+      await opfs.writeFile(existing.id, blob)
+      await manifest.putEntry({ ...existing, name, mime, size: blob.size, modifiedAt: Date.now() })
+      return existing.id
+    }
   } catch {
     // best effort lookup — proceed with store if error
   }

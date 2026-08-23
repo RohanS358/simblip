@@ -20,6 +20,7 @@ export function ImageView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
   const [url, setUrl] = useState<string | null>(null)
+  const [missing, setMissing] = useState(false)
   const [aspect, setAspect] = useState(1)
   const [hostW, setHostW] = useState(0)
   const hostRef = useRef<HTMLDivElement>(null)
@@ -44,7 +45,14 @@ export function ImageView({ pageId }: { pageId: string }) {
     let dead = false
     void (async () => {
       const blob = await getFile(fileId)
-      if (!blob || dead) return
+      if (dead) return
+      // A null blob means the row and the page survived but the bytes didn't.
+      // Say so — the old code just left the loader spinning forever, which
+      // reads as "still working" and gives the user nothing to act on.
+      if (!blob) {
+        setMissing(true)
+        return
+      }
       setUrl(URL.createObjectURL(blob))
     })()
     return () => {
@@ -71,7 +79,12 @@ export function ImageView({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex h-full w-full items-center justify-center overflow-auto bg-muted/40 p-3 sm:p-6">
-      {!url ? (
+      {missing ? (
+        <p className="max-w-[36ch] text-center text-ui-sm leading-relaxed text-muted-foreground">
+          This image&rsquo;s file isn&rsquo;t on this device any more. Upload it again to
+          restore it — the page and its annotations are kept.
+        </p>
+      ) : !url ? (
         <BounceLoader size={170} label="Opening image…" />
       ) : (
         <div

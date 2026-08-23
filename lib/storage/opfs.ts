@@ -31,7 +31,26 @@ async function filesDir(user = userId()): Promise<FileSystemDirectoryHandle> {
   return userDir.getDirectoryHandle('files', { create: true })
 }
 
+/** OPFS (and the IndexedDB manifest beside it) is "best-effort" storage by
+ *  default: the browser is free to evict the whole origin under storage
+ *  pressure, and Safari's ITP drops script-writable storage after ~7 days of
+ *  no interaction. That is a file whose tree row and page survive (they're in
+ *  localStorage, evicted separately) while its bytes quietly vanish — the
+ *  "it lost its path" symptom. Asking once flips the origin to "persistent",
+ *  which the browser then won't clear without the user saying so. Chrome
+ *  decides silently on engagement; Firefox prompts, which is why the ask
+ *  hangs off a real upload (a user gesture) rather than app start. */
+let persistAsked = false
+function askForPersistence() {
+  if (persistAsked || typeof navigator === 'undefined') return
+  persistAsked = true
+  void navigator.storage?.persist?.().catch(() => {
+    // Denied or unsupported — storage still works, it's just evictable.
+  })
+}
+
 export async function writeFile(fileId: string, blob: Blob): Promise<void> {
+  askForPersistence()
   const dir = await filesDir()
   const handle = await dir.getFileHandle(fileId, { create: true })
   const writable = await handle.createWritable()

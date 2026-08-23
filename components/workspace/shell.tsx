@@ -9,7 +9,7 @@ import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
-import { GraduationCap, Search, Sun, Moon } from 'lucide-react'
+import { GraduationCap, Images, Search, Sun, Moon } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta, childrenOf } from '@/lib/store/workspace'
@@ -22,6 +22,8 @@ import { useShareInbox } from '@/hooks/use-share-inbox'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
+import { NotesGallery } from './notes-gallery'
+import { useNotesGallery } from '@/lib/store/notes-gallery'
 import { Dock } from './dock'
 import { useSidebarSection, openProperties } from '@/lib/store/sidebar-sections'
 import { CanvasControls, showsCanvasDock, contentPageIdFor } from './canvas-controls'
@@ -377,6 +379,7 @@ export function WorkspaceShell() {
   const sidebarOpen = useWorkspaceStore((s) => s.sidebarOpen)
   const sidebarSection = useSidebarSection((s) => s.section)
   const calcOpen = useWorkspaceStore((s) => s.calcOpen)
+  const galleryOpen = useNotesGallery((s) => s.open)
   const togglePanel = useWorkspaceStore((s) => s.togglePanel)
   const splitScreenDocumentId = useWorkspaceStore((s) => s.splitScreenDocumentId)
   const syncScroll = useWorkspaceStore((s) => s.syncScroll)
@@ -498,6 +501,15 @@ export function WorkspaceShell() {
       if (matchesCombo(e, resolveCombo('panel.calculator'))) {
         e.preventDefault()
         toggle('calc')
+        return
+      }
+      // Note Gallery. NOTE: Chrome and Firefox reserve Ctrl+N for a new
+      // browser window and will open one regardless of preventDefault — the
+      // shortcut is reliable in the installed PWA and rebindable in Settings
+      // → Hotkeys. The header icon is always the guaranteed path.
+      if (matchesCombo(e, resolveCombo('panel.notes'))) {
+        e.preventDefault()
+        useNotesGallery.getState().toggle()
         return
       }
       // Zen: collapse everything, or restore both rails if already collapsed.
@@ -648,6 +660,20 @@ export function WorkspaceShell() {
           <NotificationCenter />
           <button
             type="button"
+            data-notes-gallery-toggle
+            aria-label="Note Gallery (Ctrl+N)"
+            title="Note Gallery"
+            aria-pressed={galleryOpen}
+            className={cn(
+              'rounded-lg p-1.5 transition-colors hover:bg-accent hover:text-foreground',
+              galleryOpen ? 'text-[var(--accent-amber)]' : 'text-muted-foreground'
+            )}
+            onClick={() => useNotesGallery.getState().toggle()}
+          >
+            <Images className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
             aria-label="Walkthrough Demo"
             className="rounded-lg p-1.5 transition-colors hover:bg-accent text-muted-foreground hover:text-foreground"
             onClick={() => walkthroughEngine.start()}
@@ -679,6 +705,10 @@ export function WorkspaceShell() {
         style={{ paddingLeft: 'var(--sidebar-reserve-w, 0px)' }}
       >
         <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
+        {/* The gallery is the person's surface, not the page's — it opens from
+            the right edge, over the canvas, rather than becoming a seventh
+            section inside the left rail. */}
+        <NotesGallery />
 
         {splitScreenObject && (
           <>

@@ -77,6 +77,7 @@ export const ACTIONS: ShortcutAction[] = [
   { id: 'panel.sidebar', label: 'Toggle the left sidebar', group: 'Panels', default: { key: '[', mods: ['mod'] } },
   { id: 'panel.inspector', label: 'Toggle Properties', group: 'Panels', default: { key: ']', mods: ['mod'] } },
   { id: 'panel.calculator', label: 'Toggle the calculator', group: 'Panels', default: { key: '1', mods: ['mod'] } },
+  { id: 'panel.notes', label: 'Toggle the Note Gallery', group: 'Panels', default: { key: 'n', mods: ['mod'] } },
   { id: 'panel.zen', label: 'Hide every panel (zen mode)', group: 'Panels', default: { key: '.', mods: ['mod'] } },
 
   // Zoom — present on every device, but these are the keyboard path.
