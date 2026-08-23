@@ -185,10 +185,12 @@ export function CanvasControls({
             paddingLeft: edgeToolbar
               ? 'calc(var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))'
               : 'calc(1rem + var(--sidebar-panel-w, 0px) - var(--sidebar-reserve-w, 0px))',
-            // 3rem is the header's h-12; the extra 0.375rem is breathing
-            // room, since at exactly 3rem the edge bar sits flush against the
-            // header's bottom border and the two read as one welded strip.
-            paddingTop: edgeToolbar ? 'calc(3rem + 0.375rem)' : 'calc(1rem + 3rem)',
+            // 3rem is the header's h-12. An edge bar butts straight up against
+            // it: the header has no bottom border any more (its material is a
+            // masked layer that fades out below itself, see shell.tsx), so
+            // "welded strip" IS the intended read for a fixed bar — a floating
+            // dock is the one that wants air, and it gets its 1rem below.
+            paddingTop: edgeToolbar ? '3rem' : 'calc(1rem + 3rem)',
           }}
         >
           <div className={cn('pointer-events-auto min-h-0 min-w-0', toolbarCell)}>

@@ -1086,8 +1086,26 @@ export function SettingsDialog({
       <DialogContent
         showCloseButton={false}
         variant={isTouch ? 'sheet' : 'modal'}
+        // The desktop modal wears the sidebar's chrome material, brightened and
+        // thinned (--chrome-glass-bright), so a floating Settings window reads
+        // as the same plane of glass. The scrim is lightened from the default
+        // black/50 to match: a tint over a half-black overlay composites to
+        // flat grey, and the glass stops looking like glass.
+        // Touch stays opaque — the sheet covers the whole viewport, so there is
+        // nothing to see through and a full-screen backdrop-filter is pure cost.
+        overlayClassName={isTouch ? undefined : 'bg-black/10'}
+        // Desktop takes the material straight from DialogContent's own `.glass`.
+        // Touch opts back OUT inline rather than with a bg-* class: which of
+        // `.glass` and `bg-background` lands last in the utilities layer is not
+        // something this component should be betting on, and losing that bet
+        // means a full-screen backdrop-filter running behind an opaque sheet.
+        style={
+          isTouch
+            ? { background: 'var(--background)', backdropFilter: 'none', WebkitBackdropFilter: 'none' }
+            : undefined
+        }
         className={cn(
-          'flex flex-col overflow-hidden p-0 bg-background shadow-2xl',
+          'flex flex-col overflow-hidden p-0 shadow-2xl',
           isTouch
             ? 'h-dvh max-h-none w-screen max-w-none rounded-none border-0'
             : 'h-[88dvh] max-h-[850px] w-full sm:w-[92vw] md:w-[88vw] lg:w-[960px] sm:max-w-4xl md:max-w-5xl lg:max-w-5xl rounded-2xl border border-border/70 transition-[transform,opacity] duration-200'

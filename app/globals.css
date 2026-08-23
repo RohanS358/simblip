@@ -935,18 +935,29 @@ html {
    * same blur, a heavier edge and drop shadow. Floating surfaces keep the
    * border and shadow the sidebar does without: the sidebar is anchored to a
    * screen edge, a popover floating over a busy canvas needs its own edge to
-   * read as a separate plane. */
+   * read as a separate plane.
+   *
+   * They run the BRIGHT tint and a 20px radius rather than the sidebar's own
+   * 8px. The sidebar spans the viewport, so a tight blur has plenty of large
+   * shapes to soften; a menu covers a few hundred px of dot grid, where 8px
+   * erases the dots instead of smearing them and the surface reads as a flat
+   * white card. See --chrome-glass-bright for the coverage half of that.
+   *
+   * Do NOT hand-write a `-webkit-backdrop-filter` line beside these. Lightning
+   * CSS (Next's transformer) merges a prefixed/unprefixed pair and emits only
+   * the one declared LAST — a manual `-webkit-` line below the real property
+   * therefore DELETES the unprefixed declaration from the build, and Chromium
+   * renders the surface with no blur at all. It prefixes from browserslist on
+   * its own; every rule in this file lost its blur that way. */
   .glass {
-    background: var(--chrome-glass);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--chrome-glass-bright);
+    backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid color-mix(in oklch, var(--border) 30%, transparent);
     box-shadow: 0 8px 30px rgb(0 0 0 / 0.06);
   }
   .glass-strong {
-    background: var(--chrome-glass);
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    background: var(--chrome-glass-bright);
+    backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
     box-shadow: 0 12px 40px rgb(0 0 0 / 0.08);
   }
@@ -963,7 +974,6 @@ html {
       color-mix(in oklch, var(--card) 52%, transparent)
     );
     backdrop-filter: blur(200px) saturate(170%);
-    -webkit-backdrop-filter: blur(200px) saturate(170%);
     border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
     box-shadow:
       inset 0 1px 0 color-mix(in oklch, white 55%, transparent),
@@ -978,7 +988,6 @@ html {
     height: 120px;
     pointer-events: none;
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 100%);
     -webkit-mask-image: linear-gradient(to bottom, black 0%, black 30%, transparent 100%);
   }
@@ -988,7 +997,6 @@ html {
     height: 120px;
     pointer-events: none;
     backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
     mask-image: linear-gradient(to top, black 0%, black 30%, transparent 100%);
     -webkit-mask-image: linear-gradient(to top, black 0%, black 30%, transparent 100%);
   }
@@ -1271,8 +1279,21 @@ html {
    ones — 50% over a bright canvas object leaves chrome text barely readable,
    which light themes never hit because their own background is already close
    to the page. Kept as a variable so all the surfaces stay in step. */
+/* `-bright` is the same material biased toward white AND thinner, for surfaces
+   where the plain tint reads smoked rather than glassy: the large Settings
+   window and menus that float over a busy canvas. The thinning is the half
+   that matters — at --chrome-glass's own alpha the blur is technically running
+   but has nothing left to show, which looks exactly like a flat fill. Pair it
+   with a wider radius than the sidebar's 8px: a small floating menu covers too
+   little backdrop for a tight blur to read as one. Declared per-theme (not
+   derived once on :root) so it tracks whichever --chrome-glass is active. */
 :root {
   --chrome-glass: color-mix(in oklch, var(--background) 55%, transparent);
+  --chrome-glass-bright: color-mix(
+    in oklch,
+    color-mix(in oklch, var(--chrome-glass), white 14%) 72%,
+    transparent
+  );
 }
 .dark,
 .dim,
@@ -1281,6 +1302,11 @@ html {
 .mountains,
 .diva {
   --chrome-glass: color-mix(in oklch, var(--background) 74%, transparent);
+  --chrome-glass-bright: color-mix(
+    in oklch,
+    color-mix(in oklch, var(--chrome-glass), white 14%) 72%,
+    transparent
+  );
 }
 
 @media (prefers-reduced-motion: reduce) {

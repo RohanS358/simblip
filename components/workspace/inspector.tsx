@@ -2875,7 +2875,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             <ChevronDown className={cn('h-3 w-3 text-muted-foreground transition-transform', fontOpen && 'rotate-180')} />
           </button>
           {fontOpen && (
-            <div className="mt-1 max-h-64 overflow-y-auto rounded-md border border-input bg-background/95 p-1">
+            <div className="glass mt-1 max-h-64 overflow-y-auto rounded-md p-1">
               {FONT_GROUPS.map((group) => (
                 <div key={group.label}>
                   {/* Group header — non-interactive divider */}
