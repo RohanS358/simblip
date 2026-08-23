@@ -55,16 +55,40 @@ const CACHE_TTL_SECONDS = 30
  * per-user, an admin editing the institution or a room's membership would
  * invalidate only their OWN cached copy, leaving every other member of the
  * tenant served stale data until the TTL expired.
+ *
+ * Tenant scoping is also where the load win actually comes from. `buildWhere`
+ * gives every member of an institution the SAME rows for the same query, so
+ * one shared entry serves the whole classroom: 40 students polling
+ * `assignments` every 4s (lib/data/db.ts POLL_MS) collapse from 600
+ * Postgres queries a minute to two.
  */
-const TENANT_SCOPED_CACHE = new Set(['institutions', 'room_members'])
+const TENANT_SCOPED_CACHE = new Set([
+  'institutions',
+  'room_members',
+  // Read by every admin screen and scoped by institution, not by owner —
+  // keyed per-user it was one identical copy per admin, and one admin's
+  // edit left the others reading a stale roster.
+  'profiles',
+  // Classroom collections: written by one teacher, polled by every student
+  // in the tenant. These are the tables the 4s poller hammers hardest.
+  'shares',
+  'assignments',
+  'submissions',
+  'announcements',
+  'rooms',
+  'boards',
+  'library_assets',
+])
 
 /**
  * The identity a cache entry belongs to: the tenant for shared tables, the
  * user for owned ones. Callers pass both and this picks — so the choice is
  * made in exactly one place and read and invalidation can never disagree.
  */
-const scopeOf = (table: string, userId: string, inst: string | null): string =>
-  TENANT_SCOPED_CACHE.has(table) ? `inst:${inst ?? 'none'}` : userId
+export const isTenantScopedCache = (table: string): boolean => TENANT_SCOPED_CACHE.has(table)
+
+export const scopeOf = (table: string, userId: string, inst: string | null): string =>
+  isTenantScopedCache(table) ? `inst:${inst ?? 'none'}` : userId
 
 /** Every key this scope has cached for this table, so invalidation can DEL
  *  them without SCAN/KEYS (same lazy-index pattern app/api/devices/route.ts
@@ -93,9 +117,16 @@ export async function cacheSet(
   const redis = getRedisPub()
   const scope = scopeOf(table, userId, inst)
   const key = `pgcache:${table}:${scope}:${queryString}`
+  const idx = indexKey(table, scope)
   await Promise.all([
     redis.set(key, value, 'EX', CACHE_TTL_SECONDS),
-    redis.sadd(indexKey(table, scope), key),
+    redis.sadd(idx, key),
+    // The index set had no expiry of its own: entries inside it expire, the
+    // member names don't, so a scope that reads many distinct query strings
+    // and never writes grew a set that only ever got bigger — a slow leak
+    // against a 30MB budget. Refreshed on every SADD at twice the entry TTL,
+    // the index always outlives its newest member and still dies on its own.
+    redis.expire(idx, CACHE_TTL_SECONDS * 2),
   ])
 }
 
@@ -112,4 +143,38 @@ export async function cacheInvalidate(
   const keys = await redis.smembers(idx)
   if (keys.length > 0) await redis.del(...keys)
   await redis.del(idx)
+}
+
+// --- Privileged-identity cache -------------------------------------------
+// /api/pg re-reads role/active/institution from Postgres on EVERY request
+// from a privileged caller, so a revoked admin can't keep using a 30-day
+// token. Correct, but it means the classroom display — role `board`, polling
+// board_sessions about once a second — buys a profiles SELECT with every
+// remote-control tick, on the one path that must stay fast.
+//
+// 15s is the whole trade: revocation lands within 15s instead of instantly,
+// against 30 days before this check existed at all. Cached under the user id
+// only, never the token, so re-issuing a token can't refresh a stale answer.
+
+const IDENTITY_TTL_SECONDS = 15
+
+export interface CachedIdentity {
+  role: string
+  active: boolean
+  institution_id: string | null
+}
+
+export async function identityGet(userId: string): Promise<CachedIdentity | null> {
+  const raw = await getRedisPub().get(`pgidentity:${userId}`)
+  return raw ? (JSON.parse(raw) as CachedIdentity) : null
+}
+
+export async function identitySet(userId: string, row: CachedIdentity): Promise<void> {
+  await getRedisPub().set(`pgidentity:${userId}`, JSON.stringify(row), 'EX', IDENTITY_TTL_SECONDS)
+}
+
+/** Called when a profile is written, so a demotion or deactivation takes
+ *  effect on the next request rather than waiting out the TTL. */
+export async function identityInvalidate(userId: string): Promise<void> {
+  await getRedisPub().del(`pgidentity:${userId}`)
 }

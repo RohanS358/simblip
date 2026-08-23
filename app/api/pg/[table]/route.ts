@@ -2,7 +2,17 @@ import { NextResponse } from 'next/server'
 import { castFor, encodeValue, ident, pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims, type Claims } from '@/lib/server/auth'
 import { publish } from '@/lib/server/board-live-bus'
-import { cacheGet, cacheInvalidate, cacheSet, redisConfigured } from '@/lib/server/redis'
+import {
+  cacheGet,
+  cacheInvalidate,
+  cacheSet,
+  identityGet,
+  identityInvalidate,
+  identitySet,
+  isTenantScopedCache,
+  redisConfigured,
+  type CachedIdentity,
+} from '@/lib/server/redis'
 import type { BoardLiveServerMsg } from '@/lib/data/board-live-types'
 import type { BoardSessionStatus, RemoteCommand } from '@/lib/data/types'
 
@@ -111,12 +121,26 @@ async function resolve(
   // their role grants nothing beyond what owner/tenant scoping already
   // allows. The provisioning routes have always done this — /api/pg didn't.
   if (claims && PRIVILEGED_ROLES.has(claims.role)) {
-    const row = (
-      await q<{ role: string; active: boolean; institution_id: string | null }>(
-        'select role, active, institution_id from simblip_profiles where id = $1',
-        [claims.sub]
-      )
-    )[0]
+    // SCALING: this SELECT used to run on every single privileged request.
+    // The classroom display polls board_sessions about once a second under
+    // role `board`, so the revocation check cost as many profile reads as
+    // remote-control ticks. It now reads through a 15s Redis entry
+    // (lib/server/redis.ts) that profile writes below invalidate outright —
+    // revocation is bounded by 15s instead of the token's 30 days, and the
+    // hot poll stops touching Postgres for identity at all.
+    let row = redisConfigured ? await identityGet(claims.sub).catch(() => null) : null
+    if (!row) {
+      row =
+        (
+          await q<CachedIdentity>(
+            'select role, active, institution_id from simblip_profiles where id = $1',
+            [claims.sub]
+          )
+        )[0] ?? null
+      // Only a real profile is cached: a miss stays a miss so a deleted
+      // account can never be served from cache.
+      if (row && redisConfigured) await identitySet(claims.sub, row).catch(() => {})
+    }
     if (!row?.active) return NextResponse.json({ error: 'Account unavailable' }, { status: 401 })
     // Trust the DB, not the token, for both role and tenant.
     claims.role = row.role
@@ -133,7 +157,45 @@ const isOperator = (c: Claims | null) => c?.role === 'super_admin'
 // excluded: it can be hundreds of KB per row and a single workspace pull
 // fetches every page at once, which would blow the 30MB Redis budget for
 // poor hit-rate given how often boards get edited. See docs/redis-cache-plan.md.
-const CACHEABLE_TABLES = new Set(['profiles', 'institutions', 'file_manifest', 'room_members', 'workspaces'])
+const CACHEABLE_TABLES = new Set([
+  'profiles',
+  'institutions',
+  'file_manifest',
+  'room_members',
+  'workspaces',
+  // Every table lib/data/db.ts `subscribe()` polls on its 4s timer, minus
+  // the ones that can't take staleness. These are the requests that showed
+  // up four-at-a-time in the access log: shares / assignments /
+  // announcements / submissions, once per mounted subscriber per tick, per
+  // signed-in device. They are tenant-scoped in TENANT_SCOPED_CACHE, so a
+  // whole classroom shares ONE entry rather than one each.
+  'shares',
+  'assignments',
+  'submissions',
+  'announcements',
+  'rooms',
+  'boards',
+  'library_assets',
+  // NOT board_sessions: `remote` is the teacher's phone driving the display
+  // and `pollRemote` reads it at ~1Hz expecting sub-second delivery
+  // (lib/data/boards.ts). A 30s window there is a broken remote, not a
+  // stale list. Its load is already answered by the Redis pub/sub bus.
+])
+
+// The one invariant that makes tenant-scoped keys safe, checked at import so
+// it fails on boot rather than by leaking. A table keyed per-INSTITUTION must
+// not also be narrowed per-USER by buildWhere: if it were, two members of the
+// same institution would share a cache entry while the database would have
+// given them different rows. Adding `owner:` to a tenant-cached table (or
+// tenant-caching an owner-scoped one) trips this immediately.
+for (const table of CACHEABLE_TABLES) {
+  if (isTenantScopedCache(table) && TABLES[table]?.owner) {
+    throw new Error(
+      `[pg] ${table} is cached per-institution but owner-scoped by buildWhere — ` +
+        `cache it per-user or drop the owner scope`
+    )
+  }
+}
 
 const PLATFORM_INSTITUTION = 'inst-platform'
 
@@ -306,6 +368,32 @@ function errorResponse(err: unknown, table: string, method: string): NextRespons
   )
 }
 
+/** PostgREST-dialect `?id=eq.<x>` → `<x>`. */
+const eqId = (url: URL): string | undefined =>
+  url.searchParams.get('id')?.replace(/^eq\./, '')
+
+/**
+ * Cache upkeep after a successful write. One place so a new write path can't
+ * quietly forget half of it.
+ *
+ * ponytail: an operator writing into a tenant that isn't their own
+ * invalidates under their OWN scope, so members of the edited tenant keep a
+ * stale list until the 30s TTL runs out. Operator writes are rare and
+ * admin-initiated; the upgrade path is passing the affected row's
+ * institution_id in here instead of the caller's.
+ */
+async function afterWrite(ctx: Ctx, touchedIds: string[] = []): Promise<void> {
+  if (!redisConfigured || !ctx.claims) return
+  if (CACHEABLE_TABLES.has(ctx.table)) {
+    await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
+  }
+  // A demotion, deactivation or tenant move has to land on the next request,
+  // not after the 15s identity TTL — this is the revocation path.
+  if (ctx.table === 'profiles') {
+    await Promise.all(touchedIds.filter(Boolean).map((id) => identityInvalidate(id).catch(() => {})))
+  }
+}
+
 type Params = { params: Promise<{ table: string }> }
 
 export async function GET(req: Request, { params }: Params) {
@@ -317,7 +405,15 @@ export async function GET(req: Request, { params }: Params) {
     // requests: buildWhere() enforces owner/tenant filtering server-side
     // from the JWT, so two different users hitting the identical query
     // string can get different rows — the cache key must reflect that.
-    const cacheable = redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims
+    //
+    // SECURITY: operators are never cached. isOperator() skips tenant
+    // scoping entirely, so a super_admin's `?select=*` returns every
+    // tenant's rows — and tenant-scoped tables key that response under the
+    // operator's OWN institution, where an ordinary member of that
+    // institution issuing the identical query string would read it back as
+    // a HIT. Their requests are rare; excluding them costs nothing.
+    const cacheable =
+      redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims && !isOperator(ctx.claims)
     // Debug-only visibility into hit/miss — harmless in prod (just an extra
     // response header) but cheap to drop entirely later if unwanted.
     const cacheHeader = (v: 'HIT' | 'MISS' | 'SKIP') => ({ 'Content-Type': 'application/json', 'X-Cache': v })
@@ -427,9 +523,7 @@ export async function POST(req: Request, { params }: Params) {
         values
       )
     }
-    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
-    }
+    await afterWrite(ctx, rows.map((r) => String(r.id ?? '')))
     return NextResponse.json({ ok: true }, { status: 201 })
   } catch (err) {
     return errorResponse(err, ctx.table, 'POST')
@@ -458,7 +552,7 @@ export async function PATCH(req: Request, { params }: Params) {
     // scoping/security logic. Never fails the request — a publish hiccup
     // just means peers fall back to their existing poll for this update.
     if (ctx.table === 'board_sessions') {
-      const sessionId = url.searchParams.get('id')?.replace(/^eq\./, '')
+      const sessionId = eqId(url)
       if (sessionId) {
         if ('status' in patch) {
           const evt: BoardLiveServerMsg = { type: 'status', status: patch.status as BoardSessionStatus }
@@ -470,9 +564,7 @@ export async function PATCH(req: Request, { params }: Params) {
         }
       }
     }
-    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
-    }
+    await afterWrite(ctx, [eqId(url) ?? ''])
     return NextResponse.json({ ok: true })
   } catch (err) {
     return errorResponse(err, ctx.table, 'PATCH')
@@ -487,9 +579,7 @@ export async function DELETE(req: Request, { params }: Params) {
     const { clause, params: p } = buildWhere(ctx, url)
     if (!clause) return NextResponse.json({ error: 'Refusing unfiltered delete' }, { status: 400 })
     await q(`delete from simblip_${ident(ctx.table)}${clause}`, p)
-    if (redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims) {
-      await cacheInvalidate(ctx.table, ctx.claims.sub, ctx.claims.inst).catch(() => {})
-    }
+    await afterWrite(ctx, [eqId(url) ?? ''])
     return NextResponse.json({ ok: true })
   } catch (err) {
     return errorResponse(err, ctx.table, 'DELETE')

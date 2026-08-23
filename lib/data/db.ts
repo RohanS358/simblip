@@ -185,6 +185,21 @@ if (typeof window !== 'undefined') {
 const POLL_MS = 4000
 const pollers = new Map<string, ReturnType<typeof setInterval>>()
 
+// A background tab polled exactly as hard as a foreground one: every table
+// with a mounted subscriber kept firing a request every 4s in every open tab
+// on every signed-in device, forever. Nobody is reading a hidden tab, so the
+// tick is skipped while the document is hidden and fired once on the way
+// back — the user still sees fresh data the moment they look at it, and an
+// idle tab costs nothing. Server-side Redis caching cuts the DATABASE cost of
+// these polls; only this cuts their number.
+const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden'
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (visible()) pollers.forEach((_, table) => emitLocal(table))
+  })
+}
+
 export function subscribe(table: string, fn: Listener): () => void {
   let set = listeners.get(table)
   if (!set) {
@@ -193,7 +208,12 @@ export function subscribe(table: string, fn: Listener): () => void {
   }
   set.add(fn)
   if (dbMode === 'cloud' && !pollers.has(table)) {
-    pollers.set(table, setInterval(() => emitLocal(table), POLL_MS))
+    pollers.set(
+      table,
+      setInterval(() => {
+        if (visible()) emitLocal(table)
+      }, POLL_MS)
+    )
   }
   return () => {
     set.delete(fn)

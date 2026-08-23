@@ -67,7 +67,7 @@ const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-sing
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'SIMBLIP',
+    default: 'SIMBLIP — The Engineering Notebook That Simulates',
     template: '%s · SIMBLIP',
   },
   description:
