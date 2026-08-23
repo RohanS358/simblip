@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 
+
 /* Dim, Midnight, Contrast, Mountains and Diva are dark-family themes — every dark: utility applies. */
 @custom-variant dark (&:is(.dark *, .dim *, .midnight *, .contrast *, .mountains *, .diva *));
 
@@ -776,6 +777,14 @@ html {
   --radius-xl: calc(var(--radius) + 4px);
   /* Strong ease-out for UI transitions — fast start, soft landing. */
   --ease-strong: cubic-bezier(0.23, 1, 0.32, 1);
+
+  /* App-wide default motion. Tailwind reads these two for EVERY `transition-*`
+     utility, so `transition-colors` with no `duration-*`/`ease-*` of its own
+     now runs on this curve — and any utility that DOES name one still wins.
+     Dial the duration here if 400ms reads slow on hover states. */
+  --ease-smooth: cubic-bezier(0.129, -0.481, 0, 0.995);
+  --default-transition-duration: 400ms;
+  --default-transition-timing-function: var(--ease-smooth);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -789,6 +798,31 @@ html {
 @layer base {
   * {
     @apply border-border;
+  }
+
+  /* Motion floor: anything interactive that never declared a transition of its
+     own gets one, so state changes ease instead of popping.
+     `:where()` = specificity 0 and it sits in `base`, so ANY utility class or
+     component rule overrides it — it is a default, not a mandate.
+     The `:not([style*=transform])` guard is load-bearing: the canvas viewport,
+     dragged objects, the zoom wrappers (doc/pdf/presentation) and Framer Motion
+     all write `transform` inline every frame, and a 400ms transition on those
+     would smear them 400ms behind the pointer. */
+  :where(
+    button, a, summary, label, input, select, textarea, svg,
+    [role='button'], [role='tab'], [role='menuitem'], [role='option'],
+    [role='switch'], [role='checkbox'], [role='radio'], [data-slot]
+  ):not([style*='transform']) {
+    /* Deliberately NOT box-shadow: shadcn's focus ring IS a box-shadow
+       (`ring-[3px]`), and a keyboard focus ring that fades in over 400ms is
+       both an a11y regression and animation on a 100+/day keyboard action.
+       Deliberately NOT backdrop-filter: it is the most expensive property this
+       app paints (sidebar/dock/chrome-glass) and transitioning it drops frames. */
+    transition-property:
+      color, background-color, border-color, text-decoration-color, fill, stroke,
+      opacity, filter, transform, translate, scale, rotate;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
   }
   body {
     @apply bg-background text-foreground;
@@ -1386,5 +1420,58 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .bounce-stage {
     display: none;
+  }
+}
+
+/* Blur bridge for enter/exit.
+ *
+ * tw-animate-css's `enter`/`exit` keyframes drive opacity + transform only, so
+ * every overlay in the app (dialog, popover, dropdown, tooltip, sheet) crossfades
+ * with both states legible on top of each other for a frame or two — the "pop".
+ * A few px of blur on the entering/leaving frame blends them into one perceived
+ * transformation instead.
+ *
+ * Redefining `@keyframes enter` by name does NOT work: Tailwind emits the ones
+ * from the import's `@theme` block last no matter where ours sits in this file.
+ * So this points `--animate-in`/`--animate-out` at differently-named keyframes.
+ * The rest of the shorthand is copied from tw-animate-css verbatim, except the
+ * easing default: `ease` is too weak for an entrance, `--ease-strong` is the
+ * ease-out curve the rest of this app's chrome already uses. `ease-*` and
+ * `duration-*` utilities still override both, as before.
+ *
+ * Opt out of the blur per element with `[--enter-blur:0px]`. Registered
+ * non-inheriting so a nested `animate-in` child never inherits an override, and
+ * kept well under the ~20px where blur starts costing real frames (Safari). */
+@property --enter-blur { syntax: '<length>'; inherits: false; initial-value: 4px; }
+@property --exit-blur { syntax: '<length>'; inherits: false; initial-value: 4px; }
+
+@theme {
+  --animate-in: enter-blur var(--tw-animation-duration, var(--tw-duration, 0.15s))
+    var(--tw-ease, var(--ease-strong)) var(--tw-animation-delay, 0s)
+    var(--tw-animation-iteration-count, 1) var(--tw-animation-direction, normal)
+    var(--tw-animation-fill-mode, forwards);
+  --animate-out: exit-blur var(--tw-animation-duration, var(--tw-duration, 0.15s))
+    var(--tw-ease, var(--ease-strong)) var(--tw-animation-delay, 0s)
+    var(--tw-animation-iteration-count, 1) var(--tw-animation-direction, normal)
+    var(--tw-animation-fill-mode, forwards);
+}
+
+@keyframes enter-blur {
+  from {
+    opacity: var(--tw-enter-opacity, 1);
+    filter: blur(var(--enter-blur));
+    transform: translate3d(var(--tw-enter-translate-x, 0), var(--tw-enter-translate-y, 0), 0)
+      scale3d(var(--tw-enter-scale, 1), var(--tw-enter-scale, 1), var(--tw-enter-scale, 1))
+      rotate(var(--tw-enter-rotate, 0));
+  }
+}
+
+@keyframes exit-blur {
+  to {
+    opacity: var(--tw-exit-opacity, 1);
+    filter: blur(var(--exit-blur));
+    transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
+      scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1))
+      rotate(var(--tw-exit-rotate, 0));
   }
 }
