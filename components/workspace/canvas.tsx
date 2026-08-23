@@ -3791,7 +3791,7 @@ export function InfiniteCanvas({
               key={label}
               type="button"
               className={cn(
-                'flex w-full items-center rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent',
+                'menu-row flex w-full items-center rounded-lg px-2.5 py-1.5 text-left transition-colors',
                 danger && 'text-[var(--accent-rose)]'
               )}
               onClick={() => {

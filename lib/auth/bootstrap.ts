@@ -5,11 +5,18 @@
 
 import type { Institution, Profile } from './types'
 
+/** The colour the admin console's brand picker OPENS on — a placeholder, not
+ *  a choice anyone made. It was also being written into every institution row
+ *  as `accent_color`, and AccentApplier ranks a brand colour ABOVE the theme's
+ *  own accent, so every tenant silently pinned the whole UI to blue and no
+ *  App Theme's accent could ever show. Treated as "no brand set". */
+export const UNSET_BRAND_ACCENT = '#3b82f6'
+
 export const PLATFORM_TENANT: Institution = {
   id: 'inst-platform',
   name: 'SIMBLIP Platform',
   slug: 'simblip-platform',
-  accentColor: '#3b82f6',
+  accentColor: null,
   logoUrl: null,
 }
 

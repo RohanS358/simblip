@@ -7,6 +7,7 @@ import {
 } from 'next-themes'
 import { usePrefs } from '@/lib/store/preferences'
 import { useAuthStore } from '@/lib/auth/store'
+import { UNSET_BRAND_ACCENT } from '@/lib/auth/bootstrap'
 
 // Every selectable appearance theme, in display order. Light and dark each
 // come in flavors: Sepia is warm paper, Lily is baby pink/orange, Dim is
@@ -48,12 +49,20 @@ export function isDarkTheme(theme: string | undefined): boolean {
 //
 // Precedence, highest first:
 //   1. an explicit user tint (anything other than the 'blue' default)
-//   2. the institution's brand colour
+//   2. the institution's brand colour, if one was actually CHOSEN
 //   3. the theme's own --accent-blue, by removing the override entirely
+//
+// Rung 2 used to swallow rung 3 whole: every institution row was seeded with
+// UNSET_BRAND_ACCENT, the placeholder the admin colour picker opens on, so
+// `brand` was always truthy and always blue. Picking Lily or Mountains changed
+// every surface in the app EXCEPT the accent, which is the one the theme is
+// named for. A brand only outranks the theme when someone picked it.
 function AccentApplier() {
   const accent = usePrefs((s) => s.appearance.accent) ?? 'blue'
   const customAccent = usePrefs((s) => s.appearance.customAccent) ?? '#3b82f6'
-  const brand = useAuthStore((s) => s.institution?.accent_color) ?? null
+  const rawBrand = useAuthStore((s) => s.institution?.accent_color) ?? null
+  // Compared case-insensitively: the picker and the DB both round-trip hex.
+  const brand = rawBrand?.toLowerCase() === UNSET_BRAND_ACCENT ? null : rawBrand
   React.useEffect(() => {
     const root = document.documentElement
     if (accent === 'custom') root.style.setProperty('--accent-blue', customAccent)

@@ -86,8 +86,15 @@ html {
      --chart-* are deliberately NOT held to this bar: they are graphical
      objects (WCAG 1.4.11, 3:1), not text. */
   --accent-blue: oklch(0.55 0.14 255);
-  /* Untouched by the tint override below — the Tint picker's "Blue" swatch
-     reads this so it doesn't turn into a copy of whatever tint is active. */
+  /* Untouched by the tint override below — the Tint picker's first swatch
+     reads this so it doesn't turn into a copy of whatever tint is active.
+     Despite the name it is NOT "blue": it is the THEME's own accent, and the
+     first swatch means "theme default" (AccentApplier's precedence 3 — it
+     removes the inline override entirely). So every theme block must keep
+     this in the same hue family as its own --primary. Four themes did not —
+     lily, contrast, mountains and im-just-a-girl are red/yellow/green/pink
+     but declared a 255-hue blue here, so the swatch showed blue no matter
+     which of them was active. They now read var(--primary) directly. */
   --accent-blue-base: oklch(0.55 0.14 255);
   --accent-violet: oklch(0.56 0.15 295);
   --accent-mint: oklch(0.535 0.1129 165);
@@ -243,8 +250,8 @@ html {
   --input: oklch(0.9 0.02 25);
   --ring: oklch(0.72 0.13 25);
 
-  --accent-blue: oklch(0.46 0.16 255);
-  --accent-blue-base: oklch(0.46 0.16 255);
+  --accent-blue: oklch(0.55 0.16 25); /* lily is coral, not blue — --primary hue, darkened to AA */
+  --accent-blue-base: oklch(0.55 0.16 25);
   --accent-violet: oklch(0.555 0.15 295);
   --accent-mint: oklch(0.525 0.1108 165);
   --accent-amber: oklch(0.545 0.1134 80);
@@ -397,8 +404,8 @@ html {
   --input: oklch(0.22 0 0);
   --ring: oklch(0.85 0.19 95);
 
-  --accent-blue: oklch(0.75 0.16 255);
-  --accent-blue-base: oklch(0.75 0.16 255);
+  --accent-blue: oklch(0.85 0.19 95); /* contrast is yellow, not blue — = --primary */
+  --accent-blue-base: oklch(0.85 0.19 95);
   --accent-violet: oklch(0.78 0.15 295);
   --accent-mint: oklch(0.82 0.13 165);
   --accent-amber: oklch(0.85 0.14 80);
@@ -555,8 +562,8 @@ html {
   --input: oklch(0.35 0.016 180);
   --ring: oklch(0.68 0.09 155);
 
-  --accent-blue: oklch(0.66 0.1 220);
-  --accent-blue-base: oklch(0.66 0.1 220);
+  --accent-blue: oklch(0.68 0.09 155); /* mountains is green, not blue — = --primary */
+  --accent-blue-base: oklch(0.68 0.09 155);
   --accent-violet: oklch(0.68 0.1 280);
   --accent-mint: oklch(0.72 0.1 165);
   --accent-amber: oklch(0.76 0.11 85);
@@ -607,8 +614,8 @@ html {
   --input: oklch(0.9 0.03 335);
   --ring: oklch(0.68 0.15 335);
 
-  --accent-blue: oklch(0.55 0.11 290);
-  --accent-blue-base: oklch(0.55 0.11 290);
+  --accent-blue: oklch(0.55 0.18 335); /* im-just-a-girl is pink, not blue — --primary hue, darkened to AA */
+  --accent-blue-base: oklch(0.55 0.18 335);
   --accent-violet: oklch(0.555 0.14 305);
   --accent-mint: oklch(0.53 0.1 175);
   --accent-amber: oklch(0.545 0.1 75);
@@ -698,6 +705,22 @@ html {
   --canvas-dot: oklch(0.26 0.01 340);
 }
 
+/* The interactive fill — every `hover:bg-accent` in the app, the rail buttons
+   and menu rows included. Each theme block above sets its own --accent, and
+   every one of them is a fixed blue-grey that ignores the accent the user
+   picked in Settings. This block lands after all of them and rederives it
+   from --accent-blue, which AccentApplier rewrites on documentElement, so
+   hovers track violet/mint/amber/rose/custom like the rest of the UI.
+   Translucent because the surfaces underneath are glass now: an opaque hover
+   bar sliding over a translucent panel is the other half of what read as a
+   bug. Listing every theme class keeps the specificity tie honest — same
+   0,1,0 as the blocks above, won on source order. */
+:root,
+.dark, .sepia, .lily, .dim, .midnight, .contrast,
+.solarized, .sea, .mountains, .im-just-a-girl, .diva {
+  --accent: color-mix(in oklch, var(--accent-blue) 14%, transparent);
+}
+
 @theme inline {
   /* Tailwind's smallest default breakpoint is sm:640px, which is wider than
      every phone in portrait — so there was no way to say "only on a roomier
@@ -768,10 +791,17 @@ html {
   /* App-wide default motion. Tailwind reads these two for EVERY `transition-*`
      utility, so `transition-colors` with no `duration-*`/`ease-*` of its own
      now runs on this curve — and any utility that DOES name one still wins.
-     Dial the duration here if 400ms reads slow on hover states. */
+     Dialled DOWN from 400ms/--ease-smooth, which is what made every hover in
+     the app read as broken. Two separate faults: 400ms means a pointer moving
+     down a list leaves rows still fading UP behind it, so a menu stays lit
+     three rows deep; and --ease-smooth's first control point has a NEGATIVE
+     y (-0.481), an anticipation curve that sends the value backwards before
+     it moves forward — on a background-color that is a visible flick to the
+     wrong colour on every hover. Anticipation belongs on things that travel,
+     not on a fill. --ease-strong is a plain ease-out. */
   --ease-smooth: cubic-bezier(0.129, -0.481, 0, 0.995);
-  --default-transition-duration: 400ms;
-  --default-transition-timing-function: var(--ease-smooth);
+  --default-transition-duration: 160ms;
+  --default-transition-timing-function: var(--ease-strong);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -963,6 +993,27 @@ html {
   }
   .hairline {
     border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  }
+  /* One row highlight for every menu primitive.
+   *
+   * This exists only to unify the SELECTOR, not the colour: --accent is now
+   * accent-derived and translucent for the whole app (see the block after the
+   * theme definitions), and the hover lag/flick is fixed at the motion
+   * defaults. What varies per primitive is how "highlighted" is expressed —
+   * :hover for plain buttons (the canvas context menu), :focus and
+   * [data-highlighted] for Radix, which moves DOM focus rather than relying on
+   * hover, and [data-state=open] for a sub-menu's trigger. One class covers
+   * all of them so a menu row cannot drift from its siblings.
+   *
+   * Destructive rows keep their own variant fill — those selectors carry an
+   * extra attribute and outrank this. */
+  .menu-row:hover,
+  .menu-row:focus,
+  .menu-row:focus-visible,
+  .menu-row[data-highlighted],
+  .menu-row[data-state='open'] {
+    background-color: var(--accent);
+    color: var(--foreground);
   }
   /* Liquid glass — a glass surface with a specular top edge and inner sheen,
      for chrome that should read as a physical material. */

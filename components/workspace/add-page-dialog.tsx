@@ -305,7 +305,17 @@ export function AddPageDialog({
 
   return (
     <Dialog open={target !== null} onOpenChange={onOpenChange}>
-      <DialogContent className={step === 'kind' || step === 'doc-kind' ? 'max-w-lg' : 'max-w-md'}>
+      {/* No scrim. The panel is glass, and a black/50 overlay sits BEHIND that
+          translucent surface — the tint composites over black and the whole
+          dialog goes flat grey, which is what made it read as a solid card
+          rather than glass. Separation comes from the blur, border and drop
+          shadow instead. The overlay element stays (transparent), so
+          click-outside-to-dismiss still works. Every step of this flow is
+          this same DialogContent, so the child steps inherit it. */}
+      <DialogContent
+        overlayClassName="bg-transparent"
+        className={step === 'kind' || step === 'doc-kind' ? 'max-w-lg' : 'max-w-md'}
+      >
         <DialogHeader>
           <div className="flex items-center gap-1.5">
             {step !== 'kind' && (
