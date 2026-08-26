@@ -352,7 +352,14 @@ export function TextObject(props: ObjectRendererProps) {
         'relative flex h-full flex-col',
         hug ? 'w-max' : 'w-full',
         VERTICAL_ALIGN_CLASS[vAlign] ?? 'justify-start',
-        hasFill ? cn(!bgIsHex && FILLS[bg as string], 'p-3 hairline shadow-sm') : 'p-2'
+        // A plain text box has NO padding: its bounding box should be the
+        // text, so the glyphs sit exactly where the box edge says they will
+        // — the old p-2 offset every box 8px in from its own handles, which
+        // is visible the moment you align two boxes or butt one against a
+        // shape. A FILLED box keeps its inset: text touching the edge of a
+        // tinted panel reads as broken, and that padding is part of the fill
+        // treatment rather than part of the text.
+        hasFill ? cn(!bgIsHex && FILLS[bg as string], 'p-3 hairline shadow-sm') : ''
       )}
       style={{
         textAlign: align,

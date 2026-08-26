@@ -1205,7 +1205,16 @@ html {
      ProseMirror owns; .markdown-view is the generated-HTML twin. */
   .tiptap-editor .tiptap {
     outline: none;
-    caret-color: var(--foreground);
+    /* currentColor, not --foreground: a text box can carry its own glyph
+       colour (Properties → Fill), and a caret painted in the global
+       foreground disappears against it — invisible on a box whose text is
+       near the app foreground, and wrong everywhere else. Following the text
+       colour is what every native input does.
+
+       The blink itself is the browser's, and it only happens once the
+       element actually holds DOM focus — see the mount-focus effect in
+       components/objects/text-editor.tsx, which is what was missing. */
+    caret-color: currentColor;
   }
   /* Placeholder, driven by the Placeholder extension's data attribute. */
   .tiptap-editor .tiptap p.is-editor-empty:first-child::before {

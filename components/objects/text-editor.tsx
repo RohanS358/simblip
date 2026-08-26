@@ -122,9 +122,42 @@ export function TiptapArea({
     if (editor) editor.setEditable(editable)
   }, [editor, editable])
 
+  // Focus on mount. There is no caret at all — let alone a blinking one —
+  // until the contenteditable element actually holds DOM focus, and a
+  // command issued the instant `editor` first exists can land before the
+  // ProseMirror view is attached and painted, where it silently no-ops:
+  // observed live as contenteditable="true" with a valid caret-color but
+  // document.activeElement still <body>.
+  //
+  // So drive the DOM element directly and confirm it took, retrying on the
+  // next frame. focus() on an unattached/unpainted node is the case that
+  // fails, and one frame is enough for the view to be in the document.
   useEffect(() => {
     if (!editor || !autoFocus) return
-    editor.commands.focus('end')
+    let raf = 0
+    let cancelled = false
+    const tryFocus = (attempt: number) => {
+      if (cancelled || editor.isDestroyed) return
+      const dom = editor.view?.dom as HTMLElement | undefined
+      // activeElement is the DOM truth — editor.isFocused can report true
+      // while the element does not actually hold focus, and it is the DOM
+      // state the browser draws a caret from.
+      if (dom?.isConnected && document.activeElement === dom) return
+      // Focus the element FIRST. editor.commands.focus() alone was observed
+      // leaving document.activeElement as <body> on the click-to-edit path
+      // (verified live), and a contenteditable with no DOM focus has no
+      // caret to blink. The command then only has to place the caret.
+      dom?.focus({ preventScroll: true })
+      editor.commands.focus('end')
+      // A few frames covers "view not yet attached/painted" without spinning
+      // if focus is legitimately elsewhere (the user clicked away already).
+      if (attempt < 4) raf = requestAnimationFrame(() => tryFocus(attempt + 1))
+    }
+    tryFocus(0)
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+    }
   }, [editor, autoFocus])
 
   // Layout can change without the document changing at all: a font finishes
