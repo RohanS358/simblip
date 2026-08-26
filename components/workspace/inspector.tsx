@@ -59,8 +59,10 @@ import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { useImagePalette } from '@/lib/color/use-image-palette'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, parse, applyMark, serialize, type MarkKind } from '@/lib/text/marks'
-import { htmlToMarkdownSource } from '@/lib/text/render'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
+import { Editor } from '@tiptap/react'
+import { textExtensions } from '@/lib/text/extensions'
+import { parseDoc, serializeDoc, type PmDoc } from '@/lib/text/pm'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
   parseSeries as parseChartSeries,
@@ -2339,12 +2341,34 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
 
 const ALIGN_ICONS = { left: AlignLeft, center: AlignCenter, right: AlignRight, justify: AlignJustify } as const
 
-const TEXT_STYLES: { label: string; icon: typeof Pilcrow; prefix: string }[] = [
-  { label: 'Body', icon: Pilcrow, prefix: '' },
-  { label: 'Heading 1', icon: Heading1, prefix: '# ' },
-  { label: 'Heading 2', icon: Heading2, prefix: '## ' },
-  { label: 'Heading 3', icon: Heading3, prefix: '### ' },
+/** Block-level controls: a real node type now (heading/list/quote), not a
+ *  literal prefix string written into the text. `1 | 2 | 3` is a heading
+ *  level; the rest name their node. */
+type BlockControl = 1 | 2 | 3 | 'body' | 'bullet' | 'ordered' | 'task' | 'quote'
+
+const TEXT_STYLES: { label: string; icon: typeof Pilcrow; block: BlockControl }[] = [
+  { label: 'Body', icon: Pilcrow, block: 'body' },
+  { label: 'Heading 1', icon: Heading1, block: 1 },
+  { label: 'Heading 2', icon: Heading2, block: 2 },
+  { label: 'Heading 3', icon: Heading3, block: 3 },
 ]
+
+/** MarkKind (the panel's vocabulary, from the legacy model) → Tiptap mark
+ *  name. Only the toggle marks appear here; color/size/font/weight are
+ *  textStyle attributes and go through setSpan instead. */
+const PM_MARK: Record<MarkKind, string> = {
+  bold: 'bold',
+  italic: 'italic',
+  underline: 'underline',
+  strike: 'strike',
+  highlight: 'highlight',
+  code: 'code',
+  color: 'textStyle',
+  size: 'textStyle',
+  font: 'textStyle',
+  weight: 'textStyleFontWeight',
+  link: 'link',
+}
 
 /** A small gray field caption — Figma's own field labels ("Alignment",
  *  "Position", "Resizing"…) inside each section. */
@@ -2449,7 +2473,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const updateObject = useDocStore((s) => s.updateObject)
   const viewport = useDocStore((s) => s.viewports[pageId] ?? FALLBACK_VIEWPORT)
   const activeId = useActiveTextEditor((s) => s.objectId)
-  const handleRef = useActiveTextEditor((s) => s.handleRef)
+  const editor = useActiveTextEditor((s) => s.editor)
   const isActive = activeId === object.id
 
   const align = (object.metadata.align as string) ?? 'left'
@@ -2470,46 +2494,74 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const setMeta = (patch: Record<string, unknown>) =>
     updateObject(pageId, object.id, { metadata: { ...object.metadata, ...patch } }, { history: true })
 
-  const toggleMark = (kind: MarkKind) => {
-    if (handleRef?.current) {
-      handleRef.current.toggleMark(kind)
-    } else {
-      const raw = htmlToMarkdownSource(getString(object, 'text'))
-      const parsed = parse(raw)
-      const fullEnd = Math.max(0, parsed.text.length)
-      const newMarks = applyMark(parsed.marks, 0, fullEnd, kind)
-      const next = serialize({ text: parsed.text, marks: newMarks })
-      useDocStore.getState().setStringParam(pageId, object.id, 'text', next)
+  // Applies `run` to the live editor when this box is the one being edited,
+  // and falls back to a whole-box edit of the stored document otherwise (the
+  // panel is usable on a merely-selected box, not just a focused one). The
+  // fallback selects the entire document first, so the SAME Tiptap command
+  // serves both paths — no parallel applyMark()/serialize() branch that can
+  // drift from what the editor does.
+  const applyToText = (run: (chain: ReturnType<Editor['chain']>) => ReturnType<Editor['chain']>) => {
+    if (editor) {
+      run(editor.chain().focus()).run()
+      return
     }
+    const headless = new Editor({
+      extensions: textExtensions(),
+      content: parseDoc(getString(object, 'text')) as unknown as Record<string, unknown>,
+    })
+    run(headless.chain().selectAll()).run()
+    const next = serializeDoc(headless.getJSON() as unknown as PmDoc)
+    headless.destroy()
+    useDocStore.getState().setStringParam(pageId, object.id, 'text', next)
   }
-  const prefixLine = (prefix: string) => handleRef?.current?.prefixLine(prefix)
-  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string, wholeBox?: boolean) => {
-    if (handleRef?.current) {
-      handleRef.current.setSpan(kind, value, wholeBox)
-    } else {
-      const raw = htmlToMarkdownSource(getString(object, 'text'))
-      const parsed = parse(raw)
-      const fullEnd = Math.max(0, parsed.text.length)
-      const newMarks = applyMark(parsed.marks, 0, fullEnd, kind, value)
-      const next = serialize({ text: parsed.text, marks: newMarks })
-      useDocStore.getState().setStringParam(pageId, object.id, 'text', next)
-    }
-  }
+
+  const toggleMark = (kind: MarkKind) => applyToText((c) => c.toggleMark(PM_MARK[kind]))
+  // Block type, not an inline mark — these toggle a real node now (bullet
+  // list, task list, heading, blockquote) instead of writing literal prefix
+  // characters into the text.
+  const setBlock = (kind: BlockControl) =>
+    applyToText((c) => {
+      switch (kind) {
+        case 'bullet':
+          return c.toggleBulletList()
+        case 'ordered':
+          return c.toggleOrderedList()
+        case 'task':
+          return c.toggleTaskList()
+        case 'quote':
+          return c.toggleBlockquote()
+        case 'body':
+          // "Body" is the absence of a block type, not a type of its own —
+          // clear whatever heading/list/quote is on the selection.
+          // clearNodes() is what lifts a selection back OUT of a list or
+          // blockquote wrapper; setParagraph alone only changes a textblock's
+          // own type and would leave the <li>/<blockquote> around it.
+          return c.clearNodes().setParagraph()
+        default:
+          return c.toggleHeading({ level: kind })
+      }
+    })
+  const setSpan = (kind: 'size' | 'color' | 'font' | 'weight', value: string) =>
+    applyToText((c) => {
+      switch (kind) {
+        case 'color':
+          return c.setColor(TEXT_COLORS[value] ?? value)
+        case 'font':
+          return c.setFontFamily(TEXT_FONTS[value] ?? value)
+        case 'size':
+          return c.setMark('textStyle', { fontSize: `${value}px` })
+        default:
+          return c.setMark('textStyleFontWeight', { fontWeight: TEXT_WEIGHTS[value] ?? value })
+      }
+    })
   // Link has no dedicated input field (a URL isn't a bounded palette the
   // way color/size are) — window.prompt is the same lightweight pattern
   // already used elsewhere in this panel tree (canvas.tsx's "rename" flows)
-  // for a single quick text value. Applies as an exclusive mark keyed by
-  // 'link' in setSpan's underlying applyMark, exactly like color/size/font/
-  // weight — see lib/text/marks.ts.
+  // for a single quick text value.
   const applyLink = () => {
     const url = window.prompt('Link URL')
-    if (url && url.trim()) handleRef?.current?.setSpan('link', url.trim())
+    if (url && url.trim()) applyToText((c) => c.setLink({ href: url.trim() }))
   }
-  // Called from the Size input's onFocus, before the browser's native
-  // focus-shift lands — see snapshotSelection's doc comment in
-  // lib/store/text-editor.ts for why the Size field specifically needs this
-  // and Bold/color/etc's plain buttons don't.
-  const snapshotSelection = () => handleRef?.current?.snapshotSelection()
 
   // Staged "last applied" values — same reasoning as the old size stepper:
   // the markdown model wraps a NEW span per apply rather than tracking one
@@ -2524,12 +2576,11 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
     if (!Number.isFinite(n)) return
     const clamped = Math.min(200, Math.max(6, Math.round(n)))
     setSize(clamped)
-    // Each commit (scrub tick, arrow nudge, or typed Enter/blur) re-snapshots
-    // first — snapshotSelection() no-ops if the last snapshot is still
-    // "fresh" (see its doc comment), so a drag's rapid-fire onCommit calls
-    // keep reapplying to the SAME captured range instead of each needing its
-    // own click.
-    snapshotSelection()
+    // No selection snapshot needed: a Tiptap command acts on the EDITOR's
+    // stored selection, which survives this number input taking focus. The
+    // old engine read window.getSelection() live, which the focus shift
+    // collapsed — hence the whole snapshot/restore dance that used to be
+    // here.
     setSpan('size', String(clamped))
   }
 
@@ -2710,7 +2761,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             </DropdownMenuTrigger>
             <DropdownMenuContent className="glass-strong w-36">
               {TEXT_STYLES.map((s) => (
-                <DropdownMenuItem key={s.label} className="gap-2 text-ui-sm" onSelect={() => prefixLine(s.prefix)}>
+                <DropdownMenuItem key={s.label} className="gap-2 text-ui-sm" onSelect={() => setBlock(s.block)}>
                   <s.icon className="h-3.5 w-3.5" /> {s.label}
                 </DropdownMenuItem>
               ))}
@@ -2725,10 +2776,10 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           {iconBtn('Inline code', Code, () => toggleMark('code'))}
           {iconBtn('Link', Link, applyLink)}
           <span className="mx-0.5 h-4 w-px bg-border" />
-          {iconBtn('Bullet list', List, () => prefixLine('- '))}
-          {iconBtn('Numbered list', ListOrdered, () => prefixLine('1. '))}
-          {iconBtn('Checklist', CheckSquare, () => prefixLine('- [ ] '))}
-          {iconBtn('Quote', Quote, () => prefixLine('> '))}
+          {iconBtn('Bullet list', List, () => setBlock('bullet'))}
+          {iconBtn('Numbered list', ListOrdered, () => setBlock('ordered'))}
+          {iconBtn('Checklist', CheckSquare, () => setBlock('task'))}
+          {iconBtn('Quote', Quote, () => setBlock('quote'))}
         </div>
         {!isActive && (
           <p className="text-ui-2xs leading-relaxed text-muted-foreground">
@@ -2763,13 +2814,10 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 onClick={() => setSpan('color', hex)}
               />
             ))}
-            {/* Custom color — opens BEFORE the popover to capture the live
-                selection, same reasoning the Size field's snapshotSelection
-                uses: any UI stealing focus from the contentEditable would
-                otherwise collapse the selection first. Committed colors join
-                the same document-wide swatch palette as Background. */}
+            {/* Committed colors join the same document-wide swatch palette
+                as Background. */}
             {isActive && (
-              <span onPointerDown={snapshotSelection}>
+              <span>
                 <HexColorSwatchPicker
                   label="Custom text color"
                   imageSwatches={imageSwatches}
@@ -2862,10 +2910,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             aria-label="Font family"
             aria-expanded={fontOpen}
             className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-ui-sm text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-            onMouseDown={(e) => {
-              guardTrigger(e)
-              snapshotSelection()
-            }}
+            onMouseDown={guardTrigger}
             onClick={() => setFontOpen((v) => !v)}
           >
             <span className="flex items-center gap-1.5">
@@ -2894,7 +2939,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                       onPointerDown={guard}
                       onClick={() => {
                         setFont(id)
-                        setSpan('font', id, true)
+                        setSpan('font', id)
                         setFontOpen(false)
                       }}
                     >
@@ -2917,17 +2962,7 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                   aria-label="Font weight"
                   disabled={!isActive}
                   className="flex w-full items-center justify-between gap-1 rounded-md border border-input bg-background/60 px-2 py-1.5 text-ui-sm text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30"
-                  onMouseDown={(e) => {
-                    guardTrigger(e)
-                    // Opening the dropdown is a Radix state change — by the
-                    // time an item's onSelect fires, window.getSelection()
-                    // may no longer reflect what was live when this button
-                    // was pressed, so capture it now; setSpan consumes it
-                    // once. (Font family used to have this same comment —
-                    // it now always applies whole-box instead, see its own
-                    // setSpan(..., true) call.)
-                    snapshotSelection()
-                  }}
+                  onMouseDown={guardTrigger}
                 >
                   {WEIGHT_LABELS[weight]}
                   <ChevronDown className="h-3 w-3 shrink-0 text-muted-foreground" />
@@ -2954,22 +2989,15 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
             <FieldLabel>Size</FieldLabel>
             {/* Same scrubbable numeric field every other value in this panel
                 uses (drag = scrub, arrows = nudge, type = commit on blur/
-                Enter) — applySize() re-snapshots the text selection on every
-                commit (see its comment) so drag-scrubbing reapplies live to
-                the same captured range instead of needing a fresh click per
-                tick. Can't use the plain `guard` pattern (preventDefault on
-                pointerdown) other buttons use — this field must be able to
-                take focus so typing works — so the selection snapshot has to
-                happen via onPointerDownCapture, which fires before
-                ExprInput's own drag-tracking and before the browser's focus
-                shift collapses window.getSelection() out of the
-                contentEditable. */}
+                Enter). It takes focus so typing works, which the old engine
+                could not survive — the editor's own selection is unaffected
+                by that now, so drag-scrubbing just reapplies to the same
+                range with no snapshot bookkeeping. */}
               <ExprInput
                 ariaLabel="Font size in pixels"
                 value={String(size)}
                 suffix="px"
                 disabled={!isActive}
-                onPointerDownCapture={isActive ? snapshotSelection : undefined}
                 onCommit={applySize}
               />
           </div>

@@ -12,14 +12,9 @@
 import { renderMath } from './katex-lazy'
 import { runsForLine, splitIndent, TEXT_COLORS, TEXT_FONTS, TEXT_WEIGHTS, resolveSizePx, type Mark, type Run } from './marks'
 
-// How far one indent level pushes a line in, in em — used only by the
-// read-only render below (padding-left, a real tab-stop regardless of font
-// metrics). The LIVE editor renders indent as literal space characters
-// instead (see renderEditorLine's doc comment for why padding doesn't work
-// there); 2.2em approximates INDENT_UNIT's 8 literal spaces at a normal
-// 15px sans-serif size so the two views read as the same indent depth, even
-// though they're not pixel-identical for this one property the way
-// everything else in this file is.
+// How far one indent level pushes a line in, in em (padding-left, a real
+// tab-stop regardless of font metrics). 2.2em approximates INDENT_UNIT's 8
+// literal spaces at a normal 15px sans-serif size.
 const INDENT_EM = 2.2
 
 function escapeHtml(s: string): string {
@@ -129,139 +124,6 @@ export function renderLine(text: string, marks: Mark[], lineStart: number): stri
   return runsForLine(text, marks, lineStart)
     .map((run) => renderRun(run))
     .join('')
-}
-
-interface RenderedLine {
-  html: string
-  cls: string
-}
-
-/** Zero-width space placed inside an empty line's caret host — see
- *  renderEditorLine's CARET_HOST comment for why an empty host does not
- *  work. Never part of the stored text: strip it from any DOM text before
- *  comparing against the model. */
-export const CARET_HOST_CHAR = '​'
-
-/** DOM text content → raw line text. Removes the caret-host zero-width
- *  space so `el.textContent.length` matches the model's line length, the
- *  invariant the caret/selection mapping depends on. */
-export const stripCaretHost = (text: string): string => text.split(CARET_HOST_CHAR).join('')
-
-/** Same per-line shape as the old renderLineLive/renderLineActive — one
- *  line's block-type detection (heading/quote/checkbox/bullet/numbered) and
- *  its rendered inline HTML, used by the live per-line editor
- *  (components/objects/text.tsx renders each contentEditable line div with
- *  this). `lineStart` is this line's offset into the FULL text string (the
- *  editor keeps one flat string + marks spanning it, not per-line arrays),
- *  needed so runsForLine can find which marks apply to this line. There is
- *  only ONE version of this now (the old model needed a separate "active"
- *  variant that kept delimiters dimly visible for the caret's line) — every
- *  line, including the one being typed on, renders through this.
- *
- *  Indentation (Tab/Shift+Tab, see components/objects/text.tsx's indentLine)
- *  is leading spaces on `raw` — unlike block prefixes, these are NOT
- *  stripped out of the rendered text: they render as literal space
- *  characters (white-space:pre-wrap already renders every other space
- *  literally, so this costs nothing extra) rather than becoming a
- *  padding-left on the line. That's deliberate: the live editor's whole
- *  caret/selection model depends on DOM text length exactly matching
- *  `raw.length` for every line (see posAt's doc comment) — stripping the
- *  indent into a style property broke that invariant for every indented
- *  line, silently dropping the indent the instant you typed into a
- *  freshly-Tabbed empty line (the DOM's only child was a bare `<br>` with
- *  zero text nodes for the browser to insert after, so `el.textContent`
- *  came back with no leading spaces at all once real content landed, and
- *  onInput's diff — which trusts the DOM as ground truth — happily
- *  overwrote linesRef with that shorter, unindented string). Keeping the
- *  spaces as real text sidesteps the whole class of bug. */
-export function renderEditorLine(raw: string, marks: Mark[], lineStart: number): RenderedLine {
-  // Only a TRULY empty line (not just whitespace-only) takes the <br>
-  // placeholder shortcut — a line that's pure indentation (just Tabbed,
-  // nothing typed after it yet) has to render its spaces as real text
-  // nodes, or the DOM's only child is a bare <br> with nothing for the
-  // browser to insert after, and the next keystroke's onInput reads back
-  // zero leading spaces, silently dropping the indent (see indentLine's
-  // caller in components/objects/text.tsx for the full story).
-  if (raw === '') return { html: '<br>', cls: '' }
-
-  // A prefixed line whose BODY is empty (you cleared the text but the "- " /
-  // "# " prefix is still there) would render as marker-span + nothing. For
-  // bullets and checkboxes that span is font-size:0 (the glyph comes from
-  // ::before, see globals.css), so the line's only text node sits inside a
-  // zero-size element: the caret placed there is zero-height — invisible —
-  // and everything typed lands in the marker at font-size 0, invisible too.
-  // For headings/quotes/numbers there is simply no text node after the
-  // marker to land in at all. Every empty-body branch therefore appends a
-  // normally-sized caret host.
-  //
-  // The host MUST contain a zero-width space, not be empty. Verified in
-  // Chrome: with an empty host the browser refuses to keep a caret inside an
-  // empty inline element — it relocates the caret into the preceding marker
-  // and merges typed text there, at font-size 0, i.e. still invisible. With
-  // the ZWSP the caret measures a real 18px and typed text paints normally.
-  //
-  // The ZWSP is invisible but IS a character, so it would break the
-  // DOM-length == raw-length invariant posAt depends on. Both readers of DOM
-  // text strip it: posAt (caret mapping) and onInput (the typing diff), via
-  // stripCaretHost below.
-  const CARET_HOST = `<span class="md-caret-host">${CARET_HOST_CHAR}</span>`
-
-  const heading = raw.match(/^(#{1,6})(\s+)(.*)$/)
-  if (heading) {
-    const bodyStart = lineStart + heading[1].length + heading[2].length
-    return {
-      html:
-        `<span class="md-marker">${escapeHtml(heading[1] + heading[2])}</span>${renderLine(heading[3], marks, bodyStart)}` +
-        (heading[3] === '' ? CARET_HOST : ''),
-      cls: `md-h md-h${heading[1].length}`,
-    }
-  }
-  if (/^(-{3,}|\*{3,}|_{3,})\s*$/.test(raw)) {
-    return { html: '<span class="md-marker">' + escapeHtml(raw) + '</span>', cls: 'md-hr' }
-  }
-  const quote = raw.match(/^(\s*>\s?)(.*)$/)
-  if (quote) {
-    const bodyStart = lineStart + quote[1].length
-    return {
-      html:
-        `<span class="md-marker">${escapeHtml(quote[1])}</span>${renderLine(quote[2], marks, bodyStart)}` +
-        (quote[2] === '' ? CARET_HOST : ''),
-      cls: 'md-quote',
-    }
-  }
-  const checkbox = raw.match(/^(\s*[-*+]\s+)\[( |x|X)\](\s+)(.*)$/)
-  if (checkbox) {
-    const checked = checkbox[2].toLowerCase() === 'x'
-    const bodyStart = lineStart + checkbox[1].length + 1 + 1 + checkbox[3].length
-    return {
-      html:
-        `<span class="md-marker md-marker-check">${escapeHtml(checkbox[1])}[${escapeHtml(checkbox[2])}]${escapeHtml(checkbox[3])}</span>` +
-        `<span class="${checked ? 'md-done' : ''}">${renderLine(checkbox[4], marks, bodyStart)}</span>` +
-        (checkbox[4] === '' ? CARET_HOST : ''),
-      cls: `md-li${checked ? ' md-li-checked' : ''}`,
-    }
-  }
-  const bullet = raw.match(/^(\s*[-*+]\s+)(.*)$/)
-  if (bullet) {
-    const bodyStart = lineStart + bullet[1].length
-    return {
-      html:
-        `<span class="md-marker md-marker-bullet">${escapeHtml(bullet[1])}</span>${renderLine(bullet[2], marks, bodyStart)}` +
-        (bullet[2] === '' ? CARET_HOST : ''),
-      cls: 'md-li',
-    }
-  }
-  const numbered = raw.match(/^(\s*\d+\.\s+)(.*)$/)
-  if (numbered) {
-    const bodyStart = lineStart + numbered[1].length
-    return {
-      html:
-        `<span class="md-marker md-marker-num">${escapeHtml(numbered[1])}</span>${renderLine(numbered[2], marks, bodyStart)}` +
-        (numbered[2] === '' ? CARET_HOST : ''),
-      cls: 'md-li',
-    }
-  }
-  return { html: renderLine(raw, marks, lineStart), cls: '' }
 }
 
 /** Full block-level render (headings→<h1-6>, consecutive bullets→<ul>,
@@ -448,22 +310,4 @@ export function renderMarkdown(text: string, marks: Mark[]): string {
   flushParagraph()
   flushList()
   return out.join('')
-}
-
-/** Best-effort recovery of plain text from legacy HTML-formatted notes (the
- *  old contentEditable/execCommand editor, pre-dating even the markdown
- *  model), so opening a very old document doesn't show literal tag soup.
- *  Formatting itself is lost — kept identical to the pre-rewrite version. */
-export function htmlToMarkdownSource(value: string): string {
-  if (!value.includes('<')) return value
-  return value
-    .replace(/<(div|p|br)[^>]*>/gi, '\n')
-    .replace(/<\/(div|p)>/gi, '')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
 }

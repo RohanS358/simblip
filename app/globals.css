@@ -1184,141 +1184,119 @@ html {
   .markdown-view del {
     opacity: 0.6;
   }
-  .markdown-view mark,
-  .md-editor mark {
+  .markdown-view mark {
     background: color-mix(in oklch, var(--accent-amber) 32%, transparent);
     color: inherit;
     border-radius: 3px;
     padding: 0 0.15em;
   }
 
-  /* Live per-line text editor (editing mode) — each line is its own block.
-     Formatting is always real (bold/italic/color/... are style RANGES, see
-     lib/text/marks.ts), never delimiter characters, so every line —
-     including the one holding the caret — renders fully formatted at all
-     times; there's no more "raw source while editing" mode to speak of. */
-  .md-editor {
-    position: relative;
+  /* ── Tiptap editor surface (lib/text/extensions.ts) ────────────────────
+     Block structure is REAL nodes here — <h1>, <ul>, <li>, <blockquote> —
+     not line-prefix characters dimmed with a marker span, so all of that
+     machinery is gone: no font-size:0 markers with ::before glyphs, no caret
+     host, no literal 8-space indents. Native list markers and real nesting
+     do the same job.
+
+     Every block rule below is stated ONCE, for both surfaces at the same
+     time, precisely so the editing view and the read-only view cannot drift
+     apart — that divergence between renderEditorLine and renderMarkdown is
+     what the whole migration exists to remove. .tiptap is the element
+     ProseMirror owns; .markdown-view is the generated-HTML twin. */
+  .tiptap-editor .tiptap {
+    outline: none;
     caret-color: var(--foreground);
   }
-  .md-editor .md-line {
-    min-height: 1.35em;
-  }
-  .md-editor[data-empty='true']::before {
+  /* Placeholder, driven by the Placeholder extension's data attribute. */
+  .tiptap-editor .tiptap p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
     /* full-strength, not dampened: mixing toward the background drops below
        WCAG AA contrast on the lighter themes well before it looks "faded" */
     color: var(--muted-foreground);
-    pointer-events: none;
-    position: absolute;
   }
-  /* Block-level line prefixes (heading #, quote >, list -/1., checkbox
-     [ ]) — these are plain text kept dimmed so you can see what kind of
-     line you're on, unlike inline formatting which has no marker at all
-     anymore to dim or hide. */
-  .md-editor .md-marker {
-    color: var(--muted-foreground);
-  }
-  /* Caret landing pad for a prefixed line with no body text yet (see
-     renderEditorLine's CARET_HOST). Without it the caret's only home is
-     inside the font-size:0 bullet/checkbox marker, where it renders
-     zero-height (invisible) and swallows what you type at font-size 0.
-     Zero width so it never shifts layout, but full inherited font-size and
-     line-height so the caret is exactly as tall as a real character. */
-  .md-editor .md-caret-host {
-    display: inline-block;
-    width: 0;
-    font-size: inherit;
-    line-height: inherit;
-  }
-  .md-editor .md-h {
+  .tiptap-editor .tiptap :where(h1, h2, h3, h4, h5, h6) {
     font-weight: 700;
-    display: inline-block;
+    /* < 1 clipped descenders and overlapped wrapped headings */
+    line-height: 1.2;
+    margin: 0.45em 0 0.2em;
   }
-  .md-editor .md-h1 { font-size: 1.5em; }
-  .md-editor .md-h2 { font-size: 1.28em; }
-  .md-editor .md-h3 { font-size: 1.14em; }
-  .md-editor .md-h4,
-  .md-editor .md-h5,
-  .md-editor .md-h6 { font-size: 1em; }
-  .md-editor .md-quote {
-    display: block;
-    padding-left: 0.5em;
-    border-left: 3px solid var(--border);
-    color: var(--muted-foreground);
+  .tiptap-editor .tiptap :where(h1, h2, h3, h4, h5, h6):first-child {
+    margin-top: 0;
   }
-  .md-editor .md-li {
-    display: flex;
-    align-items: baseline;
+  .tiptap-editor .tiptap h1 { font-size: 1.9em; }
+  .tiptap-editor .tiptap h2 { font-size: 1.28em; }
+  .tiptap-editor .tiptap h3 { font-size: 1.14em; }
+  .tiptap-editor .tiptap :where(h4, h5, h6) { font-size: 1em; }
+  .tiptap-editor .tiptap p {
+    margin: 0.4em 0;
+  }
+  .tiptap-editor .tiptap p:first-child { margin-top: 0; }
+  .tiptap-editor .tiptap p:last-child { margin-bottom: 0; }
+  .tiptap-editor .tiptap :where(ul, ol) {
+    margin: 0.3em 0;
+    padding-left: 1.3em;
+  }
+  .tiptap-editor .tiptap ul { list-style: disc; }
+  .tiptap-editor .tiptap ol { list-style: decimal; }
+  .tiptap-editor .tiptap li { margin: 0.1em 0; }
+  /* A list item wraps its text in a <p>; that paragraph must not re-apply
+     the block margin above or every bullet gains a blank line. */
+  .tiptap-editor .tiptap li > p { margin: 0; }
+  /* Task lists carry a real checkbox, so they must not also paint a bullet. */
+  .tiptap-editor .tiptap ul[data-type='taskList'] {
+    list-style: none;
     padding-left: 0.2em;
   }
-  /* The marker (e.g. "- ", "1. ", "- [ ] ") stays real, selectable,
-     backspace-able text — it has to, editing relies on caret offsets
-     matching raw text 1:1 — but it's font-size:0'd and given a glyph via
-     ::before, so it READS as a real list marker/checkbox instead of literal
-     dashes and brackets, matching the read-only view's actual
-     <li>/<input type=checkbox>. Numbered markers ("1. ") are left as
-     visible dimmed text instead, since the real number carries information
-     a glyph can't. */
-  .md-editor .md-marker-bullet,
-  .md-editor .md-marker-check {
-    flex-shrink: 0;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    /* Fixed rem width, not em — the real prefix text inside is font-size:0'd
-       (below), and 'em' on the SAME element would resolve against that zero,
-       collapsing the box to nothing (the bug this comment replaced: the
-       glyph's ::before computed a real "•" but its box was 1.4em of a
-       zeroed font-size = 0px wide, so nothing ever painted). */
-    width: 1.4rem;
-    font-size: 0;
+  .tiptap-editor .tiptap ul[data-type='taskList'] li {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.4em;
   }
-  .md-editor .md-marker-bullet::before,
-  .md-editor .md-marker-check::before {
-    font-size: 1rem;
-    line-height: 1;
-    color: var(--foreground);
+  .tiptap-editor .tiptap ul[data-type='taskList'] li > label {
+    margin-top: 0.15em;
   }
-  .md-editor .md-marker-bullet::before {
-    content: '•';
-  }
-  .md-editor .md-marker-check::before {
-    content: '☐';
-  }
-  .md-editor .md-li-checked .md-marker-check::before {
-    content: '☑';
+  .tiptap-editor .tiptap blockquote {
+    margin: 0.3em 0;
+    padding-left: 0.7em;
+    border-left: 2px solid var(--border);
     color: var(--muted-foreground);
   }
-  .md-editor .md-marker-num {
-    flex-shrink: 0;
-    font-variant-numeric: tabular-nums;
+  .tiptap-editor .tiptap code {
+    font-family: var(--font-mono), ui-monospace, monospace;
+    font-size: 0.9em;
+    background: var(--muted);
+    border-radius: 3px;
+    padding: 0.1em 0.3em;
   }
-  .md-editor .md-hr {
-    display: block;
-    color: var(--muted-foreground);
+  .tiptap-editor .tiptap pre {
+    margin: 0.4em 0;
+    padding: 0.6em 0.8em;
+    background: var(--muted);
+    border-radius: 6px;
+    overflow-x: auto;
   }
-  .md-editor .md-done {
-    text-decoration: line-through;
-    opacity: 0.6;
+  .tiptap-editor .tiptap pre code {
+    background: none;
+    padding: 0;
   }
-  .md-editor code {
-    background: color-mix(in oklch, var(--foreground) 8%, transparent);
-    border-radius: 4px;
-    padding: 0.2em 0.3em;
-    font-family: var(--font-mono, ui-monospace, monospace);
-    font-size: 0.92em;
+  .tiptap-editor .tiptap hr {
+    margin: 0.6em 0;
+    border: none;
+    border-top: 1px solid var(--border);
   }
-  .md-editor strong {
-    font-weight: 700;
-  }
-  .md-editor del {
-    opacity: 0.6;
-  }
-  .md-editor a {
+  .tiptap-editor .tiptap a {
     color: var(--accent-blue);
     text-decoration: underline;
     text-underline-offset: 2px;
+  }
+  .tiptap-editor .tiptap mark {
+    background: color-mix(in oklch, var(--accent-amber) 32%, transparent);
+    color: inherit;
+    border-radius: 3px;
+    padding: 0 0.15em;
   }
 }
 
