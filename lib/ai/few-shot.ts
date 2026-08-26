@@ -20,6 +20,11 @@
 
 import { buildSamples } from './simscript-corpus'
 
+/** The measured default: 4 retrieved examples took lint-clean output from
+ *  7/15 to 12/15 on held-out course prompts. Exported so the sweep can sweep
+ *  around it rather than hard-coding a second copy of the number. */
+export const DEFAULT_SHOTS = 4
+
 interface Scored {
   prompt: string
   script: string
@@ -86,7 +91,7 @@ export function retrieveExamples(prompt: string, k = 4): { prompt: string; scrip
  */
 export function fewShotMessages(
   prompt: string,
-  k = 4
+  k: number = DEFAULT_SHOTS
 ): { role: 'user' | 'assistant'; content: string }[] {
   return retrieveExamples(prompt, k).flatMap((ex) => [
     { role: 'user' as const, content: ex.prompt },

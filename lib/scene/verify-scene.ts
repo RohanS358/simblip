@@ -91,6 +91,18 @@ export function verifyScene(objects: SceneObject[], ids?: string[]): SceneReport
 
   const bodies = objects.filter((o) => hasBehavior(o, BODY_BEHAVIORS))
 
+  /** What a connector END may legitimately land on.
+   *
+   *  Wider than `bodies`, and it has to be: a hinge is not a rigid body, so
+   *  buildWorld's point query finds nothing under an endpoint resting on one
+   *  and Matter treats the null bodyA as a WORLD anchor — which is precisely
+   *  what a fixed pivot is. Checking against bodies alone therefore reported
+   *  "not attached at its start" for every hinge-pivoted pendulum, the most
+   *  common mechanics scene there is, while the scene swung perfectly. */
+  const attachable = objects.filter(
+    (o) => hasBehavior(o, BODY_BEHAVIORS) || hasBehavior(o, new Set(['hinge']))
+  )
+
   // ── Dangling connectors ───────────────────────────────────────────────────
   // The single most common reason a generated mechanics scene does nothing.
   // buildWorld pairs a connector to a body with a point query at its own
@@ -103,8 +115,8 @@ export function verifyScene(objects: SceneObject[], ids?: string[]): SceneReport
       issues.push({ level: 'error', message: `${o.name} has no endpoints`, objectId: o.id })
       continue
     }
-    const attached = ends.map((e) =>
-      bodies.some((b) => b.id !== o.id && distToRect(e.x, e.y, b) <= SNAP)
+      const attached = ends.map((e) =>
+      attachable.some((b) => b.id !== o.id && distToRect(e.x, e.y, b) <= SNAP)
     )
     if (!attached[0] || !attached[1]) {
       const which = !attached[0] && !attached[1] ? 'both ends' : !attached[0] ? 'its start' : 'its end'

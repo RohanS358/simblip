@@ -244,6 +244,88 @@ export function executeSimScript(
   // Every object this run created, in creation order.
   const created: string[] = []
 
+  // ── Anchor names we don't recognise, per object ─────────────────────────────
+  // The circuit netlist is built from GEOMETRY, not from names: lib/circuit/
+  // engine.ts unions terminals and wire ends by coincident world points. So
+  // where connect() lands a wire IS the electrical connection, and an anchor
+  // that resolves to the wrong terminal is a genuinely mis-wired circuit.
+  //
+  // The old fallback sent every unrecognised name to the LAST terminal. Two
+  // different names on one component therefore landed on the same pin and the
+  // union-find merged them into one net — a short that exists nowhere in the
+  // script and shows up only as a wrong answer. Distinct unknown names now get
+  // distinct free terminals, which at least preserves what the script said:
+  // that these are different points.
+  const usedTerminals = new Map<string, Set<number>>()
+  const unknownAnchors = new Map<string, Map<string, number>>()
+  /** One warning per object+name, not one per connect() that mentions it. */
+  const warnedAnchors = new Set<string>()
+
+  /**
+   * Anchor name -> terminal index, for one circuit symbol.
+   *
+   * THE single resolver. connect() draws the wire from this, and the
+   * auto-layout netlist unions nets from it (idxFor below) — those used to be
+   * two separate copies of this lookup with two separate fallbacks, so a name
+   * neither recognised could be drawn to one pin and wired to another. Same
+   * reason lib/ai/simscript-lint.ts reads the real registries rather than a
+   * copy: a second implementation of a rule is a rule that will disagree.
+   */
+  const terminalIndexFor = (obj: SceneObject, anchor: string): number => {
+    const count = terminalsOf(obj).length
+    if (count === 0) return 0
+    const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
+    const symMap = ANCHOR_INDEX[obj.geometry.symbol ?? ''] ?? {}
+
+    let idx =
+      symMap[anchor] ?? symMap[norm] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[norm] ?? -1
+
+    if (idx < 0) {
+      const numMatch = norm.match(/^(?:pin|t|terminal)?(\d+)$/i)
+      if (numMatch) idx = parseInt(numMatch[1])
+    }
+    if (idx < 0) {
+      const lower = norm.toLowerCase()
+      if (lower === 'in' || lower === 'positive' || lower === 'anode') idx = 0
+      else if (lower === 'out' || lower === 'negative' || lower === 'cathode') idx = count - 1
+      else {
+        // Genuinely unrecognised. Placing it is a guess either way, so make the
+        // guess a visible one — silently landing on the wrong pin is how a
+        // circuit comes out wired differently from what was written.
+        idx = assignUnknownTerminal(obj.id, anchor, count)
+        if (!warnedAnchors.has(`${obj.id}:${anchor}`)) {
+          warnedAnchors.add(`${obj.id}:${anchor}`)
+          console.warn(
+            `[SimScript] connect: "${obj.geometry.symbol ?? obj.id}" has no anchor "${anchor}" — ` +
+              `using terminal ${idx}. Valid: ${Object.keys(symMap).join(', ') || `pin0…pin${count - 1}`}`
+          )
+        }
+      }
+    }
+
+    idx = Math.max(0, Math.min(count - 1, idx))
+    const seen = usedTerminals.get(obj.id) ?? new Set<number>()
+    seen.add(idx)
+    usedTerminals.set(obj.id, seen)
+    return idx
+  }
+
+  /** A terminal for an anchor name we have no entry for. Stable per name, so a
+   *  name reused across connects keeps making the same node. */
+  const assignUnknownTerminal = (objId: string, anchor: string, count: number): number => {
+    const seen = unknownAnchors.get(objId) ?? new Map<string, number>()
+    unknownAnchors.set(objId, seen)
+    const already = seen.get(anchor)
+    if (already !== undefined) return already
+    const used = usedTerminals.get(objId) ?? new Set<number>()
+    // First free pin; if every pin is spoken for, the old last-terminal
+    // behaviour, which is at least what existing scripts already got.
+    let idx = count - 1
+    for (let i = 0; i < count; i++) if (!used.has(i)) { idx = i; break }
+    seen.set(anchor, idx)
+    return idx
+  }
+
   // ── create() ────────────────────────────────────────────────────────────────
   const create = (kind: string, props: Record<string, any> = {}): ScriptObject => {
     const id = uid()
@@ -410,7 +492,7 @@ export function executeSimScript(
   }
 
   const END0 = new Set(['a', 'start', 'p0', '0', 'in', 'from', 'head'])
-  const endpointIndex = (anchor: string) => (END0.has(String(anchor).toLowerCase()) ? 0 : 1)
+  const END1 = new Set(['b', 'end', 'p1', '1', 'out', 'to', 'tail'])
 
   // Centre of the body an endpoint should grab. Uses the object's own centre;
   // that point is inside every body geometry we support, so Query.point hits.
@@ -451,23 +533,92 @@ export function executeSimScript(
   // the binding has to be re-stamped once every position is final.
   const mechBindings: { connId: string; index: 0 | 1; bodyId: string }[] = []
 
+  /**
+   * Which end of `connId` an anchor means.
+   *
+   * The two named ends are exact. Everything else — `.centre` above all, which
+   * the corpus and the system prompt both list as THE anchor for a mechanics
+   * part — names no end at all, and used to fall to `1` unconditionally. Two
+   * such calls on one connector therefore bound end 1 twice and left end 0
+   * attached to nothing:
+   *
+   *   connect(spring.centre, m1.centre);   // end 1 <- m1
+   *   connect(spring.centre, m2.centre);   // end 1 <- m2, m1 silently dropped
+   *
+   * buildWorld then found no body under end 0 and pinned that side to a fixed
+   * world point (Matter.Constraint treats a null bodyA as a world anchor), so
+   * the scene LOOKED wired and one of the two bodies was not attached at all —
+   * invisible on the canvas and wrong the moment it runs.
+   *
+   * So a non-specific anchor now takes the first end nobody has claimed. An
+   * explicitly named end always wins, even when it repeats: naming `.a` twice
+   * is a contradiction in the script, and silently rerouting it to `.b` would
+   * be this same class of guess.
+   */
+  const endpointIndex = (connId: string, anchor: string): 0 | 1 => {
+    const name = String(anchor).toLowerCase()
+    if (END0.has(name)) return 0
+    if (END1.has(name)) return 1
+    return mechBindings.some((m) => m.connId === connId && m.index === 0) ? 1 : 0
+  }
+
   const applyBinding = (connId: string, index: 0 | 1, bodyId: string) => {
     const target = bodyPoint(bodyId)
     if (target) moveEndpoint(connId, index, target)
+  }
+
+  /** World position of one end of a connector. Mirrors endpointWorld in
+   *  lib/physics/world.ts — the function the solver itself reads. */
+  const endpointOf = (connId: string, index: 0 | 1) => {
+    const c = store().pages[pageId]?.objects?.[connId]
+    if (!c) return undefined
+    const pts = c.geometry.points ?? [[0, 0], [c.size.w, 0]]
+    const p = index === 0 ? pts[0] : pts[pts.length - 1]
+    return { x: c.position.x + p[0], y: c.position.y + p[1] }
   }
 
   // Returns a truthy marker when it handled the pair as a mechanics link.
   const mechConnect = (a: any, b: any) => {
     const connA = connectorOf(a.objectId)
     const connB = connectorOf(b.objectId)
-    // Connector-to-connector isn't a body attachment; leave it to the wire path.
-    if (!connA === !connB) return undefined
+    // Neither side is a connector — a body-to-body pair belongs to the wire
+    // path (or to connect(a, b, "rod"), which builds the connector itself).
+    if (!connA && !connB) return undefined
+
+    // ── Two connectors: chain them through a joint BODY ─────────────────────
+    // A Matter constraint binds bodies, never another constraint, so there is
+    // nothing at a bare connector-to-connector joint for the solver to hold
+    // and this pair used to fall through to the wire path — a cosmetic line
+    // and no physics, the same silent failure as a mis-bound endpoint.
+    //
+    // A reference-point is exactly the body needed: small, a sensor, and
+    // collision-free (lib/physics/world.ts gives it isSensor + an empty
+    // collision mask), so inserting one adds a pin joint without adding
+    // anything the scene can bump into. Both endpoints then bind to it the
+    // ordinary way and the chain articulates.
+    if (connA && connB) {
+      const idxA = endpointIndex(connA.id, a.anchor)
+      const idxB = endpointIndex(connB.id, b.anchor)
+      const at = endpointOf(connA.id, idxA) ?? endpointOf(connB.id, idxB)
+      if (!at) return undefined
+      // Centred on the joint: create() positions by top-left, and the exact
+      // endpoints are re-stamped from the joint's real centre after the
+      // script finishes, so a size change here cannot leave them behind.
+      const joint = create('reference-point', { x: at.x - 10, y: at.y - 10, name: 'joint' })
+      mechBindings.push({ connId: connA.id, index: idxA, bodyId: joint.id })
+      mechBindings.push({ connId: connB.id, index: idxB, bodyId: joint.id })
+      applyBinding(connA.id, idxA, joint.id)
+      applyBinding(connB.id, idxB, joint.id)
+      explicitPos.add(joint.id)
+      return wrapProxy(new ScriptObject(joint.id, pageId))
+    }
+
     const conn = (connA ?? connB)!
     const bodySide = connA ? b : a
     const connSide = connA ? a : b
     const target = bodyPoint(bodySide.objectId)
     if (!target) return undefined
-    const index = endpointIndex(connSide.anchor) as 0 | 1
+    const index = endpointIndex(conn.id, connSide.anchor)
     moveEndpoint(conn.id, index, target)
     mechBindings.push({ connId: conn.id, index, bodyId: bodySide.objectId })
     explicitPos.add(bodySide.objectId) // don't let circuit layout drag the body away
@@ -502,31 +653,14 @@ export function executeSimScript(
       const terminals = terminalsOf(obj)
       if (terminals.length === 0) return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
 
-      // 1. Look up in per-symbol anchor index — RAW name first, then the
-      // 'input'→'in' / 'output'→'out' normalized form. (Raw-first matters:
-      // normalizing 'input1'→'in1' used to miss symbols whose map only had
-      // 'input1', landing the wire on the wrong terminal.)
+      // `centre` is the one anchor that is a POINT rather than a terminal, so
+      // it is answered here; every other name is a terminal index and goes
+      // through the shared resolver.
       const normAnchor = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
-
-      const sym = obj.geometry.symbol ?? ''
-      const symMap = ANCHOR_INDEX[sym] ?? {}
-      const idx = symMap[anchor] ?? symMap[normAnchor] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[normAnchor] ?? -1
-
-      // 2. Numeric fallback: 'pin0', 'pin1', ...
-      let termIdx = idx
-      if (termIdx < 0) {
-        const numMatch = normAnchor.match(/^(?:pin|t|terminal)?(\d+)$/i)
-        if (numMatch) termIdx = parseInt(numMatch[1])
+      if (normAnchor.toLowerCase() === 'centre') {
+        return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
       }
-      // 3. Named fallback by position convention
-      if (termIdx < 0) {
-        if (normAnchor === 'centre') return { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
-        // First terminal = 'in' / last terminal = 'out'
-        termIdx = (normAnchor === 'in' || normAnchor === 'positive' || normAnchor === 'anode') ? 0 : terminals.length - 1
-      }
-
-      termIdx = Math.max(0, Math.min(terminals.length - 1, termIdx))
-      return terminalWorld(obj, terminals[termIdx])
+      return terminalWorld(obj, terminals[terminalIndexFor(obj, anchor)])
     }
 
     const pA = resolveAnchor(objA, a.anchor, 0, 0)
@@ -560,6 +694,18 @@ export function executeSimScript(
       metadata: { render: type },
     }
     store().addObject(pageId, line, { history: false })
+    // A wire is part of the scene, so the layout pass must move it with the
+    // scene. It used to be added straight to the store and never registered,
+    // so applySceneLayout translated (and scaled) every create()d object and
+    // left every connect()d line exactly where it was drawn — a constant
+    // offset between the bodies and the rod holding them.
+    //
+    // Circuits hid this: the auto-layout re-router rewrites wire geometry from
+    // terminal positions afterwards, so schematics healed themselves. Nothing
+    // re-routes a mechanics link, so `connect(pivot.centre, bob.centre, "rod")`
+    // came out as a rod floating clear of both bodies — attached to neither,
+    // which is exactly what verify-scene then reported.
+    created.push(id)
     return wrapProxy(new ScriptObject(id, pageId))
   }
 
@@ -902,21 +1048,12 @@ export function executeSimScript(
         const aSym = getSym(activeId)
 
         // Terminal-index resolution — the same rules the wire re-router uses.
+        // Same resolver connect() drew the wire with. Kept as one function so
+        // the netlist and the drawn wire can never disagree about which pin an
+        // anchor meant — this used to be a second copy with its own fallback.
         const idxFor = (objId: string, anchor: string): number => {
           const obj = getObj(objId)
-          const sym = obj?.geometry.symbol ?? ''
-          const map = ANCHOR_INDEX[sym] ?? {}
-          const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
-          let idx = map[anchor] ?? map[norm] ?? ANCHOR_INDEX._t2[anchor] ?? ANCHOR_INDEX._t2[norm]
-          if (idx === undefined) {
-            const m = norm.match(/^(?:pin|t|terminal)?(\d+)$/i)
-            if (m) idx = parseInt(m[1])
-          }
-          if (idx === undefined) {
-            const count = obj ? terminalsOf(obj).length : 1
-            idx = norm === 'in' || norm === 'positive' || norm === 'anode' ? 0 : Math.max(0, count - 1)
-          }
-          return idx
+          return obj ? terminalIndexFor(obj, anchor) : 0
         }
 
         // Union-find nets over `${id}:${terminalIndex}` keys.
@@ -1236,12 +1373,18 @@ export function executeSimScript(
         const objA = store().pages[pageId]?.objects?.[e.fromId], objB = store().pages[pageId]?.objects?.[e.toId]
         if (!objA || !objB) continue
         const terminalsA = terminalsOf(objA), terminalsB = terminalsOf(objB)
-        const symA = objA.geometry.symbol ?? '', symB = objB.geometry.symbol ?? ''
-        const mapA = ANCHOR_INDEX[symA] ?? {}, mapB = ANCHOR_INDEX[symB] ?? {}
-        const normA = e.fromAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
-        const normB = e.toAnchor.replace(/^input/i,'in').replace(/^output/i,'out')
-        const idxA = mapA[normA] ?? mapA[e.fromAnchor] ?? ANCHOR_INDEX._t2[normA] ?? (terminalsA.length - 1)
-        const idxB = mapB[normB] ?? mapB[e.toAnchor]   ?? ANCHOR_INDEX._t2[normB] ?? 0
+        // The SAME resolver connect() and the netlist use.
+        //
+        // This was a third copy of the lookup, and the one that decided where
+        // the wire actually ends — which is the electrical connection itself,
+        // since lib/circuit/engine.ts builds nets by unioning coincident world
+        // points. It had no numeric `pin0` case, no in/positive/anode case, and
+        // ASYMMETRIC fallbacks (an unknown `from` went to the last terminal, an
+        // unknown `to` went to the first), so the drawn wire could land on a
+        // different pin than the netlist had already unioned. The scene then
+        // showed one circuit and solved another.
+        const idxA = terminalIndexFor(objA, e.fromAnchor)
+        const idxB = terminalIndexFor(objB, e.toAnchor)
         const tA = terminalsA[Math.min(Math.max(0, idxA), terminalsA.length - 1)] ?? { x: 1, y: 0.5 }
         const tB = terminalsB[Math.min(Math.max(0, idxB), terminalsB.length - 1)] ?? { x: 0, y: 0.5 }
 

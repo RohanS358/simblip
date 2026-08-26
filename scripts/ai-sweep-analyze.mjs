@@ -142,7 +142,7 @@ for (const r of raw) {
   }
 
   rows.push({
-    i: r.i, surface: r.surface, prompt: r.prompt, ms: r.ms, intent,
+    i: r.i, config: r.config ?? 'default', surface: r.surface, prompt: r.prompt, ms: r.ms, intent,
     wantsSlides: wantsSlides(r.prompt),
     blocks: r.blockCount, script: r.hasScript,
     answerH: r.blockCount ? answerColumnSize(r.blocks).h : 0,
@@ -174,3 +174,40 @@ for (const s of ['canvas', 'slides', 'doc']) {
 }
 console.log('ISSUE TALLY:')
 for (const [k, v] of Object.entries(tally).sort((a, b) => b[1] - a[1])) console.log(`  ${String(v).padStart(3)}  ${k}`)
+
+// ---- configuration leaderboard ----
+//
+// The point of a multi-config run. Clean-rate against median latency is the
+// whole trade: a smaller model with more examples that holds its clean rate
+// is strictly better, because the compute saved is real and the quality lost
+// is zero. Median, not mean — one cold start would otherwise decide the
+// ranking.
+const configs = [...new Set(rows.map((r) => r.config))]
+if (configs.length > 1) {
+  const median = (xs) => {
+    const a = [...xs].sort((x, y) => x - y)
+    return a.length ? Math.round(a[Math.floor(a.length / 2)]) : 0
+  }
+  console.log('\nCONFIGURATION LEADERBOARD (clean = no issues of any kind):')
+  console.log(`  ${'config'.padEnd(34)} ${'n'.padStart(4)} ${'clean'.padStart(7)} ${'lint-clean'.padStart(11)} ${'median ms'.padStart(10)}`)
+  const table = configs.map((c) => {
+    const sub = rows.filter((r) => r.config === c)
+    const scripts = sub.filter((r) => r.script)
+    return {
+      c,
+      n: sub.length,
+      clean: sub.filter((r) => !r.issues.length).length / sub.length,
+      // Reported separately because it is the number the SimScript lane is
+      // actually tuned against — placement and deck issues are a different
+      // lane's problem and would muddy the comparison.
+      lint: scripts.length
+        ? scripts.filter((r) => !r.issues.some((i) => i.startsWith('LINT'))).length / scripts.length
+        : null,
+      ms: median(sub.map((r) => r.ms)),
+    }
+  }).sort((a, b) => b.clean - a.clean || a.ms - b.ms)
+  for (const t of table) {
+    const pct = (v) => (v === null ? '    n/a' : `${(v * 100).toFixed(0).padStart(5)}%`)
+    console.log(`  ${t.c.padEnd(34)} ${String(t.n).padStart(4)} ${pct(t.clean).padStart(7)} ${pct(t.lint).padStart(11)} ${String(t.ms).padStart(10)}`)
+  }
+}

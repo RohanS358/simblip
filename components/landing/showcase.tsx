@@ -198,6 +198,7 @@ export function Landing() {
               ['#demos', 'Demos'],
               ['#light', 'Physics'],
               ['#classroom', 'Classroom'],
+              ['/docs', 'Docs'],
               ['#pricing', 'Licensing'],
             ].map(([href, label]) => (
               <a
@@ -424,7 +425,10 @@ export function Landing() {
         <span>
           © {new Date().getFullYear()} SIMBLIP · Built by Rohan Singh
         </span>
-        <SignInLink signedOutLabel="Sign in →" signedInLabel="Open notebook →" className="hover:text-foreground" />
+        <span className="flex items-center gap-4">
+          <a href="/docs" className="hover:text-foreground">Documentation</a>
+          <SignInLink signedOutLabel="Sign in →" signedInLabel="Open notebook →" className="hover:text-foreground" />
+        </span>
       </footer>
     </div>
     </ScrollFx>

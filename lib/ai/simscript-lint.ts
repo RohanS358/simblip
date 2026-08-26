@@ -33,7 +33,13 @@ export interface LintResult {
   cleaned: string
 }
 
-const GENERIC_OK = new Set(['rect', 'circle', 'line', 'polygon'])
+export const GENERIC_OK = new Set(['rect', 'circle', 'line', 'polygon'])
+
+/** The create() call parser, shared with lib/ai/simscript-fix.ts so the
+ *  autofix pass reads exactly the calls this file checks — groups are
+ *  1: variable name, 2: quote, 3: kind, 4: props object (optional). */
+export const CREATE_CALL_SOURCE =
+  String.raw`(?:var|let|const)?\s*([a-zA-Z_$][\w$]*)\s*=\s*create\s*\(\s*(['"])([^'"]+)\2\s*(?:,\s*(\{[^{}]*\}))?\s*\)`
 
 /** Kinds that carry a rigidBody, so they stream motion channels. Mirrors
  *  MECHANICS_COMPONENTS in lib/scene/simscript.ts. */
@@ -88,7 +94,7 @@ function stripComments(source: string): string {
  * The enabling primitive for every semantic check below: without knowing
  * which kind a variable holds, `connect(a.foo, b.bar)` is unverifiable.
  */
-function varKinds(source: string): Record<string, string> {
+export function varKinds(source: string): Record<string, string> {
   const out: Record<string, string> = {}
   const re = /(?:var|let|const)?\s*([a-zA-Z_$][\w$]*)\s*=\s*create\s*\(\s*(['"])([^'"]+)\2/g
   let m: RegExpExecArray | null
@@ -116,7 +122,7 @@ const isChained = (arg: string): boolean => /^[a-zA-Z_$][\w$]*(?:\s*\.\s*[a-zA-Z
 /** Does `kind` accept `anchor`? Mirrors resolveAnchor's lookup order exactly
  *  (raw name, then input→in / output→out normalized, then _t2, then the
  *  positional fallbacks) so a name the runtime WOULD resolve never errors. */
-function anchorValid(kind: string, anchor: string): boolean {
+export function anchorValid(kind: string, anchor: string): boolean {
   if (POSITIONAL_ANCHOR.test(anchor)) return true
   const norm = anchor.replace(/^input/i, 'in').replace(/^output/i, 'out')
   const map = ANCHOR_INDEX[kind] ?? {}
@@ -133,7 +139,7 @@ function anchorValid(kind: string, anchor: string): boolean {
  */
 const PREFERRED_ANCHORS = ['a', 'b', 'positive', 'negative', 'anode', 'cathode', 'in', 'out']
 
-function anchorNames(kind: string): string[] {
+export function anchorNames(kind: string): string[] {
   const all = Object.keys(ANCHOR_INDEX[kind] ?? {})
   const preferred = PREFERRED_ANCHORS.filter((n) => all.includes(n))
   const rest = all.filter((n) => !preferred.includes(n))
@@ -142,7 +148,10 @@ function anchorNames(kind: string): string[] {
 
 /** Line-kind mechanics components that ONLY exist as a constraint between two
  *  bodies. Mirrors MECHANICS_COMPONENTS in lib/scene/simscript.ts. */
-const CONNECTOR_KINDS = new Set(['spring', 'rope', 'rod', 'damper'])
+/** The properties every object has, so a control may always aim at them. */
+export const GEOMETRY_PARAMS = ['x', 'y', 'width', 'height', 'rotation']
+
+export const CONNECTOR_KINDS = new Set(['spring', 'rope', 'rod', 'damper'])
 
 /** Kinds that fall under gravity, so a scene containing one usually wants
  *  something to land on. */
@@ -151,7 +160,7 @@ const FALLING_KINDS = new Set(['mass', 'block', 'beam', 'wheel', 'motor'])
 /** Kinds that are positioned by hand rather than by the circuit auto-layout —
  *  every mechanics/optics/waves kind. Circuit symbols are deliberately absent:
  *  passing x/y to those fights the schematic layout engine. */
-const PLACED_KINDS = new Set([
+export const PLACED_KINDS = new Set([
   ...CONNECTOR_KINDS, ...FALLING_KINDS,
   'ground', 'hinge', 'charge', 'efield', 'bfield', 'heat-block', 'heatblock',
   'torsion-pendulum', 'torsionpendulum', 'reference-point',
@@ -160,7 +169,7 @@ const PLACED_KINDS = new Set([
 ])
 
 /** The channels a kind really publishes, for graph.plot checking. */
-function channelsOf(kind: string): string[] {
+export function channelsOf(kind: string): string[] {
   if (kind === 'dielectric') return [...DIELECTRIC_CHANNELS]
   if (MECHANICS_KINDS.has(kind)) return [...BODY_CHANNELS]
   if (SILENT_SYMBOLS.includes(kind)) return []
@@ -189,7 +198,7 @@ const BEHAVIORS_BY_KIND: Record<string, string[]> = {
  *  Returns [] for a kind we cannot resolve (a circuit symbol, an unknown),
  *  and the caller treats that as "cannot check" rather than "illegal" — a
  *  false positive here would reject a working script. */
-function paramsOf(kind: string): string[] {
+export function paramsOf(kind: string): string[] {
   const behaviors = BEHAVIORS_BY_KIND[kind]
   if (!behaviors) return []
   const out = new Set<string>()
@@ -352,7 +361,6 @@ export function lintSimScript(source: string): LintResult {
   //
   // Legal names are the geometry properties every object has, plus the
   // params the target's own behaviors declare.
-  const GEOMETRY_PARAMS = ['x', 'y', 'width', 'height', 'rotation']
   const controlRe = /create\s*\(\s*['"](slider|button|trigger)['"]\s*,\s*\{([^}]*)\}/g
   while ((m = controlRe.exec(code)) !== null) {
     const [, control, propsRaw] = m
@@ -462,7 +470,7 @@ export function lintSimScript(source: string): LintResult {
   // touches them. Omitting x/y stacks every body on the same origin pixel,
   // so they start interpenetrating and explode apart on the first frame.
   const placedNoPos: string[] = []
-  const createCallRe = /(?:var|let|const)?\s*([a-zA-Z_$][\w$]*)\s*=\s*create\s*\(\s*(['"])([^'"]+)\2\s*(?:,\s*(\{[^{}]*\}))?\s*\)/g
+  const createCallRe = new RegExp(CREATE_CALL_SOURCE, 'g')
   while ((cm = createCallRe.exec(code)) !== null) {
     const kind = cm[3].toLowerCase()
     if (!PLACED_KINDS.has(kind)) continue

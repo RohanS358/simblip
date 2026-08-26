@@ -24,6 +24,7 @@
 // round. See lib/ai/simscript-lint.ts for what "verify" covers.
 
 import { lintSimScript } from './simscript-lint'
+import { autofixSimScript } from './simscript-fix'
 import { fewShotMessages } from './few-shot'
 import { SIMSCRIPT_SYSTEM_PROMPT } from './simscript-corpus'
 
@@ -412,6 +413,12 @@ export async function generateSimScript(
      *  the FIRST attempt only — streaming a repair would show the user the
      *  script being rewritten, which reads as a glitch rather than progress. */
     onToken?: (chunk: string) => void
+    /** How many worked examples to put in front of the question. Left unset
+     *  this is the measured default; scripts/ai-sweep.mjs varies it, because
+     *  the examples ARE the prompt — a scene is ~300 output tokens against a
+     *  system prompt plus k full scripts of input, so k is the single biggest
+     *  compute dial in the pipeline and it should be measured, not assumed. */
+    shots?: number
   } = {}
 ): Promise<GenerateResult> {
   const generator = opts.generator ?? (await pickGenerator())
@@ -420,7 +427,7 @@ export async function generateSimScript(
   // Worked examples closest to this request. The corpus built these all
   // along and nothing ever sent them to the model; retrieving four lifted
   // lint-clean output from 7/15 to 12/15 on held-out course prompts.
-  const shots = fewShotMessages(userPrompt)
+  const shots = fewShotMessages(userPrompt, opts.shots)
 
   let prompt = userPrompt
   let lastScript = ''
@@ -436,7 +443,22 @@ export async function generateSimScript(
       attempt === 1 ? opts.onToken : undefined,
       attempt === 1 ? shots : undefined
     )
-    const result = lintSimScript(raw)
+    // Verify, then try to repair WITHOUT the model before spending a round on
+    // it. Most first-pass failures are mechanical — an invented channel name,
+    // a reserved word, a missing system wrapper — and lib/ai/simscript-fix.ts
+    // fixes those from the registries for free. Only what survives that is
+    // worth ~2.2s of GPU. Both passes are microseconds, and the fix pass runs
+    // only on a failure, so a clean generation pays nothing for any of it.
+    let result = lintSimScript(raw)
+    if (!result.ok) {
+      const fixed = autofixSimScript(result.cleaned)
+      if (fixed.notes.length > 0) {
+        const relinted = lintSimScript(fixed.code)
+        // The notes ride along as warnings: a habit the model repeats every
+        // time is a corpus problem, and silently patching it would hide that.
+        result = { ...relinted, warnings: [...relinted.warnings, ...fixed.notes] }
+      }
+    }
     lastScript = result.cleaned
     lastErrors = result.errors
 

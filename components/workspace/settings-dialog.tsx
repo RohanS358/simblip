@@ -45,6 +45,8 @@ import {
   ChevronLeft,
   Plus,
   ShieldCheck,
+  BookOpen,
+  ExternalLink,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
@@ -1012,6 +1014,7 @@ type TabId =
   | 'pen'
   | 'simulation'
   | 'privacy'
+  | 'docs'
   | 'about'
 
 interface NavItem {
@@ -1036,7 +1039,22 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'pen', label: 'Pen feel', detail: 'Stylus & pressure', icon: Edit3, category: 'tools' },
   { id: 'simulation', label: 'Simulation Engine', detail: 'Physics solver', icon: Activity, category: 'tools' },
   { id: 'privacy', label: 'Privacy', detail: 'Your data, terms', icon: ShieldCheck, category: 'tools' },
+  { id: 'docs', label: 'Documentation', detail: 'The full user manual', icon: BookOpen, category: 'tools' },
   { id: 'about', label: 'About', detail: 'Version, credits', icon: HelpCircle, category: 'tools' },
+]
+
+/** Deep links into /docs — the handful of sections a user is most likely to
+ *  be hunting for when they end up in Settings looking for an explanation. */
+const DOC_LINKS: [string, string, string][] = [
+  ['start', 'Getting started', 'The core idea, and your first simulation'],
+  ['tools', 'Drawing and tools', 'Every dock tool, the pen, shapes and quick insert'],
+  ['behaviors', 'Behavior reference', 'What you can attach, and what each one means'],
+  ['components', 'Component packages', 'Every subject package and the parts it ships'],
+  ['simulation', 'Simulation', 'How Play works and what each engine solves'],
+  ['formulas', 'Formulas and variables', 'Expression fields and page scope'],
+  ['shortcuts', 'Keyboard shortcuts', 'The complete keymap'],
+  ['settings', 'Settings reference', 'What every tab on this window controls'],
+  ['help', 'Troubleshooting', 'Common confusions, and reporting a bug'],
 ]
 
 export function SettingsDialog({
@@ -1398,6 +1416,43 @@ export function SettingsDialog({
             )}
 
             {activeTab === 'privacy' && <PrivacySettings />}
+
+            {activeTab === 'docs' && (
+              <div className="space-y-4">
+                <SettingCard title="User Manual">
+                  <ObsidianPrefRow
+                    label="Open the documentation"
+                    detail="Every tool, panel, component, behavior, shortcut and setting, explained in one place."
+                    action={
+                      <Button variant="outline" size="sm" asChild>
+                        <a href="/docs" target="_blank" rel="noopener noreferrer">
+                          <ExternalLink className="mr-1.5 h-3.5 w-3.5" />
+                          Open docs
+                        </a>
+                      </Button>
+                    }
+                  />
+                </SettingCard>
+
+                <SettingCard title="Jump straight to a topic">
+                  {DOC_LINKS.map(([hash, label, detail]) => (
+                    <ObsidianPrefRow
+                      key={hash}
+                      label={label}
+                      detail={detail}
+                      action={
+                        <Button variant="ghost" size="sm" asChild>
+                          <a href={`/docs#${hash}`} target="_blank" rel="noopener noreferrer">
+                            Read
+                            <ChevronRight className="ml-0.5 h-3.5 w-3.5" />
+                          </a>
+                        </Button>
+                      }
+                    />
+                  ))}
+                </SettingCard>
+              </div>
+            )}
 
             {activeTab === 'about' && (
               <div className="space-y-4">
