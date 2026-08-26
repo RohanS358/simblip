@@ -128,30 +128,51 @@ export const TEXT_FONTS: Record<string, string> = {
   merriweather: 'var(--font-merriweather), Merriweather, serif',
   playfair:     'var(--font-playfair), "Playfair Display", serif',
 
-  // ── Web-safe Sans-serif ───────────────────────────────────────────────
-  arial:        'Arial, Helvetica, sans-serif',
-  helvetica:    'Helvetica, Arial, sans-serif',
-  verdana:      'Verdana, Geneva, sans-serif',
-  tahoma:       'Tahoma, Geneva, sans-serif',
-  trebuchet:    '"Trebuchet MS", sans-serif',
-  impact:       'Impact, Haettenschweiler, sans-serif',
+  // ── Web-safe families ─────────────────────────────────────────────────
+  // "Web-safe" only holds on a machine that has the font installed — a
+  // Windows/macOS assumption. Everywhere else these fell through to the
+  // generic keyword and rendered as ordinary sans/serif, so choosing
+  // Impact or Papyrus did nothing at all.
+  //
+  // Each stack is therefore: the real font first (an installed local copy
+  // still wins, so nothing changes where it already worked), then a webfont
+  // loaded in app/layout.tsx, then the generic keyword as the last resort.
+  // The var() entries are the fix — without them the list is decorative.
+  //
+  // Sans-serif. Arial/Helvetica get Arimo, which is metric-compatible
+  // (identical advance widths), so text measured on a machine with Arial
+  // wraps the same on one without it.
+  arial:        'Arial, Helvetica, var(--font-arimo), Arimo, sans-serif',
+  helvetica:    'Helvetica, Arial, var(--font-arimo), Arimo, sans-serif',
+  verdana:      'Verdana, Geneva, var(--font-noto-sans), "Noto Sans", sans-serif',
+  tahoma:       'Tahoma, Geneva, var(--font-noto-sans), "Noto Sans", sans-serif',
+  trebuchet:    '"Trebuchet MS", var(--font-noto-sans), "Noto Sans", sans-serif',
+  // Impact has no free metric clone; Oswald and Anton are the closest
+  // condensed/heavy display faces, which is what Impact is chosen FOR.
+  impact:       'Impact, Haettenschweiler, var(--font-anton), Anton, var(--font-oswald), Oswald, sans-serif',
 
-  // ── Web-safe Serif ────────────────────────────────────────────────────
-  timesNewRoman: '"Times New Roman", Times, serif',
-  georgia:      'Georgia, "Times New Roman", serif',
-  garamond:     'Garamond, "Apple Garamond", serif',
-  palatino:     '"Palatino Linotype", Palatino, "Book Antiqua", serif',
-  bookman:      '"Bookman Old Style", serif',
-  copperplate:  'Copperplate, "Copperplate Gothic Light", serif',
+  // Serif. Tinos and Gelasio are metric-compatible with Times New Roman and
+  // Georgia respectively.
+  timesNewRoman: '"Times New Roman", Times, var(--font-tinos), Tinos, serif',
+  georgia:      'Georgia, var(--font-gelasio), Gelasio, "Times New Roman", serif',
+  garamond:     'Garamond, "Apple Garamond", var(--font-eb-garamond), "EB Garamond", serif',
+  palatino:     '"Palatino Linotype", Palatino, "Book Antiqua", var(--font-cormorant), "Cormorant Garamond", serif',
+  bookman:      '"Bookman Old Style", var(--font-cormorant), "Cormorant Garamond", serif',
+  // Copperplate is an engraved all-caps face with no close free match; EB
+  // Garamond at least keeps it a serif rather than silently becoming sans.
+  copperplate:  'Copperplate, "Copperplate Gothic Light", var(--font-eb-garamond), "EB Garamond", serif',
 
-  // ── Web-safe Monospace ────────────────────────────────────────────────
-  courier:      '"Courier New", Courier, monospace',
-  consolas:     'Consolas, "Lucida Console", monospace',
+  // Monospace. Cousine is metric-compatible with Courier New.
+  courier:      '"Courier New", Courier, var(--font-cousine), Cousine, monospace',
+  consolas:     'Consolas, "Lucida Console", var(--font-jetbrains), monospace',
 
-  // ── Decorative / Fun ─────────────────────────────────────────────────
-  comic:        '"Comic Sans MS", "Comic Sans", cursive',
-  brushScript:  '"Brush Script MT", cursive',
-  papyrus:      'Papyrus, fantasy',
+  // Decorative / Fun.
+  comic:        '"Comic Sans MS", "Comic Sans", var(--font-comic-neue), "Comic Neue", cursive',
+  brushScript:  '"Brush Script MT", var(--font-caveat), Caveat, cursive',
+  // Papyrus is a textured display face; Caveat is not it, but a handwritten
+  // face is far closer to the intent than the generic sans it silently
+  // became. See the note in FONT_GROUPS.
+  papyrus:      'Papyrus, var(--font-caveat), Caveat, fantasy',
 }
 
 // Display labels shown in the font picker dropdown
@@ -183,6 +204,44 @@ export const TEXT_FONT_LABELS: Record<keyof typeof TEXT_FONTS, string> = {
   comic:         'Comic Sans',
   brushScript:   'Brush Script',
   papyrus:       'Papyrus',
+}
+
+/** Font stacks as they were stored BEFORE the web-safe families gained
+ *  webfont fallbacks, mapped to their font id.
+ *
+ *  A stored `fontFamily` is the full CSS stack string, and the reverse lookup
+ *  that recovers a font id (pmDocToStoredText in pm.ts, which every exporter
+ *  goes through) compares it exactly. Widening a stack therefore orphans
+ *  every document already saved with the old one — the id comes back
+ *  undefined and the font mark is dropped silently on export. Old stacks stay
+ *  listed here permanently so those documents keep resolving.
+ *
+ *  Only entries whose stack actually CHANGED need to appear. */
+export const LEGACY_FONT_STACKS: Record<string, string> = {
+  'Arial, Helvetica, sans-serif': 'arial',
+  'Helvetica, Arial, sans-serif': 'helvetica',
+  'Verdana, Geneva, sans-serif': 'verdana',
+  'Tahoma, Geneva, sans-serif': 'tahoma',
+  '"Trebuchet MS", sans-serif': 'trebuchet',
+  'Impact, Haettenschweiler, sans-serif': 'impact',
+  '"Times New Roman", Times, serif': 'timesNewRoman',
+  'Georgia, "Times New Roman", serif': 'georgia',
+  'Garamond, "Apple Garamond", serif': 'garamond',
+  '"Palatino Linotype", Palatino, "Book Antiqua", serif': 'palatino',
+  '"Bookman Old Style", serif': 'bookman',
+  'Copperplate, "Copperplate Gothic Light", serif': 'copperplate',
+  '"Courier New", Courier, monospace': 'courier',
+  'Consolas, "Lucida Console", monospace': 'consolas',
+  '"Comic Sans MS", "Comic Sans", cursive': 'comic',
+  '"Brush Script MT", cursive': 'brushScript',
+  'Papyrus, fantasy': 'papyrus',
+}
+
+/** Font id for a stored CSS stack — current stacks first, then the legacy
+ *  ones above. Returns undefined for a stack this app never wrote. */
+export function fontIdForStack(stack: string): string | undefined {
+  const current = Object.keys(TEXT_FONTS).find((k) => TEXT_FONTS[k] === stack)
+  return current ?? LEGACY_FONT_STACKS[stack]
 }
 
 /** Groups for the font picker UI — each group has a label and an ordered list

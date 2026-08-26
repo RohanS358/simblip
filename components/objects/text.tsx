@@ -100,6 +100,9 @@ export function RichTextArea({
   // Guards the empty-box cleanup: only a box the caret actually reached can
   // be discarded, so a not-yet-selected fresh box never deletes itself.
   const everFocusedRef = useRef(false)
+  // Set further down, where the debounce lives — the leave-edit-mode effect
+  // needs to commit pending text but runs above its definition.
+  const flushRef = useRef<(() => void) | null>(null)
   // Single click selects/drags the box like any object; only a double click
   // (or a click on an already-selected box) enters edit mode.
   const [editing, setEditing] = useState(false)
@@ -115,10 +118,17 @@ export function RichTextArea({
   useEffect(() => {
     if (!selected && editing) {
       setEditing(false)
+      // Persistence is debounced (see queueChange below), so `doc` — parsed
+      // from the STORE — can be up to one debounce window behind what was
+      // actually typed. Leaving edit mode is exactly the moment that gap
+      // matters, so commit the pending text first, then judge emptiness from
+      // the editor's own document rather than the store's stale copy.
+      flushRef.current?.()
+      const live = editorRef.current
+      const empty = live ? live.isEmpty : isPmDocEmpty(doc)
       // An empty box was never really wanted — clean it up instead of
       // leaving an invisible object on the canvas.
-      if (deleteWhenEmpty && everFocusedRef.current && isPmDocEmpty(doc))
-        removeObjects(pageId, [object.id])
+      if (deleteWhenEmpty && everFocusedRef.current && empty) removeObjects(pageId, [object.id])
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected, editing, deleteWhenEmpty, value, pageId, object.id, removeObjects])
@@ -160,6 +170,47 @@ export function RichTextArea({
     return () => ro.disconnect()
   }, [editing, fit])
 
+  // Typing is not a document mutation per keystroke. Tiptap already holds the
+  // authoritative document while the caret is in it, so the only thing the
+  // store gains from a per-transaction write is work: setStringParam replaces
+  // pages[id], which trips the doc store's dirty-set subscriber and schedules
+  // a page save — on every character. The editor stays the source of truth
+  // between beats; the store catches up 250ms after you stop.
+  //
+  // MUST flush on the way out (blur, unmount, leaving edit mode) or the last
+  // keystrokes of a burst are simply lost.
+  const pendingRef = useRef<string | null>(null)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current)
+      timerRef.current = null
+    }
+    const next = pendingRef.current
+    pendingRef.current = null
+    if (next !== null) setStringParam(pageId, object.id, 'text', next)
+  }, [pageId, object.id, setStringParam])
+
+  const queueChange = useCallback(
+    (next: string) => {
+      pendingRef.current = next
+      if (timerRef.current) clearTimeout(timerRef.current)
+      timerRef.current = setTimeout(flush, 250)
+    },
+    [flush]
+  )
+
+  // Unmount is the last chance: a box removed mid-burst (page switch, sheet
+  // unmounting as it scrolls out of view) must not take the pending text with
+  // it. flush() is stable across renders, so this is not a per-keystroke
+  // re-subscribe.
+  useEffect(() => flush, [flush])
+
+  // The leave-edit-mode effect above runs before flush is defined, so it
+  // reaches it through this ref rather than through the closure.
+  flushRef.current = flush
+
   // Makes this box's editor reachable from the Properties panel (see
   // lib/store/text-editor.ts) while it's the one being edited — the panel
   // lives in an entirely different part of the DOM, so this is the only way
@@ -198,7 +249,7 @@ export function RichTextArea({
       {editing ? (
         <TiptapArea
           value={value}
-          onChange={(next) => setStringParam(pageId, object.id, 'text', next)}
+          onChange={queueChange}
           editable
           placeholder={placeholder}
           autoFocus
@@ -207,6 +258,7 @@ export function RichTextArea({
             everFocusedRef.current = true
             setSelection([object.id])
           }}
+          onBlur={flush}
           onLayoutChange={fit}
           className={cn('h-full outline-none select-text cursor-text', widthClass, className)}
           style={{ touchAction: 'auto', lineHeight, letterSpacing }}

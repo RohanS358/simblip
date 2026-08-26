@@ -12,6 +12,17 @@ import {
   Playfair_Display,
   Nunito,
   Raleway,
+  Arimo,
+  Tinos,
+  Cousine,
+  Gelasio,
+  Oswald,
+  Anton,
+  EB_Garamond,
+  Cormorant_Garamond,
+  Caveat,
+  Comic_Neue,
+  Noto_Sans,
 } from 'next/font/google'
 import { ConsentedAnalytics } from '@/components/legal/consented-analytics'
 import { TermsGate } from '@/components/legal/terms-gate'
@@ -60,6 +71,43 @@ const merriweather = Merriweather({ subsets: ['latin'], weight: ['300','400','70
 const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair', preload: false, display: 'swap' })
 const nunito = Nunito({ subsets: ['latin'], variable: '--font-nunito', preload: false, display: 'swap' })
 const raleway = Raleway({ subsets: ['latin'], variable: '--font-raleway', preload: false, display: 'swap' })
+
+// ── Web-safe font backing ───────────────────────────────────────────────────
+// The "web-safe" families in TEXT_FONTS (Arial, Verdana, Impact, Papyrus…)
+// are only web-safe on a machine that happens to have them installed, which
+// is a Windows/macOS assumption. On Linux — and on any machine missing one —
+// the whole stack falls through to the generic keyword and the text renders
+// as ordinary sans, so picking "Impact" or "Papyrus" visibly did NOTHING.
+// Confirmed locally with fc-match: Verdana, Tahoma, Trebuchet, Impact,
+// Garamond, Copperplate, Brush Script and Papyrus all resolved to Noto Sans.
+//
+// Each is now backed by a real webfont appended to its stack, so an installed
+// local copy still wins (identical rendering where it already worked) and
+// everyone else gets something with the right character instead of a silent
+// no-op.
+//
+// The first four are METRIC-COMPATIBLE clones — same advance widths as the
+// fonts they stand in for, so line breaks and measured box heights do not
+// shift for documents authored on a machine that had the originals. They are
+// also exactly what fontconfig already substitutes locally.
+const arimo = Arimo({ subsets: ['latin'], variable: '--font-arimo', preload: false, display: 'swap' })         // Arial / Helvetica
+const tinos = Tinos({ subsets: ['latin'], weight: ['400','700'], variable: '--font-tinos', preload: false, display: 'swap' })      // Times New Roman
+const cousine = Cousine({ subsets: ['latin'], weight: ['400','700'], variable: '--font-cousine', preload: false, display: 'swap' }) // Courier New
+const gelasio = Gelasio({ subsets: ['latin'], variable: '--font-gelasio', preload: false, display: 'swap' })   // Georgia
+// Not metric-compatible, chosen for matching CHARACTER instead: a condensed
+// grotesque for Impact, garaldes for Garamond/Palatino/Bookman, a casual
+// script for Comic Sans/Brush Script.
+const oswald = Oswald({ subsets: ['latin'], variable: '--font-oswald', preload: false, display: 'swap' })      // Impact (condensed)
+const anton = Anton({ subsets: ['latin'], weight: '400', variable: '--font-anton', preload: false, display: 'swap' }) // Impact (heavy display)
+const ebGaramond = EB_Garamond({ subsets: ['latin'], variable: '--font-eb-garamond', preload: false, display: 'swap' }) // Garamond
+const cormorant = Cormorant_Garamond({ subsets: ['latin'], weight: ['300','400','500','600','700'], variable: '--font-cormorant', preload: false, display: 'swap' }) // Palatino / Bookman
+const caveat = Caveat({ subsets: ['latin'], variable: '--font-caveat', preload: false, display: 'swap' })      // Brush Script
+const comicNeue = Comic_Neue({ subsets: ['latin'], weight: ['300','400','700'], variable: '--font-comic-neue', preload: false, display: 'swap' }) // Comic Sans
+// Verdana/Tahoma/Trebuchet are humanist sans with no free metric clone; Noto
+// Sans is the closest widely-available match and is what fontconfig already
+// falls back to for them, so this makes the existing behaviour explicit
+// rather than accidental.
+const notoSans = Noto_Sans({ subsets: ['latin'], variable: '--font-noto-sans', preload: false, display: 'swap' })
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
   
@@ -169,6 +217,17 @@ export default async function RootLayout({
           playfair.variable,
           nunito.variable,
           raleway.variable,
+          arimo.variable,
+          tinos.variable,
+          cousine.variable,
+          gelasio.variable,
+          oswald.variable,
+          anton.variable,
+          ebGaramond.variable,
+          cormorant.variable,
+          caveat.variable,
+          comicNeue.variable,
+          notoSans.variable,
           'font-sans antialiased',
         ].join(' ')}>
         <ThemeProvider

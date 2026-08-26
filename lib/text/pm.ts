@@ -27,6 +27,7 @@ import {
   splitIndent,
   resolveSizePx,
   TEXT_FONTS,
+  fontIdForStack,
   TEXT_WEIGHTS,
   INDENT_UNIT,
   type Mark,
@@ -433,7 +434,11 @@ function pmMarkToLegacy(m: PmMark, start: number, end: number): Mark[] {
         out.push({ start, end, kind: 'size', value: px })
       }
       if (typeof attrs.fontFamily === 'string') {
-        const id = Object.keys(TEXT_FONTS).find((k) => TEXT_FONTS[k] === attrs.fontFamily)
+        // fontIdForStack, not a direct TEXT_FONTS scan: the web-safe stacks
+        // gained webfont fallbacks, and documents saved before that still
+        // carry the old string. A plain scan misses those and drops the font
+        // mark silently on export.
+        const id = fontIdForStack(attrs.fontFamily)
         if (id) out.push({ start, end, kind: 'font', value: id })
       }
       if (attrs.fontWeight != null) {

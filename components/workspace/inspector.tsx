@@ -9,6 +9,7 @@ import {
   Link,
   Maximize2,
   Plus,
+  Minus,
   Trash2,
   Upload,
   X,
@@ -59,7 +60,7 @@ import { usePageSwatches, EMPTY_SWATCHES } from '@/lib/store/page-swatches'
 import { useImagePalette } from '@/lib/color/use-image-palette'
 import { parseSeries, GRAPH_COLORS, type GraphSeries } from '@/components/objects/graph'
 import { FILLS } from '@/components/objects/text'
-import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, type MarkKind } from '@/lib/text/marks'
+import { TEXT_COLORS, TEXT_SIZES, TEXT_FONTS, TEXT_FONT_LABELS, FONT_GROUPS, TEXT_WEIGHTS, resolveSizePx, type MarkKind } from '@/lib/text/marks'
 import { Editor } from '@tiptap/react'
 import { textExtensions } from '@/lib/text/extensions'
 import { parseDoc, serializeDoc, type PmDoc } from '@/lib/text/pm'
@@ -2430,6 +2431,61 @@ const WEIGHT_LABELS: Record<keyof typeof TEXT_WEIGHTS, string> = {
   black: 'Black',
 }
 
+/** Font-size bounds, shared by the numeric field and its ±1px stepper so the
+ *  two can't disagree about where clamping starts (a stepper that stays
+ *  enabled past the clamp looks broken — it takes the click and nothing
+ *  moves). Matches resolveSizePx's own range in lib/text/marks.ts. */
+const MIN_FONT_PX = 6
+const MAX_FONT_PX = 200
+
+/** The rendered font size of the editor's current selection, or null when it
+ *  spans more than one size.
+ *
+ *  Needed because Tiptap reports no `fontSize` attribute in TWO different
+ *  situations — text with no explicit size mark, and a selection covering
+ *  several sizes — which the panel must not conflate: the first has a real,
+ *  steppable size (whatever CSS is rendering it at), the second has none.
+ *  The browser has already resolved both, so read it back from the DOM at
+ *  each end of the selection and compare. */
+function measureSelectionPx(editor: Editor): number | null {
+  try {
+    const { from, to } = editor.state.selection
+    const px = (pos: number): number | null => {
+      const dom = editor.view.domAtPos(pos)?.node
+      const el = dom?.nodeType === Node.TEXT_NODE ? dom.parentElement : (dom as HTMLElement | null)
+      if (!el) return null
+      const size = Number.parseFloat(window.getComputedStyle(el).fontSize)
+      return Number.isFinite(size) ? Math.round(size) : null
+    }
+    const start = px(from)
+    // A collapsed cursor has one end; only a range needs both compared.
+    if (from === to) return start
+    return start !== null && start === px(to) ? start : null
+  } catch {
+    // domAtPos throws on a position the view has not rendered yet (a doc
+    // swapped underneath, a selection restored before paint). A blank field
+    // is the right answer then, not a crashed panel.
+    return null
+  }
+}
+
+/** Whole-box font size, for a box that is selected but not being edited (no
+ *  live editor, so there is no selection to measure). Mirrors what
+ *  textFormatStyle in components/objects/text.tsx actually renders: the
+ *  legacy `fmtSize` param if the document still carries one, else the
+ *  default. Marks inside the document can override this per character —
+ *  which is exactly why the live-editor path above is preferred whenever
+ *  there is one. */
+function boxFontPx(object: SceneObject): number {
+  const fmt = getString(object, 'fmtSize')
+  return fmt ? resolveSizePx(fmt) : TEXT_SIZES.m
+}
+
+/** Square icon button matching the panel's other bordered controls (font
+ *  family, weight) minus their text/chevron. */
+const STEP_BTN =
+  'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-input bg-background/60 text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-30'
+
 /** Position → Alignment: this canvas has no parent "frame" to align a layer
  *  against (unlike Figma), so these align to the visible viewport instead —
  *  the real, useful equivalent given what's actually on screen. Reads the
@@ -2475,6 +2531,56 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const activeId = useActiveTextEditor((s) => s.objectId)
   const editor = useActiveTextEditor((s) => s.editor)
   const isActive = activeId === object.id
+
+  // Re-render this panel when the editor's SELECTION moves, so controls that
+  // read from the selection (the font-size field and its stepper) reflect
+  // the text the caret is actually in. The store keeps one stable Editor
+  // reference for the whole editing session, so without this nothing here
+  // ever re-runs on a caret move.
+  //
+  // Both events are needed, for different cases:
+  //   selectionUpdate — the caret MOVES into text of another size.
+  //   update          — a size is APPLIED. Stepping with a collapsed cursor
+  //                     writes a stored mark without moving the selection,
+  //                     so selectionUpdate alone would leave the field
+  //                     showing the pre-click number and a second + would
+  //                     step from that stale value instead of compounding.
+  // Deliberately NOT 'transaction', which fires for every no-op tick too.
+  //
+  // Stores the SIZE rather than a counter so ordinary typing — which fires
+  // `update` per keystroke but doesn't change the font size — sets state to
+  // the value it already holds and React bails out of the re-render. This
+  // 3800-line panel re-rendering per character is precisely the per-keystroke
+  // cost just removed from the text path; only an actual size change pays.
+  const [selectionPx, setSelectionPx] = useState<number | null>(null)
+  useEffect(() => {
+    if (!editor) {
+      setSelectionPx(null)
+      return
+    }
+    const read = () => {
+      const px = Number.parseFloat(String(editor.getAttributes('textStyle')?.fontSize ?? ''))
+      if (Number.isFinite(px)) {
+        setSelectionPx(Math.round(px))
+        return
+      }
+      // No fontSize attribute means one of two things, and they are not the
+      // same: the selection is UNIFORM but carries no size mark (so it is
+      // rendering at the surface's own CSS size, and stepping from that is
+      // well defined), or it SPANS several sizes (no single value to step
+      // from). Tiptap collapses both to "no attribute", so measure the DOM
+      // to tell them apart — the browser already resolved the real px for
+      // both ends of the selection.
+      setSelectionPx(measureSelectionPx(editor))
+    }
+    read()
+    editor.on('selectionUpdate', read)
+    editor.on('update', read)
+    return () => {
+      editor.off('selectionUpdate', read)
+      editor.off('update', read)
+    }
+  }, [editor])
 
   const align = (object.metadata.align as string) ?? 'left'
   const vAlign = (object.metadata.verticalAlign as string) ?? 'top'
@@ -2570,18 +2676,69 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
   const [font, setFont] = useState<keyof typeof TEXT_FONTS>('sans')
   const [fontOpen, setFontOpen] = useState(false)
   const [weight, setWeight] = useState<keyof typeof TEXT_WEIGHTS>('regular')
-  const [size, setSize] = useState(TEXT_SIZES.m)
+  // Size is deliberately NOT staged like font/weight above: it is read back
+  // from the selection (selectionPx), so a staged copy could only disagree
+  // with the text — which is exactly the bug where sizing one word to 22 made
+  // every later selection claim to be 22.
   const applySize = (v: string) => {
+    // Number('') is 0, not NaN, so isFinite() alone accepts a cleared field
+    // and clamps it to the 6px floor — i.e. emptying the box shrank the text
+    // to unreadable instead of doing nothing.
+    if (v.trim() === '') return
     const n = Number(v)
     if (!Number.isFinite(n)) return
-    const clamped = Math.min(200, Math.max(6, Math.round(n)))
-    setSize(clamped)
+    const clamped = Math.min(MAX_FONT_PX, Math.max(MIN_FONT_PX, Math.round(n)))
     // No selection snapshot needed: a Tiptap command acts on the EDITOR's
     // stored selection, which survives this number input taking focus. The
     // old engine read window.getSelection() live, which the focus shift
     // collapsed — hence the whole snapshot/restore dance that used to be
     // here.
     setSpan('size', String(clamped))
+  }
+
+  // ± step the size by exactly 1px.
+  //
+  // Steps from the SELECTION's real size, not from `size` — that state is
+  // only a staged "last thing picked" (see the note above it), so on a box
+  // whose text is 28px it would still read 15 and the first click would jump
+  // the text to 14/16 instead of stepping. textStyle's fontSize is the
+  // authority when the selection carries one; `size` is the fallback for a
+  // selection with no explicit size mark, which is also what the field shows.
+  //
+  // This is also what the FIELD shows. Reading it here rather than only in
+  // the click handler keeps the three in agreement: otherwise a box whose
+  // text is 28px displays a staged 15, and the +/− enabled state is computed
+  // against a bound the visible text never reaches.
+  //
+  // selectionPx comes from the subscription near the top of this component —
+  // the store holds one stable Editor reference, so a caret move changes
+  // nothing React is subscribed to and reading it inline here would show
+  // whatever was true when the panel last happened to render. It is null for
+  // a selection carrying no explicit size, which falls back to the staged
+  // value — the same thing the field showed before.
+  // The field shows the SELECTION's size, or nothing at all.
+  //
+  // It must NOT fall back to `size` (the staged "last applied" value): after
+  // sizing one word to 22, selecting any other text still read 22, and the
+  // stepper then applied 21/23 to text that had never been 22 — the panel
+  // reporting a size the selected text does not have, and one click making
+  // that a lie true. getAttributes returns no fontSize in exactly the two
+  // cases where there is no single answer — text carrying no size mark, and
+  // a selection spanning MIXED sizes — and both must read as blank rather
+  // than as some number.
+  //
+  // With no live editor the box is merely SELECTED, not being edited. There
+  // is no selection to report a size for, but applyToText's headless path
+  // still sizes the whole box, so the stepper stays usable from the box's
+  // own rendered size rather than going dead.
+  const shownSize = selectionPx ?? (isActive ? null : boxFontPx(object))
+  // With no single size to step from there is no defined ±1: stepping a
+  // mixed 12/22 selection would flatten it to one value. The buttons are
+  // disabled there instead (see their `disabled` props); this stays a
+  // no-op guard for any other path in.
+  const stepSize = (delta: number) => {
+    if (shownSize === null) return
+    applySize(String(shownSize + delta))
   }
 
   // preventDefault on pointerdown keeps the editor's selection alive while
@@ -2993,13 +3150,41 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
                 could not survive — the editor's own selection is unaffected
                 by that now, so drag-scrubbing just reapplies to the same
                 range with no snapshot bookkeeping. */}
+            {/* Field plus a ±1px stepper. The buttons guard on pointerdown
+                like every other control here so clicking one doesn't blur
+                the editor and collapse the selection being resized — without
+                that, the first click would size the text and every later one
+                would have nothing selected to act on. */}
+            <div className="flex items-center gap-1">
               <ExprInput
                 ariaLabel="Font size in pixels"
-                value={String(size)}
+                value={shownSize === null ? '' : String(shownSize)}
+                placeholder="Mixed"
                 suffix="px"
                 disabled={!isActive}
                 onCommit={applySize}
               />
+              <button
+                type="button"
+                aria-label="Decrease font size"
+                disabled={!isActive || shownSize === null || shownSize <= MIN_FONT_PX}
+                className={STEP_BTN}
+                onPointerDown={guard}
+                onClick={() => stepSize(-1)}
+              >
+                <Minus className="h-3 w-3" />
+              </button>
+              <button
+                type="button"
+                aria-label="Increase font size"
+                disabled={!isActive || shownSize === null || shownSize >= MAX_FONT_PX}
+                className={STEP_BTN}
+                onPointerDown={guard}
+                onClick={() => stepSize(1)}
+              >
+                <Plus className="h-3 w-3" />
+              </button>
+            </div>
           </div>
         </div>
 
