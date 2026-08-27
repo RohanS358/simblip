@@ -50,14 +50,73 @@ function safeSetItem(key: string, value: string): void {
   }
 }
 
+/**
+ * Debounces the actual disk write, not the value zustand sees.
+ *
+ * zustand's persist middleware writes on EVERY store `set()` with no
+ * built-in coalescing — a burst of state changes (e.g. scrolling through a
+ * presentation) fires that many synchronous localStorage writes back to
+ * back, each JSON.stringify-ing the whole store. On Windows especially
+ * (antivirus/OneDrive scanning the profile dir) that's a visible multi-
+ * second stall. Collapsing a burst into one write after it settles removes
+ * that without changing what's on disk once things are quiet.
+ */
+const WRITE_DEBOUNCE_MS = 300
+const pending = new Map<string, { value: string; timer: ReturnType<typeof setTimeout> }>()
+
+function flush(key: string): void {
+  const p = pending.get(key)
+  if (!p) return
+  pending.delete(key)
+  safeSetItem(key, p.value)
+}
+
+/** Flush every pending write immediately — call before the page can go away. */
+function flushAll(): void {
+  for (const key of Array.from(pending.keys())) flush(key)
+}
+
+if (typeof window !== 'undefined') {
+  // 'pagehide' covers back/forward-cache navigations; 'beforeunload' covers
+  // a close/refresh that skips bfcache; visibilitychange covers a phone
+  // backgrounding the tab (no unload event fires there at all).
+  window.addEventListener('pagehide', flushAll)
+  window.addEventListener('beforeunload', flushAll)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushAll()
+  })
+}
+
 export const scopedJSONStorage = createJSONStorage(() => ({
-  getItem: (name: string) => localStorage.getItem(scopedKey(name)),
-  setItem: (name: string, value: string) => safeSetItem(scopedKey(name), value),
-  removeItem: (name: string) => localStorage.removeItem(scopedKey(name)),
+  getItem: (name: string) => {
+    const key = scopedKey(name)
+    // Read-your-writes: a debounced write hasn't hit localStorage yet, so
+    // serve the in-flight value instead of the stale one still on disk.
+    return pending.get(key)?.value ?? localStorage.getItem(key)
+  },
+  setItem: (name: string, value: string) => {
+    const key = scopedKey(name)
+    const existing = pending.get(key)
+    if (existing) clearTimeout(existing.timer)
+    pending.set(key, { value, timer: setTimeout(() => flush(key), WRITE_DEBOUNCE_MS) })
+  },
+  removeItem: (name: string) => {
+    const key = scopedKey(name)
+    const existing = pending.get(key)
+    if (existing) {
+      clearTimeout(existing.timer)
+      pending.delete(key)
+    }
+    localStorage.removeItem(key)
+  },
 }))
 
 /** Force the persisted stores to re-read from the (re-)scoped keys. */
 export async function rehydrateUserStores() {
+  // The account switch that triggers this changes scopedKey's output for
+  // every store — flush first, or the outgoing user's last debounced write
+  // (still keyed to their old scoped name) never lands.
+  flushAll()
   const { useWorkspaceStore } = await import('@/lib/store/workspace')
   const { useDocStore } = await import('@/lib/store/document')
   const { useFilePageContentStore } = await import('@/lib/store/file-page-content')
