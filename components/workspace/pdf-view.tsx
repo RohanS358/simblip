@@ -230,9 +230,9 @@ export function PdfView({ pageId }: { pageId: string }) {
   const readerRef = useRef<HTMLDivElement>(null)
   const contentRef = useRef<HTMLDivElement>(null)
 
-  const zoomAnchor = useRef<{ py: number; clientY: number } | null>(null)
+  const zoomAnchor = useRef<{ px: number; py: number; clientX: number; clientY: number } | null>(null)
 
-const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) => {
+const zoomAt = useCallback((clientX: number, clientY: number, factor: number) => {
   const el = readerRef.current
   if (!el) return
   const rect = el.getBoundingClientRect()
@@ -240,18 +240,24 @@ const zoomAt = useCallback((_clientX: number, clientY: number, factor: number) =
     const nz = Math.min(3, Math.max(0.25, z * factor))
     if (nz === z) return z
     // capture the content-space point under the cursor BEFORE zoom changes
-    zoomAnchor.current = { py: (clientY - rect.top + el.scrollTop) / z, clientY: clientY - rect.top }
+    zoomAnchor.current = {
+      px: (clientX - rect.left + el.scrollLeft) / z,
+      py: (clientY - rect.top + el.scrollTop) / z,
+      clientX: clientX - rect.left,
+      clientY: clientY - rect.top,
+    }
     return nz
   })
 }, [])
 
 // Runs synchronously after the DOM updates but before the browser paints —
-// so the corrected scrollTop lands in the SAME frame as the new scale,
-// instead of one frame later (which is what caused the jump-then-snap).
+// so the corrected scroll position lands in the SAME frame as the new
+// scale, instead of one frame later (which is what caused the jump-then-snap).
 useLayoutEffect(() => {
   const el = readerRef.current
   const anchor = zoomAnchor.current
   if (!el || !anchor) return
+  el.scrollLeft = anchor.px * zoom - anchor.clientX
   el.scrollTop = anchor.py * zoom - anchor.clientY
   zoomAnchor.current = null
 }, [zoom])
@@ -273,18 +279,18 @@ useLayoutEffect(() => {
   // Touch: two-finger pinch, the only zoom gesture a phone has. Baseline
   // (zoom, scroll position, original midpoint) is captured once when the
   // fingers land and held fixed for the whole gesture — see usePinchZoom.
-  const pinchBaseRef = useRef<{ zoom: number; scrollTop: number; clientY: number } | null>(null)
+  const pinchBaseRef = useRef<{ zoom: number; scrollTop: number; scrollLeft: number; clientX: number; clientY: number } | null>(null)
 
   const onPinchStart = useCallback(
-    (_clientX: number, clientY: number) => {
+    (clientX: number, clientY: number) => {
       const el = readerRef.current
       if (!el) return
-      pinchBaseRef.current = { zoom, scrollTop: el.scrollTop, clientY }
+      pinchBaseRef.current = { zoom, scrollTop: el.scrollTop, scrollLeft: el.scrollLeft, clientX, clientY }
     },
     [zoom]
   )
 
-  const onPinchMove = useCallback((ratio: number, _clientX: number, clientY: number) => {
+  const onPinchMove = useCallback((ratio: number, clientX: number, clientY: number) => {
     const el = readerRef.current
     const base = pinchBaseRef.current
     if (!el || !base) return
@@ -294,8 +300,9 @@ useLayoutEffect(() => {
     // the whole gesture. Only the on-screen target (the current midpoint)
     // moves as the fingers move; that's what keeps the same bit of content
     // pinned under the fingers instead of sliding.
+    const px = (base.clientX - rect.left + base.scrollLeft) / base.zoom
     const py = (base.clientY - rect.top + base.scrollTop) / base.zoom
-    zoomAnchor.current = { py, clientY: clientY - rect.top }
+    zoomAnchor.current = { px, py, clientX: clientX - rect.left, clientY: clientY - rect.top }
     setZoom(nz)
   }, [])
 
@@ -734,7 +741,13 @@ useLayoutEffect(() => {
             <div
               ref={contentRef}
               className="flex flex-col gap-4 pb-28"
-              style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top center' } : undefined}
+              // 'top left' (not 'top center'): a center anchor grows the
+              // scaled content symmetrically into negative x-space, which
+              // scrollLeft can never reach (it's clamped to >= 0) — that's
+              // what made zoomed-in pages impossible to pan left on. Anchoring
+              // top-left keeps all the extra width growth to the right, which
+              // is reachable, matching how the vertical axis already works.
+              style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left' } : undefined}
             >
               {Array.from({ length: doc.numPages }, (_, i) => (
                 <PdfPage
