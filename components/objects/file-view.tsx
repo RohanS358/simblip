@@ -247,6 +247,8 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
   const [expanded, setExpanded] = useState(false)
   const stripRef = useRef<HTMLDivElement>(null)
   const boxRef = useRef<HTMLDivElement>(null)
+  /** Fullscreen via CSS, for browsers with no element Fullscreen API. */
+  const [cssFs, setCssFs] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const docRef = useRef<PdfDoc | null>(null)
@@ -435,19 +437,24 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
   // Fullscreen presentation: track state, re-render at the bigger size and
   // page with the arrow keys while it's up.
   useEffect(() => {
-    const onChange = () => setFs(document.fullscreenElement === boxRef.current)
+    const onChange = () => setFs(document.fullscreenElement === boxRef.current || cssFs)
     document.addEventListener('fullscreenchange', onChange)
     return () => document.removeEventListener('fullscreenchange', onChange)
-  }, [])
+  }, [cssFs])
   useEffect(() => {
     if (!fs) return
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'ArrowRight' || e.key === 'PageDown') setPage((p) => Math.min(numPages, p + 1))
       if (e.key === 'ArrowLeft' || e.key === 'PageUp') setPage((p) => Math.max(1, p - 1))
+      // The native path gets Escape from the browser; the CSS fallback doesn't.
+      if (e.key === 'Escape' && cssFs) {
+        setCssFs(false)
+        setFs(false)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [fs, numPages])
+  }, [fs, numPages, cssFs])
 
   const stop = (e: React.PointerEvent | React.MouseEvent) => e.stopPropagation()
 
@@ -463,7 +470,10 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
         // the element exactly as before — nothing here stops propagation.
         className={cn(
           'relative flex h-full w-full items-center justify-center overflow-hidden rounded-xl border bg-white shadow-sm transition-colors dark:bg-neutral-900',
-          dragOver ? 'border-2 border-dashed border-[var(--accent-blue)]' : 'border-border/60'
+          dragOver ? 'border-2 border-dashed border-[var(--accent-blue)]' : 'border-border/60',
+          // CSS fallback for browsers with no element Fullscreen API (iOS
+          // Safari) — see the Fullscreen button below.
+          cssFs && 'fixed inset-0 z-[100] h-[100dvh] w-screen rounded-none border-0'
         )}
         // Drop a file straight onto the window — the same pipeline as the
         // attach button, so a .pptx dropped here is converted just the same.
@@ -594,7 +604,14 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
               type="button"
               aria-label="Exit fullscreen"
               className="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
-              onClick={() => void document.exitFullscreen?.()}
+              onClick={() => {
+                if (cssFs) {
+                  setCssFs(false)
+                  setFs(false)
+                  return
+                }
+                void document.exitFullscreen?.()
+              }}
             >
               <Minimize2 className="h-5 w-5" />
             </button>
@@ -605,7 +622,11 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
       {/* Floating controls — the ONLY interactive part of the element. */}
       <div
         className={cn(
-          "glass-strong absolute right-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-1.5 py-1 pointer-events-auto",
+          // left-1/2 + -translate-x-1/2 is the centring idiom. This was
+          // `right-1/2`, which pins the bar's RIGHT edge to the midpoint and
+          // then shifts it another half-width left — so it sat a full
+          // half-width off-centre (GitHub #2).
+          "glass-strong absolute left-1/2 z-10 flex -translate-x-1/2 items-center gap-1 rounded-xl px-1.5 py-1 pointer-events-auto",
           isSplitScreen ? "bottom-4" : "-bottom-11"
         )}
         onPointerDown={stop}
@@ -682,7 +703,23 @@ export function FileObject({ object, pageId: hostPageId }: ObjectRendererProps) 
               useWorkspaceStore.getState().setActivePage(linkedPageId)
               return
             }
-            void boxRef.current?.requestFullscreen?.()
+            // iOS Safari implements the Fullscreen API on <video> only —
+            // Element.requestFullscreen is undefined on a <div>, so the old
+            // `?.` call silently did NOTHING on iPhone/iPad and the document
+            // never zoomed (GitHub #2). Fall back to a fixed-position overlay,
+            // which drives the same `fs` presentation state the native path
+            // does (bigger page arrows, exit button, re-render at full size).
+            const box = boxRef.current
+            if (!box) return
+            if (typeof box.requestFullscreen === 'function') {
+              void box.requestFullscreen().catch(() => {
+                setCssFs(true)
+                setFs(true)
+              })
+            } else {
+              setCssFs(true)
+              setFs(true)
+            }
           }}
         >
           <Maximize2 className="h-4 w-4" />

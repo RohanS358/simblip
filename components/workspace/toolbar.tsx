@@ -405,7 +405,7 @@ export function Toolbar({
         : dockPrefsState.colorTheme === 'accent-tinted'
           ? 'bg-[var(--accent-blue)]/15 border border-[var(--accent-blue)]/30 backdrop-blur-md shadow-xl text-foreground'
           : dockPrefsState.colorTheme === 'dark-glass'
-            ? 'bg-zinc-900/90 text-zinc-100 backdrop-blur-lg border border-zinc-700/60 shadow-2xl'
+            ? 'surface-dark bg-zinc-900/90 backdrop-blur-lg border border-zinc-700/60 shadow-2xl'
             : 'glass-strong' // default glass
 
   // Autohide opacity effect

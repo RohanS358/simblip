@@ -135,7 +135,7 @@ html {
   --secondary: oklch(0.26 0.012 270);
   --secondary-foreground: oklch(0.93 0.005 95);
   --muted: oklch(0.26 0.012 270);
-  --muted-foreground: oklch(0.64 0.012 270);
+  --muted-foreground: oklch(0.715 0.012 270);
   --accent: oklch(0.3 0.04 255);
   --accent-foreground: oklch(0.85 0.06 255);
   --destructive: oklch(0.65 0.18 20);
@@ -292,7 +292,7 @@ html {
   --secondary: oklch(0.325 0.017 265);
   --secondary-foreground: oklch(0.92 0.008 260);
   --muted: oklch(0.325 0.017 265);
-  --muted-foreground: oklch(0.68 0.014 262);
+  --muted-foreground: oklch(0.77 0.014 262);
   --accent: oklch(0.36 0.04 255);
   --accent-foreground: oklch(0.86 0.06 255);
   --destructive: oklch(0.65 0.18 20);
@@ -343,7 +343,7 @@ html {
   --secondary: oklch(0.215 0.011 270);
   --secondary-foreground: oklch(0.92 0.005 95);
   --muted: oklch(0.215 0.011 270);
-  --muted-foreground: oklch(0.6 0.012 270);
+  --muted-foreground: oklch(0.69 0.012 270);
   --accent: oklch(0.255 0.04 255);
   --accent-foreground: oklch(0.85 0.06 255);
   --destructive: oklch(0.65 0.18 20);
@@ -553,7 +553,7 @@ html {
   --secondary: oklch(0.3 0.016 185);
   --secondary-foreground: oklch(0.9 0.012 130);
   --muted: oklch(0.3 0.016 185);
-  --muted-foreground: oklch(0.66 0.016 165);
+  --muted-foreground: oklch(0.745 0.016 165);
   --accent: oklch(0.34 0.03 165);
   --accent-foreground: oklch(0.85 0.06 145);
   --destructive: oklch(0.65 0.18 20);
@@ -667,7 +667,7 @@ html {
   --secondary: oklch(0.24 0.01 340);
   --secondary-foreground: oklch(0.94 0.02 340);
   --muted: oklch(0.24 0.01 340);
-  --muted-foreground: oklch(0.68 0.03 340);
+  --muted-foreground: oklch(0.705 0.03 340);
   --accent: oklch(0.3 0.09 1);
   --accent-foreground: oklch(0.88 0.1 340);
   --destructive: oklch(0.632 0.254 20.6); /* crimson #FF0141 */
@@ -990,6 +990,22 @@ html {
     backdrop-filter: blur(20px) saturate(180%);
     border: 1px solid color-mix(in oklch, var(--border) 40%, transparent);
     box-shadow: 0 12px 40px rgb(0 0 0 / 0.08);
+  }
+  /* A chrome surface that is dark REGARDLESS of the active theme (the dock's
+   * 'dark-glass' colour theme). Its children style themselves with the normal
+   * page tokens — text-muted-foreground, hover:text-foreground,
+   * hover:bg-accent — which in a LIGHT theme resolve to dark ink and would
+   * disappear into the dark pill (GitHub #4: only the active tool was
+   * visible). Rebinding the tokens here re-points every descendant at once,
+   * instead of special-casing ~8 button call sites and then missing the
+   * hover/active variants. Values mirror the .dark block. */
+  .surface-dark {
+    --foreground: oklch(0.93 0.005 95);
+    --muted-foreground: oklch(0.715 0.012 270);
+    --accent: oklch(0.3 0.04 255);
+    --accent-foreground: oklch(0.85 0.06 255);
+    --border: oklch(0.31 0.012 270);
+    color: var(--foreground);
   }
   .hairline {
     border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
@@ -1561,5 +1577,68 @@ html {
     transform: translate3d(var(--tw-exit-translate-x, 0), var(--tw-exit-translate-y, 0), 0)
       scale3d(var(--tw-exit-scale, 1), var(--tw-exit-scale, 1), var(--tw-exit-scale, 1))
       rotate(var(--tw-exit-rotate, 0));
+  }
+}
+
+/* x-data-spreadsheet (the XLSX page's grid editor) — theme bridge.
+ *
+ * It's a vanilla-JS widget with its own vendored stylesheet (see
+ * components/workspace/xlsx-view.tsx), designed light-only and hardcoded to
+ * #fff / #333 / #e0e2e4. In a dark theme its toolbar rendered dark-on-dark:
+ * "Normal / Arial / 10" barely legible and every action invisible
+ * (GitHub #6). Its toolbar icons are ALSO a single black SVG sprite, so they
+ * can't follow `color` — they're inverted with a filter instead, which is
+ * the "invert icons for the background" ask in GitHub #4.
+ *
+ * Scoped to .dark & friends so the light themes keep the vendored look
+ * untouched. Selectors mirror public/vendor/x-data-spreadsheet/. */
+:is(.dark, .dim, .midnight, .contrast, .mountains, .diva) {
+  .x-spreadsheet,
+  .x-spreadsheet-toolbar,
+  .x-spreadsheet-bottombar,
+  .x-spreadsheet-menu {
+    background: var(--card);
+    color: var(--foreground);
+  }
+  .x-spreadsheet-toolbar {
+    border-bottom-color: var(--border);
+  }
+  .x-spreadsheet-toolbar .x-spreadsheet-toolbar-divider {
+    background: var(--border);
+  }
+  /* Toolbar buttons: hover/active fills were near-white. */
+  .x-spreadsheet-toolbar .x-spreadsheet-toolbar-btn:hover,
+  .x-spreadsheet-menu > li:hover,
+  .x-spreadsheet-item:hover {
+    background: var(--accent);
+  }
+  .x-spreadsheet-toolbar .x-spreadsheet-toolbar-btn.active {
+    background: color-mix(in oklch, var(--accent-blue) 28%, transparent);
+  }
+  /* Single black sprite — recolour by inversion, not by `color`. The vendored
+   * rule is `.x-spreadsheet-icon .x-spreadsheet-icon-img { opacity: .56 }`,
+   * so the opacity bump has to match that specificity to land. */
+  .x-spreadsheet-icon .x-spreadsheet-icon-img,
+  .x-spreadsheet-icon-img {
+    filter: invert(1);
+    opacity: 0.8;
+  }
+  /* Dropdowns, menus, modals and the formula bar all sit on white by default. */
+  .x-spreadsheet-dropdown-content,
+  .x-spreadsheet-contextmenu,
+  .x-spreadsheet-modal,
+  .x-spreadsheet-toast,
+  .x-spreadsheet-selector-area,
+  .x-spreadsheet-editor-area {
+    background: var(--popover);
+    color: var(--popover-foreground);
+    border-color: var(--border);
+  }
+  .x-spreadsheet-form-input input,
+  .x-spreadsheet-form-select,
+  .x-spreadsheet-editor-area textarea {
+    background: var(--input);
+    color: var(--foreground);
+    border-color: var(--border);
   }
 }
