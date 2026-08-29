@@ -223,13 +223,9 @@ function PresentOverlay({
     }
   }, [])
 
-  // Swipe to change slides. On a phone the overlay is fullscreen with no
-  // visible controls but the close button, so without this there was no way
-  // to advance a slide by touch at all — the keyboard handler above is
-  // desktop-only in practice.
+  // Swipe to change slides — mouse or touch (used to be touch-only).
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
   const onSwipeStart = (e: React.PointerEvent) => {
-    if (e.pointerType === 'mouse') return
     swipeRef.current = { x: e.clientX, y: e.clientY }
   }
   const onSwipeEnd = (e: React.PointerEvent) => {
@@ -244,8 +240,29 @@ function PresentOverlay({
     else go(Math.max(0, i - 1))
   }
 
+  // Wheel/trackpad scroll also advances slides. Cooldown caps it to one
+  // slide per gesture — a trackpad flick fires many wheel events.
+  const overlayRef = useRef<HTMLDivElement>(null)
+  const wheelCooling = useRef(false)
+  useEffect(() => {
+    const el = overlayRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      if (Math.abs(delta) < 24 || wheelCooling.current) return
+      wheelCooling.current = true
+      setTimeout(() => { wheelCooling.current = false }, 350)
+      go(delta > 0 ? Math.min(slides.length - 1, i + 1) : Math.max(0, i - 1))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, i])
+
   return (
     <div
+      ref={overlayRef}
       className="fixed inset-0 z-50 flex flex-col bg-black"
       style={{
         paddingTop: 'env(safe-area-inset-top)',
@@ -501,6 +518,57 @@ export function PresentationView({ pageId }: { pageId: string }) {
       return next
     })
   }
+
+  // Ctrl/⌘+wheel zooms (same convention as the PDF/Doc readers). Plain wheel
+  // switches slides instead, gated on `zoom` vs fitScale rather than
+  // measuring scrollWidth/clientWidth — those force a layout read on every
+  // tick and, right after a zoom change, can be a frame stale, which is why
+  // this used to feel laggy and occasionally miss a switch. Always
+  // preventDefault once we own the gesture (even mid-cooldown) so it never
+  // leaks into the page as a background scroll.
+  const wheelCooling = useRef(false)
+  useEffect(() => {
+    const el = stageRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        setZoomRaw((z) => Math.min(3, Math.max(0.25, z * Math.exp(-e.deltaY * 0.0022))))
+        return
+      }
+      if (zoom > fitScale(el) + 0.02) return // zoomed past fit: let it pan
+      e.preventDefault()
+      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
+      if (Math.abs(delta) < 24 || wheelCooling.current) return
+      wheelCooling.current = true
+      setTimeout(() => { wheelCooling.current = false }, 350) // one slide per gesture
+      goToSlide(delta > 0 ? Math.min(slides.length - 1, current + 1) : Math.max(0, current - 1))
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides.length, current, zoom])
+
+  // Swipe (mouse or touch) on the void around the slide also switches
+  // slides — same fit-only gate as the wheel handler. A drag starting on
+  // the slide itself is normal canvas editing, not navigation.
+  const stageSwipeRef = useRef<{ x: number; y: number } | null>(null)
+  const onStageSwipeStart = (e: React.PointerEvent) => {
+    const el = stageRef.current
+    if (!el || zoom > fitScale(el) + 0.02) return
+    stageSwipeRef.current = { x: e.clientX, y: e.clientY }
+  }
+  const onStageSwipeEnd = (e: React.PointerEvent) => {
+    const s = stageSwipeRef.current
+    stageSwipeRef.current = null
+    if (!s) return
+    const dx = e.clientX - s.x
+    const dy = e.clientY - s.y
+    if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    if (dx < 0) goToSlide(Math.min(slides.length - 1, current + 1))
+    else goToSlide(Math.max(0, current - 1))
+  }
+
   const importedRef = useRef(false)
 
   const fileUrl = meta?.fileUrl
@@ -747,8 +815,12 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // wrong id and the Inspector always rendered empty.
   useEffect(() => {
     useWorkspaceStore.getState().setActiveSheet(activeSlideId ?? null)
-    return () => useWorkspaceStore.getState().setActiveSheet(null)
   }, [activeSlideId])
+  // Clear on unmount only (leaving the page) — not in the effect above,
+  // whose cleanup would otherwise fire on every slide switch too. Each
+  // setActiveSheet call is a full-tree persist write (see workspace.ts),
+  // so switching slides was silently writing twice per step.
+  useEffect(() => () => useWorkspaceStore.getState().setActiveSheet(null), [])
 
   // Teacher's phone remote (board presentations) — same pattern as
   // file-view.tsx's simblip-remote-pdf listener, one custom event per page
@@ -817,11 +889,16 @@ export function PresentationView({ pageId }: { pageId: string }) {
         ref={stageRef}
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40"
         style={{ touchAction: 'pan-x pan-y pinch-zoom', WebkitOverflowScrolling: 'touch' }}
-        // Clicking the void around the slide deselects — the canvas only
-        // covers the slide box, so empty-canvas deselect never fires here.
+        // Clicking the void deselects and starts the swipe-to-change-slide
+        // gesture; a drag on the slide itself is normal canvas editing.
         onPointerDown={(e) => {
-          if (!(e.target as HTMLElement).closest('[data-slide-box]')) useDocStore.getState().setSelection([])
+          if (!(e.target as HTMLElement).closest('[data-slide-box]')) {
+            useDocStore.getState().setSelection([])
+            onStageSwipeStart(e)
+          }
         }}
+        onPointerUp={onStageSwipeEnd}
+        onPointerCancel={() => (stageSwipeRef.current = null)}
       >
         {importing ? (
           <div className="flex h-full items-center justify-center">
