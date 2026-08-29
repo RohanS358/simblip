@@ -20,6 +20,30 @@ const ACCENTS = ['accent-blue', 'accent-violet', 'accent-mint', 'accent-amber', 
 const SURFACES = ['background', 'card']
 const AA_TEXT = 4.5 // WCAG AA, normal text
 const AA_LARGE = 3.0 // WCAG AA, large text / UI components
+// The dimming tier that carries actual PROSE — `opacity-70` on sidebar labels,
+// captions and secondary descriptions (~55 call sites). This is the tier that
+// must clear the 4.5:1 text bar.
+//
+// The /60, /50 and /40 tiers are deliberately NOT enforced: an audit of those
+// call sites found them to be separator dots and slashes, empty-state icons,
+// input placeholders and disabled glyphs — graphical/inactive UI under WCAG
+// 1.4.3/1.4.11, held to 3:1 or exempt, not 4.5:1. They are reported below as
+// FYI so a genuine prose regression into that tier is still visible.
+const DIMMED_ALPHA = 0.7
+const FYI_ALPHA = 0.5
+
+// Dark-family themes (must match the @custom-variant dark selector list in
+// app/globals.css). Only these are ENFORCED at the dimmed-prose tier: this is
+// where GitHub #8 actually bit, and where the token sat far enough below its
+// backdrop that opacity-70 pushed it under AA.
+//
+// The light themes are printed but not enforced. Their --muted-foreground is
+// tuned to the same intent (just above AA at full strength), so they fail the
+// dimmed check for the same structural reason — but retuning six shipped light
+// palettes is a design decision, not a bug fix, and no issue reports them.
+// Two of them (solarized 4.14:1, im-just-a-girl 4.06:1) are below AA even at
+// FULL strength; that is a real pre-existing gap worth its own issue.
+const DARK_FAMILY = new Set(['dark', 'dim', 'midnight', 'contrast', 'mountains', 'diva'])
 
 // ── oklch → linear sRGB (Björn Ottosson's reference matrices) ──────────────
 function oklchToLinearSrgb(L, C, H) {
@@ -53,6 +77,26 @@ function relativeLuminance({ r, g, b }) {
 function contrastRatio(oklchA, oklchB) {
   const lA = relativeLuminance(oklchToLinearSrgb(...oklchA))
   const lB = relativeLuminance(oklchToLinearSrgb(...oklchB))
+  const [lighter, darker] = lA > lB ? [lA, lB] : [lB, lA]
+  return (lighter + 0.05) / (darker + 0.05)
+}
+
+// Text dimmed by an opacity utility (`opacity-70`, `text-muted-foreground/60`)
+// composites toward its backdrop, so the EFFECTIVE contrast is lower than the
+// token's own. ~100 call sites dim --muted-foreground this way; checking the
+// raw token alone let dark themes ship sidebar labels and captions at ~3.5:1
+// (GitHub #8). Compositing is done in linear light, which is what the browser
+// actually does.
+function contrastRatioAtAlpha(fg, bg, alpha) {
+  const f = oklchToLinearSrgb(...fg)
+  const b = oklchToLinearSrgb(...bg)
+  const mixed = {
+    r: f.r * alpha + b.r * (1 - alpha),
+    g: f.g * alpha + b.g * (1 - alpha),
+    b: f.b * alpha + b.b * (1 - alpha),
+  }
+  const lA = relativeLuminance(mixed)
+  const lB = relativeLuminance(b)
   const [lighter, darker] = lA > lB ? [lA, lB] : [lB, lA]
   return (lighter + 0.05) / (darker + 0.05)
 }
@@ -106,6 +150,42 @@ function main() {
       }
       console.log(`  ${accent.padEnd(14)} ${cells.join('   ')}`)
     }
+  }
+
+  // --muted-foreground, as actually rendered: dimmed by an opacity utility.
+  console.log('\n── muted-foreground @ ' + DIMMED_ALPHA * 100 + '% (prose tier, enforced) ──')
+  for (const [themeName, vars] of Object.entries(themes)) {
+    const fg = vars['muted-foreground']
+    if (!fg) continue
+    const cells = []
+    for (const surface of SURFACES) {
+      const surfaceVal = vars[surface]
+      if (!surfaceVal) continue
+      const ratio = contrastRatioAtAlpha(fg, surfaceVal, DIMMED_ALPHA)
+      const pass = ratio >= AA_TEXT
+      const enforced = DARK_FAMILY.has(themeName)
+      if (enforced) {
+        checked++
+        if (!pass) failures++
+      }
+      const badge = pass ? 'AA' : enforced ? 'FAIL' : 'below AA (light, not enforced)'
+      cells.push(`vs ${surface.padEnd(10)} ${fmt(ratio)}  ${badge}`)
+    }
+    if (cells.length) console.log(`  ${themeName.padEnd(16)} ${cells.join('   ')}`)
+  }
+
+  console.log('\n── muted-foreground @ ' + FYI_ALPHA * 100 + '% (decorative tier, not enforced) ──')
+  for (const [themeName, vars] of Object.entries(themes)) {
+    const fg = vars['muted-foreground']
+    if (!fg) continue
+    const cells = []
+    for (const surface of SURFACES) {
+      const surfaceVal = vars[surface]
+      if (!surfaceVal) continue
+      const ratio = contrastRatioAtAlpha(fg, surfaceVal, FYI_ALPHA)
+      cells.push(`vs ${surface.padEnd(10)} ${fmt(ratio)}  ${ratio >= AA_LARGE ? 'ok' : 'low'}`)
+    }
+    if (cells.length) console.log(`  ${themeName.padEnd(16)} ${cells.join('   ')}`)
   }
 
   console.log(`\n${checked} pairs checked, ${failures} below AA (4.5:1) for normal text.`)
