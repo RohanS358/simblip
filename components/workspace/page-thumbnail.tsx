@@ -125,9 +125,15 @@ const KIND_FILL: Record<GeometryKind, string> = {
   button: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',
   trigger: 'fill-[var(--accent-amber)]/20 stroke-[var(--accent-amber)]',
   picture: 'fill-foreground/15 stroke-foreground/30',
+  // A group is drawn by its children; the container itself has no fill.
+  group: 'fill-none stroke-none',
 }
 
-function ShapeForObj({ obj }: { obj: SceneObject }) {
+/** One object as a flat SVG glyph, drawn in PAGE coordinates — the caller
+ *  supplies the viewBox. Exported so the Layers list can reuse the exact
+ *  same shape vocabulary the page cards use, instead of inventing a second
+ *  set of previews that drift from these. */
+export function ShapeForObj({ obj }: { obj: SceneObject }) {
   const { geometry, position, size, rotation } = obj
   const fill = KIND_FILL[geometry.kind] ?? 'fill-foreground/40'
 

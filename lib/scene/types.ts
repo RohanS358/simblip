@@ -55,6 +55,7 @@ export type GeometryKind =
   | 'code' // code editor / IDE for SimScript
   | 'dsa' // DSA Lab — C++ IDE + line-by-line algorithm visualizer
   | 'picture' // static raster image placed on the canvas (opfs:<fileId> src) — not the whole-page 'image' PageKind
+  | 'group' // container: owns `children`, transforms them as a unit (lib/scene/group.ts)
 
 export interface Geometry {
   kind: GeometryKind
@@ -67,6 +68,14 @@ export interface Geometry {
   /** picture: `opfs:<fileId>` resolving via lib/storage/manager.ts, same
    *  convention PageNode.fileUrl already uses. */
   src?: string
+  /** group: ids of the objects this container owns, bottom-first.
+   *
+   *  Children stay in the page's flat `objects` map and keep ABSOLUTE
+   *  positions — the group moves/resizes them by delta rather than nesting
+   *  their coordinate space. That is what lets every existing consumer
+   *  (physics, circuit + optics engines, snapping, exporters, thumbnails)
+   *  keep reading `obj.position` as page coordinates with no changes. */
+  children?: string[]
 }
 
 // ── Behaviors (components in the Unity sense) ───────────────────────────────

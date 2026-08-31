@@ -13,11 +13,17 @@ import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
 let nameCounter = 0
 const autoName = (base: string) => `${base} ${(++nameCounter % 1000)}`
 
-// Stacking order: seeded from the clock but then a plain monotonic counter,
-// never wrapped — Date.now() % 1_000_000 alone would wrap every ~16.7
-// minutes, so anything drawn late in a long session could land BEHIND
-// something placed earlier just because the clock rolled over.
-let zCounter = Date.now() % 1_000_000
+// Stacking order: a plain monotonic counter, used only as a PROVISIONAL z
+// for a freshly built object. The real stacking position is assigned when
+// the object is added to a page (topZ / nextTopZ in lib/scene/z-order),
+// which is the only place that can know what the page already holds.
+//
+// It used to be seeded from `Date.now() % 1_000_000`. That was doing real
+// damage: paired with the paths that stamped a raw `Date.now()`, a page
+// ended up with z values spanning six to thirteen digits, and everything
+// past CSS's 32-bit z-index ceiling (2147483647) clamped to a single layer.
+// Seeding from 0 keeps every provisional value inside the ordinal range.
+let zCounter = 0
 export function nextZ(): number {
   return (zCounter += 1)
 }
@@ -253,7 +259,12 @@ export function createSystem(domain: ComponentDef['domain'], position: Vec2): Sc
   obj.size = { w: 460, h: 320 }
   obj.metadata.render = 'system'
   obj.metadata.domain = domain
-  obj.z = 1 // always beneath its contents (their z is a timestamp)
+  // A system boundary is a backdrop: it must sit beneath the parts drawn
+  // inside it. 0 keeps it below every real object, whose z starts at 1 once
+  // the page is normalized (lib/scene/z-order renumbers from 1). It is
+  // deliberately OUTSIDE that 1..N ordinal range — normalization treats a
+  // backdrop as already-lowest rather than shuffling it into the stack.
+  obj.z = 0
   return obj
 }
 

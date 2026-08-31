@@ -65,6 +65,8 @@ import {
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
 import { penActive } from '@/lib/pointer/pen-active'
+import { isPalmPointer } from '@/lib/pointer/palm-reject'
+import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
 import { cn } from '@/lib/utils'
 
 const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
@@ -244,6 +246,11 @@ function isScribble(pts: number[][]): boolean {
   const diag = Math.hypot(maxX - minX, maxY - minY)
   return diag > 40 && len / diag > minFold && totalTurn > minTurn
 }
+
+/** How long after the last stylus contact a bare touch is still treated as a
+ *  resting palm rather than deliberate input. Long enough to cover the pause
+ *  between two strokes of the same sentence. */
+const PEN_PALM_WINDOW_MS = 20000
 
 /** One normalised pressure for every pointer type. A real stylus reports its
  *  own pressure; mouse and touch are recorded FLAT at 0.5 — browsers report
@@ -2014,15 +2021,29 @@ export function InfiniteCanvas({
           : fixedPoints
             ? fixedPoints.map(([x, y]) => [x * w, y * h])
             : undefined
+        const nextBox = {
+          x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
+          y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
+          w,
+          h,
+        }
+        // Resizing a group scales everything it owns, so relative layout
+        // inside the group survives the drag. Each child is written with its
+        // own scaled position AND size — children keep absolute coordinates,
+        // so there is no parent transform to inherit.
+        if (resizingObj?.geometry.kind === 'group') {
+          const patch = scaleGroupTo(resizingObj, store.pages[pageId]?.objects ?? {}, nextBox)
+          for (const [cid, next] of Object.entries(patch)) {
+            store.updateObject(pageId, cid, next, { history: false })
+          }
+          return
+        }
         store.updateObject(
           pageId,
           g.resizeId,
           {
             size: { w, h },
-            position: {
-              x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
-              y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
-            },
+            position: { x: nextBox.x, y: nextBox.y },
             ...(newPoints ? { geometry: { ...resizingObj!.geometry, points: newPoints } } : {}),
           },
           { history: false }
@@ -2090,7 +2111,19 @@ export function InfiniteCanvas({
         // Shift snaps to 15° steps, like Figma/Canva.
         if (e.shiftKey) deg = Math.round(deg / 15) * 15
         deg = ((deg % 360) + 360) % 360
-        store.updateObject(pageId, g.rotateId, { rotation: Math.round(deg * 10) / 10 })
+        const rounded = Math.round(deg * 10) / 10
+        const rotObj = store.pages[pageId]?.objects[g.rotateId]
+        // Rotating a group turns its members about the GROUP's centre, so it
+        // reads as one rigid object instead of each part spinning in place.
+        // The delta (not the absolute angle) is what the children need.
+        if (rotObj?.geometry.kind === 'group') {
+          const patch = rotateGroupBy(rotObj, store.pages[pageId]?.objects ?? {}, rounded - rotObj.rotation)
+          for (const [cid, next] of Object.entries(patch)) {
+            store.updateObject(pageId, cid, next, { history: false })
+          }
+          return
+        }
+        store.updateObject(pageId, g.rotateId, { rotation: rounded })
       } else if (g.mode === 'rotateGroup' && g.rotateGroupCenter) {
         // Rotate all selected objects around the group center.
         const angle = Math.atan2(point.y - g.rotateGroupCenter.y, point.x - g.rotateGroupCenter.x)
@@ -2875,8 +2908,22 @@ export function InfiniteCanvas({
       startScreen: { x: e.clientX, y: e.clientY },
       startViewport: vpRef.current, // live — the store deliberately lags a pan
       moved: false,
+      // Selecting a group means dragging everything it owns. Expanding the
+      // ids HERE is what makes a group move as one unit: the drag loop and
+      // the commit both read this map, so neither needs to know that groups
+      // exist. Children keep absolute positions (lib/scene/group.ts), so a
+      // group move is just the same delta applied to more objects.
       objectStartPositions: new Map(
-        store.selection
+        [
+          ...new Set(
+            store.selection.flatMap((id) => {
+              const obj = store.pages[pageId]?.objects[id]
+              return obj?.geometry.kind === 'group'
+                ? [id, ...descendantIds(obj, store.pages[pageId]?.objects ?? {})]
+                : [id]
+            })
+          ),
+        ]
           .map((id) => [id, store.pages[pageId]?.objects[id]?.position] as const)
           .filter((entry): entry is [string, Vec2] => Boolean(entry[1]))
           .map(([id, p]) => [id, { ...p }])
@@ -2913,7 +2960,7 @@ export function InfiniteCanvas({
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return
     // Palm rejection: once a stylus has been seen recently, a resting palm
     // (single touch) must not ink or marquee — two fingers still pan/zoom.
-    if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < 20000)
+    if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < PEN_PALM_WINDOW_MS)
       return
     if (!locked && (e.button === 1 || spaceRef.current)) {
       beginGesture('pan', e)
@@ -2989,12 +3036,19 @@ export function InfiniteCanvas({
         store.setSelection([])
         return
       }
-      // Touch has no middle button, so on the Select tool a bare finger
-      // drag over empty canvas pans instead of marquee-selecting — the
-      // same gesture desktop's middle-button/space pan drives. Lasso stays
-      // a marquee since picking it is a deliberate ask for a selection box,
-      // and tapping an object directly still selects it (handleObjectPointerDown).
-      if (e.pointerType === 'touch' && tool === 'select' && !locked) {
+      // Touch panning is a PALM or multi-finger gesture, not a one-finger
+      // one: a bare finger drag on the Select tool marquee-selects, exactly
+      // like a mouse drag. (It used to pan, which left tablets with no way
+      // to rubber-band a selection at all.) Two fingers already pan/zoom via
+      // the pinch path; a wide contact patch — a palm or the side of a hand —
+      // pans here. While a stylus has been in use recently the palm is still
+      // rejected instead, so resting your hand mid-stroke doesn't drag the page.
+      if (
+        e.pointerType === 'touch' &&
+        !locked &&
+        isPalmPointer(e.nativeEvent, gesturePrefs().palmRejectRadiusPx)
+      ) {
+        if (Date.now() - lastPenRef.current < PEN_PALM_WINDOW_MS) return
         beginGesture('pan', e)
         return
       }
@@ -3122,13 +3176,27 @@ export function InfiniteCanvas({
         return
       }
     }
+    // Clicking a member of a group selects the GROUP, the way Figma and
+    // Canva do — otherwise a container you can't grab isn't a container.
+    // Once the group (or one of its members) is already selected, a further
+    // click reaches through to the individual child, which is how you edit
+    // one part without ungrouping.
+    const pageObjects = store.pages[pageId]?.objects ?? {}
+    const root = rootGroupOf(id, pageObjects)
+    // Already inside this group's selection? Then reach through to the child.
+    const groupIsActive =
+      root !== id &&
+      (store.selection.includes(root) ||
+        store.selection.some((sid) => rootGroupOf(sid, pageObjects) === root))
+    const target = root !== id && !groupIsActive ? root : id
+
     let nextSelection: string[]
     if (e.shiftKey) {
-      nextSelection = store.selection.includes(id)
-        ? store.selection.filter((s) => s !== id)
-        : [...store.selection, id]
+      nextSelection = store.selection.includes(target)
+        ? store.selection.filter((s) => s !== target)
+        : [...store.selection, target]
     } else {
-      nextSelection = store.selection.includes(id) ? store.selection : [id]
+      nextSelection = store.selection.includes(target) ? store.selection : [target]
     }
     store.setSelection(nextSelection)
     if (!editing) {

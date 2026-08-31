@@ -17,6 +17,8 @@ import {
   Copy,
   CopyPlus,
   BringToFront,
+  Group,
+  Ungroup,
   SendToBack,
   Trash2,
   Zap,
@@ -24,7 +26,8 @@ import {
 import { useDocStore } from '@/lib/store/document'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import { setClipboard, getClipboard, nextPasteOffset } from '@/lib/store/clipboard'
-import { nextZ } from '@/lib/scene/factory'
+import { nextTopZ, reorderZ, restackZ } from '@/lib/scene/z-order'
+import { makeGroup, rootGroupOf } from '@/lib/scene/group'
 import { str, uid, type SceneObject } from '@/lib/scene/types'
 import { specsForGeometry, NO_BEHAVIOR_KINDS } from '@/lib/behaviors/registry'
 
@@ -53,13 +56,17 @@ export type ActionProvider = (ctx: ActionCtx) => SelectionAction[]
 // ── Shared edit operations (were closures inside canvas.tsx) ───────────────
 
 /** Newly created/pasted/duplicated objects always land ABOVE everything
- *  already on the page — the page's actual max, not just a session counter,
- *  since a page can hold objects from earlier sessions with a higher z. */
+ *  already on the page.
+ *
+ *  This used to be `Math.max(pageMax + 1, nextZ())`, which looks right and
+ *  is not: nextZ() is a session counter seeded from `Date.now() % 1e6`, so
+ *  on a page holding a `Date.now()`-stamped object it returned a number far
+ *  ABOVE CSS's 32-bit z-index ceiling. Everything above that ceiling clamps
+ *  to the same layer, so new ink could not be lifted over an existing
+ *  picture. The page's own max — kept a small dense ordinal by
+ *  lib/scene/z-order — is the only input that matters. */
 export function topZ(pageId: string): number {
-  const objs = useDocStore.getState().pages[pageId]?.objects ?? {}
-  let max = 0
-  for (const o of Object.values(objs)) if (o.z > max) max = o.z
-  return Math.max(max + 1, nextZ())
+  return nextTopZ(useDocStore.getState().pages[pageId]?.objects ?? {})
 }
 
 import { parse } from '@/lib/text/marks'
@@ -149,16 +156,78 @@ export function duplicateObjects(pageId: string, ids: string[]) {
  *  preserving their relative order. */
 export function restackObjects(pageId: string, ids: string[], where: 'front' | 'back') {
   const store = useDocStore.getState()
-  const all = Object.values(store.pages[pageId]?.objects ?? {}).map((o) => o.z)
-  const base = where === 'front' ? Math.max(...all, 0) : Math.min(...all, 0)
-  const ordered = ids
-    .map((id) => store.pages[pageId]?.objects[id])
-    .filter((o): o is SceneObject => Boolean(o))
-    .sort((a, b) => a.z - b.z)
-  ordered.forEach((o, i) => {
-    const z = where === 'front' ? base + 1 + i : base - ordered.length + i
-    store.updateObject(pageId, o.id, { z }, { history: true })
-  })
+  const objects = store.pages[pageId]?.objects
+  if (!objects) return
+  // Send-to-back used to write NEGATIVE z (base - count + i, with base = the
+  // page minimum). Negative values are legal CSS but they sink the object
+  // behind the canvas background layer, and they broke the "z is a dense
+  // 1..N ordinal" invariant the Layers list relies on. A splice restack
+  // renumbers instead, so back always means "index 1", never "below zero".
+  const patch = restackZ(objects, ids, where)
+  const changed = Object.entries(patch)
+  if (changed.length === 0) return
+  store.pushHistory(pageId)
+  for (const [id, z] of changed) store.updateObject(pageId, id, { z })
+}
+
+/** Move `ids` so they sit directly above `afterId` (null = send to the very
+ *  bottom). This is what a drag in the Layers list commits. */
+export function reorderObjects(pageId: string, ids: string[], afterId: string | null) {
+  const store = useDocStore.getState()
+  const objects = store.pages[pageId]?.objects
+  if (!objects) return
+  const patch = reorderZ(objects, ids, afterId)
+  const changed = Object.entries(patch)
+  if (changed.length === 0) return
+  store.pushHistory(pageId)
+  for (const [id, z] of changed) store.updateObject(pageId, id, { z })
+}
+
+/** Wrap the selection in a container object. The members keep their absolute
+ *  positions (see lib/scene/group.ts) — only ownership changes. */
+export function groupObjects(pageId: string, ids: string[]) {
+  const store = useDocStore.getState()
+  const objects = store.pages[pageId]?.objects
+  if (!objects) return
+  // Never nest an object under two parents: group whatever ROOT each id
+  // belongs to, so selecting a child of an existing group re-groups that
+  // whole group rather than stealing one member out of it.
+  const roots = [...new Set(ids.map((id) => rootGroupOf(id, objects)))]
+  const members = roots
+    .map((id) => objects[id])
+    .filter((o): o is SceneObject => Boolean(o) && !o.metadata.locked)
+  const group = makeGroup(members)
+  if (!group) return
+  group.z = nextTopZ(objects)
+  store.pushHistory(pageId)
+  store.addObject(pageId, group, { history: false })
+  store.setSelection([group.id])
+}
+
+/** Dissolve the selected group(s), releasing their children back to the page.
+ *  Children keep their positions, so nothing visibly moves. */
+export function ungroupObjects(pageId: string, ids: string[]) {
+  const store = useDocStore.getState()
+  const objects = store.pages[pageId]?.objects
+  if (!objects) return
+  const groups = ids
+    .map((id) => objects[id])
+    .filter((o): o is SceneObject => o?.geometry.kind === 'group')
+  if (groups.length === 0) return
+  store.pushHistory(pageId)
+  const freed: string[] = []
+  for (const g of groups) {
+    freed.push(...(g.geometry.children ?? []).filter((id) => objects[id]))
+  }
+  // Empty each container BEFORE deleting it. removeObjects cascades into a
+  // group's children by design (deleting a group deletes its contents), so
+  // dissolving one has to hand it over already empty or ungrouping would
+  // wipe out exactly the objects it is meant to release.
+  for (const g of groups) {
+    store.updateObject(pageId, g.id, { geometry: { ...g.geometry, children: [] } })
+  }
+  store.removeObjects(pageId, groups.map((g) => g.id))
+  store.setSelection(freed)
 }
 
 // ── The registry ────────────────────────────────────────────────────────────
@@ -197,6 +266,19 @@ export function actionsForSelection(ctx: ActionCtx): SelectionAction[] {
       { id: 'copy',        label: 'Copy',             icon: Copy,         group: 'arrange', order: 40, run: () => copySelection(ctx.pageId) },
       { id: 'delete',      label: 'Delete',           icon: Trash2,       group: 'edit',    order: 99, danger: true, run: () => useDocStore.getState().removeObjects(ctx.pageId, ctx.ids) },
     )
+    const objs = useDocStore.getState().pages[ctx.pageId]?.objects ?? {}
+    if (ctx.ids.length > 1) {
+      core.push({
+        id: 'group', label: 'Group', icon: Group, group: 'arrange', order: 5,
+        run: () => groupObjects(ctx.pageId, ctx.ids),
+      })
+    }
+    if (ctx.ids.some((id) => objs[id]?.geometry.kind === 'group')) {
+      core.push({
+        id: 'ungroup', label: 'Ungroup', icon: Ungroup, group: 'arrange', order: 6,
+        run: () => ungroupObjects(ctx.pageId, ctx.ids),
+      })
+    }
   }
 
   // A lone, freshly-drawn shape with nothing attached yet and at least one

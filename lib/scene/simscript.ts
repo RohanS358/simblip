@@ -2,7 +2,7 @@ import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { behaviorSpec } from '@/lib/behaviors/registry'
-import { createGeometry } from './factory'
+import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
 import { planPlacement, unionRect, type Bounds } from './auto-layout'
 import { latexToExpr } from '@/lib/formula/latex'
@@ -360,7 +360,7 @@ export function executeSimScript(
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? 96, h: props.height ?? (TALL_H[normalKind] ?? 48) },
         rotation: props.rotation ?? (props.dir === 'up' ? -90 : props.dir === 'down' ? 90 : props.dir === 'left' ? 180 : 0),
-        z: Date.now(),
+        z: nextZ(),
         behaviors: [{ id: uid(), type: 'electricalNode' as BehaviorType, enabled: true, params: {} }],
         parameters: params,
         metadata: { nameExplicit: !!props.name },
@@ -395,7 +395,7 @@ export function executeSimScript(
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: def.kind === 'line' ? span : (props.width ?? def.w), h: props.height ?? def.h },
         rotation: props.rotation ?? (props.dir === 'up' ? -90 : props.dir === 'down' ? 90 : props.dir === 'left' ? 180 : 0),
-        z: Date.now(),
+        z: nextZ(),
         behaviors,
         parameters: {},
         metadata: { render: def.render, nameExplicit: !!props.name },
@@ -416,7 +416,7 @@ export function executeSimScript(
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? def.w, h: props.height ?? def.h },
         rotation: isQuantum ? 0 : props.rotation ?? 0,
-        z: Date.now(),
+        z: nextZ(),
         behaviors: [{ id: uid(), type: def.behavior, enabled: true, params }],
         parameters: {},
         metadata: { render: def.render, nameExplicit: !!props.name },
@@ -445,7 +445,7 @@ export function executeSimScript(
       if (normalKind === 'system') {
         obj.name = props.name ?? `${String(props.domain ?? 'mechanics')} system`
         obj.size = { w: props.width ?? 460, h: props.height ?? 320 }
-        obj.z = 1
+        obj.z = 0 // backdrop — see createSystem() in lib/scene/factory.ts
         obj.metadata.render = 'system'
         obj.metadata.domain = String(props.domain ?? 'mechanics')
       }
@@ -461,7 +461,7 @@ export function executeSimScript(
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? 80, h: props.height ?? 60 },
         rotation: props.rotation ?? 0,
-        z: Date.now(), behaviors: [],
+        z: nextZ(), behaviors: [],
         parameters: {},
         metadata: { nameExplicit: !!props.name },
       }
@@ -680,7 +680,7 @@ export function executeSimScript(
       position: { x: Math.min(pA.x, pB.x), y: Math.min(pA.y, pB.y) },
       size: { w: Math.abs(pB.x - pA.x) || 4, h: Math.abs(pB.y - pA.y) || 4 },
       rotation: 0,
-      z: Date.now(),
+      z: nextZ(),
       behaviors: [{
         id: uid(),
         type: type as BehaviorType,   // <-- was hardcoded 'wire' as BehaviorType; now respects the caller's type
@@ -798,7 +798,7 @@ export function executeSimScript(
       const newGraph: SceneObject = graphObj ? { ...graphObj } : {
         id: uid(), name: 'Graph', geometry: { kind: 'graph' },
         position: { x: graphX, y: origin.y },
-        size: { w: 380, h: 260 }, rotation: 0, z: Date.now(),
+        size: { w: 380, h: 260 }, rotation: 0, z: nextZ(),
         behaviors: [], parameters: {}, metadata: {},
       }
 

@@ -83,6 +83,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { LayersPanel } from './layers-panel'
 import { Slider } from '@/components/ui/slider'
 import { cn } from '@/lib/utils'
 import { PanelHeader } from './panel-header'
@@ -131,6 +132,11 @@ const ExprScopeContext = createContext<ScopeItem[]>(EMPTY_SCOPE)
  *  A field is now scrubbed only if what's actually in it right now is a
  *  number, regardless of what the call site asked for. */
 const isNumericValue = (v: string): boolean => v.trim() !== '' && Number.isFinite(Number(v))
+
+/** How far a touch must travel before it is classified as a horizontal scrub
+ *  or a vertical scroll. Small enough to feel immediate, large enough that
+ *  the first jittery pixels of a scroll don't read as sideways. */
+const SCRUB_INTENT_PX = 8
 
 /**
  * The panel's single text/number field.
@@ -245,7 +251,16 @@ function ExprInput({
       node.setSelectionRange(next.caret, next.caret)
     })
   }
-  const dragRef = useRef<{ startX: number; startVal: number; dragged: boolean } | null>(null)
+  const dragRef = useRef<{
+    startX: number
+    startY: number
+    startVal: number
+    dragged: boolean
+    /** Touch only: the gesture is still undecided until the finger clears
+     *  SCRUB_INTENT_PX, at which point a mostly-horizontal move claims it as
+     *  a scrub and a mostly-vertical one hands it back to the scroller. */
+    pending: boolean
+  } | null>(null)
   /** True while a scrub is committing, so the value→draft sync below doesn't
    *  fight the gesture (each commit changes `value`, which would otherwise
    *  immediately overwrite the draft mid-drag and make the number stutter). */
@@ -276,11 +291,12 @@ function ExprInput({
       title={shownError}
       placeholder={placeholder}
       disabled={disabled}
-      // `pan-y` keeps a vertical touch drag scrolling the panel; the scrub
-      // gesture is mouse/pen only. Without this the panel could not be
-      // scrolled by dragging over any field — the whole inspector felt stuck
-      // on a tablet.
-      style={{ touchAction: 'pan-y' }}
+      // `pan-y` keeps a VERTICAL touch drag scrolling the panel while leaving
+      // the horizontal axis to us: a sideways drag over a numeric field now
+      // scrubs on touch too (it used to bail on pointerType === 'touch', so
+      // drag-to-change-value simply did not exist on a tablet). Which axis a
+      // gesture belongs to is decided from its first few pixels below.
+      style={{ touchAction: canScrub ? 'pan-y' : 'auto' }}
       className={cn(
         'w-full min-w-0 rounded-md border bg-background/60 px-2 py-1 text-ui-xl outline-none transition-colors focus:border-[var(--ring)] disabled:pointer-events-none disabled:opacity-30 md:text-ui-sm',
         mono && 'font-mono',
@@ -311,16 +327,34 @@ function ExprInput({
       }}
       onPointerDown={(e) => {
         onPointerDownCapture?.()
-        // Mouse/pen only: a touch drag belongs to the scroll container.
-        if (!canScrub || e.button !== 0 || e.pointerType === 'touch') return
+        if (!canScrub || e.button !== 0) return
         // Don't capture yet — capturing would steal the click that focuses
-        // the field. We only take over once the pointer actually moves.
-        dragRef.current = { startX: e.clientX, startVal: Number(draft), dragged: false }
+        // the field. We only take over once the pointer actually moves, and
+        // on touch only once that movement proves to be horizontal.
+        dragRef.current = {
+          startX: e.clientX,
+          startY: e.clientY,
+          startVal: Number(draft),
+          dragged: false,
+          pending: e.pointerType === 'touch',
+        }
       }}
       onPointerMove={(e) => {
         const drag = dragRef.current
         if (!drag) return
         const dx = e.clientX - drag.startX
+        const dy = e.clientY - drag.startY
+        if (drag.pending) {
+          // Undecided touch: wait for real movement, then let the dominant
+          // axis pick the owner. Vertical drops the gesture entirely so the
+          // panel scrolls as it always did.
+          if (Math.hypot(dx, dy) < SCRUB_INTENT_PX) return
+          if (Math.abs(dx) <= Math.abs(dy)) {
+            dragRef.current = null
+            return
+          }
+          drag.pending = false
+        }
         if (!drag.dragged) {
           if (Math.abs(dx) < 4) return // still just a click
           drag.dragged = true
@@ -328,7 +362,10 @@ function ExprInput({
           e.currentTarget.setPointerCapture(e.pointerId)
           e.currentTarget.blur() // hand the gesture to the scrubber
         }
-        const sensitivity = e.shiftKey ? 5 : e.altKey ? 0.05 : 0.5
+        // Touch has no Shift/Alt, and a finger covers far more screen than a
+        // mouse for the same intent, so it scrubs finer per pixel.
+        const sensitivity =
+          e.pointerType === 'touch' ? 0.25 : e.shiftKey ? 5 : e.altKey ? 0.05 : 0.5
         const next = String(Math.round((drag.startVal + dx * sensitivity) * 1000) / 1000)
         setDraft(next)
         onCommit(next)
@@ -345,6 +382,12 @@ function ExprInput({
         // caret placement) is what made the first click feel dead and forced
         // a second one. Select-all is available on focus-by-keyboard below,
         // and by the usual ⌘A once focused.
+      }}
+      onPointerCancel={() => {
+        // A touch scrub the browser takes back (scroll claim, palm, app
+        // switch) must not leave the drag armed for the next pointermove.
+        dragRef.current = null
+        scrubbingRef.current = false
       }}
       onFocus={(e) => {
         // Tabbing into a field selects it (so typing replaces) — but only for
@@ -3875,9 +3918,12 @@ export function InspectorPane({ pageId }: { pageId: string }) {
           different y. */}
       <PanelHeader icon={SlidersHorizontal} title="Properties" />
       <Tabs defaultValue="properties" className="flex min-h-0 flex-1 flex-col">
-      <TabsList className="m-2 grid grid-cols-2 bg-accent/50">
+      <TabsList className="m-2 grid grid-cols-3 bg-accent/50">
         <TabsTrigger value="properties" className="text-ui-sm">
           Properties
+        </TabsTrigger>
+        <TabsTrigger value="layers" className="text-ui-sm">
+          Layers
         </TabsTrigger>
         <TabsTrigger value="variables" className="text-ui-sm">
           Variables
@@ -3896,6 +3942,9 @@ export function InspectorPane({ pageId }: { pageId: string }) {
             </p>
           </div>
         )}
+      </TabsContent>
+      <TabsContent value="layers" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <LayersPanel pageId={pageId} />
       </TabsContent>
       <TabsContent value="variables" className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         <VariablesPanel pageId={pageId} />

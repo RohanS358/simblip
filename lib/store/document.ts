@@ -14,6 +14,7 @@ import type {
   ParamValue,
 } from '@/lib/scene/types'
 import { renameInExpr } from '@/lib/scene/bindings'
+import { needsNormalize, normalizeZ } from '@/lib/scene/z-order'
 import { uid } from '@/lib/scene/types'
 import { createBehavior } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
@@ -193,7 +194,14 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
     })
     objects[id] = changed ? { ...obj, parameters, behaviors } : obj
   }
-  return { content: { objects, variables }, scope }
+  // Stacking order is repaired HERE because this is the one function every
+  // page load, undo and mutation already flows through. Pages saved before
+  // z was an ordinal carry Date.now()-scale values that overflow CSS's
+  // 32-bit z-index and all clamp to the same layer — see lib/scene/z-order.
+  // needsNormalize() keeps this free for the overwhelmingly common case: a
+  // clean page returns the identical objects map, so nothing re-renders.
+  const stacked = needsNormalize(objects) ? normalizeZ(objects) : objects
+  return { content: { objects: stacked, variables }, scope }
 }
 
 /**
@@ -626,14 +634,38 @@ export const useDocStore = create<DocState>()(
           const page = s.pages[pageId]
           if (!page) return s
           const objects = { ...page.objects }
-          const removable = ids.filter((id) => !objects[id]?.metadata.locked)
+          // Deleting a group deletes what it owns: a container whose children
+          // outlived it would leave orphans the Layers list still shows as
+          // grouped. Ungroup deliberately empties `children` FIRST, so
+          // dissolving a group frees its members instead of destroying them.
+          const withDescendants = new Set<string>()
+          const collect = (id: string) => {
+            if (withDescendants.has(id)) return // also guards a cyclic children list
+            withDescendants.add(id)
+            const o = objects[id]
+            if (o?.geometry.kind === 'group') for (const c of o.geometry.children ?? []) collect(c)
+          }
+          for (const id of ids) collect(id)
+
+          const removable = [...withDescendants].filter((id) => !objects[id]?.metadata.locked)
           for (const id of removable) delete objects[id]
+
+          // Drop the removed ids from any surviving group's children list, so
+          // deleting one member of a group doesn't leave a dangling id behind.
+          const gone = new Set(removable)
+          for (const [id, obj] of Object.entries(objects)) {
+            if (obj.geometry.kind !== 'group') continue
+            const kids = obj.geometry.children ?? []
+            const kept = kids.filter((c) => !gone.has(c))
+            if (kept.length === kids.length) continue
+            objects[id] = { ...obj, geometry: { ...obj.geometry, children: kept } }
+          }
           // Null out any connector anchor that pointed at a removed object —
           // otherwise the dangling objectId could silently re-attach to an
           // unrelated future object that happens to reuse the same id (e.g.
           // via paste/clone-on-share id regeneration). The connector itself
           // is left in place as a free-floating line at its last position.
-          const removedSet = new Set(removable)
+          const removedSet = gone
           for (const [id, obj] of Object.entries(objects)) {
             if (obj.metadata.render !== 'connector') continue
             const startAnchor = obj.metadata.startAnchor as { objectId: string; t: number } | undefined
@@ -652,7 +684,7 @@ export const useDocStore = create<DocState>()(
           }
           return {
             pages: { ...s.pages, [pageId]: { ...page, objects } },
-            selection: s.selection.filter((sid) => !ids.includes(sid)),
+            selection: s.selection.filter((sid) => !gone.has(sid)),
           }
         })
       },

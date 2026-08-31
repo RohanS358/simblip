@@ -3,7 +3,7 @@
 // Settings: profile, appearance, dock, notebook & simulation preferences,
 // keyboard shortcuts and about. Styled after Obsidian's clean settings window.
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useRef } from 'react'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useTheme } from 'next-themes'
 import { APP_THEMES } from '@/components/theme-provider'
@@ -442,7 +442,7 @@ function InterfaceSettings() {
           detail="Panels, docks and toolbars — everything outside the page itself."
           ariaLabel="Interface scale"
           value={nb.uiScale}
-          min={0.8}
+          min={0.6}
           max={1.4}
           onChange={(v) => setNb({ uiScale: v })}
         />
@@ -452,7 +452,7 @@ function InterfaceSettings() {
           detail="Text inside tables, graphs and code blocks on the page. Does not affect panels."
           ariaLabel="Canvas object scale"
           value={nb.componentScale ?? 1}
-          min={0.8}
+          min={0.6}
           max={1.6}
           onChange={(v) => setNb({ componentScale: v })}
         />
@@ -462,7 +462,7 @@ function InterfaceSettings() {
           detail="Fine-tunes only the sidebar, on top of the interface scale above."
           ariaLabel="Sidebar text size"
           value={nb.panelFontScale ?? 1}
-          min={0.85}
+          min={0.6}
           max={1.3}
           onChange={(v) => setNb({ panelFontScale: v })}
         />
@@ -475,7 +475,7 @@ function InterfaceSettings() {
             <Slider
               aria-label="Panel letter spacing"
               value={[nb.panelSpacing ?? 1]}
-              min={0.9}
+              min={0.6}
               max={1.25}
               step={0.05}
               onValueChange={([v]) => setNb({ panelSpacing: v })}
@@ -1076,6 +1076,8 @@ export function SettingsDialog({
   // instead of always dropping straight into General with no way back to
   // an overview. Desktop keeps its always-visible sidebar + panel.
   const [mobileCategoryOpen, setMobileCategoryOpen] = useState(false)
+  /** Swipe-back origin — see the category page's pointer handlers. */
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
 
   const profile = useAuthStore((s) => s.profile)
   const institution = useAuthStore((s) => s.institution)
@@ -1141,21 +1143,31 @@ export function SettingsDialog({
             className="flex h-12 shrink-0 items-center border-b border-border/50 bg-background px-1 pt-[max(0px,env(safe-area-inset-top))] select-none"
             style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
           >
+            {/* Both nav controls live on the LEFT on touch: reaching top-left
+                to leave a category and then top-right to close was a two-hand
+                trip across a tablet. Back and Done now sit under the same
+                thumb, and a swipe-right on the page does the Back too. */}
             {mobileCategoryOpen ? (
-              <button
-                type="button"
-                onClick={() => setMobileCategoryOpen(false)}
-                className="flex items-center gap-0.5 px-2 py-2 text-ui-xl font-medium text-[var(--accent-blue)]"
-              >
-                <ChevronLeft className="h-5 w-5" />
-                Settings
-              </button>
-            ) : (
               <>
-                <span className="flex-1 px-3 text-ui-xl font-extrabold tracking-tight">Settings</span>
+                <button
+                  type="button"
+                  onClick={() => setMobileCategoryOpen(false)}
+                  className="flex items-center gap-0.5 px-2 py-2 text-ui-xl font-medium text-[var(--accent-blue)]"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                  Settings
+                </button>
                 <DialogPrimitive.Close className="px-3 py-2 text-ui-xl font-medium text-[var(--accent-blue)]">
                   Done
                 </DialogPrimitive.Close>
+                <span className="flex-1" />
+              </>
+            ) : (
+              <>
+                <DialogPrimitive.Close className="px-3 py-2 text-ui-xl font-medium text-[var(--accent-blue)]">
+                  Done
+                </DialogPrimitive.Close>
+                <span className="flex-1 px-1 text-ui-xl font-extrabold tracking-tight">Settings</span>
               </>
             )}
           </div>
@@ -1238,6 +1250,35 @@ export function SettingsDialog({
             matching the header's Back-button direction; `translate-x-full`
             (not `hidden`) keeps it transitionable while off-screen. */}
         <div
+          {...(isTouch
+            ? {
+                // Swipe right to go back, the way every iOS drill-down works.
+                // Horizontal intent only (|dx| must beat |dy|) so a normal
+                // vertical scroll through a long settings page never triggers it.
+                onPointerDown: (e: React.PointerEvent) => {
+                  if (e.pointerType === 'mouse') return
+                  // A horizontal drag that starts ON a control belongs to that
+                  // control — dragging a scale slider left-to-right must change
+                  // the value, not navigate back out of the page it lives on.
+                  if ((e.target as HTMLElement).closest?.('[data-slot="slider"],input,textarea,select,[role="slider"]')) {
+                    swipeRef.current = null
+                    return
+                  }
+                  swipeRef.current = { x: e.clientX, y: e.clientY }
+                },
+                onPointerUp: (e: React.PointerEvent) => {
+                  const st = swipeRef.current
+                  swipeRef.current = null
+                  if (!st || !mobileCategoryOpen) return
+                  const dx = e.clientX - st.x
+                  const dy = e.clientY - st.y
+                  if (dx > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) setMobileCategoryOpen(false)
+                },
+                onPointerCancel: () => {
+                  swipeRef.current = null
+                },
+              }
+            : {})}
           className={cn(
             'flex flex-1 min-h-0',
             isTouch
