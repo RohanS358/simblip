@@ -66,6 +66,7 @@ import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
 import { penActive } from '@/lib/pointer/pen-active'
 import { isPalmPointer } from '@/lib/pointer/palm-reject'
+import { paintBands } from '@/lib/scene/z-order'
 import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
 import { cn } from '@/lib/utils'
 
@@ -710,6 +711,56 @@ const SHARP_SELECTION_KINDS = new Set<GeometryKind>([
   'stroke',
   'symbol',
 ])
+
+/** One contiguous run of bare ink, batched into a single <svg>.
+ *
+ *  Batching is the whole point: a handwritten page is hundreds of strokes,
+ *  and one element for the run keeps that cheap. The run is bounded by z —
+ *  see `bands` in InfiniteCanvas — so batching never costs correct stacking
+ *  the way a single all-ink layer did. */
+const InkBand = memo(function InkBand({ strokes }: { strokes: SceneObject[] }) {
+  // The band needs its OWN z-index, not just the right DOM position: every
+  // ObjectView carries `zIndex: object.z`, and a positioned element with a
+  // z-index paints above a plain one no matter which came first in the DOM.
+  // Taking the run's topmost z puts the band into the same ordering as the
+  // objects around it — which is what actually lifts ink over a picture.
+  const z = strokes.reduce((max, o) => (o.z > max ? o.z : max), 0)
+  return (
+    <svg
+      className="pointer-events-none absolute left-0 top-0 overflow-visible"
+      width={1}
+      height={1}
+      style={{ zIndex: z }}
+    >
+      {strokes.map((obj) => (
+        <path
+          key={obj.id}
+          d={
+            obj.geometry.points
+              ? inkPath(obj.geometry.points, {
+                  size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5,
+                  thinning: typeof obj.metadata.sensitivity === 'number' ? obj.metadata.sensitivity : undefined,
+                  dotSize: typeof obj.metadata.dotSize === 'number' ? obj.metadata.dotSize : undefined,
+                  smoothing: typeof obj.metadata.smoothing === 'number' ? obj.metadata.smoothing : undefined,
+                  streamline: typeof obj.metadata.streamline === 'number' ? obj.metadata.streamline : undefined,
+                })
+              : ''
+          }
+          fill={(obj.metadata.inkColor as string) ?? 'var(--foreground)'}
+          fillOpacity={PEN_STYLES[(obj.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1}
+          stroke="none"
+          style={{
+            transform: `translate(${obj.position.x}px, ${obj.position.y}px)`,
+            // Hidden ink still occupies its band; the Layers eye toggle has
+            // to work here too, not only on the ObjectView path.
+            display: obj.metadata.hidden ? 'none' : undefined,
+            opacity: typeof obj.metadata.opacity === 'number' ? obj.metadata.opacity / 100 : undefined,
+          }}
+        />
+      ))}
+    </svg>
+  )
+})
 
 const ObjectView = memo(function ObjectView({
   pageId,
@@ -3371,24 +3422,33 @@ export function InfiniteCanvas({
     )
   }, [objects, viewport.x, viewport.y, viewport.zoom, box.w, box.h, selectedSet, splitScreenDocumentId])
 
-  const { inkStrokes, interactiveObjects } = useMemo(() => {
+  /**
+   * The page as an ordered list of paint bands.
+   *
+   * Bare ink is batched into a single <svg> per run — hundreds of strokes as
+   * one element is what keeps a handwritten page cheap. But that batching used
+   * to produce exactly TWO nodes: one ink <svg> followed by every object. With
+   * no z-index on either, DOM order decided the winner, so ALL ink painted
+   * below ALL pictures and components no matter what its z said. Raising a
+   * stroke in the Layers list moved the number and changed nothing on screen
+   * — the wires in a schematic stayed stubbornly behind the photo they were
+   * drawn over.
+   *
+   * So the split is by RUN rather than by kind: walk the page in z order and
+   * start a new band whenever the type flips. Ink that genuinely sits below a
+   * picture still shares one batch with its neighbours; ink drawn above it
+   * gets its own band, painted after. Typical pages produce a handful of
+   * bands, so the batching win survives.
+   */
+  const bands = useMemo(() => {
     const isBareInk = (obj: SceneObject) =>
       obj.geometry.kind === 'stroke' &&
       !isBody(obj.behaviors) &&
-      !obj.behaviors.some((b) => b.enabled && b.type === 'wire')
+      !obj.behaviors.some((b) => b.enabled && b.type === 'wire') &&
+      // Selected ink stays interactive so its handles still appear.
+      !selectedSet.has(obj.id)
 
-    return visible.reduce(
-      (acc, obj) => {
-        // Keep selected ink interactive so handles still appear
-        if (isBareInk(obj) && !selectedSet.has(obj.id)) {
-          acc.inkStrokes.push(obj)
-        } else {
-          acc.interactiveObjects.push(obj)
-        }
-        return acc
-      },
-      { inkStrokes: [] as SceneObject[], interactiveObjects: [] as SceneObject[] }
-    )
+    return paintBands(visible, isBareInk)
   }, [visible, selectedSet])
 
   return (
@@ -3495,24 +3555,6 @@ export function InfiniteCanvas({
           transformOrigin: '0 0',
         }}
       >
-        <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
-          {inkStrokes.map((obj) => (
-            <path
-              key={obj.id}
-              d={obj.geometry.points ? inkPath(obj.geometry.points, { 
-                size: typeof obj.metadata.inkSize === 'number' ? obj.metadata.inkSize : 5,
-                thinning: typeof obj.metadata.sensitivity === 'number' ? obj.metadata.sensitivity : undefined,
-                dotSize: typeof obj.metadata.dotSize === 'number' ? obj.metadata.dotSize : undefined,
-                smoothing: typeof obj.metadata.smoothing === 'number' ? obj.metadata.smoothing : undefined,
-                streamline: typeof obj.metadata.streamline === 'number' ? obj.metadata.streamline : undefined,
-              }) : ''}
-              fill={(obj.metadata.inkColor as string) ?? 'var(--foreground)'}
-              fillOpacity={PEN_STYLES[(obj.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1}
-              stroke="none"
-              style={{ transform: `translate(${obj.position.x}px, ${obj.position.y}px)` }}
-            />
-          ))}
-        </svg>
 
         {/* Presenter ink — local only, fades and unmounts itself. */}
         {fadingStrokes.length > 0 && (
@@ -3532,25 +3574,34 @@ export function InfiniteCanvas({
           </svg>
         )}
 
-        {interactiveObjects.map((obj) => {
-          const isSelected = selectedSet.has(obj.id)
-          const isMulti = isSelected && selection.length > 1
-          return (
-            <ObjectView
-              key={obj.id}
-              pageId={pageId}
-              object={obj}
-              selected={viewer ? false : isSelected}
-              multiSelected={isMulti}
-              showLabel={!viewer}
-              chromeScale={isSelected && !isMulti ? 1 / viewport.zoom : undefined}
-              onPointerDown={handleObjectPointerDown}
-              onResizeStart={handleResizeStart}
-              onRotateStart={handleRotateStart}
-              onHover={setHoveredId}
-            />
+        {/* Paint bands in z order. Each ink run is one <svg>; each object run
+            renders its objects individually. See `bands` above for why this
+            is interleaved rather than "all ink, then all objects". */}
+        {bands.map((band) =>
+          band.batched ? (
+            <InkBand key={`ink-${band.objects[0].id}`} strokes={band.objects} />
+          ) : (
+            band.objects.map((obj) => {
+              const isSelected = selectedSet.has(obj.id)
+              const isMulti = isSelected && selection.length > 1
+              return (
+                <ObjectView
+                  key={obj.id}
+                  pageId={pageId}
+                  object={obj}
+                  selected={viewer ? false : isSelected}
+                  multiSelected={isMulti}
+                  showLabel={!viewer}
+                  chromeScale={isSelected && !isMulti ? 1 / viewport.zoom : undefined}
+                  onPointerDown={handleObjectPointerDown}
+                  onResizeStart={handleResizeStart}
+                  onRotateStart={handleRotateStart}
+                  onHover={setHoveredId}
+                />
+              )
+            })
           )
-        })}
+        )}
 
         {/* On-canvas value binding: drag a probe dot onto a component to plot
             or tabulate it. Writes the same params the Inspector edits. */}

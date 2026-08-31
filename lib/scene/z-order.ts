@@ -148,3 +148,35 @@ export function restackZ(
   // Everything is selected — already "at the front" by definition.
   return last ? reorderZ(objects, ids, last.id) : {}
 }
+
+/**
+ * Split a page into contiguous paint bands: runs of objects that can share a
+ * single rendered layer, in z order.
+ *
+ * The canvas batches bare ink into one <svg> per run because a handwritten
+ * page is hundreds of strokes and one element for the run keeps it cheap.
+ * The trap is batching by KIND instead of by position: doing that produced
+ * one ink layer and one object layer, and since DOM order then decided the
+ * winner, every stroke painted below every picture no matter what its z said
+ * — raising a stroke in the Layers list changed the number and nothing on
+ * screen. Banding by run keeps the batching win while preserving z: ink
+ * drawn above a picture lands in its own band, painted after it.
+ *
+ * `isBatchable` decides what may share a layer (bare, unselected ink).
+ */
+export function paintBands<T extends { id: string; z: number }>(
+  objects: T[],
+  isBatchable: (o: T) => boolean
+): { batched: boolean; objects: T[] }[] {
+  const ordered = [...objects].sort(
+    (a, b) => a.z - b.z || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  )
+  const out: { batched: boolean; objects: T[] }[] = []
+  for (const obj of ordered) {
+    const batched = isBatchable(obj)
+    const last = out[out.length - 1]
+    if (last && last.batched === batched) last.objects.push(obj)
+    else out.push({ batched, objects: [obj] })
+  }
+  return out
+}
