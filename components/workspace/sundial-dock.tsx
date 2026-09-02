@@ -280,26 +280,9 @@ export function DialDock({ pageId }: { pageId?: string }) {
     })
   }, [])
 
-  const r2Actions = useMemo(() => {
-    const total = selActions.length
-    const step = (2 * Math.PI) / (total || 1)
-    return selActions.map((act, idx) => {
-      const startAngle = -Math.PI / 2 + idx * step
-      const endAngle = startAngle + step
-      const midAngle = (startAngle + endAngle) / 2
-      const rMid = (R2_IN + R2_OUT) / 2
-      return {
-        ...act,
-        startAngle,
-        endAngle,
-        midX: CX + rMid * Math.cos(midAngle),
-        midY: CY + rMid * Math.sin(midAngle),
-        path: describeArc(CX, CY, R2_IN, R2_OUT, startAngle, endAngle),
-      }
-    })
-  }, [selActions])
-
-  const hasOuterRing = showShapes || showPenSettings || selActions.length > 0
+  // Selection actions are NOT a ring: they live in a flat bar under the dial
+  // (see below), so they're reachable without expanding the wheel.
+  const hasOuterRing = showShapes || showPenSettings
   const viewSize = hasOuterRing ? R2_OUT * 2 + 16 : R1_OUT * 2 + 16
   const centerOffset = viewSize / 2
 
@@ -357,22 +340,6 @@ export function DialDock({ pageId }: { pageId?: string }) {
                         )
                       })}
 
-                    {!showShapes &&
-                      !showPenSettings &&
-                      r2Actions.map((act) => (
-                        <path
-                          key={act.id}
-                          d={act.path}
-                          onClick={act.run}
-                          className={cn(
-                            'cursor-pointer transition-colors duration-150 stroke-border/50',
-                            act.danger
-                              ? 'fill-rose-500/10 hover:fill-rose-500/20'
-                              : 'fill-background/80 hover:fill-accent/80'
-                          )}
-                          strokeWidth="1"
-                        />
-                      ))}
                   </g>
                 )}
 
@@ -554,31 +521,6 @@ export function DialDock({ pageId }: { pageId?: string }) {
                     )
                   })}
 
-                {/* Ring 2 Outer Action Icons */}
-                {hasOuterRing &&
-                  !showShapes &&
-                  !showPenSettings &&
-                  r2Actions.map((act) => (
-                    <Tooltip key={act.id}>
-                      <TooltipTrigger asChild>
-                        <div
-                          style={{
-                            left: `${act.midX - (CX - centerOffset) - 10}px`,
-                            top: `${act.midY - (CY - centerOffset) - 10}px`,
-                          }}
-                          className={cn(
-                            'absolute flex h-5 w-5 items-center justify-center rounded-full pointer-events-none transition-colors',
-                            act.danger ? 'text-rose-500' : 'text-foreground/80'
-                          )}
-                        >
-                          <act.icon className="h-3 w-3" />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="text-ui-xs">
-                        {act.label}
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
               </div>
             </motion.div>
           )}
@@ -606,6 +548,46 @@ export function DialDock({ pageId }: { pageId?: string }) {
           )}
         </motion.div>
       </div>
+
+      {/* Selection action bar — flat pill under the hub, right-aligned. Shown
+          whenever something is selected, wheel open or not. */}
+      {selActions.length > 0 && (
+        <div className={cn(
+          'absolute top-full mt-2 flex items-center',
+          // Hug the right edge of the hub, unless that would run the bar off
+          // the left of the screen (dial dragged near the left edge).
+          posX < 260 ? 'left-0' : 'right-0',
+          'gap-0.5 rounded-2xl border border-border/60 bg-background/95 p-1 shadow-md backdrop-blur-md'
+        )}>
+          {selection.length > 1 && (
+            <span className="shrink-0 px-1 font-mono text-ui-xs text-muted-foreground">
+              {selection.length}×
+            </span>
+          )}
+          {selActions.map((a) => (
+            <Tooltip key={a.id}>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  aria-label={a.label}
+                  onClick={a.run}
+                  className={cn(
+                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors duration-150 active:scale-[0.97]',
+                    a.danger
+                      ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                >
+                  <a.icon className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-ui-xs">
+                {a.label}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      )}
 
       {/* Floating Pen settings popover if active */}
       {showPenSettings && expanded && (

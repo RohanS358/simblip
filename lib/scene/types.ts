@@ -202,12 +202,24 @@ export interface PageNode extends NodeBase {
   /**
    * Does this page's CONTENT (and its images' bytes) leave the device?
    *
-   * Opt-in, default false — see lib/sync/page-sync.ts. The node itself always
-   * syncs so other devices know the page exists; this gates the simblip_pages
+   * Opt-in, default false — see lib/sync/page-sync.ts. The node still travels
+   * to the cloud so the tree stays whole, but an unsynced page is HIDDEN on
+   * every other device (see `syncedContent`); this gates the simblip_pages
    * content rows and the blob uploads. Optional so pages written before the
    * toggle existed keep loading; readers treat `undefined` as false.
    */
   syncEnabled?: boolean
+  /**
+   * Wire-only stamp: did the device that last pushed this tree actually sync
+   * this page's content? Written by lib/sync/cloud.ts on the pushed copy, never
+   * set on local state.
+   *
+   * It exists because the three opt-in tiers (page flag, folder cascade, global
+   * category prefs) can't all be re-evaluated by the RECEIVING device — the
+   * global prefs are per-device. So the pusher resolves them once and records
+   * the answer, and the puller just reads this flag to decide what to show.
+   */
+  syncedContent?: boolean
   /** What this page IS: an infinite board, a paged document, or an uploaded
    *  PDF/PPT you read and annotate. Older pages have no kind → board. */
   pageKind?: PageKind

@@ -71,7 +71,11 @@ export async function importWorkspaceBundle(
   bundle: WorkspaceBundle,
   fileBlobs: Map<string, Blob>
 ): Promise<void> {
-  useWorkspaceStore.setState({ nodes: bundle.nodes })
+  // hiddenNodes/cloudNodeIds are cleared, not merged: a restore replaces the
+  // workspace, and the export only ever contained pages this device could see
+  // (lib/sync/tree-visibility.ts). Everything restored is now this device's own
+  // again, so it must not stay marked cloud-origin.
+  useWorkspaceStore.setState({ nodes: bundle.nodes, hiddenNodes: {}, cloudNodeIds: [] })
 
   for (const [pageId, pageBundle] of Object.entries(bundle.pages)) {
     archive.writePage(pageId, { objects: pageBundle.objects, variables: pageBundle.variables })

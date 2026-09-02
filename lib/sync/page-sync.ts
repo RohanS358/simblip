@@ -3,14 +3,21 @@
 // Per-page cloud sync opt-in — the page-level twin of the per-file toggle in
 // lib/storage/manager.ts (`syncEnabled` on a manifest entry).
 //
-// Default OFF. A page's tree NODE always syncs (that's how another device
-// knows the page exists at all, same rule the file manifest row follows);
-// what this gates is everything expensive and personal:
+// Default OFF. What this gates:
 //
 //   • the page's CONTENT rows in simblip_pages (lib/sync/cloud.ts), including
-//     every sub-sheet / notes / annotation canvas the page owns, and
+//     every sub-sheet / notes / annotation canvas the page owns,
 //   • the BYTES of every image or source file the page references
-//     (lib/sync/device-file-sync.ts).
+//     (lib/sync/device-file-sync.ts), and
+//   • whether the page is VISIBLE on any OTHER device at all.
+//
+// That last one is why stampSyncedContent below and splitPulledTree (in
+// lib/sync/tree-visibility.ts) exist. A tree node still travels to the cloud —
+// the tree has to stay whole so nothing is orphaned or lost, and so any device
+// can push it back intact — but an unsynced page's node is parked in the
+// workspace store's `hiddenNodes` on arrival and never rendered. An unsynced page therefore exists only on the device that
+// made it; it shows up elsewhere the moment sync is switched on, and disappears
+// again if it's switched off.
 //
 // Images are DERIVED, not copied: a page's file ids are recomputed from the
 // live tree + page content on every push, so an image dropped onto a synced
@@ -145,4 +152,23 @@ export async function setFolderSyncEnabled(folderId: string, enabled: boolean): 
       }
     }
   }
+}
+
+// ── Cross-device visibility ─────────────────────────────────────────────────
+
+/**
+ * Stamp `syncedContent` onto a COPY of the tree, for pushing to the cloud.
+ *
+ * The receiving device can't recompute the opt-in itself: `globalPrefAllowsPage`
+ * reads per-device prefs, so device B would get a different answer than device A
+ * for the same page. The pusher resolves all three tiers once, here, and records
+ * the verdict on the wire so every puller agrees.
+ */
+export function stampSyncedContent(nodes: Record<string, Node>): Record<string, Node> {
+  const allowed = syncedContentIds(nodes)
+  return Object.fromEntries(
+    Object.entries(nodes).map(([id, n]) =>
+      n.kind === 'page' ? [id, { ...n, syncedContent: allowed.has(id) }] : [id, n]
+    )
+  )
 }

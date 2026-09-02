@@ -81,6 +81,28 @@ export const findNotebookId = (nodes: Record<string, Node>, id: string | null): 
 
 interface WorkspaceState {
   nodes: Record<string, Node>
+  /**
+   * Tree nodes this device carries but must NOT show — pages (and the folders
+   * that only contain them) belonging to another device that never opted them
+   * into sync. Written only by cloud.ts's pull, via splitPulledTree.
+   *
+   * They are kept rather than dropped because the cloud tree is one JSON blob:
+   * whichever device pushes last overwrites the whole thing, so a device that
+   * forgot the parts it can't see would wipe them for everyone. Nothing in the
+   * UI reads this map — that's the entire point. Every list, tree, palette and
+   * picker reads `nodes`, so keeping these out of `nodes` hides them
+   * everywhere at once instead of needing a filter per surface.
+   */
+  hiddenNodes: Record<string, Node>
+  /**
+   * Every tree node this device ADOPTED from the cloud rather than created —
+   * both halves above. The origin ledger lib/sync/tree-visibility.ts needs to
+   * tell "my own page" from "someone else's page that was synced to me", which
+   * mere presence in `nodes` cannot: a page is present here *because* it was
+   * synced, so without this, switching its sync back off could never hide it
+   * again. Rebuilt from the pulled blob on every pull.
+   */
+  cloudNodeIds: string[]
   activePageId: string | null
   /** Session tabs — every page currently open in the header tab strip. */
   openTabs: string[]
@@ -235,10 +257,27 @@ function panesAliases(panes: string[], activePaneIndex: number) {
   }
 }
 
+/** Drop the heavy web-cache blobs before persisting — see `partialize` below. */
+const stripWebCache = (nodes: Record<string, Node>): Record<string, Node> =>
+  Object.fromEntries(
+    Object.entries(nodes).map(([id, node]) => {
+      if (node.kind !== 'page') return [id, node]
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { webCachedHtml: _html, webCachedText: _text, webHistory: _hist, ...rest } = node as PageNode & {
+        webCachedHtml?: unknown
+        webCachedText?: unknown
+        webHistory?: unknown
+      }
+      return [id, rest]
+    })
+  )
+
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
       nodes: {},
+      hiddenNodes: {},
+      cloudNodeIds: [],
       activePageId: null,
       openTabs: [],
       panes: [],
@@ -307,7 +346,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         // every descendant with it (pages AND files), not just its direct
         // children — this generalizes what removeNotebook/removeSection used
         // to hand-roll as two different one/two-level flatMaps.
-        const nodes = get().nodes
+        // Walk the MERGED tree, not just the visible one: a folder shown here
+        // because it holds one synced page can also hold pages hidden from this
+        // device (see `hiddenNodes`). Deleting the folder has to take those with
+        // it, or they'd survive as orphans in the pushed blob and reappear
+        // parentless on the device that owns them.
+        const nodes = { ...get().hiddenNodes, ...get().nodes }
         const target = findNode(nodes, id)
         if (!target) return
         const toDelete = [target, ...(target.kind === 'folder' ? descendantsOf(nodes, id) : [])]
@@ -358,11 +402,16 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const deleteSet = new Set(toDelete.map((n) => n.id))
         set((s) => {
           const nextNodes = { ...s.nodes }
-          deleteSet.forEach((did) => delete nextNodes[did])
+          const nextHidden = { ...s.hiddenNodes }
+          deleteSet.forEach((did) => {
+            delete nextNodes[did]
+            delete nextHidden[did]
+          })
           const nextPanes = s.panes.filter((p) => !deleteSet.has(p))
           const nextActivePaneIndex = Math.min(s.activePaneIndex, Math.max(0, nextPanes.length - 1))
           return {
             nodes: nextNodes,
+            hiddenNodes: nextHidden,
             openTabs: s.openTabs.filter((t) => !deleteSet.has(t)),
             panes: nextPanes,
             activePaneIndex: nextActivePaneIndex,
@@ -485,6 +534,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           const panes = s.panes.filter(exists)
           if (openTabs.length === s.openTabs.length && panes.length === s.panes.length) return {}
           const activePaneIndex = Math.min(s.activePaneIndex, Math.max(panes.length - 1, 0))
+          // panesAliases re-derives activePageId from the surviving panes, which
+          // is what drops an open page the moment its owner revokes sync
+          // (lib/sync/tree-visibility.ts) — activePageId is always one of
+          // `panes`, so it can never dangle past the early return above.
           return { openTabs, panes, activePaneIndex, ...panesAliases(panes, activePaneIndex) }
         }),
 
@@ -643,18 +696,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       // a convenience that can be re-fetched; stripping it never loses work.
       partialize: (state) => ({
         ...state,
-        nodes: Object.fromEntries(
-          Object.entries(state.nodes).map(([id, node]) => {
-            if (node.kind !== 'page') return [id, node]
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { webCachedHtml: _html, webCachedText: _text, webHistory: _hist, ...rest } = node as PageNode & {
-              webCachedHtml?: unknown
-              webCachedText?: unknown
-              webHistory?: unknown
-            }
-            return [id, rest]
-          })
-        ),
+        nodes: stripWebCache(state.nodes),
+        // Same treatment for the carried-but-hidden half: those nodes arrive
+        // from another device with its web caches still attached, and they'd
+        // eat the same quota for a page this device can't even open.
+        hiddenNodes: stripWebCache(state.hiddenNodes),
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return

@@ -31,7 +31,8 @@ import type { Node } from '@/lib/scene/types'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { cloudConfigured } from '@/lib/data/db'
 import { onReconnect } from '@/lib/sync/connectivity'
-import { syncedContentIds } from '@/lib/sync/page-sync'
+import { stampSyncedContent, syncedContentIds } from '@/lib/sync/page-sync'
+import { splitPulledTree } from '@/lib/sync/tree-visibility'
 
 export const syncConfigured = cloudConfigured
 
@@ -117,12 +118,18 @@ async function pull(ws: string, sinceMs: number) {
 }
 
 async function pushWorkspace(ws: string) {
-  const { nodes } = useWorkspaceStore.getState()
+  const { nodes, hiddenNodes } = useWorkspaceStore.getState()
   const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
+  // The blob is the WHOLE tree — what this device shows plus what it only
+  // carries (lib/sync/page-sync.ts). The column is overwritten wholesale, so
+  // pushing only the visible half would delete every other device's unsynced
+  // pages from their own backup. `nodes` wins on a key collision: this device's
+  // copy is the live one.
+  const tree = { ...hiddenNodes, ...stampSyncedContent(nodes) }
   await upsert('simblip_workspaces', [
     // `notebooks` here is the DB column name, not the old field name — see
     // the comment on pull() above.
-    { id: ws, institution_id: institution, notebooks: nodes, updated_at: new Date().toISOString() },
+    { id: ws, institution_id: institution, notebooks: tree, updated_at: new Date().toISOString() },
   ])
 }
 
@@ -263,10 +270,29 @@ export function startSync() {
         // remote data is already in the new Record shape (an old account
         // still on the array shape is the only case that needs migrating).
         const migrated = migrateNotebooksToNodes(remote.nodes) ?? (remote.nodes as Record<string, Node>)
-        useWorkspaceStore.setState({ nodes: migrated })
+        // Not everything in the pulled tree may be SHOWN. A page another device
+        // never opted into sync has no content up here, so listing its title in
+        // this device's sidebar would only offer an empty page the user can't
+        // fill. splitPulledTree parks those in `hiddenNodes` — still persisted
+        // and still pushed back, just never rendered.
+        const ws0 = useWorkspaceStore.getState()
+        const split = splitPulledTree(migrated, ws0.nodes, ws0.cloudNodeIds)
+        // A page that WAS visible and is now hidden means the owner switched its
+        // sync off; its content rows are being deleted server-side, so drop the
+        // local mirror too rather than leaving an unreachable copy on disk.
+        for (const id of Object.keys(split.hiddenNodes)) {
+          if (archive.hasPage(id)) archive.dropPage(id)
+        }
+        useWorkspaceStore.setState({
+          nodes: split.nodes,
+          hiddenNodes: split.hiddenNodes,
+          cloudNodeIds: split.cloudNodeIds,
+        })
         // The pulled tree replaces whatever this browser had (including a
         // first-run seed), so anything open that isn't in it must go — else
-        // the canvas shows a page the notebook tree doesn't contain.
+        // the canvas shows a page the notebook tree doesn't contain. Hidden
+        // pages count as "not in it", which is what closes a page the moment
+        // its owner revokes sync.
         useWorkspaceStore.getState().pruneMissingPages()
         // Land the pulled content in the ARCHIVE, not in memory — pulling a
         // whole notebook into the store would undo the lazy loading. Only
