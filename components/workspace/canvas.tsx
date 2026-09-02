@@ -762,6 +762,49 @@ const InkBand = memo(function InkBand({ strokes }: { strokes: SceneObject[] }) {
   )
 })
 
+/** Selection action bar — the dock's contextual segment, floated just off the
+ *  RIGHT edge of the selection as a vertical strip, instead of living in the dock.
+ *  Only used when the dock is the dial, which has no room for a flat row of
+ *  contextual buttons. `scale` counter-scales it against canvas zoom, same as
+ *  the resize grips. */
+function SelectionActionBar({ pageId, ids, scale }: { pageId: string; ids: string[]; scale: number }) {
+  const dialDock = usePrefs((s) => s.dock.containerStyle) === 'sundial'
+  const editing = useRuntimeStore((s) => s.mode) === 'edit'
+  if (!dialDock) return null
+  const actions = actionsForSelection({ pageId, ids, editing })
+  if (actions.length === 0) return null
+  return (
+    <div className="absolute" style={{ left: '100%', top: '0%' }}>
+      <div
+        className="pointer-events-auto absolute flex flex-col items-center gap-0.5 rounded-2xl border border-border/60 bg-background/95 p-1 shadow-md backdrop-blur-md"
+        style={{ transform: `translate(8px, 0) scale(${scale})`, transformOrigin: 'top left' }}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        {ids.length > 1 && (
+          <span className="shrink-0 px-1 font-mono text-ui-2xs text-muted-foreground">{ids.length}×</span>
+        )}
+        {actions.map((a) => (
+          <button
+            key={a.id}
+            type="button"
+            aria-label={a.label}
+            title={a.label}
+            onClick={a.run}
+            className={cn(
+              'flex h-7 w-7 shrink-0 items-center justify-center rounded-xl transition-colors duration-150 active:scale-[0.97]',
+              a.danger
+                ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
+                : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+            )}
+          >
+            <a.icon className="h-3.5 w-3.5" />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const ObjectView = memo(function ObjectView({
   pageId,
   object,
@@ -995,6 +1038,9 @@ const ObjectView = memo(function ObjectView({
             </div>
           </div>
         </div>
+      )}
+      {selected && !multiSelected && (
+        <SelectionActionBar pageId={pageId} ids={[object.id]} scale={chromeScale} />
       )}
       {isCustomName && showLabel && object.metadata.labelVisible === true && (
         <div
@@ -3835,6 +3881,7 @@ export function InfiniteCanvas({
                     <div className="h-2.5 w-px bg-[var(--accent-blue)] opacity-60" />
                   </div>
                 </div>
+                <SelectionActionBar pageId={pageId} ids={selection} scale={cs} />
               </div>
             )
           })()}

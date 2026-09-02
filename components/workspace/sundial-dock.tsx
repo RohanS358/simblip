@@ -25,8 +25,6 @@ import {
   Minus,
 } from 'lucide-react'
 import { useDocStore, type Tool } from '@/lib/store/document'
-import { useRuntimeStore } from '@/lib/physics/world'
-import { actionsForSelection } from '@/lib/scene/selection-actions'
 import { usePrefs } from '@/lib/store/preferences'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { uid, type SceneObject } from '@/lib/scene/types'
@@ -142,15 +140,9 @@ export function DialDock({ pageId }: { pageId?: string }) {
   const tool = useDocStore((s) => s.tool)
   const setTool = useDocStore((s) => s.setTool)
   const toolOption = useDocStore((s) => s.toolOption)
-  const selection = useDocStore((s) => s.selection)
-  const editing = useRuntimeStore((s) => s.mode) === 'edit'
   const dockPrefs = usePrefs((s) => s.dock)
   const setDock = usePrefs((s) => s.setDock)
   const isMobile = useIsMobile()
-
-  const selActions = pageId && selection.length > 0
-    ? actionsForSelection({ pageId, ids: selection, editing })
-    : []
 
   // Drag position logic
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
@@ -548,46 +540,6 @@ export function DialDock({ pageId }: { pageId?: string }) {
           )}
         </motion.div>
       </div>
-
-      {/* Selection action bar — flat pill under the hub, right-aligned. Shown
-          whenever something is selected, wheel open or not. */}
-      {selActions.length > 0 && (
-        <div className={cn(
-          'absolute top-full mt-2 flex items-center',
-          // Hug the right edge of the hub, unless that would run the bar off
-          // the left of the screen (dial dragged near the left edge).
-          posX < 260 ? 'left-0' : 'right-0',
-          'gap-0.5 rounded-2xl border border-border/60 bg-background/95 p-1 shadow-md backdrop-blur-md'
-        )}>
-          {selection.length > 1 && (
-            <span className="shrink-0 px-1 font-mono text-ui-xs text-muted-foreground">
-              {selection.length}×
-            </span>
-          )}
-          {selActions.map((a) => (
-            <Tooltip key={a.id}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  aria-label={a.label}
-                  onClick={a.run}
-                  className={cn(
-                    'flex h-8 w-8 shrink-0 items-center justify-center rounded-xl transition-colors duration-150 active:scale-[0.97]',
-                    a.danger
-                      ? 'text-[var(--accent-rose)] hover:bg-[color-mix(in_oklch,var(--accent-rose)_12%,transparent)]'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )}
-                >
-                  <a.icon className="h-4 w-4" />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-ui-xs">
-                {a.label}
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      )}
 
       {/* Floating Pen settings popover if active */}
       {showPenSettings && expanded && (
