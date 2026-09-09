@@ -13,8 +13,8 @@
 
 import { useState } from 'react'
 import {
-  Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon, Link2Off, Loader2,
-  MonitorPlay, NotebookPen, ZoomIn, ZoomOut,
+  ChevronLeft, ChevronRight, Columns2, Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon,
+  Link2Off, Loader2, MonitorPlay, NotebookPen, Rows, Square, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
@@ -103,6 +103,29 @@ function ZoomGroup({
 }
 
 
+const VIEW_MODES = [
+  { id: 'scroll', label: 'Continuous scroll', Icon: Rows },
+  { id: 'single', label: 'Single page', Icon: Square },
+  { id: 'double', label: 'Two pages side by side', Icon: Columns2 },
+] as const
+
+function PdfViewModeGroup({
+  mode, setMode,
+}: {
+  mode: 'scroll' | 'single' | 'double'
+  setMode: (mode: 'scroll' | 'single' | 'double') => void
+}) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {VIEW_MODES.map(({ id, label, Icon }) => (
+        <DockBtn key={id} label={label} active={mode === id} onClick={() => setMode(id)}>
+          <Icon className="h-3.5 w-3.5" />
+        </DockBtn>
+      ))}
+    </div>
+  )
+}
+
 export function PageControlsMenu({
   pageId,
   showTransport,
@@ -139,6 +162,13 @@ export function PageControlsMenu({
       {showZoom && pdfDock && <Divider />}
       {pdfDock && (
         <div className="flex items-center gap-0.5">
+          <DockBtn
+            label="Previous page"
+            disabled={pdfDock.current <= 1}
+            onClick={() => pdfDock.scrollToPage?.(pdfDock.current - 1)}
+          >
+            <ChevronLeft className="h-3.5 w-3.5" />
+          </DockBtn>
           <form
             onSubmit={(e) => {
               e.preventDefault()
@@ -174,6 +204,15 @@ export function PageControlsMenu({
               /{pdfDock.numPages}
             </span>
           </form>
+          <DockBtn
+            label="Next page"
+            disabled={pdfDock.current >= pdfDock.numPages}
+            onClick={() => pdfDock.scrollToPage?.(pdfDock.current + 1)}
+          >
+            <ChevronRight className="h-3.5 w-3.5" />
+          </DockBtn>
+          <Divider />
+          <PdfViewModeGroup mode={pdfDock.viewMode} setMode={pdfDock.setViewMode} />
           {showPresent && (
             <DockBtn label="Present on room board…" onClick={() => setPresenting(true)}>
               <MonitorPlay className="h-3.5 w-3.5" />

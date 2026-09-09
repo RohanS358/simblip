@@ -84,10 +84,12 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LayersPanel } from './layers-panel'
+import { DOC_MARGINS } from './doc-flow'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { PanelHeader } from './panel-header'
-import { num, str, type SceneObject, type GeometryKind, type Variable } from '@/lib/scene/types'
+import { num, str, type SceneObject, type GeometryKind, type Variable, type PageNode } from '@/lib/scene/types'
 import { getString, getNumber } from '@/components/objects/types'
 import { getObjectParams } from '@/lib/scene/control-targets'
 import { readSpec, parseYear, fmtYear, type CashflowSpec } from '@/lib/econ/engine'
@@ -3901,6 +3903,147 @@ function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
   )
 }
 
+const DOC_BOX_FIELDS = ['top', 'right', 'bottom', 'left'] as const
+type DocBox = { top: number; right: number; bottom: number; left: number }
+
+/** A 4-number top/right/bottom/left box, all fields defaulting together —
+ *  used for both margin and padding, which share the same shape. */
+function BoxField({
+  label,
+  value,
+  defaults,
+  onChange,
+}: {
+  label: string
+  value: DocBox | undefined
+  defaults: DocBox
+  onChange: (next: DocBox | undefined) => void
+}) {
+  const v = value ?? defaults
+  const setSide = (side: (typeof DOC_BOX_FIELDS)[number], n: number) => {
+    onChange({ ...v, [side]: Math.max(0, n) })
+  }
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="grid grid-cols-4 gap-1">
+        {DOC_BOX_FIELDS.map((side) => (
+          <label key={side} className="flex flex-col items-center gap-0.5">
+            <span className="text-ui-2xs capitalize text-muted-foreground/70">{side.slice(0, 1).toUpperCase()}</span>
+            <input
+              type="number"
+              min={0}
+              aria-label={`${label} ${side}`}
+              value={Math.round(v[side])}
+              onChange={(e) => {
+                const n = Number(e.target.value)
+                if (Number.isFinite(n)) setSide(side, n)
+              }}
+              className="w-full rounded-md border border-border/60 bg-background px-1 py-0.5 text-center font-mono text-ui-2xs tabular-nums outline-none focus:border-[var(--accent-blue)]"
+            />
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Doc/docx only: the flowing body's layout defaults — margins, inner
+ *  padding, default line-height/alignment, and the title-block toggle. A
+ *  .docx import lands here too (open-file.ts routes .docx to the 'doc' page
+ *  kind), so these controls cover every uploaded Word file as well as native
+ *  docs. PDF pages have no flowing text to format, so this renders nothing
+ *  for that page kind — see PdfViewModePanel for the PDF-side view controls. */
+function DocLayoutPanel({ contentPageId }: { contentPageId: string }) {
+  const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, contentPageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, documentId))
+
+  if (meta?.pageKind !== 'doc') return null
+
+  const patch = (p: Partial<PageNode>) => useWorkspaceStore.getState().updatePageMeta(documentId, p)
+  const align = meta.docTextAlign ?? 'left'
+  const headerHidden = meta.docHeaderHidden === true
+
+  return (
+    <PanelSection title="Document layout">
+      <div className="flex items-center justify-between">
+        <FieldLabel>Title block</FieldLabel>
+        <Switch
+          aria-label="Show title block"
+          checked={!headerHidden}
+          onCheckedChange={(on) => patch({ docHeaderHidden: !on })}
+        />
+      </div>
+
+      <BoxField
+        label="Margins"
+        value={meta.docMargins}
+        defaults={DOC_MARGINS}
+        onChange={(next) => patch({ docMargins: next })}
+      />
+      <BoxField
+        label="Padding"
+        value={meta.docPadding}
+        defaults={{ top: 0, right: 0, bottom: 0, left: 0 }}
+        onChange={(next) => patch({ docPadding: next })}
+      />
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <div>
+          <FieldLabel>Line height</FieldLabel>
+          <input
+            type="number"
+            min={0.5}
+            step={0.1}
+            aria-label="Default line height"
+            placeholder="Auto"
+            value={meta.docLineHeight ?? ''}
+            onChange={(e) => {
+              const v = e.target.value
+              if (v.trim() === '') {
+                patch({ docLineHeight: undefined })
+                return
+              }
+              const n = Number(v)
+              if (Number.isFinite(n)) patch({ docLineHeight: Math.max(0.5, n) })
+            }}
+            className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-ui-xs tabular-nums outline-none focus:border-[var(--accent-blue)]"
+          />
+        </div>
+        <div>
+          <FieldLabel>Alignment</FieldLabel>
+          <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+            {(['left', 'center', 'right', 'justify'] as const).map((a) => {
+              const Icon = ALIGN_ICONS[a]
+              return (
+                <button
+                  key={a}
+                  type="button"
+                  aria-label={`Default align ${a}`}
+                  aria-pressed={align === a}
+                  className={cn(
+                    'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
+                    align === a
+                      ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                  )}
+                  onClick={() => patch({ docTextAlign: a })}
+                >
+                  <Icon className="h-3.5 w-3.5" />
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+      <p className="text-ui-2xs leading-relaxed text-muted-foreground">
+        Applies to the whole document; a paragraph's own alignment or line
+        height (set from the text toolbar) still overrides it.
+      </p>
+    </PanelSection>
+  )
+}
+
 /** The Properties/Variables tabs without any panel shell — hosted by the
  *  left rail's Properties section on desktop and by Inspector (the phone
  *  drawer's floating card) below. */
@@ -3935,6 +4078,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
         ) : (
           <div className="space-y-3">
             <PageBackgroundPanel contentPageId={pageId} />
+            <DocLayoutPanel contentPageId={pageId} />
             <p className="py-6 text-center text-ui-sm leading-relaxed text-muted-foreground">
               {selection.length > 1
                 ? `${selection.length} objects selected`

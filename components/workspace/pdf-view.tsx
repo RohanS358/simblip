@@ -28,7 +28,7 @@ import { toast } from 'sonner'
 import { attachPdfToPage, type AttachedFile } from '@/lib/store/pdf-attach'
 import { CONVERTIBLE } from '@/lib/store/to-pdf'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
-import { usePdfDockStore } from '@/lib/store/pdf-dock'
+import { usePdfDockStore, type PdfViewMode } from '@/lib/store/pdf-dock'
 import { useTocStore } from '@/lib/store/toc'
 import { getFile } from '@/lib/storage/manager'
 import { uid } from '@/lib/scene/types'
@@ -93,7 +93,7 @@ const loadPdfjs = () => {
 const ANNOT_W = 900
 
 function PdfPage({
-  doc, n, annotId, active, onCurrent, onFocus,
+  doc, n, annotId, active, onCurrent, onFocus, compact = false,
 }: {
   doc: PdfDoc
   n: number
@@ -105,6 +105,9 @@ function PdfPage({
   active: boolean
   onCurrent: (n: number) => void
   onFocus: (n: number) => void
+  /** Single/double view mode: half-width (double, two fit per row) instead
+   *  of the full-width single-column max used by continuous scroll. */
+  compact?: boolean
 }) {
   const hostRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -163,7 +166,10 @@ function PdfPage({
     <div
       ref={hostRef}
       data-pdf-page-num={n}
-      className="relative mx-auto w-full max-w-[900px] overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]"
+      className={cn(
+        'relative mx-auto overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)]',
+        compact ? 'w-full max-w-[440px]' : 'w-full max-w-[900px]'
+      )}
       style={{ aspectRatio: `1 / ${aspect}` }}
       onPointerDownCapture={() => onFocus(n)}
     >
@@ -194,6 +200,8 @@ function PdfPage({
 export function PdfView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const activeSheetId = useWorkspaceStore((s) => s.activeSheetId)
+  const viewMode = meta?.pdfViewMode ?? 'scroll'
+  const setViewMode = (mode: PdfViewMode) => useWorkspaceStore.getState().updatePageMeta(pageId, { pdfViewMode: mode })
   const [doc, setDoc] = useState<PdfDoc | null>(null)
   const [converting, setConverting] = useState<string | null>(null)
   const [dragOver, setDragOver] = useState(false)
@@ -526,6 +534,8 @@ useLayoutEffect(() => {
       notesOpen,
       linked,
       zoom,
+      viewMode,
+      setViewMode,
       toggleNotes: openNotes,
       toggleLink: () => setLinked((v) => !v),
       setZoom: (z) => setZoom(Math.min(3, Math.max(0.25, z))),
@@ -543,7 +553,7 @@ useLayoutEffect(() => {
     })
     return () => usePdfDockStore.getState().set(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [doc, current, notesOpen, linked, zoom, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH])
+  }, [doc, current, notesOpen, linked, zoom, viewMode, fileUrl, meta?.fileName, naturalW, naturalH, pageNaturalH, viewW, viewH])
 
   // The outline is a left-rail SECTION now (components/toc-panel.tsx), not a
   // second column this view draws beside the sidebar.
@@ -596,6 +606,12 @@ useLayoutEffect(() => {
   }
 
   const scrollToPage = (pageNum: number) => {
+    // Single/double mode only ever renders the current page(s) — there's no
+    // sibling-page DOM to scroll to, so just switch which page(s) render.
+    if (viewMode !== 'scroll') {
+      setCurrent(pageNum)
+      return
+    }
     const el = readerRef.current
     if (!el) return
     const host = el.querySelector<HTMLElement>(`[data-pdf-page-num="${pageNum}"]`)
@@ -736,11 +752,13 @@ useLayoutEffect(() => {
           <PdfDropzone onFiles={(f) => void attach(f[0])} openingLabel={fileUrl ? 'Opening…' : undefined} />
         ) : (
           // Spacer reserves the scaled stack's real footprint — see the
-          // ResizeObserver effect above.
-          <div style={zoom !== 1 ? { height: naturalH * zoom } : undefined}>
+          // ResizeObserver effect above. Single/double mode render far fewer
+          // pages, so their footprint is whatever the browser lays out —
+          // only continuous scroll needs the footprint pre-reserved.
+          <div style={zoom !== 1 && viewMode === 'scroll' ? { height: naturalH * zoom } : undefined}>
             <div
               ref={contentRef}
-              className="flex flex-col gap-4 pb-28"
+              className={cn('flex gap-4 pb-28', viewMode === 'double' ? 'flex-row flex-wrap justify-center' : 'flex-col')}
               // 'top left' (not 'top center'): a center anchor grows the
               // scaled content symmetrically into negative x-space, which
               // scrollLeft can never reach (it's clamped to >= 0) — that's
@@ -749,15 +767,16 @@ useLayoutEffect(() => {
               // is reachable, matching how the vertical axis already works.
               style={zoom !== 1 ? { transform: `scale(${zoom})`, transformOrigin: 'top left' } : undefined}
             >
-              {Array.from({ length: doc.numPages }, (_, i) => (
+              {(viewMode === 'single' ? [current] : Array.from({ length: doc.numPages }, (_, i) => i + 1)).map((n) => (
                 <PdfPage
-                  key={i + 1}
+                  key={n}
                   doc={doc}
-                  n={i + 1}
-                  annotId={meta?.annotPages?.[i] || null}
-                  active={!!meta?.annotPages?.[i] && meta.annotPages[i] === activeSheetId}
+                  n={n}
+                  annotId={meta?.annotPages?.[n - 1] || null}
+                  active={!!meta?.annotPages?.[n - 1] && meta.annotPages[n - 1] === activeSheetId}
                   onCurrent={onCurrent}
                   onFocus={onPageFocus}
+                  compact={viewMode === 'double'}
                 />
               ))}
             </div>

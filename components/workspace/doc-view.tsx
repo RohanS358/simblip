@@ -693,7 +693,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       // cannot see it — paint a clipped copy into each sheet for the duration
       // of the capture. See cloneFlowIntoSheets in doc-flow.tsx.
       const restoreFlow = contentRef.current
-        ? cloneFlowIntoSheets(contentRef.current, meta?.docMargins ?? DOC_MARGINS)
+        ? cloneFlowIntoSheets(contentRef.current, meta?.docMargins ?? DOC_MARGINS, meta?.docPadding)
         : () => {}
       let firstPage = true
       for (const sheetId of nonEmpty) {
@@ -771,10 +771,16 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         }
       }
 
+      const m = meta?.docMargins ?? DOC_MARGINS
+      const p = meta?.docPadding
       const blob = await exportDocx({
         flow,
         page: size,
-        margins: meta?.docMargins ?? DOC_MARGINS,
+        // Word has no separate padding concept — fold it into the margin
+        // it exports so the printed page matches what's on screen.
+        margins: p
+          ? { top: m.top + p.top, right: m.right + p.right, bottom: m.bottom + p.bottom, left: m.left + p.left }
+          : m,
         breaks: flowPageStarts(pageId),
         overlays,
         images,
@@ -887,6 +893,9 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 containerRef={contentRef}
                 sheetIds={sheets}
                 margins={meta?.docMargins ?? DOC_MARGINS}
+                padding={meta?.docPadding}
+                lineHeight={meta?.docLineHeight}
+                textAlign={meta?.docTextAlign}
                 editable={!bare}
                 onPageCount={onPageCount}
               />

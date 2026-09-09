@@ -9,12 +9,16 @@
 
 import { create } from 'zustand'
 
+export type PdfViewMode = 'scroll' | 'single' | 'double'
+
 export interface PdfDockState {
   current: number
   numPages: number
   notesOpen: boolean
   linked: boolean
   zoom: number
+  viewMode: PdfViewMode
+  setViewMode: (mode: PdfViewMode) => void
   toggleNotes: () => void
   toggleLink: () => void
   setZoom: (zoom: number) => void

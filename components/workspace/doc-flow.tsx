@@ -80,6 +80,9 @@ export function DocFlow({
   containerRef,
   sheetIds,
   margins = DOC_MARGINS,
+  padding,
+  lineHeight,
+  textAlign,
   editable = true,
   onPageCount,
 }: {
@@ -92,6 +95,15 @@ export function DocFlow({
   containerRef: React.RefObject<HTMLDivElement | null>
   sheetIds: string[]
   margins?: DocMargins
+  /** Inner padding between the margin box and the text column
+   *  (PageNode.docPadding). Absent = 0. */
+  padding?: DocMargins
+  /** Default line-height for the whole body (PageNode.docLineHeight); a
+   *  paragraph's own lineHeight attribute still overrides this. */
+  lineHeight?: number
+  /** Default text-align for the whole body (PageNode.docTextAlign); a
+   *  paragraph's own align attribute still overrides this. */
+  textAlign?: 'left' | 'center' | 'right' | 'justify'
   editable?: boolean
   /** How many sheets the body now needs. DocView appends to reach it. */
   onPageCount?: (count: number) => void
@@ -179,10 +191,14 @@ export function DocFlow({
     return () => ro.disconnect()
   }, [measure, containerRef, sheetIds.length, mounted])
 
+  const pad = padding ?? { top: 0, right: 0, bottom: 0, left: 0 }
+  const edgeTop = margins.top + pad.top
+  const edgeBottom = margins.bottom + pad.bottom
+
   geometryRef.current = frame
     ? {
-        contentHeight: Math.max(0, frame.pageH - margins.top - margins.bottom),
-        gapHeight: margins.bottom + frame.gap + margins.top,
+        contentHeight: Math.max(0, frame.pageH - edgeTop - edgeBottom),
+        gapHeight: edgeBottom + frame.gap + edgeTop,
         scale: frame.scale,
       }
     : { contentHeight: 0, gapHeight: 0, scale: 1 }
@@ -308,9 +324,11 @@ export function DocFlow({
       <div
         className="tiptap-editor doc-flow pointer-events-auto"
         style={{
-          marginLeft: margins.left,
-          marginTop: margins.top,
-          width: Math.max(0, frame.pageW - margins.left - margins.right),
+          marginLeft: margins.left + pad.left,
+          marginTop: edgeTop,
+          width: Math.max(0, frame.pageW - margins.left - margins.right - pad.left - pad.right),
+          lineHeight: lineHeight || undefined,
+          textAlign: textAlign || undefined,
           // A full page's worth of clickable body from the start: without it
           // an empty document is one line tall and there is nothing to click
           // on the rest of the paper, which is exactly the "no text box to
@@ -342,7 +360,11 @@ export function DocFlow({
  * rasterizer sees it. Returns the undo function; ALWAYS call it, including on
  * failure, or the document is left with duplicated static copies of its text.
  */
-export function cloneFlowIntoSheets(container: HTMLElement, margins: DocMargins = DOC_MARGINS): () => void {
+export function cloneFlowIntoSheets(
+  container: HTMLElement,
+  margins: DocMargins = DOC_MARGINS,
+  padding: DocMargins = { top: 0, right: 0, bottom: 0, left: 0 }
+): () => void {
   const column = container.querySelector<HTMLElement>('.doc-flow')
   const wrapper = column?.parentElement
   if (!column || !wrapper) return () => {}
@@ -354,8 +376,10 @@ export function cloneFlowIntoSheets(container: HTMLElement, margins: DocMargins 
   const second = sheets[1]
   const scale = first.offsetWidth / (Number(first.dataset.pageW) || first.offsetWidth) || 1
   const gapPx = second ? (second.offsetTop - first.offsetTop - first.offsetHeight) / scale : 16
-  const contentHeight = Math.max(0, pageH - margins.top - margins.bottom)
-  const stride = contentHeight + margins.bottom + gapPx + margins.top
+  const edgeTop = margins.top + padding.top
+  const edgeBottom = margins.bottom + padding.bottom
+  const contentHeight = Math.max(0, pageH - edgeTop - edgeBottom)
+  const stride = contentHeight + edgeBottom + gapPx + edgeTop
 
   const added: HTMLElement[] = []
   sheets.forEach((sheet, i) => {
@@ -366,7 +390,7 @@ export function cloneFlowIntoSheets(container: HTMLElement, margins: DocMargins 
     if (!(inner instanceof HTMLElement)) return
     const clip = document.createElement('div')
     clip.dataset.flowCapture = 'true'
-    clip.style.cssText = `position:absolute;left:${margins.left}px;top:${margins.top}px;width:${column.offsetWidth}px;height:${contentHeight}px;overflow:hidden;pointer-events:none;z-index:1`
+    clip.style.cssText = `position:absolute;left:${margins.left + padding.left}px;top:${edgeTop}px;width:${column.offsetWidth}px;height:${contentHeight}px;overflow:hidden;pointer-events:none;z-index:1`
     const clone = column.cloneNode(true) as HTMLElement
     clone.style.margin = '0'
     clone.style.position = 'relative'

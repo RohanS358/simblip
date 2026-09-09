@@ -253,6 +253,17 @@ export interface PageNode extends NodeBase {
    *  margins entirely; they are free to sit anywhere on the sheet, margins
    *  included, which is the point of keeping the two layers independent. */
   docMargins?: { top: number; right: number; bottom: number; left: number }
+  /** doc: inner padding between each sheet's margin box and the flowing
+   *  text column, page-pixels. Absent = 0 (text fills the margin box, same
+   *  as before this field existed). */
+  docPadding?: { top: number; right: number; bottom: number; left: number }
+  /** doc: default line-height for the flowing body, as a unitless multiplier
+   *  (CSS line-height). A paragraph's own lineHeight attribute (set via the
+   *  text panel) still overrides this. Absent = the browser/CSS default. */
+  docLineHeight?: number
+  /** doc: default text-align for the flowing body. A paragraph's own align
+   *  attribute still overrides this. Absent = left. */
+  docTextAlign?: 'left' | 'center' | 'right' | 'justify'
   /** doc: hide the first-page title/subtitle/date banner. Opt-OUT rather than
    *  opt-in — a document usually wants a title block, but one imported from a
    *  .docx already carries its own heading and would show two. */
@@ -276,6 +287,9 @@ export interface PageNode extends NodeBase {
    *  page (not a raw scrollTop) so it survives a zoom change or a different
    *  window size, where pixel offsets would not. */
   pdfScroll?: { page: number; offset: number }
+  /** pdf: how the page stack lays out — one continuous scroll (default),
+   *  one page at a time, or two pages side by side. Absent = 'scroll'. */
+  pdfViewMode?: 'scroll' | 'single' | 'double'
   /** pdf/image/xlsx/pptx: the source file, `opfs:<fileId>` resolving via
    *  lib/storage/manager.ts. For pdf this is a legacy attachment path for
    *  pages created before file nodes existed — prefer a FileNode leaf for
