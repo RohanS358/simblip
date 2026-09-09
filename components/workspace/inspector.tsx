@@ -3903,47 +3903,123 @@ function PageBackgroundPanel({ contentPageId }: { contentPageId: string }) {
   )
 }
 
-const DOC_BOX_FIELDS = ['top', 'right', 'bottom', 'left'] as const
 type DocBox = { top: number; right: number; bottom: number; left: number }
+const DOC_BOX_FIELDS = ['top', 'right', 'bottom', 'left'] as const
+const box = (top: number, right = top, bottom = top, left = right): DocBox => ({ top, right, bottom, left })
 
-/** A 4-number top/right/bottom/left box, all fields defaulting together —
- *  used for both margin and padding, which share the same shape. */
-function BoxField({
+/** Word's own margin presets (in the same 96dpi page-px every doc measurement
+ *  here uses — 96px = 1"), so "Normal" here is literally Word's Normal. */
+const MARGIN_PRESETS: { id: string; label: string; value: DocBox }[] = [
+  { id: 'normal', label: 'Normal', value: box(96) },
+  { id: 'narrow', label: 'Narrow', value: box(48) },
+  { id: 'moderate', label: 'Moderate', value: box(96, 72) },
+  { id: 'wide', label: 'Wide', value: box(96, 192) },
+]
+
+/** Padding has no Word equivalent to match, so plain small steps. */
+const PADDING_PRESETS: { id: string; label: string; value: DocBox }[] = [
+  { id: 'none', label: 'None', value: box(0) },
+  { id: 'small', label: 'Small', value: box(16) },
+  { id: 'medium', label: 'Medium', value: box(32) },
+  { id: 'large', label: 'Large', value: box(48) },
+]
+
+const LINE_HEIGHT_PRESETS: { label: string; value: number | undefined }[] = [
+  { label: 'Auto', value: undefined },
+  { label: 'Single', value: 1 },
+  { label: '1.15', value: 1.15 },
+  { label: '1.5', value: 1.5 },
+  { label: 'Double', value: 2 },
+]
+
+/** A small side-view rectangle sketching where the preset's edges fall —
+ *  same idea as Word's own margin-preset thumbnails, just simplified to one
+ *  ratio (box.top vs the widest preset) since these menus are icon-sized. */
+function BoxPreview({ value, max }: { value: DocBox; max: number }) {
+  const pct = (n: number) => `${Math.min(42, (n / max) * 42)}%`
+  return (
+    <div className="relative h-8 w-10 shrink-0 rounded-[3px] border border-border/70 bg-background">
+      <div
+        className="absolute rounded-[1px] border border-dashed border-muted-foreground/50"
+        style={{ top: pct(value.top), right: pct(value.right), bottom: pct(value.bottom), left: pct(value.left) }}
+      />
+    </div>
+  )
+}
+
+/** A "Margins ▾" / "Padding ▾" dropdown of Word-style presets with a mini
+ *  preview of each, falling back to "Custom" (raw T/R/B/L numbers) only when
+ *  the value doesn't match any preset or the user explicitly asks for it —
+ *  presets are what most people want; exact numbers are the escape hatch. */
+function BoxPresetField({
   label,
   value,
-  defaults,
+  presets,
   onChange,
 }: {
   label: string
   value: DocBox | undefined
-  defaults: DocBox
-  onChange: (next: DocBox | undefined) => void
+  presets: { id: string; label: string; value: DocBox }[]
+  onChange: (next: DocBox) => void
 }) {
-  const v = value ?? defaults
-  const setSide = (side: (typeof DOC_BOX_FIELDS)[number], n: number) => {
-    onChange({ ...v, [side]: Math.max(0, n) })
-  }
+  const current = value ?? presets[0].value
+  const matched = presets.find((p) => Object.values(p.value).every((n, i) => n === Object.values(current)[i]))
+  const [customOpen, setCustomOpen] = useState(!matched)
+  const maxSide = Math.max(...presets.flatMap((p) => Object.values(p.value)), current.top, current.right, current.bottom, current.left)
+
   return (
     <div>
-      <FieldLabel>{label}</FieldLabel>
-      <div className="grid grid-cols-4 gap-1">
-        {DOC_BOX_FIELDS.map((side) => (
-          <label key={side} className="flex flex-col items-center gap-0.5">
-            <span className="text-ui-2xs capitalize text-muted-foreground/70">{side.slice(0, 1).toUpperCase()}</span>
-            <input
-              type="number"
-              min={0}
-              aria-label={`${label} ${side}`}
-              value={Math.round(v[side])}
-              onChange={(e) => {
-                const n = Number(e.target.value)
-                if (Number.isFinite(n)) setSide(side, n)
-              }}
-              className="w-full rounded-md border border-border/60 bg-background px-1 py-0.5 text-center font-mono text-ui-2xs tabular-nums outline-none focus:border-[var(--accent-blue)]"
-            />
-          </label>
-        ))}
+      <div className="flex items-center justify-between">
+        <FieldLabel>{label}</FieldLabel>
+        <button
+          type="button"
+          className="text-ui-2xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+          onClick={() => setCustomOpen((v) => !v)}
+        >
+          {customOpen ? 'Presets' : 'Custom'}
+        </button>
       </div>
+      {customOpen ? (
+        <div className="grid grid-cols-4 gap-1">
+          {DOC_BOX_FIELDS.map((side) => (
+            <label key={side} className="flex flex-col items-center gap-0.5">
+              <span className="text-ui-2xs capitalize text-muted-foreground/70">{side.slice(0, 1).toUpperCase()}</span>
+              <input
+                type="number"
+                min={0}
+                aria-label={`${label} ${side}`}
+                value={Math.round(current[side])}
+                onChange={(e) => {
+                  const n = Number(e.target.value)
+                  if (Number.isFinite(n)) onChange({ ...current, [side]: Math.max(0, n) })
+                }}
+                className="w-full rounded-md border border-border/60 bg-background px-1 py-0.5 text-center font-mono text-ui-2xs tabular-nums outline-none focus:border-[var(--accent-blue)]"
+              />
+            </label>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-1">
+          {presets.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              aria-label={`${label}: ${p.label}`}
+              aria-pressed={matched?.id === p.id}
+              onClick={() => onChange(p.value)}
+              className={cn(
+                'flex flex-col items-center gap-1 rounded-lg border p-1 transition-colors',
+                matched?.id === p.id
+                  ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)]/10'
+                  : 'border-transparent hover:bg-accent'
+              )}
+            >
+              <BoxPreview value={p.value} max={maxSide} />
+              <span className="text-ui-2xs text-muted-foreground">{p.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -3975,65 +4051,65 @@ function DocLayoutPanel({ contentPageId }: { contentPageId: string }) {
         />
       </div>
 
-      <BoxField
+      <BoxPresetField
         label="Margins"
-        value={meta.docMargins}
-        defaults={DOC_MARGINS}
+        value={meta.docMargins ?? DOC_MARGINS}
+        presets={MARGIN_PRESETS}
         onChange={(next) => patch({ docMargins: next })}
       />
-      <BoxField
+      <BoxPresetField
         label="Padding"
-        value={meta.docPadding}
-        defaults={{ top: 0, right: 0, bottom: 0, left: 0 }}
+        value={meta.docPadding ?? box(0)}
+        presets={PADDING_PRESETS}
         onChange={(next) => patch({ docPadding: next })}
       />
 
-      <div className="grid grid-cols-2 gap-1.5">
-        <div>
-          <FieldLabel>Line height</FieldLabel>
-          <input
-            type="number"
-            min={0.5}
-            step={0.1}
-            aria-label="Default line height"
-            placeholder="Auto"
-            value={meta.docLineHeight ?? ''}
-            onChange={(e) => {
-              const v = e.target.value
-              if (v.trim() === '') {
-                patch({ docLineHeight: undefined })
-                return
-              }
-              const n = Number(v)
-              if (Number.isFinite(n)) patch({ docLineHeight: Math.max(0.5, n) })
-            }}
-            className="w-full rounded-md border border-border/60 bg-background px-1.5 py-1 text-ui-xs tabular-nums outline-none focus:border-[var(--accent-blue)]"
-          />
+      <div>
+        <FieldLabel>Line height</FieldLabel>
+        <div className="flex flex-wrap gap-1 rounded-lg bg-accent/40 p-0.5">
+          {LINE_HEIGHT_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              aria-label={`Line height ${p.label}`}
+              aria-pressed={meta.docLineHeight === p.value}
+              onClick={() => patch({ docLineHeight: p.value })}
+              className={cn(
+                'flex-1 rounded-md px-2 py-1 text-ui-2xs font-medium transition-colors',
+                meta.docLineHeight === p.value
+                  ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
         </div>
-        <div>
-          <FieldLabel>Alignment</FieldLabel>
-          <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
-            {(['left', 'center', 'right', 'justify'] as const).map((a) => {
-              const Icon = ALIGN_ICONS[a]
-              return (
-                <button
-                  key={a}
-                  type="button"
-                  aria-label={`Default align ${a}`}
-                  aria-pressed={align === a}
-                  className={cn(
-                    'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
-                    align === a
-                      ? 'bg-[var(--accent-blue)] text-primary-foreground'
-                      : 'text-muted-foreground hover:bg-accent hover:text-foreground'
-                  )}
-                  onClick={() => patch({ docTextAlign: a })}
-                >
-                  <Icon className="h-3.5 w-3.5" />
-                </button>
-              )
-            })}
-          </div>
+      </div>
+
+      <div>
+        <FieldLabel>Alignment</FieldLabel>
+        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+          {(['left', 'center', 'right', 'justify'] as const).map((a) => {
+            const Icon = ALIGN_ICONS[a]
+            return (
+              <button
+                key={a}
+                type="button"
+                aria-label={`Default align ${a}`}
+                aria-pressed={align === a}
+                className={cn(
+                  'flex flex-1 items-center justify-center rounded-md py-1 transition-colors',
+                  align === a
+                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+                onClick={() => patch({ docTextAlign: a })}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </button>
+            )
+          })}
         </div>
       </div>
       <p className="text-ui-2xs leading-relaxed text-muted-foreground">
