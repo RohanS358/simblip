@@ -59,7 +59,6 @@ import {
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
 import { Switch } from '@/components/ui/switch'
-import { segmentedTab } from './panel-header'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -516,20 +515,22 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm',
+            // One fixed shape (height, padding, text size) regardless of
+            // track/active state, so selecting a page only ever crossfades
+            // color/border/shadow instead of the row's font and padding
+            // visibly snapping between two different box models.
+            'group flex h-7 cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 text-ui-sm',
+            'transition-[color,background-color,border-color,box-shadow] duration-150 ease-strong',
             'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
-            inTrack
-              // Inside the track this row IS a tab: same lift, border and
-              // shadow as a segmented control's active segment. Left aligned
-              // and full width, because a page name is not a label centred
-              // in a pill.
-              ? cn(segmentedTab(active), 'flex h-7 justify-start gap-2 px-2 font-normal')
-              : cn(
-                  'ml-4 transition-colors duration-150',
-                  active
-                    ? 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
-                    : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
-                )
+            !inTrack && 'ml-4',
+            active
+              ? inTrack
+                // Inside the track: the same lifted-segment treatment as a
+                // segmented control's active tab, just sharing this row's box
+                // instead of swapping to segmentedTab's own shape.
+                ? 'border-transparent bg-background font-medium text-foreground shadow-sm dark:border-input dark:bg-input/30'
+                : 'bg-[color-mix(in_oklch,var(--accent-blue)_12%,transparent)] font-semibold text-foreground'
+              : 'text-muted-foreground hover:bg-accent/50 hover:text-foreground'
           )}
           style={{ marginLeft: `${depth * 16}px` }}
           // ── DnD: dragging a page chip sets both tokens ──
@@ -667,7 +668,6 @@ function SyncMenuItem({
 
 /** A raw uploaded file, direct leaf of a folder (not wrapped in a page). */
 function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; handlers: TreeHandlers }) {
-  const inTrack = handlers.activeParentId === node.parentId
   // Actions sit at rest only along the active path (page, its folder, that
   // folder's notebook); everywhere else they wait for hover.
   const revealed =
@@ -698,15 +698,12 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
       <ContextMenuTrigger asChild>
         <div
           className={cn(
-            'group flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-ui-sm',
+            // Same fixed box as PageRow (see there): height/padding/text
+            // size never change with track membership, only color/border.
+            'group flex h-7 cursor-pointer items-center gap-2 rounded-md border border-transparent px-2 text-ui-sm text-muted-foreground',
+            'transition-[color,background-color,border-color] duration-150 ease-strong',
             'focus-visible:outline-offset-[-2px] focus-visible:[border-radius:inherit]',
-            inTrack
-              // A file opens INTO a page (open-file.ts), so inside the track it
-              // is a peer of the pages and wears the same segment shape. It is
-              // never the active one — opening it hands off to the page it
-              // creates — so it only renders in the inactive state.
-              ? cn(segmentedTab(false), 'flex h-7 justify-start gap-2 px-2 font-normal')
-              : 'text-muted-foreground transition-colors duration-150 hover:bg-accent/50 hover:text-foreground'
+            'hover:bg-accent/50 hover:text-foreground'
           )}
           style={{ marginLeft: `${16 + depth * 16}px` }}
           // also tag as a node so folders can reparent it.
