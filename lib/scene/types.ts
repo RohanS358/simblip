@@ -145,6 +145,18 @@ export interface Variable {
 export interface PageDoc {
   objects: Record<string, SceneObject>
   variables: Variable[]
+  /** The Word-style flowing body text of a `doc` page, as ProseMirror JSON
+   *  (see lib/text/pm.ts). Absent on every other kind, and absent on a doc
+   *  page nobody has typed into — a doc page's own content id is otherwise
+   *  unused (its sheets live under `docPages`), so the flow rides along with
+   *  the sync/bundle/archive machinery that already knows that id and needs
+   *  no new registration.
+   *
+   *  Objects and flow are two INDEPENDENT layers: the flow reflows and
+   *  repaginates, objects keep their absolute sheet-local x/y and never move
+   *  when text above them changes. That separation is the whole design —
+   *  Word's ease for prose, the notebook's freedom for everything else. */
+  flow?: string
 }
 
 /** What a notebook page IS: an infinite board, a paged document (also the
@@ -235,7 +247,17 @@ export interface PageNode extends NodeBase {
    *  default every NEW sheet gets until individually resized. A sheetSizes
    *  entry always overrides this for that sheet. */
   docPageSize?: { w: number; h: number }
-  /** doc: subtitle shown under the title in the compulsory first-page header. */
+  /** doc: page margins in page-pixels (96dpi, the same space as SHEET_W/H)
+   *  for the flowing body — the writing region of §6/§13. Absent = the
+   *  DOC_MARGINS default in components/workspace/doc-flow.tsx. Objects ignore
+   *  margins entirely; they are free to sit anywhere on the sheet, margins
+   *  included, which is the point of keeping the two layers independent. */
+  docMargins?: { top: number; right: number; bottom: number; left: number }
+  /** doc: hide the first-page title/subtitle/date banner. Opt-OUT rather than
+   *  opt-in — a document usually wants a title block, but one imported from a
+   *  .docx already carries its own heading and would show two. */
+  docHeaderHidden?: boolean
+  /** doc: subtitle shown under the title in the first-page header. */
   docSubtitle?: string
   /** doc: date shown in the compulsory first-page header, ISO (YYYY-MM-DD).
    *  Unset shows today's date without persisting it, so it stays current

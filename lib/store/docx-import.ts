@@ -1,65 +1,98 @@
 'use client'
 
-// LEGACY PATH. Importing a .docx no longer creates a Document page — it
-// resolves to the 'pdf' kind now and is rendered by to-pdf.ts's docx-preview
-// conversion instead (see components/workspace/open-file.ts for why). This
-// importer is still reached by doc-view.tsx's first-open effect, for doc
-// pages created back when .docx did open as one, and its docx-export.ts
-// inverse is still Document's live "Export .docx".
+// .docx → a doc page's flowing body.
 //
-// .docx -> SceneObject[], for doc-view.tsx's first-open import (a Document
-// page created from an uploaded Word file). A .docx is a zip of OOXML —
-// this reads word/document.xml's paragraphs (<w:p>, text runs in <w:t>)
-// into one `text` scene object per paragraph, stacked top-to-bottom on a
-// single sheet — the inverse of docx-export.ts's paragraphsOf, which reads
-// text objects back out in the same y-sorted order.
+// A Word file IS a structured stream of content laid out onto pages, and so
+// is a doc page now, so import is a straight structural mapping rather than a
+// transcription: paragraph → paragraph, run → marked text, list → list, table
+// → table, and OUR layout engine decides where the pages fall.
 //
-// Best-effort only: paragraph text and order carry over; styling, tables,
-// images, headers/footers, and multi-column layout do not (see the
-// file-viewers design spec's explicit scope cut).
+// This file is only the container half — unzip, pull the parts out, put the
+// images somewhere real. The mapping itself is lib/store/docx-map.ts, which
+// is pure and runs outside a browser so it can be tested (docx-map.test.mjs).
+//
+// It replaces an importer that read <w:t> and dropped the paragraphs onto
+// sheets twenty at a time as absolutely-positioned text boxes, losing every
+// heading, list, table, image and page break in the file.
 
 import JSZip from 'jszip'
-import { baseObject } from '@/lib/scene/factory'
-import { str, type SceneObject } from '@/lib/scene/types'
-import { SHEET_W } from '@/lib/scene/frames'
+import { putFile } from '@/lib/storage/manager'
+import { serializeDoc } from '@/lib/text/pm'
+import { mapDocxDocument, type DocxImage, type DocxSection } from './docx-map'
 
-const LINE_H = 28 // px between stacked paragraphs, matches text's default 48px box minus padding feel
-const SHEET_MARGIN = 47 // px of margin on each side of the A4 sheet
-const SHEET_W_PADDED = SHEET_W - SHEET_MARGIN * 2
-
-function paragraphText(p: Element): string {
-  return Array.from(p.getElementsByTagName('w:t'))
-    .map((t) => t.textContent ?? '')
-    .join('')
+export interface DocxImportResult {
+  /** The body, serialized — ready for PageDoc.flow. */
+  flow: string
+  /** Page size and margins from <w:sectPr>, for the PageNode. */
+  section: DocxSection
 }
 
-/** Returns one SceneObject[] per sheet — paragraphs are packed onto sheets
- *  at a fixed count each, since a real docx has no fixed page breaks a DOM
- *  walk alone can resolve reliably (that requires full layout, which this
- *  bespoke parser doesn't do). */
-export async function importDocx(blob: Blob): Promise<SceneObject[][]> {
-  const zip = await JSZip.loadAsync(blob)
-  const docXml = zip.files['word/document.xml']
-  if (!docXml) throw new Error('Not a valid .docx file.')
-  const xml = await docXml.async('text')
-  const doc = new DOMParser().parseFromString(xml, 'application/xml')
-  const paragraphs = Array.from(doc.getElementsByTagName('w:p'))
-    .map(paragraphText)
-    .filter((t) => t.length > 0)
-
-  if (paragraphs.length === 0) return [[]]
-
-  const PARAS_PER_SHEET = 20
-  const sheets: SceneObject[][] = []
-  for (let i = 0; i < paragraphs.length; i += PARAS_PER_SHEET) {
-    const chunk = paragraphs.slice(i, i + PARAS_PER_SHEET)
-    const objects: SceneObject[] = chunk.map((text, j) => {
-      const obj = baseObject('text', { x: 40, y: 40 + j * LINE_H })
-      obj.size = { w: SHEET_W_PADDED, h: LINE_H }
-      obj.parameters.text = str(text)
-      return obj
-    })
-    sheets.push(objects)
+/** relId → target path, from word/_rels/document.xml.rels. */
+function relTargets(xml: string | null): Map<string, string> {
+  const out = new Map<string, string>()
+  if (!xml) return out
+  // A flat regex rather than a DOM walk: the file is a single-level list of
+  // <Relationship Id Target> and this avoids a second namespace-aware parse.
+  for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
+    const id = m[0].match(/\bId="([^"]+)"/)?.[1]
+    const target = m[0].match(/\bTarget="([^"]+)"/)?.[1]
+    if (id && target) out.set(id, target.replace(/^\.\.\//, '').replace(/^\/?word\//, ''))
   }
-  return sheets
+  return out
+}
+
+const MIME: Record<string, string> = {
+  png: 'image/png',
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  bmp: 'image/bmp',
+  svg: 'image/svg+xml',
+}
+
+/**
+ * Reads a .docx into a flowing body. Images are copied into storage first
+ * (async), then the mapping runs synchronously against that lookup — which is
+ * why the two happen in this order rather than resolving images lazily inside
+ * the mapper.
+ */
+export async function importDocx(blob: Blob, ownerId: string): Promise<DocxImportResult> {
+  const zip = await JSZip.loadAsync(blob)
+  const documentXml = await zip.files['word/document.xml']?.async('text')
+  if (!documentXml) throw new Error('Not a valid .docx file.')
+  const numbering = await zip.files['word/numbering.xml']?.async('text')
+  const rels = relTargets((await zip.files['word/_rels/document.xml.rels']?.async('text')) ?? null)
+
+  // Every referenced image, into OPFS, before the (synchronous) mapping runs.
+  const images = new Map<string, DocxImage>()
+  await Promise.all(
+    [...rels].map(async ([relId, target]) => {
+      const entry = zip.files[`word/${target}`]
+      if (!entry) return
+      const ext = target.split('.').pop()?.toLowerCase() ?? ''
+      const mime = MIME[ext]
+      if (!mime) return
+      try {
+        const bytes = await entry.async('blob')
+        const fileId = await putFile(bytes, target.split('/').pop() ?? 'image', mime, ownerId)
+        images.set(relId, { src: `opfs:${fileId}` })
+      } catch {
+        // A single unreadable image must not fail the whole import.
+      }
+    })
+  )
+
+  const parser = new DOMParser()
+  const { doc, section } = mapDocxDocument(
+    { document: documentXml, numbering },
+    {
+      parse: (xml) => parser.parseFromString(xml, 'application/xml'),
+      image: (relId) => {
+        const img = images.get(relId)
+        return img ?? null
+      },
+    }
+  )
+  return { flow: serializeDoc(doc), section }
 }

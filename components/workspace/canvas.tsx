@@ -896,7 +896,12 @@ const ObjectView = memo(function ObjectView({
       // native scroll on a quick swipe; handleObjectPointerDown's hold-time
       // gate (HOLD_MS) is what decides whether a lingering touch becomes a
       // drag instead, calling preventDefault() itself once it does.
-      className="absolute touch-pan-y"
+      // pointer-events-auto, unconditionally: a click-through canvas sets
+      // `pointer-events: none` on its root (see InfiniteCanvas's clickThrough
+      // prop) and objects have to opt back in or they'd stop being
+      // selectable. It is the default value everywhere else, so this costs
+      // nothing on a normal board.
+      className="pointer-events-auto absolute touch-pan-y"
       style={{
         left: object.position.x,
         top: object.position.y,
@@ -1061,6 +1066,7 @@ export function InfiniteCanvas({
   passthrough,
   active = true,
   viewer,
+  clickThrough,
 }: {
   pageId: string
   locked?: boolean
@@ -1087,6 +1093,15 @@ export function InfiniteCanvas({
    *  triggers, switches). Distinct from `locked`, which only freezes pan/
    *  zoom and leaves selection live. Only PresentOverlay sets this. */
   viewer?: boolean
+  /** Something LIVE is rendered underneath this canvas and empty canvas must
+   *  not eat its clicks — set by a doc sheet, whose Word-style flowing body
+   *  sits below the object layer (components/workspace/doc-flow.tsx). With
+   *  the select tool the background goes `pointer-events: none` so a click on
+   *  blank page lands as a text caret; objects opt back in, so dragging and
+   *  selecting them is unaffected. Any other tool (pen, shapes, marquee,
+   *  connector) captures normally — that is the doc equivalent of Word's
+   *  "select objects" mode, and it is why drawing on a document still works. */
+  clickThrough?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   // "/" quick-insert menu: opens at the pointer on empty canvas.
@@ -3517,6 +3532,13 @@ export function InfiniteCanvas({
         cursor: editing ? cursor : 'default',
         // Scroll yes, browser pinch-zoom no.
         ...(passthrough ? { touchAction: 'pan-x pan-y' } : {}),
+        // See the `clickThrough` prop. Only the select tool gives the layer
+        // up; every drawing tool needs the background to receive the gesture.
+        // Stated EXPLICITLY in both directions, never left unset: a
+        // click-through host turns pointer-events off on the wrapper around
+        // this canvas, and pointer-events is an inherited property, so an
+        // absent value here would mean "none" even while a pen is selected.
+        ...(clickThrough ? { pointerEvents: tool === 'select' ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}

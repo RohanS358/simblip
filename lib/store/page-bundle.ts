@@ -20,6 +20,15 @@ export interface BundleMeta {
   /** doc: ordered sheet ids (keys into `sheets`). */
   docPages?: string[]
   sheetSizes?: Record<string, { w: number; h: number }>
+  /** doc/pptx: the rest of the page's own appearance. Without these a shared
+   *  or assigned document came back in the default A4/white/no-subtitle look
+   *  no matter what it was authored as — and once the body flows inside
+   *  margins, losing `docMargins` re-wraps every line of it. */
+  sheetColors?: Record<string, string>
+  docPageSize?: { w: number; h: number }
+  docMargins?: { top: number; right: number; bottom: number; left: number }
+  docSubtitle?: string
+  docDate?: string
   /** pdf: per-PDF-page notes / on-page ink ids ('' = none yet). */
   notesPages?: string[]
   annotPages?: string[]
@@ -66,6 +75,11 @@ export function bundlePage(pageId: string): PageBundle {
       kind,
       docPages: meta.docPages,
       sheetSizes: meta.sheetSizes,
+      sheetColors: meta.sheetColors,
+      docPageSize: meta.docPageSize,
+      docMargins: meta.docMargins,
+      docSubtitle: meta.docSubtitle,
+      docDate: meta.docDate,
       notesPages: meta.notesPages,
       annotPages: meta.annotPages,
       notesDocId: meta.notesDocId,
@@ -83,6 +97,11 @@ export function bundleMetaPatch(b: BundleMeta): Partial<Omit<PageNode, 'id' | 'k
     pageKind: b.kind,
     docPages: b.docPages,
     sheetSizes: b.sheetSizes,
+    sheetColors: b.sheetColors,
+    docPageSize: b.docPageSize,
+    docMargins: b.docMargins,
+    docSubtitle: b.docSubtitle,
+    docDate: b.docDate,
     notesPages: b.notesPages,
     annotPages: b.annotPages,
     notesDocId: b.notesDocId,
@@ -92,9 +111,11 @@ export function bundleMetaPatch(b: BundleMeta): Partial<Omit<PageNode, 'id' | 'k
   }
 }
 
-/** Strip transport fields so the main content is a plain PageDoc again. */
+/** Strip transport fields so the main content is a plain PageDoc again.
+ *  `flow` rides along: on a doc page it is the entire body text, and the
+ *  page's own content id is where it lives. */
 export function stripBundle(b: PageBundle): PageDoc {
-  return { objects: b.objects, variables: b.variables }
+  return { objects: b.objects, variables: b.variables, ...(b.flow ? { flow: b.flow } : {}) }
 }
 
 /** Write a bundle's content pages into the doc store under their ORIGINAL

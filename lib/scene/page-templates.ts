@@ -5,11 +5,13 @@
 // PowerPoint/Excel's own template galleries use. Each template seeds actual
 // objects/cells, not just an empty page with a different name.
 //
-// Text formatting in this app is out-of-band mark ranges over a plain
-// string (lib/text/marks.ts), not CSS metadata on the object — a heading is
-// built by serializing {text, marks} with a 'bold' + 'size' mark spanning
-// the heading line, exactly like the Properties panel's Bold/Size controls
-// would produce by hand.
+// Slide and spreadsheet templates seed OBJECTS, whose text formatting is
+// out-of-band mark ranges over a plain string (lib/text/marks.ts) — a heading
+// is built by serializing {text, marks} with a 'bold' + 'size' mark spanning
+// the line, exactly like the Properties panel's Bold/Size controls would
+// produce by hand. The DOCUMENT template is the exception: a doc page has a
+// flowing body now, so its template is ProseMirror JSON for that body rather
+// than a set of positioned text boxes.
 
 import { baseObject } from './factory'
 import { str, type SceneObject } from './types'
@@ -19,63 +21,79 @@ function styledText(text: string, marks: Mark[]) {
   return str(serialize({ text, marks }))
 }
 
-// ── Document (doc-kind sheets: text objects on a canvas page) ──────────────
-
-function heading(text: string, x: number, y: number, w = 700): SceneObject {
-  const obj = baseObject('text', { x, y })
-  obj.size = { w, h: 40 }
-  obj.parameters.text = styledText(text, [
-    { start: 0, end: text.length, kind: 'bold' },
-    { start: 0, end: text.length, kind: 'size', value: 'xl' },
-  ])
-  return obj
-}
-
-function body(text: string, x: number, y: number, w = 700, h = 100): SceneObject {
-  const obj = baseObject('text', { x, y })
-  obj.size = { w, h }
-  obj.parameters.text = str(text)
-  return obj
-}
+// ── Document (the page's flowing body) ────────────────────────────────────
 
 export type DocTemplateId = 'blank' | 'report' | 'resume' | 'meeting-notes'
 
-export function docTemplate(id: DocTemplateId): SceneObject[] {
+// A doc template seeds the page's flowing BODY, not text boxes on a sheet.
+// It used to place `text` SceneObjects at fixed x/y — which meant the very
+// first thing a new document taught you was that its "text" is a box you drag
+// around, and that adding a sentence to the summary would overlap the heading
+// below it. A template is now what a Word template is: content in the flow.
+
+interface Block {
+  text: string
+  heading?: 1 | 2
+}
+
+const pm = (blocks: Block[]): string =>
+  JSON.stringify({
+    type: 'doc',
+    content: blocks.map((b) =>
+      b.heading
+        ? {
+            type: 'heading',
+            attrs: { level: b.heading, style: `Heading${b.heading}` },
+            content: [{ type: 'text', text: b.text }],
+          }
+        : b.text
+          ? { type: 'paragraph', content: [{ type: 'text', text: b.text }] }
+          : { type: 'paragraph' }
+    ),
+  })
+
+/** Starter body text for a new document, as ProseMirror JSON ready for
+ *  PageDoc.flow. Empty string for the blank template — a blank page really is
+ *  blank, and writing an empty document would only cost a store write. */
+export function docTemplate(id: DocTemplateId): string {
   switch (id) {
     case 'report':
-      return [
-        heading('Report Title', 48, 100),
-        body('Prepared by · Date', 48, 150, 700, 30),
-        heading('Summary', 48, 210),
-        body('A brief overview of the report’s purpose and key findings.', 48, 250),
-        heading('Details', 48, 380),
-        body('Expand on the summary here — background, method, and results.', 48, 420),
-        heading('Conclusion', 48, 620),
-        body('Closing remarks and next steps.', 48, 660),
-      ]
+      return pm([
+        { text: 'Report Title', heading: 1 },
+        { text: 'Prepared by · Date' },
+        { text: 'Summary', heading: 2 },
+        { text: 'A brief overview of the report’s purpose and key findings.' },
+        { text: 'Details', heading: 2 },
+        { text: 'Expand on the summary here — background, method, and results.' },
+        { text: 'Conclusion', heading: 2 },
+        { text: 'Closing remarks and next steps.' },
+      ])
     case 'resume':
-      return [
-        heading('Your Name', 48, 60),
-        body('email · phone · location', 48, 100, 700, 24),
-        heading('Experience', 48, 150),
-        body('Job Title — Company · Dates\nKey achievement or responsibility.', 48, 190, 700, 80),
-        heading('Education', 48, 300),
-        body('Degree — Institution · Year', 48, 340, 700, 40),
-        heading('Skills', 48, 410),
-        body('Skill one, skill two, skill three.', 48, 450, 700, 40),
-      ]
+      return pm([
+        { text: 'Your Name', heading: 1 },
+        { text: 'email · phone · location' },
+        { text: 'Experience', heading: 2 },
+        { text: 'Job Title — Company · Dates' },
+        { text: 'Key achievement or responsibility.' },
+        { text: 'Education', heading: 2 },
+        { text: 'Degree — Institution · Year' },
+        { text: 'Skills', heading: 2 },
+        { text: 'Skill one, skill two, skill three.' },
+      ])
     case 'meeting-notes':
-      return [
-        heading('Meeting Notes', 48, 60),
-        body('Date · Attendees', 48, 110, 700, 30),
-        heading('Agenda', 48, 160),
-        body('1. Topic one\n2. Topic two\n3. Topic three', 48, 200, 700, 90),
-        heading('Action Items', 48, 320),
-        body('☐ Task — Owner — Due date', 48, 360, 700, 60),
-      ]
+      return pm([
+        { text: 'Meeting Notes', heading: 1 },
+        { text: 'Date · Attendees' },
+        { text: 'Agenda', heading: 2 },
+        { text: '1. Topic one' },
+        { text: '2. Topic two' },
+        { text: '3. Topic three' },
+        { text: 'Action Items', heading: 2 },
+        { text: '☐ Task — Owner — Due date' },
+      ])
     case 'blank':
     default:
-      return []
+      return ''
   }
 }
 

@@ -1323,6 +1323,62 @@ html {
     border-radius: 3px;
     padding: 0 0.15em;
   }
+
+  /* ── The doc page's flowing body (components/workspace/doc-flow.tsx) ────
+     Also carries .tiptap-editor, so every block rule above applies; these
+     rules only add what a PAGE needs and a text box does not.
+
+     Sizes are in page pixels at 96dpi — the same space as SHEET_W/H in
+     lib/scene/frames.ts — and the whole column is visually scaled by its
+     wrapper, so 16px here really is Word's 12pt body text on A4. They must
+     stay in step with DOC_STYLES.Normal in lib/text/doc-styles.ts, which is
+     what the ruler, the style picker and the .docx exporter read. */
+  .doc-flow {
+    font-size: 16px;
+    line-height: 1.5;
+    color: var(--foreground);
+  }
+  .doc-flow .tiptap > p {
+    margin: 0 0 8px;
+  }
+  /* No focus ring: the body is the page, not a widget sitting on it. */
+  .doc-flow .tiptap {
+    outline: none;
+  }
+  /* The spacers pagination injects. Invisible by construction — they are
+     pure vertical space that pushes the following content onto the next
+     sheet's content area — but they must never be selectable or draggable. */
+  .doc-page-spacer {
+    user-select: none;
+  }
+  /* An explicit page break (§22): visible so it can be found and deleted. */
+  /* Zero margin on purpose: a break lands at the TOP of the next page, and
+     any margin here would push that page's first line down by it. */
+  .doc-page-break {
+    height: 0;
+    margin: 0;
+    border-top: 1px dashed color-mix(in oklch, var(--muted-foreground) 50%, transparent);
+  }
+  .doc-page-break.ProseMirror-selectednode {
+    border-top-color: var(--ring);
+  }
+  /* Tables in the body (imported from .docx, or inserted). */
+  .doc-flow .tiptap table {
+    border-collapse: collapse;
+    table-layout: fixed;
+    width: 100%;
+    margin: 8px 0;
+  }
+  .doc-flow .tiptap :where(td, th) {
+    border: 1px solid color-mix(in oklch, var(--muted-foreground) 40%, transparent);
+    padding: 4px 8px;
+    vertical-align: top;
+  }
+  .doc-flow .tiptap th {
+    background: color-mix(in oklch, var(--muted-foreground) 10%, transparent);
+    font-weight: 600;
+    text-align: left;
+  }
 }
 
 /* OS-level reduce-motion: movement becomes instant app-wide. Spinners and

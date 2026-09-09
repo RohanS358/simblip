@@ -36,6 +36,8 @@ import { useDocDockStore } from '@/lib/store/doc-dock'
 import { sanitizeFormFields } from '@/lib/store/to-pdf'
 import { SHEET_W, SHEET_H } from '@/lib/scene/frames'
 import { InfiniteCanvas } from './canvas'
+import { DocFlow, DOC_MARGINS, cloneFlowIntoSheets, flowPageStarts } from './doc-flow'
+import type { PageOverlay } from '@/lib/store/docx-export'
 import { DocSorter } from './doc-sorter'
 import { cn } from '@/lib/utils'
 
@@ -47,13 +49,18 @@ const MAX_SHEET = 2400
 const MIN_ZOOM = 0.25
 const MAX_ZOOM = 3
 
-/** Compulsory title/subtitle/date banner on a doc's first page — not a
- *  SceneObject, so there's nothing to accidentally delete. Sits inside the
- *  same [data-sheet] element PDF export rasterizes, so it prints too. Title
- *  reuses the page's own name (renaming it here is the same rename as the
- *  notebook tree); subtitle/date are new PageMeta fields. The date field
- *  shows today's date until someone picks a different one, without writing
- *  anything until they do. */
+/** Title/subtitle/date banner on a doc's first page — not a SceneObject, so
+ *  it can't be deleted by accident. Sits inside the same [data-sheet] element
+ *  PDF export rasterizes, so it prints too. Title reuses the page's own name
+ *  (renaming it here is the same rename as the notebook tree); subtitle/date
+ *  are PageMeta fields. The date field shows today's date until someone picks
+ *  a different one, without writing anything until they do.
+ *
+ *  It used to be compulsory. It isn't now, because the page has a flowing
+ *  body: a .docx opens with its own title as the first heading, and a banner
+ *  above that is a second title nobody asked for. The remove button hides it
+ *  (docHeaderHidden) rather than destroying anything — the subtitle and date
+ *  survive, and bringing it back restores them. */
 function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, docPageId))
   const renamePage = useWorkspaceStore((s) => s.renamePage)
@@ -62,7 +69,19 @@ function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: stri
   const stop = (e: React.KeyboardEvent) => e.stopPropagation()
 
   return (
-    <div className="absolute inset-x-0 top-0 z-[5] border-b border-black/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-neutral-900 sm:px-10 sm:py-5">
+    <div className="group/header pointer-events-auto absolute inset-x-0 top-0 z-[5] border-b border-black/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-neutral-900 sm:px-10 sm:py-5">
+      {/* Same affordance as a sheet's own delete button: hidden until the
+          header is hovered, so it never competes with the title for attention. */}
+      <button
+        type="button"
+        aria-label="Remove title block"
+        title="Remove title block"
+        className="absolute right-1.5 top-1.5 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] focus-visible:opacity-100 group-hover/header:opacity-100"
+        onPointerDown={(e) => e.stopPropagation()}
+        onClick={() => useWorkspaceStore.getState().updatePageMeta(docPageId, { docHeaderHidden: true })}
+      >
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
       <div className="flex items-start justify-between gap-3">
         <input
           type="text"
@@ -79,7 +98,7 @@ function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: stri
           onChange={(e) => useWorkspaceStore.getState().updatePageMeta(docPageId, { docDate: e.target.value })}
           onKeyDown={stop}
           aria-label="Document date"
-          className="shrink-0 bg-transparent text-right font-mono text-ui-xs text-neutral-500 outline-none dark:text-neutral-400"
+          className="mr-6 shrink-0 bg-transparent text-right font-mono text-ui-xs text-neutral-500 outline-none dark:text-neutral-400"
         />
       </div>
       <input
@@ -105,6 +124,7 @@ function Sheet({
   mounted,
   docPageId,
   docName,
+  headerHidden,
   onVisible,
   onFocus,
   onRemove,
@@ -130,6 +150,8 @@ function Sheet({
    *  title/subtitle/date header on the first sheet (index 0). */
   docPageId: string
   docName: string
+  /** The doc's title block is switched off (PageNode.docHeaderHidden). */
+  headerHidden: boolean
   onVisible: (i: number, v: boolean) => void
   onFocus: () => void
   onRemove: () => void
@@ -202,6 +224,10 @@ function Sheet({
     <div
       ref={ref}
       data-sheet={sheetId}
+      // Read by DocFlow to recover this sheet's TRUE page size (offsetWidth
+      // is the narrow-screen-clamped one) and hence its display scale.
+      data-page-w={dims.w}
+      data-page-h={dims.h}
       className={cn(
         'group relative mx-auto overflow-hidden rounded-md bg-white shadow-[0_2px_16px_rgba(0,0,0,0.14)] dark:bg-neutral-900',
         // Focused, not alarmed: a quiet ring plus a soft tinted glow.
@@ -227,8 +253,21 @@ function Sheet({
       onPointerDownCapture={onFocus}
     >
       {mounted ? (
-        <div className="absolute inset-0 overflow-hidden">
+        // zIndex 2: the object layer paints ABOVE the flowing body (which sits
+        // at z-1) and above the paper, so an image dropped over a paragraph
+        // covers it — see components/workspace/doc-flow.tsx.
+        // pointer-events: none on the whole object layer, with the canvas and
+        // the title block opting back in. Without it these two plain wrapper
+        // divs would swallow every click on blank paper before it could reach
+        // the body underneath — pointer-events is inherited, so turning it off
+        // here and back on where it is actually wanted is the only way a
+        // stacked layer can be selectively transparent.
+        <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ zIndex: 2 }}>
           <div
+            // The sheet's TRUE-pixel box: page coordinates mean the same thing
+            // in here as they do in the flowing body's own column, which is
+            // what cloneFlowIntoSheets (doc-flow.tsx) relies on at export.
+            data-sheet-inner=""
             style={{
               width: dims.w,
               height: dims.h,
@@ -244,14 +283,30 @@ function Sheet({
                 passes this for the same reason (see pdf-view.tsx); objects
                 placed on the sheet keep their own touch-none, so tapping or
                 dragging one still selects/moves it instead of scrolling. */}
-            <InfiniteCanvas key={sheetId} pageId={sheetId} locked passthrough active={canvasActive} />
+            {/* clickThrough: with the select tool, empty paper stops eating
+                clicks so they land as a caret in the body underneath. Any
+                drawing tool takes the layer back — see canvas.tsx. */}
+            {/* transparent: the paper is the SHEET's own background, and the
+                object layer now sits above the flowing body — an opaque
+                canvas (or its dot grid) would paint straight over the text.
+                A document has no grid anyway; alignment on a doc page is what
+                the margins and the ruler are for. */}
+            <InfiniteCanvas
+              key={sheetId}
+              pageId={sheetId}
+              locked
+              passthrough
+              transparent
+              clickThrough
+              active={canvasActive}
+            />
             {/* Lives INSIDE the same true-pixel/scaled box as the canvas,
                 not as a sibling at the sheet's own (possibly narrower,
                 CSS-fit) display size — otherwise it sits in a different
                 coordinate system than the content it's supposed to cap,
                 which is what made it double/mis-align under html2canvas's
                 PDF-export capture. */}
-            {index === 0 && <DocFirstPageHeader docPageId={docPageId} name={docName} />}
+            {index === 0 && !headerHidden && <DocFirstPageHeader docPageId={docPageId} name={docName} />}
           </div>
         </div>
       ) : (
@@ -286,6 +341,20 @@ function Sheet({
   )
 }
 
+/** Whether the flowing body holds anything at all. Read off the STORED
+ *  document rather than measured: once there is body text every sheet can
+ *  carry some of it, because sheets only exist here if the body needed them
+ *  or the author asked for them. */
+function flowHasText(flow: string | undefined): boolean {
+  if (!flow) return false
+  try {
+    const doc = JSON.parse(flow) as { content?: { content?: unknown[] }[] }
+    return (doc.content ?? []).some((b) => (b.content?.length ?? 0) > 0)
+  } catch {
+    return false
+  }
+}
+
 export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
   const addDocSheet = useWorkspaceStore((s) => s.addDocSheet)
@@ -310,20 +379,21 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // matches px-3 (12px * 2) so the very first paint doesn't undershoot.
   const [contentPadX, setContentPadX] = useState(24)
 
-  // A doc page opened from an uploaded .docx (open-file.ts routes .docx to
-  // this same 'doc' kind — Document absorbed the Word-file role) starts
-  // with the one default empty sheet addPageIn always seeds. First open:
-  // replace that blank sheet with the imported content instead.
+  // A doc page opened from an uploaded .docx. open-file.ts routes .docx to
+  // this kind, and the file's paragraphs, lists, tables and images become
+  // this page's flowing BODY — not text boxes on a sheet, which is what the
+  // old importer produced and why headings, lists and tables used to vanish.
   const importedRef = useRef(false)
   const fileUrl = meta?.fileUrl
   useEffect(() => {
-    // sheets.length > 1 means this page was already imported (e.g. eagerly,
-    // by file-view.tsx's attachFileToObject, when the doc was attached to a
-    // dock/embedded Document object) — importing again here would append a
-    // duplicate copy of every paragraph on top of the real content.
-    if (importedRef.current || sheets.length > 1) return
+    // A page that already has body text was imported before (possibly
+    // eagerly, by file-view.tsx's attachFileToObject when the doc was
+    // attached to an embedded Document object) — importing again would
+    // replace whatever has been written since.
+    if (importedRef.current) return
     const fileId = fileUrl?.startsWith('opfs:') ? fileUrl.slice('opfs:'.length) : null
     if (!fileId) return
+    if (useDocStore.getState().pages[pageId]?.flow) return
     importedRef.current = true
     void (async () => {
       try {
@@ -331,22 +401,17 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         const blob = await getFile(fileId)
         if (!blob) return
         const { importDocx } = await import('@/lib/store/docx-import')
-        const sheetObjectSets = await importDocx(blob)
-        const { useDocStore } = await import('@/lib/store/document')
-        const staleSheetId = sheets[0] // the blank default sheet, if unused
-        const staleIsEmpty =
-          staleSheetId && Object.keys(useDocStore.getState().pages[staleSheetId]?.objects ?? {}).length === 0
-        const newIds: string[] = []
-        for (const objects of sheetObjectSets) {
-          const sheetId = addDocSheet(pageId)
-          for (const obj of objects) useDocStore.getState().addObject(sheetId, obj)
-          newIds.push(sheetId)
-        }
-        if (staleIsEmpty && staleSheetId) {
+        const { useAuthStore } = await import('@/lib/auth/store')
+        const ownerId = useAuthStore.getState().profile?.id ?? 'anon'
+        const { flow, section } = await importDocx(blob, ownerId)
+        useDocStore.getState().setFlow(pageId, flow)
+        // The file's own page setup, so the imported text wraps at the same
+        // measure it did in Word rather than at our A4 default.
+        if (section.page || section.margins) {
           useWorkspaceStore.getState().updatePageMeta(pageId, {
-            docPages: [...newIds, ...sheets.slice(1)],
+            ...(section.page ? { docPageSize: section.page } : {}),
+            ...(section.margins ? { docMargins: section.margins } : {}),
           })
-          useDocStore.getState().forgetPage(staleSheetId)
         }
       } catch {
         toast.error('Could not read this document — starting blank.')
@@ -443,6 +508,21 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     if (sheets.length && (!activeSheetId || !sheets.includes(activeSheetId)))
       setActiveSheet(sheets[0])
   }, [sheets, activeSheetId, setActiveSheet])
+
+  // The flowing body reports how many sheets its text now needs; sheets are
+  // only ever ADDED. Deleting a trailing sheet automatically would destroy
+  // whatever objects the author had placed on it, so shrinking stays manual.
+  const wantPagesRef = useRef(0)
+  const onPageCount = useCallback(
+    (count: number) => {
+      if (count <= wantPagesRef.current) return
+      wantPagesRef.current = count
+      const have = useWorkspaceStore.getState()
+      const current = findPageMeta(have.nodes, pageId)?.docPages ?? []
+      for (let i = current.length; i < count; i++) addDocSheet(pageId)
+    },
+    [addDocSheet, pageId]
+  )
 
   const onVisible = (i: number, v: boolean) =>
     setVisible((prev) => {
@@ -582,9 +662,13 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
 
   const exportPdf = async () => {
     if (!sheets.length || exporting) return
-    // A blank page renders nothing worth printing and just burns a page — skip it.
+    // A blank page renders nothing worth printing and just burns a page — skip
+    // it. "Blank" now means no objects AND no body text landing on it: a
+    // document written entirely in the flowing body has no objects at all, and
+    // the object-only test used to report it as empty and refuse to export.
     const docs = useDocStore.getState().pages
-    const nonEmpty = sheets.filter((id) => Object.keys(docs[id]?.objects ?? {}).length > 0)
+    const hasBody = flowHasText(docs[pageId]?.flow)
+    const nonEmpty = sheets.filter((id) => hasBody || Object.keys(docs[id]?.objects ?? {}).length > 0)
     if (nonEmpty.length === 0) {
       toast.error('Every page is empty — nothing to export.')
       return
@@ -605,6 +689,12 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
       const pw = pdf.internal.pageSize.getWidth()
       const ph = pdf.internal.pageSize.getHeight()
       const host = scrollRef.current!
+      // The body is one column overlaying the stack, so a per-sheet rasterizer
+      // cannot see it — paint a clipped copy into each sheet for the duration
+      // of the capture. See cloneFlowIntoSheets in doc-flow.tsx.
+      const restoreFlow = contentRef.current
+        ? cloneFlowIntoSheets(contentRef.current, meta?.docMargins ?? DOC_MARGINS)
+        : () => {}
       let firstPage = true
       for (const sheetId of nonEmpty) {
         const el = host.querySelector<HTMLElement>(`[data-sheet="${sheetId}"]`)
@@ -628,6 +718,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         }
         pdf.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h)
       }
+      restoreFlow()
       pdf.save(`${meta?.name ?? 'document'}.pdf`)
       toast.success('Exported to PDF')
     } catch (err) {
@@ -641,12 +732,53 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     if (!sheets.length || exportingDocx) return
     setExportingDocx(true)
     try {
-      const [{ exportDocx }, docs] = await Promise.all([
-        import('@/lib/store/docx-export'),
-        Promise.resolve(useDocStore.getState().pages),
-      ])
-      const sheetObjects = sheets.map((id) => docs[id]?.objects ?? {})
-      const blob = await exportDocx(sheetObjects)
+      const docs = useDocStore.getState().pages
+      const { exportDocx } = await import('@/lib/store/docx-export')
+      const flow = docs[pageId]?.flow
+      const size = sizeOf(sheets[0])
+
+      // Inline pictures: the body stores `opfs:<id>` references; Word wants
+      // the bytes. Resolve only the ones this document actually uses.
+      const { getFile } = await import('@/lib/storage/manager')
+      const images = new Map<string, ArrayBuffer>()
+      for (const src of new Set((flow ?? '').match(/opfs:[A-Za-z0-9_-]+/g) ?? [])) {
+        const blob = await getFile(src.slice('opfs:'.length))
+        if (blob) images.set(src, await blob.arrayBuffer())
+      }
+
+      // Each page's free objects, flattened to one picture anchored to that
+      // page. Word cannot hold a live component, and a faithful picture in
+      // the right place is a better answer than dropping it — see the header
+      // of docx-export.ts.
+      const starts = [0, ...flowPageStarts(pageId)]
+      const overlays: PageOverlay[] = []
+      const host = scrollRef.current
+      if (host) {
+        const { default: html2canvas } = await import('html2canvas-pro')
+        for (const [i, sheetId] of sheets.entries()) {
+          if (Object.keys(docs[sheetId]?.objects ?? {}).length === 0) continue
+          const layer = host.querySelector<HTMLElement>(`[data-sheet="${sheetId}"] [data-canvas-root]`)
+          if (!layer) continue
+          const canvas = await html2canvas(layer, { scale: 2, backgroundColor: null, useCORS: true, logging: false })
+          const shot = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'))
+          if (!shot) continue
+          overlays.push({
+            png: await shot.arrayBuffer(),
+            atBlock: starts[i] ?? 0,
+            width: size.w,
+            height: size.h,
+          })
+        }
+      }
+
+      const blob = await exportDocx({
+        flow,
+        page: size,
+        margins: meta?.docMargins ?? DOC_MARGINS,
+        breaks: flowPageStarts(pageId),
+        overlays,
+        images,
+      })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
       a.download = `${meta?.name ?? 'document'}.docx`
@@ -736,6 +868,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 mounted={visible.has(i) || visible.has(i - 1) || visible.has(i + 1)}
                 docPageId={pageId}
                 docName={meta?.name ?? 'Untitled'}
+                headerHidden={meta?.docHeaderHidden === true}
                 onVisible={onVisible}
                 onFocus={() => setActiveSheet(sheetId)}
                 onRemove={() => removeSheet(sheetId)}
@@ -744,6 +877,20 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 bgColor={meta?.sheetColors?.[sheetId]}
               />
             ))}
+            {/* The Word-style flowing body: ONE column spanning every sheet,
+                overlaid on the stack and paginated by spacers. Rendered after
+                the sheets so it paints above their paper; its own z-1 keeps
+                it below the object canvases (z-2). */}
+            {sheets.length > 0 && (
+              <DocFlow
+                pageId={pageId}
+                containerRef={contentRef}
+                sheetIds={sheets}
+                margins={meta?.docMargins ?? DOC_MARGINS}
+                editable={!bare}
+                onPageCount={onPageCount}
+              />
+            )}
             <button
               type="button"
               className="mx-auto flex items-center gap-1.5 rounded-xl border border-dashed border-border px-4 py-2 text-ui-sm text-muted-foreground transition-[color,border-color,transform] duration-150 ease-out hover:border-[var(--accent-blue)] hover:text-foreground active:scale-[0.97]"

@@ -27,25 +27,25 @@ const PPTX_TYPES = new Set([
  *  don't always set a mime type on drag-drop/picker uploads) to the PageKind
  *  that can render it — null for anything with no viewer yet.
  *
- *  .docx opens as a 'pdf' page. It used to open as a 'doc' page, parsed by
- *  lib/store/docx-import.ts — but that importer only lifts paragraph TEXT out
- *  of word/document.xml: styling, tables, images, headers/footers and columns
- *  are all dropped, and its page breaks are a hard every-20-paragraphs chunk
- *  rather than Word's real ones. Routing through to-pdf.ts's docx-preview
- *  render instead gives a faithful document you can read and annotate, at the
- *  cost of editing it as scene objects. The conversion itself happens on
- *  first open in pdf-view.tsx, so it covers every entry point (file rows,
- *  canvas drops, the add-page dialog, the uploads panel) rather than each
- *  caller remembering to do it.
+ *  .docx opens as a 'doc' page again. It was routed to 'pdf' (a rasterized
+ *  docx-preview render) because the old importer only lifted paragraph TEXT
+ *  out of word/document.xml and chunked it onto sheets twenty paragraphs at a
+ *  time — styling, lists, tables, images and the file's real page breaks were
+ *  all lost, so a picture of the document beat a mangled copy of it.
  *
- *  docx-import.ts and its docx-export.ts inverse are still wired to the 'doc'
- *  kind and still used by Document's own "Export .docx" — this only changes
- *  what an IMPORTED .docx becomes. */
+ *  That is no longer the trade: lib/store/docx-map.ts maps the file
+ *  structurally into a doc page's flowing body — paragraph, run, list, table,
+ *  image, page break, section — and our own layout engine repaginates it. The
+ *  result is an editable document rather than an image of one. If the mapping
+ *  throws, doc-view.tsx falls back and the reader still opens.
+ *
+ *  The docx-preview → PDF path in to-pdf.ts stays for that fallback and for
+ *  anything else that needs a rasterized Word render. */
 export function pageKindForFile(node: Pick<FileNode, 'mime' | 'name'>): PageKind | null {
   const ext = node.name.slice(node.name.lastIndexOf('.')).toLowerCase()
   if (IMAGE_TYPES.has(node.mime) || ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg'].includes(ext)) return 'image'
   if (node.mime === 'application/pdf' || ext === '.pdf') return 'pdf'
-  if (DOCX_TYPES.has(node.mime) || ext === '.docx') return 'pdf'
+  if (DOCX_TYPES.has(node.mime) || ext === '.docx') return 'doc'
   if (XLSX_TYPES.has(node.mime) || ext === '.xlsx') return 'xlsx'
   if (PPTX_TYPES.has(node.mime) || ext === '.pptx') return 'pptx'
   return null

@@ -87,6 +87,12 @@ export interface PinnedRun {
 interface PageContent {
   objects: Record<string, SceneObject>
   variables: Variable[]
+  /** A doc page's flowing body text (ProseMirror JSON). See PageDoc.flow in
+   *  lib/scene/types.ts — this interface is its in-memory mirror, and every
+   *  function below that REBUILDS a PageContent from parts has to carry it
+   *  through, or typing a sentence and then dragging an object would silently
+   *  erase the sentence. */
+  flow?: string
 }
 
 const HISTORY_CAP = 100
@@ -108,6 +114,7 @@ const lastPushAt = new Map<string, number>()
  * gesture, which on a big page is the hitch you feel when you start dragging.
  */
 const snapshotOf = (c: PageContent): PageContent => ({
+  ...c,
   objects: { ...c.objects },
   variables: c.variables.map((v) => ({ ...v })),
 })
@@ -201,7 +208,7 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
   // needsNormalize() keeps this free for the overwhelmingly common case: a
   // clean page returns the identical objects map, so nothing re-renders.
   const stacked = needsNormalize(objects) ? normalizeZ(objects) : objects
-  return { content: { objects: stacked, variables }, scope }
+  return { content: { ...content, objects: stacked, variables }, scope }
 }
 
 /**
@@ -268,7 +275,7 @@ function renameLiveRefs(
   }
 
   if (!dirty) return
-  set((s) => ({ pages: { ...s.pages, [pageId]: { objects, variables } } }))
+  set((s) => ({ pages: { ...s.pages, [pageId]: { ...page, objects, variables } } }))
 }
 
 interface DocState {
@@ -305,6 +312,11 @@ interface DocState {
   pushHistory: (pageId: string) => void
   undo: (pageId: string) => void
   redo: (pageId: string) => void
+
+  /** Replace a doc page's flowing body text (ProseMirror JSON). No history
+   *  push — ProseMirror owns undo for the flow, exactly as the canvas's undo
+   *  ring owns it for objects; one Ctrl+Z must not cross the two layers. */
+  setFlow: (pageId: string, flow: string) => void
 
   addObject: (pageId: string, obj: SceneObject, options?: { history?: boolean }) => void
   updateObject: (
@@ -570,6 +582,15 @@ export const useDocStore = create<DocState>()(
           scopes: { ...s.scopes, [pageId]: scope },
           selection: [],
         }))
+      },
+
+      setFlow: (pageId, flow) => {
+        get().ensurePage(pageId)
+        set((s) => {
+          const page = s.pages[pageId]
+          if (page.flow === flow) return {}
+          return { pages: { ...s.pages, [pageId]: { ...page, flow } } }
+        })
       },
 
       addObject: (pageId, obj, { history = true } = {}) => {

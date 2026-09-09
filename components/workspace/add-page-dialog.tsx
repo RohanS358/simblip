@@ -167,17 +167,13 @@ export function AddPageDialog({
     const size = resolveDocPageSize(preset, preset.fixedOrientation ? 'landscape' : orientation)
     const id = useWorkspaceStore.getState().addPageIn(target.parentId, name.trim() || 'Untitled Doc', 'doc')
     useWorkspaceStore.getState().updatePageMeta(id, { docPageSize: size })
-    const objects = docTemplate(templateId)
-    if (objects.length) {
-      // Re-read state AFTER addPageIn — a store snapshot taken before that
-      // call doesn't reflect the node it just created (zustand's set()
-      // doesn't retroactively update an already-destructured snapshot).
-      const meta = useWorkspaceStore.getState().nodes[id]
-      const sheetId = meta?.kind === 'page' ? meta.docPages?.[0] : undefined
-      if (sheetId) {
-        const { useDocStore } = await import('@/lib/store/document')
-        for (const obj of objects) useDocStore.getState().addObject(sheetId, obj)
-      }
+    // The template is the page's flowing BODY, so it goes on the page's own
+    // content id rather than onto its first sheet — the sheets hold freely
+    // placed objects, and a template has none.
+    const flow = docTemplate(templateId)
+    if (flow) {
+      const { useDocStore } = await import('@/lib/store/document')
+      useDocStore.getState().setFlow(id, flow)
     }
     finish(id)
   }
