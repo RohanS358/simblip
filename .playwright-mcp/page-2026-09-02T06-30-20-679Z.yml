@@ -1,0 +1,6 @@
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e2]:
+    - generic [ref=f1e4]: SIMBLIP
+    - generic [ref=f1e5]: Checking your session…
+  - region "Notifications alt+T"
+  - button "Open Next.js Dev Tools" [ref=f1e11] [cursor=pointer]

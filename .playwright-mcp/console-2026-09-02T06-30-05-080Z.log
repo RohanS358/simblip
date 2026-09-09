@@ -1,0 +1,17 @@
+[     476ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     582ms] [LOG] [HMR] connected @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     784ms] [LOG] %c[Vercel Web Analytics]%c Debug mode is enabled by default in development. No requests will be sent to the server. color: rgb(120, 120, 120) color: inherit @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     785ms] [LOG] %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {route: /notebook, path: /notebook} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     786ms] [LOG] %c[Vercel Web Analytics]%c Running queued event color: rgb(120, 120, 120) color: inherit pageview {route: /notebook, path: /notebook} @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     786ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/notebook color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/notebook, sv: 0.1.3, sdkn: @vercel/analytics/next, sdkv: 1.3.1, ts: 1788330605865} /_vercel/insights/view @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[     786ms] [LOG] %c[Vercel Web Analytics]%c [view] http://localhost:3000/notebook color: rgb(120, 120, 120) color: inherit {o: http://localhost:3000/notebook, sv: 0.1.3, sdkn: @vercel/analytics/next, sdkv: 1.3.1, ts: 1788330605865} /_vercel/insights/view @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    1761ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    1864ms] [LOG] [Fast Refresh] done in 202ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    3009ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    3094ms] [LOG] [Fast Refresh] done in 187ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    5445ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[    5532ms] [LOG] [Fast Refresh] done in 190ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[   10533ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[   10632ms] [LOG] [Fast Refresh] done in 200ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[   14531ms] [LOG] [Fast Refresh] rebuilding @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
+[   14630ms] [LOG] [Fast Refresh] done in 202ms @ http://localhost:3000/_next/static/chunks/node_modules_next_dist_7a8122d0._.js:2374
