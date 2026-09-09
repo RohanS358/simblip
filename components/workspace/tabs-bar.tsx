@@ -8,6 +8,13 @@ import { Columns2, FileText, Layout, BookOpen, Image as ImageIcon, Sheet, Presen
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import type { PageKind } from '@/lib/scene/types'
 import { PageControlsMenu } from './page-controls-menu'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { cn } from '@/lib/utils'
 
 export const KIND_ICON: Record<PageKind, typeof Layout> = {
@@ -70,7 +77,7 @@ export function TabsBar({
             : undefined
         }
       >
-        {openTabs.map((id) => {
+        {openTabs.map((id, index) => {
           const meta = findPageMeta(nodes, id)
           if (!meta) return null
           const Icon = KIND_ICON[meta.pageKind ?? 'board']
@@ -79,79 +86,115 @@ export function TabsBar({
           const paneIdx = panes.indexOf(id)
           const inPane = paneIdx !== -1
           return (
-            <div
-              key={id}
-              // Obsidian-style snap assist: drag a tab over the canvas and drop
-              // it on the left or right half to split. The shell renders the
-              // drop zones (it owns the canvas area).
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('application/x-simblip-tab', id)
-                e.dataTransfer.effectAllowed = 'move'
-              }}
-              className={cn(
-                'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-ui-sm transition-colors',
-                active
-                  ? 'bg-accent text-foreground'
-                  : 'bg-muted/60 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
-              )}
-            >
-              <button
-                type="button"
-                className="flex min-w-0 items-center gap-1.5"
-                title={meta.name}
-                onClick={() => setActivePage(id)}
-              >
-                <Icon className={cn('h-3.5 w-3.5 shrink-0', inPane && paneCount > 1 && 'text-[var(--accent-blue)]')} />
-                <span className="truncate">{meta.name}</span>
-              </button>
-              {/* Add-to-pane button: opens this tab in a new split pane (up to 4).
-                  Shows pane count badge when multiple panes are open.
-                  Disabled (muted, no-op) when already at 4 panes. */}
-              <button
-                type="button"
-                aria-label={
-                  atMaxPanes
-                    ? 'Maximum 4 panes open'
-                    : inPane && paneCount > 1
-                      ? `In pane ${paneIdx + 1} of ${paneCount} — close pane`
-                      : 'Open in new pane'
-                }
-                title={
-                  atMaxPanes
-                    ? 'Maximum 4 panes'
-                    : inPane && paneCount > 1
-                      ? `Pane ${paneIdx + 1} — click to close`
-                      : 'Open beside'
-                }
-                className={cn(
-                  'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:flex [@media(pointer:coarse)]:flex items-center gap-0.5',
-                  inPane && paneCount > 1 ? 'flex text-[var(--accent-blue)]' : 'text-muted-foreground',
-                  atMaxPanes && 'opacity-40 cursor-not-allowed'
+            <ContextMenu key={id}>
+              <ContextMenuTrigger asChild>
+                <div
+                  // Obsidian-style snap assist: drag a tab over the canvas and drop
+                  // it on the left or right half to split. The shell renders the
+                  // drop zones (it owns the canvas area).
+                  draggable
+                  onDragStart={(e) => {
+                    e.dataTransfer.setData('application/x-simblip-tab', id)
+                    e.dataTransfer.effectAllowed = 'move'
+                  }}
+                  className={cn(
+                    'group flex max-w-44 shrink-0 cursor-grab items-center gap-1 rounded-lg px-2 py-1 text-ui-sm transition-colors',
+                    active
+                      ? 'bg-accent text-foreground'
+                      : 'bg-muted/60 text-muted-foreground hover:bg-accent/70 hover:text-foreground'
+                  )}
+                >
+                  <button
+                    type="button"
+                    className="flex min-w-0 items-center gap-1.5"
+                    title={meta.name}
+                    onClick={() => setActivePage(id)}
+                  >
+                    <Icon className={cn('h-3.5 w-3.5 shrink-0', inPane && paneCount > 1 && 'text-[var(--accent-blue)]')} />
+                    <span className="truncate">{meta.name}</span>
+                  </button>
+                  {/* Add-to-pane button: opens this tab in a new split pane (up to 4).
+                      Shows pane count badge when multiple panes are open.
+                      Disabled (muted, no-op) when already at 4 panes. */}
+                  <button
+                    type="button"
+                    aria-label={
+                      atMaxPanes
+                        ? 'Maximum 4 panes open'
+                        : inPane && paneCount > 1
+                          ? `In pane ${paneIdx + 1} of ${paneCount} — close pane`
+                          : 'Open in new pane'
+                    }
+                    title={
+                      atMaxPanes
+                        ? 'Maximum 4 panes'
+                        : inPane && paneCount > 1
+                          ? `Pane ${paneIdx + 1} — click to close`
+                          : 'Open beside'
+                    }
+                    className={cn(
+                      'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:flex [@media(pointer:coarse)]:flex items-center gap-0.5',
+                      inPane && paneCount > 1 ? 'flex text-[var(--accent-blue)]' : 'text-muted-foreground',
+                      atMaxPanes && 'opacity-40 cursor-not-allowed'
+                    )}
+                    onClick={() => {
+                      if (atMaxPanes) return
+                      if (inPane && paneCount > 1) {
+                        removePane(paneIdx)
+                      } else {
+                        addPane(id)
+                      }
+                    }}
+                  >
+                    <Columns2 className="h-3 w-3" />
+                    {paneCount > 1 && inPane && (
+                      <span className="text-ui-2xs font-semibold leading-none">{paneIdx + 1}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Close tab"
+                    className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-background/60 hover:text-foreground group-hover:opacity-100"
+                    onClick={() => closeTab(id)}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              </ContextMenuTrigger>
+              <ContextMenuContent>
+                <ContextMenuItem onClick={() => closeTab(id)}>Close</ContextMenuItem>
+                <ContextMenuItem
+                  disabled={openTabs.length <= 1}
+                  onClick={() => openTabs.filter((t) => t !== id).forEach(closeTab)}
+                >
+                  Close Others
+                </ContextMenuItem>
+                <ContextMenuItem
+                  disabled={index >= openTabs.length - 1}
+                  onClick={() => openTabs.slice(index + 1).forEach(closeTab)}
+                >
+                  Close Tabs to the Right
+                </ContextMenuItem>
+                <ContextMenuItem
+                  variant="destructive"
+                  onClick={() => [...openTabs].forEach(closeTab)}
+                >
+                  Close All
+                </ContextMenuItem>
+                <ContextMenuSeparator />
+                {inPane && paneCount > 1 ? (
+                  <ContextMenuItem onClick={() => removePane(paneIdx)}>Close Split</ContextMenuItem>
+                ) : (
+                  <ContextMenuItem disabled={atMaxPanes} onClick={() => addPane(id)}>
+                    Open in Split Screen
+                  </ContextMenuItem>
                 )}
-                onClick={() => {
-                  if (atMaxPanes) return
-                  if (inPane && paneCount > 1) {
-                    removePane(paneIdx)
-                  } else {
-                    addPane(id)
-                  }
-                }}
-              >
-                <Columns2 className="h-3 w-3" />
-                {paneCount > 1 && inPane && (
-                  <span className="text-ui-2xs font-semibold leading-none">{paneIdx + 1}</span>
-                )}
-              </button>
-              <button
-                type="button"
-                aria-label="Close tab"
-                className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-background/60 hover:text-foreground group-hover:opacity-100"
-                onClick={() => closeTab(id)}
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
+                <ContextMenuSeparator />
+                <ContextMenuItem onClick={() => void navigator.clipboard.writeText(meta.name)}>
+                  Copy Tab Name
+                </ContextMenuItem>
+              </ContextMenuContent>
+            </ContextMenu>
           )
         })}
       </div>
