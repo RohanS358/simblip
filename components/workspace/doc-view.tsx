@@ -131,6 +131,11 @@ function Sheet({
   onResize,
   removable,
   bgColor,
+  totalPages,
+  repeatingHeaderText,
+  repeatingFooterText,
+  repeatingSkipFirst,
+  showPageNumber,
 }: {
   sheetId: string
   index: number
@@ -161,6 +166,15 @@ function Sheet({
    *  — an explicit CSS color string, or undefined for the default white/
    *  dark-neutral. */
   bgColor?: string
+  /** How many sheets the document has — for "Page N of M". */
+  totalPages: number
+  /** PageNode.docHeaderText/docFooterText — a plain-text line repeated on
+   *  every sheet (Word's simplified header/footer; see the field's own
+   *  comment in lib/scene/types.ts). */
+  repeatingHeaderText?: string
+  repeatingFooterText?: string
+  repeatingSkipFirst?: boolean
+  showPageNumber?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const [live, setLive] = useState<{ w: number; h: number } | null>(null)
@@ -307,6 +321,18 @@ function Sheet({
                 which is what made it double/mis-align under html2canvas's
                 PDF-export capture. */}
             {index === 0 && !headerHidden && <DocFirstPageHeader docPageId={docPageId} name={docName} />}
+            {!(repeatingSkipFirst && index === 0) && repeatingHeaderText && (
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] px-6 pt-2 text-center text-ui-2xs text-neutral-400 dark:text-neutral-500 sm:px-10">
+                {repeatingHeaderText}
+              </div>
+            )}
+            {!(repeatingSkipFirst && index === 0) && (repeatingFooterText || showPageNumber) && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[4] px-6 pb-2 text-center text-ui-2xs text-neutral-400 dark:text-neutral-500 sm:px-10">
+                {[showPageNumber ? `${index + 1} of ${totalPages}` : null, repeatingFooterText]
+                  .filter(Boolean)
+                  .join('  ·  ')}
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -784,6 +810,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
         breaks: flowPageStarts(pageId),
         overlays,
         images,
+        headerText: meta?.docHeaderText,
+        footerText: meta?.docFooterText,
+        headerFooterSkipFirst: meta?.docHeaderFooterSkipFirst,
+        showPageNumbers: meta?.docShowPageNumbers,
       })
       const a = document.createElement('a')
       a.href = URL.createObjectURL(blob)
@@ -881,6 +911,11 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 onResize={(w, h) => resizeSheet(sheetId, w, h)}
                 removable={sheets.length > 1}
                 bgColor={meta?.sheetColors?.[sheetId]}
+                totalPages={sheets.length}
+                repeatingHeaderText={meta?.docHeaderText}
+                repeatingFooterText={meta?.docFooterText}
+                repeatingSkipFirst={meta?.docHeaderFooterSkipFirst === true}
+                showPageNumber={meta?.docShowPageNumbers === true}
               />
             ))}
             {/* The Word-style flowing body: ONE column spanning every sheet,

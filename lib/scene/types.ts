@@ -274,6 +274,21 @@ export interface PageNode extends NodeBase {
    *  Unset shows today's date without persisting it, so it stays current
    *  until someone deliberately picks a different one. */
   docDate?: string
+  /** doc: a plain-text line repeated at the top of every sheet (Word's
+   *  "Header", simplified to one line of plain text — no rich content, no
+   *  per-page variation beyond docHeaderFooterSkipFirst below). Unset shows
+   *  nothing. Distinct from the first-page title/subtitle/date banner
+   *  (docHeaderHidden) — that is a one-time title block; this repeats. */
+  docHeaderText?: string
+  /** doc: same as docHeaderText, but at the bottom of every sheet. */
+  docFooterText?: string
+  /** doc: skip docHeaderText/docFooterText on the first sheet — common when
+   *  the first page already carries the title block. */
+  docHeaderFooterSkipFirst?: boolean
+  /** doc: show a page number in the footer band of every sheet. Combines
+   *  with docFooterText on the same band (number first, then the text) if
+   *  both are set. */
+  docShowPageNumbers?: boolean
   /** pdf: content-page ids for linked per-PDF-page notes (index = pdf page − 1). */
   notesPages?: string[]
   /** pdf: content-page ids for direct on-page ink, one real canvas per PDF

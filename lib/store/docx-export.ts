@@ -28,10 +28,13 @@ import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
+  Header,
   HeadingLevel,
   ImageRun,
   Packer,
   PageBreak,
+  PageNumber,
   Paragraph,
   Table,
   TableCell,
@@ -71,6 +74,13 @@ export interface DocxExportInput {
   /** opfs:<id> → PNG/JPEG bytes, resolved by the caller (this file has no
    *  business touching storage). */
   images?: Map<string, ArrayBuffer>
+  /** PageNode.docHeaderText/docFooterText — a plain-text line repeated on
+   *  every page. */
+  headerText?: string
+  footerText?: string
+  headerFooterSkipFirst?: boolean
+  /** PageNode.docShowPageNumbers — "N of M" appended to the footer line. */
+  showPageNumbers?: boolean
 }
 
 const ALIGN = {
@@ -297,6 +307,31 @@ export async function exportDocx(input: DocxExportInput): Promise<Blob> {
   })
   if (children.length === 0) children.push(new Paragraph({}))
 
+  // A plain repeated line — see PageNode.docHeaderText's own comment for why
+  // this stays one TextRun rather than a full editable header region.
+  const footerRun: TextRun[] = []
+  if (input.showPageNumbers) {
+    footerRun.push(
+      new TextRun({ children: [PageNumber.CURRENT] }),
+      new TextRun(' of '),
+      new TextRun({ children: [PageNumber.TOTAL_PAGES] })
+    )
+  }
+  if (input.footerText) {
+    if (footerRun.length) footerRun.push(new TextRun('   ·   '))
+    footerRun.push(new TextRun(input.footerText))
+  }
+  const header = input.headerText
+    ? new Header({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun(input.headerText)] })] })
+    : undefined
+  const footer = footerRun.length
+    ? new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: footerRun })] })
+    : undefined
+  // titlePage activates the `first` slot as a DISTINCT page — omitting it,
+  // Word ignores `first` and repeats `default` everywhere, which is the
+  // opposite of what "skip on first page" asked for.
+  const skipFirst = input.headerFooterSkipFirst && (header || footer)
+
   const out = new Document({
     numbering: {
       config: [
@@ -323,7 +358,14 @@ export async function exportDocx(input: DocxExportInput): Promise<Blob> {
               left: pxToTwips(margins.left),
             },
           },
+          titlePage: !!skipFirst,
         },
+        headers: header
+          ? { default: header, ...(skipFirst ? { first: new Header({ children: [new Paragraph({})] }) } : {}) }
+          : undefined,
+        footers: footer
+          ? { default: footer, ...(skipFirst ? { first: new Footer({ children: [new Paragraph({})] }) } : {}) }
+          : undefined,
         children,
       },
     ],

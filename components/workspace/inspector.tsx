@@ -4481,6 +4481,63 @@ function DocLayoutPanel({ contentPageId }: { contentPageId: string }) {
   )
 }
 
+/** Doc/docx only: a plain-text line repeated on every sheet (PageNode.
+ *  docHeaderText/docFooterText — see the field comments), plus page numbers.
+ *  Deliberately not rich text and not a real editable region — see the
+ *  "simple repeating line" scoping decision over the full Word header/
+ *  footer zone, which would be its own second text-editing surface. */
+function DocHeaderFooterPanel({ contentPageId }: { contentPageId: string }) {
+  const documentId = useWorkspaceStore((s) => ownerPageOf(s.nodes, contentPageId))
+  const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, documentId))
+
+  if (meta?.pageKind !== 'doc') return null
+
+  const patch = (p: Partial<PageNode>) => useWorkspaceStore.getState().updatePageMeta(documentId, p)
+
+  return (
+    <PanelSection title="Header &amp; footer" last>
+      <div>
+        <FieldLabel>Header text</FieldLabel>
+        <input
+          type="text"
+          placeholder="Repeats at the top of every page"
+          aria-label="Header text"
+          defaultValue={meta.docHeaderText ?? ''}
+          onBlur={(e) => patch({ docHeaderText: e.target.value || undefined })}
+          className="w-full rounded-md border border-border/60 bg-background px-2 py-1.5 text-ui-sm outline-none focus:border-[var(--accent-blue)]"
+        />
+      </div>
+      <div>
+        <FieldLabel>Footer text</FieldLabel>
+        <input
+          type="text"
+          placeholder="Repeats at the bottom of every page"
+          aria-label="Footer text"
+          defaultValue={meta.docFooterText ?? ''}
+          onBlur={(e) => patch({ docFooterText: e.target.value || undefined })}
+          className="w-full rounded-md border border-border/60 bg-background px-2 py-1.5 text-ui-sm outline-none focus:border-[var(--accent-blue)]"
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <FieldLabel>Page numbers</FieldLabel>
+        <Switch
+          aria-label="Show page numbers"
+          checked={meta.docShowPageNumbers === true}
+          onCheckedChange={(on) => patch({ docShowPageNumbers: on })}
+        />
+      </div>
+      <div className="flex items-center justify-between">
+        <FieldLabel>Skip on first page</FieldLabel>
+        <Switch
+          aria-label="Skip header/footer on first page"
+          checked={meta.docHeaderFooterSkipFirst === true}
+          onCheckedChange={(on) => patch({ docHeaderFooterSkipFirst: on })}
+        />
+      </div>
+    </PanelSection>
+  )
+}
+
 /** The Properties/Variables tabs without any panel shell — hosted by the
  *  left rail's Properties section on desktop and by Inspector (the phone
  *  drawer's floating card) below. */
@@ -4517,6 +4574,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
             <DocFlowTextPanel pageId={pageId} />
             <PageBackgroundPanel contentPageId={pageId} />
             <DocLayoutPanel contentPageId={pageId} />
+            <DocHeaderFooterPanel contentPageId={pageId} />
             <p className="py-6 text-center text-ui-sm leading-relaxed text-muted-foreground">
               {selection.length > 1
                 ? `${selection.length} objects selected`
