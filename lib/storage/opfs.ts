@@ -38,8 +38,9 @@ async function filesDir(user = userId()): Promise<FileSystemDirectoryHandle> {
  *  localStorage, evicted separately) while its bytes quietly vanish — the
  *  "it lost its path" symptom. Asking once flips the origin to "persistent",
  *  which the browser then won't clear without the user saying so. Chrome
- *  decides silently on engagement; Firefox prompts, which is why the ask
- *  hangs off a real upload (a user gesture) rather than app start. */
+ *  decides silently on engagement; Firefox prompts. Hung off both read and
+ *  write so a workspace that only opens existing files (no new upload for
+ *  days) still asks — the eviction risk is exactly for that idle case. */
 let persistAsked = false
 function askForPersistence() {
   if (persistAsked || typeof navigator === 'undefined') return
@@ -59,6 +60,7 @@ export async function writeFile(fileId: string, blob: Blob): Promise<void> {
 }
 
 export async function readFile(fileId: string): Promise<Blob | null> {
+  askForPersistence()
   try {
     const dir = await filesDir()
     const handle = await dir.getFileHandle(fileId)
