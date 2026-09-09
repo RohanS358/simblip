@@ -80,6 +80,14 @@ function wrapMark(kind: Mark['kind'], value: string | undefined, html: string): 
       const href = value && /^https?:/.test(value) ? value : '#'
       return `<a href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer">${html}</a>`
     }
+    // superscript/subscript are Tiptap-only marks (lib/text/extensions.ts) —
+    // this legacy delimiter-based model predates them and nothing ever
+    // produces a StoredText Mark of these kinds, so there is no rendering to
+    // do here. Kept exhaustive rather than a catch-all default so a REAL
+    // future legacy kind can't fall through silently.
+    case 'superscript':
+    case 'subscript':
+      return html
   }
 }
 

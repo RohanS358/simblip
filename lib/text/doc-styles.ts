@@ -32,6 +32,9 @@ export interface ParagraphFormat {
    *  under it; `keepTogether` forbids splitting the block across a page. */
   keepWithNext: boolean
   keepTogether: boolean
+  /** A box rule around the whole paragraph (Word's "Borders and Shading",
+   *  simplified to one color, no per-edge control). Null = no border. */
+  borderColor: string | null
 }
 
 /** Character-level defaults a style also carries. Applied as CSS on the block,
@@ -53,6 +56,7 @@ export const DEFAULT_PARAGRAPH: ParagraphFormat = {
   lineHeight: 1.5,
   keepWithNext: false,
   keepTogether: false,
+  borderColor: null,
 }
 
 const NORMAL: StyleFormat = { ...DEFAULT_PARAGRAPH, fontSize: 16, fontWeight: 400 }

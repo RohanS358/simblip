@@ -16,7 +16,7 @@
 /** Toggle kinds: reapplying the exact same kind+range flips it off (like a
  *  real Bold button). Multiple toggle kinds can freely overlap the same
  *  range — bold+italic+underline on one word is normal. */
-export type ToggleMarkKind = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'code'
+export type ToggleMarkKind = 'bold' | 'italic' | 'underline' | 'strike' | 'highlight' | 'code' | 'superscript' | 'subscript'
 /** Exclusive kinds: only one mark of a given exclusive kind may cover any
  *  character at a time — applying a new one clips/removes whatever of the
  *  same kind was already there (user rule: "if a sentence already has a

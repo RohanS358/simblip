@@ -26,6 +26,7 @@
 
 import {
   AlignmentType,
+  BorderStyle,
   Document,
   HeadingLevel,
   ImageRun,
@@ -178,6 +179,10 @@ function paragraphOptions(node: PmNode): IParagraphOptions {
     }
   }
   if (node.type === 'heading') opts.heading = HEADING[Math.min(3, Number(attrs.level ?? 1)) - 1]
+  if (fmt.borderColor) {
+    const edge = { style: BorderStyle.SINGLE, color: fmt.borderColor.replace('#', ''), size: 12, space: 4 }
+    opts.border = { top: edge, bottom: edge, left: edge, right: edge }
+  }
   return opts
 }
 

@@ -416,6 +416,8 @@ function pmMarkToLegacy(m: PmMark, start: number, end: number): Mark[] {
     case 'underline':
     case 'strike':
     case 'code':
+    case 'superscript':
+    case 'subscript':
       return [{ start, end, kind: m.type as MarkKind }]
     case 'highlight':
       return [{ start, end, kind: 'highlight' }]

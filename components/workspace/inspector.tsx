@@ -57,6 +57,8 @@ import {
   Trash,
   ImageIcon,
   Table2,
+  Superscript as SuperscriptIcon,
+  Subscript as SubscriptIcon,
 } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
@@ -2418,6 +2420,8 @@ const PM_MARK: Record<MarkKind, string> = {
   strike: 'strike',
   highlight: 'highlight',
   code: 'code',
+  superscript: 'superscript',
+  subscript: 'subscript',
   color: 'textStyle',
   size: 'textStyle',
   font: 'textStyle',
@@ -2985,6 +2989,8 @@ function TextObjectPanel({ pageId, object }: { pageId: string; object: SceneObje
           {iconBtn('Strikethrough', Strikethrough, () => toggleMark('strike'))}
           {iconBtn('Highlight', Highlighter, () => toggleMark('highlight'))}
           {iconBtn('Inline code', Code, () => toggleMark('code'))}
+          {iconBtn('Superscript', SuperscriptIcon, () => toggleMark('superscript'))}
+          {iconBtn('Subscript', SubscriptIcon, () => toggleMark('subscript'))}
           {iconBtn('Link', Link, applyLink)}
           <span className="mx-0.5 h-4 w-px bg-border" />
           {iconBtn('Bullet list', List, () => setBlock('bullet'))}
@@ -4154,6 +4160,8 @@ function DocFlowTextPanel({ pageId }: { pageId: string }) {
         {iconBtn('Strikethrough', Strikethrough, () => toggleMark('strike'), editor.isActive('strike'))}
         {iconBtn('Highlight', Highlighter, () => toggleMark('highlight'), editor.isActive('highlight'))}
         {iconBtn('Inline code', Code, () => toggleMark('code'), editor.isActive('code'))}
+        {iconBtn('Superscript', SuperscriptIcon, () => toggleMark('superscript'), editor.isActive('superscript'))}
+        {iconBtn('Subscript', SubscriptIcon, () => toggleMark('subscript'), editor.isActive('subscript'))}
         {iconBtn('Link', Link, applyLink, editor.isActive('link'))}
         <span className="mx-0.5 h-4 w-px bg-border" />
         {iconBtn('Bullet list', List, () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'))}
@@ -4250,6 +4258,43 @@ function DocFlowTextPanel({ pageId }: { pageId: string }) {
         </div>
       </div>
 
+      <div>
+        <FieldLabel>Border</FieldLabel>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <button
+            type="button"
+            aria-label="No border"
+            aria-pressed={!format.borderColor}
+            className={cn(
+              'flex h-6 w-6 items-center justify-center rounded-full border-2 text-ui-2xs text-muted-foreground',
+              !format.borderColor ? 'border-[var(--ring)]' : 'border-transparent'
+            )}
+            onPointerDown={guard}
+            onClick={() => setParagraphAttrs({ borderColor: null })}
+          >
+            ×
+          </button>
+          {Object.entries(TEXT_COLORS).map(([id, value]) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={`Border ${id}`}
+              aria-pressed={format.borderColor === value}
+              className={cn(
+                'h-6 w-6 rounded-full border-2 bg-background',
+                format.borderColor === value ? 'scale-110 border-[var(--ring)]' : ''
+              )}
+              style={{ boxShadow: `inset 0 0 0 2px ${value}` }}
+              onPointerDown={guard}
+              onClick={() => setParagraphAttrs({ borderColor: value })}
+            />
+          ))}
+        </div>
+        <p className="mt-1 text-ui-2xs leading-relaxed text-muted-foreground">
+          A box rule around the whole paragraph.
+        </p>
+      </div>
+
       {inTable && (
         <div>
           <FieldLabel>Table</FieldLabel>
@@ -4296,6 +4341,43 @@ function DocFlowTextPanel({ pageId }: { pageId: string }) {
               onBlur={(e) => editor.chain().focus().updateAttributes('docImage', { alt: e.target.value }).run()}
               className="flex-1 rounded-md border border-border/60 bg-background px-1.5 py-1 text-ui-xs outline-none focus:border-[var(--accent-blue)]"
             />
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            {(() => {
+              const imgBorder = editor.getAttributes('docImage').borderColor as string | undefined
+              return (
+                <>
+                  <button
+                    type="button"
+                    aria-label="No image border"
+                    aria-pressed={!imgBorder}
+                    className={cn(
+                      'flex h-6 w-6 items-center justify-center rounded-full border-2 text-ui-2xs text-muted-foreground',
+                      !imgBorder ? 'border-[var(--ring)]' : 'border-transparent'
+                    )}
+                    onPointerDown={guard}
+                    onClick={() => editor.chain().focus().updateAttributes('docImage', { borderColor: null }).run()}
+                  >
+                    ×
+                  </button>
+                  {Object.entries(TEXT_COLORS).map(([id, value]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-label={`Image border ${id}`}
+                      aria-pressed={imgBorder === value}
+                      className={cn(
+                        'h-6 w-6 rounded-full border-2 bg-background',
+                        imgBorder === value ? 'scale-110 border-[var(--ring)]' : ''
+                      )}
+                      style={{ boxShadow: `inset 0 0 0 2px ${value}` }}
+                      onPointerDown={guard}
+                      onClick={() => editor.chain().focus().updateAttributes('docImage', { borderColor: value }).run()}
+                    />
+                  ))}
+                </>
+              )
+            })()}
           </div>
         </div>
       )}

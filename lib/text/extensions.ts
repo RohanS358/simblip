@@ -28,6 +28,8 @@ import { Placeholder } from '@tiptap/extensions'
 import { Highlight } from '@tiptap/extension-highlight'
 import { TextStyle, Color, FontFamily, FontSize } from '@tiptap/extension-text-style'
 import { TaskList, TaskItem } from '@tiptap/extension-list'
+import { Superscript } from '@tiptap/extension-superscript'
+import { Subscript } from '@tiptap/extension-subscript'
 import { Table, TableRow, TableCell, TableHeader } from '@tiptap/extension-table'
 import { Extension, Node, mergeAttributes, type Extensions } from '@tiptap/core'
 import { DEFAULT_PARAGRAPH, resolveStyle, type ParagraphFormat } from './doc-styles'
@@ -50,6 +52,12 @@ const FontWeight = TextStyle.extend({
     }
   },
 })
+
+/** Superscript and subscript are mutually exclusive (Word/Docs both toggle
+ *  one off when the other is applied) — Tiptap ships neither exclusion by
+ *  default, so each `.extend()`s onto the other's mark name. */
+const SuperscriptExclusive = Superscript.extend({ excludes: 'subscript' })
+const SubscriptExclusive = Subscript.extend({ excludes: 'superscript' })
 
 export interface TextExtensionOptions {
   placeholder?: string
@@ -82,6 +90,8 @@ export function textExtensions({ placeholder, collaborative = false }: TextExten
     FontWeight,
     TaskList,
     TaskItem.configure({ nested: true }),
+    SuperscriptExclusive,
+    SubscriptExclusive,
     // Styled by `.tiptap-editor .tiptap p.is-editor-empty:first-child::before`
     // in globals.css, which reads the data-placeholder attribute this sets.
     Placeholder.configure({ placeholder: placeholder ?? '' }),
@@ -174,6 +184,15 @@ const ParagraphFormatting = Extension.create({
             parseHTML: (el: HTMLElement) => el.getAttribute('data-keep-together') === 'true' || null,
             renderHTML: (a: Record<string, unknown>) => (a.keepTogether ? { 'data-keep-together': 'true' } : {}),
           },
+          // Word's "Borders and Shading", simplified to one rule around the
+          // whole paragraph (no per-edge control) — a solid box, a color, and
+          // a little padding so the border doesn't touch the text.
+          borderColor: {
+            default: null,
+            parseHTML: (el: HTMLElement) => el.style.borderColor || null,
+            renderHTML: (a: Record<string, unknown>) =>
+              a.borderColor ? { style: `border: 1.5px solid ${a.borderColor}; padding: 8px 10px` } : {},
+          },
         },
       },
     ]
@@ -221,6 +240,12 @@ const DocImage = Node.create({
       width: { default: null },
       height: { default: null },
       alt: { default: null },
+      borderColor: {
+        default: null,
+        parseHTML: (el: HTMLElement) => el.style.borderColor || null,
+        renderHTML: (a: Record<string, unknown>) =>
+          a.borderColor ? { style: `border: 2px solid ${a.borderColor}` } : {},
+      },
     }
   },
   parseHTML() {
