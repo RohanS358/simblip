@@ -50,6 +50,13 @@ import {
   AlignVerticalJustifyCenter,
   AlignVerticalJustifyEnd,
   SlidersHorizontal,
+  IndentIncrease,
+  IndentDecrease,
+  Rows3,
+  Columns3,
+  Trash,
+  ImageIcon,
+  Table2,
 } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
 import { useSpring } from '@/lib/motion'
@@ -85,6 +92,8 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { LayersPanel } from './layers-panel'
 import { DOC_MARGINS } from './doc-flow'
+import { DOC_STYLES, STYLE_IDS, type ParagraphFormat } from '@/lib/text/doc-styles'
+import { formatOf } from '@/lib/text/extensions'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -4024,6 +4033,276 @@ function BoxPresetField({
   )
 }
 
+const INDENT_STEP = 24 // 0.25", matching Word's own indent step at 96dpi.
+const SPACING_PRESETS = [0, 8, 16, 24] as const
+const DOC_LINE_HEIGHT_PRESETS = [1, 1.15, 1.5, 2] as const
+
+/** Doc/docx flowing body: formatting for the current SELECTION, mirroring
+ *  TextObjectPanel's Typography section but driven by the flow's own editor
+ *  (registered under 'flow:<pageId>' in useActiveTextEditor — see doc-flow.tsx)
+ *  instead of a canvas SceneObject. Renders only while the flow body actually
+ *  holds focus; DocLayoutPanel below covers the document-wide defaults that
+ *  apply regardless of where the caret is. */
+function DocFlowTextPanel({ pageId }: { pageId: string }) {
+  const activeId = useActiveTextEditor((s) => s.objectId)
+  const editor = useActiveTextEditor((s) => s.editor)
+  const isActive = activeId === `flow:${pageId}`
+
+  // Same re-render contract as TextObjectPanel: the store holds one stable
+  // Editor reference, so nothing here re-runs on a caret move without this.
+  const [, setTick] = useState(0)
+  useEffect(() => {
+    if (!isActive || !editor) return
+    const bump = () => setTick((t) => t + 1)
+    editor.on('selectionUpdate', bump)
+    editor.on('update', bump)
+    return () => {
+      editor.off('selectionUpdate', bump)
+      editor.off('update', bump)
+    }
+  }, [isActive, editor])
+
+  if (!isActive || !editor) return null
+
+  const guard = (e: React.PointerEvent) => e.preventDefault()
+  const toggleMark = (kind: MarkKind) => editor.chain().focus().toggleMark(PM_MARK[kind]).run()
+  const applyLink = () => {
+    const url = window.prompt('Link URL')
+    if (url && url.trim()) editor.chain().focus().setLink({ href: url.trim() }).run()
+  }
+
+  // The selection's resolved paragraph format (style + explicit attrs) —
+  // read off whichever block the selection starts in, same source pagination
+  // and .docx export already trust (formatOf, lib/text/extensions.ts).
+  const $from = editor.state.selection.$from
+  const node = $from.parent
+  const format: ParagraphFormat = formatOf({ type: node.type.name, attrs: node.attrs })
+  const styleId = (node.attrs.style as string | undefined) ?? (node.type.name === 'heading' ? `Heading${node.attrs.level}` : 'Normal')
+
+  // ParagraphFormatting's attrs are declared on both 'paragraph' and 'heading'
+  // (lib/text/extensions.ts) — updateAttributes only touches nodes matching
+  // the name given, so applying to both is safe: whichever isn't the
+  // selection's actual type is simply a no-op.
+  const setParagraphAttrs = (attrs: Record<string, unknown>) =>
+    editor.chain().focus().updateAttributes('paragraph', attrs).updateAttributes('heading', attrs).run()
+
+  const setStyle = (id: string) => {
+    if (id.startsWith('Heading')) {
+      const level = Number(id.slice(7)) as 1 | 2 | 3
+      editor.chain().focus().toggleHeading({ level }).run()
+      return
+    }
+    if (id === 'Title') {
+      // No dedicated Title node — Word's Title is a paragraph style, which
+      // this schema represents as a plain paragraph carrying style: 'Title'.
+      editor.chain().focus().clearNodes().setParagraph().updateAttributes('paragraph', { style: 'Title' }).run()
+      return
+    }
+    editor.chain().focus().clearNodes().setParagraph().updateAttributes('paragraph', { style: id === 'Normal' ? null : id }).run()
+  }
+
+  const inTable = editor.isActive('table')
+
+  const iconBtn = (label: string, Icon: typeof Bold, onClick: () => void, active = false, disabled = false) => (
+    <button
+      key={label}
+      type="button"
+      aria-label={label}
+      aria-pressed={active || undefined}
+      disabled={disabled}
+      className={cn(
+        'rounded-md p-1.5 transition-colors disabled:pointer-events-none disabled:opacity-30',
+        active ? 'bg-[var(--accent-blue)] text-primary-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+      )}
+      onPointerDown={guard}
+      onClick={onClick}
+    >
+      <Icon className="h-3.5 w-3.5" />
+    </button>
+  )
+
+  return (
+    <PanelSection title="Text">
+      <div>
+        <FieldLabel>Paragraph style</FieldLabel>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              aria-label="Paragraph style"
+              className="flex w-full items-center justify-between gap-1.5 rounded-md border border-input bg-background/60 px-2 py-1.5 text-ui-sm text-foreground transition-colors hover:bg-accent"
+              onPointerDown={guard}
+            >
+              {styleId}
+              <ChevronDown className="h-3 w-3 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="glass-strong w-40">
+            {STYLE_IDS.map((id) => (
+              <DropdownMenuItem key={id} className="text-ui-sm" onSelect={() => setStyle(id)}>
+                {id}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
+        {iconBtn('Bold (Ctrl+B)', Bold, () => toggleMark('bold'), editor.isActive('bold'))}
+        {iconBtn('Italic (Ctrl+I)', Italic, () => toggleMark('italic'), editor.isActive('italic'))}
+        {iconBtn('Underline (Ctrl+U)', Underline, () => toggleMark('underline'), editor.isActive('underline'))}
+        {iconBtn('Strikethrough', Strikethrough, () => toggleMark('strike'), editor.isActive('strike'))}
+        {iconBtn('Highlight', Highlighter, () => toggleMark('highlight'), editor.isActive('highlight'))}
+        {iconBtn('Inline code', Code, () => toggleMark('code'), editor.isActive('code'))}
+        {iconBtn('Link', Link, applyLink, editor.isActive('link'))}
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        {iconBtn('Bullet list', List, () => editor.chain().focus().toggleBulletList().run(), editor.isActive('bulletList'))}
+        {iconBtn('Numbered list', ListOrdered, () => editor.chain().focus().toggleOrderedList().run(), editor.isActive('orderedList'))}
+        {iconBtn('Checklist', CheckSquare, () => editor.chain().focus().toggleTaskList().run(), editor.isActive('taskList'))}
+        {iconBtn('Quote', Quote, () => editor.chain().focus().toggleBlockquote().run(), editor.isActive('blockquote'))}
+        <span className="mx-0.5 h-4 w-px bg-border" />
+        {iconBtn('Clear formatting', X, () =>
+          editor.chain().focus().unsetAllMarks().clearNodes().setParagraph().updateAttributes('paragraph', {
+            style: null, align: null, indentLeft: null, indentRight: null, indentFirstLine: null,
+            spaceBefore: null, spaceAfter: null, lineHeight: null,
+          }).run()
+        )}
+      </div>
+
+      <div>
+        <FieldLabel>Selection color</FieldLabel>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {Object.entries(TEXT_COLORS).map(([id, value]) => (
+            <button
+              key={id}
+              type="button"
+              aria-label={`Text color ${id}`}
+              className="h-5 w-5 rounded-full border-2 border-transparent transition-transform hover:scale-110"
+              style={{ background: value }}
+              onPointerDown={guard}
+              onClick={() => editor.chain().focus().setColor(value).run()}
+            />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <FieldLabel>Alignment &amp; indent</FieldLabel>
+        <div className="flex items-center gap-1 rounded-lg bg-accent/40 p-0.5">
+          {(['left', 'center', 'right', 'justify'] as const).map((a) => {
+            const Icon = ALIGN_ICONS[a]
+            return iconBtn(`Align ${a}`, Icon, () => setParagraphAttrs({ align: a }), format.align === a)
+          })}
+          <span className="mx-0.5 h-4 w-px bg-border" />
+          {iconBtn('Decrease indent', IndentDecrease, () =>
+            setParagraphAttrs({ indentLeft: Math.max(0, format.indentLeft - INDENT_STEP) }), false, format.indentLeft <= 0)}
+          {iconBtn('Increase indent', IndentIncrease, () =>
+            setParagraphAttrs({ indentLeft: format.indentLeft + INDENT_STEP }))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-1.5">
+        <div>
+          <FieldLabel>Paragraph spacing</FieldLabel>
+          <div className="flex items-center gap-1 rounded-lg bg-accent/40 p-0.5">
+            {SPACING_PRESETS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-label={`Spacing after ${n}px`}
+                aria-pressed={format.spaceAfter === n}
+                onPointerDown={guard}
+                onClick={() => setParagraphAttrs({ spaceAfter: n })}
+                className={cn(
+                  'flex-1 rounded-md py-1 text-ui-2xs font-medium transition-colors',
+                  format.spaceAfter === n
+                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <FieldLabel>Line spacing</FieldLabel>
+          <div className="flex items-center gap-1 rounded-lg bg-accent/40 p-0.5">
+            {DOC_LINE_HEIGHT_PRESETS.map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-label={`Line spacing ${n}`}
+                aria-pressed={format.lineHeight === n}
+                onPointerDown={guard}
+                onClick={() => setParagraphAttrs({ lineHeight: n })}
+                className={cn(
+                  'flex-1 rounded-md py-1 text-ui-2xs font-medium transition-colors',
+                  format.lineHeight === n
+                    ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+                )}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {inTable && (
+        <div>
+          <FieldLabel>Table</FieldLabel>
+          <div className="flex flex-wrap items-center gap-0.5 rounded-lg bg-accent/40 p-1">
+            {iconBtn('Add row above', Rows3, () => editor.chain().focus().addRowBefore().run())}
+            {iconBtn('Add row below', Rows3, () => editor.chain().focus().addRowAfter().run())}
+            {iconBtn('Delete row', Trash, () => editor.chain().focus().deleteRow().run())}
+            <span className="mx-0.5 h-4 w-px bg-border" />
+            {iconBtn('Add column before', Columns3, () => editor.chain().focus().addColumnBefore().run())}
+            {iconBtn('Add column after', Columns3, () => editor.chain().focus().addColumnAfter().run())}
+            {iconBtn('Delete column', Trash, () => editor.chain().focus().deleteColumn().run())}
+            <span className="mx-0.5 h-4 w-px bg-border" />
+            {iconBtn('Delete table', Trash, () => editor.chain().focus().deleteTable().run())}
+          </div>
+        </div>
+      )}
+      {!inTable && (
+        <button
+          type="button"
+          className="flex items-center gap-1.5 self-start rounded-md border border-dashed border-border px-2 py-1 text-ui-xs text-muted-foreground transition-colors hover:border-[var(--accent-blue)] hover:text-foreground"
+          onPointerDown={guard}
+          onClick={() =>
+            editor
+              .chain()
+              .focus()
+              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
+              .run()
+          }
+        >
+          <Table2 className="h-3.5 w-3.5" /> Insert table
+        </button>
+      )}
+
+      {editor.isActive('docImage') && (
+        <div>
+          <FieldLabel>Image</FieldLabel>
+          <div className="flex items-center gap-1.5 text-ui-xs text-muted-foreground">
+            <ImageIcon className="h-3.5 w-3.5" />
+            <input
+              type="text"
+              placeholder="Alt text"
+              aria-label="Image alt text"
+              defaultValue={(editor.getAttributes('docImage').alt as string | undefined) ?? ''}
+              onBlur={(e) => editor.chain().focus().updateAttributes('docImage', { alt: e.target.value }).run()}
+              className="flex-1 rounded-md border border-border/60 bg-background px-1.5 py-1 text-ui-xs outline-none focus:border-[var(--accent-blue)]"
+            />
+          </div>
+        </div>
+      )}
+    </PanelSection>
+  )
+}
+
 /** Doc/docx only: the flowing body's layout defaults — margins, inner
  *  padding, default line-height/alignment, and the title-block toggle. A
  *  .docx import lands here too (open-file.ts routes .docx to the 'doc' page
@@ -4153,6 +4432,7 @@ export function InspectorPane({ pageId }: { pageId: string }) {
           <ObjectProperties pageId={pageId} object={object} />
         ) : (
           <div className="space-y-3">
+            <DocFlowTextPanel pageId={pageId} />
             <PageBackgroundPanel contentPageId={pageId} />
             <DocLayoutPanel contentPageId={pageId} />
             <p className="py-6 text-center text-ui-sm leading-relaxed text-muted-foreground">
