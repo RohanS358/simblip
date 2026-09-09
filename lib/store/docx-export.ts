@@ -35,6 +35,7 @@ import {
   Packer,
   PageBreak,
   PageNumber,
+  PageOrientation,
   Paragraph,
   Table,
   TableCell,
@@ -350,7 +351,11 @@ export async function exportDocx(input: DocxExportInput): Promise<Blob> {
       {
         properties: {
           page: {
-            size: { width: pxToTwips(page.w), height: pxToTwips(page.h) },
+            size: {
+              width: pxToTwips(page.w),
+              height: pxToTwips(page.h),
+              orientation: page.w > page.h ? PageOrientation.LANDSCAPE : PageOrientation.PORTRAIT,
+            },
             margin: {
               top: pxToTwips(margins.top),
               right: pxToTwips(margins.right),

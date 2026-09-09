@@ -96,6 +96,7 @@ import { LayersPanel } from './layers-panel'
 import { DOC_MARGINS } from './doc-flow'
 import { DOC_STYLES, STYLE_IDS, type ParagraphFormat } from '@/lib/text/doc-styles'
 import { formatOf } from '@/lib/text/extensions'
+import { SHEET_W, SHEET_H } from '@/lib/scene/frames'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -4400,6 +4401,17 @@ function DocLayoutPanel({ contentPageId }: { contentPageId: string }) {
   const patch = (p: Partial<PageNode>) => useWorkspaceStore.getState().updatePageMeta(documentId, p)
   const align = meta.docTextAlign ?? 'left'
   const headerHidden = meta.docHeaderHidden === true
+  const pageSize = meta.docPageSize ?? { w: SHEET_W, h: SHEET_H }
+  const orientation: 'portrait' | 'landscape' = pageSize.w > pageSize.h ? 'landscape' : 'portrait'
+
+  const setOrientation = (next: 'portrait' | 'landscape') => {
+    if (next === orientation) return
+    const flip = (s: { w: number; h: number }) => ({ w: s.h, h: s.w })
+    const nextSheetSizes = meta.sheetSizes
+      ? Object.fromEntries(Object.entries(meta.sheetSizes).map(([id, s]) => [id, flip(s)]))
+      : meta.sheetSizes
+    patch({ docPageSize: flip(pageSize), sheetSizes: nextSheetSizes })
+  }
 
   return (
     <PanelSection title="Document layout">
@@ -4410,6 +4422,32 @@ function DocLayoutPanel({ contentPageId }: { contentPageId: string }) {
           checked={!headerHidden}
           onCheckedChange={(on) => patch({ docHeaderHidden: !on })}
         />
+      </div>
+
+      <div>
+        <FieldLabel>Orientation</FieldLabel>
+        <div className="flex gap-1 rounded-lg bg-accent/40 p-0.5">
+          {(['portrait', 'landscape'] as const).map((o) => (
+            <button
+              key={o}
+              type="button"
+              aria-label={`Orientation ${o}`}
+              aria-pressed={orientation === o}
+              onClick={() => setOrientation(o)}
+              className={cn(
+                'flex-1 rounded-md py-1 text-ui-2xs font-medium capitalize transition-colors',
+                orientation === o
+                  ? 'bg-[var(--accent-blue)] text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-accent hover:text-foreground'
+              )}
+            >
+              {o}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1 text-ui-2xs leading-relaxed text-muted-foreground">
+          Rotates every page in this document.
+        </p>
       </div>
 
       <BoxPresetField
