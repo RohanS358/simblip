@@ -32,12 +32,22 @@ export type Placement = Map<string, { x: number; y: number; rotation: number }>
 
 export const GRID = 20
 
-/** Which side of the body a pin leaves from, in the part's own frame. */
+/** Which side of the body a pin leaves from, in the part's own frame.
+ *
+ *  Pins on an edge are unambiguous. Pins INSIDE the outline are not: `gnd` sits
+ *  at (0.5, 0.12) because its glyph hangs below the connection point, and the
+ *  old `else → bottom` fallback sent its wire straight DOWN through the whole
+ *  symbol. An interior pin leaves by its NEAREST edge, which is the only
+ *  direction that reaches it without crossing the body. */
 function pinSide(t: Pt): 'l' | 'r' | 't' | 'b' {
   if (t.x <= 0.05) return 'l'
   if (t.x >= 0.95) return 'r'
   if (t.y <= 0.05) return 't'
-  return 'b'
+  if (t.y >= 0.95) return 'b'
+  const d: [number, 'l' | 'r' | 't' | 'b'][] = [
+    [t.x, 'l'], [1 - t.x, 'r'], [t.y, 't'], [1 - t.y, 'b'],
+  ]
+  return d.reduce((best, cur) => (cur[0] < best[0] ? cur : best))[1]
 }
 
 /** Pin offset from body centre, after rotation — the vector the wire leaves on. */
@@ -87,6 +97,26 @@ const W_LEN = 1
 const W_CROSS = 400
 const W_PERIM = 0.8
 
+// A net with no clean path around a body is worse than any crossing: it is a
+// wire drawn THROUGH a component, which is simply wrong on a schematic. Priced
+// above W_CROSS so the search sacrifices crossings and wire to avoid it.
+const W_BLOCKED = 3000
+
+// Straighter beats bent. A net whose two pins share an axis needs no corner at
+// all, so it is charged nothing; one that must dog-leg pays a little. Swept at
+// 0/25/60/150: 25 was best on every axis at once (fewest wires through bodies,
+// shortest total wire, fewest crossings). Higher values buy straightness by
+// pushing parts apart, which costs more than the bends save.
+const W_BEND = 25
+
+// Signal flow. A schematic reads left to right: sources and inputs at the left
+// edge, each stage right of the one feeding it, outputs at the right. Nothing
+// in wire length, crossings or perimeter expresses that — a mirrored layout
+// scores identically — so a full adder could put its third INPUT in the middle
+// of the gate array, downstream of gates it feeds, and still look "optimal".
+// Charged per pixel a part sits left of where its rank says it belongs.
+const W_FLOW = 3
+
 type Node = { id: string; w: number; h: number; rot: number; cx: number; cy: number; pins: Pt[] }
 
 /** Pin world positions for a node at its current centre and rotation. */
@@ -109,6 +139,26 @@ function tooClose(a: Node, b: Node, gap: number): boolean {
 function halfExtentWH(n: Node): Pt {
   const swap = n.rot === 90 || n.rot === 270
   return { x: (swap ? n.h : n.w) / 2, y: (swap ? n.w : n.h) / 2 }
+}
+
+/** Does a segment's interior pass through a rectangle's interior? Liang-Barsky.
+ *  Must handle ZERO-WIDTH segments: every wire here is orthogonal, so a naive
+ *  "bounding boxes overlap on both axes" test can never fire and reports no
+ *  violations at all — which is exactly how wires-through-bodies went unnoticed. */
+function segInRect(a: Pt, b: Pt, r: { x1: number; y1: number; x2: number; y2: number }, eps = 1): boolean {
+  const R = { x1: r.x1 + eps, y1: r.y1 + eps, x2: r.x2 - eps, y2: r.y2 - eps }
+  if (R.x2 <= R.x1 || R.y2 <= R.y1) return false
+  let t0 = 0, t1 = 1
+  const dx = b.x - a.x, dy = b.y - a.y
+  const p = [-dx, dx, -dy, dy]
+  const q = [a.x - R.x1, R.x2 - a.x, a.y - R.y1, R.y2 - a.y]
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(p[i]) < 1e-12) { if (q[i] < 0) return false; continue }
+    const t = q[i] / p[i]
+    if (p[i] < 0) { if (t > t1) return false; if (t > t0) t0 = t }
+    else { if (t < t0) return false; if (t < t1) t1 = t }
+  }
+  return t1 - t0 > 1e-6
 }
 
 /** Proper segment intersection — shared endpoints and touching don't count. */
@@ -198,6 +248,42 @@ export function placeOptimized(
     }
   }
 
+  // ── Logic rank: how far downstream each part sits ────────────────────────
+  // Longest path from a source, which is the column a schematic draws it in.
+  // Sources are parts nothing feeds — inputs, supplies — and outputs land at
+  // the deepest rank. Computed on the DIRECTED edge list, since the direction
+  // of connect(a.out, b.in) is exactly the signal direction.
+  const rank = new Map<string, number>()
+  {
+    const indeg = new Map<string, number>(ids.map((id) => [id, 0]))
+    const outs = new Map<string, string[]>(ids.map((id) => [id, []]))
+    for (const e of edges) {
+      if (e.fromId === e.toId || !indeg.has(e.fromId) || !indeg.has(e.toId)) continue
+      outs.get(e.fromId)!.push(e.toId)
+      indeg.set(e.toId, (indeg.get(e.toId) ?? 0) + 1)
+    }
+    const q = ids.filter((id) => (indeg.get(id) ?? 0) === 0)
+    for (const id of ids) rank.set(id, 0)
+    const queue = [...q]
+    // Kahn's algorithm. A cycle (every loop circuit is one) simply leaves the
+    // remaining parts at the rank they already have — a loop has no "flow"
+    // direction to respect, which is the right answer for it.
+    let guard = 0
+    while (queue.length && guard++ < ids.length * 4) {
+      const cur = queue.shift()!
+      for (const nb of outs.get(cur) ?? []) {
+        rank.set(nb, Math.max(rank.get(nb) ?? 0, (rank.get(cur) ?? 0) + 1))
+        indeg.set(nb, (indeg.get(nb) ?? 1) - 1)
+        if ((indeg.get(nb) ?? 0) === 0) queue.push(nb)
+      }
+    }
+  }
+  const maxRank = Math.max(1, ...[...rank.values()])
+  // Flow only means something when the graph actually has direction. A series
+  // loop is one cycle: every part ends at rank 0, and forcing a column order
+  // on it would fight the ring the circuit really is.
+  const hasFlow = maxRank > 1
+
   const maxW = Math.max(...nodes.map((x) => x.w), 96)
   const maxH = Math.max(...nodes.map((x) => x.h), 48)
   const stepX = Math.ceil((maxW + ROOMY) / GRID) * GRID
@@ -232,16 +318,63 @@ export function placeOptimized(
 
   const cost = (): number => {
     let len = 0
-    const lines: { p: Pt; q: Pt }[] = []
+    const lines: { p: Pt; q: Pt; a: number; b: number }[] = []
     for (const e of edgeEnds) {
       const { p, q } = endpoints(e)
       len += Math.abs(p.x - q.x) + Math.abs(p.y - q.y) // Manhattan: wires are orthogonal
-      lines.push({ p, q })
+      lines.push({ p, q, a: e.a, b: e.b })
     }
     let cross = 0
     for (let i = 0; i < lines.length; i++)
       for (let j = i + 1; j < lines.length; j++)
         if (crosses(lines[i].p, lines[i].q, lines[j].p, lines[j].q)) cross++
+
+    // Nets that cannot be drawn without crossing a body. The router can detour
+    // around an obstacle in open space, but if a pin FACES AWAY from the part
+    // it must reach, every path from it runs back across its own body — and no
+    // router can fix that. It is a placement defect, so it is priced here.
+    //
+    // Each net is charged per obstructed elbow rather than only when both fail:
+    // charging only the both-blocked case left the one-sided case free, which
+    // is exactly how a diode ended up wired from its far side, its whole 93px
+    // body spanned. Half weight when one elbow still works — the router will
+    // find it — full weight when neither does.
+    let blocked = 0
+    for (const ln of lines) {
+      const viaA = { x: ln.q.x, y: ln.p.y }
+      const viaB = { x: ln.p.x, y: ln.q.y }
+      let hitA = false, hitB = false
+      // Every body counts, the net's own two endpoints included: a wire that
+      // spans the component it connects to is exactly the defect being priced.
+      for (let k = 0; k < n; k++) {
+        const h = halfExtentWH(nodes[k])
+        const r = { x1: nodes[k].cx - h.x, y1: nodes[k].cy - h.y, x2: nodes[k].cx + h.x, y2: nodes[k].cy + h.y }
+        if (!hitA && (segInRect(ln.p, viaA, r) || segInRect(viaA, ln.q, r))) hitA = true
+        if (!hitB && (segInRect(ln.p, viaB, r) || segInRect(viaB, ln.q, r))) hitB = true
+        if (hitA && hitB) break
+      }
+      if (hitA && hitB) blocked += 1
+      else if (hitA || hitB) blocked += 0.5
+
+      // The straight run too. When a THIRD part sits squarely on the direct
+      // line between two pins, both elbows can still look clear while every
+      // real route has to cross it — which is how an ac-source ended up with a
+      // resistor→bjt wire straight through it.
+      let straight = false
+      for (let k = 0; k < n && !straight; k++) {
+        const h = halfExtentWH(nodes[k])
+        const r = { x1: nodes[k].cx - h.x, y1: nodes[k].cy - h.y, x2: nodes[k].cx + h.x, y2: nodes[k].cy + h.y }
+        if (segInRect(ln.p, ln.q, r)) straight = true
+      }
+      if (straight) blocked += 0.5
+    }
+
+    // Bends: a net needs none when its pins already line up. Counting the
+    // ratsnest's own dog-leg is a faithful proxy — the router draws a straight
+    // run for an aligned pair and an elbow otherwise.
+    let bends = 0
+    for (const ln of lines)
+      if (Math.abs(ln.p.x - ln.q.x) > 0.5 && Math.abs(ln.p.y - ln.q.y) > 0.5) bends++
 
     let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity
     for (const nd of nodes) {
@@ -250,7 +383,21 @@ export function placeOptimized(
       y1 = Math.min(y1, nd.cy - h.y); y2 = Math.max(y2, nd.cy + h.y)
     }
     const perim = 2 * (x2 - x1 + (y2 - y1))
-    return W_LEN * len + W_CROSS * cross + W_PERIM * perim
+
+    // Flow: each part belongs in the column its logic rank names. Charged on
+    // how far it sits from that column, so inputs stay at the left edge and
+    // outputs at the right instead of being scattered through the gate array.
+    let flow = 0
+    if (hasFlow) {
+      const span = Math.max(1, x2 - x1)
+      for (const nd of nodes) {
+        const want = x1 + (span * (rank.get(nd.id) ?? 0)) / maxRank
+        flow += Math.abs(nd.cx - want)
+      }
+    }
+
+    return W_LEN * len + W_CROSS * cross + W_BLOCKED * blocked + W_BEND * bends +
+      W_FLOW * flow + W_PERIM * perim
   }
 
   /** Legal iff nothing is closer than `gap`. A hard constraint, never a cost
@@ -273,7 +420,14 @@ export function placeOptimized(
   const pick = (m: number) => Math.min(m - 1, Math.floor(rnd() * m))
 
   let cur = cost()
-  const ITERS = Math.min(24000, 1400 * Math.max(4, n))
+  // Each candidate costs O(n²) (crossings, blocked nets, clearance), so the
+  // total is O(n²·ITERS) and a flat iteration count makes a big schematic
+  // crawl — a 25-part chain took a full second. Scale the budget down as n
+  // grows: large circuits get fewer, better-targeted moves rather than a
+  // proportionally larger search nobody waits for.
+  // ponytail: fine to ~60 parts. Beyond that, bucket the neighbour scans by
+  // grid cell so each candidate is O(n) instead.
+  const ITERS = Math.max(2000, Math.min(24000, Math.round(90000 / Math.max(1, n))))
   const T0 = Math.max(600, cur / Math.max(1, n))
 
   for (let step = 0; step < ITERS; step++) {
@@ -395,12 +549,28 @@ export class OrthoRouter {
   private lo: Pt
   private hi: Pt
 
+  /** Exact body rectangles, kept so a finished polyline can be checked against
+   *  real geometry rather than against the coarse grid it was searched on. */
+  readonly rects: { x1: number; y1: number; x2: number; y2: number }[]
+
   constructor(obstacles: { x1: number; y1: number; x2: number; y2: number }[], bounds: { lo: Pt; hi: Pt }) {
     this.lo = bounds.lo
     this.hi = bounds.hi
+    this.rects = obstacles.map((b) => ({ x1: b.x1, y1: b.y1, x2: b.x2, y2: b.y2 }))
+    // The SEARCH grid is padded so routes keep a little air around a body;
+    // `rects` above stays exact, because validating a pin stub against a padded
+    // box would condemn every legitimate connection.
+    const PAD = 8
+    obstacles = obstacles.map((b) => ({ x1: b.x1 - PAD, y1: b.y1 - PAD, x2: b.x2 + PAD, y2: b.y2 + PAD }))
+    // Round OUTWARD. Flooring the start and stopping at `<= x2` leaves the
+    // last partial cell of a body unblocked, which is a gap a wire will find.
     for (const b of obstacles) {
-      for (let x = Math.floor(b.x1 / GRID) * GRID; x <= b.x2; x += GRID) {
-        for (let y = Math.floor(b.y1 / GRID) * GRID; y <= b.y2; y += GRID) {
+      const x0 = Math.floor(b.x1 / GRID) * GRID
+      const y0 = Math.floor(b.y1 / GRID) * GRID
+      const x2 = Math.ceil(b.x2 / GRID) * GRID
+      const y2 = Math.ceil(b.y2 / GRID) * GRID
+      for (let x = x0; x <= x2; x += GRID) {
+        for (let y = y0; y <= y2; y += GRID) {
           this.blocked.add(`${x},${y}`)
         }
       }
@@ -412,17 +582,25 @@ export class OrthoRouter {
   }
 
   /** Route from a to b. Both are snapped to the grid; the caller re-attaches
-   *  the true pin coordinates at each end. Returns null if no path exists. */
-  route(a: Pt, b: Pt, exempt: { x1: number; y1: number; x2: number; y2: number }[] = []): Pt[] | null {
+   *  the true pin coordinates at each end. Returns null if no path exists.
+   *
+   *  `escapes` are the few cells around each endpoint's own stub that stay
+   *  passable. They are NOT whole bodies: exempting the endpoint components
+   *  entirely — which is what this used to do — let A* route straight through
+   *  the middle of a gate it merely connected to, because every cell of that
+   *  gate was passable. A wire must stop at the pin on the boundary, so only
+   *  the cells the stub itself occupies are opened. */
+  route(a: Pt, b: Pt, escapes: Pt[] = []): Pt[] | null {
     const snap = (p: Pt) => ({ x: Math.round(p.x / GRID) * GRID, y: Math.round(p.y / GRID) * GRID })
     const s = snap(a)
     const t = snap(b)
-    const inExempt = (x: number, y: number) =>
-      exempt.some((e) => x >= e.x1 - GRID && x <= e.x2 + GRID && y >= e.y1 - GRID && y <= e.y2 + GRID)
+    const open0 = new Set(escapes.map((p) => this.key(Math.round(p.x / GRID) * GRID, Math.round(p.y / GRID) * GRID)))
+    open0.add(this.key(s.x, s.y))
+    open0.add(this.key(t.x, t.y))
 
     const passable = (x: number, y: number) =>
       x >= this.lo.x && x <= this.hi.x && y >= this.lo.y && y <= this.hi.y &&
-      (!this.blocked.has(this.key(x, y)) || inExempt(x, y))
+      (!this.blocked.has(this.key(x, y)) || open0.has(this.key(x, y)))
 
     const h = (x: number, y: number) => Math.abs(x - t.x) + Math.abs(y - t.y)
     const startKey = this.key(s.x, s.y)
@@ -508,41 +686,264 @@ export function pinExit(o: SceneObject, t: Pt): Pt {
   return { x: Math.abs(x) < 1e-6 ? 0 : Math.sign(x), y: Math.abs(y) < 1e-6 ? 0 : Math.sign(y) }
 }
 
-/** Build the full orthogonal path for one edge, including pin stubs. */
+/** Build the full orthogonal path for one edge, including pin stubs.
+ *
+ *  The stub runs straight out along the pin's own normal, so the only part of
+ *  the path touching a body is that perpendicular exit. Everything past it is
+ *  routed by A* over cells that exclude every body. */
 export function routeEdge(
   router: OrthoRouter,
   objA: SceneObject,
   tA: Pt,
   objB: SceneObject,
   tB: Pt,
-  exempt: { x1: number; y1: number; x2: number; y2: number }[],
 ): Pt[] {
   const wA = terminalWorld(objA, tA)
   const wB = terminalWorld(objB, tB)
   const dA = pinExit(objA, tA)
   const dB = pinExit(objB, tB)
-  const STUB = GRID // leave the pin squarely before turning
-  const sA = { x: wA.x + dA.x * STUB, y: wA.y + dA.y * STUB }
-  const sB = { x: wB.x + dB.x * STUB, y: wB.y + dB.y * STUB }
 
-  const mid = router.route(sA, sB, exempt)
-  if (!mid) {
-    // No orthogonal path — fall back to an L, still at right angles.
-    return simplify([wA, sA, { x: sB.x, y: sA.y }, sB, wB])
+  // The stub must clear the component's own outline, not merely step one grid
+  // unit. A pin on an edge needs almost nothing; a pin INSIDE the outline
+  // (gnd, a transistor's collector) has to travel out past that edge first, or
+  // every later leg starts inside the body and grazes it. Measure the real
+  // distance to the exit edge and add a margin.
+  const clearOf = (o: SceneObject, w: Pt, d: Pt) => {
+    const h = halfExtent(o, o.rotation ?? 0)
+    const cx = o.position.x + o.size.w / 2
+    const cy = o.position.y + o.size.h / 2
+    const depth = d.x !== 0
+      ? (d.x > 0 ? cx + h.x - w.x : w.x - (cx - h.x))
+      : (d.y > 0 ? cy + h.y - w.y : w.y - (cy - h.y))
+    return Math.max(GRID, Math.ceil((depth + 6) / GRID) * GRID)
+  }
+  const offA = clearOf(objA, wA, dA)
+  const offB = clearOf(objB, wB, dB)
+  const sA = { x: wA.x + dA.x * offA, y: wA.y + dA.y * offA }
+  const sB = { x: wB.x + dB.x * offB, y: wB.y + dB.y * offB }
+
+  // Only the stub's own cells are opened — never the whole component.
+  const escapes = [sA, sB, { x: wA.x + dA.x * GRID * 2, y: wA.y + dA.y * GRID * 2 },
+                   { x: wB.x + dB.x * GRID * 2, y: wB.y + dB.y * GRID * 2 }]
+
+  // Straight beats bent: a wire whose two stubs already line up needs no
+  // corner at all. Try that, and the two L-shapes, before paying for A* —
+  // they are the shortest AND the least bent paths that exist.
+  const clean = (pts: Pt[]) => !hitsAnyBody(pts, router.rects, wA, wB)
+  // Aligned stubs join with no corner at all — but only when the straight run
+  // between them is actually clear. Two parts stacked with their LEFT pins on
+  // the same x have aligned stubs whose connecting line grazes both outlines,
+  // so this is a candidate to be validated, never a shortcut to be assumed.
+  const aligned =
+    Math.abs(sA.x - sB.x) < 0.5 || Math.abs(sA.y - sB.y) < 0.5
+      ? [wA, sA, sB, wB]
+      : null
+  if (aligned && clean(aligned)) return simplify(aligned)
+
+  // Aligned but grazing: two parts stacked with their LEFT pins on the same x
+  // give stubs that line up, yet the straight run between them skims both
+  // outlines. Step the shared lane outward until it is clear — still only two
+  // bends, and far better than the long way round.
+  if (aligned) {
+    const vertical = Math.abs(sA.x - sB.x) < 0.5
+    for (let k = 1; k <= 10; k++) {
+      for (const s of [1, -1]) {
+        const off = s * k * GRID
+        const cand = vertical
+          ? [wA, sA, { x: sA.x + off, y: sA.y }, { x: sA.x + off, y: sB.y }, sB, wB]
+          : [wA, sA, { x: sA.x, y: sA.y + off }, { x: sB.x, y: sA.y + off }, sB, wB]
+        if (clean(cand)) return simplify(cand)
+      }
+    }
   }
 
-  // The A* path runs between GRID CELLS, but a pin can sit off-grid (gate
-  // inputs are at y = i/(n+1), so a 3-input gate's pins never land on a grid
-  // line). Joining the stub straight to the first cell would cut a diagonal,
-  // so bridge each end with an L that turns along the stub's own axis.
-  const joinStart = (stub: Pt, cell: Pt, d: Pt): Pt[] =>
-    Math.abs(stub.x - cell.x) < 0.5 || Math.abs(stub.y - cell.y) < 0.5
-      ? [] // already aligned — a straight run, no jog needed
-      : d.x !== 0
-        ? [{ x: cell.x, y: stub.y }] // left/right pin: run out, then turn
-        : [{ x: stub.x, y: cell.y }] // top/bottom pin: run up/down, then turn
+  // Turn along the stub's own axis first, so the leg leaving a pin continues
+  // straight out of the body instead of immediately cutting back across it.
+  const elbows = dA.x !== 0
+    ? [[wA, sA, { x: sB.x, y: sA.y }, sB, wB], [wA, sA, { x: sA.x, y: sB.y }, sB, wB]]
+    : [[wA, sA, { x: sA.x, y: sB.y }, sB, wB], [wA, sA, { x: sB.x, y: sA.y }, sB, wB]]
+  for (const e of elbows) if (clean(e)) return simplify(e)
 
-  const head = joinStart(sA, mid[0], dA)
-  const tail = joinStart(sB, mid[mid.length - 1], dB)
-  return simplify([wA, sA, ...head, ...mid, ...tail.reverse(), sB, wB])
+  // Z-routes: leave both pins along their own normals, meet on a shared lane.
+  // These are the shapes a human draws, and they clear an obstacle the plain
+  // elbows cannot. Two bends, so they are tried before A*, which bends freely.
+  const zs: Pt[][] = []
+  for (let k = 1; k <= 14; k++) {
+    const d = k * GRID
+    if (dA.x !== 0 && dB.x !== 0) {
+      for (const lane of [Math.max(sA.x, sB.x) + d, Math.min(sA.x, sB.x) - d, (sA.x + sB.x) / 2]) {
+        zs.push([wA, sA, { x: lane, y: sA.y }, { x: lane, y: sB.y }, sB, wB])
+      }
+    } else if (dA.y !== 0 && dB.y !== 0) {
+      for (const lane of [Math.max(sA.y, sB.y) + d, Math.min(sA.y, sB.y) - d, (sA.y + sB.y) / 2]) {
+        zs.push([wA, sA, { x: sA.x, y: lane }, { x: sB.x, y: lane }, sB, wB])
+      }
+    } else {
+      // Mixed orientation: run out from A, along, then into B's axis.
+      const via = dA.x !== 0 ? { x: sB.x, y: sA.y } : { x: sA.x, y: sB.y }
+      zs.push([wA, sA, via, sB, wB])
+      const off = dA.x !== 0
+        ? [{ x: sA.x + Math.sign(dA.x) * d, y: sA.y }, { x: sA.x + Math.sign(dA.x) * d, y: sB.y }]
+        : [{ x: sA.x, y: sA.y + Math.sign(dA.y) * d }, { x: sB.x, y: sA.y + Math.sign(dA.y) * d }]
+      zs.push([wA, sA, ...off, sB, wB])
+    }
+  }
+  for (const z of zs) if (clean(z)) return simplify(z)
+
+  const mid = router.route(sA, sB, escapes)
+  if (mid) {
+    // The A* path runs between GRID CELLS, but a pin can sit off-grid (gate
+    // inputs are at y = i/(n+1), so a 3-input gate's pins never land on a grid
+    // line). Joining the stub straight to the first cell would cut a diagonal,
+    // so bridge each end with an L that turns along the stub's own axis.
+    const join = (stub: Pt, cell: Pt, d: Pt): Pt[] =>
+      Math.abs(stub.x - cell.x) < 0.5 || Math.abs(stub.y - cell.y) < 0.5
+        ? []
+        : d.x !== 0
+          ? [{ x: cell.x, y: stub.y }]
+          : [{ x: stub.x, y: cell.y }]
+    const head = join(sA, mid[0], dA)
+    const tail = join(sB, mid[mid.length - 1], dB)
+    const full = [wA, sA, ...head, ...mid, ...tail.reverse(), sB, wB]
+    if (clean(full)) return simplify(full)
+    // The jogs are what broke it — A*'s own cells are body-free by construction.
+    const bare = [wA, sA, ...mid, sB, wB]
+    if (clean(bare)) return simplify(bare)
+
+    // The jog at one end crosses something. Re-enter the grid one cell further
+    // along so the join has room to turn outside any body.
+    for (let trim = 1; trim <= 3 && mid.length > trim * 2; trim++) {
+      const inner = mid.slice(trim, mid.length - trim)
+      if (inner.length < 2) break
+      const h2 = join(sA, inner[0], dA)
+      const t2 = join(sB, inner[inner.length - 1], dB)
+      const cand = [wA, sA, ...h2, ...inner, ...t2.reverse(), sB, wB]
+      if (clean(cand)) return simplify(cand)
+    }
+    return simplify(full)
+  }
+
+  // Nothing clean exists (a pin boxed in on all sides). Take the elbow that
+  // turns along the stub's axis: at least it leaves the pin correctly.
+  return simplify(elbows[0])
+}
+
+/** Route from an arbitrary POINT (a tap on an existing net) to a pin.
+ *
+ *  The junction end has no pin normal of its own — it is a branch off a wire
+ *  already drawn — so only the destination gets a stub. Used for fan-out: the
+ *  second connection leaving a pin taps its sibling instead of running its own
+ *  long way round, which is what a junction dot means on a real schematic. */
+export function routeEdgeFrom(
+  router: OrthoRouter,
+  from: Pt,
+  objB: SceneObject,
+  tB: Pt,
+): Pt[] {
+  const wB = terminalWorld(objB, tB)
+  const dB = pinExit(objB, tB)
+  const h = halfExtent(objB, objB.rotation ?? 0)
+  const cx = objB.position.x + objB.size.w / 2
+  const cy = objB.position.y + objB.size.h / 2
+  const depth = dB.x !== 0
+    ? (dB.x > 0 ? cx + h.x - wB.x : wB.x - (cx - h.x))
+    : (dB.y > 0 ? cy + h.y - wB.y : wB.y - (cy - h.y))
+  const off = Math.max(GRID, Math.ceil((depth + 6) / GRID) * GRID)
+  const sB = { x: wB.x + dB.x * off, y: wB.y + dB.y * off }
+
+  const clean = (pts: Pt[]) => !hitsAnyBody(pts, router.rects, from, wB)
+
+  // Straight, then the two elbows — turning into the pin's own axis last.
+  if (Math.abs(from.x - sB.x) < 0.5 || Math.abs(from.y - sB.y) < 0.5) {
+    const c = [from, sB, wB]
+    if (clean(c)) return simplify(c)
+  }
+  const elbows = dB.x !== 0
+    ? [[from, { x: from.x, y: sB.y }, sB, wB], [from, { x: sB.x, y: from.y }, sB, wB]]
+    : [[from, { x: sB.x, y: from.y }, sB, wB], [from, { x: from.x, y: sB.y }, sB, wB]]
+  for (const e of elbows) if (clean(e)) return simplify(e)
+
+  const mid = router.route(from, sB, [sB])
+  if (mid) {
+    const full = [from, ...mid, sB, wB]
+    if (clean(full)) return simplify(full)
+  }
+  return simplify(elbows[0])
+}
+
+/** Does any leg of this polyline cut through a body?
+ *
+ *  Not every entry is a violation. Some symbols put their terminal INSIDE the
+ *  outline — `gnd` sits at y=0.12, because the glyph hangs below its connection
+ *  point — so a wire physically must enter that box to reach the pin. What must
+ *  never happen is a wire TRAVERSING a body: crossing it, or running along it
+ *  to reach something else.
+ *
+ *  The rule that separates the two: the leg touching a terminal may enter, but
+ *  only straight along the pin's own normal and only as far as the pin. Every
+ *  other leg must stay clear. */
+export function hitsAnyBody(
+  pts: Pt[],
+  rects: { x1: number; y1: number; x2: number; y2: number }[],
+  wA: Pt,
+  wB: Pt,
+): boolean {
+  const terminalOf = (p: Pt): Pt | null =>
+    Math.hypot(p.x - wA.x, p.y - wA.y) < 0.5 ? wA
+      : Math.hypot(p.x - wB.x, p.y - wB.y) < 0.5 ? wB : null
+
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1]
+    const b = pts[i]
+    for (const r of rects) {
+      // Zero inset — the body's exact outline. Swept at -2/0/0.5/1.5: a
+      // positive inset lets a wire slip along inside the border (6 wires
+      // through bodies), while growing the box by 2px made every route detour
+      // around neighbours it was merely passing, doubling crossings (22 vs 10)
+      // and adding 45% more wire for no readability gain. Exactly 0 rejects
+      // every genuine crossing and permits a wire to run flush alongside.
+      if (!segInRect(a, b, r, 0)) continue
+
+      // A leg that ENDS on one of this net's own terminals is that terminal's
+      // approach. Some symbols place the pin INSIDE the outline (gnd sits at
+      // y=0.12, the bjt's collector ~6px in), so reaching it necessarily
+      // enters the box — but only just. The approach is legitimate exactly
+      // while the part of it inside the body is no deeper than the pin itself,
+      // measured from the edge it entered by. Anything deeper is traversal.
+      //
+      // The exemption belongs ONLY to the body that actually holds that
+      // terminal. Applied to any rectangle it excuses a leg for crossing an
+      // unrelated part it merely passes through — which let a resistor→bjt
+      // wire run 48px straight through an ac-source purely because its far end
+      // happened to sit on a pin.
+      const term = terminalOf(a) ?? terminalOf(b)
+      const ownsTerm = term !== null &&
+        term.x >= r.x1 - 0.5 && term.x <= r.x2 + 0.5 &&
+        term.y >= r.y1 - 0.5 && term.y <= r.y2 + 0.5
+      if (term && ownsTerm) {
+        const depth = Math.min(
+          Math.abs(term.x - r.x1), Math.abs(r.x2 - term.x),
+          Math.abs(term.y - r.y1), Math.abs(r.y2 - term.y),
+        )
+        if (insideRunLength(a, b, r) <= depth + 2) continue
+      }
+      return true
+    }
+  }
+  return false
+}
+
+/** How much of this segment lies inside the rectangle. */
+function insideRunLength(a: Pt, b: Pt, r: { x1: number; y1: number; x2: number; y2: number }): number {
+  let t0 = 0, t1 = 1
+  const dx = b.x - a.x, dy = b.y - a.y
+  const p = [-dx, dx, -dy, dy]
+  const q = [a.x - r.x1, r.x2 - a.x, a.y - r.y1, r.y2 - a.y]
+  for (let i = 0; i < 4; i++) {
+    if (Math.abs(p[i]) < 1e-12) { if (q[i] < 0) return 0; continue }
+    const t = q[i] / p[i]
+    if (p[i] < 0) { if (t > t1) return 0; if (t > t0) t0 = t }
+    else { if (t < t0) return 0; if (t < t1) t1 = t }
+  }
+  return Math.max(0, t1 - t0) * Math.hypot(dx, dy)
 }

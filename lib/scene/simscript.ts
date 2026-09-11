@@ -6,7 +6,8 @@ import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
 import { planPlacement, unionRect, type Bounds } from './auto-layout'
 import {
-  placeOptimized, OrthoRouter, routeEdge, halfExtent, type Edge as LayoutEdge,
+  placeOptimized, OrthoRouter, routeEdge, routeEdgeFrom, halfExtent, hitsAnyBody,
+  type Edge as LayoutEdge, type Pt,
 } from './circuit-layout'
 import { latexToExpr } from '@/lib/formula/latex'
 import {
@@ -920,11 +921,14 @@ export function executeSimScript(
     const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
     const bodies = Object.values(store().pages[pageId]?.objects ?? {})
       .filter(o => !excludeKinds.has(o.geometry.kind))
+    // TRUE body rectangles. The search grid is padded below so routes keep a
+    // little air, but validation must use the real outline: a pin sits ON its
+    // body's edge, so against a padded box every legitimate stub looks like a
+    // wire entering a component and every clean candidate gets rejected.
     const boxOf = (o: SceneObject) => {
       const cx = o.position.x + o.size.w / 2, cy = o.position.y + o.size.h / 2
       const h = halfExtent(o, o.rotation ?? 0)
-      const PAD = 10
-      return { x1: cx - h.x - PAD, y1: cy - h.y - PAD, x2: cx + h.x + PAD, y2: cy + h.y + PAD, id: o.id }
+      return { x1: cx - h.x, y1: cy - h.y, x2: cx + h.x, y2: cy + h.y, id: o.id }
     }
     const boxes = bodies.map(boxOf)
 
@@ -940,8 +944,32 @@ export function executeSimScript(
       // as the zero-length stub connect() drew it, i.e. electrically absent,
       // since the netlist unions by coincident world points. Match the anchors
       // too, and consume each wire once.
+      // ── Net-aware ordering ────────────────────────────────────────────
+      // Several connect()s can leave the SAME pin. Routed independently, each
+      // takes its own long way round and the sheet turns into a tangle — one
+      // full-adder input fanned out as a 112px wire and a 712px one that
+      // looped around the whole drawing. A real schematic branches: the
+      // second wire leaves the FIRST one at a junction dot.
+      //
+      // Route the shortest wire of each fan-out first, then let its siblings
+      // start from the nearest point on what is already drawn. Sorting by
+      // straight-line span is what makes "first" mean "the short one".
+      const spanOf = (e: typeof schematicEdges[number]) => {
+        const a = getObj(e.fromId), b = getObj(e.toId)
+        if (!a || !b) return 0
+        const ta = terminalsOf(a), tb = terminalsOf(b)
+        const pa = terminalWorld(a, ta[Math.min(terminalIndexFor(a, e.fromAnchor), ta.length - 1)] ?? { x: 1, y: 0.5 })
+        const pb = terminalWorld(b, tb[Math.min(terminalIndexFor(b, e.toAnchor), tb.length - 1)] ?? { x: 0, y: 0.5 })
+        return Math.abs(pa.x - pb.x) + Math.abs(pa.y - pb.y)
+      }
+      const ordered = [...schematicEdges].sort((p, q) => spanOf(p) - spanOf(q))
+
+      // Points already carrying this net, keyed by source pin.
+      const netPath = new Map<string, Pt[]>()
+      const pinKey = (p: Pt) => `${Math.round(p.x)},${Math.round(p.y)}`
+
       const claimed = new Set<string>()
-      for (const e of schematicEdges) {
+      for (const e of ordered) {
         const wireObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o =>
           o.geometry.kind === 'line' && !claimed.has(o.id) &&
           o.behaviors.some(b =>
@@ -964,9 +992,45 @@ export function executeSimScript(
         const tA = termsA[Math.min(Math.max(0, idxA), termsA.length - 1)] ?? { x: 1, y: 0.5 }
         const tB = termsB[Math.min(Math.max(0, idxB), termsB.length - 1)] ?? { x: 0, y: 0.5 }
 
-        // A route may legally enter the two bodies it terminates on.
-        const exempt = boxes.filter(b => b.id === e.fromId || b.id === e.toId)
-        const path = routeEdge(router, objA, tA, objB, tB, exempt)
+        // No body is exempt — not even the two this wire terminates on. A wire
+        // stops at the pin on the boundary; routeEdge opens only the stub cells.
+        let path = routeEdge(router, objA, tA, objB, tB)
+
+        // If this net is already on the sheet, tap the nearest point of it
+        // instead of running a second long wire from the same pin. The tap
+        // point is ON the existing polyline, so the netlist — which unions by
+        // coincident world points — still sees one electrical node.
+        const srcKey = pinKey(terminalWorld(objA, tA))
+        const drawn = netPath.get(srcKey)
+        if (drawn && drawn.length > 1) {
+          const end = path[path.length - 1]
+          let best: Pt | null = null
+          let bestD = Infinity
+          for (let i = 1; i < drawn.length; i++) {
+            // Nearest point on this segment, clamped to it (segments are
+            // orthogonal, so this is just a clamp on one axis).
+            const a = drawn[i - 1], b = drawn[i]
+            const vx = b.x - a.x, vy = b.y - a.y
+            const L2 = vx * vx + vy * vy
+            const t = L2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((end.x - a.x) * vx + (end.y - a.y) * vy) / L2))
+            const q = { x: a.x + vx * t, y: a.y + vy * t }
+            // A junction must sit in clear space. Tapping a point that lies
+            // inside a component puts the dot under the symbol and forces the
+            // branch to start from within a body.
+            if (boxes.some(bx => q.x > bx.x1 && q.x < bx.x2 && q.y > bx.y1 && q.y < bx.y2)) continue
+            const d = Math.abs(q.x - end.x) + Math.abs(q.y - end.y)
+            if (d < bestD) { bestD = d; best = q }
+          }
+          if (best) {
+            const tap = routeEdgeFrom(router, best, objB, tB)
+            const tapLen = tap.slice(1).reduce((acc, p, i) => acc + Math.abs(p.x - tap[i].x) + Math.abs(p.y - tap[i].y), 0)
+            const runLen = path.slice(1).reduce((acc, p, i) => acc + Math.abs(p.x - path[i].x) + Math.abs(p.y - path[i].y), 0)
+            // Take the branch only when it is both shorter and clean: a tap
+            // that has to cut through a body is worse than the long way round.
+            if (tapLen < runLen && !hitsAnyBody(tap, boxes, tap[0], tap[tap.length - 1])) path = tap
+          }
+        }
+        if (!netPath.has(srcKey)) netPath.set(srcKey, path)
 
         const minX = Math.min(...path.map(p => p.x)), minY = Math.min(...path.map(p => p.y))
         const maxX = Math.max(...path.map(p => p.x)), maxY = Math.max(...path.map(p => p.y))
