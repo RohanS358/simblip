@@ -163,9 +163,11 @@ export interface PageDoc {
  *  Word-file/.docx role — exports to both .pdf and .docx), a presentation
  *  (same sheet-of-SceneObjects engine as doc, laid out as a slide deck +
  *  Present mode instead of a scrolling document), an uploaded PDF you read
- *  and annotate, an uploaded image you view and annotate, or an editable
- *  spreadsheet. Older pages have no kind → board. */
-export type PageKind = 'board' | 'doc' | 'pdf' | 'image' | 'xlsx' | 'pptx' | 'web'
+ *  and annotate, an uploaded image you view and annotate, an editable
+ *  spreadsheet, or a course lesson (authored notes with live figures, read
+ *  rather than edited — see lib/store/course.ts). Older pages have no
+ *  kind → board. */
+export type PageKind = 'board' | 'doc' | 'pdf' | 'image' | 'xlsx' | 'pptx' | 'web' | 'course'
 
 /** The notebook/folder tree — Notebook -> Section -> Page used to be a fixed
  *  2-level hierarchy; it's now arbitrary-depth folders that can contain

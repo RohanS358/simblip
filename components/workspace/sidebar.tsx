@@ -47,6 +47,7 @@ import { UploadsPanel } from './uploads-panel'
 import { LibraryPanel } from './library-panel'
 import { InspectorPane } from './inspector'
 import { TocPanel } from './toc-panel'
+import { CoursesPanel } from './courses-panel'
 import { cn } from '@/lib/utils'
 
 // Rail thickness comes from railNav's own classes (w-[52px] column on
@@ -174,8 +175,14 @@ export function Sidebar({
   // document surface that the sidebar must not cover. See the effect below.
   const floats = activeKind === 'board'
 
+  // A course lesson's components live on per-figure scratch pages, so double-
+  // clicking one points Properties at that page the same way a doc points it
+  // at the focused sheet.
   const contentPageId =
-    activeKind === 'doc' || activeKind === 'pptx' || (activeKind === 'pdf' && pdfToolsActive)
+    activeKind === 'doc' ||
+    activeKind === 'pptx' ||
+    activeKind === 'course' ||
+    (activeKind === 'pdf' && pdfToolsActive)
       ? (activeSheetId ?? activePageId)
       : activePageId
 
@@ -290,6 +297,7 @@ export function Sidebar({
       {activeSection === 'components' && <Palette />}
       {activeSection === 'tools' && <ToolsPanel />}
       {activeSection === 'toc' && <TocPanel />}
+      {activeSection === 'courses' && <CoursesPanel />}
       {activeSection === 'uploads' && (
         <UploadsPanel inline open pageId={activePageId} />
       )}

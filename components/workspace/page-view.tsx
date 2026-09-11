@@ -12,6 +12,7 @@ import { ImageView } from './image-view'
 import { XlsxView } from './xlsx-view'
 import { PresentationView } from './presentation-view'
 import { WebView } from './web-view'
+import { CourseView } from './course-view'
 
 export function PageView({ pageId }: { pageId: string }) {
   const kind = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId)?.pageKind ?? 'board')
@@ -21,6 +22,7 @@ export function PageView({ pageId }: { pageId: string }) {
   if (kind === 'xlsx') return <XlsxView key={pageId} pageId={pageId} />
   if (kind === 'pptx') return <PresentationView key={pageId} pageId={pageId} />
   if (kind === 'web') return <WebView key={pageId} pageId={pageId} />
+  if (kind === 'course') return <CourseView key={pageId} pageId={pageId} />
   return <InfiniteCanvas key={pageId} pageId={pageId} />
 }
 

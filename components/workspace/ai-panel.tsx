@@ -51,6 +51,7 @@ import { findPageMeta, useWorkspaceStore } from '@/lib/store/workspace'
 import { executeSimScript } from '@/lib/scene/simscript'
 import { tokenizeSimScript, type TokType } from '@/lib/scene/simscript-diagnostics'
 import { useAiChat, type AiTurn, type ChatAttachment } from '@/lib/store/ai-chat'
+import { useAiReference } from '@/lib/store/ai-reference'
 import { ACCEPTED_TYPES, extractFileText, isSupported, withAttachments } from '@/lib/ai/attachments'
 import { buildDigest, describeSurface } from '@/lib/ai/page-context'
 import { verifyScene } from '@/lib/scene/verify-scene'
@@ -139,6 +140,13 @@ const SUGGESTIONS = [
   'A block sliding down a ramp with friction',
 ]
 
+/** A quoted passage's chip label. The full text still reaches the model in
+ *  the attachment body — this is only what the chip shows, so it has to fit
+ *  one line of a 260px panel. */
+function ellipsize(text: string, max = 34): string {
+  return text.length > max ? text.slice(0, max).trimEnd() + '…' : text
+}
+
 /** Always-available actions under the composer, distinct from SUGGESTIONS
  *  above: those are full example prompts shown only on an empty thread, these
  *  are short verbs that stay reachable mid-conversation. Each is a prompt
@@ -203,6 +211,20 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
    *  it is never secretly reading the page. */
   const [useContext, setUseContext] = useState(true)
   const selection = useDocStore((s) => s.selection)
+
+  /** A passage the reader selected in a course lesson and sent here with
+   *  "Ask about this". It arrives as an ordinary attachment, so the composer,
+   *  the request builder and the saved session all handle it as they would a
+   *  dropped file — quoting needed no new plumbing, only a new source. */
+  const pendingRef = useAiReference((s) => s.pending)
+  useEffect(() => {
+    if (!pendingRef) return
+    setAttachments((prev) => [
+      ...prev,
+      { name: `“${ellipsize(pendingRef.text)}”`, text: `From ${pendingRef.source}:\n\n${pendingRef.text}` },
+    ])
+    useAiReference.getState().set(null)
+  }, [pendingRef])
   const docPages = useDocStore((s) => s.pages)
   /** A slide, a doc sheet and a board constrain placement differently. */
   const pageKind = useWorkspaceStore(

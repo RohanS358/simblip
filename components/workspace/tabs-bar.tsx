@@ -4,7 +4,7 @@
 // Click focuses, × closes, the split icon adds the tab as a new pane (up to 4).
 // Scrolls horizontally when crowded, so it degrades gracefully on tablets.
 
-import { Columns2, FileText, Layout, BookOpen, Image as ImageIcon, Sheet, Presentation, Globe, X } from 'lucide-react'
+import { Columns2, FileText, Layout, BookOpen, Image as ImageIcon, Sheet, Presentation, Globe, GraduationCap, X } from 'lucide-react'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import type { PageKind } from '@/lib/scene/types'
 import { PageControlsMenu } from './page-controls-menu'
@@ -25,6 +25,7 @@ export const KIND_ICON: Record<PageKind, typeof Layout> = {
   xlsx: Sheet,
   pptx: Presentation,
   web: Globe,
+  course: GraduationCap,
 }
 
 export function TabsBar({

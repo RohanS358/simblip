@@ -10,7 +10,7 @@
 
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { BookOpen, BrainCircuit, FolderUp, LibraryBig, Shapes, SlidersHorizontal, TableOfContents, Wrench } from 'lucide-react'
+import { BookOpen, BrainCircuit, FolderUp, GraduationCap, LibraryBig, Shapes, SlidersHorizontal, TableOfContents, Wrench } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 
@@ -23,6 +23,7 @@ export type SidebarSectionId =
   | 'library'
   | 'properties'
   | 'toc'
+  | 'courses'
 
 export interface SidebarSectionMeta {
   id: SidebarSectionId
@@ -38,6 +39,11 @@ export const SIDEBAR_SECTIONS: SidebarSectionMeta[] = [
   { id: 'components', label: 'Components', icon: Shapes },
   { id: 'tools', label: 'Tools', icon: Wrench },
   { id: 'uploads', label: 'Uploads', icon: FolderUp },
+  // Lessons the institution granted this student. Always present, unlike
+  // Contents: "where are my courses" must have an answer even when the
+  // answer is "none yet" — a rail slot that vanishes when empty is a rail
+  // slot the student never learns exists.
+  { id: 'courses', label: 'Courses', icon: GraduationCap },
   { id: 'library', label: 'Library', icon: LibraryBig },
   { id: 'properties', label: 'Properties', icon: SlidersHorizontal },
   // Only rendered while the active view actually published an outline (see
