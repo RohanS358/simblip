@@ -17,6 +17,7 @@
 // they recover from "invalid anchor".
 
 import { KNOWN_KINDS } from './simscript-corpus'
+import { parseDiagram } from '@/lib/scene/diagram'
 import { BEHAVIOR_SPECS } from '@/lib/behaviors/registry'
 import {
   ANCHOR_INDEX, CHANNELS_BY_SYMBOL, DEFAULT_SYMBOL_CHANNELS, BODY_CHANNELS,
@@ -206,6 +207,47 @@ export function paramsOf(kind: string): string[] {
     for (const p of BEHAVIOR_SPECS.find((sp) => sp.type === b)?.params ?? []) out.add(p.name)
   }
   return [...out]
+}
+
+/** Every `diagram("…")` source written as a single string literal, unescaped.
+ *
+ *  Deliberately narrow: a literal is matched only when it is the first
+ *  argument and closes cleanly. Anything else (concatenation, a variable, a
+ *  template with substitutions) is skipped rather than guessed at — a linter
+ *  that reports on a source it reconstructed wrongly is worse than one that
+ *  stays quiet and lets the runtime speak. */
+function diagramLiterals(code: string): string[] {
+  const out: string[] = []
+  const re = /diagram\s*\(\s*(['"`])/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(code)) !== null) {
+    const quote = m[1]
+    let i = re.lastIndex
+    let raw = ''
+    let closed = false
+    while (i < code.length) {
+      const ch = code[i]
+      if (ch === '\\') {
+        raw += code[i] + code[i + 1]
+        i += 2
+        continue
+      }
+      if (ch === quote) { closed = true; i++; break }
+      raw += ch
+      i++
+    }
+    if (!closed) continue
+    // Only a complete call — a concatenated source continues with `+`.
+    const after = code.slice(i).match(/^\s*([,)])/)
+    if (!after) continue
+    out.push(
+      raw
+        .replace(/\\n/g, '\n')
+        .replace(/\\t/g, '\t')
+        .replace(/\\(['"`\\])/g, '$1')
+    )
+  }
+  return out
 }
 
 export function lintSimScript(source: string): LintResult {
@@ -578,6 +620,20 @@ export function lintSimScript(source: string): LintResult {
       'nothing in this scene supports the bodies — they fall off-canvas in about a second. ' +
         'Add create("ground", { x, y, width }) below them unless free fall is the point.'
     )
+  }
+
+  // 7. diagram() sources.
+  //
+  // A diagram is a whole language inside a string, so nothing above sees it:
+  // a mistyped edge or a stray line reads as a perfectly valid string literal
+  // and only fails when the script runs. Parse it here with the SAME parser
+  // the runtime uses, so a broken diagram is named before it is executed.
+  //
+  // Only a plain literal is checkable — a source built by concatenation or a
+  // variable is left to the runtime, which throws with the same message.
+  for (const src of diagramLiterals(code)) {
+    const ast = parseDiagram(src)
+    for (const e of ast.errors) errors.push(`diagram(): ${e}`)
   }
 
   if (/\bawait\b|\basync\b/.test(code)) warnings.push('SimScript is synchronous — async/await does nothing')

@@ -1064,7 +1064,10 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           fill="none"
           stroke={render === 'measurement' ? 'var(--accent-rose)' : isWire ? 'var(--accent-amber)' : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : stroke}
           strokeWidth={render === 'measurement' ? 1.5 : isWire ? 2.5 : isElbowConnector ? 2.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : 2}
-          strokeDasharray={render === 'measurement' ? '5 4' : undefined}
+          // A dashed connector is how a diagram draws an implied or optional
+          // relation (`a --> b` in lib/scene/diagram.ts) — the one line style
+          // the connector had no way to express.
+          strokeDasharray={render === 'measurement' ? '5 4' : object.metadata.dash ? '7 5' : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
           markerStart={isElbowConnector && object.metadata.startCap === 'arrow' ? `url(#arrow-start-${object.id})` : undefined}

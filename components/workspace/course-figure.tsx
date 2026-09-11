@@ -24,7 +24,7 @@
 // it is part of the text, the way an equation is. The caption is a line of
 // prose above it, not a card around it.
 
-import { memo, useEffect, useMemo, useState } from 'react'
+import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore } from '@/lib/store/workspace'
 import { openProperties } from '@/lib/store/sidebar-sections'
@@ -196,7 +196,16 @@ function FigureTransport({ scratchId }: { scratchId: string }) {
 }
 
 /** A spatial picture: objects keep their relative positions, scaled DOWN to fit
- *  a narrow column but never up past the size the author drew. */
+ *  a narrow column but never up past the size the author drew.
+ *
+ *  The scale is MEASURED. It used to be CSS-only — `scale: calc(100cqw / 900)`
+ *  on a container-query box — which looks right and does nothing: `100cqw` is
+ *  a length, dividing it by a number leaves a length, and `scale` takes a
+ *  number, so the browser dropped the declaration and every figure rendered at
+ *  full size. Circuits hid it (they are drawn about a column wide already);
+ *  the first wide block diagram ran straight off the page and over the
+ *  paragraph beside it. CSS cannot express "length ÷ length", so this is one
+ *  ResizeObserver. */
 function SpatialBlock({ objects, pageId }: { objects: SceneObject[]; pageId: string }) {
   const box = useMemo(() => {
     const xs = objects.flatMap((o) => [o.position.x, o.position.x + o.size.w])
@@ -210,14 +219,31 @@ function SpatialBlock({ objects, pageId }: { objects: SceneObject[]; pageId: str
     }
   }, [objects])
 
+  const hostRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = hostRef.current
+    if (!el) return
+    const fit = () => {
+      const w = el.clientWidth
+      // Never up: a two-object figure blown up to the column width would be
+      // a different drawing from the one the author sized.
+      if (w > 0) setScale(Math.min(1, w / box.w))
+    }
+    fit()
+    const ro = new ResizeObserver(fit)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [box.w])
+
   if (!objects.length) return null
 
   return (
-    <div className="w-full" style={{ maxWidth: box.w, containerType: 'inline-size' }}>
-      <div className="relative w-full" style={{ aspectRatio: `${box.w} / ${box.h}` }}>
+    <div ref={hostRef} className="w-full" style={{ maxWidth: box.w }}>
+      <div className="relative w-full" style={{ height: box.h * scale }}>
         <div
           className="absolute left-0 top-0 origin-top-left"
-          style={{ width: box.w, height: box.h, scale: `calc(100cqw / ${box.w})` }}
+          style={{ width: box.w, height: box.h, scale: String(scale) }}
         >
           {objects.map((o) => (
             <div
@@ -312,10 +338,19 @@ export const CourseFigureBlock = memo(function CourseFigureBlock({
     return out
   }, [visible])
 
+  // A drawing wider than a shared column gets the whole row (course-view.tsx
+  // reads this with :has). Measured from the objects themselves rather than
+  // declared by the author: the layout engine decides how wide a diagram is,
+  // and asking an author to predict that is asking them to get it wrong.
+  const wide = useMemo(() => {
+    const xs = visible.filter((o) => isSpatial(o)).flatMap((o) => [o.position.x, o.position.x + o.size.w])
+    return xs.length ? Math.max(...xs) - Math.min(...xs) > 620 : false
+  }, [visible])
+
   return (
     // No card, no border: the caption is a line of prose and the components sit
     // in the text, the way a displayed equation does.
-    <div className="my-6">
+    <div className="my-6" {...(wide ? { 'data-wide': '' } : {})}>
       <p className="m-0 mb-2 text-ui-xs font-semibold text-muted-foreground">{fig.caption}</p>
 
       {locked ? (

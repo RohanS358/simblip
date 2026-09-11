@@ -139,6 +139,19 @@ export function applyKindProps(obj: SceneObject, gk: GeometryKind, props: Record
     if (Array.isArray(props.points)) obj.geometry.points = props.points
   }
 
+  // A shape's centred label. geometry.tsx has rendered one for rect, circle
+  // and polygon all along (ShapeTextOverlay, driven by `parameters.text`), but
+  // nothing could SET it from a script: a rect's factory declares no `text`
+  // parameter, so the generic pass below — which only writes keys the factory
+  // already declared — dropped it. Every scripted block diagram therefore had
+  // to float a separate text object over each box and hope the two stayed
+  // together. `label` is accepted as a synonym, since that is what a diagram
+  // author calls it.
+  if (gk === 'rect' || gk === 'circle' || gk === 'polygon') {
+    const label = props.text ?? props.label
+    if (label !== undefined) setStr('text', label)
+  }
+
   // Anything left that the factory declared as a parameter is a live value the
   // user is entitled to set by name (slider min/max/step/label/target*, button
   // actionType, trigger condition/threshold, truthtable inputs/outputs…).

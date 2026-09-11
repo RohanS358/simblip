@@ -267,21 +267,40 @@ use and why, carry the units, and end on what the result means physically (a
 component that would char, a value that is not a standard part, a divider that
 sags under load).
 
-### Block diagrams
+### Block diagrams — `diagram()`
 
 For structure, flow, or classification — where a simulation would say nothing —
-build the diagram from real canvas objects, not an image:
+write the STRUCTURE and let the layout be computed. Never place boxes by hand:
 
 ```javascript
-var a = create("rect", { x: 0,   y: 0, width: 150, height: 60, radius: 12,
-                         fill: "#e0e7ff", stroke: "#6366f1", strokeWidth: 2 });
-var t = create("text", { x: 20, y: 20, text: "**Input**" });
-var b = create("rect", { x: 220, y: 0, width: 150, height: 60, radius: 12 });
-connect(a.centre, b.centre, "wire");
+diagram("direction: down\n" +
+  "(Read the question) as start\n" +
+  "<More than one resistor?> as many\n" +
+  "[Combine them first] as comb\n" +
+  "[Loop current I = V/R] as loop\n" +
+  "start -> many\n" +
+  "many -> comb : yes\n" +
+  "many -> loop : no\n" +
+  "comb -> loop");
 ```
 
-`text` content is markdown, so `# Heading` and `**bold**` render. Use the
-palette from `docs/design-system.md` rather than arbitrary colours.
+`[box]` `(start/end)` `<decision>` `((junction))`, `as id` to name one, `#blue`
+/`#mint`/`#violet`/`#amber`/`#rose`/`#grey` to tint it; `->` `-->` `--` for
+edges, `: label` on any of them, `group "Name" { a, b }` for a container.
+Full grammar: `simscript-component-reference.md`.
+
+A hand-placed diagram has to be re-measured every time a label changes length,
+which is the real reason lessons that needed a flowchart went without one. The
+layout engine also draws a feedback loop or a skipped step in its own lane,
+which is exactly the case hand-placement gets wrong.
+
+Use it where the picture IS the point — a method, a classification, a signal
+chain, what depends on what. Where the thing can be simulated, simulate it: a
+diagram of a circuit is a picture of a circuit, and this app can run the real
+one.
+
+Colours are theme tokens automatically. Never write a literal hex colour into
+a figure — a lesson is read in dark mode too.
 
 ## Rules
 

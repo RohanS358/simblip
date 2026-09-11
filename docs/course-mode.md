@@ -38,6 +38,18 @@ is a form over three endpoints.
 
 ---
 
+## Diagrams
+
+Boxes and arrows are written, not placed: `diagram("…")` in any figure script
+(`lib/scene/diagram.ts`, grammar in `simscript-component-reference.md`). It
+parses a small PlantUML-ish language, ranks the graph, orders it by barycentre
+and routes the edges orthogonally, emitting real scene objects — labelled
+shapes and anchored connectors — so a diagram can be dragged apart on a canvas
+like anything else.
+
+It is pure, which is what lets the lint gate parse the same source offline and
+reject a broken diagram before it ships.
+
 ## Running a figure
 
 A lesson is not a canvas, so the app's single transport pill has nothing to

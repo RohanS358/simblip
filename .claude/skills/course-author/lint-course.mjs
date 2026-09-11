@@ -123,20 +123,33 @@ function readInstruments(script) {
   return out
 }
 
+/** Build and (where there is a circuit) solve one figure.
+ *
+ *  EVERY figure is run, not just the ones with `expect`. The SimScript linter
+ *  reads a script; only running it catches what reading cannot — a diagram
+ *  whose source has a typo'd edge, a control aimed at an object that was
+ *  removed, anything that throws. A lesson figure that throws renders as its
+ *  caption and nothing else, which is exactly the failure a reader cannot
+ *  report and the author never sees. */
+function checkFigureRuns(where, f) {
+  if (!solver) return null
+  try {
+    return { readings: readInstruments(f.script) }
+  } catch (e) {
+    problem(where, `the script throws when run: ${e.message}`)
+    return null
+  }
+}
+
 /** `expect: { "am": "27.3 mA" }` — every named instrument must read exactly
  *  that once the circuit settles. Exact, not approximate: the reading is what
  *  a student sees, and "about right" is how a lesson drifts away from its own
  *  figures. */
-function checkExpect(where, f) {
+function checkExpect(where, f, run) {
   if (!f.expect) return
   if (!solver) { problem(where, '`expect` cannot be checked — the headless solver did not build'); return }
-  let readings
-  try {
-    readings = readInstruments(f.script)
-  } catch (e) {
-    problem(where, `\`expect\` could not be checked — the script threw when run: ${e.message}`)
-    return
-  }
+  if (!run) return // it already failed to build; one report is enough
+  const readings = run.readings
   if (!readings) {
     problem(where, '`expect` is set but the figure builds no circuit — only circuit figures have instrument readings')
     return
@@ -193,7 +206,7 @@ for (const file of files) {
     const r = lintSimScript(f.script)
     if (!r.ok) for (const e of r.errors) problem(where, e)
     for (const w of r.warnings ?? []) console.warn(`  ~ ${where}: ${w}`)
-    if (r.ok) checkExpect(where, f)
+    if (r.ok) checkExpect(where, f, checkFigureRuns(where, f))
   }
 
   const checkQuestion = (at, q) => {

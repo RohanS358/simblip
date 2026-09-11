@@ -585,6 +585,12 @@
             "a2": "27.3 mA",
             "at": "68.2 mA"
           }
+        },
+        {
+          "id": "d-connect",
+          "caption": "Figure 9.2 — the two ways to connect two resistors",
+          "script": "diagram(\"direction: down\\n[Series] as s #blue\\ns -> [One path only] as p1\\np1 -> [Same I through both] as c1\\nc1 -> [V divides by resistance] as v1\\n[Parallel] as par #violet\\npar -> [Two paths] as p2\\np2 -> [Same V across both] as c2\\nc2 -> [I divides by resistance] as v2\\ngroup \\\"Series\\\" { s, p1, c1, v1 }\\ngroup \\\"Parallel\\\" { par, p2, c2, v2 }\");",
+          "note": "The two rows are duals of each other: swap 'current' for 'voltage' in either one and you have the other."
         }
       ],
       "after": "<p>The equivalent resistance of Figure 9.1 is R<sub>p</sub> = (220 × 330)/(220 + 330) = 132 Ω, and 9 / 132 = 68.2 mA — the number on the supply ammeter. Working from either end gives the same answer, which is the usual sign that the model is consistent rather than a coincidence.</p>"
@@ -719,8 +725,14 @@
       ],
       "figures": [
         {
+          "id": "d-ohmic",
+          "caption": "Figure 11.1 — where Ohm's law applies, and where it does not",
+          "script": "diagram(\"direction: right\\n((Component)) as c\\n<Is R constant as V changes?> as q\\n[Ohmic: resistor, wire, heater] as ohm #mint\\n[Non-ohmic] as non #amber\\n[Filament lamp: R rises as it heats] as lamp\\n[Diode and LED: one direction, fixed Vf] as led\\n[Thermistor: R falls as it heats] as th\\nc -> q\\nq -> ohm : yes\\nq -> non : no\\nnon -> lamp\\nnon -> led\\nnon -> th\");",
+          "note": "The question at the fork is the whole definition of an ohmic component: not what it is made of, but whether its resistance stays put while the voltage changes."
+        },
+        {
           "id": "f-lamp-switch",
-          "caption": "Figure 11.1 — a lamp and a switch",
+          "caption": "Figure 11.2 — a lamp and a switch",
           "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar sw = create(\"switch\", { closed: 1, name: \"sw\" });\nvar lamp = create(\"bulb\", { R: 20, name: \"lamp\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, sw.a, \"wire\");\nconnect(sw.b, am.a, \"wire\");\nconnect(am.b, lamp.a, \"wire\");\nconnect(lamp.b, bat.negative, \"wire\");\nvar sSw = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"Switch closed (0 = open)\", targetObjectId: sw, targetParamName: \"closed\" });",
           "note": "Press Simulate: 450 mA through a 20 Ω lamp, and it glows. Drag the switch slider to 0 while it runs — the current falls to zero and the lamp goes out, because an open switch is a resistance so large that no useful current crosses it.",
           "expect": {
@@ -748,6 +760,14 @@
         {
           "toc": "Assuming every component is ohmic",
           "why": "Ohm's law describes components whose resistance is constant. A lamp filament, a diode and a thermistor all change resistance with conditions, so a single R does not describe them. Applying the law to them gives a number that is only valid at one operating point, as §11 showed."
+        }
+      ],
+      "figures": [
+        {
+          "id": "d-method",
+          "caption": "Figure 12.1 — the order to work a DC circuit problem",
+          "script": "diagram(\"direction: down\\n(Read the question) as start\\n[Mark every known V, I and R] as known\\n<More than one resistor?> as many\\n[Combine them: series add, parallel reciprocal] as comb\\n[Loop current: I = V / R total] as loop\\n<What is actually asked?> as ask\\n[A voltage: V = IR across THAT part] as volt\\n[A power: P = VI] as pow\\n(Check the units and the size) as check\\nstart -> known\\nknown -> many\\nmany -> comb : yes\\nmany -> loop : no\\ncomb -> loop\\nloop -> ask\\nask -> volt : voltage\\nask -> pow : power\\nvolt -> check\\npow -> check\");",
+          "note": "Every worked example in this lesson follows this path. The two decisions are where the mistakes in §12 happen: combining before finding the loop current, and taking V from the supply instead of from the component."
         }
       ],
       "questions": [

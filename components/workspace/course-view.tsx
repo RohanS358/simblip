@@ -398,7 +398,11 @@ export function CourseView({ pageId }: { pageId: string }) {
                 // one — the dead space this design exists to avoid.
                 <div className="flex flex-wrap items-start gap-x-8 gap-y-2">
                   {s.figures.map((f) => (
-                    <div key={f.id} className="min-w-[min(100%,22rem)] flex-1">
+                    // A figure that reports itself wide (a block diagram, a
+                    // long circuit) takes the whole row. Sharing it halves the
+                    // width, and a drawing scaled to half a column is a
+                    // picture of a diagram rather than a diagram.
+                    <div key={f.id} className="min-w-[min(100%,22rem)] flex-1 has-[[data-wide]]:basis-full">
                       <CourseFigureBlock fig={f} pageId={pageId} locked={locked(f)} />
                     </div>
                   ))}

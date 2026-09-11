@@ -216,6 +216,14 @@ KINDS (create) — params in ()
 - waves/quantum: wave-source wave-boundary transmission-line quantum-well tunnel-barrier
 - widgets: note(text,color) text(text) formula(latex) table(headers,data,summary) truthtable(inputs,outputs) cashflow dsa(source: C++ code) system(domain) code(source)
 
+BLOCK DIAGRAMS — diagram("…")
+- A flowchart, a classification, a signal chain or any boxes-and-arrows picture is diagram(), never hand-placed rects. One string, \\n between lines; the layout is computed, so never give coordinates.
+- Nodes: [Label] box, (Label) start/end, <Label> decision, ((Label)) junction. Name one with 'as id', tint it with #blue/#mint/#violet/#amber/#rose/#grey.
+- Edges: a -> b, a -> b : label, a --> b dashed, a -- b plain. An edge may declare its target inline: q -> [Result] as r.
+- direction: down (default) or right. group "Name" { a, b } draws a labelled container.
+- Example: diagram("direction: down\\n(Start) as s\\n<Ohmic?> as q\\n[Use V=IR] as ok\\n[Use the operating point] as np\\ns -> q\\nq -> ok : yes\\nq -> np : no");
+- It is for STRUCTURE. A circuit that can be simulated is built from real components instead — a diagram of a circuit is a picture of one.
+
 DSA LAB — create("dsa", { source: "…C++…" })
 - ANY data-structures or algorithms request (sorting, searching, traversal, recursion, linked lists, trees, graphs) is a DSA Lab, NOT a note and NOT a mechanics scene. The lab runs the C++ and animates every step.
 - source is ONE string of real C++ with \\n between lines. Needs #include <iostream>, using namespace std; and int main() { … return 0; }.
