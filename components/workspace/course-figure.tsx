@@ -35,6 +35,18 @@ import type { SceneObject } from '@/lib/scene/types'
 import type { CourseFigure } from '@/lib/store/course'
 import { Lock } from 'lucide-react'
 
+/** A short, stable key for a script's text. Only used to notice that a figure
+ *  was edited — collisions would merely skip one rebuild, never corrupt
+ *  anything — so a 32-bit rolling hash is plenty and costs nothing per render. */
+function hashScript(src: string): string {
+  let h = 2166136261
+  for (let i = 0; i < src.length; i++) {
+    h ^= src.charCodeAt(i)
+    h = Math.imul(h, 16777619)
+  }
+  return (h >>> 0).toString(36)
+}
+
 /** Figures already built this session, by scratch-page id. Cleared when the
  *  lesson unmounts and drops those pages (course-view.tsx). */
 const BUILT = new Set<string>()
@@ -147,14 +159,20 @@ export const CourseFigureBlock = memo(function CourseFigureBlock({
   const scratchId = `${pageId}::fig::${fig.id}`
   const [ready, setReady] = useState(false)
 
+  // The guard is keyed by the SCRIPT, not just the page: editing a figure
+  // (course-editor.tsx) has to rebuild it, and an id-only key would show the
+  // old drawing until the lesson was closed and reopened. Same script, same
+  // key — so the duplicate-build protection this guard exists for still holds.
+  const buildKey = `${scratchId}::${hashScript(fig.script)}`
+
   useEffect(() => {
     if (locked) return
     // Module-level guard: ensurePage/executeSimScript commit asynchronously, so
     // two effects in the same tick (StrictMode's double-invoke, two mounts of
     // one figure) both saw an empty page and both built it — the figure came
     // out duplicated, once per run.
-    if (!BUILT.has(scratchId)) {
-      BUILT.add(scratchId)
+    if (!BUILT.has(buildKey)) {
+      BUILT.add(buildKey)
       useDocStore.getState().ensurePage(scratchId)
       // Build into a CLEAN page rather than skipping a populated one: "has
       // objects" is not "was built by this script", and a hot reload or a
@@ -169,7 +187,7 @@ export const CourseFigureBlock = memo(function CourseFigureBlock({
         // A figure that fails to build shows its caption rather than taking the
         // lesson down. Authoring catches these — every script is linted before
         // it ships (.claude/skills/course-author).
-        BUILT.delete(scratchId)
+        BUILT.delete(buildKey)
       }
     }
     setReady(true)

@@ -3,10 +3,15 @@
 // Where a lesson's text lives.
 //
 // A CourseDoc is authored offline, lint-gated, and imported — it is never
-// generated at runtime and never edited in the app. So it is stored as ONE
-// JSON blob on the page rather than as SceneObjects: there is no editor to
-// round-trip through, and a lesson that arrived as objects would be a lesson
-// the reader could accidentally drag apart.
+// GENERATED at runtime. So it is stored as ONE JSON blob on the page rather
+// than as SceneObjects: a lesson that arrived as objects would be a lesson the
+// reader could accidentally drag apart.
+//
+// It is also EDITABLE in the app, but only by a platform admin and only as a
+// repair bench: components/workspace/course-editor.tsx edits these fields and
+// saves through PUT /api/courses/lesson. Writing a new lesson still belongs to
+// the offline workflow, which runs the real SimScript linter over every figure
+// — nothing in the browser does.
 //
 // It rides in the page's `flow` field, which already exists for exactly this
 // shape of payload (doc pages keep their body text there) and is already
