@@ -6,7 +6,7 @@ import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
 import { planPlacement, unionRect, type Bounds } from './auto-layout'
 import {
-  placeForceDirected, OrthoRouter, routeEdge, halfExtent, type Edge as LayoutEdge,
+  placeOptimized, OrthoRouter, routeEdge, halfExtent, type Edge as LayoutEdge,
 } from './circuit-layout'
 import { latexToExpr } from '@/lib/formula/latex'
 import {
@@ -903,7 +903,7 @@ export function executeSimScript(
       }))
 
       // Tier 1 — placement.
-      const placement = placeForceDirected(layoutIds, edges, getObj, origin)
+      const placement = placeOptimized(layoutIds, edges, getObj, origin)
       for (const [id, p] of placement) {
         const obj = getObj(id)
         if (!obj) continue
