@@ -27,11 +27,30 @@ import { markPageDeleted } from '@/lib/store/deleted-pages'
 import { pointAtBoundaryT, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { refitBends } from '@/lib/render/connector-path'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
+import { ANCHOR_INDEX } from '@/lib/scene/simscript-props'
 
 /** Resolves an anchor to a world point on `obj`. Anchors without a `kind`
  *  field predate the terminal-anchor change and are treated as boundary
  *  anchors for backward compatibility. */
 function resolveAnchorPoint(anchor: ConnectorAnchor | { objectId: string; t: number }, obj: SceneObject): { x: number; y: number } {
+  // Scripted wiring names its anchor ('centre', 'positive', 'in1'), because
+  // that is what connect() was given. Resolve it against the LIVE object, so
+  // the end tracks a terminal that moved when the component was resized.
+  const named = (anchor as { anchorName?: string }).anchorName
+  if (named !== undefined) {
+    const centre = { x: obj.position.x + obj.size.w / 2, y: obj.position.y + obj.size.h / 2 }
+    const defs = terminalsOf(obj)
+    const norm = named.replace(/^input/i, 'in').replace(/^output/i, 'out')
+    if (defs.length === 0 || norm.toLowerCase() === 'centre' || norm.toLowerCase() === 'center') {
+      return centre
+    }
+    // Same name→index table SimScript's connect() used to place this wire, so
+    // the end lands back on the pin it was drawn to.
+    const symMap = ANCHOR_INDEX[obj.geometry.symbol ?? ''] ?? {}
+    const idx = symMap[named] ?? symMap[norm] ?? ANCHOR_INDEX._t2?.[named] ?? ANCHOR_INDEX._t2?.[norm]
+    const t = typeof idx === 'number' ? defs[idx] : undefined
+    return t ? terminalWorld(obj, t) : centre
+  }
   const kind = 'kind' in anchor ? anchor.kind : 'boundary'
   if (kind === 'terminal') {
     const a = anchor as { objectId: string; terminalId: string }
@@ -391,13 +410,52 @@ function patchObject(
  *  connector attached at both ends stays visually attached without the
  *  user re-drawing it. Cheap on the common (no-connectors) case: one pass
  *  over objects, and it bails per-object on the first metadata check. */
+/** A connection has TWO storage forms and both must follow their targets:
+ *
+ *  - hand-drawn: `metadata.{start,end}Anchor`, a ConnectorAnchor.
+ *  - scripted:   a wire/rod/spring/rope/damper behavior carrying
+ *                `targetA`/`anchorA`/`targetB`/`anchorB` params, which is what
+ *                SimScript's connect() writes.
+ *
+ *  Reading only the first meant every scripted circuit — the AI's, a course
+ *  figure's, an imported page's — detached the moment a component moved. */
+function wiringOf(obj: SceneObject): {
+  start?: ConnectorAnchor | { objectId: string; t: number }
+  end?: ConnectorAnchor | { objectId: string; t: number }
+} | null {
+  const meta = obj.metadata
+  if (meta.render === 'connector') {
+    return {
+      start: meta.startAnchor as ConnectorAnchor | undefined,
+      end: meta.endAnchor as ConnectorAnchor | undefined,
+    }
+  }
+  const b = obj.behaviors.find((bh) => bh.params?.targetA && bh.params?.targetB)
+  if (!b) return null
+  const pv = (n: string): string | undefined => {
+    const p = b.params[n]
+    return p?.kind === 'string' ? p.value : undefined
+  }
+  const a = pv('targetA')
+  const z = pv('targetB')
+  if (!a || !z) return null
+  // An anchor NAME (a terminal or 'centre') rather than an index — resolved
+  // against the live object below, so it survives the target being resized.
+  return {
+    start: { objectId: a, anchorName: pv('anchorA') } as never,
+    end: { objectId: z, anchorName: pv('anchorB') } as never,
+  }
+}
+
 function reprojectConnectors(page: PageContent, movedObjectId: string): PageContent {
   let objects = page.objects
   let changed = false
   for (const obj of Object.values(page.objects)) {
-    if (obj.metadata.render !== 'connector' || obj.metadata.locked) continue
-    const startAnchor = obj.metadata.startAnchor as (ConnectorAnchor | { objectId: string; t: number }) | undefined
-    const endAnchor = obj.metadata.endAnchor as (ConnectorAnchor | { objectId: string; t: number }) | undefined
+    if (obj.metadata.locked) continue
+    const wiring = wiringOf(obj)
+    if (!wiring) continue
+    const startAnchor = wiring.start
+    const endAnchor = wiring.end
     if (startAnchor?.objectId !== movedObjectId && endAnchor?.objectId !== movedObjectId) continue
 
     const movedObj = objects[movedObjectId]
@@ -406,8 +464,22 @@ function reprojectConnectors(page: PageContent, movedObjectId: string): PageCont
     const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
     let a = { x: obj.position.x + pts[0][0], y: obj.position.y + pts[0][1] }
     let b = { x: obj.position.x + pts[pts.length - 1][0], y: obj.position.y + pts[pts.length - 1][1] }
-    if (startAnchor?.objectId === movedObjectId) a = resolveAnchorPoint(startAnchor, movedObj)
-    if (endAnchor?.objectId === movedObjectId) b = resolveAnchorPoint(endAnchor, movedObj)
+
+    // Resolve BOTH anchors, each against the object it actually names — not
+    // just the end belonging to whatever moved.
+    //
+    // Only re-resolving the moved end left the opposite end on whatever
+    // coordinates it happened to hold. That is correct when the connector was
+    // drawn by hand between two settled objects, and wrong everywhere else: a
+    // connector built by script (SimScript's connect(), an imported page, a
+    // course figure) carries placeholder geometry until something moves, so it
+    // rendered visibly detached at one end until the user dragged the RIGHT
+    // object. An anchor is a promise that the end follows its target, and a
+    // promise that only holds for the thing you touched last is not one.
+    const startObj = startAnchor ? objects[startAnchor.objectId] : undefined
+    const endObj = endAnchor ? objects[endAnchor.objectId] : undefined
+    if (startAnchor && startObj) a = resolveAnchorPoint(startAnchor, startObj)
+    if (endAnchor && endObj) b = resolveAnchorPoint(endAnchor, endObj)
 
     const px = Math.min(a.x, b.x)
     const py = Math.min(a.y, b.y)
