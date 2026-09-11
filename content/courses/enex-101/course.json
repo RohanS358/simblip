@@ -1,0 +1,13 @@
+{
+  "id": "enex-101",
+  "code": "ENEX 101",
+  "title": "Basic Electrical Engineering",
+  "subject": "electrical",
+  "semester": 2,
+  "description": "DC circuits, Ohm's law and Kirchhoff's laws, built and measured on live circuits.",
+  "published": true,
+  "order": ["ohms-law"],
+  "lessons": {
+    "ohms-law": { "path": "DC Circuits", "title": "Ohm's Law and Resistance" }
+  }
+}
