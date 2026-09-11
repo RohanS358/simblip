@@ -117,6 +117,14 @@ const W_BEND = 25
 // Charged per pixel a part sits left of where its rank says it belongs.
 const W_FLOW = 3
 
+// Tried and REJECTED: pulling supplies to the top of the sheet and grounds to
+// the bottom, the vertical convention a textbook analog schematic follows.
+// Measured over the bench it made things worse at every weight (1/2/4), and at
+// 2 it also reintroduced wires through bodies: the pull stretches a circuit
+// vertically faster than it organises it, and it fights W_BLOCKED for the same
+// parts. The real fix for a cyclic analog circuit is a rail-aware placer that
+// assigns nets to horizontal rails first, not a per-part attraction.
+
 type Node = { id: string; w: number; h: number; rot: number; cx: number; cy: number; pins: Pt[] }
 
 /** Pin world positions for a node at its current centre and rotation. */
@@ -127,12 +135,18 @@ function pinsAt(n: Node, obj: SceneObject): Pt[] {
   })
 }
 
-/** Do two axis-aligned boxes come closer than `gap` on both axes? */
+/** Vertical clearance runs 5px wider than horizontal. Parts sit side by side in
+ *  rows, so the gap above and below is where the horizontal wire lanes and a
+ *  component's label have to fit; the same number on both axes leaves the rows
+ *  visually tighter than the columns. */
+const CLEARANCE_Y_EXTRA = 5
+
+/** Do two axis-aligned boxes come closer than `gap` on either axis? */
 function tooClose(a: Node, b: Node, gap: number): boolean {
   const ax = halfExtentWH(a), bx = halfExtentWH(b)
   return (
     Math.abs(a.cx - b.cx) < ax.x + bx.x + gap &&
-    Math.abs(a.cy - b.cy) < ax.y + bx.y + gap
+    Math.abs(a.cy - b.cy) < ax.y + bx.y + gap + CLEARANCE_Y_EXTRA
   )
 }
 
@@ -279,10 +293,18 @@ export function placeOptimized(
     }
   }
   const maxRank = Math.max(1, ...[...rank.values()])
-  // Flow only means something when the graph actually has direction. A series
-  // loop is one cycle: every part ends at rank 0, and forcing a column order
-  // on it would fight the ring the circuit really is.
-  const hasFlow = maxRank > 1
+
+  // Flow only means something when the graph really is a left-to-right chain
+  // AND the ranking actually reached every part. Kahn's algorithm stalls on a
+  // cycle: a common-emitter amp has one source (the signal), so the queue
+  // drains after two steps and every resistor, the ground and the output
+  // coupling cap keep rank 0 — never visited, not genuinely upstream. With
+  // maxRank still > 1 the flow term then believed itself and shoved all seven
+  // into the leftmost column, which is exactly the pile-up it was meant to
+  // prevent. Require that a clear majority got a real rank.
+  const ranked = ids.filter((id) => (rank.get(id) ?? 0) > 0).length
+  const hasFlow = maxRank > 1 && ranked >= Math.ceil(ids.length * 0.6)
+
 
   const maxW = Math.max(...nodes.map((x) => x.w), 96)
   const maxH = Math.max(...nodes.map((x) => x.h), 48)
@@ -771,8 +793,14 @@ export function routeEdge(
   const lengthOf = (pts: Pt[]) =>
     pts.slice(1).reduce((a, p, i) => a + Math.abs(p.x - pts[i].x) + Math.abs(p.y - pts[i].y), 0)
   const bendsOf = (pts: Pt[]) => Math.max(0, simplify(pts).length - 2)
-  const score = (pts: Pt[]) =>
-    router.overlapLength(pts) * 40 + bendsOf(pts) * 30 + lengthOf(pts)
+  // Overlap is not merely expensive, it is disqualifying: a wire hidden under
+  // another is a connection the reader cannot see at all, which is worse than
+  // any detour. The flat surcharge puts every overlapping candidate below
+  // every clean one, so a clean route wins even when it is far longer.
+  const score = (pts: Pt[]) => {
+    const ov = router.overlapLength(pts)
+    return (ov > 1 ? 100000 + ov * 40 : 0) + bendsOf(pts) * 30 + lengthOf(pts)
+  }
 
   let bestPath: Pt[] | null = null
   let bestScore = Infinity
@@ -911,7 +939,9 @@ export function routeEdgeFrom(
   let bestScore = Infinity
   const offer = (pts: Pt[]) => {
     if (!clean(pts)) return
-    const sc = router.overlapLength(pts) * 40 + Math.max(0, simplify(pts).length - 2) * 30 + lengthOf(pts)
+    const ov = router.overlapLength(pts)
+    const sc = (ov > 1 ? 100000 + ov * 40 : 0) +
+      Math.max(0, simplify(pts).length - 2) * 30 + lengthOf(pts)
     if (sc < bestScore) { bestScore = sc; best = pts }
   }
 
