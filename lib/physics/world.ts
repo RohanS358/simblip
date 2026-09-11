@@ -42,18 +42,28 @@ interface RuntimeState {
   /** The system boundary currently being simulated, or null for the whole
    *  page. A scoped run only builds the objects inside that boundary. */
   scopeId: string | null
+  /** The page the current run belongs to, or null when nothing is running.
+   *
+   *  There is ONE world, so `mode` alone cannot answer "is this thing
+   *  running?" — a lesson renders many figures, each its own scratch page,
+   *  and every one of them would otherwise light up its Play button because
+   *  some OTHER figure is stepping (course-figure.tsx). */
+  pageId: string | null
   setMode: (m: PlayMode) => void
   setTime: (t: number) => void
   setScope: (id: string | null) => void
+  setRunPage: (id: string | null) => void
 }
 
 export const useRuntimeStore = create<RuntimeState>((set) => ({
   mode: 'edit',
   time: 0,
   scopeId: null,
+  pageId: null,
   setMode: (mode) => set({ mode }),
   setTime: (time) => set({ time }),
   setScope: (scopeId) => set({ scopeId }),
+  setRunPage: (pageId) => set({ pageId }),
 }))
 
 // ── DOM element registry (ObjectViews register their wrapper) ──────────────
@@ -1453,6 +1463,7 @@ export function play(pageId: string, scopeId: string | null = null) {
   }
   stop() // clean previous world if any
   rt.setScope(scopeId)
+  rt.setRunPage(pageId)
   world = buildWorld(pageId, scopeId)
   for (const b of world.bodies) clearBuffer(b.objectId)
   for (const comp of world.circuit?.comps ?? []) clearBuffer(comp.id)
@@ -1537,5 +1548,6 @@ export function stop() {
   resetCircuitDom()
   useRuntimeStore.getState().setMode('edit')
   useRuntimeStore.getState().setScope(null)
+  useRuntimeStore.getState().setRunPage(null)
   useRuntimeStore.getState().setTime(0)
 }

@@ -30,10 +30,19 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import { dblClickIntent } from '@/lib/scene/dblclick-policy'
 import { executeSimScript } from '@/lib/scene/simscript'
+import {
+  play,
+  pause,
+  stop,
+  registerElement,
+  unregisterElement,
+  useRuntimeStore,
+} from '@/lib/physics/world'
 import { OBJECT_RENDERERS } from '@/components/objects'
 import type { SceneObject } from '@/lib/scene/types'
 import type { CourseFigure } from '@/lib/store/course'
-import { Lock } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Lock, Pause, Play, RotateCcw } from 'lucide-react'
 
 /** Figures already built this session, by scratch-page id. Cleared when the
  *  lesson unmounts and drops those pages (course-view.tsx). */
@@ -44,6 +53,34 @@ const BUILT = new Set<string>()
  *  in the scene (the physics needs it); it is simply not drawn. */
 function isStructural(o: SceneObject): boolean {
   return o.geometry.kind === 'rect' && String(o.metadata?.render ?? '') === 'system'
+}
+
+/** Behaviors the runtime actually STEPS. A figure that has none of them —
+ *  a table, a chart, a block diagram — is a picture, and offering it a
+ *  Simulate button would be a lie: Play would advance a clock and change
+ *  nothing on screen. */
+const RUNNABLE_BEHAVIORS = new Set([
+  'rigidBody',
+  'spring',
+  'rope',
+  'rod',
+  'damper',
+  'hinge',
+  'motor',
+  'force',
+  'electricalNode',
+  'charge',
+  'efield',
+  'bfield',
+  'dielectric',
+  'torsionSpring',
+  'heatSource',
+])
+
+function isSimulatable(objects: SceneObject[]): boolean {
+  return objects.some((o) =>
+    (o.behaviors ?? []).some((b) => b.enabled && RUNNABLE_BEHAVIORS.has(b.type))
+  )
 }
 
 /** Everything a reader should see, in the order the author created it. `z` is
@@ -80,12 +117,80 @@ function InlineObject({ object, pageId }: { object: SceneObject; pageId: string 
   }
 
   return (
+    // Registered with the physics runtime exactly as the canvas registers its
+    // object wrappers (canvas.tsx). This is not optional decoration: a run
+    // writes results straight to the DOM — body transforms, meter readouts,
+    // wire current flow — and an unregistered element simply never receives
+    // them. Before this, a figure's ammeter stayed blank however long you
+    // played it, because the runtime had no element to write into.
     <div
+      ref={(el) => {
+        registerElement(object.id, el)
+        return () => {
+          if (el) unregisterElement(object.id, el)
+        }
+      }}
+      data-object-id={object.id}
       className="max-w-full"
       style={{ width: object.size.w || undefined, height: object.size.h || undefined }}
       onDoubleClick={onDoubleClick}
     >
       <Renderer pageId={pageId} object={object} />
+    </div>
+  )
+}
+
+/** Per-figure transport.
+ *
+ *  A lesson is not a canvas: there is no single page being edited, so there is
+ *  nothing for the app's one transport pill to point at. Every figure is its
+ *  own scratch page, so every figure carries its own Simulate button and runs
+ *  its own scene.
+ *
+ *  There is ONE world (lib/physics/world.ts), so starting a figure stops
+ *  whichever was running — deliberately. Two circuits stepping at once would
+ *  compete for the same solver, and a reader comparing them would be reading
+ *  two runs at different times. Starting one resets the other to its drawn
+ *  state, which is exactly what a reader expects from a figure they walked
+ *  away from. */
+function FigureTransport({ scratchId }: { scratchId: string }) {
+  const mode = useRuntimeStore((s) => s.mode)
+  const runPage = useRuntimeStore((s) => s.pageId)
+  const time = useRuntimeStore((s) => s.time)
+
+  const mine = runPage === scratchId && mode !== 'edit'
+  const running = mine && mode === 'running'
+
+  return (
+    <div className="mb-2.5 flex items-center gap-1.5">
+      <button
+        type="button"
+        aria-label={running ? 'Pause this figure' : 'Simulate this figure'}
+        onClick={() => (running ? pause() : play(scratchId))}
+        className={cn(
+          'flex items-center gap-1.5 rounded-xl border px-2.5 py-1 text-ui-2xs font-semibold transition-colors',
+          running
+            ? 'border-transparent bg-[var(--accent-mint)] text-white'
+            : 'border-[var(--accent-mint)]/40 text-[var(--accent-mint)] hover:bg-[var(--accent-mint)]/10'
+        )}
+      >
+        {running ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+        {running ? 'Pause' : mine ? 'Resume' : 'Simulate'}
+      </button>
+      <button
+        type="button"
+        aria-label="Reset this figure"
+        disabled={!mine}
+        onClick={stop}
+        className="flex items-center justify-center rounded-xl border border-border px-2 py-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-30"
+      >
+        <RotateCcw className="h-3 w-3" />
+      </button>
+      {mine && (
+        <span className="font-mono text-ui-2xs tabular-nums text-[var(--accent-mint)]">
+          {time.toFixed(2)}s
+        </span>
+      )}
     </div>
   )
 }
@@ -177,6 +282,23 @@ export const CourseFigureBlock = memo(function CourseFigureBlock({
 
   const objects = useDocStore((s) => s.pages[scratchId]?.objects)
   const visible = useMemo(() => (objects ? readableObjects(objects) : []), [objects])
+  // The `system` boundary is filtered out of `visible`, and it is exactly the
+  // object a mechanics figure hangs its behaviors on — so ask the whole page,
+  // not the drawable subset, whether there is anything to step.
+  const runnable = useMemo(
+    () => (objects ? isSimulatable(Object.values(objects)) : false),
+    [objects]
+  )
+
+  // A figure left running when its page goes away would step a scene that no
+  // longer exists. Scrolling a lesson unmounts nothing (the whole document is
+  // mounted), so in practice this fires when the lesson closes — the same
+  // moment CourseView deletes these scratch pages.
+  useEffect(() => {
+    return () => {
+      if (useRuntimeStore.getState().pageId === scratchId) stop()
+    }
+  }, [scratchId])
 
   /** Consecutive spatial objects are one picture; components stand alone. */
   const blocks = useMemo(() => {
@@ -207,6 +329,7 @@ export const CourseFigureBlock = memo(function CourseFigureBlock({
         <p className="m-0 text-ui-xs text-muted-foreground">This figure built nothing.</p>
       ) : (
         <div className="flex flex-col items-start gap-4">
+          {runnable && <FigureTransport scratchId={scratchId} />}
           {blocks.map((b, i) =>
             b.spatial ? (
               <SpatialBlock key={i} objects={b.items} pageId={scratchId} />

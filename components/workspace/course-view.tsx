@@ -30,7 +30,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useDocStore } from '@/lib/store/document'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useTocStore } from '@/lib/store/toc'
-import { useCourse, type CourseDoc, type CourseFigure, type CourseSection } from '@/lib/store/course'
+import {
+  useCourse,
+  questionKey,
+  type CourseDoc,
+  type CourseFigure,
+  type CourseProblem,
+  type CourseQuestion,
+  type CourseSection,
+} from '@/lib/store/course'
 import { askAboutSelection } from '@/lib/store/ai-reference'
 import { readCourse } from '@/lib/store/course-content'
 import { renderMath } from '@/lib/text/katex-lazy'
@@ -51,10 +59,20 @@ function TeX({ expr, display = true }: { expr: string; display?: boolean }) {
 }
 
 /** The multiple-choice check. A wrong answer is never scored — it routes to
- *  the misconception behind that specific choice and unlocks the figure. */
-function Question({ section, pageId }: { section: CourseSection; pageId: string }) {
-  const q = section.question!
-  const picked = useCourse((s) => s.answers[pageId]?.[section.id])
+ *  the misconception behind that specific choice and unlocks the figure.
+ *
+ *  `storeKey` rather than the section id: a section may hold several
+ *  questions, and each needs its own slot in the persisted answers. */
+function Question({
+  q,
+  storeKey,
+  pageId,
+}: {
+  q: CourseQuestion
+  storeKey: string
+  pageId: string
+}) {
+  const picked = useCourse((s) => s.answers[pageId]?.[storeKey])
   const answer = useCourse((s) => s.answer)
   const answered = picked !== undefined
 
@@ -69,7 +87,7 @@ function Question({ section, pageId }: { section: CourseSection; pageId: string 
               key={i}
               type="button"
               disabled={answered}
-              onClick={() => answer(pageId, section.id, i)}
+              onClick={() => answer(pageId, storeKey, i)}
               className={cn(
                 'flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left text-ui-md leading-snug transition-colors',
                 answered && c.correct
@@ -109,6 +127,57 @@ function Question({ section, pageId }: { section: CourseSection; pageId: string 
           <b className="mb-1 block">{q.responses[picked].title}</b>
           <span dangerouslySetInnerHTML={{ __html: q.responses[picked].body }} />
         </div>
+      )}
+      {answered && q.verify && (
+        // The answer, demonstrated rather than asserted. It appears only after
+        // the reader has committed — running the circuit first would hand them
+        // the answer and leave nothing to check.
+        <div className="mt-3.5 border-t border-border pt-1">
+          <CourseFigureBlock fig={q.verify} pageId={pageId} locked={false} />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** A numerical problem: the task, then the answer on request, then — where the
+ *  answer is something an instrument can read — the circuit that produces it.
+ *
+ *  Revealing is a button rather than an accordion because the reader is meant
+ *  to attempt it first, and a disclosure triangle invites a peek. */
+function Problem({ problem, pageId, index }: { problem: CourseProblem; pageId: string; index: number }) {
+  const [shown, setShown] = useState(false)
+
+  return (
+    <div className="rounded-2xl border border-border bg-card/60 p-5">
+      <p className="m-0 mb-1 text-ui-2xs font-bold uppercase tracking-[0.09em] text-muted-foreground">
+        Problem {index + 1}
+      </p>
+      <div
+        className="course-prose text-ui-md leading-relaxed [&_p]:mb-2 [&_p]:mt-0 [&_p:last-child]:mb-0"
+        dangerouslySetInnerHTML={{ __html: problem.prompt }}
+      />
+      {shown ? (
+        <div className="mt-3.5 rounded-xl border border-[var(--accent-mint)]/30 bg-[var(--accent-mint)]/10 p-4">
+          {problem.math && (
+            <div className="mb-2.5 overflow-x-auto rounded-lg bg-background/60 px-3.5 py-3 text-center">
+              <TeX expr={problem.math} />
+            </div>
+          )}
+          <div
+            className="course-prose text-ui-md leading-relaxed [&_p]:mb-2 [&_p]:mt-0 [&_p:last-child]:mb-0"
+            dangerouslySetInnerHTML={{ __html: problem.answer }}
+          />
+          {problem.verify && (
+            <div className="mt-2 border-t border-[var(--accent-mint)]/25 pt-1">
+              <CourseFigureBlock fig={problem.verify} pageId={pageId} locked={false} />
+            </div>
+          )}
+        </div>
+      ) : (
+        <Button variant="outline" size="sm" className="mt-3" onClick={() => setShown(true)}>
+          Show the answer
+        </Button>
       )}
     </div>
   )
@@ -285,7 +354,17 @@ export function CourseView({ pageId }: { pageId: string }) {
         )}
 
         {sections.map((s, i) => {
-          const locked = (f: CourseFigure) => !!f.locked && answers?.[s.id] === undefined
+          // Every question in the section, in render order: the legacy single
+          // `question` first, then the array.
+          const qs: { q: CourseQuestion; key: string }[] = [
+            ...(s.question ? [{ q: s.question, key: s.id }] : []),
+            ...(s.questions ?? []).map((q, qi) => ({ q, key: questionKey(s, qi) })),
+          ]
+          // A locked figure waits for EVERY question in its section. One
+          // answered question in a section that asks three would reveal a
+          // figure the other two still depend on predicting.
+          const allAnswered = qs.every(({ key }) => answers?.[key] !== undefined)
+          const locked = (f: CourseFigure) => !!f.locked && !allAnswered
           return (
             <section
               key={s.id}
@@ -304,7 +383,13 @@ export function CourseView({ pageId }: { pageId: string }) {
               {s.body && <Prose html={s.body} />}
               {s.derivation && <Steps steps={s.derivation} />}
               {s.worked && <Steps steps={s.worked} reveal />}
-              {s.question && <Question section={s} pageId={pageId} />}
+              {qs.length > 0 && (
+                <div className="my-6 flex flex-col gap-4">
+                  {qs.map(({ q, key }) => (
+                    <Question key={key} q={q} storeKey={key} pageId={pageId} />
+                  ))}
+                </div>
+              )}
 
               {!!s.figures?.length && (
                 // Flow, not grid. Components sit in the prose at their natural
@@ -316,6 +401,14 @@ export function CourseView({ pageId }: { pageId: string }) {
                     <div key={f.id} className="min-w-[min(100%,22rem)] flex-1">
                       <CourseFigureBlock fig={f} pageId={pageId} locked={locked(f)} />
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {!!s.problems?.length && (
+                <div className="my-6 flex flex-col gap-4">
+                  {s.problems.map((p, pi) => (
+                    <Problem key={p.id ?? pi} problem={p} pageId={pageId} index={pi} />
                   ))}
                 </div>
               )}

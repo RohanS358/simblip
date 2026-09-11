@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 // Gate for an authored lesson: every figure's SimScript must be executable,
-// and the lesson's own structure must be sound.
+// the numbers the prose claims must be the numbers the SOLVER produces, and
+// the lesson's own structure must be sound.
 //
 // Runs headless in plain Node with no model and no browser, against the SAME
-// linter the app's AI pipeline uses (lib/ai/simscript-lint.ts) — so a check
-// here cannot drift from what actually happens on the canvas.
+// linter the app's AI pipeline uses (lib/ai/simscript-lint.ts) and the SAME
+// circuit solver the canvas runs (lib/circuit/engine.ts) — so a check here
+// cannot drift from what actually happens on the canvas.
 //
 //   node .claude/skills/course-author/lint-course.mjs content/courses/*/*.json
 //
 // Exit 0 = shippable. Exit 1 = a named repair for every failure.
 
 import { execFileSync } from 'node:child_process'
-import { mkdtempSync, rmSync, readFileSync } from 'node:fs'
+import { mkdtempSync, rmSync, readFileSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -37,6 +39,119 @@ try {
 }
 const { lintSimScript } = await import(bundle)
 
+// ── The solver, headless ────────────────────────────────────────────────────
+//
+// A figure's `expect` names what an instrument in it must read. Checking that
+// by eye is how a lesson ends up asserting 9 V beside a meter showing 0 V —
+// which is exactly what happened here, for months, because nothing ran the
+// circuits. So the gate runs them: the real executeSimScript builds the scene,
+// the real buildCircuit/stepCircuit solve it, and the reading is compared to
+// the authored one.
+//
+// The doc store is a browser module (zustand + persistence), so it is aliased
+// to the same minimal stub lib/scene/simscript-connect.test.mjs uses. Nothing
+// else is faked: the layout pass, the wire router and the solver are the
+// shipping code.
+const storeStub = join(dir, 'stub-store.mjs')
+writeFileSync(storeStub, `
+let pages = {}
+export const useDocStore = {
+  getState: () => ({
+    pages,
+    addObject(pageId, obj) { (pages[pageId] ??= { objects: {} }).objects[obj.id] = obj },
+    updateObject(pageId, id, patch) {
+      const cur = pages[pageId]?.objects?.[id]
+      if (cur) pages[pageId].objects[id] = { ...cur, ...patch }
+    },
+    ensurePage(pageId) { pages[pageId] ??= { objects: {} } },
+    upsertVariable(pageId, name, expr) {
+      const vars = (pages[pageId].variables ??= [])
+      const existing = vars.find((v) => v.name === name)
+      if (existing) existing.expr = expr
+      else vars.push({ id: name, name, expr, value: 0 })
+    },
+  }),
+  setState: (fn) => { if (typeof fn === 'function') { const r = fn({ pages }); if (r?.pages) for (const k of Object.keys(r.pages)) pages[k] = r.pages[k] } },
+  __reset: () => { pages = {} },
+  __objects: (pageId) => Object.values(pages[pageId]?.objects ?? {}),
+}
+`)
+const wsStub = join(dir, 'ws-stub.ts')
+writeFileSync(wsStub, `
+export const findPageMeta = () => undefined
+export const useWorkspaceStore = { getState: () => ({ nodes: {} }) }
+`)
+const solveEntry = join(dir, 'solve-entry.ts')
+writeFileSync(solveEntry, `
+export { executeSimScript } from '@/lib/scene/simscript'
+export { useDocStore } from '@/lib/store/document'
+export { buildCircuit, stepCircuit } from '@/lib/circuit/engine'
+`)
+const solveBundle = join(dir, 'solve.mjs')
+let solver = null
+try {
+  execFileSync('npx', ['esbuild', solveEntry, '--bundle', '--format=esm', '--outfile=' + solveBundle,
+    '--alias:@/lib/store/document=' + storeStub, '--alias:@/lib/store/workspace=' + wsStub,
+    '--alias:@=' + ROOT, '--external:react', '--external:zustand'], { stdio: 'pipe' })
+  solver = await import(solveBundle)
+} catch (e) {
+  // Not fatal: the structural and SimScript checks still run. `expect` blocks
+  // then report as unverifiable rather than silently passing.
+  console.warn('  ~ could not build the headless solver, so `expect` cannot be checked:', e.message)
+}
+
+let runSeq = 0
+
+/** Run one figure's script and return every instrument reading in it, keyed by
+ *  the object `name` the script gave. Steps for a simulated second: the solver
+ *  integrates capacitors and machines, so a reading is only meaningful once
+ *  it has settled. */
+function readInstruments(script) {
+  const pageId = `lint-${runSeq++}`
+  solver.useDocStore.getState().ensurePage(pageId)
+  solver.executeSimScript(pageId, script, { x: 0, y: 0 })
+  const objects = solver.useDocStore.getState().pages[pageId].objects
+  const circuit = solver.buildCircuit(Object.values(objects))
+  if (!circuit) return null
+  const dt = 1 / 120
+  for (let t = 0; t < 1; t += dt) solver.stepCircuit(circuit, dt, t, objects)
+  const out = new Map()
+  for (const [id, r] of circuit.frame.readings) {
+    const o = objects[id]
+    if (o?.name && r.text !== undefined) out.set(o.name, r.text)
+  }
+  return out
+}
+
+/** `expect: { "am": "27.3 mA" }` — every named instrument must read exactly
+ *  that once the circuit settles. Exact, not approximate: the reading is what
+ *  a student sees, and "about right" is how a lesson drifts away from its own
+ *  figures. */
+function checkExpect(where, f) {
+  if (!f.expect) return
+  if (!solver) { problem(where, '`expect` cannot be checked — the headless solver did not build'); return }
+  let readings
+  try {
+    readings = readInstruments(f.script)
+  } catch (e) {
+    problem(where, `\`expect\` could not be checked — the script threw when run: ${e.message}`)
+    return
+  }
+  if (!readings) {
+    problem(where, '`expect` is set but the figure builds no circuit — only circuit figures have instrument readings')
+    return
+  }
+  for (const [name, want] of Object.entries(f.expect)) {
+    const got = readings.get(name)
+    if (got === undefined) {
+      const known = [...readings.keys()]
+      problem(where, `expect names "${name}", which reads nothing — instruments in this figure: ${known.length ? known.join(', ') : '(none named; give the meter a `name`)'}`)
+    } else if (got !== want) {
+      problem(where, `expect "${name}" = ${want}, but the solver reads ${got} — fix the figure or fix the number the prose quotes`)
+    }
+  }
+}
+
 let failures = 0
 const problem = (where, msg) => { failures++; console.error(`  ✗ ${where}: ${msg}`) }
 
@@ -57,7 +172,56 @@ for (const file of files) {
   }
 
   const ids = new Set()
-  let figures = 0, questions = 0, worked = 0, derivations = 0
+  const figureIds = new Set()
+  let figures = 0, questions = 0, problems = 0, worked = 0, derivations = 0
+
+  // Every figure — section figure, a question's `verify`, a problem's
+  // `verify` — goes through the same checks, because every one of them is
+  // built into its own scratch page and run by the reader.
+  const checkFigure = (at, f, { unlockable }) => {
+    figures++
+    const where = `${at} ${f.id ?? '(no id)'}`
+    if (!f.id) problem(where, 'figure has no `id`')
+    else if (figureIds.has(f.id)) {
+      problem(where, `duplicate figure id "${f.id}" — figures share one scratch-page namespace per lesson, so a repeat renders the wrong scene`)
+    } else figureIds.add(f.id)
+    if (!f.caption?.trim()) problem(where, 'figure has no `caption`')
+    if (!f.script?.trim()) { problem(where, 'figure has no `script`'); return }
+    if (f.locked && !unlockable) {
+      problem(where, '`locked` figure in a section with no question — nothing can ever unlock it')
+    }
+    const r = lintSimScript(f.script)
+    if (!r.ok) for (const e of r.errors) problem(where, e)
+    for (const w of r.warnings ?? []) console.warn(`  ~ ${where}: ${w}`)
+    if (r.ok) checkExpect(where, f)
+  }
+
+  const checkQuestion = (at, q) => {
+    questions++
+    if (!q.prompt?.trim()) problem(at, 'question has no `prompt`')
+    if (!Array.isArray(q.choices) || q.choices.length < 2) {
+      problem(at, 'question needs at least two `choices`')
+    } else {
+      const right = q.choices.filter((c) => c.correct).length
+      if (right !== 1) problem(at, `question has ${right} correct choices — exactly one is required`)
+      if (!Array.isArray(q.responses) || q.responses.length !== q.choices.length) {
+        problem(at, 'every choice needs its own response — a wrong answer routes to ITS misconception, never to a score')
+      } else {
+        q.responses.forEach((r, i) => {
+          if (!r?.title?.trim() || !r?.body?.trim()) problem(at, `response ${i + 1} is empty`)
+          if (/^(incorrect|wrong|try again)\b/i.test(r?.title ?? '')) {
+            problem(at, `response ${i + 1} scolds ("${r.title}") — name the misconception instead`)
+          }
+        })
+      }
+    }
+    // A verification figure is held back until the reader answers, so it is
+    // never "given away" and never needs `locked`.
+    if (q.verify) {
+      if (q.verify.locked) problem(at, `verify figure "${q.verify.id}" sets \`locked\` — it is already held back until the question is answered`)
+      checkFigure(at, q.verify, { unlockable: true })
+    }
+  }
 
   for (const s of doc.sections) {
     const at = `${file} §${s.locator ?? '?'}`
@@ -84,41 +248,20 @@ for (const file of files) {
       })
     }
 
-    if (s.question) {
-      questions++
-      const q = s.question
-      if (!q.prompt?.trim()) problem(at, 'question has no `prompt`')
-      if (!Array.isArray(q.choices) || q.choices.length < 2) {
-        problem(at, 'question needs at least two `choices`')
-      } else {
-        const right = q.choices.filter((c) => c.correct).length
-        if (right !== 1) problem(at, `question has ${right} correct choices — exactly one is required`)
-        if (!Array.isArray(q.responses) || q.responses.length !== q.choices.length) {
-          problem(at, 'every choice needs its own response — a wrong answer routes to ITS misconception, never to a score')
-        } else {
-          q.responses.forEach((r, i) => {
-            if (!r?.title?.trim() || !r?.body?.trim()) problem(at, `response ${i + 1} is empty`)
-            if (/^(incorrect|wrong|try again)\b/i.test(r?.title ?? '')) {
-              problem(at, `response ${i + 1} scolds ("${r.title}") — name the misconception instead`)
-            }
-          })
-        }
+    if (s.question) checkQuestion(at, s.question)
+    for (const q of s.questions ?? []) checkQuestion(at, q)
+
+    for (const pr of s.problems ?? []) {
+      problems++
+      if (!pr.prompt?.trim()) problem(at, 'problem has no `prompt`')
+      if (!pr.answer?.trim()) {
+        problem(at, 'problem has no `answer` — a problem whose answer is never shown is homework, not notes')
       }
+      if (pr.verify) checkFigure(at, pr.verify, { unlockable: true })
     }
 
-    for (const f of s.figures ?? []) {
-      figures++
-      const where = `${at} ${f.id ?? '(no id)'}`
-      if (!f.id) problem(where, 'figure has no `id`')
-      if (!f.caption?.trim()) problem(where, 'figure has no `caption`')
-      if (!f.script?.trim()) { problem(where, 'figure has no `script`'); continue }
-      if (f.locked && !s.question) {
-        problem(where, '`locked` figure in a section with no question — nothing can ever unlock it')
-      }
-      const r = lintSimScript(f.script)
-      if (!r.ok) for (const e of r.errors) problem(where, e)
-      for (const w of r.warnings ?? []) console.warn(`  ~ ${where}: ${w}`)
-    }
+    const unlockable = !!s.question || !!s.questions?.length
+    for (const f of s.figures ?? []) checkFigure(at, f, { unlockable })
   }
 
   // Depth: the skill's whole point is that a lesson is not a handout.
@@ -130,7 +273,7 @@ for (const file of files) {
   if (worked === 0) problem(file, 'no worked numerical')
 
   if (failures === 0) {
-    console.log(`  ✓ ${doc.sections.length} sections · ${figures} figures · ${derivations} derivations · ${worked} worked · ${questions} questions`)
+    console.log(`  ✓ ${doc.sections.length} sections · ${figures} figures · ${derivations} derivations · ${worked} worked · ${questions} questions · ${problems} problems`)
   }
 }
 

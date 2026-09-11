@@ -1,6 +1,6 @@
 import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
-import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
+import { uid, type Behavior, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { behaviorSpec } from '@/lib/behaviors/registry'
 import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
@@ -1012,19 +1012,52 @@ export function executeSimScript(
               positions.set(gid, { x: X0 - gw / 2, y: BOT_Y + 70 })
             }
           }
-          // parallel probes float above whatever they measure
+          // Parallel probes float clear of whatever they measure: above a
+          // part on the top row, below one on the bottom row, and a row
+          // further out again if that slot is already taken.
+          //
+          // Every probe used to land on one fixed line above the loop,
+          // centred on its neighbour. Two meters measuring the two halves of
+          // a divider sit in the SAME column (top row and bottom row of the
+          // rectangle share an x), so they were placed at exactly the same
+          // point — and since lib/circuit/engine.ts unions coincident
+          // terminals, the two meters shorted the divider into a single node.
+          // The circuit read 0 V on both meters and thousands of amps through
+          // the supply.
+          const slotFree = (x: number, y: number, w: number, h: number) => {
+            for (const [id, p] of positions) {
+              const o = getObj(id)
+              const ow = o?.size?.w ?? 96
+              const oh = o?.size?.h ?? 48
+              const rot = rotations.get(id) ?? 0
+              const turned = rot === 90 || rot === 270
+              const bw = turned ? oh : ow
+              const bh = turned ? ow : oh
+              const cx = p.x + ow / 2
+              const cy = p.y + oh / 2
+              const PAD = 24
+              if (
+                x < cx + bw / 2 + PAD && x + w > cx - bw / 2 - PAD &&
+                y < cy + bh / 2 + PAD && y + h > cy - bh / 2 - PAD
+              ) return false
+            }
+            return true
+          }
           let freeX = X0
           for (const pid of probeIds) {
-            const pw = getObj(pid)?.size?.w ?? 96
+            const po = getObj(pid)
+            const pw = po?.size?.w ?? 96
+            const ph = po?.size?.h ?? 48
             const nbr = [...(nbrs.get(pid) ?? [])].find(n => positions.has(n))
-            if (nbr) {
-              const p = positions.get(nbr)!
-              const nw = getObj(nbr)?.size?.w ?? 96
-              positions.set(pid, { x: p.x + nw / 2 - pw / 2, y: TOP_Y - 120 })
-            } else {
-              positions.set(pid, { x: freeX, y: TOP_Y - 120 })
-              freeX += 130
-            }
+            const x = nbr
+              ? positions.get(nbr)!.x + (getObj(nbr)?.size?.w ?? 96) / 2 - pw / 2
+              : freeX
+            const below = nbr ? positions.get(nbr)!.y >= MID_Y : false
+            const step = below ? 120 : -120
+            let y = below ? BOT_Y + 120 : TOP_Y - 120
+            for (let guard = 0; guard < 12 && !slotFree(x, y, pw, ph); guard++) y += step
+            positions.set(pid, { x, y })
+            if (!nbr) freeX += 130
           }
         }
       }
@@ -1364,12 +1397,36 @@ export function executeSimScript(
           return { x1: cx2 - hw - PAD, y1: cy2 - hh - PAD, x2: cx2 + hw + PAD, y2: cy2 + hh + PAD, id: o.id }
         })
 
+      // One wire per EDGE, claimed once.
+      //
+      // Matching on the component pair alone found the same wire for every
+      // edge between those two components, so a voltmeter across a resistor —
+      // two wires, same pair — routed one wire twice and left the other where
+      // the pre-layout draw had put it. The abandoned wire's endpoint then sat
+      // nowhere near a terminal, and since lib/circuit/engine.ts builds nets
+      // from coincident world points, the meter's second lead was on a net of
+      // its own: every voltmeter in a scripted circuit read 0 V. The anchors
+      // are recorded on the wire (`anchorA`/`anchorB`, written by connect()),
+      // so match them, and claim each wire so identical edges still take one
+      // wire each.
+      const routed = new Set<string>()
+      const paramStr = (b: Behavior, key: string) =>
+        b.params[key]?.kind === 'string' ? (b.params[key].value as string) : undefined
       for (const e of circuitEdges) {
         const wireObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o =>
           o.geometry.kind === 'line' &&
-          o.behaviors.some(b => b.params.targetA?.kind === 'string' && b.params.targetA.value === e.fromId && b.params.targetB?.kind === 'string' && b.params.targetB.value === e.toId)
+          !routed.has(o.id) &&
+          o.behaviors.some(b => {
+            if (paramStr(b, 'targetA') !== e.fromId || paramStr(b, 'targetB') !== e.toId) return false
+            const aA = paramStr(b, 'anchorA')
+            const aB = paramStr(b, 'anchorB')
+            // A wire written before anchors were recorded matches on the pair
+            // alone rather than not at all.
+            return (aA === undefined || aA === e.fromAnchor) && (aB === undefined || aB === e.toAnchor)
+          })
         )
         if (!wireObj) continue
+        routed.add(wireObj.id)
         const objA = store().pages[pageId]?.objects?.[e.fromId], objB = store().pages[pageId]?.objects?.[e.toId]
         if (!objA || !objB) continue
         const terminalsA = terminalsOf(objA), terminalsB = terminalsOf(objB)

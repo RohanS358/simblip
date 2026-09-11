@@ -17,7 +17,7 @@ with nothing prepared, and the teacher presides rather than performs.
 | Lesson types | `lib/store/course.ts` — `CourseDoc → CourseSection → CourseFigure` |
 | Storage | `lib/store/course-content.ts` — one JSON blob in the page's `flow` field, so shares/assignments/sync carry it with no transport changes |
 | Reader | `components/workspace/course-view.tsx` |
-| Live components | `components/workspace/course-figure.tsx` |
+| Live components | `components/workspace/course-figure.tsx` — each figure with anything to step carries its own Simulate/Pause/Reset |
 | Sidebar section | `components/workspace/courses-panel.tsx` (rail icon: Courses) |
 | Outline | publishes to the shared `lib/store/toc.ts` — the same Contents panel PDFs use |
 | Ask-about-this | `lib/store/ai-reference.ts` — selection → assistant as a `ChatAttachment` |
@@ -30,10 +30,26 @@ with nothing prepared, and the teacher presides rather than performs.
 | Publisher | `.claude/skills/course-author/publish-course.mjs` — lints, then writes to Postgres |
 
 Lesson content lives ONLY in Postgres. The browser persists just which MCQ
-option a student picked (`partialize` in `lib/store/course.ts`).
+option a student picked (`partialize` in `lib/store/course.ts`), keyed per
+question so a section can ask several.
 
 **Not built yet:** the admin console UI for granting. The API is there, so it
 is a form over three endpoints.
+
+---
+
+## Running a figure
+
+A lesson is not a canvas, so the app's single transport pill has nothing to
+point at — every figure is its own scratch page. Each figure therefore carries
+its OWN Simulate / Pause / Reset, and the reader runs figures one at a time
+(there is one world; starting a figure resets whichever was running). Figures
+with nothing to step — a table, a chart, a block diagram — show no buttons.
+
+Figure objects are registered with the physics runtime exactly as the canvas
+registers its own (`registerElement`), because a run writes its results
+straight to the DOM: body transforms, meter readouts, current flow along the
+wires. Without that registration a figure renders, plays, and shows nothing.
 
 ---
 
@@ -62,6 +78,14 @@ MCQ has exactly one correct answer and a per-choice response, that no response
 scolds, that no filler text survived, and that the lesson has the depth a lesson
 needs. Exit 1 lists a repair for each failure. **A lesson that does not pass is
 not finished.**
+
+It also **runs the circuits**. A figure may declare what its instruments must
+read — `"expect": { "am": "27.3 mA" }`, keyed by the object `name` in the
+script — and the gate executes that figure through the shipping solver
+(`lib/circuit/engine.ts`) and fails the lesson if a meter disagrees. This is
+what stops notes asserting a number the student's own figure will never show;
+before it existed, the first lesson claimed a 9 V reading beside a voltmeter
+that was wired to nothing.
 
 ### Division of labour
 
