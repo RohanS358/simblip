@@ -223,7 +223,7 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
 
   return (
     <div
-      className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-card/85 hairline shadow-[0_10px_28px_-18px_rgb(0_0_0/0.35)]"
+      className="flex h-full w-full flex-col overflow-hidden rounded-2xl bg-card/85 hairline"
     >
       <div className="flex items-center gap-2 border-b border-border/50 bg-accent/25 px-3 py-1.5">
         <TableProperties className="h-3.5 w-3.5 text-muted-foreground" />

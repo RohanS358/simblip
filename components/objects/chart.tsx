@@ -105,15 +105,17 @@ function renderChart(chartType: ChartType, data: Record<string, string | number>
     )
   }
 
-  const axes = (
-    <>
-      <CartesianGrid stroke="var(--border)" strokeOpacity={0.5} vertical={false} />
-      <XAxis dataKey="label" type="category" stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} />
-      <YAxis stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} width={38} />
-      <Tooltip {...tooltipProps} />
-      {cols.length > 1 && <Legend wrapperStyle={{ fontSize: 10.5 }} iconSize={8} />}
-    </>
-  )
+  // An ARRAY, not a fragment. Recharts 2.x discovers axes, grid and tooltip by
+  // walking its own `children` — a <>...</> wraps them in one opaque node, so
+  // the scan finds nothing and the chart renders as a bare line with no axes,
+  // no gridlines and no hover. Spreading the array keeps them direct children.
+  const axes = [
+    <CartesianGrid key="grid" stroke="var(--border)" strokeOpacity={0.5} vertical={false} />,
+    <XAxis key="x" dataKey="label" type="category" stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} />,
+    <YAxis key="y" stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} width={38} />,
+    <Tooltip key="tip" {...tooltipProps} />,
+    ...(cols.length > 1 ? [<Legend key="legend" wrapperStyle={{ fontSize: 10.5 }} iconSize={8} />] : []),
+  ]
 
   if (chartType === 'line') {
     return (
