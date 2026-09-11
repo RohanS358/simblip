@@ -546,6 +546,39 @@ export function placeOptimized(
 export class OrthoRouter {
   private blocked = new Set<string>()
   private used = new Map<string, number>()
+
+  /** Segments already drawn, so a new route can avoid lying ON one. Two wires
+   *  sharing a stretch of lane render as a single line: the connection is
+   *  invisible, and the sheet reads as if one of them were missing. */
+  private drawn: [Pt, Pt][] = []
+
+  /** How much of this polyline runs collinear with something already drawn. */
+  overlapLength(pts: Pt[]): number {
+    let total = 0
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i]
+      const horiz = Math.abs(a.y - b.y) < 0.5
+      const vert = Math.abs(a.x - b.x) < 0.5
+      if (!horiz && !vert) continue
+      for (const [c, d] of this.drawn) {
+        if (horiz && Math.abs(c.y - d.y) < 0.5 && Math.abs(c.y - a.y) < 0.5) {
+          const lo = Math.max(Math.min(a.x, b.x), Math.min(c.x, d.x))
+          const hi = Math.min(Math.max(a.x, b.x), Math.max(c.x, d.x))
+          if (hi - lo > 1) total += hi - lo
+        } else if (vert && Math.abs(c.x - d.x) < 0.5 && Math.abs(c.x - a.x) < 0.5) {
+          const lo = Math.max(Math.min(a.y, b.y), Math.min(c.y, d.y))
+          const hi = Math.min(Math.max(a.y, b.y), Math.max(c.y, d.y))
+          if (hi - lo > 1) total += hi - lo
+        }
+      }
+    }
+    return total
+  }
+
+  /** Record a finished route so later ones can steer clear of its lanes. */
+  commit(pts: Pt[]): void {
+    for (let i = 1; i < pts.length; i++) this.drawn.push([pts[i - 1], pts[i]])
+  }
   private lo: Pt
   private hi: Pt
 
@@ -730,6 +763,25 @@ export function routeEdge(
   // corner at all. Try that, and the two L-shapes, before paying for A* —
   // they are the shortest AND the least bent paths that exist.
   const clean = (pts: Pt[]) => !hitsAnyBody(pts, router.rects, wA, wB)
+
+  // Candidates are SCORED, not taken first-clean. A route that is legal can
+  // still lie on top of a wire already drawn — two nets sharing a lane render
+  // as one line, so a connection simply disappears from the sheet. Cheapest
+  // wins on: overlap first, then bends, then length.
+  const lengthOf = (pts: Pt[]) =>
+    pts.slice(1).reduce((a, p, i) => a + Math.abs(p.x - pts[i].x) + Math.abs(p.y - pts[i].y), 0)
+  const bendsOf = (pts: Pt[]) => Math.max(0, simplify(pts).length - 2)
+  const score = (pts: Pt[]) =>
+    router.overlapLength(pts) * 40 + bendsOf(pts) * 30 + lengthOf(pts)
+
+  let bestPath: Pt[] | null = null
+  let bestScore = Infinity
+  const offer = (pts: Pt[]) => {
+    if (!clean(pts)) return
+    const sc = score(pts)
+    if (sc < bestScore) { bestScore = sc; bestPath = pts }
+  }
+
   // Aligned stubs join with no corner at all — but only when the straight run
   // between them is actually clear. Two parts stacked with their LEFT pins on
   // the same x have aligned stubs whose connecting line grazes both outlines,
@@ -738,21 +790,18 @@ export function routeEdge(
     Math.abs(sA.x - sB.x) < 0.5 || Math.abs(sA.y - sB.y) < 0.5
       ? [wA, sA, sB, wB]
       : null
-  if (aligned && clean(aligned)) return simplify(aligned)
+  if (aligned) offer(aligned)
 
-  // Aligned but grazing: two parts stacked with their LEFT pins on the same x
-  // give stubs that line up, yet the straight run between them skims both
-  // outlines. Step the shared lane outward until it is clear — still only two
-  // bends, and far better than the long way round.
+  // Aligned but grazing (or already occupied): step the shared lane sideways
+  // until it is both clear of bodies and clear of other wires.
   if (aligned) {
     const vertical = Math.abs(sA.x - sB.x) < 0.5
     for (let k = 1; k <= 10; k++) {
-      for (const s of [1, -1]) {
-        const off = s * k * GRID
-        const cand = vertical
+      for (const sgn of [1, -1]) {
+        const off = sgn * k * GRID
+        offer(vertical
           ? [wA, sA, { x: sA.x + off, y: sA.y }, { x: sA.x + off, y: sB.y }, sB, wB]
-          : [wA, sA, { x: sA.x, y: sA.y + off }, { x: sB.x, y: sA.y + off }, sB, wB]
-        if (clean(cand)) return simplify(cand)
+          : [wA, sA, { x: sA.x, y: sA.y + off }, { x: sB.x, y: sA.y + off }, sB, wB])
       }
     }
   }
@@ -762,7 +811,7 @@ export function routeEdge(
   const elbows = dA.x !== 0
     ? [[wA, sA, { x: sB.x, y: sA.y }, sB, wB], [wA, sA, { x: sA.x, y: sB.y }, sB, wB]]
     : [[wA, sA, { x: sA.x, y: sB.y }, sB, wB], [wA, sA, { x: sB.x, y: sA.y }, sB, wB]]
-  for (const e of elbows) if (clean(e)) return simplify(e)
+  for (const e of elbows) offer(e)
 
   // Z-routes: leave both pins along their own normals, meet on a shared lane.
   // These are the shapes a human draws, and they clear an obstacle the plain
@@ -788,7 +837,8 @@ export function routeEdge(
       zs.push([wA, sA, ...off, sB, wB])
     }
   }
-  for (const z of zs) if (clean(z)) return simplify(z)
+  for (const z of zs) offer(z)
+  if (bestPath) return simplify(bestPath)
 
   const mid = router.route(sA, sB, escapes)
   if (mid) {
@@ -853,21 +903,27 @@ export function routeEdgeFrom(
 
   const clean = (pts: Pt[]) => !hitsAnyBody(pts, router.rects, from, wB)
 
-  // Straight, then the two elbows — turning into the pin's own axis last.
-  if (Math.abs(from.x - sB.x) < 0.5 || Math.abs(from.y - sB.y) < 0.5) {
-    const c = [from, sB, wB]
-    if (clean(c)) return simplify(c)
+  // Scored like routeEdge: a branch that lies along an existing wire is
+  // invisible, so overlap outranks bends and length here too.
+  const lengthOf = (pts: Pt[]) =>
+    pts.slice(1).reduce((a, p, i) => a + Math.abs(p.x - pts[i].x) + Math.abs(p.y - pts[i].y), 0)
+  let best: Pt[] | null = null
+  let bestScore = Infinity
+  const offer = (pts: Pt[]) => {
+    if (!clean(pts)) return
+    const sc = router.overlapLength(pts) * 40 + Math.max(0, simplify(pts).length - 2) * 30 + lengthOf(pts)
+    if (sc < bestScore) { bestScore = sc; best = pts }
   }
+
+  if (Math.abs(from.x - sB.x) < 0.5 || Math.abs(from.y - sB.y) < 0.5) offer([from, sB, wB])
   const elbows = dB.x !== 0
     ? [[from, { x: from.x, y: sB.y }, sB, wB], [from, { x: sB.x, y: from.y }, sB, wB]]
     : [[from, { x: sB.x, y: from.y }, sB, wB], [from, { x: from.x, y: sB.y }, sB, wB]]
-  for (const e of elbows) if (clean(e)) return simplify(e)
+  for (const e of elbows) offer(e)
 
   const mid = router.route(from, sB, [sB])
-  if (mid) {
-    const full = [from, ...mid, sB, wB]
-    if (clean(full)) return simplify(full)
-  }
+  if (mid) offer([from, ...mid, sB, wB])
+  if (best) return simplify(best)
   return simplify(elbows[0])
 }
 

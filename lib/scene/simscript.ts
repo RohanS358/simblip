@@ -1031,6 +1031,10 @@ export function executeSimScript(
           }
         }
         if (!netPath.has(srcKey)) netPath.set(srcKey, path)
+        // Register the finished route so later wires steer out of its lanes:
+        // two nets drawn along the same stretch render as a single line, and
+        // one of the connections silently vanishes from the sheet.
+        router.commit(path)
 
         const minX = Math.min(...path.map(p => p.x)), minY = Math.min(...path.map(p => p.y))
         const maxX = Math.max(...path.map(p => p.x)), maxY = Math.max(...path.map(p => p.y))
