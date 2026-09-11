@@ -12,6 +12,11 @@ takes an hour to write and forty minutes to read is the target, not a summary.
 the linter. The local model is not trusted with lesson content: a wrong hint is
 recoverable, a wrong lesson taught confidently is not.
 
+(A platform admin can *edit* an already-published lesson in the app — see
+[Fixing a published lesson in the app](#fixing-a-published-lesson-in-the-app).
+That is a repair bench for a typo or a stray number, and it never generates
+anything. New lessons come from here.)
+
 ## The one hard gate
 
 Every figure's `script` MUST pass the SimScript linter before the lesson ships:
@@ -81,6 +86,34 @@ lesson set, so a lesson deleted from the directory disappears from the database.
 Publishing makes a course exist; it does not make it visible. Grant it to a room
 or a profile to do that (`docs/course-mode.md`) — the publisher tells you
 whether any grants exist yet.
+
+## Fixing a published lesson in the app
+
+A platform admin (`super_admin`) opening a lesson gets an **Edit** button on the
+reader. It edits the real `CourseDoc` field by field — prose, every figure's
+SimScript, derivation and worked steps, the question and its per-choice
+responses — and **Publish** saves that one lesson to the live course, so every
+student holding a grant sees it. Typing re-renders the reader behind the panel,
+figures included.
+
+This is a **repair bench, not an authoring surface**. Use it for a typo, a
+reworded paragraph, a wrong number, a figure script that needs one parameter
+changed. It is the fast path when a student has already hit the problem.
+
+**Authoring still happens here, offline.** The reason is the linter: the browser
+has no SimScript lint gate, so an edit made in the app is saved on shape alone —
+a figure whose script is broken will simply render nothing. Writing a new
+lesson, or any change touching several figures, goes through the file and
+`lint-course.mjs`.
+
+When you edit in the app, **backport the change to the JSON file in
+`content/courses/`**. The directory is the source of truth: the next
+`publish-course.mjs` run replaces the course's whole lesson set from those
+files, so an in-app fix that was never backported is silently reverted.
+
+Saving uses `PUT /api/courses/lesson`, which updates one lesson row — *not*
+`/api/courses/publish`, which replaces a course wholesale and would delete every
+sibling lesson if it were called from a reader holding only one.
 
 ## Section shape
 
