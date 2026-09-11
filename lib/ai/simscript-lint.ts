@@ -367,10 +367,24 @@ export function lintSimScript(source: string): LintResult {
     const nameM = /targetParamName\s*:\s*['"]([^'"]+)['"]/.exec(propsRaw)
     if (!nameM) continue
     const param = nameM[1]
-    if (GEOMETRY_PARAMS.includes(param)) continue
     // Which object is it aimed at? Only a create() handle is checkable.
     const targetM = /target(?:ObjectId|Object|)\s*:\s*([A-Za-z_$][\w$]*)/.exec(propsRaw)
-    if (!targetM) continue
+
+    // NO target at all is the commonest form of this bug, and it used to slip
+    // through here: the rule below only checked whether a STATED target had
+    // the named param. A control with `targetParamName` and no
+    // `targetObjectId` falls back to a page variable that nothing reads, so it
+    // renders, drags, and drives nothing — the exact "sliders aren't attached
+    // to real components" failure, shipped silently.
+    if (!targetM) {
+      if (!/targetType\s*:\s*['"]variable['"]/.test(propsRaw)) {
+        errors.push(
+          `create("${control}", { targetParamName: "${param}" }) has no targetObjectId, so it drives nothing; aim it at a create() handle — create("${control}", { targetObjectId: <obj>, targetParamName: "${param}" }) — or set targetType: "variable" if it really drives a page variable`
+        )
+      }
+      continue
+    }
+    if (GEOMETRY_PARAMS.includes(param)) continue
     const targetKind = kinds[targetM[1]]
     if (!targetKind) continue
     const legal = paramsOf(targetKind)

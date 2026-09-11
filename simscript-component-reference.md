@@ -219,7 +219,10 @@ var ch = create("chart", {                                           // 380x280 
 var s3 = create("surface3d", { formula: "sin(x)*cos(y)", axis: "z" }); // 420x340 3D surface / implicit plotter
                                      // aliases: "graph3d", "surface-3d", "3d"; `formulas: [...]` for several
 var sld = create("slider", { min: 0, max: 100, step: 1, value: 50, label: "Mass",
+                             targetObjectId: block,                  // REQUIRED — a create() handle
                              targetParamName: "mass" });             // 240x80 real-time control slider
+                             // Without targetObjectId a control falls back to a page variable nothing
+                             // reads: it renders, it drags, and it drives nothing. Same for button/trigger.
 var btn = create("button", { label: "Pulse", actionType: "toggle" }); // 160x54 interactive click button
 var trg = create("trigger", { condition: ">", threshold: 50,
                               actionType: "toggle" });               // 230x90 conditional comparison trigger
