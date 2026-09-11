@@ -47,6 +47,7 @@ import {
 } from '@/lib/data/admin'
 import { listAssets, setApproved, subscribeLibrary } from '@/lib/data/library'
 import { listMyAnnouncements, postAnnouncement } from '@/lib/data/announcements'
+import { listGrants, grantCourse, revokeGrant, type CourseRow, type GrantRow } from '@/lib/data/courses'
 import * as db from '@/lib/data/db'
 import { dbMode } from '@/lib/data/db'
 import type {
@@ -736,6 +737,156 @@ function BrandingTab() {
   )
 }
 
+
+// ── Courses ─────────────────────────────────────────────────────────────────
+// Publishing a course makes it EXIST (see .claude/skills/course-author);
+// granting makes it VISIBLE. This tab is only the second half — an admin never
+// edits lesson content, they decide reach.
+
+function CoursesTab({ people, rooms }: { people: ProfileRow[]; rooms: RoomRow[] }) {
+  const [catalogue, setCatalogue] = useState<CourseRow[]>([])
+  const [grants, setGrants] = useState<GrantRow[]>([])
+  const [error, setError] = useState<string | null>(null)
+  const [courseId, setCourseId] = useState('')
+  const [target, setTarget] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const refresh = useCallback(() => {
+    void listGrants()
+      .then((d) => {
+        setCatalogue(d.catalogue)
+        setGrants(d.grants)
+        setError(null)
+      })
+      .catch((e: Error) => setError(e.message))
+  }, [])
+  useEffect(() => refresh(), [refresh])
+
+  // Rooms first: granting to a class is the common case, and picking thirty
+  // students one at a time is the mistake this ordering discourages.
+  const targets = useMemo(
+    () => [
+      ...rooms.map((r) => ({ value: `room:${r.id}`, label: `${r.name} (class)` })),
+      ...people
+        .filter((p) => p.role === 'student' || p.role === 'teacher')
+        .map((p) => ({ value: `profile:${p.id}`, label: `${p.full_name} · ${ROLE_LABEL[p.role as Role]}` })),
+    ],
+    [rooms, people]
+  )
+
+  const grant = async () => {
+    if (!courseId || !target) return
+    const [kind, id] = target.split(':')
+    setBusy(true)
+    try {
+      await grantCourse(courseId, kind === 'room' ? { roomId: id } : { profileId: id })
+      toast.success('Course granted')
+      setTarget('')
+      refresh()
+    } catch (e) {
+      toast.error((e as Error).message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const revoke = async (id: string) => {
+    try {
+      await revokeGrant(id)
+      toast.success('Grant revoked — progress is kept')
+      refresh()
+    } catch (e) {
+      toast.error((e as Error).message)
+    }
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-12 text-center">
+        <GraduationCap className="h-6 w-6 text-muted-foreground/50" />
+        <p className="text-ui-sm text-muted-foreground">{error}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4 pt-4">
+      <p className="text-ui-xs text-muted-foreground">
+        Courses are published from the repo. Granting one makes it appear in a student&rsquo;s
+        Courses panel, grouped by semester.
+      </p>
+
+      {catalogue.length === 0 ? (
+        <div className="flex flex-col items-center gap-2 py-12 text-center">
+          <GraduationCap className="h-6 w-6 text-muted-foreground/50" />
+          <p className="text-ui-sm text-muted-foreground">No courses published yet.</p>
+          <p className="max-w-sm text-ui-2xs text-muted-foreground">
+            Publish one with{' '}
+            <code className="rounded bg-muted px-1 py-0.5 font-mono">
+              publish-course.mjs content/courses/&lt;course&gt;
+            </code>
+          </p>
+        </div>
+      ) : (
+        <div className="glass flex flex-wrap items-end gap-2 rounded-2xl p-4">
+          <div className="min-w-[14rem] flex-1 space-y-1.5">
+            <Label className="text-ui-xs">Course</Label>
+            <Select value={courseId} onValueChange={setCourseId}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Pick a course" /></SelectTrigger>
+              <SelectContent>
+                {catalogue.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.code} — {c.title}
+                    {c.semester ? ` · Sem ${c.semester}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="min-w-[14rem] flex-1 space-y-1.5">
+            <Label className="text-ui-xs">Grant to</Label>
+            <Select value={target} onValueChange={setTarget}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="A class or one person" /></SelectTrigger>
+              <SelectContent>
+                {targets.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button onClick={() => void grant()} disabled={!courseId || !target || busy}>
+            Grant access
+          </Button>
+        </div>
+      )}
+
+      {grants.length === 0 && catalogue.length > 0 && (
+        <p className="py-8 text-center text-ui-sm text-muted-foreground">
+          Nothing granted yet — no one can see these courses.
+        </p>
+      )}
+
+      {grants.map((g) => (
+        <div key={g.id} className="glass flex items-center gap-3 rounded-2xl px-4 py-3">
+          <GraduationCap className="h-4 w-4 shrink-0 text-[var(--accent-violet)]" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-ui-sm font-semibold">
+              {g.code} — {g.title}
+            </p>
+            <p className="text-ui-2xs text-muted-foreground">
+              {g.room_name ? `${g.room_name} (class)` : (g.profile_name ?? 'one person')}
+              {g.semester ? ` · Semester ${g.semester}` : ''}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => void revoke(g.id)}>
+            Revoke
+          </Button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Console ─────────────────────────────────────────────────────────────────
 
 function AdminConsole() {
@@ -776,6 +927,7 @@ function AdminConsole() {
           <TabsTrigger value="library">
             Library{pendingApprovals > 0 ? ` (${pendingApprovals})` : ''}
           </TabsTrigger>
+          <TabsTrigger value="courses">Courses</TabsTrigger>
           <TabsTrigger value="announcements">Announcements</TabsTrigger>
           <TabsTrigger value="branding">Branding</TabsTrigger>
         </TabsList>
@@ -790,6 +942,9 @@ function AdminConsole() {
         </TabsContent>
         <TabsContent value="library">
           <LibraryTab assets={assets} refresh={refresh} />
+        </TabsContent>
+        <TabsContent value="courses">
+          <CoursesTab people={people} rooms={rooms} />
         </TabsContent>
         <TabsContent value="announcements">
           <AnnouncementsTab rooms={rooms} />

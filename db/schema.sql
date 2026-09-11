@@ -346,6 +346,82 @@ create table if not exists simblip_bug_reports (
 create index if not exists simblip_bug_reports_created_idx
   on simblip_bug_reports (created_at desc);
 
+-- ── Course Mode ─────────────────────────────────────────────────────────────
+-- Prebuilt interactive lessons (docs/course-mode.md). Three tiers:
+--   dev    authors and publishes a course + its lessons
+--   admin  grants a course to a room or a profile
+--   user   sees what they were granted, as a semester-grouped syllabus tree
+--
+-- Deliberately NOT simblip_library_assets: that holds teacher-published
+-- reusable assets behind an `approved` flag. A course is dev-published,
+-- versioned, ORDERED, and granted rather than browsed — overloading the
+-- library would conflate "an asset a teacher shared" with "a curriculum a
+-- student is enrolled in".
+--
+-- Courses are cross-tenant (published once, granted to many institutions), so
+-- there is no institution_id here — the GRANT carries the tenancy.
+
+create table if not exists simblip_courses (
+  id          text primary key,               -- 'enex-101', stable across versions
+  code        text not null,                  -- 'ENEX 101'
+  title       text not null,
+  subject     text not null default 'general',
+  semester    integer,                        -- null = not tied to one
+  description text,
+  -- Bumped whenever lessons change, so a client can tell its cache is stale.
+  version     integer not null default 1,
+  published   boolean not null default false, -- unpublished = dev-visible only
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create index if not exists simblip_courses_semester_idx
+  on simblip_courses (semester, code);
+
+-- One lesson. `path` is the syllabus position that builds the tree —
+-- 'DC Circuits/Ohm''s law', parent units separated by '/'. Storing the path
+-- rather than a parent_id keeps a lesson movable by editing one field, and the
+-- tree is derived at read time.
+create table if not exists simblip_course_lessons (
+  id         text primary key,                -- 'enex-101/ohms-law'
+  course_id  text not null references simblip_courses (id) on delete cascade,
+  path       text not null default '',        -- '' = top level
+  title      text not null,
+  ord        integer not null default 0,      -- sibling order within `path`
+  -- The CourseDoc (lib/store/course.ts), exactly as the reader consumes it.
+  doc        jsonb not null,
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists simblip_course_lessons_course_idx
+  on simblip_course_lessons (course_id, path, ord);
+
+-- Who may open a course. Mirrors simblip_shares: exactly one target, either a
+-- whole room (a class) or one profile (an individual).
+create table if not exists simblip_course_grants (
+  id                uuid primary key default gen_random_uuid(),
+  course_id         text not null references simblip_courses (id) on delete cascade,
+  institution_id    uuid not null references simblip_institutions (id) on delete cascade,
+  target_room_id    uuid references simblip_rooms (id) on delete cascade,
+  target_profile_id uuid references simblip_profiles (id) on delete cascade,
+  granted_by        uuid not null references simblip_profiles (id) on delete cascade,
+  granted_at        timestamptz not null default now(),
+  check (target_room_id is not null or target_profile_id is not null)
+);
+
+create index if not exists simblip_course_grants_room_idx
+  on simblip_course_grants (target_room_id);
+create index if not exists simblip_course_grants_profile_idx
+  on simblip_course_grants (target_profile_id);
+create index if not exists simblip_course_grants_inst_idx
+  on simblip_course_grants (institution_id, course_id);
+
+-- A grant is a fact about (course, target) — granting twice is not two grants.
+create unique index if not exists simblip_course_grants_room_uniq
+  on simblip_course_grants (course_id, target_room_id) where target_room_id is not null;
+create unique index if not exists simblip_course_grants_profile_uniq
+  on simblip_course_grants (course_id, target_profile_id) where target_profile_id is not null;
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migrating FROM a Supabase deployment (schema v2)?
 --   • RLS policies and the auth schema are gone — the /api/pg gateway
