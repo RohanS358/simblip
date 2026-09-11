@@ -213,6 +213,23 @@ export async function deleteFiles(fileIds: string[]): Promise<void> {
       }
     })
   )
+  // Sweep any tree nodes still pointing at a fileId that no longer has bytes
+  // behind it — e.g. deleting straight from the Storage settings panel,
+  // rather than deleting the page/folder that owns the file. removeNode()
+  // itself calls deleteFiles() (see workspace.ts), so this dynamic import is
+  // safe to run unconditionally: by the time it resolves, tree-driven
+  // deletes have already stripped their own nodes from the store, leaving
+  // nothing here to match and re-delete.
+  const idSet = new Set(fileIds)
+  const { useWorkspaceStore } = await import('@/lib/store/workspace')
+  const nodes = useWorkspaceStore.getState().nodes
+  const orphanedNodeIds = Object.values(nodes)
+    .filter((n) =>
+      (n.kind === 'file' && idSet.has(n.fileId)) ||
+      (n.kind === 'page' && n.fileUrl?.startsWith('opfs:') && idSet.has(n.fileUrl.slice('opfs:'.length)))
+    )
+    .map((n) => n.id)
+  orphanedNodeIds.forEach((nid) => useWorkspaceStore.getState().removeNode(nid))
 }
 
 // In-flight guard: pushFilesToDevice() runs once per online device and all
