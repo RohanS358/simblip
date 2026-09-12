@@ -6,10 +6,14 @@
 // authors; a deck is a sequence of slides. A lesson is neither — it is a
 // fixed, authored document whose figures are real simulations, and whose
 // reader is a student rather than an editor. The content is written offline
-// (see .claude/skills/course-author), lint-gated before it ships, and never
-// edited in the app, so the view is a READER: no tool dock, no inspector, no
-// object selection. That is the whole reason it earns its own page kind
-// instead of riding on doc.
+// (see .claude/skills/course-author) and lint-gated before it ships, so the
+// view is a READER: no tool dock, no inspector, no object selection. That is
+// the whole reason it earns its own page kind instead of riding on doc.
+//
+// A platform admin can edit a published lesson in place — see
+// components/workspace/course-editor.tsx — but that is a repair bench bolted
+// onto the reader, not an authoring surface, and every other role still gets
+// the read-only view described above.
 //
 // A lesson is DATA. Nothing here is generated at runtime — the local model is
 // not trusted with lesson content — so this file is types plus the two small

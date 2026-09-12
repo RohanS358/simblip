@@ -5,6 +5,10 @@ import { behaviorSpec } from '@/lib/behaviors/registry'
 import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
 import { planPlacement, unionRect, type Bounds } from './auto-layout'
+import {
+  placeOptimized, OrthoRouter, routeEdge, routeEdgeFrom, halfExtent, hitsAnyBody,
+  type Edge as LayoutEdge, type Pt,
+} from './circuit-layout'
 import { latexToExpr } from '@/lib/formula/latex'
 import {
   CANVAS_KINDS, canvasKindOf, applyKindProps, applyStyleProps, RESERVED_PROPS,
@@ -865,590 +869,179 @@ export function executeSimScript(
   // connect()-then-move script still hands the solver a real attachment.
   for (const b of mechBindings) applyBinding(b.connId, b.index, b.bodyId)
 
-  // ── Smart circuit auto-layout ──────────────────────────────────────────────
-  // Runs only when there are edges and at least some nodes without explicit positions.
-  if (circuitEdges.length > 0) {
+  // ── Circuit auto-layout: force-directed placement + orthogonal routing ─────
+  // See lib/scene/circuit-layout.ts. Replaces four hand-written per-topology
+  // branches (series loop / parallel bank / one-transistor amp / digital chain)
+  // that hardcoded coordinates for circuits someone had anticipated; anything
+  // else fell through to a BFS-column pass that ignored pin orientation, so
+  // wires routinely left a right-hand pin to reach a part placed below-left
+  // and doubled back across their own body.
+  const getObj = (id: string) => store().pages[pageId]?.objects?.[id]
+
+  // Only edges between real SCHEMATIC parts get laid out. A mechanics link
+  // (rod/spring/rope) is also recorded here, but its endpoints ARE the physics
+  // attachment — buildWorld pairs bodies by what sits under them — so moving a
+  // body or rewriting that line's geometry silently detaches the simulation.
+  const schematicEdges = circuitEdges.filter(e => {
+    const a = getObj(e.fromId), b = getObj(e.toId)
+    return a?.geometry.kind === 'symbol' && b?.geometry.kind === 'symbol' &&
+      terminalsOf(a).length > 0 && terminalsOf(b).length > 0
+  })
+
+  if (schematicEdges.length > 0) {
     const allIds = new Set<string>()
-    for (const e of circuitEdges) { allIds.add(e.fromId); allIds.add(e.toId) }
+    for (const e of schematicEdges) { allIds.add(e.fromId); allIds.add(e.toId) }
     const layoutIds = [...allIds].filter(id => !explicitPos.has(id))
 
     if (layoutIds.length > 0) {
-      const getObj = (id: string) => store().pages[pageId]?.objects?.[id]
-      const getSym = (id: string) => getObj(id)?.geometry?.symbol ?? ''
-
-      // ── Classify each node by its electrical role ──────────────────────────
-      const SUPPLY_SYMS  = new Set(['battery','ac-source','current-source','vcvs','vccs','ccvs','cccs','three-phase-source'])
-      const GND_SYMS     = new Set(['gnd'])
-      const ACTIVE_SYMS  = new Set(['bjt','bjt-pnp','mosfet','mosfet-pmos','opamp'])
-      const PASSIVE_SYMS = new Set(['resistor','capacitor','inductor','potentiometer','fuse','bulb'])
-
-      const isSupply  = (id: string) => SUPPLY_SYMS.has(getSym(id))
-      const isGnd     = (id: string) => GND_SYMS.has(getSym(id))
-      const isActive  = (id: string) => ACTIVE_SYMS.has(getSym(id))
-      const isPassive = (id: string) => PASSIVE_SYMS.has(getSym(id))
-
-      // Build undirected neighbour map for topology analysis
-      const nbrs = new Map<string, Set<string>>()
-      for (const id of layoutIds) nbrs.set(id, new Set())
-      for (const e of circuitEdges) {
-        if (layoutIds.includes(e.fromId) && layoutIds.includes(e.toId)) {
-          nbrs.get(e.fromId)?.add(e.toId)
-          nbrs.get(e.toId)?.add(e.fromId)
-        }
+      const idxFor = (objId: string, anchor: string): number => {
+        const obj = getObj(objId)
+        return obj ? terminalIndexFor(obj, anchor) : 0
       }
+      const edges: LayoutEdge[] = schematicEdges.map(e => ({
+        fromId: e.fromId, toId: e.toId,
+        fromIdx: idxFor(e.fromId, e.fromAnchor), toIdx: idxFor(e.toId, e.toAnchor),
+      }))
 
-      // ── Detect analog vs digital domain ───────────────────────────────────
-      const hasActive  = layoutIds.some(isActive)
-      const hasSupply  = layoutIds.some(isSupply)
-      const hasGnd     = layoutIds.some(isGnd)
-      const isAnalog   = hasActive || (hasSupply && hasGnd && layoutIds.some(isPassive))
-      const hasDigital = layoutIds.some(id => {
-        const s = getSym(id); return s === 'input' || s === 'clock' || s === 'output' ||
-          s.endsWith('-gate') || s.includes('-ff') || s.includes('-latch') ||
-          s.includes('adder') || s.includes('decoder') || s.includes('encoder')
-      })
-
-      const positions = new Map<string, { x: number; y: number }>()
-      const rotations = new Map<string, number>()
-
-      // ──────────────────────────────────────────────────────────────────────
-      // TEXTBOOK LAYOUT for simple supply + passive circuits (no transistors,
-      // no gates): a series loop becomes a clean rectangle — supply vertical
-      // on the left, components across the top and back along the bottom —
-      // and a parallel bank becomes vertical branches between two rails.
-      // Voltmeters/probes float above what they measure; gnd hangs below.
-      // ──────────────────────────────────────────────────────────────────────
-      const PARALLEL_PROBES = new Set(['voltmeter', 'probe', 'logic-probe', 'wattmeter'])
-      const probeIds = layoutIds.filter(id => PARALLEL_PROBES.has(getSym(id)))
-      const coreIds = layoutIds.filter(id => !PARALLEL_PROBES.has(getSym(id)))
-      const ringIds = coreIds.filter(id => !isGnd(id))
-      const ringNbrs = new Map<string, Set<string>>()
-      for (const id of ringIds) ringNbrs.set(id, new Set())
-      for (const e of circuitEdges) {
-        if (e.fromId !== e.toId && ringNbrs.has(e.fromId) && ringNbrs.has(e.toId)) {
-          ringNbrs.get(e.fromId)!.add(e.toId)
-          ringNbrs.get(e.toId)!.add(e.fromId)
-        }
-      }
-
-      let textbookDone = false
-      if (hasSupply && !hasActive && !hasDigital && ringIds.length >= 2) {
-        const supplies = ringIds.filter(isSupply)
-        const supplyId = supplies[0]
-        const TOP_Y = origin.y + 40
-        const BOT_Y = TOP_Y + 240
-        const MID_Y = (TOP_Y + BOT_Y) / 2
-        const GRID_X = 160
-        const X0 = origin.x + 40
-
-        const placeVertical = (id: string, xMid: number, yMid: number) => {
-          const o = getObj(id)
-          const w = o?.size?.w ?? 96
-          const h = o?.size?.h ?? 48
-          rotations.set(id, 90)
-          positions.set(id, { x: xMid - w / 2, y: yMid - h / 2 })
-        }
-        const placeHorizontal = (id: string, xMid: number, yMid: number) => {
-          const o = getObj(id)
-          const w = o?.size?.w ?? 96
-          const h = o?.size?.h ?? 48
-          positions.set(id, { x: xMid - w / 2, y: yMid - h / 2 })
-        }
-
-        // (a) parallel bank — one supply, every other component hangs directly off it
-        const isBank =
-          supplies.length === 1 &&
-          ringIds.length >= 3 &&
-          ringIds.every(id => {
-            if (id === supplyId) return true
-            const nb = ringNbrs.get(id)!
-            return nb.size >= 1 && [...nb].every(n => n === supplyId)
-          })
-
-        if (isBank) {
-          placeVertical(supplyId, X0, MID_Y)
-          let bx = X0 + GRID_X
-          for (const id of ringIds) {
-            if (id === supplyId) continue
-            placeVertical(id, bx, MID_Y)
-            bx += 130
-          }
-          textbookDone = true
-        } else if (supplyId && ringIds.every(id => (ringNbrs.get(id)?.size ?? 0) <= 2)) {
-          // (b) series loop/chain — walk the circuit starting at the supply
-          const chain: string[] = [supplyId]
-          const seen = new Set([supplyId])
-          let cur = supplyId
-          for (;;) {
-            const nxt = [...(ringNbrs.get(cur) ?? [])].find(n => !seen.has(n))
-            if (!nxt) break
-            chain.push(nxt)
-            seen.add(nxt)
-            cur = nxt
-          }
-          if (chain.length === ringIds.length) {
-            const rest = chain.slice(1)
-            const topCount = Math.ceil(rest.length / 2)
-            placeVertical(chain[0], X0, MID_Y)
-            // clockwise: across the top row, then back right-to-left along the bottom
-            for (let i = 0; i < topCount; i++) placeHorizontal(rest[i], X0 + GRID_X * (i + 1), TOP_Y)
-            const rightX = X0 + GRID_X * Math.max(1, topCount)
-            const bottom = rest.slice(topCount)
-            for (let i = 0; i < bottom.length; i++) placeHorizontal(bottom[i], rightX - GRID_X * i, BOT_Y)
-            textbookDone = true
-          }
-        }
-
-        if (textbookDone) {
-          // gnd symbols hang below their neighbour
-          for (const gid of coreIds.filter(isGnd)) {
-            const nbr = [...(nbrs.get(gid) ?? [])].find(n => positions.has(n))
-            const gw = getObj(gid)?.size?.w ?? 96
-            if (nbr) {
-              const p = positions.get(nbr)!
-              const nw = getObj(nbr)?.size?.w ?? 96
-              positions.set(gid, { x: p.x + nw / 2 - gw / 2, y: BOT_Y + 70 })
-            } else {
-              positions.set(gid, { x: X0 - gw / 2, y: BOT_Y + 70 })
-            }
-          }
-          // parallel probes float above whatever they measure
-          let freeX = X0
-          for (const pid of probeIds) {
-            const pw = getObj(pid)?.size?.w ?? 96
-            const nbr = [...(nbrs.get(pid) ?? [])].find(n => positions.has(n))
-            if (nbr) {
-              const p = positions.get(nbr)!
-              const nw = getObj(nbr)?.size?.w ?? 96
-              positions.set(pid, { x: p.x + nw / 2 - pw / 2, y: TOP_Y - 120 })
-            } else {
-              positions.set(pid, { x: freeX, y: TOP_Y - 120 })
-              freeX += 130
-            }
-          }
-        }
-      }
-
-      if (textbookDone) {
-        // placed above — skip the transistor/digital layouts
-      } else if (isAnalog && !hasDigital && layoutIds.filter(isActive).length === 1) {
-        // ──────────────────────────────────────────────────────────────────────
-        // NET-AWARE AMPLIFIER LAYOUT (exactly one transistor / op-amp)
-        //
-        // Terminals are grouped into electrical NETS (union-find over the
-        // connect() edges). The active device names its nets — base/collector/
-        // emitter (gate/drain/source, in−/out/in+) — the rails name theirs
-        // (VCC/GND/signal), and every passive is then slotted where a textbook
-        // draws it: load above the collector, emitter network below, bias
-        // divider left of the base, coupling caps walking in from the signal
-        // source, output coupling walking out to the right.
-        // ──────────────────────────────────────────────────────────────────────
-        const activeId = layoutIds.find(isActive)!
-        const aObj = getObj(activeId)
-        const aSym = getSym(activeId)
-
-        // Terminal-index resolution — the same rules the wire re-router uses.
-        // Same resolver connect() drew the wire with. Kept as one function so
-        // the netlist and the drawn wire can never disagree about which pin an
-        // anchor meant — this used to be a second copy with its own fallback.
-        const idxFor = (objId: string, anchor: string): number => {
-          const obj = getObj(objId)
-          return obj ? terminalIndexFor(obj, anchor) : 0
-        }
-
-        // Union-find nets over `${id}:${terminalIndex}` keys.
-        const parent = new Map<string, string>()
-        const find = (k: string): string => {
-          let r = k
-          while (parent.get(r) !== undefined && parent.get(r) !== r) r = parent.get(r)!
-          parent.set(k, r)
-          return r
-        }
-        const union = (a: string, b: string) => {
-          const ra = find(a)
-          const rb = find(b)
-          if (ra !== rb) parent.set(ra, rb)
-        }
-        for (const e of circuitEdges) {
-          union(`${e.fromId}:${idxFor(e.fromId, e.fromAnchor)}`, `${e.toId}:${idxFor(e.toId, e.toAnchor)}`)
-        }
-        const net = (id: string, idx: number) => find(`${id}:${idx}`)
-
-        const METERS = new Set(['voltmeter', 'wattmeter'])
-        const PROBE1 = new Set(['probe', 'logic-probe'])
-
-        // Which terminals sit on each net (meters excluded — they observe,
-        // they must not break series-chain detection).
-        const netTerms = new Map<string, { id: string; idx: number }[]>()
-        for (const e of circuitEdges) {
-          for (const t of [
-            { id: e.fromId, idx: idxFor(e.fromId, e.fromAnchor) },
-            { id: e.toId, idx: idxFor(e.toId, e.toAnchor) },
-          ]) {
-            if (METERS.has(getSym(t.id))) continue
-            const r = net(t.id, t.idx)
-            const l = netTerms.get(r) ?? []
-            if (!l.some((x) => x.id === t.id && x.idx === t.idx)) l.push(t)
-            netTerms.set(r, l)
-          }
-        }
-
-        // Name the important nets.
-        const isOpAmpDev = aSym === 'opamp'
-        const baseIdx = isOpAmpDev ? 1 : 0 // in− for the op-amp
-        const colIdx = isOpAmpDev ? 2 : 1 // out for the op-amp
-        const emiIdx = isOpAmpDev ? 0 : 2 // in+ for the op-amp
-        const label = new Map<string, string>()
-        const setLabel = (n: string, l: string) => {
-          if (!label.has(n)) label.set(n, l)
-        }
-        setLabel(net(activeId, baseIdx), 'base')
-        setLabel(net(activeId, colIdx), 'col')
-        setLabel(net(activeId, emiIdx), 'emi')
-        for (const id of layoutIds) if (isGnd(id)) setLabel(net(id, 0), 'gnd')
-        const batteries = layoutIds.filter((id) => getSym(id) === 'battery')
-        for (const b of batteries) {
-          setLabel(net(b, 0), 'vcc')
-          setLabel(net(b, 1), 'gnd')
-        }
-        const sigSources = layoutIds.filter((id) => isSupply(id) && getSym(id) !== 'battery')
-        for (const s of sigSources) setLabel(net(s, 0), 'sig')
-
-        // No explicit battery? The rail is the unlabeled net that the most
-        // RESISTORS share (R1 and the collector load both tie to VCC).
-        if (![...label.values()].includes('vcc')) {
-          const counts = new Map<string, number>()
-          for (const id of layoutIds) {
-            if (getSym(id) !== 'resistor') continue
-            for (const idx of [0, 1]) {
-              const r = net(id, idx)
-              if (!label.has(r)) counts.set(r, (counts.get(r) ?? 0) + 1)
-            }
-          }
-          let best: string | null = null
-          for (const [r, cnt] of counts) if (cnt >= 2 && (!best || cnt > (counts.get(best) ?? 0))) best = r
-          if (best) label.set(best, 'vcc')
-        }
-
-        // Classify every 2-terminal passive (or the series chain it starts)
-        // by the pair of named nets it bridges.
-        type SlotName = 'rc' | 're' | 'r1' | 'r2' | 'cin' | 'out' | 'fb' | 'rail' | 'misc'
-        const slots = new Map<SlotName, string[][]>()
-        const addChain = (s: SlotName, chain: string[]) => {
-          const l = slots.get(s) ?? []
-          l.push(chain)
-          slots.set(s, l)
-        }
-        const chained = new Set<string>()
-        const isPassive2 = (id: string) => {
-          const o = getObj(id)
-          return (
-            !!o &&
-            o.geometry.kind === 'symbol' &&
-            terminalsOf(o).length === 2 &&
-            !isSupply(id) &&
-            !isGnd(id) &&
-            !METERS.has(getSym(id)) &&
-            !PROBE1.has(getSym(id)) &&
-            id !== activeId
-          )
-        }
-        const slotFor = (a: string | undefined, b: string | undefined): SlotName | null => {
-          const pair = new Set([a, b])
-          const has = (x: string) => pair.has(x)
-          if (has('col') && has('vcc')) return 'rc'
-          if (has('emi') && has('gnd')) return 're'
-          if (has('base') && has('vcc')) return 'r1'
-          if (has('base') && has('gnd')) return 'r2'
-          if (has('base') && has('col')) return 'fb'
-          if (has('base')) return 'cin'
-          if (has('col')) return 'out'
-          if (has('vcc') && has('gnd')) return 'rail'
-          if (has('emi')) return 're'
-          return null
-        }
-
-        for (const id of layoutIds) {
-          if (!isPassive2(id) || chained.has(id)) continue
-          let la = label.get(net(id, 0))
-          let lb = label.get(net(id, 1))
-          const chain = [id]
-          if ((la === undefined) !== (lb === undefined)) {
-            // Walk the series chain from the unnamed side until a named net.
-            let curId = id
-            let curNet = la === undefined ? net(id, 0) : net(id, 1)
-            for (let guard = 0; guard < 8; guard++) {
-              const others = (netTerms.get(curNet) ?? []).filter((t) => t.id !== curId)
-              if (others.length !== 1) break
-              const nxt = others[0]
-              if (!isPassive2(nxt.id) || chained.has(nxt.id) || chain.includes(nxt.id)) break
-              chain.push(nxt.id)
-              curId = nxt.id
-              curNet = net(nxt.id, nxt.idx === 0 ? 1 : 0)
-              const l = label.get(curNet)
-              if (l !== undefined) {
-                if (la === undefined) la = l
-                else lb = l
-                break
-              }
-            }
-          }
-          for (const cid of chain) chained.add(cid)
-          addChain(slotFor(la, lb) ?? 'misc', chain)
-        }
-
-        // ── Placement ────────────────────────────────────────────────────────
-        const QX = origin.x + 560
-        const QY = origin.y + 300
-        const aW = aObj?.size?.w ?? 96
-        const aH = aObj?.size?.h ?? 72
-        positions.set(activeId, { x: QX, y: QY })
-        const colX = QX + aW * 0.72 // collector/emitter pin column
-        const baseY = QY + aH / 2 // base pin height
-        const RAIL_TOP = QY - 250
-        const RAIL_BOT = QY + 260
-        const STEP = 120
-
-        const putV = (id: string, cx: number, cy: number) => {
-          const o = getObj(id)
-          rotations.set(id, 90)
-          positions.set(id, { x: cx - (o?.size?.w ?? 96) / 2, y: cy - (o?.size?.h ?? 48) / 2 })
-        }
-        const putH = (id: string, cx: number, cy: number) => {
-          const o = getObj(id)
-          positions.set(id, { x: cx - (o?.size?.w ?? 96) / 2, y: cy - (o?.size?.h ?? 48) / 2 })
-        }
-
-        // collector load(s): stacked upward toward the VCC rail
-        for (const [ci, chain] of (slots.get('rc') ?? []).entries())
-          chain.forEach((id, i) => putV(id, colX + ci * 130, QY - 90 - i * STEP))
-        // emitter network: stacked downward; parallel chains side by side (Re ∥ Ce)
-        for (const [ci, chain] of (slots.get('re') ?? []).entries())
-          chain.forEach((id, i) => putV(id, colX + ci * 130, QY + aH + 60 + i * STEP))
-        // bias divider column, left of the base
-        const biasX = QX - 130
-        for (const [ci, chain] of (slots.get('r1') ?? []).entries())
-          chain.forEach((id, i) => putV(id, biasX - ci * 120, QY - 90 - i * STEP))
-        for (const [ci, chain] of (slots.get('r2') ?? []).entries())
-          chain.forEach((id, i) => putV(id, biasX - ci * 120, QY + aH + 60 + i * STEP))
-        // input coupling, walking left from the base toward the signal source
-        for (const [ci, chain] of (slots.get('cin') ?? []).entries())
-          chain.forEach((id, i) => putH(id, QX - 260 - i * 140, baseY + ci * 90))
-        // output coupling, walking right from the collector
-        const outY = QY - 40
-        let outEndX = colX + 120
-        for (const chain of slots.get('out') ?? [])
-          chain.forEach((id, i) => {
-            const cx = colX + 190 + i * 140
-            putH(id, cx, outY)
-            outEndX = Math.max(outEndX, cx + 90)
-          })
-        // feedback (base↔collector): horizontal, above the device
-        for (const [ci, chain] of (slots.get('fb') ?? []).entries())
-          chain.forEach((id, i) => putH(id, QX - 30 + i * 140, QY - 180 - ci * 90))
-        // rail-to-rail parts (decoupling), then the supply, at the far left
-        for (const [ci, chain] of (slots.get('rail') ?? []).entries())
-          chain.forEach((id, i) =>
-            putV(id, origin.x + 320 - ci * 110, (RAIL_TOP + RAIL_BOT) / 2 + (i - (chain.length - 1) / 2) * STEP)
-          )
-        for (const [bi, b] of batteries.entries()) putV(b, origin.x + 50 + bi * 110, (RAIL_TOP + RAIL_BOT) / 2)
-        for (const [si, s] of sigSources.entries()) putV(s, origin.x + 170, baseY + 40 + si * 130)
-        // anything unclassified parks in a column right of the output
-        let miscY = QY - 140
-        for (const chain of slots.get('misc') ?? [])
-          for (const id of chain) {
-            putV(id, outEndX + 140, miscY)
-            miscY += 140
-          }
-        // meters and single-pin probes float near the output
-        let probeX = outEndX + 40
-        for (const id of layoutIds) {
-          if (positions.has(id) || isGnd(id)) continue
-          const sym = getSym(id)
-          if (METERS.has(sym) || PROBE1.has(sym) || sym === 'ammeter') {
-            positions.set(id, { x: probeX, y: outY - 140 })
-            probeX += 130
-          }
-        }
-        // gnd symbols hang under whatever they're wired to
-        for (const id of layoutIds) {
-          if (!isGnd(id) || positions.has(id)) continue
-          const peers = (netTerms.get(net(id, 0)) ?? []).filter((t) => t.id !== id && positions.has(t.id))
-          const px = peers.length > 0 ? Math.max(...peers.map((t) => positions.get(t.id)!.x)) : QX
-          positions.set(id, { x: px + 20, y: RAIL_BOT + 40 })
-        }
-        // absolute fallback — never leave anything unplaced
-        let fx = origin.x
-        for (const id of layoutIds) {
-          if (positions.has(id)) continue
-          positions.set(id, { x: fx, y: RAIL_BOT + 130 })
-          fx += 140
-        }
-      } else {
-        // ── Digital / Generic Layout ──────────────────────────────────────────
-        const adj = new Map<string, string[]>()
-        for (const id of layoutIds) adj.set(id, [])
-        for (const e of circuitEdges) if (!explicitPos.has(e.fromId) && !explicitPos.has(e.toId)) adj.get(e.fromId)?.push(e.toId)
-
-        const inDegree = new Map<string, number>()
-        for (const id of layoutIds) inDegree.set(id, 0)
-        for (const e of circuitEdges) if (!explicitPos.has(e.toId)) inDegree.set(e.toId, (inDegree.get(e.toId) ?? 0) + 1)
-        const sources = layoutIds.filter(id => (inDegree.get(id) ?? 0) === 0)
-
-        const col = new Map<string, number>()
-        const visited = new Set<string>()
-        for (const start of (sources.length > 0 ? sources : [layoutIds[0]])) {
-          if (visited.has(start)) continue
-          visited.add(start); col.set(start, 0)
-          const queue = [{ id: start, c: 0 }]
-          while (queue.length) {
-            const { id, c } = queue.shift()!
-            for (const nbr of (adj.get(id) ?? [])) {
-              if (!visited.has(nbr)) { visited.add(nbr); col.set(nbr, c + 1); queue.push({ id: nbr, c: c + 1 }) }
-              else col.set(nbr, Math.max(col.get(nbr)!, c + 1))
-            }
-          }
-        }
-        for (const start of layoutIds) {
-          if (visited.has(start)) continue
-          visited.add(start); col.set(start, 0)
-          const queue = [{ id: start, c: 0 }]
-          while (queue.length) {
-            const { id, c } = queue.shift()!
-            for (const e of circuitEdges) {
-              const nbr = e.fromId === id ? e.toId : e.toId === id ? e.fromId : null
-              if (nbr && !visited.has(nbr) && layoutIds.includes(nbr)) { visited.add(nbr); col.set(nbr, c + 1); queue.push({ id: nbr, c: c + 1 }) }
-            }
-          }
-        }
-
-        const colGroups = new Map<number, string[]>()
-        for (const id of layoutIds) {
-          const c = col.get(id) ?? 0
-          if (!colGroups.has(c)) colGroups.set(c, [])
-          colGroups.get(c)!.push(id)
-        }
-
-        const GAP_X = 40, GAP_Y = 24
-        const colX = new Map<number, number>()
-        const maxCols = Math.max(...[...col.values()]) + 1
-        let cx = origin.x
-        for (let c = 0; c < maxCols; c++) {
-          colX.set(c, cx)
-          const ids = colGroups.get(c) ?? []
-          cx += Math.max(...ids.map(id => getObj(id)?.size.w ?? 96), 96) + GAP_X
-        }
-
-        for (const [c, ids] of colGroups) {
-          let cy = origin.y
-          for (const id of ids) { positions.set(id, { x: colX.get(c) ?? origin.x, y: cy }); cy += (getObj(id)?.size.h ?? 48) + GAP_Y }
-        }
-      }
-
-      for (const [id, pos] of positions) {
-        const rot = rotations.get(id) ?? 0
+      // Tier 1 — placement.
+      const placement = placeOptimized(layoutIds, edges, getObj, origin)
+      for (const [id, p] of placement) {
         const obj = getObj(id)
         if (!obj) continue
-        if (rot !== 0 && rot !== obj.rotation) store().updateObject(pageId, id, { position: pos, rotation: rot }, { history: false })
-        else store().updateObject(pageId, id, { position: pos }, { history: false })
+        store().updateObject(pageId, id,
+          p.rotation !== obj.rotation
+            ? { position: { x: p.x, y: p.y }, rotation: p.rotation }
+            : { position: { x: p.x, y: p.y } },
+          { history: false })
       }
+    }
 
-      const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
-      const boundsList = Object.values(store().pages[pageId]?.objects ?? {})
-        .filter(o => !excludeKinds.has(o.geometry.kind))
-        .map(o => {
-          const cx2 = o.position.x + o.size.w / 2, cy2 = o.position.y + o.size.h / 2
-          const hw = (o.rotation === 90 || o.rotation === 270) ? o.size.h / 2 : o.size.w / 2
-          const hh = (o.rotation === 90 || o.rotation === 270) ? o.size.w / 2 : o.size.h / 2
-          const PAD = 12
-          return { x1: cx2 - hw - PAD, y1: cy2 - hh - PAD, x2: cx2 + hw + PAD, y2: cy2 + hh + PAD, id: o.id }
-        })
+    // Tier 2 — orthogonal routing, over the FINAL positions (explicitly placed
+    // parts included: they are obstacles even though layout never moved them).
+    const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
+    const bodies = Object.values(store().pages[pageId]?.objects ?? {})
+      .filter(o => !excludeKinds.has(o.geometry.kind))
+    // TRUE body rectangles. The search grid is padded below so routes keep a
+    // little air, but validation must use the real outline: a pin sits ON its
+    // body's edge, so against a padded box every legitimate stub looks like a
+    // wire entering a component and every clean candidate gets rejected.
+    const boxOf = (o: SceneObject) => {
+      const cx = o.position.x + o.size.w / 2, cy = o.position.y + o.size.h / 2
+      const h = halfExtent(o, o.rotation ?? 0)
+      return { x1: cx - h.x, y1: cy - h.y, x2: cx + h.x, y2: cy + h.y, id: o.id }
+    }
+    const boxes = bodies.map(boxOf)
 
-      for (const e of circuitEdges) {
+    if (boxes.length > 0) {
+      const MARGIN = 320
+      const lo = { x: Math.min(...boxes.map(b => b.x1)) - MARGIN, y: Math.min(...boxes.map(b => b.y1)) - MARGIN }
+      const hi = { x: Math.max(...boxes.map(b => b.x2)) + MARGIN, y: Math.max(...boxes.map(b => b.y2)) + MARGIN }
+      const router = new OrthoRouter(boxes, { lo, hi })
+
+      // Matching on the two object ids alone is ambiguous: two pins of the same
+      // pair of parts (a voltmeter across a resistor) share it, so .find() kept
+      // returning the FIRST wire — one got routed twice and the other was left
+      // as the zero-length stub connect() drew it, i.e. electrically absent,
+      // since the netlist unions by coincident world points. Match the anchors
+      // too, and consume each wire once.
+      // ── Net-aware ordering ────────────────────────────────────────────
+      // Several connect()s can leave the SAME pin. Routed independently, each
+      // takes its own long way round and the sheet turns into a tangle — one
+      // full-adder input fanned out as a 112px wire and a 712px one that
+      // looped around the whole drawing. A real schematic branches: the
+      // second wire leaves the FIRST one at a junction dot.
+      //
+      // Route the shortest wire of each fan-out first, then let its siblings
+      // start from the nearest point on what is already drawn. Sorting by
+      // straight-line span is what makes "first" mean "the short one".
+      const spanOf = (e: typeof schematicEdges[number]) => {
+        const a = getObj(e.fromId), b = getObj(e.toId)
+        if (!a || !b) return 0
+        const ta = terminalsOf(a), tb = terminalsOf(b)
+        const pa = terminalWorld(a, ta[Math.min(terminalIndexFor(a, e.fromAnchor), ta.length - 1)] ?? { x: 1, y: 0.5 })
+        const pb = terminalWorld(b, tb[Math.min(terminalIndexFor(b, e.toAnchor), tb.length - 1)] ?? { x: 0, y: 0.5 })
+        return Math.abs(pa.x - pb.x) + Math.abs(pa.y - pb.y)
+      }
+      const ordered = [...schematicEdges].sort((p, q) => spanOf(p) - spanOf(q))
+
+      // Points already carrying this net, keyed by source pin.
+      const netPath = new Map<string, Pt[]>()
+      const pinKey = (p: Pt) => `${Math.round(p.x)},${Math.round(p.y)}`
+
+      const claimed = new Set<string>()
+      for (const e of ordered) {
         const wireObj = Object.values(store().pages[pageId]?.objects ?? {}).find(o =>
-          o.geometry.kind === 'line' &&
-          o.behaviors.some(b => b.params.targetA?.kind === 'string' && b.params.targetA.value === e.fromId && b.params.targetB?.kind === 'string' && b.params.targetB.value === e.toId)
+          o.geometry.kind === 'line' && !claimed.has(o.id) &&
+          o.behaviors.some(b =>
+            b.params.targetA?.kind === 'string' && b.params.targetA.value === e.fromId &&
+            b.params.targetB?.kind === 'string' && b.params.targetB.value === e.toId &&
+            (b.params.anchorA?.kind !== 'string' || b.params.anchorA.value === e.fromAnchor) &&
+            (b.params.anchorB?.kind !== 'string' || b.params.anchorB.value === e.toAnchor))
         )
         if (!wireObj) continue
-        const objA = store().pages[pageId]?.objects?.[e.fromId], objB = store().pages[pageId]?.objects?.[e.toId]
+        claimed.add(wireObj.id)
+        const objA = getObj(e.fromId), objB = getObj(e.toId)
         if (!objA || !objB) continue
-        const terminalsA = terminalsOf(objA), terminalsB = terminalsOf(objB)
-        // The SAME resolver connect() and the netlist use.
-        //
-        // This was a third copy of the lookup, and the one that decided where
-        // the wire actually ends — which is the electrical connection itself,
-        // since lib/circuit/engine.ts builds nets by unioning coincident world
-        // points. It had no numeric `pin0` case, no in/positive/anode case, and
-        // ASYMMETRIC fallbacks (an unknown `from` went to the last terminal, an
-        // unknown `to` went to the first), so the drawn wire could land on a
-        // different pin than the netlist had already unioned. The scene then
-        // showed one circuit and solved another.
+
+        // The SAME resolver connect() and the netlist use — the drawn wire IS
+        // the electrical connection (lib/circuit/engine.ts unions by coincident
+        // world points), so a second copy here could solve a different circuit.
+        const termsA = terminalsOf(objA), termsB = terminalsOf(objB)
         const idxA = terminalIndexFor(objA, e.fromAnchor)
         const idxB = terminalIndexFor(objB, e.toAnchor)
-        const tA = terminalsA[Math.min(Math.max(0, idxA), terminalsA.length - 1)] ?? { x: 1, y: 0.5 }
-        const tB = terminalsB[Math.min(Math.max(0, idxB), terminalsB.length - 1)] ?? { x: 0, y: 0.5 }
+        const tA = termsA[Math.min(Math.max(0, idxA), termsA.length - 1)] ?? { x: 1, y: 0.5 }
+        const tB = termsB[Math.min(Math.max(0, idxB), termsB.length - 1)] ?? { x: 0, y: 0.5 }
 
-        const wA = terminalWorld(objA, tA)
-        const wB = terminalWorld(objB, tB)
+        // No body is exempt — not even the two this wire terminates on. A wire
+        // stops at the pin on the boundary; routeEdge opens only the stub cells.
+        let path = routeEdge(router, objA, tA, objB, tB)
 
-        const pinDir = (t: { x: number; y: number }) => {
-          if (t.x <= 0.05) return { dx: -1, dy: 0 }
-          if (t.x >= 0.95) return { dx:  1, dy: 0 }
-          if (t.y <= 0.05) return { dx:  0, dy: -1 }
-          if (t.y >= 0.95) return { dx:  0, dy:  1 }
-          return { dx: 1, dy: 0 }
-        }
-        const dA = pinDir(tA), dB = pinDir(tB)
-        const routePad = 18
-        const p1 = { x: wA.x + dA.dx * routePad, y: wA.y + dA.dy * routePad }
-        const p2 = { x: wB.x + dB.dx * routePad, y: wB.y + dB.dy * routePad }
-
-        const segHitsBox = (a: {x:number,y:number}, b: {x:number,y:number}) => {
-          const x1 = Math.min(a.x, b.x) - 2, x2 = Math.max(a.x, b.x) + 2
-          const y1 = Math.min(a.y, b.y) - 2, y2 = Math.max(a.y, b.y) + 2
-          return boundsList.some(box =>
-            x2 > box.x1 && x1 < box.x2 && y2 > box.y1 && y1 < box.y2 &&
-            box.id !== e.fromId && box.id !== e.toId
-          )
-        }
-
-        const midX = (p1.x + p2.x) / 2
-        const midY = (p1.y + p2.y) / 2
-
-        const tryHVH = (mx: number) => {
-          const m1 = { x: mx, y: p1.y }, m2 = { x: mx, y: p2.y }
-          if (!segHitsBox(p1, m1) && !segHitsBox(m1, m2) && !segHitsBox(m2, p2)) return [wA, p1, m1, m2, p2, wB]
-          return null
-        }
-        const tryVHV = (my: number) => {
-          const m1 = { x: p1.x, y: my }, m2 = { x: p2.x, y: my }
-          if (!segHitsBox(p1, m1) && !segHitsBox(m1, m2) && !segHitsBox(m2, p2)) return [wA, p1, m1, m2, p2, wB]
-          return null
-        }
-
-        let path = tryHVH(midX) || tryVHV(midY)
-        if (!path) {
-          for (let offset = 20; offset <= 800; offset += 20) {
-            path = tryHVH(midX + offset) || tryHVH(midX - offset) || tryVHV(midY + offset) || tryVHV(midY - offset)
-            if (path) break
+        // If this net is already on the sheet, tap the nearest point of it
+        // instead of running a second long wire from the same pin. The tap
+        // point is ON the existing polyline, so the netlist — which unions by
+        // coincident world points — still sees one electrical node.
+        const srcKey = pinKey(terminalWorld(objA, tA))
+        const drawn = netPath.get(srcKey)
+        if (drawn && drawn.length > 1) {
+          const end = path[path.length - 1]
+          let best: Pt | null = null
+          let bestD = Infinity
+          for (let i = 1; i < drawn.length; i++) {
+            // Nearest point on this segment, clamped to it (segments are
+            // orthogonal, so this is just a clamp on one axis).
+            const a = drawn[i - 1], b = drawn[i]
+            const vx = b.x - a.x, vy = b.y - a.y
+            const L2 = vx * vx + vy * vy
+            const t = L2 < 1e-9 ? 0 : Math.max(0, Math.min(1, ((end.x - a.x) * vx + (end.y - a.y) * vy) / L2))
+            const q = { x: a.x + vx * t, y: a.y + vy * t }
+            // A junction must sit in clear space. Tapping a point that lies
+            // inside a component puts the dot under the symbol and forces the
+            // branch to start from within a body.
+            if (boxes.some(bx => q.x > bx.x1 && q.x < bx.x2 && q.y > bx.y1 && q.y < bx.y2)) continue
+            const d = Math.abs(q.x - end.x) + Math.abs(q.y - end.y)
+            if (d < bestD) { bestD = d; best = q }
+          }
+          if (best) {
+            const tap = routeEdgeFrom(router, best, objB, tB)
+            const tapLen = tap.slice(1).reduce((acc, p, i) => acc + Math.abs(p.x - tap[i].x) + Math.abs(p.y - tap[i].y), 0)
+            const runLen = path.slice(1).reduce((acc, p, i) => acc + Math.abs(p.x - path[i].x) + Math.abs(p.y - path[i].y), 0)
+            // Take the branch only when it is both shorter and clean: a tap
+            // that has to cut through a body is worse than the long way round.
+            if (tapLen < runLen && !hitsAnyBody(tap, boxes, tap[0], tap[tap.length - 1])) path = tap
           }
         }
-        if (!path) path = [wA, p1, { x: p1.x, y: p2.y }, p2, wB]
+        if (!netPath.has(srcKey)) netPath.set(srcKey, path)
+        // Register the finished route so later wires steer out of its lanes:
+        // two nets drawn along the same stretch render as a single line, and
+        // one of the connections silently vanishes from the sheet.
+        router.commit(path)
 
-        path = path.filter((pt, i, arr) => i === 0 || Math.abs(pt.x - arr[i-1].x) > 0.5 || Math.abs(pt.y - arr[i-1].y) > 0.5)
-
-        const minPathX = Math.min(...path.map(p => p.x))
-        const minPathY = Math.min(...path.map(p => p.y))
-        const maxPathX = Math.max(...path.map(p => p.x))
-        const maxPathY = Math.max(...path.map(p => p.y))
-
+        const minX = Math.min(...path.map(p => p.x)), minY = Math.min(...path.map(p => p.y))
+        const maxX = Math.max(...path.map(p => p.x)), maxY = Math.max(...path.map(p => p.y))
         store().updateObject(pageId, wireObj.id, {
-          position: { x: minPathX, y: minPathY },
-          size: { w: Math.abs(maxPathX - minPathX) || 4, h: Math.abs(maxPathY - minPathY) || 4 },
-          geometry: {
-            ...wireObj.geometry,
-            points: path.map(p => [p.x - minPathX, p.y - minPathY]),
-          },
+          position: { x: minX, y: minY },
+          size: { w: Math.abs(maxX - minX) || 4, h: Math.abs(maxY - minY) || 4 },
+          geometry: { ...wireObj.geometry, points: path.map(p => [p.x - minX, p.y - minY]) },
         }, { history: false })
       }
     }

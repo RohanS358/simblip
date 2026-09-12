@@ -36,6 +36,7 @@ import { readCourse } from '@/lib/store/course-content'
 import { renderMath } from '@/lib/text/katex-lazy'
 import { useKatexReady } from '@/lib/text/use-katex-ready'
 import { CourseFigureBlock, forgetBuiltFigures } from './course-figure'
+import { CourseEditor, EditLessonButton, useCanEditCourse } from './course-editor'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { MessageSquareQuote } from 'lucide-react'
@@ -159,7 +160,24 @@ function Steps({ steps, reveal }: { steps: CourseSection['derivation']; reveal?:
 
 export function CourseView({ pageId }: { pageId: string }) {
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, pageId))
-  const doc: CourseDoc | null = useMemo(() => readCourse(pageId), [pageId])
+
+  // ── Editing (platform admin only) ──────────────────────────────────────
+  // `draft` is the working copy while the editor is open. The reader renders
+  // it directly, so a changed paragraph or figure script shows immediately —
+  // what the editor sees is what a student will get. Everyone else never
+  // constructs an editor and reads the stored lesson exactly as before.
+  const canEdit = useCanEditCourse(pageId)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState<CourseDoc | null>(null)
+  // `rev` re-reads the stored lesson after a save. readCourse is memoised on
+  // pageId, so without it closing the editor would snap the reader back to the
+  // pre-edit text even though the save succeeded.
+  const [rev, setRev] = useState(0)
+  const stored: CourseDoc | null = useMemo(() => readCourse(pageId), [pageId, rev])
+  const doc: CourseDoc | null = draft ?? stored
+
+  // A different lesson under the panel is a different document.
+  useEffect(() => { setDraft(null); setEditing(false) }, [pageId])
   const scrollRef = useRef<HTMLDivElement>(null)
   const setCurrent = useCourse((s) => s.setCurrent)
   const answers = useCourse((s) => s.answers[pageId])
@@ -263,12 +281,14 @@ export function CourseView({ pageId }: { pageId: string }) {
   }
 
   return (
+    <div className="flex h-full min-h-0">
     <div
       ref={scrollRef}
-      className="relative h-full overflow-y-auto"
+      className="relative h-full min-w-0 flex-1 overflow-y-auto"
       onMouseUp={onSelect}
       onTouchEnd={onSelect}
     >
+      {canEdit && !editing && <EditLessonButton onClick={() => setEditing(true)} />}
       <article className="mx-auto max-w-[62rem] px-8 py-8 pb-32 max-md:px-4">
         {(doc.kicker || doc.title) && (
           <header className="mb-8">
@@ -337,6 +357,15 @@ export function CourseView({ pageId }: { pageId: string }) {
           </Button>
         </div>
       )}
+    </div>
+
+    {canEdit && editing && (
+      <CourseEditor
+        pageId={pageId}
+        onClose={() => { setEditing(false); setRev((n) => n + 1); setDraft(null) }}
+        onDraft={setDraft}
+      />
+    )}
     </div>
   )
 }
