@@ -139,6 +139,33 @@ course   { id, code: 'ENEX 101', title, subject, semester, version }
         └── lesson  { id, title, order, doc: CourseDoc }
 ```
 
+### 1b. Platform operator — decides which institutions may use a course
+
+`/dev` → **Courses** is the tier between publishing and granting, and the one
+place a course can be moved from the repository into the product without a
+shell:
+
+- every course in the build, whether it has reached the database, and whether
+  the build has newer lessons than the published version;
+- **Publish** / **Republish**, per course or all at once — the same write
+  `publish-course.mjs` performs, through `/api/courses/publish` with
+  `{ fromRepo: <id> | true }`;
+- the institutions each course is **allowed on**, with **Everyone** for a core
+  subject that should reach a whole institution without its admin granting it
+  room by room.
+
+An allowance (`simblip_course_allowances`) is a licence. Without one, a course
+is published but unusable: its institution's admins cannot grant it and nobody
+can open it. Withdrawing one stops access immediately — grants made under it
+are kept, stop resolving, and work again if the course is re-allowed, because
+deleting an admin's work to express "not licensed this term" would be a
+surprising amount of damage for a toggle.
+
+Before this tier existed, publishing a course made it grantable by EVERY
+institution, and getting one into the database at all needed a checkout, a
+`DATABASE_URL` and a CLI — which is why an authored course appeared nowhere in
+the running product.
+
 ### 2. Admin console — grants access
 
 `/admin` decides **which institution, room or profile gets which course**.
@@ -164,6 +191,22 @@ create table simblip_course_grants (
 Grant by room for a class, by profile for an individual. Revoking removes the
 grant, not the student's progress — `useCourse.answers` is keyed by page id and
 survives.
+
+The catalogue an admin can grant from is filtered to what the platform allowed
+on their institution, so "published" and "available to everyone" are no longer
+the same thing.
+
+### One database, one decision
+
+`NEXT_PUBLIC_CLOUD` decides whether the BROWSER talks to Postgres or to its own
+localStorage database (`lib/data/db.ts`), and it used to be a switch separate
+from `DATABASE_URL`. Setting only the latter — the obvious thing to do — left
+the halves disagreeing: the server authenticated real sessions while the
+browser signed in against its own storage and sent tokens no server would
+accept, so every server-backed panel answered 401 and rendered empty. That is
+what made Course Mode and the admin console look broken on a database-backed
+deployment. `next.config.mjs` now derives the client switch from
+`DATABASE_URL`; set `NEXT_PUBLIC_CLOUD` explicitly only to override it.
 
 ### 3. Teachers and students — read
 

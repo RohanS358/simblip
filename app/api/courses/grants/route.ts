@@ -45,13 +45,33 @@ export async function GET(req: Request) {
   )
 
   // Everything grantable, so the console can offer it without a second call.
-  const catalogue = await q(
+  //
+  // "Grantable" means allowed on THIS institution by the platform operator
+  // (/dev). Before that tier existed an admin could grant any published course
+  // to their students, which made publishing a course to one institution
+  // indistinguishable from publishing it to all of them. A deployment that has
+  // not run 002-course-allowances.sql has no allowances table, and falls back
+  // to the old behaviour rather than showing an admin an empty catalogue they
+  // cannot explain.
+  const allowedIds = await q<{ course_id: string }>(
+    `select course_id from simblip_course_allowances where institution_id = $1`,
+    [me.institution_id]
+  ).catch((e: { code?: string }) => {
+    if (e?.code === '42P01') return null as unknown as { course_id: string }[]
+    throw e
+  })
+
+  const catalogue = await q<{ id: string }>(
     `select id, code, title, subject, semester, version
        from simblip_courses where published
       order by semester nulls last, code`
   )
+  const allowed = allowedIds ? new Set(allowedIds.map((a) => a.course_id)) : null
 
-  return NextResponse.json({ grants, catalogue })
+  return NextResponse.json({
+    grants,
+    catalogue: allowed ? catalogue.filter((c) => allowed.has(c.id)) : catalogue,
+  })
 }
 
 export async function POST(req: Request) {

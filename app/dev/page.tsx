@@ -17,6 +17,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { getDbMode } from '@/lib/data/db'
 import type { BoardRow, BugReportRow, InstitutionRow, ProfileRow, RoomMemberRow, RoomRow } from '@/lib/data/types'
 import { COMPONENT_PACKAGES } from '@/lib/packages/registry'
+import { CourseControl } from '@/components/platform/course-control'
 import {
   createAccount,
   createBoard,
@@ -324,6 +325,7 @@ export default function DevPage() {
               <TabsTrigger value="rooms">Rooms</TabsTrigger>
               <TabsTrigger value="members">Members</TabsTrigger>
               <TabsTrigger value="packages">Package Access</TabsTrigger>
+              <TabsTrigger value="courses">Courses</TabsTrigger>
               <TabsTrigger value="bugs">
                 Bugs{openBugCount > 0 ? ` (${openBugCount})` : ''}
               </TabsTrigger>
@@ -571,6 +573,10 @@ export default function DevPage() {
                   </div>
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="courses">
+              <CourseControl />
             </TabsContent>
 
             <TabsContent value="bugs">

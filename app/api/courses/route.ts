@@ -96,7 +96,48 @@ export async function GET(req: Request) {
     if ((e as { code?: string }).code === '42P01') return NextResponse.json({ courses: [] })
     throw e
   }
-  const ids = granted.map((g) => g.course_id)
+
+  // …plus anything the platform allowed to this profile's whole institution
+  // (`all_members`, set at /dev). That tier is what a core subject uses: it
+  // reaches everyone at the institution without an admin granting it room by
+  // room. A deployment that has not run 002-course-allowances.sql simply has
+  // no such courses, which is the correct answer rather than an error.
+  try {
+    const institutional = await q<{ course_id: string }>(
+      `select distinct a.course_id
+         from simblip_course_allowances a
+         join simblip_profiles p on p.institution_id = a.institution_id
+        where p.id = $1 and a.all_members`,
+      [claims.sub]
+    )
+    granted = [...granted, ...institutional]
+  } catch (e) {
+    if ((e as { code?: string }).code !== '42P01') throw e
+  }
+  let ids = [...new Set(granted.map((g) => g.course_id))]
+
+  // A grant only resolves while the course is still licensed to this
+  // institution. Without this, withdrawing a licence at /dev left every grant
+  // an admin had already made working — which would make "allowed on" mean
+  // "allowed until someone was granted it", and the central control not
+  // actually central. Grants are never deleted here; they simply stop
+  // resolving, and start again if the course is re-allowed.
+  try {
+    const licensed = await q<{ course_id: string }>(
+      `select a.course_id
+         from simblip_course_allowances a
+         join simblip_profiles p on p.institution_id = a.institution_id
+        where p.id = $1`,
+      [claims.sub]
+    )
+    const allow = new Set(licensed.map((l) => l.course_id))
+    ids = ids.filter((id) => allow.has(id))
+  } catch (e) {
+    // No allowances table yet: this tier is not deployed, so grants stand on
+    // their own exactly as they did before it existed.
+    if ((e as { code?: string }).code !== '42P01') throw e
+  }
+
   if (ids.length === 0) return NextResponse.json({ courses: [] })
 
   const lessonId = new URL(req.url).searchParams.get('lesson')

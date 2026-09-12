@@ -422,6 +422,24 @@ create unique index if not exists simblip_course_grants_room_uniq
 create unique index if not exists simblip_course_grants_profile_uniq
   on simblip_course_grants (course_id, target_profile_id) where target_profile_id is not null;
 
+-- Which INSTITUTIONS a course is licensed to. The tier above a grant: the
+-- platform operator decides where a course may be used at all (/dev), and the
+-- institution's own admin then decides who inside it gets it. `all_members`
+-- skips that second step for a course everyone there should simply have.
+create table if not exists simblip_course_allowances (
+  id             uuid primary key default gen_random_uuid(),
+  course_id      text not null references simblip_courses (id) on delete cascade,
+  institution_id uuid not null references simblip_institutions (id) on delete cascade,
+  all_members    boolean not null default false,
+  allowed_by     uuid not null references simblip_profiles (id) on delete cascade,
+  allowed_at     timestamptz not null default now()
+);
+
+create unique index if not exists simblip_course_allowances_uniq
+  on simblip_course_allowances (course_id, institution_id);
+create index if not exists simblip_course_allowances_inst_idx
+  on simblip_course_allowances (institution_id);
+
 -- ═══════════════════════════════════════════════════════════════════════════
 -- Migrating FROM a Supabase deployment (schema v2)?
 --   • RLS policies and the auth schema are gone — the /api/pg gateway
