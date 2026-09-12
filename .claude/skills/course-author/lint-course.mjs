@@ -170,6 +170,7 @@ const problem = (where, msg) => { failures++; console.error(`  ✗ ${where}: ${m
 
 for (const file of files) {
   console.log(`\n${file}`)
+  const failuresBefore = failures
   let doc
   try {
     doc = JSON.parse(readFileSync(file, 'utf8'))
@@ -285,7 +286,10 @@ for (const file of files) {
   if (questions === 0) problem(file, 'no MCQ — a lesson with nothing to answer is a handout')
   if (worked === 0) problem(file, 'no worked numerical')
 
-  if (failures === 0) {
+  // Per FILE, not per run: linting a directory where one lesson fails used to
+  // hide the tick on every lesson that passed, which reads as "nothing
+  // worked" when the truth is "one thing did not".
+  if (failures === failuresBefore) {
     console.log(`  ✓ ${doc.sections.length} sections · ${figures} figures · ${derivations} derivations · ${worked} worked · ${questions} questions · ${problems} problems`)
   }
 }

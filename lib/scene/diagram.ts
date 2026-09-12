@@ -158,8 +158,8 @@ function sizeOf(shape: DiagramShape, lines: string[]): { w: number; h: number } 
     // rendered wrap point out past the label, which keeps a decision on one
     // line — where a diamond reads best — instead of stacking it into the
     // narrow part of the shape.
-    w = Math.round(longest * CHAR_W * 1.5 + PAD_X * 2)
-    h = Math.round(lines.length * LINE_H * 1.45 + PAD_Y * 2)
+    w = Math.round(longest * CHAR_W * 1.8 + PAD_X * 2)
+    h = Math.round(lines.length * LINE_H * 1.7 + PAD_Y * 2)
   } else if (shape === 'circle') {
     const s = Math.max(w, h, 96)
     w = s
