@@ -12,6 +12,13 @@ const nextConfig = {
   // are only fetched when devtools is open, so there is no cost to real
   // users, but it does make the client source readable to anyone who looks.
   productionBrowserSourceMaps: true,
+  // /api/courses reads content/courses/** at request time when no database is
+  // configured (lib/server/course-files.ts). Next only traces files it can see
+  // being imported, and these are read by path, so a deployment would ship the
+  // route without the lessons it serves unless they are named here.
+  outputFileTracingIncludes: {
+    '/api/courses': ['./content/courses/**/*.json'],
+  },
   async headers() {
     // _next/static/* already gets long-lived immutable caching from Vercel;
     // these are the public/ assets that don't. sw.js is deliberately

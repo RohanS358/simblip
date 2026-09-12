@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims } from '@/lib/server/auth'
+import { coursesFromFiles, lessonFromFiles } from '@/lib/server/course-files'
 
 // What courses may this profile open, and what is in them.
 //
@@ -49,7 +50,29 @@ function treeOf(rows: LessonRow[]): Node[] {
 }
 
 export async function GET(req: Request) {
-  if (!pgConfigured) return NextResponse.json({ courses: [] })
+  // ── No database: the repository is the catalogue ─────────────────────────
+  //
+  // Grants live in Postgres, so without it there is nothing to scope by — and
+  // nothing to scope, either: a local install has one user. Returning an empty
+  // list here (what this did before) meant an authored lesson sitting in
+  // content/courses could not be opened at all without provisioning a
+  // database first, which is a strange price for reading your own notes.
+  //
+  // Deliberately not merged with the SQL path below: a deployment that HAS a
+  // database must keep answering with granted courses only, never with
+  // whatever happens to be in its image.
+  if (!pgConfigured) {
+    const lessonId = new URL(req.url).searchParams.get('lesson')
+    if (lessonId) {
+      const lesson = lessonFromFiles(lessonId)
+      return lesson
+        ? NextResponse.json({ lesson })
+        : NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    return NextResponse.json({
+      courses: coursesFromFiles().map(({ lessons, ...c }) => ({ ...c, tree: treeOf(lessons) })),
+    })
+  }
 
   const claims = bearerClaims(req)
   if (!claims) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
