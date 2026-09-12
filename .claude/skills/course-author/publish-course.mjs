@@ -162,6 +162,34 @@ try {
       ? `Visible to ${g[0].n} existing grant(s).`
       : 'No grants yet — nobody can see it. Grant it to a room or a profile to make it visible.'
   )
+
+  // The tier above a grant decides which INSTITUTIONS may use the course at
+  // all (docs/course-mode.md). A database that predates it has no allowances
+  // table, and the symptom is confusing in exactly the wrong way: publishing
+  // reports success, the operator console shows the course, and nobody can be
+  // granted it. Say so here, where the person already has a psql to hand.
+  try {
+    const { rows: a } = await db.query(
+      'select count(*)::int as n from simblip_course_allowances where course_id = $1',
+      [payload.id]
+    )
+    if (a[0].n === 0) {
+      console.log(
+        'Not allowed on any institution yet — license it at /dev → Courses, or nobody can be granted it.'
+      )
+    } else {
+      console.log(`Licensed to ${a[0].n} institution(s).`)
+    }
+  } catch (e) {
+    if (e.code === '42P01') {
+      console.log(
+        '\nThis database has no course allowances table yet. Run:\n' +
+        '  psql "$DATABASE_URL" -f db/migrations/002-course-allowances.sql\n' +
+        'until then /dev → Courses can publish but not license, and admins see the old ' +
+        'behaviour (every published course grantable).'
+      )
+    } else throw e
+  }
 } catch (e) {
   await db.query('rollback').catch(() => {})
   console.error(`\nPublish failed, nothing written: ${e.message}`)
