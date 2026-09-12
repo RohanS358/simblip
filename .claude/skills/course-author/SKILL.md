@@ -19,15 +19,18 @@ anything. New lessons come from here.)
 
 ## The one hard gate
 
-Every figure's `script` MUST pass the SimScript linter before the lesson ships:
+Every figure's `script` MUST pass the SimScript linter, and every `expect` it
+declares MUST match what the solver actually produces, before the lesson ships:
 
 ```bash
 node .claude/skills/course-author/lint-course.mjs <lesson.json>
 ```
 
-It exits non-zero and names the fix for each broken figure. A lesson that does
-not pass is not finished. This costs no model time and no browser — that is
-precisely why it is mandatory.
+It exits non-zero and names the fix for each broken figure — including
+`expect "am" = 99.9 mA, but the solver reads 27.3 mA`, which is the check that
+stops a lesson asserting a number its own figure will never show. A lesson that
+does not pass is not finished. This costs no model time and no browser — that
+is precisely why it is mandatory.
 
 ## Process
 
@@ -119,7 +122,13 @@ sibling lesson if it were called from a reader holding only one.
 
 A lesson is `{ title, kicker, subtitle, sections: [...] }`. Every section has
 an `id`, `title`, `locator`, and any of: `eyebrow`, `body`, `figures`,
-`derivation`, `worked`, `question`, `after`.
+`derivation`, `worked`, `questions`, `problems`, `after`.
+
+Order in the reader is fixed: body → derivation → worked → questions →
+figures → problems → after. Questions therefore sit ABOVE the section's own
+figures, which is what makes "predict, then look" work — and each question's
+own `verify` figure appears inside its answer, before the section's figures
+are reached.
 
 Full type definitions: `lib/store/course.ts`. Worked example:
 `references/example-lesson.json`.
@@ -132,11 +141,65 @@ handout, not a lesson.
 | Element | How much | Notes |
 |---|---|---|
 | Prose | Every section | 2–5 paragraphs. Full sentences, no bullet-dumps. |
-| Figures | 4–8 across the lesson | Put them where they are discussed, not all at the top. |
+| Figures | 4–8 across the lesson, plus one per answer worth demonstrating | Put them where they are discussed, not all at the top. |
 | Derivations | 1–3 | Every step's `why` written BEFORE its `math`. |
 | Worked numericals | 2–4 | `worked` reveals one step at a time. Include units. |
-| MCQs | 2–4 | Each wrong choice gets its own misconception response. |
+| MCQs | 8–15 | `questions` is an array: ask per idea, not per section. Each wrong choice gets its own misconception response. |
+| Problems | 5–12 | `problems` — numerical, answer revealed on request. |
 | Block diagrams | Where structure matters | See below. |
+
+### Ask a lot, and answer every one
+
+`questions` (an array of MCQs) and `problems` (numerical, with the answer
+behind a **Show the answer** button) both hang off a section, and a section may
+carry several of each. A lesson that asks two questions and a lesson that asks
+twelve are different objects: the second is where the reading actually happens.
+
+Multiple choice is for a **belief** — a prediction, a misconception, a
+direction-of-effect. A `problem` is for a **computation**: three plausible
+numbers either give the answer away or reduce the exercise to elimination, so a
+problem states the task and reveals the worked answer when asked.
+
+### Every answer that can be measured must be measured
+
+A question's `verify` is a figure shown once the reader has committed, and a
+problem's `verify` is shown with its answer. Use one **wherever an instrument
+could settle the point** — a current, a voltage, a power, a rate. The lesson
+should never be the only authority for a number the app can produce:
+
+```json
+{ "prompt": "…", "choices": [...], "responses": [...],
+  "verify": { "id": "v-double", "caption": "Verify — 9 V across 660 Ω",
+              "script": "…", "note": "Press Simulate: 13.6 mA.",
+              "expect": { "am": "13.6 mA" } } }
+```
+
+`verify` figures are built only once revealed, so they cost nothing until then,
+and they never need `locked`.
+
+### `expect` — the figure checks itself
+
+Name the instruments in a script (`create("ammeter", { name: "am" })`) and pin
+what they must read:
+
+```javascript
+"expect": { "am": "27.3 mA", "vm": "9.00 V" }
+```
+
+The gate runs that figure through the **real solver** and fails the lesson if a
+meter disagrees, so a prose number and its figure cannot drift apart. Pin every
+reading the prose quotes. Get the value by writing the figure, running the gate
+once, and copying what it reports — never by rounding the textbook answer
+yourself, because the meter's own formatting is what the student sees
+(`2.6 mA`, not `2.55 mA`).
+
+### Reading a figure means running it
+
+Each figure carries its own **Simulate / Pause / Reset** buttons in the reader,
+and they run that figure alone. Write notes accordingly — "Press Simulate", not
+"Press Play" — and say what to watch: a meter reading, a slider to drag mid-run,
+a value to compare with the figure before it. A circuit figure whose note does
+not tell the reader to run it will be looked at and not used.
 
 ### Prose
 
@@ -150,14 +213,19 @@ Allowed HTML: `<p> <b> <i> <em class="term"> <ul> <ol> <li> <code>`, plus
 
 ### Figures
 
-Each figure is `{ id, caption, script, note?, locked? }`.
+Each figure is `{ id, caption, script, note?, locked?, expect? }`. Figure ids
+are unique across the WHOLE lesson — each one owns a scratch page keyed by that
+id, `verify` figures included.
 
 - `caption` — "Figure 4.1 — what it shows". Numbered by section.
 - `script` — SimScript. Wrap mechanics/optics components in a `system`; the
   linter enforces it, because `system` is what Play scopes a run to.
 - `note` — one line: what to look at, or what to try.
-- `locked: true` — held back until the section's `question` is answered. Use it
-  for any figure that would give away a prediction.
+- `locked: true` — held back until EVERY question in the section is answered.
+  Use it for a section figure that would give away a prediction. A `verify`
+  figure never needs it: it is already held back until its own question is
+  answered.
+- `expect` — what each named instrument must read, checked by the gate.
 
 **You do not set a figure's size.** A figure is not a canvas — it is a column
 of real objects rendered at the size the script gave them, so it is exactly as
@@ -210,29 +278,62 @@ and make the last step check the result against a figure the reader already ran.
 
 ### MCQs
 
-`question` is `{ prompt, choices, responses }`. `responses` is indexed to
-`choices` — every choice, right and wrong, gets its own reply.
+Each entry of `questions` is `{ id?, prompt, choices, responses, verify? }`.
+`responses` is indexed to `choices` — every choice, right and wrong, gets its
+own reply. Give each question an `id`: answers are stored under it, so a
+question that moves keeps the answer the student gave it.
+
+(`question`, singular, is the older single-question field. It still reads, but
+write `questions`.)
 
 **Wrong answers route to the misconception, never to a score.** Each distractor
 must be a real thing students believe, and its response explains why that
 intuition is appealing before correcting it. Never "Incorrect". Never a streak,
 a mark, or a percentage.
 
-### Block diagrams
+### Problems
+
+Each entry of `problems` is `{ id?, prompt, math?, answer, verify? }`. The
+prompt is restricted HTML like body prose; `math` is the result as KaTeX; the
+`answer` is the REASONING, not just the number — say which form of the law to
+use and why, carry the units, and end on what the result means physically (a
+component that would char, a value that is not a standard part, a divider that
+sags under load).
+
+### Block diagrams — `diagram()`
 
 For structure, flow, or classification — where a simulation would say nothing —
-build the diagram from real canvas objects, not an image:
+write the STRUCTURE and let the layout be computed. Never place boxes by hand:
 
 ```javascript
-var a = create("rect", { x: 0,   y: 0, width: 150, height: 60, radius: 12,
-                         fill: "#e0e7ff", stroke: "#6366f1", strokeWidth: 2 });
-var t = create("text", { x: 20, y: 20, text: "**Input**" });
-var b = create("rect", { x: 220, y: 0, width: 150, height: 60, radius: 12 });
-connect(a.centre, b.centre, "wire");
+diagram("direction: down\n" +
+  "(Read the question) as start\n" +
+  "<More than one resistor?> as many\n" +
+  "[Combine them first] as comb\n" +
+  "[Loop current I = V/R] as loop\n" +
+  "start -> many\n" +
+  "many -> comb : yes\n" +
+  "many -> loop : no\n" +
+  "comb -> loop");
 ```
 
-`text` content is markdown, so `# Heading` and `**bold**` render. Use the
-palette from `docs/design-system.md` rather than arbitrary colours.
+`[box]` `(start/end)` `<decision>` `((junction))`, `as id` to name one, `#blue`
+/`#mint`/`#violet`/`#amber`/`#rose`/`#grey` to tint it; `->` `-->` `--` for
+edges, `: label` on any of them, `group "Name" { a, b }` for a container.
+Full grammar: `simscript-component-reference.md`.
+
+A hand-placed diagram has to be re-measured every time a label changes length,
+which is the real reason lessons that needed a flowchart went without one. The
+layout engine also draws a feedback loop or a skipped step in its own lane,
+which is exactly the case hand-placement gets wrong.
+
+Use it where the picture IS the point — a method, a classification, a signal
+chain, what depends on what. Where the thing can be simulated, simulate it: a
+diagram of a circuit is a picture of a circuit, and this app can run the real
+one.
+
+Colours are theme tokens automatically. Never write a literal hex colour into
+a figure — a lesson is read in dark mode too.
 
 ## Rules
 

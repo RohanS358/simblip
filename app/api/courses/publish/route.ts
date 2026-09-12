@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims } from '@/lib/server/auth'
+import { coursesFromFiles, lessonFromFiles } from '@/lib/server/course-files'
 
 // Publish a course and its lessons. The DEV tier of docs/course-mode.md:
 // lessons are authored offline, lint-gated, then pushed here.
@@ -80,6 +81,32 @@ function invalid(course: CourseIn): string | null {
   return null
 }
 
+/** The repo's own course, in the shape this route publishes.
+ *
+ *  The authoring workflow writes courses as files (content/courses/**) and a
+ *  CLI pushes them. Requiring a checkout and a shell to get a lesson in front
+ *  of a student is fine for the person who wrote it and useless for anyone
+ *  else, so the console can publish the same files by id. Same validation,
+ *  same write — only the source of the payload differs. */
+function courseFromRepo(id: string): CourseIn | null {
+  const c = coursesFromFiles().find((x) => x.id === id)
+  if (!c) return null
+  const lessons: LessonIn[] = []
+  for (const l of c.lessons) {
+    const doc = lessonFromFiles(l.id)
+    if (doc) lessons.push({ id: l.id, path: l.path, title: l.title, ord: l.ord, doc: doc.doc })
+  }
+  return {
+    id: c.id,
+    code: c.code,
+    title: c.title,
+    subject: c.subject,
+    semester: c.semester ?? undefined,
+    published: true,
+    lessons,
+  }
+}
+
 export async function POST(req: Request) {
   if (!pgConfigured) {
     return NextResponse.json({ error: 'Publishing requires DATABASE_URL' }, { status: 500 })
@@ -88,16 +115,41 @@ export async function POST(req: Request) {
   const auth = await authorize(req)
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  let course: CourseIn
+  let body: (CourseIn & { fromRepo?: string | boolean }) | null
   try {
-    course = (await req.json()) as CourseIn
+    body = (await req.json()) as CourseIn & { fromRepo?: string | boolean }
   } catch {
     return NextResponse.json({ error: 'Body must be JSON' }, { status: 400 })
   }
 
+  // `{ fromRepo: true }` publishes every course in the checkout; a course id
+  // publishes that one. Each still goes through the same shape check below.
+  if (body?.fromRepo) {
+    const ids =
+      body.fromRepo === true
+        ? coursesFromFiles().map((c) => c.id)
+        : [String(body.fromRepo)]
+    const results: { courseId: string; lessons: number; version: number }[] = []
+    for (const id of ids) {
+      const repo = courseFromRepo(id)
+      if (!repo) return NextResponse.json({ error: `No course "${id}" in this checkout` }, { status: 404 })
+      const bad = invalid(repo)
+      if (bad) return NextResponse.json({ error: `${id}: ${bad}` }, { status: 400 })
+      results.push(await writeCourse(repo))
+    }
+    return NextResponse.json({ ok: true, published: results, publishedBy: auth.by })
+  }
+
+  const course = body as CourseIn
   const bad = invalid(course)
   if (bad) return NextResponse.json({ error: bad }, { status: 400 })
 
+  const written = await writeCourse(course)
+  return NextResponse.json({ ok: true, ...written, publishedBy: auth.by })
+}
+
+/** Upsert the course row, then REPLACE its lesson set. */
+async function writeCourse(course: CourseIn): Promise<{ courseId: string; lessons: number; version: number }> {
   await q(
     `insert into simblip_courses (id, code, title, subject, semester, description, published, updated_at)
      values ($1,$2,$3,$4,$5,$6,$7, now())
@@ -134,11 +186,5 @@ export async function POST(req: Request) {
     [course.id]
   )
 
-  return NextResponse.json({
-    ok: true,
-    courseId: course.id,
-    lessons: course.lessons.length,
-    version,
-    publishedBy: auth.by,
-  })
+  return { courseId: course.id, lessons: course.lessons.length, version }
 }

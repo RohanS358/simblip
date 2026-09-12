@@ -1,65 +1,119 @@
 {
   "title": "Ohm's Law and Resistance",
   "kicker": "ENEX 101 · DC Circuits · Lesson 1",
-  "subtitle": "The relationship between voltage, current and resistance — three quantities, one equation, and a great deal of engineering that follows from it.",
+  "subtitle": "The relationship between voltage, current and resistance — three quantities, one equation, and a great deal of engineering that follows from it. Every circuit in these notes runs.",
   "sections": [
     {
       "id": "intro",
       "locator": "1",
       "eyebrow": "Where we are going",
       "title": "Introduction",
-      "body": "<p>Three quantities describe what happens in a simple circuit. <em class=\"term\">Voltage</em> (<i>V</i>, in volts) is the electrical pressure a source applies. <em class=\"term\">Current</em> (<i>I</i>, in amperes) is the rate of charge flow that results. <em class=\"term\">Resistance</em> (<i>R</i>, in ohms) is how strongly a component opposes that flow.</p><p>These notes build a real circuit, measure it, test a prediction against it, and then state the law that connects the three. The measurement comes first deliberately — an equation whose behaviour you have already watched is a very different object from one handed to you cold.</p><div class=\"aside\"><b>Before you start.</b> Nothing here is timed and nothing is scored. Every figure is live: change values, press Play, break it. Select any sentence you find unclear and choose <b>Ask about this</b> to put that exact wording in front of the assistant.</div>"
+      "body": "<p>Three quantities describe what happens in a simple circuit. <em class=\"term\">Voltage</em> (<i>V</i>, in volts) is the electrical pressure a source applies. <em class=\"term\">Current</em> (<i>I</i>, in amperes) is the rate of charge flow that results. <em class=\"term\">Resistance</em> (<i>R</i>, in ohms) is how strongly a component opposes that flow.</p><p>These notes build a real circuit, measure it, test a prediction against it, and then state the law that connects the three. The measurement comes first deliberately — an equation whose behaviour you have already watched is a very different object from one handed to you cold.</p><div class=\"callout\"><span class=\"ct\">How to read these notes</span>Every circuit here is live. Each one carries its own <b>Simulate</b> button: press it and the solver runs that circuit, the meters start reading, and the sliders under it change the circuit while it runs. Nothing is a picture of a result — it is the result. Press <b>Reset</b> to put a circuit back as drawn.</div><div class=\"aside\"><b>Before you start.</b> Nothing here is timed and nothing is scored. Answering a question wrong routes you to the reason that answer is tempting, and then shows you the circuit that settles it. Select any sentence you find unclear and choose <b>Ask about this</b> to put that exact wording in front of the assistant.</div>"
     },
     {
       "id": "circuit",
       "locator": "2",
       "eyebrow": "The setup",
       "title": "A source and a resistor",
-      "body": "<p>The simplest complete circuit is a voltage source and a single resistor joined in a loop. The source maintains a fixed potential difference across its terminals; the resistor is the only thing limiting how much current flows.</p><p>Here a 9 V battery drives a 330 Ω resistor. The ammeter reads the current through the loop, and the voltmeter reads the potential difference across the resistor — the two measurements that define its behaviour.</p>",
+      "body": "<p>The simplest complete circuit is a voltage source and a single resistor joined in a loop. The source maintains a fixed potential difference across its terminals; the resistor is the only thing limiting how much current flows.</p><p>Here a 9 V battery drives a 330 Ω resistor. The <em class=\"term\">ammeter</em> is wired <b>in series</b> — the loop passes through it, so it reads the current flowing round. The <em class=\"term\">voltmeter</em> is wired <b>in parallel</b> with the resistor — across it, not through it — so it reads the potential difference between the resistor's two ends. Those two placements are not interchangeable, and getting them the wrong way round is the first mistake most people make with a real meter.</p>",
       "figures": [
         {
           "id": "f-loop",
           "caption": "Figure 2.1 — a 9 V source across 330 Ω",
-          "script": "var bat = create(\"battery\", { V: 9 });\nvar r1 = create(\"resistor\", { R: 330 });\nvar am = create(\"ammeter\", {});\nvar vm = create(\"voltmeter\", {});\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(vm.a, r1.a, \"wire\");\nconnect(vm.b, r1.b, \"wire\");",
-          "note": "Press Play. The ammeter reads about 27 mA and the voltmeter reads the full 9 V — all of the source's voltage appears across the only resistor in the loop."
+          "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nvar vm = create(\"voltmeter\", { name: \"vm\" });\nconnect(vm.a, r1.a, \"wire\");\nconnect(vm.b, r1.b, \"wire\");",
+          "note": "Press Simulate. The ammeter settles at 27.3 mA and the voltmeter at 9.00 V — all of the source's voltage appears across the only resistor in the loop.",
+          "expect": {
+            "am": "27.3 mA",
+            "vm": "9.00 V"
+          }
         }
-      ]
+      ],
+      "after": "<p>Two numbers, read off two instruments: 27.3 mA and 9.00 V. Everything that follows is an attempt to predict numbers like these before measuring them.</p>"
     },
     {
       "id": "predict",
       "locator": "3",
       "eyebrow": "Commit before you look",
       "title": "Check your intuition",
-      "body": "<p>The 330 Ω resistor in Figure 2.1 is replaced with a 660 Ω one — exactly double. The battery is unchanged at 9 V.</p><div class=\"aside\">Commit to an answer before reading on. Being wrong here is the most useful thing that can happen in this lesson — it is the fastest way to find out what you actually believe, as opposed to what you can recite.</div>",
-      "question": {
-        "prompt": "What happens to the current through the loop?",
-        "choices": [
-          { "text": "It doubles. More resistance means the circuit works harder, so more current flows." },
-          { "text": "It halves.", "correct": true },
-          { "text": "It stays the same. The battery is still 9 V, so it pushes the same current either way." }
-        ],
-        "responses": [
-          {
-            "title": "This inverts the relationship.",
-            "body": "Resistance <em>opposes</em> flow — it does not drive it. Doubling the opposition can only reduce the current, never raise it. The confusion usually comes from thinking of resistance as something the circuit must overcome by working harder, but nothing in the circuit adjusts its effort: the battery holds 9 V regardless, and the resistor decides what that 9 V achieves."
-          },
-          {
-            "title": "Correct.",
-            "body": "With the voltage held fixed, current is <b>inversely proportional</b> to resistance: double the resistance and you halve the current, from about 27 mA to about 14 mA. Figure 4.1 sweeps the resistance so you can watch the whole curve rather than just these two points."
-          },
-          {
-            "title": "The battery does hold 9 V — but it does not set the current.",
-            "body": "A voltage source fixes the potential difference across its terminals, and that is all it fixes. What current results depends on what you connect: the same 9 V across 100 Ω gives 90 mA, across 1 kΩ gives 9 mA. The resistor is what converts a fixed voltage into a particular current."
-          }
-        ]
-      },
-      "figures": [
+      "body": "<p>Before any equation, two predictions. Each one changes exactly one thing about Figure 2.1 and asks what the ammeter will do. Commit to an answer before reading on — being wrong here is the most useful thing that can happen in this lesson, because it is the fastest way to find out what you actually believe as opposed to what you can recite. Each answer is followed by the circuit that settles it, which you can run yourself.</p>",
+      "questions": [
         {
-          "id": "f-double",
-          "caption": "Figure 3.1 — the same source across 660 Ω",
-          "script": "var bat = create(\"battery\", { V: 9 });\nvar r1 = create(\"resistor\", { R: 660 });\nvar am = create(\"ammeter\", {});\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
-          "note": "Same 9 V, twice the resistance. Press Play: the ammeter now reads about 13.6 mA — half of Figure 2.1.",
-          "locked": true
+          "prompt": "The 330 Ω resistor is replaced with a 660 Ω one — exactly double. The battery is unchanged at 9 V. What happens to the current?",
+          "choices": [
+            {
+              "text": "It doubles. More resistance means the circuit works harder, so more current flows."
+            },
+            {
+              "text": "It halves.",
+              "correct": true
+            },
+            {
+              "text": "It stays the same. The battery is still 9 V, so it pushes the same current either way."
+            }
+          ],
+          "responses": [
+            {
+              "title": "This inverts the relationship.",
+              "body": "Resistance <em>opposes</em> flow — it does not drive it. Doubling the opposition can only reduce the current, never raise it. The confusion usually comes from thinking of resistance as something the circuit must overcome by working harder, but nothing in the circuit adjusts its effort: the battery holds 9 V regardless, and the resistor decides what that 9 V achieves."
+            },
+            {
+              "title": "Correct.",
+              "body": "With the voltage held fixed, current is <b>inversely proportional</b> to resistance: double the resistance and you halve the current, from 27.3 mA to 13.6 mA. Run the circuit below and read the ammeter."
+            },
+            {
+              "title": "The battery does hold 9 V — but it does not set the current.",
+              "body": "A voltage source fixes the potential difference across its terminals, and that is all it fixes. What current results depends on what you connect: the same 9 V across 100 Ω gives 90 mA, across 1 kΩ gives 9 mA. The resistor is what converts a fixed voltage into a particular current."
+            }
+          ],
+          "id": "double-r",
+          "verify": {
+            "id": "v-double",
+            "caption": "Verify — the same 9 V across 660 Ω",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 660, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "Press Simulate: 13.6 mA, half of Figure 2.1's 27.3 mA, from twice the resistance.",
+            "expect": {
+              "am": "13.6 mA"
+            }
+          }
+        },
+        {
+          "prompt": "Now put the 330 Ω resistor back and halve the SUPPLY instead: 4.5 V across 330 Ω. What does the ammeter read?",
+          "choices": [
+            {
+              "text": "13.6 mA — half of 27.3 mA.",
+              "correct": true
+            },
+            {
+              "text": "27.3 mA. Halving the voltage cannot change the current, because the resistor is unchanged."
+            },
+            {
+              "text": "54.5 mA. Less pressure means the charge takes longer, so more of it accumulates in the loop."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Current is <b>directly proportional</b> to voltage: halve one and the other halves. Notice that this lands on the same 13.6 mA as doubling the resistance did — two different changes, one result, which is your first hint that current depends on the <em>ratio</em> V/R and not on either quantity alone."
+            },
+            {
+              "title": "The resistor is unchanged, but it is not the only thing that matters.",
+              "body": "A resistor does not set a current; it sets a <em>ratio</em> between the voltage across it and the current through it. Change the voltage and the current must change with it to keep that ratio. Run the circuit below: same resistor, half the supply, half the current."
+            },
+            {
+              "title": "Nothing accumulates in a loop.",
+              "body": "In a steady DC circuit, the same current flows at every point of the loop at every instant — charge is not stored anywhere, so \"more of it accumulates\" has no mechanism. Less voltage simply means less current, in direct proportion."
+            }
+          ],
+          "id": "half-v",
+          "verify": {
+            "id": "v-halfv",
+            "caption": "Verify — 4.5 V across the same 330 Ω",
+            "script": "var bat = create(\"battery\", { V: 4.5, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "13.6 mA again. Half the voltage on the same resistor gives exactly what doubling the resistance did at 9 V.",
+            "expect": {
+              "am": "13.6 mA"
+            }
+          }
         }
       ]
     },
@@ -68,7 +122,49 @@
       "locator": "4",
       "eyebrow": "Test it yourself",
       "title": "Sweeping the resistance",
-      "body": "<p>Two points suggest a pattern; a sweep confirms one. The table lists the current a 9 V source drives through five common resistor values, with the power each dissipates alongside.</p><div class=\"callout\"><span class=\"ct\">Read the table carefully</span>Look at 100 Ω and 1000 Ω — a factor of ten in resistance. The current falls from 90 mA to 9 mA, also a factor of ten. Every row obeys the same ratio.</div><p>The chart plots the same data. Notice that it is not a straight line: current falls steeply at first and then flattens, which is the signature of an inverse relationship rather than a proportional one.</p>",
+      "body": "<p>Two points suggest a pattern; a sweep confirms one. The table below lists the current a 9 V source drives through five common resistor values, with the power each dissipates alongside, and the chart plots the same data.</p><div class=\"callout\"><span class=\"ct\">Read the table carefully</span>Look at 100 Ω and 1000 Ω — a factor of ten in resistance. The current falls from 90 mA to 9 mA, also a factor of ten. Every row obeys the same ratio.</div>",
+      "questions": [
+        {
+          "prompt": "The chart plots current against resistance at a fixed 9 V. What shape is it?",
+          "choices": [
+            {
+              "text": "A straight line through the origin — current is proportional to resistance."
+            },
+            {
+              "text": "A curve that falls steeply and then flattens, never reaching zero.",
+              "correct": true
+            },
+            {
+              "text": "A straight line with a negative slope — each extra 100 Ω removes the same amount of current."
+            }
+          ],
+          "responses": [
+            {
+              "title": "This is the shape of current against VOLTAGE, not against resistance.",
+              "body": "A straight line through the origin describes two quantities that rise together, which is exactly the I–V relationship of a fixed resistor. Resistance sits in the denominator instead, so its graph is a hyperbola, not a line."
+            },
+            {
+              "title": "Correct.",
+              "body": "This is the signature of an inverse relationship, <i>I</i> ∝ 1/<i>R</i>. Going from 100 Ω to 200 Ω costs 45 mA; going from 900 Ω to 1000 Ω costs barely 1 mA. The curve approaches zero without ever arriving, because no finite resistance stops the current completely. The live circuit below lets you sweep the resistance yourself."
+            },
+            {
+              "title": "A constant drop per 100 Ω would be a straight line — and the data is not.",
+              "body": "Check it against the table: from 100 Ω to 220 Ω the current falls by 49 mA, but from 470 Ω to 1000 Ω it falls by only 10 mA. Equal steps in resistance do not remove equal amounts of current, so the relationship cannot be linear."
+            }
+          ],
+          "id": "curve-shape",
+          "verify": {
+            "id": "f-live",
+            "caption": "Verify — sweep it yourself, while it runs",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nvar vm = create(\"voltmeter\", { name: \"vm\" });\nconnect(vm.a, r1.a, \"wire\");\nconnect(vm.b, r1.b, \"wire\");\nvar sR = create(\"slider\", { min: 100, max: 1000, step: 10, value: 330, label: \"Resistance R (ohm)\", targetObjectId: r1, targetParamName: \"R\" });\nvar sV = create(\"slider\", { min: 1, max: 24, step: 0.5, value: 9, label: \"Supply V (volts)\", targetObjectId: bat, targetParamName: \"V\" });",
+            "note": "Press Simulate, then drag the sliders while it runs. Watch how much the current changes for a 100 Ω step at the left of the range, and how little it changes at the right.",
+            "expect": {
+              "am": "27.3 mA",
+              "vm": "9.00 V"
+            }
+          }
+        }
+      ],
       "figures": [
         {
           "id": "f-table",
@@ -89,7 +185,7 @@
       "locator": "5",
       "eyebrow": "Stating the law",
       "title": "Ohm's law",
-      "body": "<p>What you measured has a name. In 1827 Georg Ohm published the result that, for a conductor at constant temperature, the current through it is directly proportional to the voltage across it and inversely proportional to its resistance.</p>",
+      "body": "<p>What you measured has a name. In 1827 Georg Ohm published the result that, for a conductor at constant temperature, the current through it is directly proportional to the voltage across it and inversely proportional to its resistance. Both halves of that sentence are things you have now watched happen.</p>",
       "derivation": [
         {
           "toc": "The statement",
@@ -113,7 +209,79 @@
           "math": "P = VI = I^2R = \\frac{V^2}{R}"
         }
       ],
-      "after": "<div class=\"aside\"><b>A law with conditions.</b> Ohm's law is not universal — it describes <em class=\"term\">ohmic</em> materials, those whose resistance stays constant as voltage changes. A filament lamp heats up and its resistance rises; a diode conducts in one direction only. Both are non-ohmic, and both appear later in this course.</div>"
+      "questions": [
+        {
+          "prompt": "A resistor carries 50 mA when 10 V is across it. Which arrangement gives its resistance?",
+          "choices": [
+            {
+              "text": "R = V/I = 10 / 0.050 = 200 Ω",
+              "correct": true
+            },
+            {
+              "text": "R = VI = 10 × 0.050 = 0.5 Ω"
+            },
+            {
+              "text": "R = I/V = 0.050 / 10 = 0.005 Ω"
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Resistance is the ratio of the voltage across a component to the current through it — volts per ampere, which is what one ohm means. Converting 50 mA to 0.050 A before dividing is the step most often skipped."
+            },
+            {
+              "title": "This is the power formula, not the resistance one.",
+              "body": "V × I gives watts, not ohms: 10 V × 0.050 A = 0.5 W is the heat this resistor is producing. A units check catches it instantly — volts times amperes can never come out in ohms."
+            },
+            {
+              "title": "This is the ratio the wrong way up.",
+              "body": "I/V is conductance, measured in siemens, and it is the reciprocal of what was asked for: 0.005 S is 1/200 Ω. If the answer to a resistance question is a very small number, suspect an inverted ratio."
+            }
+          ],
+          "id": "rearrange"
+        },
+        {
+          "prompt": "A 330 Ω resistor sits across 9 V. How much power does it turn into heat?",
+          "choices": [
+            {
+              "text": "About 0.25 W.",
+              "correct": true
+            },
+            {
+              "text": "About 2.97 kW — P = V × R = 9 × 330."
+            },
+            {
+              "text": "About 9 W — the battery is 9 V, so it delivers 9 W."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "P = V²/R = 81/330 = 0.245 W, or equivalently 9 V × 27.3 mA. That quarter of a watt is not an abstraction: it decides which physical resistor you can use. The wattmeter below reads it directly."
+            },
+            {
+              "title": "Power is voltage times CURRENT, never voltage times resistance.",
+              "body": "V × R has units of volt-ohms, which is nothing. The mistake is easy to catch by scale: a kilowatt is a room heater, and this is a small resistor on a 9 V battery. Any answer in kilowatts from a battery-powered circuit is wrong."
+            },
+            {
+              "title": "Volts are not watts.",
+              "body": "A 9 V battery does not deliver 9 W any more than a tap at a given pressure delivers a fixed litres per second — what flows depends on what you connect. Across 330 Ω it delivers 0.245 W; short it across 1 Ω and it would try to deliver 81 W."
+            }
+          ],
+          "id": "power-form",
+          "verify": {
+            "id": "v-power",
+            "caption": "Verify — a wattmeter on the 330 Ω resistor at 9 V",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar wm = create(\"wattmeter\", { name: \"wm\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, wm.ip, \"wire\");\nconnect(wm.in_, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(wm.vp, r1.a, \"wire\");\nconnect(wm.vn, r1.b, \"wire\");",
+            "note": "Press Simulate: 245.5 mW, which is 0.245 W. The wattmeter measures current through the resistor and voltage across it, and multiplies them.",
+            "expect": {
+              "wm": "245.5 mW",
+              "am": "27.3 mA"
+            }
+          }
+        }
+      ],
+      "after": "<div class=\"aside\"><b>A law with conditions.</b> Ohm's law is not universal — it describes <em class=\"term\">ohmic</em> materials, those whose resistance stays constant as voltage changes. A filament lamp heats up and its resistance rises; a diode conducts in one direction only. Both are non-ohmic, and both appear in §11.</div>"
     },
     {
       "id": "worked-basic",
@@ -139,7 +307,39 @@
           "math": "P = VI = 9.0 \\times 0.02727 = \\mathbf{0.245\\ W}"
         },
         {
-          "why": "<b>Check it against the table.</b> Figure 4.1 lists 27.27 mA and 245.5 mW at 330 Ω — the same numbers. A quarter of a watt also tells you something practical: a common 0.25 W resistor would be running at its absolute limit here, so a 0.5 W part is the sensible choice."
+          "why": "<b>Check it against the instruments.</b> Figure 2.1's ammeter reads 27.3 mA and §5's wattmeter reads 245.5 mW — the same numbers. A quarter of a watt also tells you something practical: a common 0.25 W resistor would be running at its absolute limit here, so a 0.5 W part is the sensible choice."
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-cell",
+          "prompt": "<p>A single 1.5 V cell is connected across a 100 Ω resistor. Find the current, and state it in milliamperes.</p>",
+          "answer": "<p>I = V/R = 1.5 / 100 = 0.015 A = <b>15.0 mA</b>. The power is P = VI = 1.5 × 0.015 = 22.5 mW, comfortably inside any resistor you are likely to own.</p><p>Note how little the arithmetic depends on the size of the numbers: the same division handles a 1.5 V cell and a 400 kV transmission line.</p>",
+          "math": "I = \\frac{1.5\\ \\text{V}}{100\\ \\Omega} = 15.0\\ \\text{mA}",
+          "verify": {
+            "id": "v-15ma",
+            "caption": "Verify — 1.5 V across 100 Ω",
+            "script": "var bat = create(\"battery\", { V: 1.5, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 100, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "Press Simulate: 15.0 mA.",
+            "expect": {
+              "am": "15.0 mA"
+            }
+          }
+        },
+        {
+          "id": "p-find-r",
+          "prompt": "<p>A resistor of unknown value is connected to a 9 V supply and an ammeter reads 18 mA. What is its resistance, and what power is it dissipating?</p>",
+          "answer": "<p>Use the measurement form: R = V/I = 9 / 0.018 = <b>500 Ω</b>. The power is P = VI = 9 × 0.018 = 0.162 W.</p><p>500 Ω is not a standard value, which is worth noticing: real resistors come from preferred series (470 Ω and 560 Ω are the neighbours here), so a measurement landing exactly on a round number usually means a round-numbered question rather than a real component.</p>",
+          "math": "R = \\frac{9\\ \\text{V}}{0.018\\ \\text{A}} = 500\\ \\Omega",
+          "verify": {
+            "id": "v-500",
+            "caption": "Verify — 500 Ω on a 9 V supply",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 500, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "The ammeter reads 18.0 mA, which is where the question started.",
+            "expect": {
+              "am": "18.0 mA"
+            }
+          }
         }
       ]
     },
@@ -148,16 +348,64 @@
       "locator": "7",
       "eyebrow": "Two resistors",
       "title": "Resistors in series",
-      "body": "<p>Put two resistors end to end and the same current must pass through both — there is nowhere else for it to go. Their resistances therefore add, and the pair behaves as one resistor of the combined value.</p><p>With 220 Ω and 330 Ω in series across 9 V, the total is 550 Ω, so the current is 16.4 mA. Each resistor then takes a share of the supply voltage in proportion to its own resistance: 3.6 V across the 220 Ω and 5.4 V across the 330 Ω. The two shares sum to 9.0 V, which is Kirchhoff's voltage law arriving a lesson early.</p>",
+      "body": "<p>Put two resistors end to end and the same current must pass through both — there is nowhere else for it to go. Their resistances therefore add, and the pair behaves as one resistor of the combined value.</p><p>With 220 Ω and 330 Ω in series across 9 V, the total is 550 Ω, so the current is 16.4 mA. Each resistor then takes a share of the supply voltage in proportion to its own resistance: 3.60 V across the 220 Ω and 5.40 V across the 330 Ω. The two shares sum to 9.00 V, which is Kirchhoff's voltage law arriving a lesson early.</p>",
+      "questions": [
+        {
+          "prompt": "A 100 Ω resistor is put in series with a 10 kΩ one across 9 V. Roughly how is the supply shared?",
+          "choices": [
+            {
+              "text": "Almost all of it across the 10 kΩ; the 100 Ω takes about 0.09 V.",
+              "correct": true
+            },
+            {
+              "text": "Evenly — 4.5 V each, because the same current flows through both."
+            },
+            {
+              "text": "Almost all across the 100 Ω, because a small resistance lets more voltage through."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The shares are in proportion to the resistances, and 10 kΩ is a hundred times 100 Ω, so it takes a hundred times the voltage: 8.91 V against 0.089 V. This is why a small resistor in series with a large one is electrically almost invisible — and why the wire resistance in a circuit like this can usually be ignored."
+            },
+            {
+              "title": "The same current is exactly why the shares are NOT equal.",
+              "body": "Equal current through unequal resistance gives unequal voltage, because V = IR and only R differs. Equal shares happen when — and only when — the two resistances are equal."
+            },
+            {
+              "title": "Voltage is not something a resistor 'lets through'.",
+              "body": "That picture belongs to current in a parallel circuit. In series, the voltage across each part is whatever V = IR makes it, so the LARGER resistance takes the larger share. Run the circuit below: 8.91 V sits across the 10 kΩ."
+            }
+          ],
+          "id": "series-share",
+          "verify": {
+            "id": "v-series-big",
+            "caption": "Verify — 100 Ω in series with 10 kΩ across 9 V",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 100, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 10000, name: \"r2\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar v1 = create(\"voltmeter\", { name: \"v1\" });\nvar v2 = create(\"voltmeter\", { name: \"v2\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(v1.a, r1.a, \"wire\");\nconnect(v1.b, r1.b, \"wire\");\nconnect(v2.a, r2.a, \"wire\");\nconnect(v2.b, r2.b, \"wire\");",
+            "note": "v1 measures the 100 Ω and reads 89.2 mV; v2 measures the 10 kΩ and reads 8.91 V. The current is the same 892 µA through both.",
+            "expect": {
+              "am": "892.0 µA",
+              "v1": "89.2 mV",
+              "v2": "8.91 V"
+            }
+          }
+        }
+      ],
       "figures": [
         {
           "id": "f-series",
-          "caption": "Figure 7.1 — 220 Ω and 330 Ω in series",
-          "script": "var bat = create(\"battery\", { V: 9 });\nvar r1 = create(\"resistor\", { R: 220 });\nvar r2 = create(\"resistor\", { R: 330 });\nvar vm = create(\"voltmeter\", {});\nconnect(bat.positive, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(vm.a, r2.a, \"wire\");\nconnect(vm.b, r2.b, \"wire\");",
-          "note": "The voltmeter sits across the 330 Ω. Press Play: it reads 5.4 V, the larger share — the bigger resistance takes the bigger slice."
+          "caption": "Figure 7.1 — 220 Ω and 330 Ω in series, with a voltmeter on each",
+          "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 220, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 330, name: \"r2\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar v1 = create(\"voltmeter\", { name: \"v1\" });\nvar v2 = create(\"voltmeter\", { name: \"v2\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(v1.a, r1.a, \"wire\");\nconnect(v1.b, r1.b, \"wire\");\nconnect(v2.a, r2.a, \"wire\");\nconnect(v2.b, r2.b, \"wire\");",
+          "note": "Press Simulate. The ammeter reads 16.4 mA — one current for the whole loop — while v1 reads 3.60 V across the 220 Ω and v2 reads 5.40 V across the 330 Ω. Add them: 9.00 V.",
+          "expect": {
+            "am": "16.4 mA",
+            "v1": "3.60 V",
+            "v2": "5.40 V"
+          }
         }
       ],
-      "after": "<p class=\"sub\">This is a <em class=\"term\">potential divider</em>, and it is one of the most used arrangements in electronics: two resistors turn a supply voltage into any smaller voltage you choose.</p>"
+      "after": "<p class=\"sub\">This arrangement is a <em class=\"term\">potential divider</em>, and it is one of the most used circuits in electronics: two resistors turn a supply voltage into any smaller voltage you choose.</p>"
     },
     {
       "id": "worked-series",
@@ -183,16 +431,323 @@
           "math": "V_{330} = 0.01636 \\times 330 = \\mathbf{5.40\\ V}"
         },
         {
-          "why": "<b>Check the total.</b> 3.60 + 5.40 = 9.00 V, exactly the supply. The shares around a loop must sum to the source voltage — if yours do not, an arithmetic slip is the first thing to look for. Figure 7.1's voltmeter reads 5.4 V, confirming it."
+          "why": "<b>Check the total.</b> 3.60 + 5.40 = 9.00 V, exactly the supply. The shares around a loop must sum to the source voltage — if yours do not, an arithmetic slip is the first thing to look for. Figure 7.1's two voltmeters read 3.60 V and 5.40 V, confirming it."
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-three-series",
+          "prompt": "<p>Three resistors — 1.0 kΩ, 2.0 kΩ and 3.0 kΩ — are connected in series across 12 V. Find the loop current and the voltage across the 2.0 kΩ resistor.</p>",
+          "answer": "<p>The total resistance is 1.0 + 2.0 + 3.0 = 6.0 kΩ, so the current is I = 12 / 6000 = 2.0 mA — one current for the whole loop, however many resistors it passes through.</p><p>The share across the 2.0 kΩ is then V = IR = 0.002 × 2000 = <b>4.00 V</b>, which is one third of the supply because that resistor is one third of the total resistance. The other shares are 2.00 V and 6.00 V; all three sum to 12 V.</p>",
+          "math": "I = \\frac{12}{6000} = 2.0\\ \\text{mA}, \\qquad V_{2k} = 4.00\\ \\text{V}",
+          "verify": {
+            "id": "v-divider-12v",
+            "caption": "Verify — 1 kΩ, 2 kΩ and 3 kΩ across 12 V",
+            "script": "var bat = create(\"battery\", { V: 12, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 1000, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 2000, name: \"r2\" });\nvar r3 = create(\"resistor\", { R: 3000, name: \"r3\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar vm = create(\"voltmeter\", { name: \"vm\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, r3.a, \"wire\");\nconnect(r3.b, bat.negative, \"wire\");\nconnect(vm.a, r2.a, \"wire\");\nconnect(vm.b, r2.b, \"wire\");",
+            "note": "The ammeter reads 2.0 mA and the voltmeter across the 2 kΩ reads 4.00 V.",
+            "expect": {
+              "am": "2.0 mA",
+              "vm": "4.00 V"
+            }
+          }
+        },
+        {
+          "id": "p-design-divider",
+          "prompt": "<p>You need about 3.3 V from a 9 V supply for a sensor input that draws negligible current. Using a 1.0 kΩ resistor on the supply side, what value goes underneath — and what does a real circuit built from the nearest standard part actually produce?</p>",
+          "answer": "<p>The divider gives V<sub>out</sub> = 9 R₂ / (R₁ + R₂). Setting that to 3.3 V and solving: R₂ = 3.3 × 1000 / (9 − 3.3) = 579 Ω.</p><p>579 Ω does not exist as a part. The nearest standard value is 560 Ω, which gives V<sub>out</sub> = 9 × 560 / 1560 = <b>3.23 V</b> — about 2% low, and in practice fine for a sensor input. The divider also draws 9 / 1560 = 5.8 mA continuously, which matters on a battery: this circuit costs more current than the sensor it feeds.</p><p>The phrase \"draws negligible current\" is doing real work in this question. As soon as the load takes appreciable current, it sits in parallel with the lower resistor and the output sags below 3.23 V.</p>",
+          "math": "V_{\\text{out}} = 9 \\times \\frac{560}{1560} = 3.23\\ \\text{V}",
+          "verify": {
+            "id": "v-p6",
+            "caption": "Verify — 1 kΩ over 560 Ω on 9 V",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 1000, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 560, name: \"r2\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar v1 = create(\"voltmeter\", { name: \"v1\" });\nvar v2 = create(\"voltmeter\", { name: \"v2\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(v1.a, r1.a, \"wire\");\nconnect(v1.b, r1.b, \"wire\");\nconnect(v2.a, r2.a, \"wire\");\nconnect(v2.b, r2.b, \"wire\");",
+            "note": "v2 measures the 560 Ω and reads 3.23 V. The 5.8 mA on the ammeter is the current the divider itself wastes.",
+            "expect": {
+              "am": "5.8 mA",
+              "v1": "5.77 V",
+              "v2": "3.23 V"
+            }
+          }
         }
       ]
     },
     {
-      "id": "misuse",
+      "id": "parallel",
       "locator": "9",
+      "eyebrow": "The other way to connect two",
+      "title": "Resistors in parallel",
+      "body": "<p>Connect two resistors across the same pair of nodes and they are in <em class=\"term\">parallel</em>. Now the shared quantity is voltage, not current: both resistors have the full supply across them, and each draws whatever current Ohm's law gives it independently of the other. The currents then add.</p><p>This makes the combination easier to drive than either resistor alone, which surprises people the first time: adding a second path can only add current, so the total resistance of a parallel pair is always <b>less than the smaller</b> of the two.</p>",
+      "derivation": [
+        {
+          "toc": "Each branch on its own",
+          "why": "Both resistors see the same voltage V, so each branch current follows directly from Ohm's law applied to that branch alone.",
+          "math": "I_1 = \\frac{V}{R_1}, \\qquad I_2 = \\frac{V}{R_2}"
+        },
+        {
+          "toc": "The supply provides both",
+          "why": "Charge is not created at the junction: whatever flows into it flows out again, so the current the source delivers is the sum of the branch currents.",
+          "math": "I = I_1 + I_2 = V\\left(\\frac{1}{R_1} + \\frac{1}{R_2}\\right)"
+        },
+        {
+          "toc": "The equivalent resistance",
+          "hero": true,
+          "why": "Comparing that with I = V/R for a single resistor identifies the combination's equivalent value. Reciprocals add, which is why the result is always smaller than either part — and for two resistors the product-over-sum form is the one worth memorising.",
+          "math": "\\frac{1}{R_p} = \\frac{1}{R_1} + \\frac{1}{R_2} \\quad\\Longrightarrow\\quad R_p = \\frac{R_1R_2}{R_1+R_2}"
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "Two 1.0 kΩ resistors are connected in parallel across 12 V. What current does the supply deliver?",
+          "choices": [
+            {
+              "text": "24 mA — the pair behaves as 500 Ω.",
+              "correct": true
+            },
+            {
+              "text": "6 mA — the pair behaves as 2 kΩ, because resistances add."
+            },
+            {
+              "text": "12 mA — the two branches share the 12 mA that one resistor would have taken."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each branch takes 12 mA on its own, and the second branch does not reduce the first — it adds to it. The pair therefore draws 24 mA, exactly what a single 500 Ω resistor would. Equal resistors in parallel always halve like this."
+            },
+            {
+              "title": "Resistances add in SERIES, not in parallel.",
+              "body": "In series there is one path and the obstacles are in a row. In parallel there are two paths, and a second path can never make it harder for charge to get across — so the equivalent resistance must fall, not rise."
+            },
+            {
+              "title": "The supply is not a fixed budget of current to be shared.",
+              "body": "A voltage source holds its voltage and delivers whatever current the circuit demands. Each 1 kΩ branch demands 12 mA from that fixed 12 V, independently of what the other branch is doing, so the source supplies 24 mA in total."
+            }
+          ],
+          "id": "parallel-total",
+          "verify": {
+            "id": "v-par-equal",
+            "caption": "Verify — two 1 kΩ resistors in parallel across 12 V",
+            "script": "var bat = create(\"battery\", { V: 12, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 1000, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 1000, name: \"r2\" });\nvar at = create(\"ammeter\", { name: \"at\" });\nconnect(bat.positive, at.a, \"wire\");\nconnect(at.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(at.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");",
+            "note": "The total ammeter reads 24.0 mA — the same as a single 500 Ω resistor would draw.",
+            "expect": {
+              "at": "24.0 mA"
+            }
+          }
+        },
+        {
+          "prompt": "Now three 330 Ω resistors in parallel across 9 V. What is the equivalent resistance?",
+          "choices": [
+            {
+              "text": "110 Ω — one third of 330 Ω.",
+              "correct": true
+            },
+            {
+              "text": "990 Ω — three times 330 Ω."
+            },
+            {
+              "text": "330 Ω — identical resistors in parallel behave as one of them."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "<i>n</i> equal resistors in parallel give R/<i>n</i>, so three 330 Ω parts behave as 110 Ω and draw 81.8 mA from 9 V — three times the 27.3 mA of Figure 2.1. This is also how power resistors are built up in practice: three parts share the heat that one would otherwise take alone."
+            },
+            {
+              "title": "That is what they would give in series.",
+              "body": "Three in a row is 990 Ω; three side by side is 110 Ω. The two arrangements differ by a factor of nine here, which is why reading a schematic correctly matters more than the arithmetic does."
+            },
+            {
+              "title": "Identical branches do not merge — they multiply the current.",
+              "body": "Each 330 Ω branch draws its own 27.3 mA from the same 9 V, and the source has to supply all three. The voltage is shared; the current is not."
+            }
+          ],
+          "id": "parallel-three",
+          "verify": {
+            "id": "v-par-three",
+            "caption": "Verify — three 330 Ω resistors in parallel across 9 V",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 330, name: \"r2\" });\nvar r3 = create(\"resistor\", { R: 330, name: \"r3\" });\nvar at = create(\"ammeter\", { name: \"at\" });\nconnect(bat.positive, at.a, \"wire\");\nconnect(at.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(at.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(at.b, r3.a, \"wire\");\nconnect(r3.b, bat.negative, \"wire\");",
+            "note": "81.8 mA, which is 9 V ÷ 110 Ω. Delete one branch in your head and the reading would fall to 54.5 mA.",
+            "expect": {
+              "at": "81.8 mA"
+            }
+          }
+        }
+      ],
+      "figures": [
+        {
+          "id": "f-parallel",
+          "caption": "Figure 9.1 — 220 Ω and 330 Ω in parallel, with an ammeter in every branch",
+          "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 220, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 330, name: \"r2\" });\nvar a1 = create(\"ammeter\", { name: \"a1\" });\nvar a2 = create(\"ammeter\", { name: \"a2\" });\nvar at = create(\"ammeter\", { name: \"at\" });\nconnect(bat.positive, at.a, \"wire\");\nconnect(at.b, a1.a, \"wire\");\nconnect(a1.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(at.b, a2.a, \"wire\");\nconnect(a2.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");",
+          "note": "Press Simulate. The branch meters read 40.9 mA and 27.3 mA, and the supply meter reads their sum, 68.2 mA. Each branch takes exactly what it would take alone.",
+          "expect": {
+            "a1": "40.9 mA",
+            "a2": "27.3 mA",
+            "at": "68.2 mA"
+          }
+        },
+        {
+          "id": "d-connect",
+          "caption": "Figure 9.2 — the two ways to connect two resistors",
+          "script": "diagram(\"direction: down\\n[Series] as s #blue\\ns -> [One path only] as p1\\np1 -> [Same I through both] as c1\\nc1 -> [V divides by resistance] as v1\\n[Parallel] as par #violet\\npar -> [Two paths] as p2\\np2 -> [Same V across both] as c2\\nc2 -> [I divides by resistance] as v2\\ngroup \\\"Series\\\" { s, p1, c1, v1 }\\ngroup \\\"Parallel\\\" { par, p2, c2, v2 }\");",
+          "note": "The two rows are duals of each other: swap 'current' for 'voltage' in either one and you have the other."
+        }
+      ],
+      "after": "<p>The equivalent resistance of Figure 9.1 is R<sub>p</sub> = (220 × 330)/(220 + 330) = 132 Ω, and 9 / 132 = 68.2 mA — the number on the supply ammeter. Working from either end gives the same answer, which is the usual sign that the model is consistent rather than a coincidence.</p>"
+    },
+    {
+      "id": "power",
+      "locator": "10",
+      "eyebrow": "What it costs",
+      "title": "Power, heat and choosing a real component",
+      "body": "<p>Every resistor turns the energy it takes out of the circuit into heat. How much is P = VI, and substituting Ohm's law gives the two forms that are usually more convenient: P = I²R when the current is known, P = V²/R when the voltage is.</p><p>The V² is the part worth internalising. Power does not rise in proportion to voltage — it rises with the <b>square</b> of it. Double a supply and the heat in a fixed resistor goes up four times; a component that was comfortable at 9 V is at four times its dissipation at 18 V, which is how most resistors actually die.</p>",
+      "questions": [
+        {
+          "prompt": "The 330 Ω resistor dissipating 0.245 W at 9 V is moved to an 18 V supply. What does it now dissipate?",
+          "choices": [
+            {
+              "text": "About 0.98 W — four times as much.",
+              "correct": true
+            },
+            {
+              "text": "About 0.49 W — twice as much, because the voltage doubled."
+            },
+            {
+              "text": "The same 0.245 W. The resistor has not changed, so its dissipation cannot change."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Doubling V doubles the current as well, and power is the product of the two — so it goes up by a factor of four, to 0.982 W. A 0.25 W part, already at its limit at 9 V, would now be at four times its rating: it will discolour, drift and eventually fail open."
+            },
+            {
+              "title": "This counts the voltage but forgets the current.",
+              "body": "P = VI has two factors, and doubling the supply doubles both of them: twice the voltage across the same resistor means twice the current through it. Two doublings multiplied together give four, which is exactly what V²/R says."
+            },
+            {
+              "title": "The resistor is unchanged; what it is being asked to do is not.",
+              "body": "Resistance is a property of the component, but dissipation is a property of the situation — it depends on what you connect the component to. Run the two circuits and compare the wattmeters: 245.5 mW against 981.8 mW."
+            }
+          ],
+          "id": "power-square",
+          "verify": {
+            "id": "v-power18",
+            "caption": "Verify — the same 330 Ω resistor on 18 V",
+            "script": "var bat = create(\"battery\", { V: 18, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar wm = create(\"wattmeter\", { name: \"wm\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, wm.ip, \"wire\");\nconnect(wm.in_, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(wm.vp, r1.a, \"wire\");\nconnect(wm.vn, r1.b, \"wire\");",
+            "note": "981.8 mW, against 245.5 mW at 9 V: four times the power for twice the voltage. The current has doubled to 54.5 mA.",
+            "expect": {
+              "wm": "981.8 mW",
+              "am": "54.5 mA"
+            }
+          }
+        }
+      ],
+      "figures": [
+        {
+          "id": "f-watt-live",
+          "caption": "Figure 10.1 — sweep the supply and watch the power",
+          "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar wm = create(\"wattmeter\", { name: \"wm\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, wm.ip, \"wire\");\nconnect(wm.in_, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(wm.vp, r1.a, \"wire\");\nconnect(wm.vn, r1.b, \"wire\");\nvar sV = create(\"slider\", { min: 1, max: 18, step: 0.5, value: 9, label: \"Supply voltage (V)\", targetObjectId: bat, targetParamName: \"V\" });",
+          "note": "Press Simulate, then drag the supply slider. The current tracks the voltage in a straight line; the power does not — it climbs far faster at the top of the range than at the bottom.",
+          "expect": {
+            "wm": "245.5 mW",
+            "am": "27.3 mA"
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-rating",
+          "prompt": "<p>A 68 Ω resistor is to be connected across a 12 V supply. What power rating must the physical component have?</p>",
+          "answer": "<p>The current is I = 12 / 68 = 176 mA, so P = VI = 12 × 0.176 = <b>2.12 W</b> — or straight from P = V²/R = 144/68 = 2.12 W.</p><p>A 2 W part is therefore not enough: components are chosen with headroom, both because the rating assumes free air at room temperature and because the supply may be higher than nominal. The sensible choice here is a 5 W wirewound resistor, and it will still get hot enough to be uncomfortable to touch.</p>",
+          "math": "P = \\frac{V^2}{R} = \\frac{144}{68} = 2.12\\ \\text{W}",
+          "verify": {
+            "id": "v-p4",
+            "caption": "Verify — 68 Ω on 12 V, with a wattmeter",
+            "script": "var bat = create(\"battery\", { V: 12, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 68, name: \"r1\" });\nvar wm = create(\"wattmeter\", { name: \"wm\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, wm.ip, \"wire\");\nconnect(wm.in_, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(wm.vp, r1.a, \"wire\");\nconnect(wm.vn, r1.b, \"wire\");",
+            "note": "2.12 W on the wattmeter, at 176.5 mA. Compare that with the 245 mW of the 330 Ω resistor on 9 V: nearly ten times the heat, from a circuit that looks no different on paper.",
+            "expect": {
+              "wm": "2.12 W",
+              "am": "176.5 mA"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nonohmic",
+      "locator": "11",
+      "eyebrow": "Where the law stops",
+      "title": "Components that are not ohmic",
+      "body": "<p>Ohm's law describes components with a <b>constant</b> R. Plenty of useful components do not have one, and treating them as though they did produces answers that are wrong in a way the arithmetic cannot reveal.</p><p>A <em class=\"term\">light-emitting diode</em> is the clearest case. It conducts in one direction only, and once it conducts it holds a roughly fixed voltage across itself — about 2 V for a red LED — almost regardless of the current. It has no meaningful resistance: ask for V/I and you get a different answer at every current.</p><p>This is why an LED is always driven through a series resistor. The resistor is the ohmic part, and it is what sets the current; the LED simply takes its 2 V and lights.</p>",
+      "questions": [
+        {
+          "prompt": "A red LED (about 2 V when lit) is driven from 9 V through a 330 Ω series resistor. What current flows?",
+          "choices": [
+            {
+              "text": "About 21 mA — the resistor sees 9 − 2 = 7 V.",
+              "correct": true
+            },
+            {
+              "text": "About 27 mA — 9 V across 330 Ω, as before."
+            },
+            {
+              "text": "About 6 mA — 2 V across 330 Ω, because the LED sets the voltage."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The LED takes its share first, and the resistor gets what is left: 7 V across 330 Ω is 21.2 mA. This is the standard way to size an LED resistor — subtract the forward voltage, then apply Ohm's law to what remains."
+            },
+            {
+              "title": "This ignores the LED entirely.",
+              "body": "The 9 V is shared between the two components in series, and the LED is not a wire: it holds about 2 V across itself whenever it is lit. Only the remaining 7 V appears across the resistor, so the current is lower than the resistor alone would suggest."
+            },
+            {
+              "title": "The 2 V is across the LED, not across the resistor.",
+              "body": "This is the most common voltage mix-up in the lesson, and §12 names it: the V in I = V/R must be the voltage across the component you are applying it to. The resistor has 7 V across it, not 2 V."
+            }
+          ],
+          "id": "led-current",
+          "verify": {
+            "id": "v-led",
+            "caption": "Verify — an LED and its 330 Ω resistor on 9 V",
+            "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 330, name: \"r1\" });\nvar d1 = create(\"led\", { Vf: 2, name: \"led\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar vd = create(\"voltmeter\", { name: \"vd\" });\nvar vr = create(\"voltmeter\", { name: \"vr\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, d1.anode, \"wire\");\nconnect(d1.cathode, bat.negative, \"wire\");\nconnect(vd.a, d1.anode, \"wire\");\nconnect(vd.b, d1.cathode, \"wire\");\nconnect(vr.a, r1.a, \"wire\");\nconnect(vr.b, r1.b, \"wire\");",
+            "note": "vd measures the LED and settles at 2.04 V; vr measures the resistor and reads 6.96 V. The two add to 9 V, and the current is 21.1 mA. Ohm's law applies perfectly to the resistor and not at all to the LED.",
+            "expect": {
+              "am": "21.1 mA",
+              "vd": "2.04 V",
+              "vr": "6.96 V"
+            }
+          }
+        }
+      ],
+      "figures": [
+        {
+          "id": "d-ohmic",
+          "caption": "Figure 11.1 — where Ohm's law applies, and where it does not",
+          "script": "diagram(\"direction: right\\n((Component)) as c\\n<Is R constant as V changes?> as q\\n[Ohmic: resistor, wire, heater] as ohm #mint\\n[Non-ohmic] as non #amber\\n[Filament lamp: R rises as it heats] as lamp\\n[Diode and LED: one direction, fixed Vf] as led\\n[Thermistor: R falls as it heats] as th\\nc -> q\\nq -> ohm : yes\\nq -> non : no\\nnon -> lamp\\nnon -> led\\nnon -> th\");",
+          "note": "The question at the fork is the whole definition of an ohmic component: not what it is made of, but whether its resistance stays put while the voltage changes."
+        },
+        {
+          "id": "f-lamp-switch",
+          "caption": "Figure 11.2 — a lamp and a switch",
+          "script": "var bat = create(\"battery\", { V: 9, name: \"bat\" });\nvar sw = create(\"switch\", { closed: 1, name: \"sw\" });\nvar lamp = create(\"bulb\", { R: 20, name: \"lamp\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, sw.a, \"wire\");\nconnect(sw.b, am.a, \"wire\");\nconnect(am.b, lamp.a, \"wire\");\nconnect(lamp.b, bat.negative, \"wire\");\nvar sSw = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"Switch closed (0 = open)\", targetObjectId: sw, targetParamName: \"closed\" });",
+          "note": "Press Simulate: 450 mA through a 20 Ω lamp, and it glows. Drag the switch slider to 0 while it runs — the current falls to zero and the lamp goes out, because an open switch is a resistance so large that no useful current crosses it.",
+          "expect": {
+            "am": "450.0 mA"
+          }
+        }
+      ],
+      "after": "<div class=\"aside\"><b>The lamp is idealised here.</b> This model gives the filament a fixed 20 Ω. A real filament is several times more resistive when hot than when cold, so switching one on draws a large inrush current for a few milliseconds — which is why filament lamps almost always fail at the moment they are switched on rather than during use.</div>"
+    },
+    {
+      "id": "misuse",
+      "locator": "12",
       "eyebrow": "Where it goes wrong",
       "title": "Three common mistakes",
-      "body": "<p>Ohm's law is simple enough that errors come from misapplying it rather than from the algebra.</p>",
+      "body": "<p>Ohm's law is simple enough that errors come from misapplying it rather than from the algebra. These three account for most of them.</p>",
       "derivation": [
         {
           "toc": "Mixing units",
@@ -200,42 +755,188 @@
         },
         {
           "toc": "Using the wrong voltage",
-          "why": "V in I = V/R is the voltage across <em>that resistor</em>, not the supply voltage. In Figure 7.1 the current through the 330 Ω is set by 5.4 V, not by 9 V — using the supply there gives an answer nearly twice too large."
+          "why": "V in I = V/R is the voltage across <em>that resistor</em>, not the supply voltage. In Figure 7.1 the current through the 330 Ω is set by the 5.40 V across it, not by the 9 V supply — using the supply there gives an answer nearly twice too large."
         },
         {
           "toc": "Assuming every component is ohmic",
-          "why": "Ohm's law describes components whose resistance is constant. A lamp filament, a diode and a thermistor all change resistance with conditions, so a single R does not describe them. Applying the law to them gives a number that is only valid at one operating point."
+          "why": "Ohm's law describes components whose resistance is constant. A lamp filament, a diode and a thermistor all change resistance with conditions, so a single R does not describe them. Applying the law to them gives a number that is only valid at one operating point, as §11 showed."
         }
       ],
-      "question": {
-        "prompt": "A 4.7 kΩ resistor has 12 V across it. What current flows?",
-        "choices": [
-          { "text": "2.55 mA", "correct": true },
-          { "text": "2.55 A — 12 divided by 4.7." },
-          { "text": "56.4 mA — 12 multiplied by 4.7." }
-        ],
-        "responses": [
-          {
-            "title": "Correct.",
-            "body": "4.7 kΩ is 4700 Ω, so I = 12 / 4700 = 0.00255 A = 2.55 mA. Converting the kilohms before dividing is the whole trick."
-          },
-          {
-            "title": "The arithmetic is right but the units were not converted.",
-            "body": "Dividing 12 by 4.7 treats the resistance as 4.7 Ω rather than 4700 Ω, so the answer comes out a thousand times too large. 2.55 A through a quarter-watt resistor would destroy it instantly, which is a useful sanity check: a result that large from a small resistor almost always means a missed kilo."
-          },
-          {
-            "title": "This multiplies where the law divides.",
-            "body": "Resistance opposes current, so it belongs in the denominator: I = V/R, never V × R. A quick check is to ask whether more resistance should give more current — it should not, so multiplication cannot be right."
+      "figures": [
+        {
+          "id": "d-method",
+          "caption": "Figure 12.1 — the order to work a DC circuit problem",
+          "script": "diagram(\"direction: down\\n(Read the question) as start\\n[Mark every known V, I and R] as known\\n<More than one resistor?> as many\\n[Combine them: series add, parallel reciprocal] as comb\\n[Loop current: I = V / R total] as loop\\n<What is actually asked?> as ask\\n[A voltage: V = IR across THAT part] as volt\\n[A power: P = VI] as pow\\n(Check the units and the size) as check\\nstart -> known\\nknown -> many\\nmany -> comb : yes\\nmany -> loop : no\\ncomb -> loop\\nloop -> ask\\nask -> volt : voltage\\nask -> pow : power\\nvolt -> check\\npow -> check\");",
+          "note": "Every worked example in this lesson follows this path. The two decisions are where the mistakes in §12 happen: combining before finding the loop current, and taking V from the supply instead of from the component."
+        }
+      ],
+      "questions": [
+        {
+          "prompt": "A 4.7 kΩ resistor has 12 V across it. What current flows?",
+          "choices": [
+            {
+              "text": "2.55 mA",
+              "correct": true
+            },
+            {
+              "text": "2.55 A — 12 divided by 4.7."
+            },
+            {
+              "text": "56.4 mA — 12 multiplied by 4.7."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "4.7 kΩ is 4700 Ω, so I = 12 / 4700 = 0.00255 A = 2.55 mA. Converting the kilohms before dividing is the whole trick."
+            },
+            {
+              "title": "The arithmetic is right but the units were not converted.",
+              "body": "Dividing 12 by 4.7 treats the resistance as 4.7 Ω rather than 4700 Ω, so the answer comes out a thousand times too large. 2.55 A through a quarter-watt resistor would destroy it instantly, which is a useful sanity check: a result that large from a small resistor almost always means a missed kilo."
+            },
+            {
+              "title": "This multiplies where the law divides.",
+              "body": "Resistance opposes current, so it belongs in the denominator: I = V/R, never V × R. A quick check is to ask whether more resistance should give more current — it should not, so multiplication cannot be right."
+            }
+          ],
+          "id": "units",
+          "verify": {
+            "id": "v-4k7",
+            "caption": "Verify — 12 V across 4.7 kΩ",
+            "script": "var bat = create(\"battery\", { V: 12, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 4700, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "The ammeter reads 2.6 mA — the meter rounds to two figures at this scale, and the exact value is 2.553 mA.",
+            "expect": {
+              "am": "2.6 mA"
+            }
           }
-        ]
-      }
+        },
+        {
+          "prompt": "A 20 Ω lamp is in series with a 100 Ω resistor across 12 V. A student computes the lamp's current as 12/20 = 600 mA. What is wrong?",
+          "choices": [
+            {
+              "text": "The lamp does not have 12 V across it — the two components share the supply, and the current is 100 mA.",
+              "correct": true
+            },
+            {
+              "text": "Nothing is wrong: Ohm's law applied to the lamp gives 600 mA."
+            },
+            {
+              "text": "The resistances should have been multiplied, giving a much smaller current."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The loop resistance is 120 Ω, so the current is 12/120 = 100 mA everywhere in the loop, and the lamp has only 100 mA × 20 Ω = 2.00 V across it. The student's 12 V belonged to the supply, not to the lamp — mistake number two, in its most common form."
+            },
+            {
+              "title": "Ohm's law was applied correctly to the wrong voltage.",
+              "body": "I = V/R is exactly right, but V must be the potential difference across that component. The lamp has 2.00 V across it here, not 12 V, and 2.00/20 gives the correct 100 mA."
+            },
+            {
+              "title": "Series resistances add; they are never multiplied.",
+              "body": "120 Ω, not 2000 Ω. Multiplying resistances produces a quantity with units of ohms squared, which corresponds to nothing physical."
+            }
+          ],
+          "id": "wrong-voltage",
+          "verify": {
+            "id": "v-lamp-series",
+            "caption": "Verify — a 20 Ω lamp in series with 100 Ω on 12 V",
+            "script": "var bat = create(\"battery\", { V: 12, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 100, name: \"r1\" });\nvar lamp = create(\"bulb\", { R: 20, name: \"lamp\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar vl = create(\"voltmeter\", { name: \"vl\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, lamp.a, \"wire\");\nconnect(lamp.b, bat.negative, \"wire\");\nconnect(vl.a, lamp.a, \"wire\");\nconnect(vl.b, lamp.b, \"wire\");",
+            "note": "100.0 mA on the ammeter, and the voltmeter across the lamp reads 2.00 V — not the 12 V the wrong method assumed.",
+            "expect": {
+              "am": "100.0 mA",
+              "vl": "2.00 V"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "problems",
+      "locator": "13",
+      "eyebrow": "Work these yourself",
+      "title": "Problem set",
+      "body": "<p>Seven problems over everything above. Work each one on paper before opening its answer — the answer is worth very little if you have not first been wrong about something. Where a problem can be settled by measurement, its answer carries the circuit that settles it: press <b>Simulate</b> and read the instrument.</p>",
+      "problems": [
+        {
+          "id": "ps-1",
+          "prompt": "<p><b>1.</b> A 6.0 V supply drives a 1.2 kΩ resistor. Find the current and the power dissipated.</p>",
+          "answer": "<p>I = 6.0 / 1200 = 0.005 A = <b>5.0 mA</b>. The power is P = VI = 6.0 × 0.005 = 30 mW, which any ordinary resistor handles without warming noticeably.</p>",
+          "math": "I = \\frac{6.0}{1200} = 5.0\\ \\text{mA}",
+          "verify": {
+            "id": "v-p1",
+            "caption": "Verify — 6 V across 1.2 kΩ",
+            "script": "var bat = create(\"battery\", { V: 6, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 1200, name: \"r1\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");",
+            "note": "5.0 mA.",
+            "expect": {
+              "am": "5.0 mA"
+            }
+          }
+        },
+        {
+          "id": "ps-2",
+          "prompt": "<p><b>2.</b> A 470 Ω and a 220 Ω resistor are in series across 5.0 V. Find the current and the voltage across each.</p>",
+          "answer": "<p>The total is 690 Ω, so I = 5.0 / 690 = 7.25 mA. Then V₄₇₀ = 0.00725 × 470 = <b>3.41 V</b> and V₂₂₀ = 0.00725 × 220 = <b>1.59 V</b>, and the two sum to 5.00 V as they must.</p><p>The larger resistor takes about 68% of the supply — the same fraction it is of the total resistance. A divider's output is a ratio of resistances, which is why it holds even if the supply voltage moves.</p>",
+          "math": "I = 7.25\\ \\text{mA}, \\quad V_{470} = 3.41\\ \\text{V}, \\quad V_{220} = 1.59\\ \\text{V}",
+          "verify": {
+            "id": "v-p2",
+            "caption": "Verify — 470 Ω and 220 Ω in series across 5 V",
+            "script": "var bat = create(\"battery\", { V: 5, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 470, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 220, name: \"r2\" });\nvar am = create(\"ammeter\", { name: \"am\" });\nvar v1 = create(\"voltmeter\", { name: \"v1\" });\nvar v2 = create(\"voltmeter\", { name: \"v2\" });\nconnect(bat.positive, am.a, \"wire\");\nconnect(am.b, r1.a, \"wire\");\nconnect(r1.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");\nconnect(v1.a, r1.a, \"wire\");\nconnect(v1.b, r1.b, \"wire\");\nconnect(v2.a, r2.a, \"wire\");\nconnect(v2.b, r2.b, \"wire\");",
+            "note": "v1 reads 3.41 V across the 470 Ω, v2 reads 1.59 V across the 220 Ω. The ammeter shows 7.2 mA — the meter rounds; the exact value is 7.246 mA.",
+            "expect": {
+              "am": "7.2 mA",
+              "v1": "3.41 V",
+              "v2": "1.59 V"
+            }
+          }
+        },
+        {
+          "id": "ps-3",
+          "prompt": "<p><b>3.</b> Two 100 Ω resistors are connected in parallel across 5.0 V. What current does the supply deliver, and what single resistor would replace the pair?</p>",
+          "answer": "<p>Each branch draws 5.0/100 = 50 mA, so the supply delivers <b>100 mA</b>. The equivalent resistance is R<sub>p</sub> = (100 × 100)/200 = <b>50 Ω</b>, and 5.0/50 = 100 mA confirms it.</p>",
+          "math": "R_p = 50\\ \\Omega, \\qquad I = 100\\ \\text{mA}",
+          "verify": {
+            "id": "v-p3",
+            "caption": "Verify — two 100 Ω resistors in parallel on 5 V",
+            "script": "var bat = create(\"battery\", { V: 5, name: \"bat\" });\nvar r1 = create(\"resistor\", { R: 100, name: \"r1\" });\nvar r2 = create(\"resistor\", { R: 100, name: \"r2\" });\nvar at = create(\"ammeter\", { name: \"at\" });\nconnect(bat.positive, at.a, \"wire\");\nconnect(at.b, r1.a, \"wire\");\nconnect(r1.b, bat.negative, \"wire\");\nconnect(at.b, r2.a, \"wire\");\nconnect(r2.b, bat.negative, \"wire\");",
+            "note": "100.0 mA total, as a single 50 Ω resistor would draw.",
+            "expect": {
+              "at": "100.0 mA"
+            }
+          }
+        },
+        {
+          "id": "ps-4",
+          "prompt": "<p><b>4.</b> A resistor carries 250 mA with 5.0 V across it. Find its resistance and the power it dissipates, and comment on whether it is a comfortable component to use.</p>",
+          "answer": "<p>R = V/I = 5.0 / 0.25 = <b>20 Ω</b>, and P = VI = 5.0 × 0.25 = <b>1.25 W</b>.</p><p>That is a lot for a small part: a standard 0.25 W resistor would be at five times its rating and would char. This needs a 2 W or larger component, or the same resistance built from several resistors in parallel so that each takes a share of the heat — four 82 Ω resistors in parallel give 20.5 Ω and about 0.31 W each.</p>",
+          "math": "R = 20\\ \\Omega, \\qquad P = 1.25\\ \\text{W}"
+        },
+        {
+          "id": "ps-5",
+          "prompt": "<p><b>5.</b> Why can a voltmeter be left permanently connected across a component, while an ammeter must be broken into the loop? What would happen if you connected an ammeter across a battery instead?</p>",
+          "answer": "<p>A voltmeter is built to have a very large resistance, so the current it steals is negligible and the circuit behaves as though it were not there. An ammeter is the opposite: it must carry the whole current, so it is built with almost no resistance, and it has to be inserted into the path rather than placed beside it.</p><p>Connecting an ammeter directly across a battery therefore puts a near-zero resistance across the supply — a short circuit. Ohm's law with R ≈ 0 predicts an enormous current, limited in practice only by the battery's own internal resistance. The meter's fuse blows, and without a fuse the meter or the battery is destroyed. This is the single most common way a laboratory multimeter dies.</p>"
+        },
+        {
+          "id": "ps-6",
+          "prompt": "<p><b>6.</b> A 12 V supply must light an LED with a 2.0 V forward voltage at 15 mA. What series resistance is needed, what is the nearest standard value, and what current does that value actually give?</p>",
+          "answer": "<p>The resistor must drop 12 − 2.0 = 10 V at 15 mA, so R = 10 / 0.015 = 667 Ω. The nearest standard value is 680 Ω, which gives I = 10 / 680 = <b>14.7 mA</b> — close enough that no eye could tell the difference in brightness.</p><p>Always round <em>up</em> when choosing the resistor for an LED: the larger value gives slightly less current, and less current is a dimmer LED rather than a dead one.</p>",
+          "math": "R = \\frac{12 - 2.0}{0.015} = 667\\ \\Omega \\rightarrow 680\\ \\Omega"
+        },
+        {
+          "id": "ps-7",
+          "prompt": "<p><b>7.</b> A 9 V battery drives a 330 Ω resistor. Without changing the battery, what single change would double the power dissipated — and what change would halve it?</p>",
+          "answer": "<p>P = V²/R with V fixed, so power depends only on the resistance. Halving the resistance to 165 Ω doubles the power to 0.49 W; doubling it to 660 Ω halves the power to 0.123 W.</p><p>The direction catches people out: <em>less</em> resistance means <em>more</em> heat dissipated, because the current rises faster than the resistance falls. The same reasoning explains why a short circuit — resistance near zero — is where all the heat and all the danger is.</p>",
+          "math": "P = \\frac{V^2}{R} \\quad\\Longrightarrow\\quad P \\propto \\frac{1}{R} \\text{ at fixed } V"
+        }
+      ]
     },
     {
       "id": "summary",
-      "locator": "10",
+      "locator": "14",
       "eyebrow": "What you now know",
       "title": "Summary",
-      "body": "<p>You predicted, measured, derived and calculated — in that order. The lesson reduces to four statements.</p><ol><li><b>Ohm's law is</b> <i>I</i> = <i>V</i>/<i>R</i>, rearranged as <i>V</i> = <i>IR</i> or <i>R</i> = <i>V</i>/<i>I</i> as the problem requires.</li><li><b>Current is inversely proportional to resistance</b> at fixed voltage — double the resistance, halve the current.</li><li><b>Power is</b> <i>P</i> = <i>VI</i> = <i>I</i>²<i>R</i> = <i>V</i>²/<i>R</i>, and it decides what physical component you can actually use.</li><li><b>Series resistances add</b>, and each takes a share of the supply in proportion to its own value.</li></ol><div class=\"callout\"><span class=\"ct\">Next in this course</span>Lesson 2 — <b>Kirchhoff's laws</b>: what happens once a circuit has more than one loop and current has somewhere else to go.</div>"
+      "body": "<p>You predicted, measured, derived and calculated — in that order, and every number you were given came off an instrument you can run yourself. The lesson reduces to six statements.</p><ol><li><b>Ohm's law is</b> <i>I</i> = <i>V</i>/<i>R</i>, rearranged as <i>V</i> = <i>IR</i> or <i>R</i> = <i>V</i>/<i>I</i> as the problem requires.</li><li><b>Current is proportional to voltage and inversely proportional to resistance</b> — halving the supply and doubling the resistance produce the identical 13.6 mA.</li><li><b>Power is</b> <i>P</i> = <i>VI</i> = <i>I</i>²<i>R</i> = <i>V</i>²/<i>R</i>, it rises with the square of voltage, and it decides which physical component you can actually use.</li><li><b>Series resistances add</b>, the current is common, and each resistor takes a share of the supply in proportion to its own value.</li><li><b>Parallel resistances combine reciprocally</b>, the voltage is common, and the branch currents add — so a parallel pair is always easier to drive than either part alone.</li><li><b>The law describes ohmic components only.</b> An LED holds its forward voltage and a filament changes with temperature; for these, the resistor beside them is what the law is applied to.</li></ol><div class=\"callout\"><span class=\"ct\">Next in this course</span>Lesson 2 — <b>Kirchhoff's laws</b>: what happens once a circuit has more than one loop and current has somewhere else to go. The two rules you have already used informally here — shares around a loop sum to the supply, branch currents sum at a junction — are exactly the two laws, stated properly.</div>"
     }
   ]
 }

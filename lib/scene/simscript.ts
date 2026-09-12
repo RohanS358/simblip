@@ -1,6 +1,6 @@
 import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
-import { uid, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
+import { uid, type Behavior, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
 import { behaviorSpec } from '@/lib/behaviors/registry'
 import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
@@ -9,6 +9,7 @@ import {
   placeOptimized, OrthoRouter, routeEdge, routeEdgeFrom, halfExtent, hitsAnyBody,
   type Edge as LayoutEdge, type Pt,
 } from './circuit-layout'
+import { buildDiagram, styleFor } from './diagram'
 import { latexToExpr } from '@/lib/formula/latex'
 import {
   CANVAS_KINDS, canvasKindOf, applyKindProps, applyStyleProps, RESERVED_PROPS,
@@ -844,8 +845,143 @@ export function executeSimScript(
     return wrapProxy(new ScriptObject(id, pageId))
   }
 
+  // ── diagram(): a block diagram from text ──────────────────────────────────
+  //
+  // Structure in, layout out. The alternative — and what every diagram in this
+  // codebase used to be — is a column of create("rect", { x: …, y: … }) calls
+  // with hand-counted coordinates, which stops being writable at about four
+  // boxes and has to be recomputed by hand whenever a label changes length.
+  //
+  // Everything it emits is a SPATIAL object (shapes and lines, never a text
+  // block), for a reason that is easy to miss: a course figure groups spatial
+  // objects into one scaled picture and gives every self-contained widget its
+  // own row (course-figure.tsx). A text object used as an edge label would be
+  // hoisted out of the drawing and stacked underneath it. So labels ride
+  // inside shapes — node labels in the node, edge labels in an invisible rect,
+  // the group title in its own band — and the whole diagram stays one picture.
+  //
+  // Edges are anchored connectors, not decorations: each end carries a
+  // boundary anchor, so dragging a node on the canvas drags its arrows with
+  // it (lib/store/document.ts reprojects them).
+  /** A diamond in the polygon kind's own coordinate space (absolute points
+   *  within the object's box, which is what geometry.points holds). */
+  const DIAMOND_POINTS = (w: number, h: number) => [
+    [w / 2, 0], [w, h / 2], [w / 2, h], [0, h / 2],
+  ]
+
+  const diagram = (source: string, opts: Record<string, any> = {}) => {
+    const layout = buildDiagram(String(source ?? ''))
+    if (layout.errors.length > 0) {
+      // Loudly, and with every problem at once: a diagram that silently drops
+      // the line you got wrong is worse than one that refuses to build.
+      throw new Error(`diagram(): ${layout.errors.join('; ')}`)
+    }
+    const ox = origin.x + Number(opts.x ?? 0)
+    const oy = origin.y + Number(opts.y ?? 0)
+
+    // Groups first: they are the backdrop, and z is creation order.
+    for (const g of layout.groups) {
+      const box = create('rect', {
+        x: ox + g.x - origin.x, y: oy + g.y - origin.y,
+        width: g.w, height: g.h, radius: 16,
+        fill: 'color-mix(in oklch, var(--muted-foreground) 6%, var(--card))',
+        stroke: 'var(--border)', strokeWidth: 1.5,
+        name: g.label || 'group',
+      })
+      explicitPos.add(box.id)
+      if (g.label) {
+        // Only as wide as the words: a title box spanning the container would
+        // centre the label over the whole group, which reads as a heading for
+        // the page rather than a name on the box.
+        const title = create('rect', {
+          x: ox + g.x - origin.x + 14, y: oy + g.y - origin.y + 4,
+          width: Math.max(60, g.label.length * 9 + 16), height: 24,
+          fill: 'transparent', strokeWidth: 0,
+          text: `**${g.label}**`, name: `${g.label} title`,
+        })
+        explicitPos.add(title.id)
+      }
+    }
+
+    const handles: Record<string, any> = {}
+    const ids: Record<string, string> = {}
+    for (const n of layout.nodes) {
+      const style = styleFor(n)
+      const props: Record<string, any> = {
+        x: ox + n.x - origin.x, y: oy + n.y - origin.y,
+        width: n.w, height: n.h,
+        fill: style.fill, stroke: style.stroke, strokeWidth: 2,
+        radius: style.radius,
+        // The LABEL, not the pre-wrapped lines: the shape's own text box wraps
+        // at its real width, and feeding it hard line breaks would stack them
+        // as separate paragraphs — each with its own spacing — instead.
+        // `lines` is the layout's size estimate, nothing more.
+        text: n.label,
+        name: n.label,
+      }
+      const handle =
+        n.shape === 'circle' ? create('circle', props)
+        : n.shape === 'diamond' ? create('polygon', { ...props, points: DIAMOND_POINTS(n.w, n.h) })
+        : create('rect', props)
+      handles[n.id] = handle
+      ids[n.id] = handle.id
+      // The layout IS the placement. create() only treats a non-zero x/y as
+      // explicit, so the node that legitimately sits at the origin would
+      // otherwise look unplaced to every later pass.
+      explicitPos.add(handle.id)
+    }
+
+    for (const e of layout.edges) {
+      const pts = [e.a, ...e.bends, e.b].map((p) => ({ x: ox + p.x, y: oy + p.y }))
+      const minX = Math.min(...pts.map((p) => p.x))
+      const minY = Math.min(...pts.map((p) => p.y))
+      const local = pts.map((p) => [p.x - minX, p.y - minY])
+      const id = uid()
+      store().addObject(pageId, {
+        id,
+        name: e.label ? `${e.label} link` : 'link',
+        geometry: { kind: 'line', points: [local[0], local[local.length - 1]] },
+        position: { x: minX, y: minY },
+        size: {
+          w: Math.max(Math.max(...pts.map((p) => p.x)) - minX, 2),
+          h: Math.max(Math.max(...pts.map((p) => p.y)) - minY, 2),
+        },
+        rotation: 0,
+        z: nextZ(),
+        behaviors: [],
+        parameters: {},
+        metadata: {
+          render: 'connector',
+          bends: local.slice(1, -1),
+          startCap: 'none',
+          endCap: e.style === 'plain' ? 'none' : 'arrow',
+          dash: e.style === 'dashed' ? 1 : undefined,
+          startAnchor: { kind: 'boundary', objectId: ids[e.from], t: e.aT },
+          endAnchor: { kind: 'boundary', objectId: ids[e.to], t: e.bT },
+        },
+      }, { history: false })
+      created.push(id)
+      explicitPos.add(id)
+
+      if (e.label && e.labelAt) {
+        const w = Math.max(44, e.label.length * 8 + 14)
+        const tag = create('rect', {
+          // Beside the line rather than on it: an orthogonal route has a long
+          // middle segment, and a label centred on it would be struck through.
+          x: ox + e.labelAt.x - origin.x + (layout.direction === 'down' ? 10 : -w / 2),
+          y: oy + e.labelAt.y - origin.y - (layout.direction === 'down' ? 11 : 28),
+          width: w, height: 22,
+          fill: 'transparent', strokeWidth: 0,
+          text: e.label, name: `${e.label} label`,
+        })
+        explicitPos.add(tag.id)
+      }
+    }
+    return handles
+  }
+
   // ── Sandbox ───────────────────────────────────────────────────────────────────
-  const builtins: Record<string, any> = { create, connect, addproperty, graph, ref, console, Math }
+  const builtins: Record<string, any> = { create, connect, addproperty, graph, ref, diagram, console, Math }
   const sandboxVars: Record<string, any> = {}
   const sandbox = new Proxy(builtins, {
     has() { return true },
@@ -938,12 +1074,15 @@ export function executeSimScript(
       const hi = { x: Math.max(...boxes.map(b => b.x2)) + MARGIN, y: Math.max(...boxes.map(b => b.y2)) + MARGIN }
       const router = new OrthoRouter(boxes, { lo, hi })
 
-      // Matching on the two object ids alone is ambiguous: two pins of the same
-      // pair of parts (a voltmeter across a resistor) share it, so .find() kept
-      // returning the FIRST wire — one got routed twice and the other was left
-      // as the zero-length stub connect() drew it, i.e. electrically absent,
-      // since the netlist unions by coincident world points. Match the anchors
-      // too, and consume each wire once.
+      // Matching on the component pair alone found the same wire for every
+      // edge between those two components, so a voltmeter across a resistor —
+      // two wires, same pair — routed one wire twice and left the other where
+      // the pre-layout draw had put it. The abandoned wire's endpoint then sat
+      // nowhere near a terminal, and since lib/circuit/engine.ts builds nets
+      // from coincident world points, the meter's second lead was on a net of
+      // its own: every voltmeter in a scripted circuit read 0 V. The anchors
+      // are recorded on the wire (anchorA/anchorB, written by connect()), so
+      // match them too, and claim each wire so identical edges take one each.
       // ── Net-aware ordering ────────────────────────────────────────────
       // Several connect()s can leave the SAME pin. Routed independently, each
       // takes its own long way round and the sheet turns into a tangle — one

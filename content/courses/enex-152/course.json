@@ -1,0 +1,13 @@
+{
+  "id": "enex-152",
+  "code": "ENEX 152",
+  "title": "Digital Logic",
+  "subject": "digital",
+  "semester": 3,
+  "description": "Gates, combinational blocks and sequential logic, built and simulated as real circuits rather than drawn.",
+  "published": true,
+  "order": ["adders"],
+  "lessons": {
+    "adders": { "path": "Combinational Logic", "title": "Adders — from one bit to a four-bit sum" }
+  }
+}

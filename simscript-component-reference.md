@@ -307,6 +307,69 @@ var tri = create("polygon", { points: [[0, 0], [80, 0], [40, 60]] });
 All four accept the full styling set (`fill`, `stroke`, `strokeWidth`, `radius`,
 `opacity`, `locked`, …) like every other kind.
 
+`rect`, `circle` and `polygon` also take `text` (alias `label`) — a centred
+label rendered inside the shape, the same one a double-click adds by hand:
+
+```javascript
+var box = create("rect", { width: 160, height: 60, radius: 12, text: "**Input**" });
+```
+
+---
+
+## `diagram(source)` — block diagrams from text
+
+For boxes and arrows — a flowchart, a classification, a signal chain, a
+structure. Give it the STRUCTURE; the layout is computed. Never place a
+diagram's boxes by hand: a hand-placed one has to be re-measured every time a
+label changes length, which is why the diagrams that should have been in the
+notes were not.
+
+```javascript
+diagram("direction: down\n" +
+  "(Read the question) as start\n" +
+  "[Mark every known V, I and R] as known\n" +
+  "<More than one resistor?> as many\n" +
+  "[Combine them] as comb\n" +
+  "[Loop current I = V/R] as loop\n" +
+  "start -> known\n" +
+  "known -> many\n" +
+  "many -> comb : yes\n" +
+  "many -> loop : no\n" +
+  "comb -> loop");
+```
+
+| Statement | Meaning |
+|---|---|
+| `direction: down` / `right` | Flow axis. `down` is the default. |
+| `[Label]` | A step — a rectangle. |
+| `(Label)` | A start or end — a stadium. |
+| `<Label>` | A decision — a diamond. |
+| `((Label))` | A junction or state — a circle. |
+| `… as id` | Names the node, so edges can refer to it. Otherwise its label does. |
+| `… #blue` | Tint: `blue`, `mint`, `violet`, `amber`, `rose`, `grey`. |
+| `a -> b` | An arrow. `a --> b` is dashed, `a -- b` has no arrowhead. |
+| `a -> b : label` | Labels the edge ("yes", "5 V", "if R is constant"). |
+| `group "Name" { a, b }` | A labelled container drawn around those nodes. |
+| `# …` / `// …` | A comment. |
+
+- A node may be declared **inline in an edge**: `q -> [Result] as r : yes`.
+  A colon inside a node's own label is part of the label, not an edge label.
+- An **undeclared** name in an edge becomes a plain box, so `Start -> Stop` is
+  a complete diagram.
+- **Cycles are allowed** — a feedback path is drawn in its own lane around the
+  outside, as is any edge that skips a rank.
+- Returns a map of node id → the created object, so a node can be adjusted
+  afterwards: `var d = diagram("…"); d.q.set({ fill: "var(--accent-rose)" });`
+- Every part of the drawing is a real object: the boxes are shapes with
+  labels, the arrows are anchored connectors. Drag a box on the canvas and its
+  arrows follow it.
+- A bad source **throws with the line number** — and the lint gate parses it
+  offline, so a broken diagram never ships inside a lesson.
+
+It draws structure, not physics. A circuit that can be simulated is built from
+real components (`battery`, `resistor`, …) instead; a diagram of a circuit is
+a picture of one.
+
 ---
 
 ## Training a local LLM on SimScript

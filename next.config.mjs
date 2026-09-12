@@ -1,5 +1,20 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // The client's backend switch, derived from the server's.
+  //
+  // `NEXT_PUBLIC_CLOUD` decides whether the browser talks to Postgres through
+  // /api/pg or to its own localStorage database (lib/data/db.ts), and it was a
+  // SEPARATE switch from DATABASE_URL. Set one without the other — the obvious
+  // thing to do, since DATABASE_URL is what a database gives you — and the two
+  // halves disagree: the server is in cloud mode and authenticates real
+  // sessions, while the browser signs in against its own storage and sends
+  // tokens no server will accept. Every server-backed panel then answers 401
+  // and renders as empty, which is what Course Mode and the admin console were
+  // doing. One database, one decision: configure DATABASE_URL and the client
+  // follows, unless NEXT_PUBLIC_CLOUD says otherwise explicitly.
+  env: {
+    NEXT_PUBLIC_CLOUD: process.env.NEXT_PUBLIC_CLOUD ?? (process.env.DATABASE_URL ? '1' : '0'),
+  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -12,6 +27,13 @@ const nextConfig = {
   // are only fetched when devtools is open, so there is no cost to real
   // users, but it does make the client source readable to anyone who looks.
   productionBrowserSourceMaps: true,
+  // /api/courses reads content/courses/** at request time when no database is
+  // configured (lib/server/course-files.ts). Next only traces files it can see
+  // being imported, and these are read by path, so a deployment would ship the
+  // route without the lessons it serves unless they are named here.
+  outputFileTracingIncludes: {
+    '/api/courses': ['./content/courses/**/*.json'],
+  },
   async headers() {
     // _next/static/* already gets long-lived immutable caching from Vercel;
     // these are the public/ assets that don't. sw.js is deliberately
