@@ -90,6 +90,29 @@ function lineBoxes(
   innerBreaks: { line: number; spacer: number }[]
 ): { lines: { top: number; height: number }[]; liveTops: number[] } | undefined {
   if (!el.firstChild) return undefined
+  // A TABLE cannot take a mid-block break, so it must never report lines.
+  //
+  // getClientRects() over a table happily returns one rect per ROW, which look
+  // exactly like line boxes — so paginate() would split it, and the spacer for
+  // that split has nowhere valid to go. Both ways it can land are broken: a
+  // <span display:block> resolved into <tbody> is not a permitted table child
+  // and CSS table layout drops it from flow entirely (displacing nothing), and
+  // one resolved into a <td> only pads that one cell, since row positions come
+  // from the table layout algorithm rather than from block flow inside a cell.
+  // Either way the rows past the boundary keep their position and hang off the
+  // bottom of the sheet — which is what an imported .docx table did.
+  //
+  // Reporting no lines makes it unsplittable, so paginate() moves the whole
+  // table to the next page with a `line: 0` break. That one anchors at the
+  // block's own position rather than through posAtCoords, which is the other
+  // half of why this is the right answer here: the flow column is
+  // pointer-events:none under the sheets' object canvases, so a coordinate
+  // hit-test inside the body can return null and silently drop the break.
+  //
+  // A table taller than a whole page still overflows its sheet, exactly as any
+  // other unsplittable block (an image, a simulation) does. Splitting one
+  // properly means real row-group slicing, not a spacer.
+  if (el.closest('table') || el.querySelector('table')) return undefined
   const spacers = [...el.querySelectorAll<HTMLElement>('.doc-page-spacer')]
   const restore = spacers.map((sp) => sp.style.display)
   for (const sp of spacers) sp.style.display = 'none'
