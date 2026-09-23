@@ -23,7 +23,10 @@ import {
   CalendarDays,
   ChevronLeft,
   ChevronRight,
+  FileText,
+  Link2,
   MapPin,
+  NotebookPen,
   Plus,
   Repeat as RepeatIcon,
   Trash2,
@@ -57,13 +60,26 @@ import {
 } from '@/lib/calendar/events.mjs'
 import { useSpring } from '@/lib/motion'
 import { Switch } from '@/components/ui/switch'
+import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import {
+  eventColor,
   NOTE_COLORS,
   useNotesGallery,
   type GalleryEvent,
-  type NoteColor,
 } from '@/lib/store/notes-gallery'
 import { cn } from '@/lib/utils'
+import {
+  createNotePage,
+  LinkedPages,
+  openRecord,
+  recordHue,
+  recordIcon,
+  RecordList,
+  useCalendarRecords,
+  type CalRecord,
+} from './calendar-records'
+
+type Records = Record<string, CalRecord[]>
 
 type Occ = { ev: GalleryEvent; start: string; end: string }
 
@@ -105,8 +121,8 @@ function longDate(system: CalSystem, key: string) {
 /** longDate without the year: "Asoj 11" / "Sun 27 Sep". */
 const shortDate = (system: CalSystem, key: string) => longDate(system, key).replace(/,? \d{4}$/, '')
 
-function barBg(color: NoteColor) {
-  return `color-mix(in oklch, var(--accent-${color}) 30%, var(--background))`
+function barBg(color: string) {
+  return `color-mix(in oklch, ${eventColor(color)} 30%, var(--background))`
 }
 
 /** Every element under the pointer, first `[data-day]` wins — elementsFromPoint
@@ -212,7 +228,8 @@ type Draft = {
   time: string
   endTime: string
   repeat: Repeat | ''
-  color: NoteColor
+  color: string
+  links: string[]
 }
 
 function draftFor(ev: GalleryEvent): Draft {
@@ -228,6 +245,7 @@ function draftFor(ev: GalleryEvent): Draft {
     endTime: ev.time ? fromMin(endMin(ev)) : '10:00',
     repeat: ev.repeat ?? '',
     color: ev.color,
+    links: ev.links ?? [],
   }
 }
 
@@ -244,6 +262,7 @@ function newDraft(date: string, endDate = date, time?: string, endTime?: string)
     endTime: endTime ?? (time ? fromMin(toMin(time) + 60) : '10:00'),
     repeat: '',
     color: NOTE_COLORS[count % NOTE_COLORS.length],
+    links: [],
   }
 }
 
@@ -256,8 +275,11 @@ function EventEditor({ draft: initial, onClose }: { draft: Draft; onClose: () =>
   const addEvent = useNotesGallery((s) => s.addEvent)
   const updateEvent = useNotesGallery((s) => s.updateEvent)
   const removeEvent = useNotesGallery((s) => s.removeEvent)
+  const eventColors = useNotesGallery((s) => s.eventColors)
+  const addEventColor = useNotesGallery((s) => s.addEventColor)
   const [d, setD] = useState(initial)
   const set = (patch: Partial<Draft>) => setD((v) => ({ ...v, ...patch }))
+  const isCustom = !(NOTE_COLORS as string[]).includes(d.color) && !eventColors.includes(d.color)
 
   const save = () => {
     const endDate = d.endDate > d.date ? d.endDate : undefined
@@ -273,6 +295,7 @@ function EventEditor({ draft: initial, onClose }: { draft: Draft; onClose: () =>
       notes: d.notes.trim() || undefined,
       repeat: d.repeat || undefined,
       color: d.color,
+      links: d.links.length ? d.links : undefined,
     }
     if (d.id) updateEvent(d.id, ev)
     else addEvent(ev)
@@ -344,7 +367,7 @@ function EventEditor({ draft: initial, onClose }: { draft: Draft; onClose: () =>
             Cancel
           </button>
           <div className="flex min-w-0 flex-1 items-center justify-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-full" style={{ background: `var(--accent-${d.color})` }} />
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: eventColor(d.color) }} />
             <span className="truncate text-ui-sm font-semibold">{d.id ? 'Edit Event' : 'New Event'}</span>
           </div>
           <button
@@ -408,22 +431,46 @@ function EventEditor({ draft: initial, onClose }: { draft: Draft; onClose: () =>
 
           <div>
             <h4 className="mb-1.5 text-ui-xs font-semibold text-muted-foreground">Colour</h4>
-            <div className="flex gap-2">
-              {NOTE_COLORS.map((c) => (
+            {/* The theme accents, then your own colours, then the same
+                "+" hex picker every other colour control in the app uses. */}
+            <div className="flex flex-wrap items-center gap-2">
+              {[...NOTE_COLORS, ...eventColors, ...(isCustom ? [d.color] : [])].map((c) => (
                 <button
                   key={c}
                   type="button"
-                  aria-label={c}
+                  aria-label={`Colour ${c}`}
                   aria-pressed={d.color === c}
                   onClick={() => set({ color: c })}
                   className={cn(
                     'h-6 w-6 rounded-full ring-offset-2 ring-offset-card transition-transform active:scale-90',
                     d.color === c && 'ring-2 ring-foreground/60'
                   )}
-                  style={{ background: `var(--accent-${c})` }}
+                  style={{ background: eventColor(c) }}
                 />
               ))}
+              <HexColorSwatchPicker
+                label="Custom event colour"
+                size="md"
+                initial={d.color.startsWith('#') ? d.color : undefined}
+                onChange={(hex) => set({ color: hex })}
+                onCommit={(hex) => {
+                  set({ color: hex })
+                  addEventColor(hex)
+                }}
+                documentSwatches={eventColors}
+              />
             </div>
+          </div>
+
+          <div>
+            <h4 className="mb-1.5 text-ui-xs font-semibold text-muted-foreground">Linked pages &amp; notes</h4>
+            <LinkedPages
+              links={d.links}
+              onChange={(links) => set({ links })}
+              noteTitle={`${d.title.trim() || 'Note'} — ${longDate('ad', d.date)}`}
+              calendarAt={d.allDay ? d.date : `${d.date}T${d.time}`}
+              field={FIELD}
+            />
           </div>
 
           <div>
@@ -485,23 +532,45 @@ function EventBar({
     >
       {timed ? (
         <>
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: `var(--accent-${ev.color})` }} />
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: eventColor(ev.color) }} />
           <span className="shrink-0 tabular-nums text-muted-foreground">{fmtTime(ev.time!)}</span>
         </>
       ) : (
         clipStart && <ChevronLeft className="-ml-1 h-3 w-3 shrink-0 opacity-60" />
       )}
       <span className="min-w-0 flex-1 truncate font-medium">{ev.title}</span>
+      {!!ev.links?.length && <Link2 className="h-2.5 w-2.5 shrink-0 opacity-60" />}
       {ev.repeat && <RepeatIcon className="h-2.5 w-2.5 shrink-0 opacity-50" />}
       {!timed && !clipEnd && (
         <div
           aria-hidden
           onPointerDown={(e) => onDragStart(e, occ, 'resize-end')}
           className="absolute inset-y-0 right-0 w-2 cursor-ew-resize opacity-0 group-hover/bar:opacity-100"
-          style={{ background: `linear-gradient(to right, transparent, var(--accent-${ev.color}))` }}
+          style={{ background: `linear-gradient(to right, transparent, ${eventColor(ev.color)})` }}
         />
       )}
     </div>
+  )
+}
+
+/** "3 things made this day" — opens the day panel. Stops the pointerdown so
+ *  it doesn't also start a create-drag on the cell underneath. */
+function RecordBadge({ records, onClick }: { records?: CalRecord[]; onClick: () => void }) {
+  if (!records?.length) return null
+  return (
+    <button
+      type="button"
+      onPointerDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation()
+        onClick()
+      }}
+      title={`${records.length} page${records.length === 1 ? '' : 's'}/notes made this day`}
+      className="ml-auto flex shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-ui-2xs tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+    >
+      <FileText className="h-3 w-3" />
+      {records.length}
+    </button>
   )
 }
 
@@ -511,6 +580,7 @@ function MonthView({
   system,
   cursor,
   events,
+  records,
   selected,
   onSelect,
   onOpen,
@@ -520,6 +590,7 @@ function MonthView({
   system: CalSystem
   cursor: string
   events: GalleryEvent[]
+  records: Records
   selected: string
   onSelect: (key: string) => void
   onOpen: (occ: Occ) => void
@@ -550,7 +621,7 @@ function MonthView({
   }, [weeks])
   const maxLanes = Math.max(1, Math.floor((rowH - CELL_HEAD - 16) / LANE_H))
 
-  // Drag across empty days to create a multi-day event.
+  // Click a day to create an event on it; drag across days for a range.
   const [sel, setSel] = useState<{ a: string; b: string } | null>(null)
   const beginSelect = (e: React.PointerEvent) => {
     if (e.button !== 0) return
@@ -568,8 +639,9 @@ function MonthView({
       target.removeEventListener('pointermove', move)
       target.removeEventListener('pointerup', up)
       setSel(null)
-      if (a === b) onSelect(a)
-      else onCreate(a < b ? a : b, a < b ? b : a)
+      // A plain click on a day is "new event on this day"; a drag, a range.
+      onSelect(a)
+      onCreate(a < b ? a : b, a < b ? b : a)
     }
     target.addEventListener('pointermove', move)
     target.addEventListener('pointerup', up)
@@ -621,9 +693,8 @@ function MonthView({
                     <div
                       key={key}
                       data-day={key}
-                      onDoubleClick={() => onCreate(key, key)}
                       className={cn(
-                        'relative select-none border-r border-border/40 last:border-r-0',
+                        'relative cursor-pointer select-none border-r border-border/40 last:border-r-0',
                         'transition-colors duration-100',
                         !inMonth && 'bg-muted/40',
                         key === selected && 'bg-[var(--accent-blue)]/[0.07]',
@@ -646,6 +717,7 @@ function MonthView({
                             {monthName(system, p.m, true)}
                           </span>
                         )}
+                        <RecordBadge records={records[key]} onClick={() => onShowDay(key)} />
                       </div>
                       {/* The other calendar, in the corner — its month name on its 1st. */}
                       <span
@@ -706,14 +778,18 @@ function WeekView({
   system,
   cursor,
   events,
+  records,
   onOpen,
   onCreate,
+  onShowDay,
 }: {
   system: CalSystem
   cursor: string
   events: GalleryEvent[]
+  records: Records
   onOpen: (occ: Occ) => void
   onCreate: (from: string, to: string, time?: string, endTime?: string) => void
+  onShowDay: (key: string) => void
 }) {
   const start = addDays(cursor, -weekday(cursor))
   const end = addDays(start, 6)
@@ -787,12 +863,13 @@ function WeekView({
               <div key={key} className="min-w-0 flex-1 border-l border-border/40 px-2 pb-1 pt-1.5">
                 <div
                   className={cn(
-                    'text-ui-2xs font-semibold tracking-wide text-muted-foreground',
+                    'flex items-center text-ui-2xs font-semibold tracking-wide text-muted-foreground',
                     key === t && 'text-[var(--accent-blue)]',
                     system === 'bs' && i === 6 && 'text-[var(--accent-rose)]'
                   )}
                 >
                   {system === 'bs' ? WEEKDAYS_NE[i] : WEEKDAYS_EN[i]}
+                  <RecordBadge records={records[key]} onClick={() => onShowDay(key)} />
                 </div>
                 <div className="flex items-baseline justify-between gap-1">
                   <span
@@ -821,8 +898,8 @@ function WeekView({
               <div
                 key={key}
                 data-day={key}
-                onDoubleClick={() => onCreate(key, key)}
-                className="flex-1 border-l border-border/40"
+                onClick={() => onCreate(key, key)}
+                className="flex-1 cursor-pointer border-l border-border/40"
               />
             ))}
             <div className="pointer-events-none absolute inset-0 top-[3px]">
@@ -893,7 +970,7 @@ function WeekView({
                       left: `calc(${(col / cols) * 100}% + 2px)`,
                       width: `calc(${100 / cols}% - 4px)`,
                       background: barBg(occ.ev.color),
-                      borderColor: `var(--accent-${occ.ev.color})`,
+                      borderColor: eventColor(occ.ev.color),
                     }}
                     title={occ.ev.title}
                   >
@@ -911,6 +988,25 @@ function WeekView({
                     />
                   </div>
                 ))}
+                {/* What you made at this hour — a pin on the column's right edge. */}
+                {records[key]
+                  ?.filter((r) => r.min !== null)
+                  .map((r) => {
+                    const Icon = recordIcon(r)
+                    return (
+                      <button
+                        key={`${r.kind}:${r.id}`}
+                        type="button"
+                        title={r.title}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={() => openRecord(r)}
+                        className="absolute right-0.5 z-[5] flex h-5 w-5 -translate-y-1/2 items-center justify-center rounded-full border border-border/60 bg-card shadow-sm transition-transform hover:scale-110"
+                        style={{ top: (r.min! / 60) * HOUR_H }}
+                      >
+                        <Icon className="h-3 w-3" style={{ color: recordHue(r) }} />
+                      </button>
+                    )
+                  })}
                 {key === t && (
                   <div
                     className="pointer-events-none absolute inset-x-0 z-10 h-0.5 bg-[var(--accent-blue)]"
@@ -1060,6 +1156,141 @@ function AgendaList({
   )
 }
 
+// ── Day panel ─────────────────────────────────────────────────────────────
+// One day, everything on it: its events, what you made that day, and a note
+// page written for it (optionally for a time). Opened from a day's record
+// badge or "+N more", so it works on phones where the sidebar is hidden.
+
+function DayPanel({
+  day,
+  system,
+  events,
+  records,
+  onClose,
+  onOpenOcc,
+  onCreate,
+}: {
+  day: string
+  system: CalSystem
+  events: GalleryEvent[]
+  records: Records
+  onClose: () => void
+  onOpenOcc: (occ: Occ) => void
+  onCreate: (from: string, to: string) => void
+}) {
+  const occs = useMemo(() => expand(events, day, day) as Occ[], [events, day])
+  const [noteTitle, setNoteTitle] = useState(`Note — ${longDate('ad', day)}`)
+  const [noteTime, setNoteTime] = useState('')
+
+  return (
+    <fm.div
+      className="absolute inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/30 p-4 pt-[8vh]"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onPointerDown={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <fm.div
+        role="dialog"
+        aria-label={`Day ${day}`}
+        initial={{ opacity: 0, y: 8, scale: 0.98 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: 8, scale: 0.98 }}
+        transition={{ duration: 0.16, ease: 'easeOut' }}
+        className="glass flex w-full max-w-md flex-col gap-4 rounded-2xl border border-border/60 bg-card p-4 shadow-2xl"
+      >
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <h3 className="text-ui-lg font-semibold">{longDate(system, day)}</h3>
+            <p className="text-ui-2xs text-muted-foreground">{longDate(other(system), day)}</p>
+          </div>
+          <button
+            type="button"
+            aria-label="Close day"
+            onClick={onClose}
+            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <section>
+          <div className="mb-1 flex items-center">
+            <h4 className="flex-1 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">Events</h4>
+            <button
+              type="button"
+              onClick={() => onCreate(day, day)}
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-ui-2xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <Plus className="h-3 w-3" /> New event
+            </button>
+          </div>
+          {occs.length === 0 ? (
+            <p className="text-ui-2xs text-muted-foreground">No events.</p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {occs.map((o) => (
+                <button
+                  key={`${o.ev.id}:${o.start}`}
+                  type="button"
+                  onClick={() => onOpenOcc(o)}
+                  className="flex items-center gap-2 rounded-md px-2 py-1 text-left text-ui-xs transition-opacity hover:opacity-80"
+                  style={{ background: barBg(o.ev.color) }}
+                >
+                  <span className="min-w-0 flex-1 truncate font-medium">{o.ev.title}</span>
+                  {!!o.ev.links?.length && <Link2 className="h-3 w-3 shrink-0 opacity-60" />}
+                  <span className="shrink-0 text-ui-2xs text-muted-foreground">
+                    {o.ev.time ? fmtTime(o.ev.time) : 'All day'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section>
+          <h4 className="mb-1 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Made this day
+          </h4>
+          <RecordList records={records[day] ?? []} empty="Nothing made or noted on this day yet." />
+        </section>
+
+        <section className="flex flex-col gap-1.5">
+          <h4 className="text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Write a note for this day
+          </h4>
+          <div className="flex gap-1.5">
+            <input
+              value={noteTitle}
+              onChange={(e) => setNoteTitle(e.target.value)}
+              className={cn(FIELD, 'min-w-0 flex-1')}
+              aria-label="Note title"
+            />
+            <input
+              type="time"
+              value={noteTime}
+              onChange={(e) => setNoteTime(e.target.value)}
+              className={cn(FIELD, 'w-auto tabular-nums')}
+              aria-label="Time (optional)"
+              title="Time (optional)"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const id = createNotePage(noteTitle.trim() || 'Note', noteTime ? `${day}T${noteTime}` : day)
+              openRecord({ id, kind: 'page' })
+            }}
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-[var(--accent-blue)] py-1.5 text-ui-sm font-medium text-white transition-opacity hover:opacity-90"
+          >
+            <NotebookPen className="h-3.5 w-3.5" /> Create note &amp; open
+          </button>
+        </section>
+      </fm.div>
+    </fm.div>
+  )
+}
+
 // ── Shell ─────────────────────────────────────────────────────────────────
 
 export function CalendarFull() {
@@ -1079,10 +1310,17 @@ function CalendarScreen() {
   const [cursor, setCursor] = useState(today)
   const [selected, setSelected] = useState(today)
   const [draft, setDraft] = useState<Draft | null>(null)
+  const [dayPanel, setDayPanel] = useState<string | null>(null)
+  const records = useCalendarRecords()
 
   const openOcc = (o: Occ) => setDraft(draftFor(o.ev))
   const create = (from: string, to: string, time?: string, endTime?: string) =>
     setDraft(newDraft(from, to, time, endTime))
+
+  const showDay = (k: string) => {
+    setSelected(k)
+    setDayPanel(k)
+  }
 
   const step = (dir: 1 | -1) =>
     setCursor((c) => (view === 'week' ? addDays(c, 7 * dir) : monthOf(system, c, dir).first))
@@ -1091,12 +1329,15 @@ function CalendarScreen() {
   // stops them reaching the canvas's window-level shortcuts underneath.
   const draftRef = useRef(draft)
   draftRef.current = draft
+  const panelRef = useRef(dayPanel)
+  panelRef.current = dayPanel
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement)?.closest('input, textarea, select, [contenteditable]')
       if (e.key === 'Escape') {
         e.stopImmediatePropagation()
         if (draftRef.current) setDraft(null)
+        else if (panelRef.current) setDayPanel(null)
         else setOpen(false)
         return
       }
@@ -1104,7 +1345,7 @@ function CalendarScreen() {
       // editable targets); every other key stops here.
       if (typing) return
       e.stopImmediatePropagation()
-      if (draftRef.current || e.metaKey || e.ctrlKey || e.altKey) return
+      if (draftRef.current || panelRef.current || e.metaKey || e.ctrlKey || e.altKey) return
       const k = e.key.toLowerCase()
       const act: Record<string, () => void> = {
         t: () => {
@@ -1184,6 +1425,22 @@ function CalendarScreen() {
         </div>
         <AgendaList title="Today" occs={todayOccs} system={system} onOpen={openOcc} />
         <AgendaList title="Upcoming" occs={upcoming} system={system} onOpen={openOcc} showDate />
+        <div>
+          <div className="mb-1 flex items-center">
+            <h4 className="flex-1 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Made on {shortDate(system, selected)}
+            </h4>
+            <button
+              type="button"
+              onClick={() => setDayPanel(selected)}
+              title="Open this day — events, records, new note"
+              className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-ui-2xs text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <NotebookPen className="h-3 w-3" /> Note
+            </button>
+          </div>
+          <RecordList records={records[selected] ?? []} empty="Nothing made on this day." />
+        </div>
       </aside>
 
       <div className="relative flex min-w-0 flex-1 flex-col">
@@ -1269,20 +1526,38 @@ function CalendarScreen() {
             system={system}
             cursor={cursor}
             events={events}
+            records={records}
             selected={selected}
             onSelect={setSelected}
             onOpen={openOcc}
             onCreate={create}
-            onShowDay={(k) => {
-              setCursor(k)
-              setSelected(k)
-              setView('week')
-            }}
+            onShowDay={showDay}
           />
         ) : (
-          <WeekView system={system} cursor={cursor} events={events} onOpen={openOcc} onCreate={create} />
+          <WeekView
+            system={system}
+            cursor={cursor}
+            events={events}
+            records={records}
+            onOpen={openOcc}
+            onCreate={create}
+            onShowDay={showDay}
+          />
         )}
 
+        <AnimatePresence>
+          {dayPanel && (
+            <DayPanel
+              day={dayPanel}
+              system={system}
+              events={events}
+              records={records}
+              onClose={() => setDayPanel(null)}
+              onOpenOcc={openOcc}
+              onCreate={create}
+            />
+          )}
+        </AnimatePresence>
         <AnimatePresence>
           {draft && <EventEditor key={draft.id ?? 'new'} draft={draft} onClose={() => setDraft(null)} />}
         </AnimatePresence>

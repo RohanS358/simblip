@@ -456,6 +456,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             name,
             pageKind: kind,
             order: siblings.length,
+            createdAt: Date.now(),
             ...(kind === 'doc' ? { docPages: [uid()] } : {}),
           }
           if (!activate) return { nodes: { ...s.nodes, [id]: node } }
@@ -479,7 +480,17 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         const id = uid()
         set((s) => {
           const siblings = childrenOf(s.nodes, parentId)
-          const node: FileNode = { id, parentId, kind: 'file', name, fileId, mime, size, order: siblings.length }
+          const node: FileNode = {
+            id,
+            parentId,
+            kind: 'file',
+            name,
+            fileId,
+            mime,
+            size,
+            order: siblings.length,
+            createdAt: Date.now(),
+          }
           return { nodes: { ...s.nodes, [id]: node } }
         })
         return id

@@ -24,6 +24,11 @@ export type NoteColor = 'amber' | 'mint' | 'blue' | 'violet' | 'rose'
 
 export const NOTE_COLORS: NoteColor[] = ['amber', 'mint', 'blue', 'violet', 'rose']
 
+/** An event colour is a theme accent name OR any '#rrggbb' from the shared
+ *  colour picker. This resolves either to a CSS colour. */
+export const eventColor = (c: string) =>
+  (NOTE_COLORS as string[]).includes(c) ? `var(--accent-${c})` : c
+
 export interface GalleryNote {
   id: string
   /** 'sticky' carries `text`; 'image' carries `fileId` (bytes in OPFS). */
@@ -55,10 +60,13 @@ export interface GalleryEvent {
   /** 'HH:mm'. Absent on a timed event means an hour after `time`. */
   endTime?: string
   title: string
-  color: NoteColor
+  /** NoteColor accent, or a custom '#rrggbb' — see eventColor(). */
+  color: string
   location?: string
   notes?: string
   repeat?: Repeat
+  /** Workspace node ids (pages, files) attached to the event. */
+  links?: string[]
 }
 
 /** Which calendar leads: the big number, the month grid, the title. The other
@@ -78,6 +86,8 @@ interface NotesGalleryState {
   calendarOpen: boolean
   calendarSystem: CalendarSystem
   calendarView: CalendarView
+  /** Custom event colours picked with the shared hex picker, newest last. */
+  eventColors: string[]
   toggle: () => void
   setOpen: (open: boolean) => void
   setWidth: (w: number) => void
@@ -95,6 +105,7 @@ interface NotesGalleryState {
   setCalendarOpen: (open: boolean) => void
   setCalendarSystem: (system: CalendarSystem) => void
   setCalendarView: (view: CalendarView) => void
+  addEventColor: (hex: string) => void
 }
 
 export const useNotesGallery = create<NotesGalleryState>()(
@@ -108,6 +119,7 @@ export const useNotesGallery = create<NotesGalleryState>()(
       calendarOpen: false,
       calendarSystem: 'ad',
       calendarView: 'month',
+      eventColors: [],
 
       toggle: () => set((s) => ({ open: !s.open })),
       setOpen: (open) => set({ open }),
@@ -176,6 +188,10 @@ export const useNotesGallery = create<NotesGalleryState>()(
       setCalendarOpen: (calendarOpen) => set({ calendarOpen }),
       setCalendarSystem: (calendarSystem) => set({ calendarSystem }),
       setCalendarView: (calendarView) => set({ calendarView }),
+      addEventColor: (hex) =>
+        set((s) => ({
+          eventColors: s.eventColors.includes(hex) ? s.eventColors : [...s.eventColors, hex].slice(-12),
+        })),
     }),
     {
       name: 'simblip-notes-gallery',
@@ -189,6 +205,7 @@ export const useNotesGallery = create<NotesGalleryState>()(
         events: s.events,
         calendarSystem: s.calendarSystem,
         calendarView: s.calendarView,
+        eventColors: s.eventColors,
       }),
     }
   )

@@ -112,7 +112,9 @@ export function HexColorSwatchPicker({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={cn('hex-swatch-picker space-y-2 p-2', imageSwatches && imageSwatches.length > 0 ? 'w-[208px]' : 'w-[168px]')}
+        // z-[100]: above full-screen modal surfaces (the calendar is z-[90]),
+        // which would otherwise hide the popover behind themselves.
+        className={cn('hex-swatch-picker z-[100] space-y-2 p-2', imageSwatches && imageSwatches.length > 0 ? 'w-[208px]' : 'w-[168px]')}
       >
         <HexColorPicker color={color} onChange={setColorFromHex} />
         <div className="flex items-center gap-1">

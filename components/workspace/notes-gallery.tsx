@@ -48,6 +48,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { PanelHeader } from './panel-header'
 import {
+  eventColor,
   NOTE_COLORS,
   useNotesGallery,
   type GalleryEvent,
@@ -71,8 +72,8 @@ const ADD_FIELD = cn(
  *  plane: the same translucent material a few points MORE opaque, carrying
  *  the note's hue. Nested backdrop-filter is fine — the inner surface just
  *  samples what the panel already composited. */
-function tint(color: NoteColor, opacity = 74) {
-  return `color-mix(in oklch, var(--accent-${color}) 14%, color-mix(in oklch, var(--card) ${opacity}%, transparent))`
+function tint(color: string, opacity = 74) {
+  return `color-mix(in oklch, ${eventColor(color)} 14%, color-mix(in oklch, var(--card) ${opacity}%, transparent))`
 }
 
 /** Resolve a pasted image's OPFS bytes to an object URL for as long as the
@@ -410,7 +411,7 @@ function GalleryCalendar() {
                   style={{
                     background: isSelected
                       ? 'currentColor'
-                      : `var(--accent-${marks[0].color})`,
+                      : eventColor(marks[0].color),
                   }}
                 />
               )}
@@ -434,7 +435,7 @@ function GalleryCalendar() {
               <span
                 aria-hidden
                 className="h-3 w-[3px] shrink-0 rounded-full"
-                style={{ background: `var(--accent-${e.color})` }}
+                style={{ background: eventColor(e.color) }}
               />
               {e.time && (
                 <span className="shrink-0 text-ui-2xs tabular-nums text-muted-foreground">{e.time}</span>

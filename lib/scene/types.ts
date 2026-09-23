@@ -188,6 +188,9 @@ interface NodeBase {
   /** Sibling sort key — replaces array-position ordering now that the tree
    *  isn't stored as nested arrays. */
   order: number
+  /** Epoch ms the node was made on this device — what the calendar files it
+   *  under as a record. Absent on nodes older than the stamp. */
+  createdAt?: number
 }
 
 export interface FolderNode extends NodeBase {
@@ -213,6 +216,10 @@ export interface FolderNode extends NodeBase {
 /** Tree metadata only — page content lives in the document store, keyed by id. */
 export interface PageNode extends NodeBase {
   kind: 'page'
+  /** The calendar slot this page was written FOR — 'YYYY-MM-DD' or
+   *  'YYYY-MM-DDTHH:mm' — when made from the calendar. Overrides createdAt
+   *  for where the page shows up as a record. */
+  calendarAt?: string
   /**
    * Does this page's CONTENT (and its images' bytes) leave the device?
    *
