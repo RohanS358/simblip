@@ -11,7 +11,7 @@ import {
   listMyAssignments,
   mySubmissions,
   removeAssignment,
-  submissionsFor,
+  listInstitutionSubmissions,
   subscribeAssignments,
   subscribeSubmissions,
   upsertSubmission,
@@ -196,8 +196,14 @@ function TeacherAssignments({ compact = false }: { compact?: boolean } = {}) {
   const refresh = useCallback(async () => {
     const as = await listMyAssignments()
     setAssignments(as)
-    const entries = await Promise.all(as.map(async (a) => [a.id, await submissionsFor(a.id)] as const))
-    setSubsByAssignment(Object.fromEntries(entries))
+    // One tenant-wide request, grouped locally — not one per assignment on
+    // every 4s subscribe() tick (see listInstitutionSubmissions).
+    const mine = new Set(as.map((a) => a.id))
+    const grouped: Record<string, SubmissionRow[]> = Object.fromEntries(as.map((a) => [a.id, []]))
+    for (const s of await listInstitutionSubmissions()) {
+      if (mine.has(s.assignment_id)) grouped[s.assignment_id].push(s)
+    }
+    setSubsByAssignment(grouped)
   }, [])
 
   useEffect(() => {

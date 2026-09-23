@@ -1,6 +1,6 @@
 // Client-side aggregation for the teacher assignment insights dashboard —
 // pure functions over data already fetched by listMyAssignments() /
-// submissionsFor(), no new I/O. See
+// listInstitutionSubmissions(), no new I/O. See
 // docs/superpowers/specs/2026-08-10-assignment-insights-dashboard-design.md.
 
 import type { AssignmentRow, ProfileRow, SubmissionRow } from './types'

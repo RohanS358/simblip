@@ -68,6 +68,24 @@ interface Measured {
   pos: number
 }
 
+/** Border boxes of every block-level descendant, in the same natural
+ *  coordinates as the line boxes — used to tell a child block's own rect
+ *  apart from a real line box (see lineBoxes). */
+function blockBoxes(
+  el: HTMLElement,
+  base: number,
+  scale: number
+): { top: number; height: number }[] {
+  const out: { top: number; height: number }[] = []
+  for (const n of el.querySelectorAll<HTMLElement>('*')) {
+    const display = getComputedStyle(n).display
+    if (display !== 'block' && display !== 'list-item' && display !== 'flex') continue
+    const r = n.getBoundingClientRect()
+    out.push({ top: (r.top - base) / scale, height: r.height / scale })
+  }
+  return out
+}
+
 /** Line boxes of a textblock in NATURAL coordinates — y relative to the
  *  block's own top, as the paragraph would wrap with NO page spacers in it.
  *
@@ -136,14 +154,32 @@ function lineBoxes(
   }
   if (rects.length < 2) return undefined
 
+  // A range spanning BLOCK-level children reports each child's own border box
+  // alongside its line boxes, and those are not lines.
+  //
+  // A bulleted list is the case that matters: <ul> holds <li><p>text</p></li>,
+  // so four single-line items return EIGHT rects at eight distinct tops — a
+  // full-column-width block rect per item plus the real text line 2px below
+  // it. Collapsing by top kept both, so paginate() was handed twice as many
+  // "lines" as the list has, half of them at positions no line starts at, and
+  // cut the page at one of those. Blockquote had the same shape (3 rects for 2
+  // lines). Dropping any rect that coincides with a descendant block's border
+  // box leaves exactly the real line boxes, and changes nothing for a plain
+  // paragraph, whose rects are all line boxes already.
+  const blocks = blockBoxes(el, base, scale)
+  const isBlockBox = (top: number, height: number) =>
+    blocks.some((b) => Math.abs(b.top - top) < 0.6 && Math.abs(b.height - height) < 0.6)
+
   // Rects can arrive out of order and can overlap (nested inline elements
   // report their own box as well as the line's). Collapse to distinct lines
   // by top edge, which is what "one rect per line" means in practice.
   const byTop = new Map<number, { top: number; height: number }>()
   for (const r of rects) {
-    const top = Math.round((r.top - base) / scale)
-    const prev = byTop.get(top)
+    const exactTop = (r.top - base) / scale
     const height = r.height / scale
+    if (isBlockBox(exactTop, height)) continue
+    const top = Math.round(exactTop)
+    const prev = byTop.get(top)
     if (!prev || height > prev.height) byTop.set(top, { top, height })
   }
   const lines = [...byTop.values()].sort((a, b) => a.top - b.top)
@@ -235,10 +271,44 @@ function decorationFor(view: EditorView, br: Break, blocks: Measured[]): Decorat
   if (!el || y === undefined) return null
   const at = view.posAtCoords({ left: el.getBoundingClientRect().left + 1, top: y })
   if (!at) return null
+
+  // A break inside a list must land BETWEEN two items, never inside one.
+  //
+  // posAtCoords hit-tests into the item's paragraph, and a display:block
+  // spacer there pushes the text after it down while the <li> itself — its
+  // marker and first line — stays on the page above. Measured: the target
+  // item did not move at all and only its successor did, which is the bullet
+  // left hanging off the bottom of the sheet. Anchoring at the listItem's own
+  // position instead puts the widget in the <ul>'s content, a sibling of the
+  // <li>s, and the item moves with its marker.
+  const itemPos = listItemPosAt(view, block.pos, at.pos)
+  if (itemPos !== null) {
+    return Decoration.widget(itemPos, () => spacerEl(br.spacer, 'block'), {
+      side: -1,
+      key: `pb-${br.block}-${br.line}-${br.spacer}`,
+    })
+  }
+
   return Decoration.widget(at.pos, () => spacerEl(br.spacer, 'inline'), {
     side: -1,
     key: `pb-${br.block}-${br.line}-${br.spacer}`,
   })
+}
+
+/** The position of the list item containing `inner`, when `blockPos` is a
+ *  list — otherwise null, which keeps every non-list block on the existing
+ *  posAtCoords path. Walks the list's own children rather than resolving
+ *  upward, so a nested list resolves to the OUTERMOST item, which is the one
+ *  that has to carry its marker onto the next page. */
+function listItemPosAt(view: EditorView, blockPos: number, inner: number): number | null {
+  const list = view.state.doc.nodeAt(blockPos)
+  if (!list || !/^(bullet|ordered|task)List$/.test(list.type.name)) return null
+  let found: number | null = null
+  list.forEach((item, offset) => {
+    const from = blockPos + 1 + offset
+    if (found === null && inner >= from && inner <= from + item.nodeSize) found = from
+  })
+  return found
 }
 
 function spacerEl(height: number, mode: 'block' | 'inline'): HTMLElement {

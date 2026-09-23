@@ -3,7 +3,8 @@
 // Teacher-scoped assignment insights: overview stats, a class-wide
 // completion-rate trend, a per-assignment breakdown table, and per-student
 // performance/trend. Pure client-side aggregation over the same two calls
-// TeacherAssignments already makes (listMyAssignments + submissionsFor) —
+// TeacherAssignments already makes (listMyAssignments +
+// listInstitutionSubmissions) —
 // see lib/data/insights.ts and
 // docs/superpowers/specs/2026-08-10-assignment-insights-dashboard-design.md.
 
@@ -19,7 +20,7 @@ import {
   CartesianGrid,
 } from 'recharts'
 import { useAuthStore } from '@/lib/auth/store'
-import { listMyAssignments, submissionsFor, subscribeAssignments, subscribeSubmissions } from '@/lib/data/assignments'
+import { listMyAssignments, listInstitutionSubmissions, subscribeAssignments, subscribeSubmissions } from '@/lib/data/assignments'
 import { listAllMembers } from '@/lib/data/admin'
 import * as db from '@/lib/data/db'
 import type { AssignmentRow, ProfileRow, RoomMemberRow, SubmissionRow } from '@/lib/data/types'
@@ -84,8 +85,14 @@ export function InsightsDashboard() {
       if (p) (byRoom[m.room_id] ??= []).push(p)
     }
     setRoster(byRoom)
-    const entries = await Promise.all(as.map(async (a) => [a.id, await submissionsFor(a.id)] as const))
-    setSubsByAssignment(Object.fromEntries(entries))
+    // One tenant-wide request, grouped locally — not one per assignment on
+    // every 4s subscribe() tick (see listInstitutionSubmissions).
+    const mine = new Set(as.map((a) => a.id))
+    const grouped: Record<string, SubmissionRow[]> = Object.fromEntries(as.map((a) => [a.id, []]))
+    for (const s of await listInstitutionSubmissions()) {
+      if (mine.has(s.assignment_id)) grouped[s.assignment_id].push(s)
+    }
+    setSubsByAssignment(grouped)
   }, [profile.institution_id])
 
   useEffect(() => {

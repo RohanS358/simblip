@@ -1351,6 +1351,13 @@ html {
   .doc-page-spacer {
     user-select: none;
   }
+  /* A break inside a list anchors the spacer at the list item's own position,
+     so the widget is a child of the <ul>/<ol> alongside the <li>s. Without
+     this it would be laid out as a list item and paint its own bullet. */
+  .doc-flow .tiptap :where(ul, ol) > .doc-page-spacer {
+    list-style: none;
+    margin: 0;
+  }
   /* An explicit page break (§22): visible so it can be found and deleted. */
   /* Zero margin on purpose: a break lands at the TOP of the next page, and
      any margin here would push that page's first line down by it. */

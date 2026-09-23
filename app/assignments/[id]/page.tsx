@@ -16,9 +16,9 @@ import { PageShell } from '@/components/platform/page-shell'
 import { useAuthStore } from '@/lib/auth/store'
 import {
   getAssignment,
+  listInstitutionSubmissions,
   listMyAssignments,
   reviewSubmission,
-  submissionsFor,
   subscribeSubmissions,
 } from '@/lib/data/assignments'
 import { listRooms, listAllMembers } from '@/lib/data/admin'
@@ -93,8 +93,13 @@ function AssignmentDashboard({ id }: { id: string }) {
       if (p) (byRoom[m.room_id] ??= []).push(p)
     }
     setRoster(byRoom)
-    setSubs(a ? await submissionsFor(a.id) : [])
-    const allSubs = (await Promise.all(allAssignments.map((x) => submissionsFor(x.id)))).flat()
+    // The viewed assignment stays a single narrow request. The history pane
+    // wants submissions across EVERY assignment, which was one request each
+    // on a subscribeSubmissions() tick — one tenant-wide request instead,
+    // and the viewed assignment's rows fall out of the same response.
+    const mine = new Set(allAssignments.map((x) => x.id))
+    const allSubs = (await listInstitutionSubmissions()).filter((s) => mine.has(s.assignment_id))
+    setSubs(a ? allSubs.filter((s) => s.assignment_id === a.id) : [])
     setHistory({ assignments: allAssignments, subs: allSubs })
     setLoading(false)
   }, [id, profile.institution_id])

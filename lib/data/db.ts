@@ -182,7 +182,13 @@ if (typeof window !== 'undefined') {
   })
 }
 
-const POLL_MS = 4000
+// 4s was polling ~7x faster than the server could even report a change: the
+// Redis entry these reads hit has a 30s TTL (lib/server/redis.ts), so most
+// ticks re-fetched a byte-identical cached body. These tables are shares,
+// assignments, announcements and rooms — a classroom feed, not a remote
+// control (board_sessions is deliberately excluded from the cache and rides
+// the live socket instead). 20s stays well inside the cache window.
+const POLL_MS = 20_000
 const pollers = new Map<string, ReturnType<typeof setInterval>>()
 
 // A background tab polled exactly as hard as a foreground one: every table

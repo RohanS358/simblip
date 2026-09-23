@@ -93,6 +93,21 @@ export async function mySubmissions(): Promise<SubmissionRow[]> {
 export const submissionsFor = (assignmentId: string) =>
   db.list<SubmissionRow>('submissions', { assignment_id: assignmentId })
 
+/** Every submission in the tenant, in ONE request.
+ *
+ *  submissionsFor() is per-assignment, so any caller that wants submissions
+ *  across a teacher's whole assignment list fans out into one request per
+ *  assignment — on a 4s subscribe() tick that was the single largest source
+ *  of /api/pg traffic in the app. db.list()'s inFlight dedupe does not help:
+ *  each assignment id is a distinct path. This mirrors listMyAssignments()
+ *  (fetch tenant-scoped, filter client-side) and, unlike the per-assignment
+ *  form, hits the shared Redis entry for `submissions`. */
+export async function listInstitutionSubmissions(): Promise<SubmissionRow[]> {
+  const { profile } = useAuthStore.getState()
+  if (!profile) return []
+  return db.list<SubmissionRow>('submissions', { institution_id: profile.institution_id })
+}
+
 /** Create or update the signed-in student's submission for an assignment. */
 export async function upsertSubmission(
   assignment: AssignmentRow,

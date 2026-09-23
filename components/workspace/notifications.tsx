@@ -11,7 +11,7 @@ import { useAuthStore } from '@/lib/auth/store'
 import { listIncomingShares, subscribeShares } from '@/lib/data/shares'
 import {
   listMyAssignments,
-  submissionsFor,
+  listInstitutionSubmissions,
   subscribeAssignments,
   subscribeSubmissions,
 } from '@/lib/data/assignments'
@@ -74,21 +74,20 @@ export function NotificationCenter() {
         })
       }
     } else if (profile.role === 'teacher' || profile.role === 'admin') {
-      const perAssignment = await Promise.all(
-        assignments.map(async (a) => ({ a, subs: await submissionsFor(a.id) }))
-      )
-      for (const { a, subs } of perAssignment) {
-        for (const sub of subs) {
-          if (sub.status === 'submitted' || sub.status === 'late') {
-            items.push({
-              id: `submission:${sub.id}:${sub.status}`,
-              icon: ClipboardList,
-              title: `${sub.student_name} submitted “${a.title}”`,
-              detail: sub.status === 'late' ? 'Submitted late' : 'Ready for review',
-              at: sub.submitted_at ?? sub.updated_at,
-              href: '/assignments',
-            })
-          }
+      // One request for the whole tenant, then match locally — NOT one
+      // request per assignment (see listInstitutionSubmissions).
+      const byId = new Map(assignments.map((a) => [a.id, a]))
+      const subs = (await listInstitutionSubmissions()).filter((s) => byId.has(s.assignment_id))
+      for (const sub of subs) {
+        if (sub.status === 'submitted' || sub.status === 'late') {
+          items.push({
+            id: `submission:${sub.id}:${sub.status}`,
+            icon: ClipboardList,
+            title: `${sub.student_name} submitted “${byId.get(sub.assignment_id)!.title}”`,
+            detail: sub.status === 'late' ? 'Submitted late' : 'Ready for review',
+            at: sub.submitted_at ?? sub.updated_at,
+            href: '/assignments',
+          })
         }
       }
     }
@@ -109,11 +108,25 @@ export function NotificationCenter() {
     if (!profile) return
     setRead(loadRead(profile.id))
     void refresh()
+    // All four tables drive the SAME refresh(), and they tick on the same
+    // shared interval — so a naive one-callback-each wiring ran refresh()
+    // four times per tick, quadrupling every request it makes. Coalesce to
+    // one run per tick; a microtask flag is enough because the ticks land
+    // synchronously in one batch.
+    let queued = false
+    const tick = () => {
+      if (queued) return
+      queued = true
+      queueMicrotask(() => {
+        queued = false
+        void refresh()
+      })
+    }
     const unsubs = [
-      subscribeShares(() => void refresh()),
-      subscribeAssignments(() => void refresh()),
-      subscribeSubmissions(() => void refresh()),
-      subscribeAnnouncements(() => void refresh()),
+      subscribeShares(tick),
+      subscribeAssignments(tick),
+      subscribeSubmissions(tick),
+      subscribeAnnouncements(tick),
     ]
     return () => unsubs.forEach((u) => u())
   }, [profile, refresh])
