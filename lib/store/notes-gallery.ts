@@ -67,6 +67,9 @@ export interface GalleryEvent {
   repeat?: Repeat
   /** Workspace node ids (pages, files) attached to the event. */
   links?: string[]
+  /** A built-in public holiday (lib/calendar/holidays.ts) — read-only, never
+   *  in the store. */
+  holiday?: boolean
 }
 
 /** Which calendar leads: the big number, the month grid, the title. The other

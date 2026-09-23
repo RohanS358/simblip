@@ -41,6 +41,7 @@ import {
   weekday,
 } from '@/lib/calendar/dates.mjs'
 import { expand } from '@/lib/calendar/events.mjs'
+import { HOLIDAYS } from '@/lib/calendar/holidays'
 import { useSpring } from '@/lib/motion'
 import { startSeamDrag } from '@/lib/seam-drag'
 import { readFile } from '@/lib/storage/opfs'
@@ -301,7 +302,8 @@ function GalleryTodos() {
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function GalleryCalendar() {
-  const events = useNotesGallery((s) => s.events)
+  const stored = useNotesGallery((s) => s.events)
+  const events = useMemo(() => [...stored, ...HOLIDAYS], [stored])
   const addEvent = useNotesGallery((s) => s.addEvent)
   const removeEvent = useNotesGallery((s) => s.removeEvent)
   const system = useNotesGallery((s) => s.calendarSystem)
@@ -337,7 +339,7 @@ function GalleryCalendar() {
       date: selected,
       time: time || undefined,
       title: t,
-      color: NOTE_COLORS[events.length % NOTE_COLORS.length],
+      color: NOTE_COLORS[stored.length % NOTE_COLORS.length],
     })
     setTitle('')
     setTime('')
@@ -441,6 +443,7 @@ function GalleryCalendar() {
                 <span className="shrink-0 text-ui-2xs tabular-nums text-muted-foreground">{e.time}</span>
               )}
               <span className="min-w-0 flex-1 truncate text-ui-xs">{e.title}</span>
+{!e.holiday && (
               <button
                 type="button"
                 aria-label={`Delete ${e.title}`}
@@ -449,6 +452,7 @@ function GalleryCalendar() {
               >
                 <Trash2 className="h-3 w-3" />
               </button>
+              )}
             </div>
           ))
         )}

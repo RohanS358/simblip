@@ -68,6 +68,7 @@ import {
   type GalleryEvent,
 } from '@/lib/store/notes-gallery'
 import { cn } from '@/lib/utils'
+import { HOLIDAYS, HOLIDAY_DAYS } from '@/lib/calendar/holidays'
 import {
   createNotePage,
   LinkedPages,
@@ -174,6 +175,11 @@ function useEventDrag(onClick: (occ: Occ) => void) {
   const begin = (e: React.PointerEvent, occ: Occ, mode: DragMode) => {
     if (e.button !== 0) return
     e.stopPropagation()
+    // Public holidays are fixed — a press just opens them.
+    if (occ.ev.holiday) {
+      onClick(occ)
+      return
+    }
     // Listeners go on window, not the bar: a bar dragged into another week
     // row remounts under a new parent, and a listener on the old element
     // would never hear the pointerup.
@@ -526,7 +532,8 @@ function EventBar({
         'group/bar pointer-events-auto relative flex h-[19px] cursor-grab touch-none select-none items-center gap-1 overflow-hidden px-1.5',
         'text-ui-2xs leading-none text-foreground active:cursor-grabbing',
         !clipStart && 'rounded-l-md',
-        !clipEnd && 'rounded-r-md'
+        !clipEnd && 'rounded-r-md',
+        ev.holiday && 'cursor-pointer active:cursor-pointer'
       )}
       style={timed ? undefined : { background: barBg(ev.color) }}
     >
@@ -541,7 +548,7 @@ function EventBar({
       <span className="min-w-0 flex-1 truncate font-medium">{ev.title}</span>
       {!!ev.links?.length && <Link2 className="h-2.5 w-2.5 shrink-0 opacity-60" />}
       {ev.repeat && <RepeatIcon className="h-2.5 w-2.5 shrink-0 opacity-50" />}
-      {!timed && !clipEnd && (
+      {!timed && !clipEnd && !ev.holiday && (
         <div
           aria-hidden
           onPointerDown={(e) => onDragStart(e, occ, 'resize-end')}
@@ -706,7 +713,9 @@ function MonthView({
                           className={cn(
                             'flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-ui-xs tabular-nums',
                             inMonth ? 'text-foreground' : 'text-muted-foreground/50',
-                            system === 'bs' && c === 6 && inMonth && 'text-[var(--accent-rose)]',
+                            ((system === 'bs' && c === 6) || HOLIDAY_DAYS.has(key)) &&
+                              inMonth &&
+                              'text-[var(--accent-rose)]',
                             isToday && 'bg-[var(--accent-blue)] font-semibold text-white'
                           )}
                         >
@@ -1300,7 +1309,8 @@ export function CalendarFull() {
 
 function CalendarScreen() {
   const motion = useSpring()
-  const events = useNotesGallery((s) => s.events)
+  const stored = useNotesGallery((s) => s.events)
+  const events = useMemo(() => [...stored, ...HOLIDAYS], [stored])
   const system = useNotesGallery((s) => s.calendarSystem)
   const view = useNotesGallery((s) => s.calendarView)
   const setSystem = useNotesGallery((s) => s.setCalendarSystem)
@@ -1313,7 +1323,8 @@ function CalendarScreen() {
   const [dayPanel, setDayPanel] = useState<string | null>(null)
   const records = useCalendarRecords()
 
-  const openOcc = (o: Occ) => setDraft(draftFor(o.ev))
+  // A holiday has nothing to edit — it opens its day instead.
+  const openOcc = (o: Occ) => (o.ev.holiday ? showDay(o.start) : setDraft(draftFor(o.ev)))
   const create = (from: string, to: string, time?: string, endTime?: string) =>
     setDraft(newDraft(from, to, time, endTime))
 
