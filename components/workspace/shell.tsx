@@ -23,6 +23,7 @@ import { useIsMobile } from '@/hooks/use-mobile'
 import { stop } from '@/lib/physics/world'
 import { Sidebar } from './sidebar'
 import { NotesGallery } from './notes-gallery'
+import { CalendarFull } from './calendar-full'
 import { useNotesGallery } from '@/lib/store/notes-gallery'
 import { Dock } from './dock'
 import { useSidebarSection, openProperties } from '@/lib/store/sidebar-sections'
@@ -709,6 +710,7 @@ export function WorkspaceShell() {
             the right edge, over the canvas, rather than becoming a seventh
             section inside the left rail. */}
         <NotesGallery />
+        <CalendarFull />
 
         {splitScreenObject && (
           <>

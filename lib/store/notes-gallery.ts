@@ -18,6 +18,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
 import { writeFile, deleteFile } from '@/lib/storage/opfs'
+import type { Repeat } from '@/lib/calendar/events.mjs'
 
 export type NoteColor = 'amber' | 'mint' | 'blue' | 'violet' | 'rose'
 
@@ -47,11 +48,23 @@ export interface GalleryEvent {
   id: string
   /** Local calendar day, 'YYYY-MM-DD'. */
   date: string
+  /** Last day, inclusive. Absent means the event is one day long. */
+  endDate?: string
   /** 'HH:mm'. Absent means all-day. */
   time?: string
+  /** 'HH:mm'. Absent on a timed event means an hour after `time`. */
+  endTime?: string
   title: string
   color: NoteColor
+  location?: string
+  notes?: string
+  repeat?: Repeat
 }
+
+/** Which calendar leads: the big number, the month grid, the title. The other
+ *  one rides along in each day's corner. */
+export type CalendarSystem = 'ad' | 'bs'
+export type CalendarView = 'month' | 'week'
 
 const uid = () => crypto.randomUUID()
 
@@ -61,6 +74,10 @@ interface NotesGalleryState {
   notes: GalleryNote[]
   todos: GalleryTodo[]
   events: GalleryEvent[]
+  /** The full-screen calendar. Not persisted, like `open`. */
+  calendarOpen: boolean
+  calendarSystem: CalendarSystem
+  calendarView: CalendarView
   toggle: () => void
   setOpen: (open: boolean) => void
   setWidth: (w: number) => void
@@ -72,8 +89,12 @@ interface NotesGalleryState {
   toggleTodo: (id: string) => void
   removeTodo: (id: string) => void
   clearDoneTodos: () => void
-  addEvent: (e: Omit<GalleryEvent, 'id'>) => void
+  addEvent: (e: Omit<GalleryEvent, 'id'>) => string
+  updateEvent: (id: string, patch: Partial<Omit<GalleryEvent, 'id'>>) => void
   removeEvent: (id: string) => void
+  setCalendarOpen: (open: boolean) => void
+  setCalendarSystem: (system: CalendarSystem) => void
+  setCalendarView: (view: CalendarView) => void
 }
 
 export const useNotesGallery = create<NotesGalleryState>()(
@@ -84,6 +105,9 @@ export const useNotesGallery = create<NotesGalleryState>()(
       notes: [],
       todos: [],
       events: [],
+      calendarOpen: false,
+      calendarSystem: 'ad',
+      calendarView: 'month',
 
       toggle: () => set((s) => ({ open: !s.open })),
       setOpen: (open) => set({ open }),
@@ -140,15 +164,32 @@ export const useNotesGallery = create<NotesGalleryState>()(
       removeTodo: (id) => set((s) => ({ todos: s.todos.filter((t) => t.id !== id) })),
       clearDoneTodos: () => set((s) => ({ todos: s.todos.filter((t) => !t.done) })),
 
-      addEvent: (e) => set((s) => ({ events: [...s.events, { ...e, id: uid() }] })),
+      addEvent: (e) => {
+        const id = uid()
+        set((s) => ({ events: [...s.events, { ...e, id }] }))
+        return id
+      },
+      // A patch value of `undefined` clears that field (all-day drops `time`).
+      updateEvent: (id, patch) =>
+        set((s) => ({ events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
       removeEvent: (id) => set((s) => ({ events: s.events.filter((e) => e.id !== id) })),
+      setCalendarOpen: (calendarOpen) => set({ calendarOpen }),
+      setCalendarSystem: (calendarSystem) => set({ calendarSystem }),
+      setCalendarView: (calendarView) => set({ calendarView }),
     }),
     {
       name: 'simblip-notes-gallery',
       storage: scopedJSONStorage,
       // `open` is deliberately not persisted — a panel that reopens itself on
       // every load covers the canvas you came back for.
-      partialize: (s) => ({ width: s.width, notes: s.notes, todos: s.todos, events: s.events }),
+      partialize: (s) => ({
+        width: s.width,
+        notes: s.notes,
+        todos: s.todos,
+        events: s.events,
+        calendarSystem: s.calendarSystem,
+        calendarView: s.calendarView,
+      }),
     }
   )
 )

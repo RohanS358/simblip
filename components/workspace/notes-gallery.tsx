@@ -24,21 +24,23 @@ import {
   Clock,
   Images,
   ListChecks,
+  Maximize2,
   Plus,
   Trash2,
   X,
 } from 'lucide-react'
+import { format } from 'date-fns'
 import {
-  addMonths,
-  eachDayOfInterval,
-  endOfMonth,
-  endOfWeek,
-  format,
-  isSameMonth,
-  isToday,
-  startOfMonth,
-  startOfWeek,
-} from 'date-fns'
+  addDays,
+  keyOf,
+  monthName,
+  monthOf,
+  nepaliDigits,
+  partsIn,
+  toBS,
+  weekday,
+} from '@/lib/calendar/dates.mjs'
+import { expand } from '@/lib/calendar/events.mjs'
 import { useSpring } from '@/lib/motion'
 import { startSeamDrag } from '@/lib/seam-drag'
 import { readFile } from '@/lib/storage/opfs'
@@ -291,7 +293,9 @@ function GalleryTodos() {
 // ── Calendar ──────────────────────────────────────────────────────────────
 // A plain month grid, which is what "the most common calendar" means: pick a
 // day, see its events, type one in. Native <input type="time"> does the time
-// half rather than a picker component.
+// half rather than a picker component. It follows the full calendar's AD/BS
+// choice (calendar-full.tsx) — the leading system is the big number and the
+// grid's month, the other is the tiny one — and ⤢ opens that full calendar.
 
 const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
@@ -299,28 +303,29 @@ function GalleryCalendar() {
   const events = useNotesGallery((s) => s.events)
   const addEvent = useNotesGallery((s) => s.addEvent)
   const removeEvent = useNotesGallery((s) => s.removeEvent)
+  const system = useNotesGallery((s) => s.calendarSystem)
+  const sec = system === 'ad' ? 'bs' : 'ad'
 
-  const [cursor, setCursor] = useState(() => new Date())
-  const [selected, setSelected] = useState(() => format(new Date(), 'yyyy-MM-dd'))
+  const [cursor, setCursor] = useState(() => keyOf(new Date()))
+  const [selected, setSelected] = useState(() => keyOf(new Date()))
   const [title, setTitle] = useState('')
   const [time, setTime] = useState('')
 
-  const days = useMemo(
-    () =>
-      eachDayOfInterval({
-        start: startOfWeek(startOfMonth(cursor)),
-        end: endOfWeek(endOfMonth(cursor)),
-      }),
-    [cursor]
-  )
+  const month = monthOf(system, cursor)
+  const gridStart = addDays(month.first, -weekday(month.first))
+  const cells = Math.ceil((weekday(month.first) + partsIn(system, month.last).d) / 7) * 7
+  const days = Array.from({ length: cells }, (_, i) => addDays(gridStart, i))
+  const todayKey = keyOf(new Date())
+  const num = (sys: 'ad' | 'bs', key: string) =>
+    sys === 'bs' && toBS(key) ? nepaliDigits(partsIn(sys, key).d) : String(partsIn(sys, key).d)
 
+  // Multi-day and repeating events mark every day they touch.
   const byDay = useMemo(() => {
     const map: Record<string, GalleryEvent[]> = {}
-    for (const e of events) (map[e.date] ??= []).push(e)
-    for (const key of Object.keys(map))
-      map[key].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''))
+    for (const o of expand(events, gridStart, days[days.length - 1]))
+      for (let k = o.start; k <= o.end; k = addDays(k, 1)) (map[k] ??= []).push(o.ev)
     return map
-  }, [events])
+  }, [events, gridStart, days.length]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const dayEvents = byDay[selected] ?? []
 
@@ -345,18 +350,27 @@ function GalleryCalendar() {
           type="button"
           className="min-w-0 flex-1 truncate text-left text-ui-sm font-medium transition-colors hover:text-[var(--accent-blue)]"
           onClick={() => {
-            setCursor(new Date())
-            setSelected(format(new Date(), 'yyyy-MM-dd'))
+            setCursor(todayKey)
+            setSelected(todayKey)
           }}
           title="Jump to today"
         >
-          {format(cursor, 'MMMM yyyy')}
+          {monthName(system, month.m)} {month.y}
         </button>
-        <IconButton label="Previous month" onClick={() => setCursor((c) => addMonths(c, -1))}>
+        <IconButton label="Previous month" onClick={() => setCursor(monthOf(system, cursor, -1).first)}>
           <ChevronLeft className="h-3.5 w-3.5" />
         </IconButton>
-        <IconButton label="Next month" onClick={() => setCursor((c) => addMonths(c, 1))}>
+        <IconButton label="Next month" onClick={() => setCursor(monthOf(system, cursor, 1).first)}>
           <ChevronRight className="h-3.5 w-3.5" />
+        </IconButton>
+        <IconButton
+          label="Open full calendar"
+          onClick={() => {
+            useNotesGallery.getState().setOpen(false)
+            useNotesGallery.getState().setCalendarOpen(true)
+          }}
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
         </IconButton>
       </div>
 
@@ -366,9 +380,9 @@ function GalleryCalendar() {
             {d}
           </div>
         ))}
-        {days.map((d) => {
-          const key = format(d, 'yyyy-MM-dd')
+        {days.map((key) => {
           const isSelected = key === selected
+          const inMonth = key >= month.first && key <= month.last
           const marks = byDay[key]
           return (
             <button
@@ -378,18 +392,21 @@ function GalleryCalendar() {
               className={cn(
                 'relative flex h-7 items-center justify-center rounded-md text-ui-xs',
                 'transition-colors duration-150 ease-out',
-                isSameMonth(d, cursor) ? 'text-foreground' : 'text-muted-foreground/40',
+                inMonth ? 'text-foreground' : 'text-muted-foreground/40',
                 isSelected
                   ? 'bg-[var(--accent-blue)] font-medium text-primary-foreground'
                   : 'hover:bg-accent',
-                isToday(d) && !isSelected && 'font-semibold text-[var(--accent-blue)]'
+                key === todayKey && !isSelected && 'font-semibold text-[var(--accent-blue)]'
               )}
             >
-              {d.getDate()}
+              {num(system, key)}
+              <span aria-hidden className="absolute bottom-px right-0.5 text-[8px] leading-none opacity-55">
+                {num(sec, key)}
+              </span>
               {marks && (
                 <span
                   aria-hidden
-                  className="absolute bottom-[3px] h-1 w-1 rounded-full"
+                  className="absolute bottom-[3px] left-1/2 h-1 w-1 -translate-x-1/2 rounded-full"
                   style={{
                     background: isSelected
                       ? 'currentColor'
