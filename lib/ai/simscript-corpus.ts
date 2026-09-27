@@ -126,6 +126,8 @@ export const KIND_CATALOG: KindInfo[] = [
   { kind: 'optical-mirror', domain: 'optics', label: 'mirror', scenarioOnly: true },
   { kind: 'optical-screen', domain: 'optics', label: 'screen', scenarioOnly: true },
   { kind: 'slit', domain: 'optics', label: 'slit', scenarioOnly: true },
+  { kind: 'prism', domain: 'optics', label: 'glass prism', scenarioOnly: true },
+  { kind: 'glass-block', domain: 'optics', label: 'glass block', scenarioOnly: true },
   // waves & quantum
   { kind: 'wave-source', domain: 'waves', label: 'wave source', scenarioOnly: true },
   { kind: 'wave-boundary', domain: 'waves', label: 'wave boundary', scenarioOnly: true },
@@ -160,7 +162,7 @@ export const KIND_CATALOG: KindInfo[] = [
 export const KNOWN_KINDS = new Set<string>([
   ...KIND_CATALOG.map((k) => k.kind),
   // aliases accepted by create()
-  'lens', 'lightsource', 'mirror', 'screen', 'wavesource', 'waveboundary', 'transmissionline',
+  'lens', 'lightsource', 'glassblock', 'mirror', 'screen', 'wavesource', 'waveboundary', 'transmissionline',
   'quantumwell', 'tunnelbarrier', 'heatblock', 'torsionpendulum', 'truth-table', 'dsa-lab',
   'dsalab', 'ide', 'simscript',
   'grid-table', 'graph3d', 'surface-3d', '3d', 'image', 'img',

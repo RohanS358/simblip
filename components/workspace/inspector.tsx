@@ -97,7 +97,7 @@ import { DOC_MARGINS } from './doc-flow'
 import { DOC_STYLES, STYLE_IDS, type ParagraphFormat } from '@/lib/text/doc-styles'
 import { formatOf } from '@/lib/text/extensions'
 import { SHEET_W, SHEET_H } from '@/lib/scene/frames'
-import { Slider } from '@/components/ui/slider'
+import { ScrubField } from '@/components/ui/scrub-field'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 import { PanelHeader } from './panel-header'
@@ -781,6 +781,28 @@ function BehaviorsSection({ pageId, object }: { pageId: string; object: SceneObj
                       >
                         {on ? 'On' : 'Off'}
                       </button>
+                    </div>
+                  )
+                }
+                // A plain number scrubs; an expression (`g`, [Mass 1(vx)]) keeps
+                // the expression box with its live-value readout. Typing an
+                // expression into the scrub field hands it back to this path.
+                if (isNumericValue(p.expr) && !p.error) {
+                  const mag = Math.abs(Number(ps.default ?? p.value))
+                  return (
+                    <div key={ps.name} className="mt-1.5">
+                      <ScrubField
+                        label={ps.label}
+                        suffix=""
+                        size="sm"
+                        value={Number(p.expr)}
+                        min={ps.min}
+                        max={ps.max}
+                        step={mag >= 10 ? 1 : mag >= 1 ? 0.1 : 0.01}
+                        onChange={(n) => setBehaviorParam(pageId, object.id, b.id, ps.name, String(n))}
+                        onTextCommit={(v) => setBehaviorParam(pageId, object.id, b.id, ps.name, v)}
+                        className="w-full!"
+                      />
                     </div>
                   )
                 }
@@ -1497,8 +1519,11 @@ function GraphOptions({
         {editableList(formulas, writeFormulas, 'Formula')}
         <AddRowButton label="Add formula" onClick={() => writeFormulas([...formulas, 'sin(t)'])} />
         <p className="text-ui-2xs leading-relaxed text-muted-foreground">
-          Plotted as dashed lines. Can use page variables, <span className="font-mono">t</span> and the
-          first series&apos; channels. Without a series, formulas plot over the X range. Calculus works
+          Type like a calculator: <span className="font-mono">y = x^2</span>,{' '}
+          <span className="font-mono">x = 3</span>, points <span className="font-mono">(1, 2), (3, 4)</span>, or a
+          parametric <span className="font-mono">(cos(t), sin(t)) t = 0..10</span>. Can use page variables,{' '}
+          <span className="font-mono">t</span> and the first series&apos; channels. On the chart: scroll to zoom,
+          drag to pan, double-click to reset, click a legend entry to hide it. Calculus works
           too: <span className="font-mono">derivative(sin(t), t)</span>,{' '}
           <span className="font-mono">integral(sin(u), u, 0, t)</span> — differentiate or integrate
           with respect to any variable for partials.
@@ -1616,6 +1641,31 @@ function Surface3DOptions({ pageId, object }: { pageId: string; object: SceneObj
   )
 }
 
+/** A chart data cell that keeps what you're typing ("-", "0.0", "1e") as a
+ *  draft and only commits once it parses — coercing every keystroke through
+ *  Number() made 0.05 and negative values impossible to type. Blank = no
+ *  value (a gap in the chart), not zero. */
+function ChartNumCell({ value, onCommit, label }: { value: number | undefined; onCommit: (v: string) => void; label: string }) {
+  const shown = value === undefined || !Number.isFinite(value) ? '' : String(value)
+  const [draft, setDraft] = useState<string | null>(null)
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      spellCheck={false}
+      value={draft ?? shown}
+      onChange={(e) => {
+        const v = e.target.value
+        setDraft(v)
+        if (v.trim() === '' || Number.isFinite(Number(v))) onCommit(v)
+      }}
+      onBlur={() => setDraft(null)}
+      aria-label={label}
+      className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums"
+    />
+  )
+}
+
 /** Minimal CSV split with double-quote support — good enough for a
  *  spreadsheet export's simple quoting, not a full RFC 4180 parser. */
 function parseCsvLine(line: string): string[] {
@@ -1664,7 +1714,9 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
   const updateCell = (r: number, c: number, v: string) =>
     commit(
       rows,
-      cols.map((s, i) => (i === c ? { ...s, values: s.values.map((x, j) => (j === r ? Number(v) || 0 : x)) } : s))
+      cols.map((s, i) =>
+        i === c ? { ...s, values: s.values.map((x, j) => (j === r ? (v.trim() === '' ? NaN : Number(v)) : x)) } : s
+      )
     )
   const updateSeriesName = (c: number, v: string) => commit(rows, cols.map((s, i) => (i === c ? { ...s, name: v } : s)))
   const addRow = () => commit([...rows, ''], cols.map((s) => ({ ...s, values: [...s.values, 0] })))
@@ -1826,14 +1878,10 @@ function ChartOptions({ pageId, object }: { pageId: string; object: SceneObject 
                   </td>
                   {cols.map((s, c) => (
                     <td key={c} className="border-r border-border/40 p-0">
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        spellCheck={false}
-                        value={s.values[r] ?? 0}
-                        onChange={(e) => updateCell(r, c, e.target.value)}
-                        aria-label={`Row ${r + 1} ${s.name}`}
-                        className="w-full bg-transparent px-1.5 py-0.5 text-right text-foreground outline-none tabular-nums"
+                      <ChartNumCell
+                        value={s.values[r]}
+                        onCommit={(v) => updateCell(r, c, v)}
+                        label={`Row ${r + 1} ${s.name}`}
                       />
                     </td>
                   ))}
@@ -3364,21 +3412,18 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
    *  treatment above — stroke width and corner radius were previously bare
    *  <label> rows with no FieldLabel, reading as a different, cheaper control
    *  than the color swatches right above them. */
-  const unitField = (label: string, ariaLabel: string, value: number, commit: (n: number) => void, unit: string) => (
-    <div>
-      <FieldLabel>{label}</FieldLabel>
-      <div className="flex items-center gap-1.5">
-        <ExprInput
-          ariaLabel={ariaLabel}
-          value={String(value)}
-          onCommit={(v) => {
-            const n = Number(v)
-            if (Number.isFinite(n) && n >= 0) commit(n)
-          }}
-        />
-        <span className="shrink-0 text-ui-2xs text-muted-foreground/70">{unit}</span>
-      </div>
-    </div>
+  const unitField = (label: string, max: number, value: number, commit: (n: number) => void, unit: string) => (
+    <ScrubField
+      label={label}
+      suffix={unit}
+      size="sm"
+      value={value}
+      min={0}
+      max={max}
+      step={1}
+      onChange={commit}
+      className="w-full!"
+    />
   )
 
   return (
@@ -3395,25 +3440,22 @@ function AppearanceSection({ pageId, object }: { pageId: string; object: SceneOb
 
         {(hasStroke || hasCornerRadius) && (
           <div className="grid grid-cols-2 gap-3">
-            {hasStroke && unitField('Stroke width', 'Stroke width', strokeWidth, (n) => setMeta({ strokeWidth: n }), 'px')}
-            {hasCornerRadius && unitField('Corner radius', 'Corner radius', cornerRadius, (n) => setMeta({ cornerRadius: n }), 'px')}
+            {hasStroke && unitField('Stroke', 50, strokeWidth, (n) => setMeta({ strokeWidth: n }), 'px')}
+            {hasCornerRadius && unitField('Radius', 200, cornerRadius, (n) => setMeta({ cornerRadius: n }), 'px')}
           </div>
         )}
 
-        <div>
-          <div className="mb-1 flex items-center justify-between">
-            <FieldLabel>Opacity</FieldLabel>
-            <span className="text-ui-xs tabular-nums text-muted-foreground">{opacity}%</span>
-          </div>
-          <Slider
-            aria-label="Opacity"
-            value={[opacity]}
-            min={0}
-            max={100}
-            step={1}
-            onValueChange={([v]) => setMeta({ opacity: v })}
-          />
-        </div>
+        <ScrubField
+          label="Opacity"
+          suffix="%"
+          size="sm"
+          value={opacity}
+          min={0}
+          max={100}
+          step={1}
+          onChange={(v) => setMeta({ opacity: v })}
+          className="w-full!"
+        />
       </div>
     </OptionCard>
   )
@@ -3438,37 +3480,35 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       o.behaviors.some((b) => b.enabled && b.type === 'electricalNode')
   )
   /** A plain number field (rotation, and anything unitless). */
-  const numField = (label: string, value: number, commit: (n: number) => void) => (
-    <label className="flex items-center gap-1.5 text-ui-xs text-muted-foreground">
-      {label}
-      <ExprInput
-        ariaLabel={label}
-        value={String(Math.round(value * 100) / 100)}
-        onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number')}
-        onCommit={(v) => {
-          const n = Number(v)
-          if (Number.isFinite(n)) commit(n)
-        }}
-      />
-    </label>
+  const numField = (label: string, value: number, commit: (n: number) => void, suffix = '', min = -360, max = 360) => (
+    <ScrubField
+      label={label}
+      suffix={suffix}
+      size="sm"
+      value={Math.round(value * 100) / 100}
+      min={min}
+      max={max}
+      step={1}
+      onChange={commit}
+      className="w-full!"
+    />
   )
 
   /** A LENGTH field. The page's unit is the centimetre (10 px = 1 cm), so the
    *  user reads and types cm while geometry stays in pixels internally. */
-  const cmField = (label: string, px: number, commitPx: (px: number) => void) => (
-    <label className="flex items-center gap-1.5 text-ui-xs text-muted-foreground">
-      {label}
-      <ExprInput
-        ariaLabel={`${label} (cm)`}
-        value={String(pxToCmRounded(px))}
-        onInvalid={(v) => (Number.isFinite(Number(v)) ? undefined : 'Enter a number in cm')}
-        onCommit={(v) => {
-          const n = Number(v)
-          if (Number.isFinite(n)) commitPx(cmToPx(n))
-        }}
-      />
-      <span className="shrink-0 text-ui-2xs opacity-60">cm</span>
-    </label>
+  // ponytail: ±1000 cm (10 000 px) is a guess at "far off any page"; widen if boards grow.
+  const cmField = (label: string, px: number, commitPx: (px: number) => void, min = -1000, max = 1000) => (
+    <ScrubField
+      label={label}
+      suffix="cm"
+      size="sm"
+      value={pxToCmRounded(px)}
+      min={min}
+      max={max}
+      step={0.1}
+      onChange={(n) => commitPx(cmToPx(n))}
+      className="w-full!"
+    />
   )
 
   return (
@@ -3521,14 +3561,19 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
               updateObject(pageId, object.id, { position: { ...object.position, y: n } }, { history: true })
             )}
             {cmField('W', object.size.w, (n) =>
-              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true })
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, w: n } }, { history: true }),
+              0.5,
+              500
             )}
             {cmField('H', object.size.h, (n) =>
-              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true })
+              n > 4 && updateObject(pageId, object.id, { size: { ...object.size, h: n } }, { history: true }),
+              0.5,
+              500
             )}
             <div className="col-span-2">
-              {numField('Rot°', object.rotation, (n) =>
-                updateObject(pageId, object.id, { rotation: n }, { history: true })
+              {numField('Rotation', object.rotation, (n) =>
+                updateObject(pageId, object.id, { rotation: n }, { history: true }),
+                '°'
               )}
             </div>
           </div>

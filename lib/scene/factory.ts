@@ -225,6 +225,9 @@ const mech = (id: string, label: string, create: ComponentDef['create']): Compon
   id, label, domain: 'mechanics', live: true, create,
 })
 
+/** Equilateral prism, 120 px on a side (apex up). */
+export const PRISM_POINTS: [number, number][] = [[60, 0], [120, 104], [0, 104]]
+
 const optic = (id: string, label: string, create: ComponentDef['create']): ComponentDef => ({
   id, label, domain: 'optics', live: true, create,
 })
@@ -423,10 +426,25 @@ export const COMPONENTS: ComponentDef[] = [
   }),
   optic('optical-screen', 'Screen', (p) => {
     const o = baseObject('line', p, autoName('Screen'))
-    o.geometry.points = [[0, 0], [0, 160]]
-    o.size = { w: 2, h: 160 }
+    o.geometry.points = [[0, 0], [0, 260]]
+    o.size = { w: 2, h: 260 }
     o.metadata.render = 'optical-screen'
     return withBehaviors(o, createBehavior('opticalScreen'))
+  }),
+  // Glass: the outline IS the refracting surface (lib/optics/engine.ts), so
+  // a triangle is a prism and a rect a slab — same shapes, one behavior.
+  optic('prism', 'Prism', (p) => {
+    const o = baseObject('polygon', p, autoName('Prism'))
+    o.geometry.points = PRISM_POINTS.map(([x, y]) => [x, y])
+    o.size = { w: 120, h: 104 }
+    o.metadata.render = 'glass'
+    return withBehaviors(o, createBehavior('refractor'))
+  }),
+  optic('glass-block', 'Glass Block', (p) => {
+    const o = baseObject('rect', p, autoName('Glass Block'))
+    o.size = { w: 160, h: 90 }
+    o.metadata.render = 'glass'
+    return withBehaviors(o, createBehavior('refractor'))
   }),
   optic('slit', 'Slit', (p) => {
     const o = baseObject('line', p, autoName('Slit'))
@@ -463,13 +481,13 @@ export const COMPONENTS: ComponentDef[] = [
   // (stationary states — see lib/quantum/engine.ts). ──
   quantum('quantum-well', 'Quantum Well', (p) => {
     const o = baseObject('rect', p, autoName('Quantum Well'))
-    o.size = { w: 260, h: 160 }
+    o.size = { w: 320, h: 220 }
     o.metadata.render = 'quantum-well'
     return withBehaviors(o, createBehavior('quantumWell'))
   }),
   quantum('tunnel-barrier', 'Tunnel Barrier', (p) => {
     const o = baseObject('rect', p, autoName('Tunnel Barrier'))
-    o.size = { w: 260, h: 140 }
+    o.size = { w: 340, h: 200 }
     o.metadata.render = 'tunnel-barrier'
     return withBehaviors(o, createBehavior('tunnelBarrier'))
   }),

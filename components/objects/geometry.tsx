@@ -5,7 +5,7 @@
 // a rigidBody reads as matter, a bare sketch reads as ink. Same object, the
 // behavior is the difference (docs/architecture.md).
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath, connectorElbowPath, connectorPoints } from '@/lib/render/connector-path'
@@ -17,11 +17,58 @@ import { hasOpenedProperties } from '@/lib/scene/dblclick-policy'
 import {
   traceRays,
   screenPatterns,
-  samplePhoton,
+  tracePhoton,
   wavelengthColor,
+  mixColor,
   opticParam,
+  WHITE_NM,
+  slitCenters,
   type ScreenPattern,
+  type RayPath,
+  type PhotonFlight,
+  NM_PER_PX,
 } from '@/lib/optics/engine'
+
+// Light's two pictures, at the wave layer's display scale (1 px = NM_PER_PX
+// nm, so 633 nm crests are ≈ 25 px apart — the same λ the interference math
+// uses). Crests and photons travel at LIGHT_SPEED px/s, c/n inside glass.
+const LIGHT_SPEED = 320
+const PHOTON_RATE = 60 // photons emitted per second, per source object
+const PHOTON_LIFETIME = 6 // s — photons escaping to infinity are dropped
+const crestSpacing = (nm: number) => nm / NM_PER_PX
+// White light before anything has split it: a warm, yellowish white, with a
+// darker gold edge so it still reads on a light canvas.
+const WARM_WHITE = '#fff2c2'
+const WARM_EDGE = '#c9971a'
+
+/** Deterministic 0..1 noise from an integer — lets Play-mode particle
+ *  detections be a pure function of the clock (no per-frame state). */
+function hash01(n: number): number {
+  const v = Math.sin(n * 127.1 + 311.7) * 43758.5453
+  return v - Math.floor(v)
+}
+
+/** Draw a position (0..1) from a sampled density by inverse CDF. */
+function sampleDensity(d: number[], u: number): number {
+  const total = d.reduce((a, b) => a + b, 0) || 1
+  let r = u * total
+  for (let i = 0; i < d.length; i++) {
+    r -= d[i]
+    if (r <= 0) return i / (d.length - 1)
+  }
+  return 1
+}
+
+/** Cumulative display-time at each vertex of a photon path (dt = len·n/c). */
+function flightTimes(r: RayPath): number[] {
+  const out = [0]
+  for (let i = 1; i < r.points.length; i++) {
+    const a = r.points[i - 1]
+    const b = r.points[i]
+    out.push(out[i - 1] + (Math.hypot(b.x - a.x, b.y - a.y) * (r.n[i - 1] ?? 1)) / LIGHT_SPEED)
+  }
+  return out
+}
 import { useDocStore } from '@/lib/store/document'
 import { RichTextArea } from './text'
 import { useRuntimeStore, play, pause, stop, stepFrame } from '@/lib/physics/world'
@@ -37,12 +84,54 @@ import {
   transmissionCoefficient as waveTransmission,
   swr,
   waveInstant,
+  C_PX,
   lineInputImpedance,
   lineReflectionCoefficient,
   voltageEnvelope,
+  boundaryField,
+  lineVoltage,
   type Medium,
 } from '@/lib/waves/engine'
-import { psi, energyLevel, transmissionCoefficient as quantumTransmission } from '@/lib/quantum/engine'
+import {
+  energyLevel,
+  transmissionCoefficient as quantumTransmission,
+  superpositionDensity,
+  superpositionRe,
+  solveBarrier,
+} from '@/lib/quantum/engine'
+
+/** Seconds of Play for the wave/quantum figures, advanced on the display's
+ *  own frames (≤ 30 Hz) — the runtime store's clock is throttled to ~7 Hz,
+ *  which made traveling waves visibly stutter. 0 in edit, frozen on pause.
+ *  Only subscribed objects re-render, and only while playing. */
+function useAnimClock(active: boolean): number {
+  const mode = useRuntimeStore((s) => (active ? s.mode : 'edit'))
+  const [t, setT] = useState(0)
+  useEffect(() => {
+    if (!active) return
+    if (mode === 'edit') {
+      setT(0)
+      return
+    }
+    if (mode !== 'running') return
+    let raf = 0
+    let last = performance.now()
+    let acc = 0
+    const tick = (now: number) => {
+      acc += Math.min(0.1, (now - last) / 1000)
+      last = now
+      if (acc >= 1 / 30) {
+        const add = acc
+        acc = 0
+        setT((x) => x + add)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [active, mode])
+  return t
+}
 
 /** Dead-center text label inside a shape (rect/circle/polygon) — same
  *  RichTextArea every other text-carrying object uses (Note, Text). Not
@@ -134,6 +223,15 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
     }
   }
 
+  // Refracting glass (lib/optics/engine.ts): a pale blue body with a crisp
+  // edge — the edge is the optical surface, so it has to read clearly.
+  if (obj.behaviors.some((b) => b.enabled && b.type === 'refractor'))
+    return {
+      fill: 'color-mix(in oklch, var(--accent-blue) 14%, transparent)',
+      stroke: 'color-mix(in oklch, var(--accent-blue) 70%, var(--foreground))',
+      strokeWidth: (obj.metadata.strokeWidth as number | undefined) ?? 1.5,
+      cornerRadius: (obj.metadata.cornerRadius as number | undefined) ?? 0,
+    }
   const kind = isBody(obj.behaviors)
   if (kind === 'dynamic')
     return {
@@ -644,7 +742,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   }, [isLightSource, pageObjects])
 
   // Wave layer: Huygens–Fresnel interference on every screen behind a slit
-  // (real single/double-slit physics at 1 px = 1 µm — lib/optics/engine.ts).
+  // (real single/double-slit physics at 1 px = 25 nm — lib/optics/engine.ts).
   const patterns = useMemo(() => {
     if (!isLightSource || !pageObjects) return []
     return screenPatterns(Object.values(pageObjects))
@@ -654,33 +752,80 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // Born-rule positions — the pattern builds up from individual detections.
   const playMode = useRuntimeStore((s) => (isLightSource ? s.mode : 'edit'))
   const [photons, setPhotons] = useState<{ s: number; t: number; j: number }[]>([])
+  const isWhite = isLightSource && opticParam(object, 'lightSource', 'white', 0) >= 0.5
+  // Patterns grouped by screen: a white source yields one per wavelength.
+  const screenGroups = useMemo(() => {
+    const m = new Map<string, ScreenPattern[]>()
+    for (const p of patterns) m.set(p.screenId, [...(m.get(p.screenId) ?? []), p])
+    return [...m.values()]
+  }, [patterns])
+  const photonPaths = useMemo(() => {
+    const byPattern = new Map<number, string[]>()
+    for (const ph of photons) {
+      const pat = patterns[ph.s]
+      if (!pat) continue
+      const len = Math.hypot(pat.b.x - pat.a.x, pat.b.y - pat.a.y) || 1
+      const nx = -(pat.b.y - pat.a.y) / len
+      const ny = (pat.b.x - pat.a.x) / len
+      const x = pat.a.x + (pat.b.x - pat.a.x) * ph.t + nx * (6 + ph.j) - object.position.x
+      const y = pat.a.y + (pat.b.y - pat.a.y) * ph.t + ny * (6 + ph.j) - object.position.y
+      const list = byPattern.get(ph.s) ?? []
+      list.push(`M${x.toFixed(1)} ${y.toFixed(1)}h0`)
+      byPattern.set(ph.s, list)
+    }
+    return [...byPattern].map(([s, parts]) => ({ color: wavelengthColor(patterns[s].wavelengthNm), d: parts.join('') }))
+  }, [photons, patterns, object.position.x, object.position.y])
+  // Wave & particle views of the same light (param 'nature': 0 rays,
+  // 1 wave, 2 photons, 3 both). Photons are traced one at a time
+  // (lib/optics/engine.ts tracePhoton): each reflects OR refracts with the
+  // Fresnel probability, slows to c/n in glass, and behind a slit lands at
+  // a Born-rule position — the detections feed the build-up above.
+  const nature = isLightSource ? Math.round(opticParam(object, 'lightSource', 'nature', 3)) : 0
+  const showWave = nature === 1 || nature === 3
+  const showPhotons = nature >= 2
+  const lightClock = useAnimClock(isLightSource && nature > 0)
+  const flightsRef = useRef<{ f: PhotonFlight; born: number; tAt: number[] }[]>([])
+  const emittedRef = useRef(0)
   useEffect(() => {
-    if (!isLightSource) return
-    if (playMode !== 'running' || patterns.length === 0) {
-      if (playMode === 'edit') setPhotons([])
+    if (playMode === 'edit') setPhotons([])
+  }, [playMode])
+  useEffect(() => {
+    if (lightClock === 0 || !showPhotons) {
+      flightsRef.current = []
+      emittedRef.current = lightClock * PHOTON_RATE
       return
     }
-    const timer = setInterval(() => {
-      setPhotons((prev) => {
-        if (prev.length >= 1400) return prev
-        const next = [...prev]
-        for (let i = 0; i < 6; i++) {
-          const s = Math.floor(Math.random() * patterns.length)
-          next.push({ s, t: samplePhoton(patterns[s]), j: (Math.random() - 0.5) * 8 })
-        }
-        return next
-      })
-    }, 60)
-    return () => clearInterval(timer)
-  }, [isLightSource, playMode, patterns])
+    if (playMode !== 'running' || !pageObjects) return
+    const list = Object.values(pageObjects).filter((o) => o.id === object.id || !o.behaviors.some((b) => b.type === 'lightSource'))
+    const due = Math.floor(lightClock * PHOTON_RATE - emittedRef.current)
+    emittedRef.current += due
+    const alive: typeof flightsRef.current = []
+    const landed: { s: number; t: number; j: number }[] = []
+    for (const fl of flightsRef.current) {
+      const age = lightClock - fl.born
+      if (age < fl.tAt[fl.tAt.length - 1] && age < PHOTON_LIFETIME) alive.push(fl)
+      else if (fl.f.landed) landed.push({ ...fl.f.landed, j: (Math.random() - 0.5) * 8 })
+    }
+    for (let i = 0; i < Math.min(due, 12); i++) {
+      const f = tracePhoton(list, patterns)
+      if (f) alive.push({ f, born: lightClock - (i / PHOTON_RATE), tAt: flightTimes(f) })
+    }
+    flightsRef.current = alive
+    if (landed.length) setPhotons((prev) => (prev.length >= 1400 ? prev : [...prev, ...landed]))
+  }, [lightClock, showPhotons, playMode, pageObjects, patterns, object.id])
 
   // Wave source is the one new-domain object that animates continuously
   // (a traveling-wave snapshot) — it reads the runtime clock and freezes
   // outside Play, same rule the physics tracers already follow. The
   // conditional inside the selector (not around the hook) keeps every
   // OTHER object's render from being retriggered by the clock ticking.
-  const isWaveSource = render === 'wave-source'
-  const waveTime = useRuntimeStore((s) => (isWaveSource ? s.time : 0))
+  const waveTime = useAnimClock(
+    render === 'wave-source' ||
+      render === 'wave-boundary' ||
+      render === 'transmission-line' ||
+      render === 'quantum-well' ||
+      render === 'tunnel-barrier'
+  )
 
   const strokePath = useMemo(
     () => (kind === 'stroke' && points ? pointsToPath(points) : ''),
@@ -705,6 +850,61 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     }) : ''),
     [bareInk, points, inkSize, object.metadata.sensitivity, object.metadata.dotSize, object.metadata.smoothing, object.metadata.streamline]
   )
+
+  const flyingPaths = (() => {
+    if (!showPhotons || lightClock === 0) return []
+    const byColor = new Map<string, string[]>()
+    for (const fl of flightsRef.current) {
+      const age = lightClock - fl.born
+      const { tAt, f } = fl
+      let i = 0
+      while (i < tAt.length - 2 && tAt[i + 1] < age) i++
+      const a = f.points[i]
+      const b = f.points[i + 1]
+      if (!b) continue
+      const u = Math.max(0, Math.min(1, (age - tAt[i]) / (tAt[i + 1] - tAt[i] || 1)))
+      const x = a.x + (b.x - a.x) * u - object.position.x
+      const y = a.y + (b.y - a.y) * u - object.position.y
+      const c = isWhite && i < (f.shared ?? f.points.length) - 1 ? WARM_WHITE : wavelengthColor(f.wavelengthNm)
+      const list = byColor.get(c) ?? []
+      list.push(`M${x.toFixed(1)} ${y.toFixed(1)}h0`)
+      byColor.set(c, list)
+    }
+    return [...byColor].map(([color, parts]) => ({ color, d: parts.join('') }))
+  })()
+
+  /** Moving wavefront crests along segments [from, to) of a ray: spacing
+   *  λ/n and phase speed c/n, so they bunch up inside glass. */
+  const crests = (r: RayPath, from: number, to: number, nm: number, color: string, op: number, key: string) => {
+    const lines = []
+    let opl = 0
+    for (let i = 0; i < r.points.length - 1 && i < to; i++) {
+      const a = r.points[i]
+      const b = r.points[i + 1]
+      const len = Math.hypot(b.x - a.x, b.y - a.y)
+      const n = r.n[i] ?? 1
+      if (i >= from) {
+        const P = crestSpacing(nm) / n
+        const D = ((((opl - LIGHT_SPEED * lightClock) / n) % P) + P) % P
+        lines.push(
+          <line
+            key={`${key}-${i}`}
+            x1={a.x - object.position.x}
+            y1={a.y - object.position.y}
+            x2={b.x - object.position.x}
+            y2={b.y - object.position.y}
+            stroke={color}
+            strokeWidth={8}
+            strokeDasharray={`2 ${Math.max(0.5, P - 2)}`}
+            strokeDashoffset={D}
+            opacity={0.7 * op}
+          />
+        )
+      }
+      opl += len * n
+    }
+    return lines
+  }
 
   if (kind === 'symbol') return <SymbolGlyph obj={object} />
 
@@ -834,25 +1034,88 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
       sigma: opticParam(object, 'waveSource', 'sigma', 0),
     }
     const { alpha, beta } = propagationConstant(f, medium)
+    const eta = intrinsicImpedance(f, medium)
+    const etaAbs = cAbs(eta) || 1
+    const etaArg = cArg(eta)
     const wt = 2 * Math.PI * f * waveTime
-    const len = 260
-    const samples = 70
-    const path = Array.from({ length: samples }, (_, i) => {
+    const lambda = (2 * Math.PI) / (beta || 1e-9)
+    const len = Math.max(260, Math.min(520, lambda * 2))
+    const samples = Math.max(70, Math.min(240, Math.round((len / lambda) * 36)))
+    // The textbook 3-D picture: E oscillates in the page plane, H in the
+    // plane perpendicular to it — drawn along an oblique depth axis (DX, DY)
+    // coming out of the page — and both travel along k. Stems from the axis
+    // to each curve make the two planes read as solid sheets. In a lossy
+    // medium H lags E by ∠η and both decay as e^{−αx}; |H| = |E|/|η|.
+    const DX = 0.55
+    const DY = 0.32
+    const hA = E0 * Math.min(1.5, 1 / etaAbs)
+    let dE = ''
+    let dH = ''
+    let stemsE = ''
+    let stemsH = ''
+    const stemEvery = Math.max(1, Math.round(samples / Math.max(1, len / lambda) / 10))
+    for (let i = 0; i < samples; i++) {
       const x = (i / (samples - 1)) * len
-      const y = waveInstant(E0, beta, alpha, x, wt)
-      return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-    }).join(' ')
+      const e = waveInstant(E0, beta, alpha, x, wt)
+      const hv = hA * Math.exp(-alpha * x) * Math.cos(beta * x - wt - etaArg)
+      const cmd = i === 0 ? 'M' : 'L'
+      dE += `${cmd}${x.toFixed(1)} ${(-e).toFixed(1)}`
+      dH += `${cmd}${(x + hv * DX).toFixed(1)} ${(hv * DY).toFixed(1)}`
+      if (i % stemEvery === 0) {
+        stemsE += `M${x.toFixed(1)} 0V${(-e).toFixed(1)}`
+        stemsH += `M${x.toFixed(1)} 0L${(x + hv * DX).toFixed(1)} ${(hv * DY).toFixed(1)}`
+      }
+    }
+    const skin = alpha > 1e-6 ? 1 / alpha : Infinity
+    const v = C_PX / Math.sqrt(medium.epsr * medium.mur)
     const cx0 = w / 2
     const cy0 = h / 2
+    const gid = `ws-${object.id}`
+    const label = (x: number, y: number, t: string, color: string, anchor: 'start' | 'middle' = 'start') => (
+      <text x={x} y={y} fontSize="10" fontWeight={600} textAnchor={anchor} fill={color} stroke="none" fontFamily="var(--font-jakarta)">{t}</text>
+    )
     return (
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
+        <defs>
+          <radialGradient id={gid} cx="35%" cy="30%" r="75%">
+            <stop offset="0%" stopColor="white" stopOpacity={0.9} />
+            <stop offset="35%" stopColor="var(--accent-violet)" />
+            <stop offset="100%" stopColor="color-mix(in oklch, var(--accent-violet) 55%, black)" />
+          </radialGradient>
+        </defs>
         <g transform={`translate(${cx0} ${cy0})`}>
-          <line x1={0} y1={0} x2={len} y2={0} stroke="var(--accent-violet)" strokeWidth={1} opacity={0.2} strokeDasharray="2 4" />
-          <path d={path} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} opacity={0.9} />
+          {/* H plane (horizontal sheet, seen obliquely) and E plane (page) */}
+          <polygon
+            points={`${-hA * DX},${-hA * DY} ${len - hA * DX},${-hA * DY} ${len + hA * DX},${hA * DY} ${hA * DX},${hA * DY}`}
+            fill="color-mix(in oklch, var(--accent-mint) 9%, transparent)"
+            stroke="var(--accent-mint)"
+            strokeOpacity={0.25}
+          />
+          <rect x={0} y={-E0} width={len} height={2 * E0} fill="color-mix(in oklch, var(--accent-violet) 6%, transparent)" stroke="var(--accent-violet)" strokeOpacity={0.2} />
+          <path d={stemsH} stroke="var(--accent-mint)" strokeWidth={1} opacity={0.45} />
+          <path d={dH} fill="none" stroke="var(--accent-mint)" strokeWidth={2} />
+          <line x1={0} y1={0} x2={len + 22} y2={0} stroke="var(--foreground)" strokeWidth={1.25} opacity={0.7} />
+          <path d={`M${len + 22} 0l-8 -4v8z`} fill="var(--foreground)" opacity={0.7} />
+          <path d={stemsE} stroke="var(--accent-violet)" strokeWidth={1} opacity={0.45} />
+          <path d={dE} fill="none" stroke="var(--accent-violet)" strokeWidth={2.2} />
+          {Number.isFinite(skin) && skin < len && (
+            <g>
+              <line x1={skin} y1={-E0 - 6} x2={skin} y2={E0 + 6} stroke="var(--accent-rose)" strokeDasharray="3 3" strokeWidth={1} />
+              {label(skin, -E0 - 9, 'δ skin depth', 'var(--accent-rose)', 'middle')}
+            </g>
+          )}
+          {label(4, -E0 - 6, 'E (electric field)', 'var(--accent-violet)')}
+          {label(hA * DX + 6, hA * DY + 12, 'H (magnetic field)', 'var(--accent-mint)')}
+          {label(len + 26, 4, 'k (travel)', 'var(--foreground)')}
         </g>
-        <ellipse cx={cx0} cy={cy0} rx={w / 2 - 1.5} ry={h / 2 - 1.5} fill="var(--accent-violet)" stroke="var(--foreground)" strokeWidth={2} />
-        <text x={cx0} y={h + 13} textAnchor="middle" fontSize="9.5" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-          {`α=${alpha.toFixed(3)} β=${beta.toFixed(3)}`}
+        <circle cx={cx0} cy={cy0} r={Math.min(w, h) / 2 - 1} fill={`url(#${gid})`} stroke="var(--foreground)" strokeWidth={1.25} />
+        <text x={cx0} y={cy0 + E0 + hA * DY + 26} fontSize="9.5" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          <tspan x={cx0}>{`λ = ${lambda.toFixed(0)} px   v = c/√(εr·μr) = ${v.toFixed(0)} px/s   |η| = ${etaAbs.toFixed(2)}∠${((etaArg * 180) / Math.PI).toFixed(0)}°`}</tspan>
+          <tspan x={cx0} dy="12">
+            {Number.isFinite(skin)
+              ? `Lossy medium (σ > 0): the wave fades as e^(−αx); H lags E by ${((etaArg * 180) / Math.PI).toFixed(0)}°`
+              : 'Lossless medium: E ⟂ H ⟂ k, in phase, constant amplitude'}
+          </tspan>
         </text>
       </svg>
     )
@@ -864,66 +1127,103 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // efield/bfield — see lib/quantum/engine.ts).
   if (render === 'quantum-well') {
     const n = Math.max(1, Math.round(opticParam(object, 'quantumWell', 'n', 1)))
+    const m = Math.max(0, Math.round(opticParam(object, 'quantumWell', 'n2', 0)))
     const L = Math.max(0.01, opticParam(object, 'quantumWell', 'L', 1))
+    const mixed = m > 0 && m !== n
+    const E1 = energyLevel(1, L)
+    // Time in units of ħ/E₁ so the ground state turns once per 2π s and a
+    // 1+2 mixture sloshes every 2π/3 s — ratios exact, scale watchable.
+    const tq = waveTime / E1
     const En = energyLevel(n, L)
-    const padX = 16
-    const padTop = 26
-    const plotW = Math.max(10, w - padX * 2 - 46)
-    const plotH = Math.max(10, h - padTop - 14)
-    const baseY = padTop + plotH
-    const samples = 60
-    const psiMax = Math.sqrt(2 / L) || 1
-    const psiScale = (plotH / 2 - 2) / psiMax
-    const probScale = (plotH - 4) / (psiMax * psiMax)
+    // Layout: infinite walls left/right; inside, the energy levels with ψ
+    // drawn ON its level (the textbook picture); below, a detector strip
+    // with |ψ|² and — in Play — individual particle detections landing
+    // at Born-rule positions, the same wave/particle story as the optics.
+    const wallW = 12
+    const padTop = 34
+    const stripH = 38
+    const x0 = wallW + 6
+    const plotW = Math.max(10, w - 2 * x0 - 22)
+    const wellBottom = h - stripH - 18
+    const wellH = Math.max(20, wellBottom - padTop)
+    const samples = 90
+    const top = Math.min(8, Math.max(3, Math.max(n, m) + 1))
+    const Emax = energyLevel(top, L)
+    const yOf = (E: number) => wellBottom - (E / Emax) * (wellH - 6)
     const pts = Array.from({ length: samples }, (_, i) => {
       const x = (i / (samples - 1)) * L
-      const px = padX + (i / (samples - 1)) * plotW
-      return { px, v: psi(n, L, x) }
+      const re = superpositionRe(n, mixed ? m : n, L, x, tq) / (mixed ? 1 : Math.SQRT2)
+      const p = mixed ? superpositionDensity(n, m, L, x, tq) : superpositionDensity(n, n, L, x, 0) / 2
+      return { px: x0 + (i / (samples - 1)) * plotW, re, p }
     })
-    const psiPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.px} ${baseY - plotH / 2 - p.v * psiScale}`).join(' ')
+    const psiMax = Math.sqrt(2 / L) * (mixed ? Math.SQRT2 : 1)
+    const levelY = mixed ? (yOf(En) + yOf(energyLevel(m, L))) / 2 : yOf(En)
+    const gap = Math.max(8, yOf(energyLevel(Math.max(n, m || n), L)) - yOf(energyLevel(Math.max(n, m || n) + 1, L)))
+    const psiAmp = Math.min(28, gap * 0.45 + 6)
+    const psiPath = pts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.px.toFixed(1)} ${(levelY - (p.re / psiMax) * psiAmp).toFixed(1)}`).join('')
+    const stripBase = h - 14
+    const pMax = Math.max(1e-9, ...pts.map((p) => p.p))
     const probPath =
-      `M ${padX} ${baseY} ` +
-      pts.map((p) => `L ${p.px} ${baseY - p.v * p.v * probScale}`).join(' ') +
-      ` L ${padX + plotW} ${baseY} Z`
-    const ladderLevels = Math.min(5, Math.max(3, n + 2))
-    const ladderMaxE = energyLevel(ladderLevels, L) || 1
-    const ladderX = padX + plotW + 14
-    const ladderW = 26
+      `M${x0} ${stripBase}` + pts.map((p) => `L${p.px.toFixed(1)} ${(stripBase - (p.p / pMax) * (stripH - 8)).toFixed(1)}`).join('') + `L${x0 + plotW} ${stripBase}Z`
+    // Particle detections: RATE per second, the last K visible, fading.
+    const RATE = 12
+    const K = 50
+    const births = Math.floor(waveTime * RATE)
+    const dots: { x: number; y: number; o: number }[] = []
+    if (waveTime > 0) {
+      const dens = pts.map((p) => p.p)
+      for (let k = 0; k < Math.min(K, births); k++) {
+        const j = births - k
+        dots.push({ x: x0 + sampleDensity(dens, hash01(j)) * plotW, y: stripBase - 4 - hash01(j + 0.5) * (stripH - 14), o: 1 - k / K })
+      }
+    }
     return (
-      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="overflow-visible" aria-label={object.name}>
-        <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={8} fill="transparent" stroke="var(--foreground)" strokeWidth={2} />
-        <line x1={padX} y1={baseY} x2={padX + plotW} y2={baseY} stroke="var(--muted-foreground)" strokeWidth={1} opacity={0.4} />
-        <path d={probPath} fill="color-mix(in oklch, var(--accent-mint) 30%, transparent)" stroke="var(--accent-mint)" strokeWidth={1} />
-        <path d={psiPath} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} />
-        {Array.from({ length: ladderLevels }, (_, i) => {
+      <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} className="overflow-visible" aria-label={object.name}>
+        <rect x={1} y={1} width={w - 2} height={h - 2} rx={8} fill="var(--card)" stroke="var(--border)" />
+        {/* the box: two infinitely high walls */}
+        {[x0 - wallW - 2, x0 + plotW + 2].map((wx, i) => (
+          <g key={i}>
+            <rect x={wx} y={padTop - 8} width={wallW} height={wellBottom - padTop + 8} fill="color-mix(in oklch, var(--foreground) 22%, transparent)" />
+            {Array.from({ length: Math.floor((wellBottom - padTop) / 8) }, (_, k) => (
+              <line key={k} x1={wx} y1={padTop + k * 8} x2={wx + wallW} y2={padTop + k * 8 - 6} stroke="var(--foreground)" strokeOpacity={0.35} />
+            ))}
+          </g>
+        ))}
+        <line x1={x0 - 2} y1={wellBottom} x2={x0 + plotW + 2} y2={wellBottom} stroke="var(--foreground)" strokeWidth={1.5} />
+        <text x={x0 - wallW / 2 - 2} y={padTop - 11} textAnchor="middle" fontSize="8.5" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">V=∞</text>
+        <text x={x0 + plotW + wallW / 2 + 2} y={padTop - 11} textAnchor="middle" fontSize="8.5" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">V=∞</text>
+        {Array.from({ length: top }, (_, i) => {
           const level = i + 1
-          const e = energyLevel(level, L)
-          const y = baseY - (e / ladderMaxE) * plotH
-          const active = level === n
+          const y = yOf(energyLevel(level, L))
+          const active = level === n || (mixed && level === m)
           return (
             <g key={level}>
-              <line
-                x1={ladderX}
-                y1={y}
-                x2={ladderX + ladderW}
-                y2={y}
-                stroke={active ? 'var(--accent-violet)' : 'var(--muted-foreground)'}
-                strokeWidth={active ? 2.5 : 1.5}
-                opacity={active ? 1 : 0.5}
-              />
-              <text x={ladderX + ladderW + 3} y={y + 3} fontSize="8" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-                {level}
-              </text>
+              <line x1={x0} y1={y} x2={x0 + plotW} y2={y} stroke={active ? 'var(--accent-amber)' : 'var(--muted-foreground)'} strokeWidth={active ? 1.5 : 1} strokeDasharray={active ? undefined : '3 4'} opacity={active ? 0.9 : 0.45} />
+              <text x={x0 + plotW + wallW + 6} y={y + 3} fontSize="8.5" fill={active ? 'var(--accent-amber)' : 'var(--muted-foreground)'} fontFamily="var(--font-jakarta)">{`E${level}`}</text>
             </g>
           )
         })}
-        <text x={padX} y={14} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-          {`n=${n}  L=${L}  Eₙ=${En.toFixed(2)}`}
+        <path d={psiPath} fill="none" stroke="var(--accent-violet)" strokeWidth={2} />
+        {/* detector strip: where the particle is FOUND */}
+        <line x1={x0} y1={stripBase} x2={x0 + plotW} y2={stripBase} stroke="var(--muted-foreground)" opacity={0.5} />
+        <path d={probPath} fill="color-mix(in oklch, var(--accent-mint) 28%, transparent)" stroke="var(--accent-mint)" strokeWidth={1} />
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.x} cy={d.y} r={2.4} fill="var(--accent-rose)" opacity={d.o} />
+        ))}
+        <text x={x0} y={12} fontSize="10" fontWeight={600} fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+          {mixed ? `Particle in a box — (ψ${n}+ψ${m})/√2 sloshes, period ${((2 * Math.PI) / Math.abs(energyLevel(m, L) - En)).toFixed(2)}` : `Particle in a box — n = ${n}, E${n} = ${En.toFixed(2)}, ${n - 1} node${n === 2 ? '' : 's'}`}
+        </text>
+        <text x={x0} y={h - 3} fontSize="8.5" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {waveTime > 0 ? '|ψ|² — each dot is one detection of the particle' : '|ψ|² — where the particle is found (Play: detections)'}
         </text>
       </svg>
     )
   }
 
+  // Tunnel barrier: the EXACT stationary scattering state (lib/quantum/
+  // engine.ts solveBarrier) — incident+reflected interference on the left,
+  // evanescent decay (or oscillation above the top) inside, the transmitted
+  // wave on the right. Re Ψ turns at ω = E during Play; |ψ|² is stationary.
   // Tunnel barrier: rectangular barrier V0/L for a particle of energy E —
   // incident/reflected/transmitted amplitude schematic, T/R read directly
   // off the closed-form transmission coefficient (lib/quantum/engine.ts).
@@ -933,55 +1233,95 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const L = Math.max(0.01, opticParam(object, 'tunnelBarrier', 'L', 1))
     const T = quantumTransmission(E, V0, L)
     const R = 1 - T
+    const sol = solveBarrier(E, V0, L)
+    const lambda = (2 * Math.PI) / sol.k
+    const side = Math.max(2 * L, 1.5 * lambda)
+    const x0 = -side
+    const x1 = L + side
     const padX = 16
     const padTop = 26
     const plotW = w - padX * 2
-    const plotH = h - padTop - 30
+    const plotH = h - padTop - 44
     const baseY = padTop + plotH
-    const barrierX0 = padX + plotW * 0.4
-    const barrierX1 = padX + plotW * 0.6
-    const eY = baseY - (Math.min(E, V0 * 1.4) / (V0 * 1.4 || 1)) * plotH
-    const v0Y = baseY - plotH
-    const waveSeg = (x0: number, x1: number, amp: number, cycles: number, phase = 0) => {
-      const n = 40
-      let d = ''
-      for (let i = 0; i <= n; i++) {
-        const t = i / n
-        const x = x0 + (x1 - x0) * t
-        const y = eY - amp * Math.sin(cycles * Math.PI * 2 * t + phase)
-        d += `${i === 0 ? 'M' : 'L'} ${x} ${y} `
-      }
-      return d
+    const X = (x: number) => padX + ((x - x0) / (x1 - x0)) * plotW
+    const barrierX0 = X(0)
+    const barrierX1 = X(L)
+    const eTop = Math.max(E, V0) * 1.25 || 1
+    const eY = baseY - (E / eTop) * plotH
+    const v0Y = baseY - (V0 / eTop) * plotH
+    const N = 220
+    const phase = E * waveTime
+    const cph = Math.cos(phase)
+    const sph = Math.sin(phase)
+    const vals = Array.from({ length: N + 1 }, (_, i) => {
+      const x = x0 + ((x1 - x0) * i) / N
+      const p = sol.psi(x)
+      // Re[ψ e^{−iEt}] = Re ψ cos Et + Im ψ sin Et
+      return { x, re: p.re * cph + p.im * sph, d: p.re * p.re + p.im * p.im }
+    })
+    const dMax = Math.max(1e-9, ...vals.map((v) => v.d))
+    const amp = Math.min(eY - padTop, 40) * 0.9
+    const reScale = amp / Math.sqrt(dMax)
+    const dScale = amp / dMax
+    const rePath = vals.map((v, i) => `${i === 0 ? 'M' : 'L'} ${X(v.x).toFixed(1)} ${(eY - v.re * reScale).toFixed(1)}`).join(' ')
+    const dPath =
+      `M ${X(x0)} ${eY} ` + vals.map((v) => `L ${X(v.x).toFixed(1)} ${(eY - v.d * dScale).toFixed(1)}`).join(' ') + ` L ${X(x1)} ${eY} Z`
+    // Particle picture, in Play: particles fly in from the left one at a
+    // time; each either tunnels through (probability T) or bounces back —
+    // a pure function of the clock (hash01), so no per-frame state.
+    const laneY = h - 20
+    const RATE = 3
+    const SPEED = plotW / 2.2 // px/s
+    const births = waveTime > 0 ? Math.floor(waveTime * RATE) : 0
+    const flying: { x: number; through: boolean }[] = []
+    let through = 0
+    for (let j = 1; j <= births; j++) {
+      const pass = hash01(j) < T
+      if (pass) through++
+      const age = waveTime - j / RATE
+      const dist = age * SPEED
+      const toBarrier = barrierX0 - padX
+      let x: number
+      if (pass || dist < toBarrier) x = padX + dist
+      else x = barrierX0 - (dist - toBarrier)
+      if (x >= padX && x <= padX + plotW) flying.push({ x, through: pass })
     }
-    const ampIncident = 16
+    const regionLabel = (x: number, t: string, y = padTop - 4) => (
+      <text x={x} y={y} textAnchor="middle" fontSize="8.5" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">{t}</text>
+    )
     return (
       <svg width="100%" height="100%" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="overflow-visible" aria-label={object.name}>
-        <rect x={1.5} y={1.5} width={w - 3} height={h - 3} rx={8} fill="transparent" stroke="var(--foreground)" strokeWidth={2} />
+        <rect x={1} y={1} width={w - 2} height={h - 2} rx={8} fill="var(--card)" stroke="var(--border)" />
         <line x1={padX} y1={baseY} x2={padX + plotW} y2={baseY} stroke="var(--muted-foreground)" strokeWidth={1} opacity={0.4} />
         <rect
           x={barrierX0}
           y={v0Y}
-          width={barrierX1 - barrierX0}
+          width={Math.max(1, barrierX1 - barrierX0)}
           height={baseY - v0Y}
           fill="color-mix(in oklch, var(--accent-rose) 22%, transparent)"
           stroke="var(--accent-rose)"
           strokeWidth={1.5}
         />
-        <line x1={padX} y1={eY} x2={padX + plotW} y2={eY} stroke="var(--accent-amber)" strokeWidth={1.5} strokeDasharray="4 3" />
-        <path d={waveSeg(padX, barrierX0, ampIncident, 3)} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} />
-        <path
-          d={waveSeg(padX, barrierX0, ampIncident * Math.sqrt(R), 3, Math.PI)}
-          fill="none"
-          stroke="var(--accent-blue)"
-          strokeWidth={1.25}
-          opacity={0.6}
-        />
-        <path d={waveSeg(barrierX1, padX + plotW, ampIncident * Math.sqrt(T), 3)} fill="none" stroke="var(--accent-mint)" strokeWidth={1.75} />
-        <text x={padX} y={14} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-          {`E=${E}  V0=${V0}  L=${L}`}
+        <text x={(barrierX0 + barrierX1) / 2} y={v0Y - 3} textAnchor="middle" fontSize="8.5" fill="var(--accent-rose)" stroke="var(--card)" strokeWidth={3} paintOrder="stroke" fontFamily="var(--font-jakarta)">{`wall V₀=${V0}`}</text>
+        <line x1={padX} y1={eY} x2={padX + plotW} y2={eY} stroke="var(--accent-amber)" strokeWidth={1} strokeDasharray="4 3" />
+        <text x={padX + plotW - 2} y={eY - 3} textAnchor="end" fontSize="8.5" fill="var(--accent-amber)" stroke="var(--card)" strokeWidth={3} paintOrder="stroke" fontFamily="var(--font-jakarta)">{`particle energy E=${E}`}</text>
+        <path d={dPath} fill="color-mix(in oklch, var(--accent-mint) 25%, transparent)" stroke="var(--accent-mint)" strokeWidth={1} />
+        <path d={rePath} fill="none" stroke="var(--accent-violet)" strokeWidth={1.6} />
+        {regionLabel((padX + barrierX0) / 2, 'incoming + reflected wave')}
+        {regionLabel((barrierX0 + barrierX1) / 2, E < V0 ? 'ψ decays inside' : 'passes over', baseY + 10)}
+        {regionLabel((barrierX1 + padX + plotW) / 2, 'transmitted wave')}
+        <text x={padX} y={12} fontSize="10" fontWeight={600} fill="var(--foreground)" fontFamily="var(--font-jakarta)">
+          {E < V0 ? 'Quantum tunnelling — E < V₀, yet some particles get through' : 'Barrier scattering — E > V₀, yet some particles bounce back'}
         </text>
-        <text x={padX} y={h - 6} fontSize="10" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-          {`T=${T.toFixed(3)}  R=${R.toFixed(3)}`}
+        {/* particle lane */}
+        <line x1={padX} y1={laneY} x2={padX + plotW} y2={laneY} stroke="var(--muted-foreground)" opacity={0.25} />
+        <rect x={barrierX0} y={laneY - 7} width={Math.max(1, barrierX1 - barrierX0)} height={14} fill="color-mix(in oklch, var(--accent-rose) 22%, transparent)" />
+        {flying.map((p, i) => (
+          <circle key={i} cx={p.x} cy={laneY} r={3} fill={p.through ? 'var(--accent-mint)' : 'var(--accent-violet)'} />
+        ))}
+        <text x={padX} y={h - 5} fontSize="9" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
+          {`T = ${(T * 100).toFixed(T < 0.01 ? 3 : 1)}% get through · R = ${(R * 100).toFixed(1)}% bounce back` +
+            (births > 0 ? `   —   observed ${through}/${births}` : '   (Play: fire particles)')}
         </text>
       </svg>
     )
@@ -1034,7 +1374,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')
         : connectorPath(render, a[0], a[1], b[0], b[1])
     const OPTICS_STYLE: Record<string, { color: string; width: number }> = {
-      lens: { color: 'var(--accent-violet)', width: 3 },
+      lens: { color: 'var(--accent-violet)', width: 1 },
       mirror: { color: 'var(--accent-blue)', width: 4 },
       'optical-screen': { color: 'var(--muted-foreground)', width: 5 },
       slit: { color: 'var(--accent-amber)', width: 3 },
@@ -1067,7 +1407,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           // A dashed connector is how a diagram draws an implied or optional
           // relation (`a --> b` in lib/scene/diagram.ts) — the one line style
           // the connector had no way to express.
-          strokeDasharray={render === 'measurement' ? '5 4' : object.metadata.dash ? '7 5' : undefined}
+          strokeDasharray={render === 'measurement' ? '5 4' : render === 'lens' ? '3 4' : object.metadata.dash ? '7 5' : undefined}
           strokeLinecap="round"
           strokeLinejoin="round"
           markerStart={isElbowConnector && object.metadata.startCap === 'arrow' ? `url(#arrow-start-${object.id})` : undefined}
@@ -1129,12 +1469,74 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
               </g>
             )
           })()}
-        {render === 'lens' && (
-          <g stroke={optics!.color} strokeWidth={2} fill="none">
-            <path d={`M${a[0] - 8} ${a[1] + 10} L${a[0]} ${a[1]} L${a[0] - 8} ${a[1] - 10}`} />
-            <path d={`M${b[0] - 8} ${b[1] + 10} L${b[0]} ${b[1]} L${b[0] - 8} ${b[1] - 10}`} />
-          </g>
-        )}
+        {render === 'lens' &&
+          (() => {
+            // A real glass lens, not a symbol: a symmetric biconvex (f > 0) or
+            // biconcave (f < 0) body whose sag comes from the lensmaker's
+            // equation with n = 1.5 (R = f, sag = h²/2R) — a stronger lens is
+            // visibly fatter. The thin-lens plane stays as the dashed centre line.
+            const f = opticParam(object, 'thinLens', 'f', 150)
+            const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+            const nx = -(b[1] - a[1]) / len
+            const ny = (b[0] - a[0]) / len
+            const h = len / 2
+            const sag = Math.max(3, Math.min(h * 0.6, (h * h) / (2 * Math.abs(f || 1e6))))
+            const mx = (a[0] + b[0]) / 2
+            const my = (a[1] + b[1]) / 2
+            const at = (p: number[] | { x: number; y: number }, off: number) => {
+              const [px, py] = Array.isArray(p) ? p : [p.x, p.y]
+              return `${(px + nx * off).toFixed(1)} ${(py + ny * off).toFixed(1)}`
+            }
+            const m = { x: mx, y: my }
+            // Quadratic curve peak = control/2, so control = 2 × wanted bulge.
+            const d =
+              f >= 0
+                ? `M${at(a, 0)} Q${at(m, 2 * sag)} ${at(b, 0)} Q${at(m, -2 * sag)} ${at(a, 0)} Z`
+                : (() => {
+                    const e = sag + 3 // edge half-thickness; centre stays 3
+                    return `M${at(a, e)} Q${at(m, 6 - e)} ${at(b, e)} L${at(b, -e)} Q${at(m, e - 6)} ${at(a, -e)} Z`
+                  })()
+            return (
+              <g>
+                <path
+                  d={d}
+                  fill="color-mix(in oklch, var(--accent-blue) 22%, transparent)"
+                  stroke="color-mix(in oklch, var(--accent-blue) 75%, var(--foreground))"
+                  strokeWidth={1.5}
+                  strokeLinejoin="round"
+                />
+                {/* glint: a highlight along one face sells it as glass */}
+                <path
+                  d={`M${at({ x: a[0] + (b[0] - a[0]) * 0.25, y: a[1] + (b[1] - a[1]) * 0.25 }, f >= 0 ? sag * 0.9 : 3.5)} L${at({ x: a[0] + (b[0] - a[0]) * 0.4, y: a[1] + (b[1] - a[1]) * 0.4 }, f >= 0 ? sag * 1.35 : 3)}`}
+                  stroke="white"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  opacity={0.55}
+                />
+                {Math.abs(f) < 2000 &&
+                  [-1, 1].map((sgn) => (
+                    <g key={sgn} fill="var(--accent-violet)" fontSize={10} fontWeight={600}>
+                      <circle cx={mx + nx * f * sgn} cy={my + ny * f * sgn} r={2.5} opacity={0.7} />
+                      <text x={mx + nx * f * sgn} y={my + ny * f * sgn - 6} textAnchor="middle" opacity={0.7}>F</text>
+                    </g>
+                  ))}
+              </g>
+            )
+          })()}
+        {render === 'mirror' &&
+          opticParam(object, 'opticalMirror', 'f', 0) !== 0 &&
+          (() => {
+            // Curved mirror: draw the real sag s = h²/(4f) (R = 2f) so a
+            // concave mirror visibly cups toward +normal, a convex one bulges.
+            const f = opticParam(object, 'opticalMirror', 'f', 0)
+            const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+            const nx = -(b[1] - a[1]) / len
+            const ny = (b[0] - a[0]) / len
+            const sag = Math.max(-len / 3, Math.min(len / 3, ((len / 2) ** 2) / (4 * f)))
+            const mx = (a[0] + b[0]) / 2 - nx * sag * 2
+            const my = (a[1] + b[1]) / 2 - ny * sag * 2
+            return <path d={`M${a[0]} ${a[1]} Q${mx} ${my} ${b[0]} ${b[1]}`} fill="none" stroke={optics!.color} strokeWidth={3} />
+          })()}
         {render === 'mirror' && (
           <g stroke={optics!.color} strokeWidth={1.5} opacity={0.6}>
             {(() => {
@@ -1151,14 +1553,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         {render === 'slit' && (
           <g stroke="var(--card)" strokeWidth={optics!.width + 2}>
             {(() => {
-              const gap = opticParam(object, 'slit', 'gap', 20)
-              const count = Math.max(1, Math.min(2, Math.round(opticParam(object, 'slit', 'count', 1))))
+              const gap = opticParam(object, 'slit', 'gap', 10)
+              const count = Math.max(1, Math.min(20, Math.round(opticParam(object, 'slit', 'count', 1))))
               const spacing = opticParam(object, 'slit', 'spacing', 60)
               const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
               const len = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
               const ux = (b[0] - a[0]) / len
               const uy = (b[1] - a[1]) / len
-              const centers = count === 2 ? [-spacing / 2, spacing / 2] : [0]
+              const centers = slitCenters(count, spacing)
               return centers.map((c, i) => (
                 <line
                   key={i}
@@ -1194,40 +1596,68 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             const pc2 = propagationConstant(f, m2)
             const mid = { x: (a[0] + b[0]) / 2, y: (a[1] + b[1]) / 2 }
             const segLen = Math.hypot(b[0] - a[0], b[1] - a[1]) || 1
+            // The interface is the drawn line; the wave travels NORMAL to it
+            // (normal incidence), displacing along the line direction.
             const ux = (b[0] - a[0]) / segLen
             const uy = (b[1] - a[1]) / segLen
-            const nx = -uy
-            const ny = ux
-            const half = Math.min(50, segLen / 2)
-            const N = 24
-            const env1 = voltageEnvelope(gamma, pc1.beta * half, N)
+            // Normal chosen so a line drawn top→bottom puts medium 1 on the
+            // LEFT and the wave arrives left→right, as in every textbook figure.
+            const nx = uy
+            const ny = -ux
+            const span = Math.min(220, Math.max(80, (1.2 * 2 * Math.PI) / (pc1.beta || 1e-6)))
+            const N = 90
+            const amp = Math.min(18, segLen / 5)
+            const wt = 2 * Math.PI * f * waveTime
             const tauAbs = cAbs(tau)
-            const env2 = Array.from({ length: N }, (_, i) => tauAbs * Math.exp(-pc2.alpha * (i / (N - 1)) * half))
-            const amp = 12
-            const path1 = env1
-              .map((v, i) => {
-                const t = -half * (i / (N - 1))
-                const x = mid.x + ux * t + nx * v * amp
-                const y = mid.y + uy * t + ny * v * amp
-                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-              })
-              .join(' ')
-            const path2 = env2
-              .map((v, i) => {
-                const t = half * (i / (N - 1))
-                const x = mid.x + ux * t + nx * v * amp
-                const y = mid.y + uy * t + ny * v * amp
-                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-              })
-              .join(' ')
-            const gArgDeg = (cArg(gamma) * 180) / Math.PI
+            const pt = (x: number, v: number) =>
+              `${(mid.x + nx * x + ux * v * amp).toFixed(1)} ${(mid.y + ny * x + uy * v * amp).toFixed(1)}`
+            const curve = (fn: (x: number) => number) =>
+              Array.from({ length: N }, (_, i) => {
+                const x = -span + (2 * span * i) / (N - 1)
+                return `${i === 0 ? 'M' : 'L'} ${pt(x, fn(x))}`
+              }).join(' ')
+            // Envelope: |1 + Γe^{j2β₁x}| on the left, |τ|e^{−α₂x} on the right.
+            const env = (x: number) =>
+              x < 0
+                ? Math.sqrt(1 + gAbs * gAbs + 2 * gAbs * Math.cos(2 * pc1.beta * x + cArg(gamma)))
+                : tauAbs * Math.exp(-pc2.alpha * x)
+            // Draw the two media as tinted half-spaces either side of the
+            // interface, the incident and reflected waves faintly on the
+            // left, and their sum (the standing-wave pattern) bold.
+            const R = gAbs * gAbs
+            const at = (x: number, along: number) => ({ x: mid.x + nx * x + ux * along, y: mid.y + ny * x + uy * along })
+            const half = segLen / 2
+            const poly = (x0: number, x1: number) =>
+              [at(x0, -half), at(x1, -half), at(x1, half), at(x0, half)].map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ')
+            const curveOn = (from: number, to: number, fn: (x: number) => number) =>
+              Array.from({ length: N }, (_, i) => {
+                const x = from + ((to - from) * i) / (N - 1)
+                return `${i === 0 ? 'M' : 'L'} ${pt(x, fn(x))}`
+              }).join(' ')
+            const txt = (p: { x: number; y: number }, t: string, color = 'var(--muted-foreground)', size = 9) => (
+              <text x={p.x} y={p.y} textAnchor="middle" fontSize={size} fill={color} stroke="none" fontFamily="var(--font-jakarta)">{t}</text>
+            )
+            const tint2 = Math.min(40, 8 + 4 * Math.log2(m2.epsr * m2.mur) + (m2.sigma > 0 ? 10 : 0))
             return (
               <g>
-                <path d={path1} fill="none" stroke="var(--accent-rose)" strokeWidth={1.5} opacity={0.85} />
-                <path d={path2} fill="none" stroke="var(--accent-mint)" strokeWidth={1.5} opacity={0.85} />
-                <text x={mid.x + 6} y={mid.y - 8} fontSize="9" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-                  {`Γ=${gAbs.toFixed(2)}∠${gArgDeg.toFixed(0)}° SWR=${s.toFixed(2)} τ=${tauAbs.toFixed(2)}`}
-                </text>
+                <polygon points={poly(-span, 0)} fill="color-mix(in oklch, var(--accent-blue) 7%, transparent)" />
+                <polygon points={poly(0, span)} fill={`color-mix(in oklch, var(--accent-amber) ${tint2}%, transparent)`} />
+                <path d={curve(env)} fill="none" stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+                <path d={curve((x) => -env(x))} fill="none" stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" opacity={0.6} />
+                <path d={curveOn(-span, 0, (x) => Math.cos(wt - pc1.beta * x))} fill="none" stroke="var(--accent-blue)" strokeWidth={1} opacity={0.5} />
+                <path d={curveOn(-span, 0, (x) => gAbs * Math.cos(wt + pc1.beta * x + cArg(gamma)))} fill="none" stroke="var(--accent-rose)" strokeWidth={1} opacity={0.6} />
+                <path
+                  d={curve((x) => boundaryField(x, wt, gamma, tau, pc1.beta, pc2.alpha, pc2.beta))}
+                  fill="none"
+                  stroke="var(--accent-violet)"
+                  strokeWidth={2}
+                />
+                {txt(at(-span / 2, -half - 8), `Medium 1  εr=${m1.epsr}${m1.sigma ? ` σ=${m1.sigma}` : ''}`)}
+                {txt(at(span / 2, -half - 8), `Medium 2  εr=${m2.epsr}${m2.sigma ? ` σ=${m2.sigma}` : ''}`)}
+                {txt(at(-span / 2, half + 12), 'incident →', 'var(--accent-blue)')}
+                {txt(at(-span / 2, half + 23), `← reflected (Γ = ${gAbs.toFixed(2)})`, 'var(--accent-rose)')}
+                {txt(at(span / 2, half + 12), `transmitted (τ = ${tauAbs.toFixed(2)}) →`, 'var(--accent-violet)')}
+                {txt(at(0, half + 38), `${(R * 100).toFixed(0)}% of the power reflects, ${(100 - R * 100).toFixed(0)}% goes through · SWR ${s.toFixed(2)}`, 'var(--foreground)', 9.5)}
               </g>
             )
           })()}
@@ -1254,20 +1684,48 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             const half = segLen / 2
             const amp = 10
             // a = source end (t=-half), b = load end (t=+half); env[0]=load.
-            const path = env
-              .map((v, i) => {
-                const t = half - (i / (N - 1)) * segLen
-                const x = mid.x + ux * t + nx * v * amp
-                const y = mid.y + uy * t + ny * v * amp
-                return `${i === 0 ? 'M' : 'L'} ${x} ${y}`
-              })
-              .join(' ')
+            // Picture: generator ~ at the source end, a two-wire line, the
+            // load ZL at the far end; above it the standing wave — dashed
+            // |V| envelope (what a voltmeter slid along the line reads) and
+            // the live voltage bouncing inside it during Play.
+            const wtl = 2 * Math.PI * waveTime
+            const C0 = -40 // centre of the standing-wave plot, along −normal
+            const P = (t: number, off: number) => ({ x: mid.x + ux * t + nx * off, y: mid.y + uy * t + ny * off })
+            const along = (fn: (i: number) => number) =>
+              Array.from({ length: N }, (_, i) => {
+                const q = P(half - (i / (N - 1)) * segLen, C0 - fn(i) * amp)
+                return `${i === 0 ? 'M' : 'L'} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`
+              }).join(' ')
+            const live = along((i) => lineVoltage(gamma, (i / (N - 1)) * betaL, wtl))
+            const envTop = along((i) => env[i])
+            const envBot = along((i) => -env[i])
+            const wire = (off: number) => {
+              const p = P(-half, off)
+              const q = P(half, off)
+              return <line x1={p.x} y1={p.y} x2={q.x} y2={q.y} stroke="var(--accent-mint)" strokeWidth={2.5} />
+            }
+            const gen = P(-half - 14, 0)
+            const load = P(half + 10, 0)
+            const txt = (q: { x: number; y: number }, t: string, color = 'var(--muted-foreground)', size = 9) => (
+              <text x={q.x} y={q.y} textAnchor="middle" fontSize={size} fill={color} stroke="none" fontFamily="var(--font-jakarta)">{t}</text>
+            )
+            const R = gAbs * gAbs
             return (
               <g>
-                <path d={path} fill="none" stroke="var(--accent-mint)" strokeWidth={1.5} opacity={0.85} />
-                <text x={mid.x} y={mid.y - 10} textAnchor="middle" fontSize="9" stroke="none" fill="var(--muted-foreground)" fontFamily="var(--font-jakarta)">
-                  {`Zin=${zin.re.toFixed(0)}${zin.im >= 0 ? '+' : ''}${zin.im.toFixed(0)}j  Γ=${gAbs.toFixed(2)}  SWR=${s.toFixed(2)}`}
-                </text>
+                {wire(-5)}
+                {wire(5)}
+                <circle cx={gen.x} cy={gen.y} r={10} fill="var(--card)" stroke="var(--foreground)" strokeWidth={1.5} />
+                <path d={`M${gen.x - 6} ${gen.y} q3 -6 6 0 t6 0`} fill="none" stroke="var(--foreground)" strokeWidth={1.5} />
+                <rect x={load.x - 7} y={load.y - 12} width={14} height={24} rx={2} fill="var(--card)" stroke="var(--accent-amber)" strokeWidth={1.5} />
+                <path d={`M${load.x} ${load.y - 9} l-4 3 8 3 -8 3 8 3 -4 3`} fill="none" stroke="var(--accent-amber)" strokeWidth={1.2} />
+                {txt(P(-half - 14, 24), 'source')}
+                {txt(P(half + 10, 26), `load ${ZLre}${ZLim ? `${ZLim > 0 ? '+' : '−'}j${Math.abs(ZLim)}` : ''} Ω`, 'var(--accent-amber)')}
+                {txt(P(0, 20), `line Z0 = ${Z0} Ω, length ${lambdaFrac}λ`)}
+                <path d={envTop} fill="none" stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" />
+                <path d={envBot} fill="none" stroke="var(--muted-foreground)" strokeWidth={1} strokeDasharray="3 3" />
+                <path d={live} fill="none" stroke="var(--accent-violet)" strokeWidth={1.75} />
+                {txt(P(0, C0 - 2.2 * amp - 6), 'voltage along the line (dashed: |V| standing wave)')}
+                {txt(P(0, 34), gAbs < 0.02 ? `Matched load — no reflection, Zin = ${Z0} Ω` : `${(R * 100).toFixed(0)}% of power reflects at the load · SWR ${s.toFixed(2)} · source sees Zin = ${zin.re.toFixed(0)}${zin.im >= 0 ? '+' : '−'}j${Math.abs(zin.im).toFixed(0)} Ω`, 'var(--foreground)', 9.5)}
               </g>
             )
           })()}
@@ -1376,82 +1834,145 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             beam direction); counter-rotate so the container's rotate()
             transform doesn't double-apply it. */}
         <g transform={object.rotation ? `rotate(${-object.rotation} ${w / 2} ${h / 2})` : undefined}>
-          {myRays.map((r, i) => (
-            <path
-              key={i}
-              d={`M ${r.points.map((p) => `${p.x - object.position.x} ${p.y - object.position.y}`).join(' L ')}`}
-              fill="none"
-              stroke={wavelengthColor(r.wavelengthNm)}
-              strokeWidth={1.5}
-              opacity={0.85}
-            />
-          ))}
-          {myRays.map(
-            (r, i) =>
-              r.hitScreen && (
-                <circle
-                  key={`hit-${i}`}
-                  cx={r.hitScreen.x - object.position.x}
-                  cy={r.hitScreen.y - object.position.y}
-                  r={3}
-                  fill={wavelengthColor(r.wavelengthNm)}
-                />
-              )
-          )}
-          {/* Interference: fringe band on the screen + |A|² intensity curve. */}
+          {myRays.map((r, i) => {
+            const rel = (pts: { x: number; y: number }[]) =>
+              `M ${pts.map((p) => `${(p.x - object.position.x).toFixed(1)} ${(p.y - object.position.y).toFixed(1)}`).join(' L ')}`
+            const shared = r.shared ?? r.points.length
+            const op = 0.85 * Math.max(0.2, r.intensity)
+            // White light: the undispersed stretch is common to every
+            // wavelength and drawn ONCE, white; only after the first
+            // dispersive surface does each wavelength get its own colour.
+            return (
+              <g key={i}>
+                {isWhite && shared >= 2 && r.wavelengthNm === WHITE_NM[0] && (
+                  <g opacity={showWave ? op * 0.5 : op}>
+                    <path d={rel(r.points.slice(0, shared))} fill="none" stroke={WARM_EDGE} strokeWidth={3} opacity={0.45} />
+                    <path d={rel(r.points.slice(0, shared))} fill="none" stroke={WARM_WHITE} strokeWidth={1.5} />
+                  </g>
+                )}
+                {(!isWhite || shared < r.points.length) && (
+                  <path
+                    d={rel(isWhite ? r.points.slice(Math.max(0, shared - 1)) : r.points)}
+                    fill="none"
+                    stroke={wavelengthColor(r.wavelengthNm)}
+                    strokeWidth={1.5}
+                    opacity={showWave ? op * 0.35 : op}
+                  />
+                )}
+                {showWave &&
+                  (isWhite
+                    ? [
+                        ...(shared >= 2 && r.wavelengthNm === WHITE_NM[0] ? crests(r, 0, shared - 1, 550, WARM_EDGE, op, 'w') : []),
+                        ...crests(r, Math.max(0, shared - 1), r.points.length, r.wavelengthNm, wavelengthColor(r.wavelengthNm), op, 'c'),
+                      ]
+                    : crests(r, 0, r.points.length, r.wavelengthNm, wavelengthColor(r.wavelengthNm), op, 'c'))}
+                {r.hitScreen && (
+                  <circle
+                    cx={r.hitScreen.x - object.position.x}
+                    cy={r.hitScreen.y - object.position.y}
+                    r={2.5}
+                    fill={wavelengthColor(r.wavelengthNm)}
+                    opacity={op}
+                  />
+                )}
+              </g>
+            )
+          })}
+          {/* Diffraction, wave view: every open gap re-radiates circular
+              wavelets (Huygens) toward the screen; where crests from two
+              gaps cross you can see the bright/dark directions form. */}
+          {showWave &&
+            patterns
+              .filter((p) => p.sourceId === object.id && (!isWhite || p.wavelengthNm === WHITE_NM[3]))
+              .map((p, pi) => {
+                const lam = crestSpacing(p.wavelengthNm)
+                const base = (((LIGHT_SPEED * lightClock) % lam) + lam) % lam
+                const aim = Math.atan2(p.toward.y, p.toward.x)
+                const SPAN = (75 * Math.PI) / 180
+                const arcs: string[] = []
+                for (const o of p.openings) {
+                  for (let r = base || lam; r < p.reach; r += lam) {
+                    const x0 = o.x + r * Math.cos(aim - SPAN) - object.position.x
+                    const y0 = o.y + r * Math.sin(aim - SPAN) - object.position.y
+                    const x1 = o.x + r * Math.cos(aim + SPAN) - object.position.x
+                    const y1 = o.y + r * Math.sin(aim + SPAN) - object.position.y
+                    arcs.push(`M${x0.toFixed(1)} ${y0.toFixed(1)}A${r.toFixed(1)} ${r.toFixed(1)} 0 0 1 ${x1.toFixed(1)} ${y1.toFixed(1)}`)
+                  }
+                }
+                return (
+                  <path
+                    key={`wl-${pi}`}
+                    d={arcs.join('')}
+                    fill="none"
+                    stroke={isWhite ? WARM_EDGE : wavelengthColor(p.wavelengthNm)}
+                    strokeWidth={1.6}
+                    opacity={0.45}
+                  />
+                )
+              })}
+          {/* Interference: one gradient band per screen (the colours a real
+              screen shows — white centre, tinted edges for white light), an
+              |A|² curve per wavelength, and Born-rule photons. */}
           {isLightSource &&
-            patterns.map((pat: ScreenPattern, pi: number) => {
+            screenGroups.map((grp, gi) => {
               const ox = object.position.x
               const oy = object.position.y
-              const n = pat.intensity.length
-              const dx = (pat.b.x - pat.a.x) / (n - 1)
-              const dy = (pat.b.y - pat.a.y) / (n - 1)
-              const len = Math.hypot(pat.b.x - pat.a.x, pat.b.y - pat.a.y) || 1
+              const { a, b } = grp[0]
+              const len = Math.hypot(b.x - a.x, b.y - a.y) || 1
               // outward normal of the screen line, curve drawn on that side
-              const nx = -(pat.b.y - pat.a.y) / len
-              const ny = (pat.b.x - pat.a.x) / len
+              const nx = -(b.y - a.y) / len
+              const ny = (b.x - a.x) / len
               const CURVE = 46
-              const color = wavelengthColor(pat.wavelengthNm)
-              const curve = pat.intensity
-                .map((I, i) => {
-                  const px = pat.a.x + dx * i + nx * I * CURVE - ox
-                  const py = pat.a.y + dy * i + ny * I * CURVE - oy
-                  return `${i === 0 ? 'M' : 'L'} ${px.toFixed(1)} ${py.toFixed(1)}`
-                })
-                .join(' ')
+              const STOPS = 160
+              const at = (pat: ScreenPattern, t: number) => pat.intensity[Math.round(t * (pat.intensity.length - 1))] ?? 0
+              const gradId = `fringe-${object.id}-${gi}`
               return (
-                <g key={`pat-${pi}`}>
-                  {pat.intensity.map((I, i) =>
-                    I > 0.02 ? (
-                      <line
-                        key={i}
-                        x1={pat.a.x + dx * i - ox}
-                        y1={pat.a.y + dy * i - oy}
-                        x2={pat.a.x + dx * i + nx * 10 - ox}
-                        y2={pat.a.y + dy * i + ny * 10 - oy}
-                        stroke={color}
-                        strokeWidth={len / n + 0.5}
-                        opacity={I * 0.9}
-                      />
-                    ) : null
-                  )}
-                  <path d={curve} fill="none" stroke={color} strokeWidth={1.5} opacity={0.8} />
-                  {/* Photons detected one at a time (Born rule) while playing. */}
-                  {photons
-                    .filter((p) => p.s === pi)
-                    .map((p, i) => (
-                      <circle
-                        key={`ph-${i}`}
-                        cx={pat.a.x + (pat.b.x - pat.a.x) * p.t + nx * (12 + p.j) - ox}
-                        cy={pat.a.y + (pat.b.y - pat.a.y) * p.t + ny * (12 + p.j) - oy}
-                        r={1.3}
-                        fill={color}
-                        opacity={0.85}
-                      />
-                    ))}
+                <g key={`pat-${gi}`}>
+                  <defs>
+                    <linearGradient id={gradId} gradientUnits="userSpaceOnUse" x1={a.x - ox} y1={a.y - oy} x2={b.x - ox} y2={b.y - oy}>
+                      {Array.from({ length: STOPS }, (_, k) => {
+                        const t = k / (STOPS - 1)
+                        const { color, alpha } = mixColor(grp.map((pat) => ({ nm: pat.wavelengthNm, I: at(pat, t) })))
+                        return <stop key={k} offset={t} stopColor={color} stopOpacity={Math.min(1, alpha * 1.1)} />
+                      })}
+                    </linearGradient>
+                  </defs>
+                  <line
+                    x1={a.x + nx * 6 - ox}
+                    y1={a.y + ny * 6 - oy}
+                    x2={b.x + nx * 6 - ox}
+                    y2={b.y + ny * 6 - oy}
+                    stroke={`url(#${gradId})`}
+                    strokeWidth={10}
+                  />
+                  {grp.map((pat, pi) => {
+                    const n = pat.intensity.length
+                    const d = pat.intensity
+                      .map((I, i) => {
+                        const t = i / (n - 1)
+                        const px = a.x + (b.x - a.x) * t + nx * (12 + I * CURVE) - ox
+                        const py = a.y + (b.y - a.y) * t + ny * (12 + I * CURVE) - oy
+                        return `${i === 0 ? 'M' : 'L'} ${px.toFixed(1)} ${py.toFixed(1)}`
+                      })
+                      .join(' ')
+                    return <path key={pi} d={d} fill="none" stroke={wavelengthColor(pat.wavelengthNm)} strokeWidth={1.25} opacity={0.8} />
+                  })}
                 </g>
               )
             })}
+          {/* Photons detected one at a time (Born rule) while playing — one
+              path per colour instead of a DOM node per photon. */}
+          {isLightSource &&
+            photonPaths.map((pp, i) => (
+              <path key={`ph-${i}`} d={pp.d} stroke={pp.color} strokeWidth={2.6} strokeLinecap="round" opacity={0.85} fill="none" />
+            ))}
+          {flyingPaths.map((pp, i) => (
+            <g key={`fly-${i}`} fill="none" strokeLinecap="round">
+              {/* thin dark rim so pale photons stay visible — no glow */}
+              <path d={pp.d} strokeWidth={6.5} stroke={WARM_EDGE} opacity={0.7} />
+              <path d={pp.d} strokeWidth={4.5} stroke={pp.color} />
+            </g>
+          ))}
         </g>
         <ellipse
           cx={w / 2}
@@ -1460,16 +1981,25 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           ry={h / 2 - 1.5}
           fill={
             render === 'light-source'
-              ? 'var(--accent-amber)'
+              ? `url(#lamp-${object.id})`
               : render === 'charge'
                 ? `color-mix(in oklch, ${chargeColor} 20%, var(--card))`
                 : special
                   ? 'var(--card)'
                   : fill
           }
-          stroke={render === 'charge' ? chargeColor : stroke}
+          stroke={render === 'charge' ? chargeColor : render === 'light-source' ? WARM_EDGE : stroke}
           strokeWidth={special || render === 'light-source' || render === 'charge' ? 2 : bodyStrokeWidth}
         />
+        {render === 'light-source' && (
+          <defs>
+            <radialGradient id={`lamp-${object.id}`} cx="40%" cy="38%" r="70%">
+              <stop offset="0%" stopColor="#fffdf3" />
+              <stop offset="60%" stopColor={WARM_WHITE} />
+              <stop offset="100%" stopColor="#ffdf85" />
+            </radialGradient>
+          </defs>
+        )}
         {render === 'hinge' && (
           <circle cx={w / 2} cy={h / 2} r={Math.min(w, h) / 6} fill="var(--foreground)" />
         )}

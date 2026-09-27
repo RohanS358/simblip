@@ -87,6 +87,9 @@ const OPTICS_COMPONENTS: Record<string, { kind: GeometryKind; behavior: Behavior
   screen:           { kind: 'line',   behavior: 'opticalScreen',  w: 2,   h: 160, render: 'optical-screen', points: [[0,0],[0,160]] },
   'optical-screen': { kind: 'line',   behavior: 'opticalScreen',  w: 2,   h: 160, render: 'optical-screen', points: [[0,0],[0,160]] },
   slit:             { kind: 'line',   behavior: 'slit',           w: 2,   h: 200, render: 'slit', points: [[0,0],[0,200]] },
+  prism:            { kind: 'polygon', behavior: 'refractor',     w: 120, h: 104, render: 'glass', points: [[60,0],[120,104],[0,104]] },
+  'glass-block':    { kind: 'rect',   behavior: 'refractor',      w: 160, h: 90,  render: 'glass' },
+  glassblock:       { kind: 'rect',   behavior: 'refractor',      w: 160, h: 90,  render: 'glass' },
 }
 
 const WAVES_COMPONENTS: Record<string, { kind: GeometryKind; behavior: BehaviorType; w: number; h: number; render: string; points?: [number,number][] }> = {
@@ -417,7 +420,15 @@ export function executeSimScript(
       obj = {
         id,
         name: props.name ?? normalKind,
-        geometry: { kind: def.kind, points: 'points' in def ? def.points : undefined },
+        geometry: {
+          kind: def.kind,
+          // A polygon's outline lives in its own box, so a resized prism
+          // scales its vertices with it (a line keeps its two endpoints).
+          points:
+            'points' in def && def.points && def.kind === 'polygon'
+              ? def.points.map(([x, y]) => [(x * (props.width ?? def.w)) / def.w, (y * (props.height ?? def.h)) / def.h])
+              : 'points' in def ? def.points : undefined,
+        },
         position: { x: origin.x + (props.x ?? 0), y: origin.y + (props.y ?? 0) },
         size: { w: props.width ?? def.w, h: props.height ?? def.h },
         rotation: isQuantum ? 0 : props.rotation ?? 0,

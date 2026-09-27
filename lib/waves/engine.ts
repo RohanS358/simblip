@@ -108,7 +108,34 @@ export function voltageEnvelope(gamma: Complex, betaLMax: number, samples = 40):
   const out: number[] = []
   for (let i = 0; i < samples; i++) {
     const bx = (i / (samples - 1)) * betaLMax
-    out.push(Math.sqrt(1 + gAbs * gAbs + 2 * gAbs * Math.cos(2 * bx + gArg)))
+    // |1 + Γe^{−j2βd}|: the phase of Γ e^{−j2βd} is θ − 2βd, so the first
+    // maximum sits at d = θλ/4π toward the generator (θ > 0, inductive load).
+    out.push(Math.sqrt(1 + gAbs * gAbs + 2 * gAbs * Math.cos(2 * bx - gArg)))
   }
   return out
+}
+
+/** Instantaneous total field at a normal-incidence boundary (x = 0), unit
+ *  incident amplitude arriving from x < 0:
+ *    x < 0:  cos(ωt − β₁x) + |Γ| cos(ωt + β₁x + ∠Γ)   (incident + reflected)
+ *    x ≥ 0:  |τ| e^{−α₂x} cos(ωt − β₂x + ∠τ)          (transmitted)
+ *  τ = 1 + Γ, so the two sides agree at x = 0 — tangential E is continuous. */
+export function boundaryField(
+  x: number,
+  wt: number,
+  gamma: Complex,
+  tau: Complex,
+  beta1: number,
+  alpha2: number,
+  beta2: number
+): number {
+  if (x < 0) return Math.cos(wt - beta1 * x) + cAbs(gamma) * Math.cos(wt + beta1 * x + cArg(gamma))
+  return cAbs(tau) * Math.exp(-alpha2 * x) * Math.cos(wt - beta2 * x + cArg(tau))
+}
+
+/** Instantaneous line voltage at electrical distance βd from the load, unit
+ *  forward wave: Re{(e^{jβd} + Γ e^{−jβd}) e^{jωt}}. Its envelope over one
+ *  period is exactly voltageEnvelope(). */
+export function lineVoltage(gamma: Complex, bd: number, wt: number): number {
+  return Math.cos(wt + bd) + cAbs(gamma) * Math.cos(wt - bd + cArg(gamma))
 }

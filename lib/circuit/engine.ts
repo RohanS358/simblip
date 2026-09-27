@@ -708,6 +708,29 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
 
 // ── Linear solve (Gaussian elimination, partial pivoting) ──────────────────
 
+// ── Reactive companions: BDF2 (Gear-2) ───────────────────────────────────
+// Backward Euler bled ~15% of an LC tank's energy every cycle at 1 Hz, so a
+// "lossless" oscillator visibly died. BDF2 is second-order accurate AND
+// L-stable (no trapezoidal ringing when a switch opens), the SPICE "gear"
+// method. First step after build has no v[n−2], so it falls back to BE.
+// Branch current convention: I(a→b) = g·v_ab + i0.
+
+export function capCompanion(C: number, state: Record<string, number>, dt: number): { g: number; i0: number } {
+  const v1 = state.v ?? 0
+  if (!state.hist) return { g: C / dt, i0: (-C / dt) * v1 }
+  const v2 = state.v2 ?? v1
+  // i = C/dt · (1.5 v − 2 v1 + 0.5 v2)
+  return { g: (1.5 * C) / dt, i0: (C / dt) * (-2 * v1 + 0.5 * v2) }
+}
+
+export function indCompanion(L: number, state: Record<string, number>, dt: number): { g: number; i0: number } {
+  const i1 = state.i ?? 0
+  if (!state.hist) return { g: dt / L, i0: i1 }
+  const i2 = state.i2 ?? i1
+  // v = L/dt · (1.5 i − 2 i1 + 0.5 i2)  →  i = (2dt/3L)·v + (4 i1 − i2)/3
+  return { g: (2 * dt) / (3 * L), i0: (4 * i1 - i2) / 3 }
+}
+
 function solveLinear(A: number[][], z: number[]): number[] {
   const n = z.length
   for (let col = 0; col < n; col++) {
@@ -868,12 +891,13 @@ export function stepCircuit(
         stampG(top, wiper, 1 / Math.max(R * ratio, 1e-6))
         stampG(wiper, bottom, 1 / Math.max(R * (1 - ratio), 1e-6))
       } else if (s === 'capacitor') {
-        const geq = Math.max(pv(comp, 'C'), 1e-12) / dt
-        stampG(a, b, geq)
-        stampI(a, b, -geq * (comp.state.v ?? 0)) // companion source
+        const { g, i0 } = capCompanion(Math.max(pv(comp, 'C'), 1e-12), comp.state, dt)
+        stampG(a, b, g)
+        stampI(a, b, i0) // companion source
       } else if (s === 'inductor') {
-        stampG(a, b, dt / Math.max(pv(comp, 'L'), 1e-9))
-        stampI(a, b, comp.state.i ?? 0)
+        const { g, i0 } = indCompanion(Math.max(pv(comp, 'L'), 1e-9), comp.state, dt)
+        stampG(a, b, g)
+        stampI(a, b, i0)
       } else if (s === 'diode' || s === 'led') {
         if (comp.state.on) {
           const g = 1 / 2 // 2 Ω series when conducting
@@ -1343,12 +1367,17 @@ export function stepCircuit(
       comp.state.torque = Tem
       comp.state.angle = ((comp.state.angle ?? 0) + omega * dt) % (2 * Math.PI)
     } else if (s === 'capacitor') {
-      const geq = Math.max(pv(comp, 'C'), 1e-12) / dt
-      I = geq * (vab - (comp.state.v ?? 0))
+      const { g, i0 } = capCompanion(Math.max(pv(comp, 'C'), 1e-12), comp.state, dt)
+      I = g * vab + i0
+      comp.state.v2 = comp.state.v ?? 0
       comp.state.v = vab
+      comp.state.hist = (comp.state.hist ?? 0) + 1
     } else if (s === 'inductor') {
-      I = (comp.state.i ?? 0) + (dt / Math.max(pv(comp, 'L'), 1e-9)) * vab
+      const { g, i0 } = indCompanion(Math.max(pv(comp, 'L'), 1e-9), comp.state, dt)
+      I = g * vab + i0
+      comp.state.i2 = comp.state.i ?? 0
       comp.state.i = I
+      comp.state.hist = (comp.state.hist ?? 0) + 1
     } else if (s === 'diode' || s === 'led') {
       I = comp.state.on ? (vab - pv(comp, 'Vf')) / 2 : vab * OPEN
     } else if (s === 'zener') {

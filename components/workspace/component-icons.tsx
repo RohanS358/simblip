@@ -18,6 +18,7 @@ import {
   TableProperties,
   Terminal,
   TrendingUp,
+  Triangle,
 } from 'lucide-react'
 import { SymbolIcon } from '@/components/objects/geometry'
 import type { ComponentDef } from '@/lib/scene/factory'
@@ -177,6 +178,7 @@ const BY_RENDER: Record<string, React.ComponentType> = {
   mirror: MirrorIcon,
   'optical-screen': ScreenIcon,
   slit: SlitIcon,
+  glass: Triangle,
   'wave-source': Radio,
   'wave-boundary': DashedLineIcon,
   'transmission-line': TransmissionLineIcon,

@@ -332,7 +332,7 @@ export function Landing() {
             <p className="mt-4 text-ui-md leading-relaxed text-muted-foreground sm:text-ui-lg">
               Build a double-slit experiment on the canvas — a coherent source, a slit mask, a
               screen — and SIMBLIP performs a Huygens–Fresnel phasor sum over the open apertures
-              at real dimensions (1 px = 1 µm). The single-slit diffraction envelope and the
+              with λ scaled up to the slits (1 px = 25 nm). The single-slit diffraction envelope and the
               cos² fringes emerge from the wave equation, not from a picture of them. Press Play
               and photons land one at a time at Born-rule positions, building the interference
               pattern from individual detections — the experiment that defines quantum mechanics,

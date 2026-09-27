@@ -25,7 +25,9 @@ export function pushSample(objectId: string, sample: Sample) {
     buffers.set(objectId, buf)
   }
   buf.samples.push(sample)
-  if (buf.samples.length > CAPACITY) buf.samples.splice(0, buf.samples.length - CAPACITY)
+  // Trim in chunks: splicing ONE sample off the front at 120 Hz shifted the
+  // whole 2400-entry array every tick. Readers just see ≤ 25% more history.
+  if (buf.samples.length > CAPACITY * 1.25) buf.samples.splice(0, buf.samples.length - CAPACITY)
   buf.version++
   buf.channelNames = Object.keys(sample.channels)
 }
@@ -64,30 +66,41 @@ export function notify(objectId: string) {
   listeners.get(objectId)?.forEach((fn) => fn())
 }
 
-/** Min/max-preserving decimation so oscillation peaks survive downsampling. */
-export function decimate(samples: Sample[], maxPoints: number): Sample[] {
+/** Min/max-preserving decimation so oscillation peaks survive downsampling —
+ *  on EVERY channel, not just the first (a graph of vx beside x used to
+ *  alias its peaks away because only x's extremes were kept). Output is in
+ *  time order and never exceeds roughly maxPoints. */
+export function decimate(samples: Sample[], maxPoints: number, only?: string[]): Sample[] {
   if (samples.length <= maxPoints) return samples
-  const bucketSize = Math.ceil(samples.length / (maxPoints / 2))
+  const all = samples[0] ? Object.keys(samples[0].channels) : []
+  const keys = only?.length ? all.filter((k) => only.includes(k)) : all
+  if (keys.length === 0) {
+    const step = Math.ceil(samples.length / maxPoints)
+    return samples.filter((_, i) => i % step === 0)
+  }
+  // Each bucket contributes up to 2 samples per channel; size the buckets so
+  // the total stays near maxPoints (channels sharing extremes dedupe).
+  const perBucket = 2 * Math.min(keys.length, 4)
+  const buckets = Math.max(8, Math.floor(maxPoints / perBucket))
+  const bucketSize = Math.ceil(samples.length / buckets)
   const out: Sample[] = []
-  const key = samples[0] ? Object.keys(samples[0].channels)[0] : undefined
+  const picked = new Set<number>()
   for (let i = 0; i < samples.length; i += bucketSize) {
-    const bucket = samples.slice(i, i + bucketSize)
-    if (!key) {
-      out.push(bucket[0])
-      continue
+    const end = Math.min(samples.length, i + bucketSize)
+    picked.clear()
+    picked.add(i)
+    for (const key of keys) {
+      let lo = i
+      let hi = i
+      for (let j = i + 1; j < end; j++) {
+        const v = samples[j].channels[key]
+        if (v < samples[lo].channels[key]) lo = j
+        if (v > samples[hi].channels[key]) hi = j
+      }
+      picked.add(lo)
+      picked.add(hi)
     }
-    let min = bucket[0]
-    let max = bucket[0]
-    for (const s of bucket) {
-      if (s.channels[key] < min.channels[key]) min = s
-      if (s.channels[key] > max.channels[key]) max = s
-    }
-    if (min.t <= max.t) {
-      out.push(min)
-      if (max !== min) out.push(max)
-    } else {
-      out.push(max, min)
-    }
+    for (const j of [...picked].sort((a, b) => a - b)) out.push(samples[j])
   }
   return out
 }

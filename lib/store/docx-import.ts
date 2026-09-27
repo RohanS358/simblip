@@ -27,18 +27,40 @@ export interface DocxImportResult {
   section: DocxSection
 }
 
-/** relId → target path, from word/_rels/document.xml.rels. */
-function relTargets(xml: string | null): Map<string, string> {
-  const out = new Map<string, string>()
+interface Rel {
+  target: string
+  type: string
+  external: boolean
+}
+
+/** relId → relationship, from a .rels part. A flat regex rather than a DOM
+ *  walk: the file is a single-level list of <Relationship Id Type Target>. */
+function rels(xml: string | null): Map<string, Rel> {
+  const out = new Map<string, Rel>()
   if (!xml) return out
-  // A flat regex rather than a DOM walk: the file is a single-level list of
-  // <Relationship Id Target> and this avoids a second namespace-aware parse.
   for (const m of xml.matchAll(/<Relationship\b[^>]*>/g)) {
     const id = m[0].match(/\bId="([^"]+)"/)?.[1]
     const target = m[0].match(/\bTarget="([^"]+)"/)?.[1]
-    if (id && target) out.set(id, target.replace(/^\.\.\//, '').replace(/^\/?word\//, ''))
+    if (!id || !target) continue
+    out.set(id, {
+      target: target.replace(/&amp;/g, '&'),
+      type: m[0].match(/\bType="([^"]+)"/)?.[1] ?? '',
+      external: /\bTargetMode="External"/.test(m[0]),
+    })
   }
   return out
+}
+
+/** Resolve a relationship target against the folder of the part that owns it. */
+function resolvePart(baseDir: string, target: string): string {
+  if (target.startsWith('/')) return target.slice(1)
+  const parts = (baseDir ? baseDir.split('/') : []).concat(target.split('/'))
+  const out: string[] = []
+  for (const p of parts) {
+    if (p === '..') out.pop()
+    else if (p && p !== '.') out.push(p)
+  }
+  return out.join('/')
 }
 
 const MIME: Record<string, string> = {
@@ -59,23 +81,38 @@ const MIME: Record<string, string> = {
  */
 export async function importDocx(blob: Blob, ownerId: string): Promise<DocxImportResult> {
   const zip = await JSZip.loadAsync(blob)
-  const documentXml = await zip.files['word/document.xml']?.async('text')
+  const text = async (path: string) => (await zip.file(path)?.async('text')) ?? null
+
+  // The main part is whatever _rels/.rels says it is — usually
+  // word/document.xml, but not for every writer (document2.xml, …).
+  const pkg = rels(await text('_rels/.rels'))
+  const main =
+    [...pkg.values()].find((r) => r.type.endsWith('/officeDocument'))?.target.replace(/^\//, '') ?? 'word/document.xml'
+  const documentXml = await text(main)
   if (!documentXml) throw new Error('Not a valid .docx file.')
-  const numbering = await zip.files['word/numbering.xml']?.async('text')
-  const rels = relTargets((await zip.files['word/_rels/document.xml.rels']?.async('text')) ?? null)
+  const dir = main.includes('/') ? main.slice(0, main.lastIndexOf('/')) : ''
+  const docRels = rels(await text(`${dir ? dir + '/' : ''}_rels/${main.split('/').pop()}.rels`))
+  const partOf = (typeSuffix: string, fallback: string) => {
+    const r = [...docRels.values()].find((x) => x.type.endsWith(typeSuffix))
+    return r ? resolvePart(dir, r.target) : fallback
+  }
+  const numbering = await text(partOf('/numbering', `${dir}/numbering.xml`))
+  const styles = await text(partOf('/styles', `${dir}/styles.xml`))
 
   // Every referenced image, into OPFS, before the (synchronous) mapping runs.
   const images = new Map<string, DocxImage>()
   await Promise.all(
-    [...rels].map(async ([relId, target]) => {
-      const entry = zip.files[`word/${target}`]
+    [...docRels].map(async ([relId, rel]) => {
+      if (rel.external || !rel.type.endsWith('/image')) return
+      const path = resolvePart(dir, rel.target)
+      const entry = zip.file(path)
       if (!entry) return
-      const ext = target.split('.').pop()?.toLowerCase() ?? ''
+      const ext = path.split('.').pop()?.toLowerCase() ?? ''
       const mime = MIME[ext]
-      if (!mime) return
+      if (!mime) return // EMF/WMF/TIFF: nothing a browser can draw
       try {
         const bytes = await entry.async('blob')
-        const fileId = await putFile(bytes, target.split('/').pop() ?? 'image', mime, ownerId)
+        const fileId = await putFile(bytes, path.split('/').pop() ?? 'image', mime, ownerId)
         images.set(relId, { src: `opfs:${fileId}` })
       } catch {
         // A single unreadable image must not fail the whole import.
@@ -85,12 +122,13 @@ export async function importDocx(blob: Blob, ownerId: string): Promise<DocxImpor
 
   const parser = new DOMParser()
   const { doc, section } = mapDocxDocument(
-    { document: documentXml, numbering },
+    { document: documentXml, numbering: numbering ?? undefined, styles: styles ?? undefined },
     {
       parse: (xml) => parser.parseFromString(xml, 'application/xml'),
-      image: (relId) => {
-        const img = images.get(relId)
-        return img ?? null
+      image: (relId) => images.get(relId) ?? null,
+      link: (relId) => {
+        const r = docRels.get(relId)
+        return r?.external ? r.target : null
       },
     }
   )

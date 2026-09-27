@@ -166,7 +166,7 @@ export const PLACED_KINDS = new Set([
   'ground', 'hinge', 'charge', 'efield', 'bfield', 'heat-block', 'heatblock',
   'torsion-pendulum', 'torsionpendulum', 'reference-point',
   'light-source', 'lightsource', 'thin-lens', 'lens', 'optical-mirror',
-  'optical-screen', 'slit', 'wave-source', 'wave-boundary',
+  'optical-screen', 'slit', 'prism', 'glass-block', 'glassblock', 'wave-source', 'wave-boundary',
 ])
 
 /** The channels a kind really publishes, for graph.plot checking. */

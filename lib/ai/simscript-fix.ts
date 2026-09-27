@@ -96,7 +96,7 @@ const CHANNEL_ALIASES: Record<string, string> = {
  *  the fallback because it is what the overwhelming majority of placed scenes
  *  are, and it is what every corpus example uses. */
 const DOMAIN_KINDS: [string, Set<string>][] = [
-  ['optics', new Set(['light-source', 'lightsource', 'thin-lens', 'lens', 'optical-mirror', 'optical-screen', 'slit'])],
+  ['optics', new Set(['light-source', 'lightsource', 'thin-lens', 'lens', 'optical-mirror', 'optical-screen', 'slit', 'prism', 'glass-block', 'glassblock'])],
   ['waves', new Set(['wave-source', 'wave-boundary', 'transmission-line'])],
   ['quantum', new Set(['quantum-well', 'tunnel-barrier'])],
 ]

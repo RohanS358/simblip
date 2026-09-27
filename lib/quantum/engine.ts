@@ -1,3 +1,5 @@
+import { C, cAdd, cSub, cMul, cDiv, cAbs, type Complex } from '@/lib/waves/engine'
+
 // Quantum demos for the Engineering Physics modern-physics unit. These are
 // the exact closed forms already verified in the syllabus coverage plan's
 // Phase H (against the sandboxed mathjs instance in lib/formula/engine.ts) —
@@ -43,4 +45,69 @@ export function transmissionCoefficient(E: number, V0: number, L: number, m = 1,
   const k2 = Math.sqrt(2 * m * (E - V0)) / hbar
   const s = Math.sin(k2 * L)
   return 1 / (1 + (V0 * V0 * s * s) / (4 * E * (E - V0)))
+}
+
+/** Probability density of the equal superposition (ψn + ψm)/√2 at time t
+ *  (ħ = m = 1). The cross term beats at ω = (Em − En): the particle sloshes
+ *  across the well with period 2π/(Em − En) — real dynamics, and the one
+ *  thing a single stationary state can never show. */
+export function superpositionDensity(n: number, m: number, L: number, x: number, t: number): number {
+  const a = psi(n, L, x)
+  const b = psi(m, L, x)
+  const w = energyLevel(m, L) - energyLevel(n, L)
+  return 0.5 * (a * a + b * b + 2 * a * b * Math.cos(w * t))
+}
+
+/** Re Ψ(x,t) for the same superposition (the part that visibly oscillates). */
+export function superpositionRe(n: number, m: number, L: number, x: number, t: number): number {
+  return (psi(n, L, x) * Math.cos(energyLevel(n, L) * t) + psi(m, L, x) * Math.cos(energyLevel(m, L) * t)) / Math.SQRT2
+}
+
+const cExpI = (z: Complex): Complex => {
+  // e^{i z} for complex z = a + ib → e^{−b}(cos a + i sin a)
+  const m = Math.exp(-z.im)
+  return C(m * Math.cos(z.re), m * Math.sin(z.re))
+}
+
+export interface BarrierSolution {
+  k: number
+  r: Complex
+  t: Complex
+  /** complex ψ(x); x = 0..L is the barrier, incident wave e^{ikx} from the left */
+  psi: (x: number) => Complex
+}
+
+/** Exact stationary scattering state for a rectangular barrier (ħ = m = 1):
+ *    x < 0:      e^{ikx} + r e^{−ikx}
+ *    0 ≤ x ≤ L:  A e^{iqx} + B e^{−iqx},  q = √(2(E − V0))  (imaginary below the top)
+ *    x > L:      t e^{ikx}
+ *  with A, B, r, t fixed by continuity of ψ and ψ′ at both edges. */
+export function solveBarrier(E: number, V0: number, L: number): BarrierSolution {
+  const e = Math.max(E, 1e-6)
+  const k = Math.sqrt(2 * e)
+  const d = 2 * (e - V0)
+  let q = d >= 0 ? C(Math.sqrt(d)) : C(0, Math.sqrt(-d))
+  if (cAbs(q) < 1e-6) q = C(1e-6)
+  const K = C(k)
+  const kp = cAdd(K, q)
+  const km = cSub(K, q)
+  const eNeg = cExpI(cMul(C(-1), cMul(q, C(L)))) // e^{−iqL}
+  const ePos = cExpI(cMul(q, C(L))) // e^{iqL}
+  const den = cSub(cMul(cMul(kp, kp), eNeg), cMul(cMul(km, km), ePos))
+  const t = cMul(cDiv(cMul(C(4 * k), q), den), cExpI(C(-k * L)))
+  const tE = cMul(t, cExpI(C(k * L))) // t e^{ikL}
+  const twoQ = cMul(C(2), q)
+  const A = cDiv(cMul(cMul(tE, eNeg), kp), twoQ)
+  const B = cDiv(cMul(cMul(tE, ePos), cMul(C(-1), km)), twoQ)
+  const r = cSub(cAdd(A, B), C(1))
+  return {
+    k,
+    r,
+    t,
+    psi: (x) => {
+      if (x < 0) return cAdd(cExpI(C(k * x)), cMul(r, cExpI(C(-k * x))))
+      if (x > L) return cMul(t, cExpI(C(k * x)))
+      return cAdd(cMul(A, cExpI(cMul(q, C(x)))), cMul(B, cExpI(cMul(C(-1), cMul(q, C(x))))))
+    },
+  }
 }

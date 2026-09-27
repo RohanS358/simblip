@@ -23,7 +23,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
-import { paginate, type Break } from './paginate.mjs'
+import { paginate, shiftBeforeBlocks, type Break } from './paginate.mjs'
 import { formatOf } from './extensions'
 
 export interface PageGeometry {
@@ -196,6 +196,29 @@ function lineBoxes(
   return { lines, liveTops }
 }
 
+/** A list's top-level items as its splittable "lines": a page may break
+ *  between two items, never inside one (the marker would stay behind). Border
+ *  boxes relative to the list's top, with its own spacers hidden so the answer
+ *  is spacer-free like every other measurement here. */
+function itemBoxes(el: HTMLElement, scale: number): { lines: { top: number; height: number }[]; liveTops?: number[] } | undefined {
+  const items = [...el.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.tagName === 'LI')
+  if (items.length < 2) return undefined
+  const spacers = [...el.querySelectorAll<HTMLElement>(':scope > .doc-page-spacer')]
+  const restore = spacers.map((sp) => sp.style.display)
+  for (const sp of spacers) sp.style.display = 'none'
+  try {
+    const base = el.getBoundingClientRect().top
+    return {
+      lines: items.map((li) => {
+        const r = li.getBoundingClientRect()
+        return { top: (r.top - base) / scale, height: r.height / scale }
+      }),
+    }
+  } finally {
+    spacers.forEach((sp, i) => (sp.style.display = restore[i]))
+  }
+}
+
 /** Reads the natural geometry of every top-level block. `shiftBefore` undoes
  *  the spacers already in the DOM from the previous pass — paginate() works
  *  in spacer-free coordinates (see its header). */
@@ -203,19 +226,9 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
   const out: Measured[] = []
   const doc = view.state.doc
   const containerTop = view.dom.getBoundingClientRect().top
-  // Cumulative spacer height injected before each block index last pass.
-  const shiftAt: number[] = []
-  {
-    let acc = 0
-    let bi = 0
-    const sorted = [...prev].sort((a, b) => a.block - b.block || a.line - b.line)
-    for (let i = 0; i < doc.childCount; i++) {
-      while (bi < sorted.length && sorted[bi].block < i) acc += sorted[bi++].spacer
-      shiftAt[i] = acc
-      // A break INSIDE block i shifts everything after it, but not its own top.
-      while (bi < sorted.length && sorted[bi].block === i) acc += sorted[bi++].spacer
-    }
-  }
+  // Cumulative spacer height above each block from the last pass (see
+  // shiftBeforeBlocks for why a line-0 break counts toward its own block).
+  const shiftAt = shiftBeforeBlocks(prev, doc.childCount)
 
   let pos = 0
   doc.forEach((node, offset, index) => {
@@ -229,7 +242,8 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
     // in the spacer-free coordinates paginate() documents.
     const innerBreaks = prev.filter((b) => b.block === index && b.line > 0)
     const innerSpacers = innerBreaks.reduce((acc, b) => acc + b.spacer, 0)
-    const measuredLines = lineBoxes(view, el, scale, innerBreaks)
+    const isList = /^(bullet|ordered|task)List$/.test(node.type.name)
+    const measuredLines = isList ? itemBoxes(el, scale) : lineBoxes(view, el, scale, innerBreaks)
     out.push({
       // BORDER box, not margin box, and screen → page pixels (see
       // PageGeometry.scale). Deliberately excluding the vertical margins is
@@ -253,8 +267,18 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
 }
 
 /** Maps a break onto the ProseMirror position its spacer is anchored at, and
- *  builds the decoration. A line break inside a block resolves through
- *  posAtCoords, which is ProseMirror's own hit-test — no offset arithmetic. */
+ *  builds the decoration.
+ *
+ *  Never by hit-testing. This used to resolve a mid-block break through
+ *  posAtCoords, which asks the browser what element is AT a point — and on a
+ *  doc page the answer is the sheet's object canvas, which sits above the
+ *  flow column (z-2 over z-1). The lookup came back null, the spacer was
+ *  silently dropped, and a list or long paragraph ran straight off the bottom
+ *  of the sheet. Worse, the dropped break was still remembered as applied, so
+ *  the next pass subtracted a spacer that wasn't there, computed a different
+ *  answer, and the anti-oscillation guard froze on a layout with NO breaks —
+ *  explicit page breaks included. Layout-based lookups (element rects,
+ *  coordsAtPos) can't be occluded. */
 function decorationFor(view: EditorView, br: Break, blocks: Measured[]): Decoration | null {
   const block = blocks[br.block]
   if (!block) return null
@@ -266,49 +290,65 @@ function decorationFor(view: EditorView, br: Break, blocks: Measured[]): Decorat
     })
   }
 
-  const el = view.nodeDOM(block.pos) as HTMLElement | null
-  const y = block.liveTops?.[br.line]
-  if (!el || y === undefined) return null
-  const at = view.posAtCoords({ left: el.getBoundingClientRect().left + 1, top: y })
-  if (!at) return null
-
-  // A break inside a list must land BETWEEN two items, never inside one.
-  //
-  // posAtCoords hit-tests into the item's paragraph, and a display:block
-  // spacer there pushes the text after it down while the <li> itself — its
-  // marker and first line — stays on the page above. Measured: the target
-  // item did not move at all and only its successor did, which is the bullet
-  // left hanging off the bottom of the sheet. Anchoring at the listItem's own
-  // position instead puts the widget in the <ul>'s content, a sibling of the
-  // <li>s, and the item moves with its marker.
-  const itemPos = listItemPosAt(view, block.pos, at.pos)
-  if (itemPos !== null) {
+  // A list's "lines" are its top-level items (itemBoxes), so the break goes
+  // BETWEEN two items: the widget sits among the <li>s and the item moves
+  // with its marker. A spacer inside the item's paragraph used to push its
+  // text down while the bullet stayed on the page above.
+  const itemPos = listItemPos(view, block.pos, br.line)
+  if (itemPos !== undefined) {
+    if (itemPos === null) return null
     return Decoration.widget(itemPos, () => spacerEl(br.spacer, 'block'), {
       side: -1,
       key: `pb-${br.block}-${br.line}-${br.spacer}`,
     })
   }
 
-  return Decoration.widget(at.pos, () => spacerEl(br.spacer, 'inline'), {
+  const y = block.liveTops?.[br.line]
+  if (y === undefined) return null
+  const at = lineStartPos(view, block.pos, y)
+  if (at === null) return null
+  return Decoration.widget(at, () => spacerEl(br.spacer, 'inline'), {
     side: -1,
     key: `pb-${br.block}-${br.line}-${br.spacer}`,
   })
 }
 
-/** The position of the list item containing `inner`, when `blockPos` is a
- *  list — otherwise null, which keeps every non-list block on the existing
- *  posAtCoords path. Walks the list's own children rather than resolving
- *  upward, so a nested list resolves to the OUTERMOST item, which is the one
- *  that has to carry its marker onto the next page. */
-function listItemPosAt(view: EditorView, blockPos: number, inner: number): number | null {
+/** Position of the list's `index`-th top-level item; undefined when the
+ *  block isn't a list. */
+function listItemPos(view: EditorView, blockPos: number, index: number): number | null | undefined {
   const list = view.state.doc.nodeAt(blockPos)
-  if (!list || !/^(bullet|ordered|task)List$/.test(list.type.name)) return null
+  if (!list || !/^(bullet|ordered|task)List$/.test(list.type.name)) return undefined
   let found: number | null = null
-  list.forEach((item, offset) => {
-    const from = blockPos + 1 + offset
-    if (found === null && inner >= from && inner <= from + item.nodeSize) found = from
+  list.forEach((_item, offset, i) => {
+    if (i === index) found = blockPos + 1 + offset
   })
   return found
+}
+
+/** First document position inside the textblock at `blockPos` whose caret
+ *  box sits on or below the line at viewport y — i.e. the start of that line.
+ *  Binary search over coordsAtPos, which reads layout rather than hit-testing,
+ *  so an overlay on top of the text can't make it miss. */
+function lineStartPos(view: EditorView, blockPos: number, y: number): number | null {
+  const node = view.state.doc.nodeAt(blockPos)
+  if (!node) return null
+  let lo = blockPos + 1
+  let hi = blockPos + node.nodeSize - 1
+  if (hi <= lo) return null
+  const bottomAt = (pos: number) => {
+    try {
+      return view.coordsAtPos(pos, 1).bottom
+    } catch {
+      return -Infinity
+    }
+  }
+  if (bottomAt(hi) <= y) return null
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (bottomAt(mid) > y) hi = mid
+    else lo = mid + 1
+  }
+  return lo
 }
 
 function spacerEl(height: number, mode: 'block' | 'inline'): HTMLElement {
@@ -345,25 +385,39 @@ export function paginationPlugin({ geometry, onPaginate }: PaginationOptions) {
     // The geometry is part of the key: a page-size, margin or scale change
     // legitimately produces a different answer, and without it an answer
     // already seen under the OLD geometry would suppress the new one.
-    const key = JSON.stringify([geo.contentHeight, geo.gapHeight, geo.scale, result.breaks])
+    // Spacers rounded for the key: sub-pixel measurement noise must not make
+    // the same layout look like a new answer, or the cycle guard never trips.
+    const key = JSON.stringify([
+      geo.contentHeight,
+      geo.gapHeight,
+      geo.scale,
+      result.breaks.map((b) => [b.block, b.line, Math.round(b.spacer)]),
+    ])
     if (key === lastKey) return
     if (seen.has(key)) return
     seen.add(key)
     lastKey = key
-    breaks = result.breaks
+
+    const decos: Decoration[] = []
+    const applied: Break[] = []
+    for (const br of result.breaks) {
+      const d = decorationFor(view, br, blocks)
+      if (d) {
+        decos.push(d)
+        applied.push(br)
+      }
+    }
+    // Only what is ACTUALLY in the DOM may be subtracted by the next
+    // measure() — remembering a break whose spacer never rendered skews
+    // every coordinate after it (see decorationFor).
+    breaks = applied
     onPaginate({
       pageCount: result.pageCount,
       // A break that falls INSIDE a block cannot be expressed as "this page
       // starts at block n", so it is not reported — Word simply repaginates
       // that one boundary itself.
-      startBlocks: result.breaks.filter((b) => b.line === 0).map((b) => b.block),
+      startBlocks: applied.filter((b) => b.line === 0).map((b) => b.block),
     })
-
-    const decos: Decoration[] = []
-    for (const br of result.breaks) {
-      const d = decorationFor(view, br, blocks)
-      if (d) decos.push(d)
-    }
     view.dispatch(view.state.tr.setMeta(paginationKey, DecorationSet.create(view.state.doc, decos)))
   }
 

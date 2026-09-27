@@ -59,13 +59,18 @@ export function parseSeries(raw: string): Series[] {
   return raw.split('||').map((part) => {
     const i = part.indexOf('|')
     const name = (i >= 0 ? part.slice(0, i) : 'Series').trim()
-    const values = (i >= 0 ? part.slice(i + 1) : part).split(';').map((v) => Number(v.trim()) || 0)
+    // Blank = missing (NaN → a gap / no bar), not a fake zero.
+    const values = (i >= 0 ? part.slice(i + 1) : part).split(';').map((v) => {
+      const t = v.trim()
+      const n = Number(t)
+      return t === '' || !Number.isFinite(n) ? NaN : n
+    })
     return { name: name || 'Series', values }
   })
 }
 
 export function serializeSeries(list: Series[]): string {
-  return list.map((s) => `${s.name}|${s.values.join(';')}`).join('||')
+  return list.map((s) => `${s.name}|${s.values.map((v) => (Number.isFinite(v) ? v : '')).join(';')}`).join('||')
 }
 
 export const CHART_TYPES: { id: ChartType; icon: React.ComponentType<{ className?: string }>; label: string }[] = [
@@ -147,11 +152,22 @@ function renderChart(chartType: ChartType, data: Record<string, string | number>
     )
   }
   if (chartType === 'scatter') {
+    // Numeric labels are x VALUES — plot them to scale on a number axis
+    // (a category axis spaces 1, 2, 10 evenly, which is a lie for a scatter).
+    const numericX = data.length > 0 && data.every((d) => d.label !== '' && Number.isFinite(Number(d.label)))
+    const scatterAxes = numericX
+      ? [
+          axes[0],
+          <XAxis key="x" dataKey="label" type="number" domain={['auto', 'auto']} stroke="var(--muted-foreground)" tickLine={false} axisLine={false} fontSize={10} />,
+          ...axes.slice(2),
+        ]
+      : axes
+    const pts = numericX ? data.map((d) => ({ ...d, label: Number(d.label) })) : data
     return (
       <ScatterChart>
-        {axes}
+        {scatterAxes}
         {cols.map((s, i) => (
-          <Scatter key={s.name} name={s.name} data={data} dataKey={s.name} fill={GRAPH_COLORS[i % GRAPH_COLORS.length]} isAnimationActive={false} />
+          <Scatter key={s.name} name={s.name} data={pts} dataKey={s.name} fill={GRAPH_COLORS[i % GRAPH_COLORS.length]} isAnimationActive={false} />
         ))}
       </ScatterChart>
     )
@@ -183,7 +199,8 @@ export function ChartObject({ object }: ObjectRendererProps) {
     () =>
       rows.map((label, i) => ({
         label: label || `#${i + 1}`,
-        ...Object.fromEntries(cols.map((s) => [s.name, s.values[i] ?? 0])),
+        // Missing values are left out so recharts draws a gap, not a zero.
+        ...Object.fromEntries(cols.flatMap((s) => (Number.isFinite(s.values[i]) ? [[s.name, s.values[i]]] : []))),
       })),
     [rows, cols]
   )

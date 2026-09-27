@@ -103,7 +103,8 @@ export type BehaviorType =
   | 'thinLens' // on a line: paraxial thin-lens refraction (focal length f)
   | 'opticalMirror' // on a line: specular reflection
   | 'opticalScreen' // on a line: absorbs rays, marks where they land
-  | 'slit' // on a line: blocks rays except through 1–2 gaps
+  | 'slit' // on a line: blocks rays except through N gaps (N > 2 = grating)
+  | 'refractor' // on a rect/polygon/circle: glass — Snell, TIR, Fresnel, dispersion
   | 'waveSource' // on a circle: emits an animated plane wave along its rotation
   | 'waveBoundary' // on a line: normal-incidence interface between two declared media
   | 'transmissionLine' // on a line: Z0/length/load — input impedance + SWR pattern

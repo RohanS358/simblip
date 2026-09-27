@@ -295,6 +295,8 @@ const DOMAIN_SKETCH: Record<string, Partial<Record<string, string>>> = {
 
 /** Corner + edge grips of the selection box. Edges resize one axis only. */
 type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w'
+/** A line component's two ends (screen, slit, lens, spring…) — dragged directly. */
+type LineEnd = 'p0' | 'p1'
 
 // Which way each grip drags, as a compass angle — with the object's rotation
 // added, this picks the cursor that matches what the user will SEE, not the
@@ -333,7 +335,7 @@ interface Gesture {
   resizeId?: string
   resizeStart?: { w: number; h: number }
   resizeOrigin?: Vec2
-  resizeCorner?: ResizeHandle
+  resizeCorner?: ResizeHandle | LineEnd
   rotateId?: string
   rotateCenter?: Vec2
   rotateStartAngle?: number
@@ -830,7 +832,7 @@ const ObjectView = memo(function ObjectView({
   /** Custom-name label above the object. Off in presentation viewer mode. */
   showLabel?: boolean
   onPointerDown: (e: React.PointerEvent, id: string) => void
-  onResizeStart: (e: React.PointerEvent, id: string, corner: ResizeHandle) => void
+  onResizeStart: (e: React.PointerEvent, id: string, corner: ResizeHandle | LineEnd) => void
   onRotateStart: (e: React.PointerEvent, id: string) => void
   onHover: (id: string | null) => void
 }) {
@@ -1009,6 +1011,26 @@ const ObjectView = memo(function ObjectView({
                       cursor: resizeCursor(h, object.rotation),
                     }}
                     onPointerDown={(e) => onResizeStart(e, object.id, h)}
+                  />
+                </div>
+              )
+            })}
+          {/* Line components have no box to stretch — grab either END to
+              lengthen, shorten or re-aim them (a screen, slit, lens…). The
+              elbow connector has its own segment reflow instead. */}
+          {object.geometry.kind === 'line' &&
+            object.metadata.render !== 'connector' &&
+            (['p0', 'p1'] as const).map((end) => {
+              const pts = object.geometry.points ?? [[0, 0], [object.size.w, 0]]
+              const [px, py] = end === 'p0' ? pts[0] : pts[pts.length - 1]
+              return (
+                <div key={end} className="absolute" style={{ left: px, top: py }}>
+                  <div
+                    role="button"
+                    aria-label={end === 'p0' ? 'Drag start point' : 'Drag end point'}
+                    className="pointer-events-auto absolute h-3 w-3 rounded-full border-2 border-[var(--ring)] bg-background after:absolute after:-inset-2 after:content-['']"
+                    style={{ transform: `translate(-50%, -50%) scale(${chromeScale})`, cursor: 'crosshair' }}
+                    onPointerDown={(e) => onResizeStart(e, object.id, end)}
                   />
                 </div>
               )
@@ -2100,6 +2122,51 @@ export function InfiniteCanvas({
         setPlacePreview({ x: g.start.x - r, y: g.start.y - r, w: 2 * r, h: 2 * r, round: true })
       } else if (g.mode === 'resize' && g.resizeId && g.resizeStart && g.resizeOrigin) {
         const corner = g.resizeCorner ?? 'se'
+        if (corner === 'p0' || corner === 'p1') {
+          // Line end drag: take both ends to world space (the box rotates
+          // about its centre), move the grabbed one to the pointer, and
+          // rebuild an unrotated box around the pair — the geometry alone
+          // carries the direction, so nothing is lost by zeroing rotation.
+          const obj = store.pages[pageId]?.objects[g.resizeId]
+          if (!obj) return
+          const pts = obj.geometry.points ?? [[0, 0], [obj.size.w, 0]]
+          const cx = obj.position.x + obj.size.w / 2
+          const cy = obj.position.y + obj.size.h / 2
+          const rad = (obj.rotation * Math.PI) / 180
+          const world = ([x, y]: number[]) => {
+            const dx = obj.position.x + x - cx
+            const dy = obj.position.y + y - cy
+            return [cx + dx * Math.cos(rad) - dy * Math.sin(rad), cy + dx * Math.sin(rad) + dy * Math.cos(rad)]
+          }
+          let a = world(pts[0])
+          let b = world(pts[pts.length - 1])
+          if (corner === 'p0') a = [point.x, point.y]
+          else b = [point.x, point.y]
+          if (e.shiftKey) {
+            // Shift snaps to 15° steps about the fixed end.
+            const [fx, fy] = corner === 'p0' ? b : a
+            const [mx, my] = corner === 'p0' ? a : b
+            const ang = Math.round(Math.atan2(my - fy, mx - fx) / (Math.PI / 12)) * (Math.PI / 12)
+            const len = Math.hypot(mx - fx, my - fy)
+            const snapped = [fx + len * Math.cos(ang), fy + len * Math.sin(ang)]
+            if (corner === 'p0') a = snapped
+            else b = snapped
+          }
+          const x0 = Math.min(a[0], b[0])
+          const y0 = Math.min(a[1], b[1])
+          store.updateObject(
+            pageId,
+            g.resizeId,
+            {
+              position: { x: x0, y: y0 },
+              size: { w: Math.max(2, Math.abs(b[0] - a[0])), h: Math.max(2, Math.abs(b[1] - a[1])) },
+              rotation: 0,
+              geometry: { ...obj.geometry, points: [[a[0] - x0, a[1] - y0], [b[0] - x0, b[1] - y0]] },
+            },
+            { history: false }
+          )
+          return
+        }
         // toCanvas-derived delta (same as 'move' mode above), NOT a raw
         // screen-pixel delta divided by viewport.zoom alone — dxScreen/
         // dyScreen are unscaled window.clientX/Y deltas, but the editor
@@ -2128,11 +2195,16 @@ export function InfiniteCanvas({
         const presetShape = resizingObj?.geometry.kind === 'polygon' ? resizingObj.geometry.symbol : undefined
         const sides = presetShape ? SHAPE_SIDES[presetShape] : undefined
         const fixedPoints = presetShape ? SHAPE_FIXED_POINTS[presetShape] : undefined
+        const ownPoints = resizingObj?.geometry.kind === 'polygon' ? resizingObj.geometry.points : undefined
         const newPoints = sides
           ? regularPolygonPoints(sides, w, h)
           : fixedPoints
             ? fixedPoints.map(([x, y]) => [x * w, y * h])
-            : undefined
+            : ownPoints && resizingObj
+              ? // Any other polygon (a prism, a traced outline) scales its
+                // own vertices with the box, relative to its current size.
+                ownPoints.map(([x, y]) => [(x * w) / (resizingObj.size.w || 1), (y * h) / (resizingObj.size.h || 1)])
+              : undefined
         const nextBox = {
           x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
           y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
@@ -3364,7 +3436,7 @@ export function InfiniteCanvas({
     beginGesture('move', e, { clickedId })
   }, [pageId, tool, editing, beginGesture, setCtxMenu, selection, touchMeasureMode])
 
-  const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: ResizeHandle) => {
+  const handleResizeStart = useCallback((e: React.PointerEvent, id: string, corner: ResizeHandle | LineEnd) => {
     if (!editing) return
     e.stopPropagation()
     const store = useDocStore.getState()

@@ -16,7 +16,7 @@ import type {
 import { renameInExpr } from '@/lib/scene/bindings'
 import { needsNormalize, normalizeZ } from '@/lib/scene/z-order'
 import { uid } from '@/lib/scene/types'
-import { createBehavior } from '@/lib/behaviors/registry'
+import { createBehavior, clampParam } from '@/lib/behaviors/registry'
 import { solveScope, evalExpr, extractLiveRefs, type LiveRef, type Scope } from '@/lib/formula/engine'
 import { CONSTANTS, paramScopeOf } from '@/lib/formula/scope'
 import { readBuffer, type Sample } from '@/lib/physics/bus'
@@ -208,9 +208,13 @@ function reevaluate(content: PageContent): { content: PageContent; scope: Scope 
       const params = { ...b.params }
       for (const [name, param] of Object.entries(params)) {
         if (param.kind === 'number') {
+          // Behavior params are clamped to their declared bounds — this is the
+          // path load, undo and every variable change flow through.
           const next = solveParam(param, scope)
-          if (next) {
-            params[name] = { ...param, ...next, error: next.error }
+          const value = clampParam(b.type, name, next ? next.value : param.value)
+          const error = next ? next.error : param.error
+          if (value !== param.value || error !== param.error) {
+            params[name] = { ...param, value, error }
             bChanged = true
           }
         }
@@ -845,7 +849,7 @@ export const useDocStore = create<DocState>()(
             for (const [name, p] of Object.entries(behavior.params)) {
               if (p.kind === 'number') {
                 const { value, error } = evalExpr(p.expr, scope, p.value)
-                behavior.params[name] = { ...p, value, error }
+                behavior.params[name] = { ...p, value: clampParam(type, name, value), error }
               }
             }
             return { ...obj, behaviors: [...obj.behaviors, behavior] }
@@ -885,8 +889,12 @@ export const useDocStore = create<DocState>()(
                 if (b.id !== behaviorId) return b
                 const prev = b.params[name]
                 const fallback = prev?.kind === 'number' ? prev.value : 0
-                const { value, error } = evalExpr(expr, scope, fallback)
-                return { ...b, params: { ...b.params, [name]: { kind: 'number', expr, value, error } } }
+                const { value: raw, error } = evalExpr(expr, scope, fallback)
+                const value = clampParam(b.type, name, raw)
+                // A typed literal past the bounds is rewritten to the bound, so
+                // the field shows what the solver actually uses.
+                const shown = value !== raw && Number.isFinite(Number(expr)) ? String(value) : expr
+                return { ...b, params: { ...b.params, [name]: { kind: 'number', expr: shown, value, error } } }
               }),
             }
           })

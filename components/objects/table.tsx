@@ -18,13 +18,15 @@ import { useMemo } from 'react'
 // every render trips useSyncExternalStore's identity check and crashes the
 // component tree with React #185 ("Maximum update depth exceeded").
 const EMPTY_SCOPE: Scope = Object.freeze({}) as Scope
-import { Plus, TableProperties, X } from 'lucide-react'
+import { LineChart, Plus, TableProperties, X } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
-import { evalExpr, type Scope } from '@/lib/formula/engine'
+import { type Scope } from '@/lib/formula/engine'
+import { parseHeaders, serializeHeaders, parseData, serializeData, evalTable, type Col } from '@/lib/scene/table-data'
 import { fmtNum } from '@/lib/scene/format'
+import { createGeometry } from '@/lib/scene/factory'
+import { str } from '@/lib/scene/types'
 import { getString, type ObjectRendererProps } from './types'
 
-type Col = { name: string; expr: string | null } // expr = null for plain data
 type Summary = 'Sum' | 'Avg' | 'Min' | 'Max' | 'Count' | 'Stddev' | 'Stderr' | 'First' | 'Last' | 'Range' | 'None'
 
 const SUMMARY_OPTIONS: Summary[] = [
@@ -40,40 +42,6 @@ const SUMMARY_OPTIONS: Summary[] = [
   'Range',
   'None',
 ]
-
-const splitList = (s: string) =>
-  s
-    .split(';')
-    .map((x) => x.trim())
-    .filter((x) => x.length > 0)
-
-/** Header list → columns. "z=x+y" → {name:'z', expr:'x+y'}; "x" → {name:'x', expr:''}. */
-function parseHeaders(s: string): Col[] {
-  return splitList(s).map((h) => {
-    const i = h.indexOf('=')
-    if (i <= 0) return { name: h, expr: null }
-    return { name: h.slice(0, i).trim(), expr: h.slice(i + 1).trim() }
-  })
-}
-
-/** Reverse of parseHeaders; used when the user renames or types a formula. */
-function serializeHeaders(cols: Col[]): string {
-  return cols.map((c) => (c.expr !== null ? `${c.name}=${c.expr}` : c.name)).join(';')
-}
-
-function parseData(s: string, cols: number): string[][] {
-  if (!s.trim()) return []
-  return s.split('\n').map((row) => {
-    const cells = row.split(';').map((c) => c.trim())
-    // Pad/trim to column count so a half-typed row still renders in the grid.
-    if (cells.length >= cols) return cells.slice(0, cols)
-    return [...cells, ...Array(cols - cells.length).fill('')]
-  })
-}
-
-function serializeData(rows: string[][]): string {
-  return rows.map((r) => r.map((c) => c.replace(/;/g, ',').replace(/\n/g, ' ')).join(';')).join('\n')
-}
 
 export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -93,35 +61,10 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
   // Evaluate every formula column in left-to-right order so a column can
   // reference another column to its left. Row-by-row so a row's "z" sees
   // its OWN "x" and "y", not a different row's.
-  const computed: { row: number; col: number; value: number; error?: string }[][] = useMemo(() => {
-    return visibleRows.map((row, r) =>
-      cols.map((c, ci) => {
-        if (c.expr === null) {
-          const n = Number(row[ci])
-          return { row: r, col: ci, value: Number.isFinite(n) ? n : NaN }
-        }
-        // Build the per-row scope: every prior formula column's value
-        // is exposed under its own name, so k=z^2 sees z computed
-        // for THIS row.
-        const rowScope: Scope = { ...scope }
-        for (let k = 0; k < ci; k++) {
-          const prev = cols[k]
-          if (prev.expr !== null) {
-            const { value, error } = evalExpr(prev.expr, { ...scope, ...rowScope }, NaN)
-            if (error) {
-              return { row: r, col: ci, value: NaN, error }
-            }
-            rowScope[prev.name] = value
-          } else {
-            const n = Number(row[k])
-            rowScope[prev.name] = Number.isFinite(n) ? n : NaN
-          }
-        }
-        const { value, error } = evalExpr(c.expr, { ...scope, ...rowScope }, NaN)
-        return { row: r, col: ci, value, error }
-      })
-    )
-  }, [visibleRows, cols, scope])
+  const computed = useMemo(
+    () => evalTable(cols, visibleRows, scope).map((row, r) => row.map((cell, col) => ({ row: r, col, ...cell }))),
+    [visibleRows, cols, scope]
+  )
 
   const computedMap = useMemo(() => {
     const m: Record<string, { value: number; error?: string }> = {}
@@ -164,8 +107,11 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
       case 'Last':
         return vals[vals.length - 1]
       case 'Stddev': {
+        // Sample standard deviation (n − 1), as for measured data — what
+        // Excel's STDEV and every lab report mean by "standard deviation".
+        if (vals.length < 2) return NaN
         const m = vals.reduce((a, b) => a + b, 0) / vals.length
-        const v = vals.reduce((a, b) => a + (b - m) ** 2, 0) / vals.length
+        const v = vals.reduce((a, b) => a + (b - m) ** 2, 0) / (vals.length - 1)
         return Math.sqrt(v)
       }
       case 'Stderr': {
@@ -219,6 +165,16 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
     writeHeaders(next)
   }
 
+  // Table → graph: a new Graph beside this one, LINKED (not copied) — edit a
+  // cell and the plot follows. First column is x, the rest are series.
+  const plotTable = () => {
+    const g = createGeometry('graph', { x: object.position.x + object.size.w + 24, y: object.position.y })
+    g.name = `${object.name} plot`
+    g.parameters.tableId = str(object.id)
+    useDocStore.getState().addObject(pageId, g)
+    useDocStore.getState().setSelection([g.id])
+  }
+
   const onSummary = (s: Summary) => setStringParam(pageId, object.id, 'summary', s)
 
   return (
@@ -233,6 +189,18 @@ export function TableObject({ pageId, object, selected }: ObjectRendererProps) {
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
           {cols.length} cols · {visibleRows.length} rows
         </span>
+        {cols.length > 1 && (
+          <button
+            type="button"
+            aria-label="Plot this table on a graph"
+            title="Plot — first column on x, every other column as a series (stays linked)"
+            className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={plotTable}
+          >
+            <LineChart className="h-3.5 w-3.5" />
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-auto" onPointerDown={(e) => e.stopPropagation()}>

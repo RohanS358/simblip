@@ -117,6 +117,10 @@ interface ConnectorEntry {
    * must go slack (exert nothing) once its two ends are closer together than
    * that, or it's just a softer rod. See applyLiveParams. */
   isRope?: boolean
+  /** Spring and damper are explicit SI forces (Hooke / dashpot) applied in
+   *  applyLiveParams; their Matter constraint is inert and only carries the
+   *  attachment points for rendering. */
+  force?: 'spring' | 'damper'
 }
 
 interface ChargeEntry {
@@ -352,6 +356,10 @@ function makeBody(obj: SceneObject, kind: 'dynamic' | 'static'): Matter.Body | n
 
   if (kind === 'dynamic') {
     Matter.Body.setMass(body, Math.max(p('mass', 1), 0.001))
+    // Matter inflates every body's moment of inertia 4× (Body._inertiaScale)
+    // to keep stacks calm. That makes a rolling disc accelerate like a ring
+    // and a torsion pendulum run slow — restore the true ∫r² dm.
+    Matter.Body.setInertia(body, body.inertia / 4)
     Matter.Body.setVelocity(body, { x: p('vx', 0) * PPM / 60, y: -p('vy', 0) * PPM / 60 })
     Matter.Body.setAngularVelocity(body, p('omega', 0) / 60)
     // Per-body toggle: opt this body out of colliding with other rigid bodies
@@ -530,15 +538,23 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
         stiffness: stiffnessFor(conn.type),
         damping: 0.02,
       })
+      const force = conn.type === 'spring' || conn.type === 'damper' ? conn.type : undefined
+      if (force) {
+        // Constraint.create treats 0 as "unset" and substitutes 1 — zero it
+        // afterwards so Matter adds nothing; the physics is in springForces().
+        constraint.stiffness = 0
+        constraint.damping = 0
+      }
       Matter.Composite.add(engine.world, constraint)
       connectors.push({
         objectId: obj.id,
         constraint,
+        force,
         render: (obj.metadata.render as string) ?? (conn.type === 'spring' ? 'spring' : conn.type === 'rope' ? 'rope' : conn.type === 'damper' ? 'damper' : undefined),
-        k: conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'k', 20) : undefined,
+        k: conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'k', 50) : undefined,
         damping:
           conn.type !== 'rod'
-            ? compiledParam(pageId, obj.id, conn.type, 'damping', 0.05)
+            ? compiledParam(pageId, obj.id, conn.type, 'damping', conn.type === 'damper' ? 5 : 0.02)
             : undefined,
         restScale:
           conn.type === 'spring' ? compiledParam(pageId, obj.id, 'spring', 'restScale', 1) : undefined,
@@ -593,7 +609,7 @@ export function buildWorld(pageId: string, scopeId: string | null = null): World
           torsions.push({
             body: a,
             angle0: a.angle,
-            k: compiledParam(pageId, obj.id, 'torsionSpring', 'k', 5),
+            k: compiledParam(pageId, obj.id, 'torsionSpring', 'k', 0.05),
             restAngle: compiledParam(pageId, obj.id, 'torsionSpring', 'restAngle', 0),
           })
         }
@@ -796,8 +812,11 @@ function applyTorsionSprings(w: World, frameScope: Scope, dtSeconds: number) {
     const k = Math.max(th.k(frameScope), 0)
     const restRad = th.angle0 + (th.restAngle(frameScope) * Math.PI) / 180
     const diff = th.body.angle - restRad
-    const angAccel = (-k * diff) / Math.max(th.body.inertia, 1e-6)
-    Matter.Body.setAngularVelocity(th.body, th.body.angularVelocity + angAccel * dtSeconds)
+    // τ = −κθ, α = τ/I with I in kg·m² (Matter's is kg·px²); Matter angular
+    // velocity is rad per 1/60 s, hence the /60.
+    const I = Math.max(th.body.inertia / (PPM * PPM), 1e-12)
+    const angAccel = (-k * diff) / I
+    Matter.Body.setAngularVelocity(th.body, th.body.angularVelocity + (angAccel * dtSeconds) / 60)
   }
 }
 
@@ -848,23 +867,79 @@ function syncElectricMotors(w: World) {
   }
 }
 
-function applyLiveParams(w: World, scope: Scope, dtMs: number) {
-  // gravity: page variable g (m/s²) relative to Earth default
-  const g = typeof scope.g === 'number' ? scope.g : 9.81
-  w.engine.gravity.y = g / 9.81
+/** Newtons → Matter force units. Matter integrates a = f/m in px/ms², so a
+ *  real F/m (m/s²) is F·PPM/10⁶ — the same scaling gravity gets below. */
+const N_TO_MATTER = PPM / 1e6
+/** Matter velocity is px per 1000/60 ms (its baseDelta) → m/s. */
+const matterVelToSI = (v: number) => (v * 60) / PPM
 
-  // air resistance: page variable `drag` (Matter's frictionAir, 0 = vacuum)
-  const drag = typeof scope.drag === 'number' ? Math.max(0, scope.drag) : 0.01
+function pointWorld(body: Matter.Body | null | undefined, local: Matter.Vector): Matter.Vector {
+  return body ? { x: body.position.x + local.x, y: body.position.y + local.y } : local
+}
+
+/** Hooke's-law springs and linear dashpots, in SI:
+ *    spring:  F = k·(ℓ − ℓ₀) + c·v_rel,  c = 2ζ√(k·m_eff)   (ζ = the damping param)
+ *    damper:  F = c·v_rel                 (c = the damping param, N·s/m)
+ *  so a mass m on a spring k oscillates with T = 2π√(m/k), exactly. */
+function springForces(w: World, frameScope: Scope) {
+  const dt = STEP / 1000
+  for (const c of w.connectors) {
+    if (!c.force) continue
+    const { bodyA, bodyB, pointA, pointB } = c.constraint
+    const pa = pointWorld(bodyA, pointA)
+    const pb = pointWorld(bodyB, pointB)
+    const dx = pb.x - pa.x
+    const dy = pb.y - pa.y
+    const len = Math.hypot(dx, dy)
+    if (len < 1e-6) continue
+    const ux = dx / len
+    const uy = dy / len
+    const va = bodyA && !bodyA.isStatic ? bodyA.velocity : { x: 0, y: 0 }
+    const vb = bodyB && !bodyB.isStatic ? bodyB.velocity : { x: 0, y: 0 }
+    const vRel = matterVelToSI((vb.x - va.x) * ux + (vb.y - va.y) * uy) // m/s, + = separating
+    const mA = bodyA && !bodyA.isStatic ? bodyA.mass : Infinity
+    const mB = bodyB && !bodyB.isStatic ? bodyB.mass : Infinity
+    const mEff = Number.isFinite(mA) && Number.isFinite(mB) ? (mA * mB) / (mA + mB) : Math.min(mA, mB)
+    if (!Number.isFinite(mEff)) continue // both ends fixed
+    let F = 0 // tension (N), + pulls the ends together
+    if (c.force === 'spring') {
+      const rest = c.rest0 * (c.restScale ? Math.max(c.restScale(frameScope), 0.01) : 1)
+      c.constraint.length = rest // drawn/queried rest length
+      // ponytail: explicit spring — stable while ω·dt < 1 at the fixed 120 Hz
+      // step, so k is capped at m_eff/dt². Sub-step the springs if a lesson
+      // ever needs stiffer-than-that on a gram-scale mass.
+      const k = Math.min(Math.max(c.k ? c.k(frameScope) : 0, 0), mEff / (dt * dt))
+      const zeta = Math.max(0, c.damping ? c.damping(frameScope) : 0)
+      F = (k * (len - rest)) / PPM + 2 * zeta * Math.sqrt(k * mEff) * vRel
+    } else {
+      // ponytail: a dashpot is capped at critical-for-one-step (c ≤ m_eff/dt)
+      // so a huge c can't reverse the motion in one explicit step.
+      const cDamp = Math.min(Math.max(c.damping ? c.damping(frameScope) : 0, 0), mEff / dt)
+      F = cDamp * vRel
+    }
+    const f = { x: F * ux * N_TO_MATTER, y: F * uy * N_TO_MATTER }
+    if (bodyA && !bodyA.isStatic) Matter.Body.applyForce(bodyA, pa, f)
+    if (bodyB && !bodyB.isStatic) Matter.Body.applyForce(bodyB, pb, { x: -f.x, y: -f.y })
+  }
+}
+
+function applyLiveParams(w: World, scope: Scope, dtMs: number) {
+  // gravity: page variable g in m/s². Matter's gravity acceleration is
+  // gravity.y·gravity.scale px/ms², i.e. ×10⁶/PPM m/s² — the old g/9.81
+  // mapping made everything fall at 1 m/s².
+  const g = typeof scope.g === 'number' ? scope.g : 9.81
+  w.engine.gravity.y = (g * N_TO_MATTER) / w.engine.gravity.scale
+
+  // air resistance: page variable `drag` (Matter's frictionAir). Default 0 —
+  // real air drag on a lab-scale mass is negligible over a demo's seconds.
+  const drag = typeof scope.drag === 'number' ? Math.max(0, scope.drag) : 0
   for (const b of w.bodies) if (!b.body.isStatic) b.body.frictionAir = drag
 
   const frameScope = { ...scope, t: w.t }
+  springForces(w, frameScope)
   for (const c of w.connectors) {
-    if (c.k) {
-      const k = Math.max(c.k(frameScope), 0)
-      c.constraint.stiffness = Math.min(0.999, Math.max(0.0005, k / (k + 400)))
-    }
+    if (c.force) continue
     if (c.damping) c.constraint.damping = Math.min(0.5, Math.max(0, c.damping(frameScope)))
-    if (c.restScale) c.constraint.length = c.rest0 * Math.max(c.restScale(frameScope), 0.01)
     if (c.isRope) {
       // A rope only resists being STRETCHED past its length — closer than
       // that, it must go slack (no pull at all), unlike a rod/spring which
@@ -886,9 +961,10 @@ function applyLiveParams(w: World, scope: Scope, dtMs: number) {
   for (const b of w.bodies) {
     for (const speed of b.motors) Matter.Body.setAngularVelocity(b.body, speed(frameScope) / 60)
     for (const f of b.forces) {
+      // fx / fy are newtons (+y up), so a = F/m.
       Matter.Body.applyForce(b.body, b.body.position, {
-        x: f.fx(frameScope) * b.body.mass * 1e-4,
-        y: -f.fy(frameScope) * b.body.mass * 1e-4,
+        x: f.fx(frameScope) * N_TO_MATTER,
+        y: -f.fy(frameScope) * N_TO_MATTER,
       })
     }
   }
@@ -1084,7 +1160,7 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
         const len = Math.hypot(dx, dy) || 1
         const stretch = len - constraint.length
         const k = c.k ? c.k(frameScope) : 0
-        const mag = k > 0 ? Math.abs(k * stretch) : 0
+        const mag = k > 0 ? Math.abs((k * stretch) / PPM) : 0 // N — stretch is px
         // spring pulls toward the other end when stretched, pushes when compressed
         const sign = stretch >= 0 ? 1 : -1
         const dT = scaled((dx / len) * sign, (dy / len) * sign, Math.min(20 + mag * 0.2, 90), 90)
@@ -1119,13 +1195,14 @@ function syncTracers(w: World, scope: Scope, dtSeconds: number) {
       // rotational: net torque (τ = I·α) — or bare spin ω when coasting —
       // drawn as a curved arrow whose sweep matches the turn direction
       // (Matter's +angle is clockwise on screen).
-      const tau = Number.isFinite(t.body.inertia) ? t.body.inertia * alpha : 0
-      const hasTau = Math.abs(tau) > 0.5
+      // I in kg·m² (Matter's inertia is kg·px²).
+      const tau = Number.isFinite(t.body.inertia) ? (t.body.inertia / (PPM * PPM)) * alpha : 0
+      const hasTau = Math.abs(tau) > 1e-3
       if (hasTau || Math.abs(omega) > 0.05) {
         const bb = t.body.bounds
         const r = Math.min(64, Math.max(20, 0.42 * Math.max(bb.max.x - bb.min.x, bb.max.y - bb.min.y)))
         const cwDir = (hasTau ? tau : omega) > 0
-        const label = hasTau ? `τ ${tau.toFixed(1)}N·m` : `ω ${omega.toFixed(2)}rad/s`
+        const label = hasTau ? `τ ${tau.toPrecision(2)}N·m` : `ω ${omega.toFixed(2)}rad/s`
         html += arcArrowSvg(x, y, r, cwDir, 'var(--accent-amber)', label)
       }
     }
@@ -1417,20 +1494,25 @@ function frame(now: number) {
   // `timeScale` variable: slow-motion / fast-forward without losing accuracy
   const ts = Math.min(5, Math.max(0, typeof scope.timeScale === 'number' ? scope.timeScale : 1))
   let stepped = false
+  // Slow-motion / fast-forward scale how much SIM time each real ms buys,
+  // never the step itself: every update is the same 120 Hz step, so a 5×
+  // run is exactly as accurate (and stable) as a 1× one.
+  w.acc = Math.min(w.acc + elapsed * (ts - 1), 600) // elapsed already added once above
   if (ts > 0 && w.acc >= STEP) pushHistory(w)
-  while (w.acc >= STEP) {
-    if (ts > 0) {
-      applyLiveParams(w, scope, STEP * ts)
-      Matter.Engine.update(w.engine, STEP * ts)
-      if (w.circuit) {
-        stepCircuit(w.circuit, (STEP / 1000) * ts, w.t, pageObjects)
-        syncElectricMotors(w)
-      }
-      w.t += (STEP / 1000) * ts
-      stepped = true
+  let steps = 0
+  while (w.acc >= STEP && ts > 0 && steps < 60) {
+    applyLiveParams(w, scope, STEP)
+    Matter.Engine.update(w.engine, STEP)
+    if (w.circuit) {
+      stepCircuit(w.circuit, STEP / 1000, w.t, pageObjects)
+      syncElectricMotors(w)
     }
+    w.t += STEP / 1000
+    stepped = true
+    steps++
     w.acc -= STEP
   }
+  if (steps === 60) w.acc = 0 // too slow to keep up: drop time rather than spiral
   if (stepped) {
     syncDom(w)
     // Live variables: [Object(channel)] refs re-solve at ~5 Hz during Play.
