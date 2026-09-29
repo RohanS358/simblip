@@ -27,7 +27,7 @@ import { useDocStore } from '@/lib/store/document'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import { setClipboard, getClipboard, nextPasteOffset } from '@/lib/store/clipboard'
 import { nextTopZ, reorderZ, restackZ } from '@/lib/scene/z-order'
-import { makeGroup, rootGroupOf } from '@/lib/scene/group'
+import { groupOf, makeGroup, rootGroupOf } from '@/lib/scene/group'
 import { str, uid, type SceneObject } from '@/lib/scene/types'
 import { specsForGeometry, NO_BEHAVIOR_KINDS } from '@/lib/behaviors/registry'
 
@@ -202,6 +202,45 @@ export function groupObjects(pageId: string, ids: string[]) {
   store.pushHistory(pageId)
   store.addObject(pageId, group, { history: false })
   store.setSelection([group.id])
+}
+
+/** A doodle drawn on a note belongs to the note: it is grouped with it, so it
+ *  moves, scales and rotates with the note. The first doodle wraps the note in
+ *  a group (metadata.noteDoodle); later ones join that group. No history push —
+ *  the stroke's own add already recorded the pre-doodle snapshot. */
+export function attachInkToNote(pageId: string, inkId: string) {
+  const store = useDocStore.getState()
+  const objects = store.pages[pageId]?.objects
+  const ink = objects?.[inkId]
+  if (!objects || !ink || groupOf(inkId, objects)) return
+  const cx = ink.position.x + ink.size.w / 2
+  const cy = ink.position.y + ink.size.h / 2
+  // ponytail: axis-aligned hit test — a rotated note's corners can miss by a few px.
+  const note = Object.values(objects)
+    .filter(
+      (o) =>
+        o.geometry.kind === 'note' &&
+        cx >= o.position.x && cx <= o.position.x + o.size.w &&
+        cy >= o.position.y && cy <= o.position.y + o.size.h
+    )
+    .sort((a, b) => b.z - a.z)[0]
+  if (!note) return
+  const parent = groupOf(note.id, objects)
+  if (parent && !parent.metadata.noteDoodle) return // the user's own group: leave it be
+  if (parent) {
+    const members = [...(parent.geometry.children ?? []), inkId].map((id) => objects[id]).filter(Boolean)
+    const frame = makeGroup(members, undefined, objects)
+    store.updateObject(pageId, parent.id, {
+      geometry: { ...parent.geometry, children: [...(parent.geometry.children ?? []), inkId] },
+      ...(frame ? { position: frame.position, size: frame.size, rotation: frame.rotation } : {}),
+    })
+    return
+  }
+  const group = makeGroup([note, ink], 'Note', objects)
+  if (!group) return
+  group.metadata = { noteDoodle: true }
+  group.z = nextTopZ(objects)
+  store.addObject(pageId, group, { history: false })
 }
 
 /** Dissolve the selected group(s), releasing their children back to the page.

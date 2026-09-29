@@ -36,6 +36,7 @@ import {
   pasteClipboard,
   duplicateObjects,
   topZ,
+  attachInkToNote,
   type SelectionAction,
 } from '@/lib/scene/selection-actions'
 import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
@@ -2823,6 +2824,7 @@ export function InfiniteCanvas({
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
+            attachInkToNote(pageId, raw.id)
             return null
           }
 
@@ -2904,6 +2906,7 @@ export function InfiniteCanvas({
           if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
           obj.z = topZ(pageId)
           store.addObject(pageId, obj)
+          if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) attachInkToNote(pageId, obj.id)
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
           // since those are objects you usually tweak right away.
