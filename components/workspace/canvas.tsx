@@ -1254,6 +1254,9 @@ export function InfiniteCanvas({
   // and stays transparent over text (drag still selects words). A pointerdown
   // anywhere in the reading area outside an object drops the selection.
   const [overBlank, setOverBlank] = useState(false)
+  // Stylus eraser end / barrel button held (also while hovering): show the
+  // eraser cursor so you can tell it's on. CSS can't see pointer buttons.
+  const [penErasing, setPenErasing] = useState(false)
   useEffect(() => {
     if (!clickThrough || !editing || tool !== 'select') return
     const overText = (x: number, y: number) => {
@@ -3746,7 +3749,7 @@ export function InfiniteCanvas({
 
 
 
-  const cursor = cursorForTool(tool)
+  const cursor = cursorForTool(penErasing && tool !== 'select' && tool !== 'lasso' ? 'eraser' : tool)
 
   // O(1) lookups — `selection.includes(id)` inside the object map was O(n)
   // per object, i.e. O(n^2) for the page.
@@ -3855,6 +3858,10 @@ export function InfiniteCanvas({
       onPointerCancelCapture={handleTouchUpCapture}
       onPointerMove={(e) => {
         lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY }
+        if (e.pointerType === 'pen' && gesturePrefs().penButtonErases) {
+          const held = (e.buttons & 32) !== 0 || (e.buttons & 2) !== 0
+          if (held !== penErasing) setPenErasing(held)
+        } else if (penErasing) setPenErasing(false)
         if (tool === 'shaper' && !gestureRef.current) {
           const p = toCanvas(e.clientX, e.clientY)
           const store = useDocStore.getState()
@@ -3864,6 +3871,8 @@ export function InfiniteCanvas({
           setConnectorSnapDot(null)
         }
       }}
+      onPointerLeave={() => penErasing && setPenErasing(false)}
+      onPointerUp={() => penErasing && setPenErasing(false)}
       onPointerDown={(e) => {
         setCtxMenu(null)
         setSlash(null)
