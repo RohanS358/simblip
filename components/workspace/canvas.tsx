@@ -1106,6 +1106,23 @@ const ObjectView = memo(function ObjectView({
   )
 })
 
+/** Focus the flowing doc body at a screen point. `layer` (the solid canvas
+ *  overlay) is made transparent for the hit-test, which would otherwise land
+ *  on the overlay itself. */
+function placeBodyCaret(x: number, y: number, layer: HTMLElement | null) {
+  for (const pm of document.querySelectorAll<HTMLElement>('.ProseMirror.doc-flow')) {
+    const editor = (pm as HTMLElement & { editor?: import('@tiptap/react').Editor }).editor
+    if (!editor?.isEditable) continue
+    const prev = layer?.style.pointerEvents ?? ''
+    if (layer) layer.style.pointerEvents = 'none'
+    const hit = editor.view.posAtCoords({ left: x, top: y })
+    if (layer) layer.style.pointerEvents = prev
+    if (hit) editor.chain().focus().setTextSelection(hit.pos).run()
+    else editor.commands.focus('end')
+    return
+  }
+}
+
 export function InfiniteCanvas({
   pageId,
   locked,
@@ -1221,7 +1238,64 @@ export function InfiniteCanvas({
   const touchMeasureMode = useWorkspaceStore((s) => s.touchMeasureMode)
   const selection = useDocStore((s) => s.selection)
   const playMode = useRuntimeStore((s) => s.mode)
-  const editing = playMode === 'edit'
+  // The runtime is ONE global world: a sim running on another notebook/page
+  // must not lock THIS canvas (switching back and forth left the pen dead),
+  // and ink is harmless to a running sim (strokes have no bodies), so the
+  // pen and eraser keep working over a live simulation.
+  const runPageId = useRuntimeStore((s) => s.pageId)
+  const editing =
+    playMode === 'edit' || (runPageId !== null && runPageId !== pageId) || tool === 'pen' || tool === 'eraser'
+
+  // Doc sheets (clickThrough): with the select tool the canvas is transparent
+  // to clicks so a caret can land in the flowing body. That also meant the
+  // Select tool could never lasso on a document, and a tap on the paper never
+  // reached us to drop the selection. So: the layer turns solid wherever the
+  // pointer is NOT over a run of text (lasso from blank paper, like a page),
+  // and stays transparent over text (drag still selects words). A pointerdown
+  // anywhere in the reading area outside an object drops the selection.
+  const [overBlank, setOverBlank] = useState(false)
+  useEffect(() => {
+    if (!clickThrough || !editing || tool !== 'select') return
+    const overText = (x: number, y: number) => {
+      const near = (r: DOMRect) => x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2
+      for (const pm of document.querySelectorAll('.ProseMirror.doc-flow')) {
+        for (const block of pm.children) {
+          const br = block.getBoundingClientRect()
+          if (y < br.top - 2 || y > br.bottom + 2) continue
+          const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+          const range = document.createRange()
+          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+            if (!n.textContent?.trim()) continue
+            range.selectNodeContents(n)
+            for (const r of range.getClientRects()) if (near(r)) return true
+          }
+        }
+      }
+      return false
+    }
+    let raf = 0
+    const move = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => setOverBlank(!overText(e.clientX, e.clientY)))
+    }
+    const down = (e: PointerEvent) => {
+      const t = e.target as Element | null
+      if (!t?.closest || !useDocStore.getState().selection.length) return
+      const inReader = !!t.closest('.ProseMirror') || !!containerRef.current?.contains(t)
+      if (!inReader) return
+      if (t.closest('[data-object-id], [role="button"], button, input, textarea, select')) return
+      useDocStore.getState().setSelection([])
+    }
+    window.addEventListener('pointermove', move, true)
+    window.addEventListener('pointerdown', down, true)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('pointermove', move, true)
+      window.removeEventListener('pointerdown', down, true)
+      setOverBlank(false)
+    }
+  }, [clickThrough, editing, tool])
 
   // Freeform lasso path (page coords) while a select-drag is in progress.
   const [lasso, setLasso] = useState<Vec2[] | null>(null)
@@ -2477,6 +2551,9 @@ export function InfiniteCanvas({
           store.setSelection(lassoHits(g.lassoPts ?? [], store.pages[pageId]?.objects ?? {}))
         } else {
           store.setSelection([])
+          // Doc sheet: the tap was swallowed by this (solid) layer, so put
+          // the caret where the body would have.
+          if (clickThrough && store.tool === 'select') placeBodyCaret(e.clientX, e.clientY, containerRef.current)
         }
       } else if (g.mode === 'placeRect' || g.mode === 'placeRadius') {
         // Drag-to-size placement: the preview outline (which already encodes
@@ -3770,7 +3847,7 @@ export function InfiniteCanvas({
         // click-through host turns pointer-events off on the wrapper around
         // this canvas, and pointer-events is an inherited property, so an
         // absent value here would mean "none" even while a pen is selected.
-        ...(clickThrough ? { pointerEvents: tool === 'select' ? ('none' as const) : ('auto' as const) } : {}),
+        ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}

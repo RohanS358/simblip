@@ -289,6 +289,14 @@ function ownerPageOf(nodes: Record<string, Node>, contentId: string): PageNode |
   return null
 }
 
+/** Nothing on it worth a copy: no objects and no body text. Forking a blank
+ *  page against a real one only litters the tree with "(other device's
+ *  version)" duplicates — the real one just wins. */
+const isBlankContent = (c: unknown): boolean => {
+  const p = c as { objects?: Record<string, unknown>; flow?: string } | null
+  return !p || (Object.keys(p.objects ?? {}).length === 0 && !(p.flow ?? '').includes('"text"'))
+}
+
 /** Keep BOTH versions of a page edited on two devices: the local edit stays
  *  where it is; the other device's version becomes a new page next to it. */
 function keepConflictCopy(contentId: string, remoteContent: unknown): void {
@@ -537,7 +545,7 @@ export function startSync() {
         for (const c of res.conflicts) {
           // Keep both: the other device's version becomes its own page, then
           // this device's edit is written on top of the server's rev.
-          keepConflictCopy(c.id, c.content)
+          if (!isBlankContent(c.content)) keepConflictCopy(c.id, c.content)
           ledger.revs[c.id] = c.rev
         }
         // Tree result
@@ -607,11 +615,13 @@ export function startSync() {
         // two devices is not a reason to fork a page.
         const differs = local ? fingerprint(local) !== fingerprint(row.content) : false
         const unpushedLocal =
-          differs && (dirty.has(row.id) || (firstSync && ledger.prints[row.id] === undefined))
+          differs &&
+          !isBlankContent(local) &&
+          (dirty.has(row.id) || (firstSync && ledger.prints[row.id] === undefined))
         if (unpushedLocal) {
           // Both sides moved: keep ours in place, theirs as a copy, and push
           // ours on top of their rev.
-          keepConflictCopy(row.id, row.content)
+          if (!isBlankContent(row.content)) keepConflictCopy(row.id, row.content)
           ledger.revs[row.id] = row.rev
           dirty.add(row.id)
           continue
