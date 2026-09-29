@@ -1135,6 +1135,14 @@ const autoPen = {
   saved: null as { color: string; size: number } | null,
 }
 
+/** Auto tool: the note the user is working in (just placed, or just doodled
+ *  on). While it is fresh, drawing outside it means "I'm done here" → select. */
+const NOTE_FOCUS_MS = 20_000
+let noteAnchor: { id: string; at: number } | null = null
+function touchNoteAnchor(id: string | null) {
+  if (id) noteAnchor = { id, at: Date.now() }
+}
+
 /** Auto pen: set the pen style for the stroke about to start. */
 function applyAutoPen(e: { clientX: number; clientY: number; pointerType: string }) {
   const { pen, setPen } = usePrefs.getState()
@@ -2649,6 +2657,7 @@ export function InfiniteCanvas({
           // of reverting itself before the caret lands.
           store.setSelection([obj.id])
           store.setTool('select')
+          if (obj.geometry.kind === 'note') touchNoteAnchor(obj.id)
         }
       } else if (g.mode === 'placeLine') {
         // Drag-to-draw connector: anchor at press point, end at release.
@@ -2868,7 +2877,7 @@ export function InfiniteCanvas({
             // Writing with the pen never selects the ink — selection boxes
             // popping up after every word make handwriting unbearable.
             store.addObject(pageId, raw)
-            attachInkToNote(pageId, raw.id)
+            touchNoteAnchor(attachInkToNote(pageId, raw.id))
             return null
           }
 
@@ -2950,7 +2959,7 @@ export function InfiniteCanvas({
           if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
           obj.z = topZ(pageId)
           store.addObject(pageId, obj)
-          if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) attachInkToNote(pageId, obj.id)
+          if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) touchNoteAnchor(attachInkToNote(pageId, obj.id))
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
           // since those are objects you usually tweak right away.
@@ -3480,6 +3489,26 @@ export function InfiniteCanvas({
       }
       beginGesture('marquee', e)
       return
+    }
+    if (tool === 'pen' && noteAnchor && usePrefs.getState().pen.autoStyle !== false) {
+      const a = noteAnchor
+      const note = store.pages[pageId]?.objects[a.id]
+      if (Date.now() - a.at > NOTE_FOCUS_MS || !note) noteAnchor = null
+      else {
+        const p = toCanvas(e.clientX, e.clientY)
+        const inside =
+          p.x >= note.position.x && p.x <= note.position.x + note.size.w &&
+          p.y >= note.position.y && p.y <= note.position.y + note.size.h
+        if (inside) noteAnchor = { id: a.id, at: Date.now() }
+        else {
+          // Left the note: back to select, and this press is a select-drag.
+          noteAnchor = null
+          store.setTool('select')
+          store.setSelection([])
+          beginGesture('marquee', e)
+          return
+        }
+      }
     }
     if (tool === 'pen' || tool === 'shaper') {
       if (tool === 'pen') applyAutoPen(e)

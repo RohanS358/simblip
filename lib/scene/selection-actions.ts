@@ -208,11 +208,11 @@ export function groupObjects(pageId: string, ids: string[]) {
  *  moves, scales and rotates with the note. The first doodle wraps the note in
  *  a group (metadata.noteDoodle); later ones join that group. No history push —
  *  the stroke's own add already recorded the pre-doodle snapshot. */
-export function attachInkToNote(pageId: string, inkId: string) {
+export function attachInkToNote(pageId: string, inkId: string): string | null {
   const store = useDocStore.getState()
   const objects = store.pages[pageId]?.objects
   const ink = objects?.[inkId]
-  if (!objects || !ink || groupOf(inkId, objects)) return
+  if (!objects || !ink || groupOf(inkId, objects)) return null
   const cx = ink.position.x + ink.size.w / 2
   const cy = ink.position.y + ink.size.h / 2
   // ponytail: axis-aligned hit test — a rotated note's corners can miss by a few px.
@@ -224,9 +224,9 @@ export function attachInkToNote(pageId: string, inkId: string) {
         cy >= o.position.y && cy <= o.position.y + o.size.h
     )
     .sort((a, b) => b.z - a.z)[0]
-  if (!note) return
+  if (!note) return null
   const parent = groupOf(note.id, objects)
-  if (parent && !parent.metadata.noteDoodle) return // the user's own group: leave it be
+  if (parent && !parent.metadata.noteDoodle) return note.id // the user's own group: leave it be
   if (parent) {
     const members = [...(parent.geometry.children ?? []), inkId].map((id) => objects[id]).filter(Boolean)
     const frame = makeGroup(members, undefined, objects)
@@ -234,13 +234,14 @@ export function attachInkToNote(pageId: string, inkId: string) {
       geometry: { ...parent.geometry, children: [...(parent.geometry.children ?? []), inkId] },
       ...(frame ? { position: frame.position, size: frame.size, rotation: frame.rotation } : {}),
     })
-    return
+    return note.id
   }
   const group = makeGroup([note, ink], 'Note', objects)
-  if (!group) return
+  if (!group) return note.id
   group.metadata = { noteDoodle: true }
   group.z = nextTopZ(objects)
   store.addObject(pageId, group, { history: false })
+  return note.id
 }
 
 /** Dissolve the selected group(s), releasing their children back to the page.

@@ -98,8 +98,8 @@ export function PenSettings() {
       </div>
 
       <PrefRow
-        label="Auto pen"
-        detail="Picks the style for you: highlighter when you start on text, pointer while a sim runs, ink for a stylus, pen for a mouse. Choosing a style yourself pauses it for 30 seconds."
+        label="Auto pen & tool"
+        detail="Picks the style for you: highlighter when you start on text, pointer while a sim runs, ink for a stylus, pen for a mouse. After working in a note, drawing outside it switches to Select. Choosing a style yourself pauses the style rules for 30 seconds."
         checked={pen.autoStyle !== false}
         onChange={() => setPen({ autoStyle: pen.autoStyle === false })}
       />
