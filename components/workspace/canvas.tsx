@@ -1111,7 +1111,7 @@ const ObjectView = memo(function ObjectView({
  *  overlay) is made transparent for the hit-test, which would otherwise land
  *  on the overlay itself. */
 function placeBodyCaret(x: number, y: number, layer: HTMLElement | null) {
-  for (const pm of document.querySelectorAll<HTMLElement>('.ProseMirror.doc-flow')) {
+  for (const pm of document.querySelectorAll<HTMLElement>('.doc-flow .ProseMirror')) {
     const editor = (pm as HTMLElement & { editor?: import('@tiptap/react').Editor }).editor
     if (!editor?.isEditable) continue
     const prev = layer?.style.pointerEvents ?? ''
@@ -1262,7 +1262,7 @@ export function InfiniteCanvas({
     if (!clickThrough || !editing || tool !== 'select') return
     const overText = (x: number, y: number) => {
       const near = (r: DOMRect) => x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2
-      for (const pm of document.querySelectorAll('.ProseMirror.doc-flow')) {
+      for (const pm of document.querySelectorAll('.doc-flow .ProseMirror')) {
         for (const block of pm.children) {
           const br = block.getBoundingClientRect()
           if (y < br.top - 2 || y > br.bottom + 2) continue
