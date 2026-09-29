@@ -97,6 +97,13 @@ export function PenSettings() {
         </svg>
       </div>
 
+      <PrefRow
+        label="Auto pen"
+        detail="Picks the style for you: highlighter when you start on text, pointer while a sim runs, ink for a stylus, pen for a mouse. Choosing a style yourself pauses it for 30 seconds."
+        checked={pen.autoStyle !== false}
+        onChange={() => setPen({ autoStyle: pen.autoStyle === false })}
+      />
+
       <Field
         label="Style"
         hint="Ink follows stylus pressure. Pen writes at one flat thickness. Highlighter is flat and translucent. Pointer is presenter ink — it fades away after 5 seconds and is never saved to the page."

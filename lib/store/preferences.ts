@@ -29,6 +29,9 @@ export interface PenPrefs {
   size: number
   color: string
   style: PenStyle
+  /** Auto pen (lib/scene/pen-auto.ts): pick the style per stroke from context.
+   *  Optional so stored prefs from before it existed count as ON. */
+  autoStyle?: boolean
   /** User-added colours, shown after the basic palette in pen settings. */
   customColors: string[]
   /** Scribble-to-erase: 0 = must scribble hard and long before anything is

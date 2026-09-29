@@ -69,6 +69,7 @@ import { isPenActive, notePenDown } from '@/lib/pointer/pen-active'
 import { isPalmPointer } from '@/lib/pointer/palm-reject'
 import { paintBands } from '@/lib/scene/z-order'
 import { lassoHits } from '@/lib/scene/lasso'
+import { choosePenStyle } from '@/lib/scene/pen-auto'
 import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, scalePoints, scaleInkMeta, orientedBox, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
 import { cn } from '@/lib/utils'
 
@@ -1107,6 +1108,65 @@ const ObjectView = memo(function ObjectView({
   )
 })
 
+/** Is this screen point on a run of text in a document body? */
+function overDocText(x: number, y: number): boolean {
+  const near = (r: DOMRect) => x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2
+  for (const pm of document.querySelectorAll('.doc-flow .ProseMirror')) {
+    for (const block of pm.children) {
+      const br = block.getBoundingClientRect()
+      if (y < br.top - 2 || y > br.bottom + 2) continue
+      const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
+      const range = document.createRange()
+      for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+        if (!n.textContent?.trim()) continue
+        range.selectNodeContents(n)
+        for (const r of range.getClientRects()) if (near(r)) return true
+      }
+    }
+  }
+  return false
+}
+
+const autoPen = {
+  lastAuto: null as PenStyle | null,
+  lastStrokeAt: 0,
+  manualAt: 0,
+  /** colour/size to restore when leaving the highlighter */
+  saved: null as { color: string; size: number } | null,
+}
+
+/** Auto pen: set the pen style for the stroke about to start. */
+function applyAutoPen(e: { clientX: number; clientY: number; pointerType: string }) {
+  const { pen, setPen } = usePrefs.getState()
+  if (pen.autoStyle === false) return
+  const now = Date.now()
+  // A style that isn't what auto last set was chosen by hand.
+  if (pen.style !== (autoPen.lastAuto ?? 'ink')) autoPen.manualAt = now
+  const next = choosePenStyle({
+    now,
+    pointerType: e.pointerType,
+    running: useRuntimeStore.getState().mode !== 'edit',
+    overText: overDocText(e.clientX, e.clientY),
+    current: pen.style,
+    lastAuto: autoPen.lastAuto,
+    lastStrokeAt: autoPen.lastStrokeAt,
+    manualAt: autoPen.manualAt,
+  })
+  autoPen.lastStrokeAt = now
+  if (next === pen.style) {
+    autoPen.lastAuto = next
+    return
+  }
+  if (next === 'highlighter') {
+    autoPen.saved = { color: pen.color, size: pen.size }
+    setPen({ style: next, color: 'var(--accent-amber)', size: 12 })
+  } else if (pen.style === 'highlighter' && autoPen.saved) {
+    setPen({ style: next, ...autoPen.saved })
+    autoPen.saved = null
+  } else setPen({ style: next })
+  autoPen.lastAuto = next
+}
+
 /** Focus the flowing doc body at a screen point. `layer` (the solid canvas
  *  overlay) is made transparent for the hit-test, which would otherwise land
  *  on the overlay itself. */
@@ -1260,23 +1320,7 @@ export function InfiniteCanvas({
   const [penErasing, setPenErasing] = useState(false)
   useEffect(() => {
     if (!clickThrough || !editing || tool !== 'select') return
-    const overText = (x: number, y: number) => {
-      const near = (r: DOMRect) => x >= r.left - 2 && x <= r.right + 2 && y >= r.top - 2 && y <= r.bottom + 2
-      for (const pm of document.querySelectorAll('.doc-flow .ProseMirror')) {
-        for (const block of pm.children) {
-          const br = block.getBoundingClientRect()
-          if (y < br.top - 2 || y > br.bottom + 2) continue
-          const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
-          const range = document.createRange()
-          for (let n = walker.nextNode(); n; n = walker.nextNode()) {
-            if (!n.textContent?.trim()) continue
-            range.selectNodeContents(n)
-            for (const r of range.getClientRects()) if (near(r)) return true
-          }
-        }
-      }
-      return false
-    }
+    const overText = overDocText
     let raf = 0
     const move = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return
@@ -3438,6 +3482,7 @@ export function InfiniteCanvas({
       return
     }
     if (tool === 'pen' || tool === 'shaper') {
+      if (tool === 'pen') applyAutoPen(e)
       const p = toCanvas(e.clientX, e.clientY)
       const snapped =
         tool === 'shaper' ? snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom) : null
