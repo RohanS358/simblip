@@ -68,6 +68,7 @@ import {
   type GalleryEvent,
 } from '@/lib/store/notes-gallery'
 import { cn } from '@/lib/utils'
+import { useIsNarrow } from '@/hooks/use-mobile'
 import { HOLIDAYS, HOLIDAY_DAYS } from '@/lib/calendar/holidays'
 import {
   createNotePage,
@@ -1042,6 +1043,7 @@ function MiniMonth({
   events,
   selected,
   onPick,
+  large,
 }: {
   system: CalSystem
   cursor: string
@@ -1049,6 +1051,9 @@ function MiniMonth({
   events: GalleryEvent[]
   selected: string
   onPick: (key: string) => void
+  /** Phone layout: finger-sized day cells, and no month header of its own —
+   *  the screen header above already titles and steps the month. */
+  large?: boolean
 }) {
   const [view, setView] = useState(cursor)
   useEffect(() => setView(cursor), [cursor])
@@ -1065,7 +1070,7 @@ function MiniMonth({
 
   return (
     <div>
-      <div className="mb-1 flex items-center">
+      <div className={cn('mb-1 flex items-center', large && 'hidden')}>
         <button
           type="button"
           aria-label="Previous month"
@@ -1092,7 +1097,7 @@ function MiniMonth({
       </div>
       <div className="grid grid-cols-7 text-center">
         {(system === 'bs' ? WEEKDAYS_NE : WEEKDAYS_EN).map((w, i) => (
-          <div key={i} className="pb-1 text-ui-3xs font-medium text-muted-foreground/70">
+          <div key={i} className={cn('pb-1 font-medium text-muted-foreground/70', large ? 'text-ui-xs' : 'text-ui-3xs')}>
             {system === 'bs' ? w.slice(0, 2) : w[0]}
           </div>
         ))}
@@ -1105,7 +1110,8 @@ function MiniMonth({
               type="button"
               onClick={() => onPick(key)}
               className={cn(
-                'relative mx-auto flex h-7 w-7 items-center justify-center rounded-full text-ui-xs tabular-nums transition-colors',
+                'relative mx-auto flex items-center justify-center rounded-full tabular-nums transition-colors',
+                large ? 'h-10 w-10 text-ui-md' : 'h-7 w-7 text-ui-xs',
                 inMonth ? 'text-foreground' : 'text-muted-foreground/40',
                 key === selected && key !== t && 'bg-accent font-medium',
                 key === t ? 'bg-[var(--accent-blue)] font-semibold text-white' : 'hover:bg-accent'
@@ -1389,7 +1395,9 @@ function CalendarScreen() {
   const bsMonthNe = system === 'bs' && toBS(range.first) ? BS_MONTHS_NE[partsIn('bs', range.first).m] : null
 
   const t = today()
+  const narrow = useIsNarrow()
   const todayOccs = useMemo(() => expand(events, t, t) as Occ[], [events, t])
+  const selectedOccs = useMemo(() => expand(events, selected, selected) as Occ[], [events, selected])
   const upcoming = useMemo(
     () => (expand(events, addDays(t, 1), addDays(t, 14)) as Occ[]).filter((o) => o.start > t).slice(0, 8),
     [events, t]
@@ -1484,7 +1492,7 @@ function CalendarScreen() {
               <ChevronRight className="h-4 w-4" />
             </button>
           </div>
-          <div className="min-w-0 flex-1 leading-tight">
+          <div className="min-w-0 flex-1 leading-tight max-md:order-first max-md:basis-full">
             <h2 className="truncate text-ui-lg font-semibold text-[var(--accent-blue)]">
               {title}
               {bsMonthNe && <span className="ml-2 text-ui-sm font-normal text-muted-foreground">{bsMonthNe}</span>}
@@ -1517,7 +1525,10 @@ function CalendarScreen() {
             aria-label="New event"
             title="New event (N)"
             onClick={() => create(selected, selected)}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className={cn(
+              'rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground',
+              narrow && view === 'month' && 'hidden' // the day agenda has its own Event button
+            )}
           >
             <Plus className="h-4 w-4" />
           </button>
@@ -1526,13 +1537,69 @@ function CalendarScreen() {
             aria-label="Close calendar"
             title="Close (Esc)"
             onClick={() => setOpen(false)}
-            className="rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="ml-auto rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground pointer-coarse:p-2.5"
           >
             <X className="h-4 w-4" />
           </button>
         </header>
 
-        {view === 'month' ? (
+        {view === 'month' && narrow ? (
+          // Phones: the month is a compact grid in the top half and the picked
+          // day's agenda fills the bottom half — a full month grid squeezed
+          // to 375px left each day ~53px square with truncated event chips.
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 border-b border-border/50 px-2 pb-2 pt-1">
+              <MiniMonth
+                large
+                system={system}
+                cursor={cursor}
+                setCursor={setCursor}
+                events={events}
+                selected={selected}
+                onPick={(k) => {
+                  setSelected(k)
+                  if (k < monthOf(system, cursor).first || k > monthOf(system, cursor).last) setCursor(k)
+                }}
+              />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
+              <div className="mb-3 flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-ui-lg font-semibold">{longDate(system, selected)}</p>
+                  <p className="text-ui-xs text-muted-foreground">{longDate(other(system), selected)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setDayPanel(selected)}
+                  className="flex h-10 items-center gap-1.5 rounded-lg border border-border/60 px-3 text-ui-sm font-medium active:bg-accent"
+                >
+                  <NotebookPen className="h-4 w-4" /> Note
+                </button>
+                <button
+                  type="button"
+                  onClick={() => create(selected, selected)}
+                  className="flex h-10 items-center gap-1.5 rounded-lg bg-[var(--accent-blue)] px-3 text-ui-sm font-medium text-white active:opacity-90"
+                >
+                  <Plus className="h-4 w-4" /> Event
+                </button>
+              </div>
+              <div className="flex flex-col gap-4">
+                {selectedOccs.length > 0 ? (
+                  <AgendaList title="Events" occs={selectedOccs} system={system} onOpen={openOcc} />
+                ) : (
+                  <p className="text-ui-sm text-muted-foreground">No events on this day.</p>
+                )}
+                <div>
+                  <h4 className="mb-1 text-ui-2xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Made this day
+                  </h4>
+                  <RecordList records={records[selected] ?? []} empty="Nothing made on this day." />
+                </div>
+                {selected === t && <AgendaList title="Coming up" occs={upcoming} system={system} onOpen={openOcc} showDate />}
+              </div>
+            </div>
+          </div>
+        ) : view === 'month' ? (
           <MonthView
             system={system}
             cursor={cursor}

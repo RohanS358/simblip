@@ -19,6 +19,7 @@ import { useDocStore } from '@/lib/store/document'
 import { cn } from '@/lib/utils'
 import { pageKindForFile } from '@/components/workspace/open-file'
 import { InfiniteCanvas } from '@/components/workspace/canvas'
+import { DocView } from '@/components/workspace/doc-view'
 import { SLIDE_W, SLIDE_H, SHEET_W, SHEET_H } from '@/lib/scene/frames'
 import type { ObjectRendererProps } from './types'
 
@@ -48,6 +49,7 @@ function MinimalPagePreview({ linkedPageId }: { linkedPageId: string }) {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const [scale, setScale] = useState(1)
+  const isDoc = meta?.pageKind === 'doc'
   useEffect(() => {
     const el = containerRef.current
     if (!el) return
@@ -60,6 +62,16 @@ function MinimalPagePreview({ linkedPageId }: { linkedPageId: string }) {
     ro.observe(el)
     return () => ro.disconnect()
   }, [frameW, frameH])
+
+  // A doc page's text lives in its flowing body, which the sheet canvases
+  // below never draw — show it through DocView's own read-only embed.
+  if (isDoc) {
+    return (
+      <div className="pointer-events-none h-full w-full overflow-hidden">
+        <DocView pageId={linkedPageId} bare />
+      </div>
+    )
+  }
 
   return (
     <div ref={containerRef} className="relative flex h-full w-full items-center justify-center overflow-hidden bg-white dark:bg-neutral-900">
@@ -134,9 +146,8 @@ const loadPdfjs = () => {
  *  both by FileObject's own file-picker/drop and by canvas.tsx embedding a
  *  freshly-dropped file straight into a new Document object. PDFs/images go
  *  to session storage (FileObject renders them itself via pdf.js/<img>);
- *  pptx/xlsx become a real linked page (own importer, own editor);
- *  txt/md/csv/docx become a pdf-kind page (no editable model of their own —
- *  .docx is converted rather than parsed, see open-file.ts). */
+ *  pptx/xlsx/docx become a real linked page (own importer, own editor);
+ *  txt/md/csv become a pdf-kind page (no editable model of their own). */
 export async function attachFileToObject(
   hostPageId: string,
   objectId: string,
@@ -145,11 +156,10 @@ export async function attachFileToObject(
 ): Promise<{ ok: true; linkedPageId?: string } | { ok: false; error: string }> {
   const ext = f.name.slice(f.name.lastIndexOf('.')).toLowerCase()
   const alreadyViewable = f.type === 'application/pdf' || ext === '.pdf' || f.type.startsWith('image/')
-  // .docx joins txt/md/csv here: it has no editable model of its own anymore
-  // (open-file.ts routes it to the pdf kind), and converting up front is what
-  // keeps the canvas preview from sitting blank until someone opens the
-  // linked page — the same reason pptx imports eagerly below.
-  const isPdfConvertible = ['.txt', '.md', '.csv', '.docx'].includes(ext)
+  // txt/md/csv have no editable model of their own, so they convert to PDF.
+  // .docx does NOT: it becomes a real doc page below (docx-map.ts), and the
+  // preview's bare DocView runs that import on mount.
+  const isPdfConvertible = ['.txt', '.md', '.csv'].includes(ext)
 
   if (isPdfConvertible) {
     try {
@@ -201,11 +211,8 @@ export async function attachFileToObject(
         }
         if (Object.keys(sheetColors).length) ws.updatePageMeta(newPageId, { sheetColors })
       }
-      // There used to be a `kind === 'doc'` branch here running docx-import.
-      // Nothing routes to the 'doc' kind on import anymore — .docx is handled
-      // by the isPdfConvertible path above — so it was unreachable. DocView
-      // keeps its own copy of that import for doc pages created back when
-      // .docx did open as one.
+      // No eager step for 'doc' (.docx): MinimalPagePreview renders a bare
+      // DocView, whose own effect runs the import on mount.
       // The doc store debounces its durable write by 400ms and otherwise
       // only flushes on pagehide/beforeunload — a reload landing inside
       // that window (or an environment where those events don't fire, e.g.

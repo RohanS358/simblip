@@ -1,341 +1,760 @@
 'use client'
 
-// Notebook cloud sync: the app's own Postgres gateway (/api/pg) over fetch.
+// Notebook cloud sync — offline-first, automatic, quota-aware.
 //
-// Offline-first. Without NEXT_PUBLIC_CLOUD=1 the module is dormant and
-// SIMBLIP persists to localStorage only (local demo mode). With a cloud
-// deployment, the model is per-USER and driven by the platform auth store
-// (lib/auth/store.ts — JWT password sessions against /api/auth):
+// WHAT syncs (see lib/sync/page-sync.ts for the per-page modes):
+//   mandatory — the notebook tree, every page's content unless the user kept
+//               that page local, and account data (calendar events, to-dos,
+//               sticky notes). Small, essential, on by default.
+//   optional  — file bytes (PDF/PPTX/image sources): only when opted in,
+//               handled by lib/sync/device-file-sync.ts + /api/storage.
+//   local     — device prefs, input settings, caches: never leave the device.
 //
-//   sign-in → pull that user's workspace; if the cloud copy is newer than
-//             anything this browser has synced for that user, adopt it;
-//             otherwise publish local state.
-//   change  → notebooks tree and dirty pages debounce-push (2 s).
-//   delete  → pages removed locally are removed remotely.
-//   signed out → nothing syncs; the app is plain offline/local.
-//
-// Row security: workspace id IS the auth user id, enforced by the gateway
-// (app/api/pg, db/schema.sql). Conflicts are last-write-wins per row.
+// HOW (all through /api/sync, one transaction per push on the server):
+//   • Every local change lands in the local archive immediately (page-archive
+//     — localStorage cache + IndexedDB durable tier) and its id joins a
+//     PERSISTED dirty set, so a closed tab, crash or offline spell never
+//     loses a pending change.
+//   • Pushes are incremental: only dirty pages, only if their content
+//     fingerprint changed since the last successful push, in size-bounded
+//     batches.
+//   • Each row carries the server revision the edit was based on. A stale base
+//     is a conflict: page content keeps the local edit and saves the other
+//     device's version as a clearly named copy — nothing is overwritten
+//     silently. The tree and the calendar are merged three-way against the
+//     last agreed copy (lib/sync/merge.ts), so additions and deletions from
+//     both devices survive.
+//   • Pulls are incremental (server-clock cursor) and run on sign-in, on
+//     focus, on reconnect and every minute while visible.
+//   • Failures retry with exponential backoff; going offline just leaves
+//     changes queued ('pending'); hitting the 150 MB quota stops pushing and
+//     says so ('quota') without discarding anything.
 
 import { create } from 'zustand'
+import { toast } from 'sonner'
 import { useDocStore } from '@/lib/store/document'
 import * as archive from '@/lib/store/page-archive'
-import {
-  drainPageDeletions,
-  onPageDeleted,
-  requeuePageDeletions,
-} from '@/lib/store/deleted-pages'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { drainPageDeletions, onPageDeleted, requeuePageDeletions, pendingPageDeletions } from '@/lib/store/deleted-pages'
+import { stripWebCache, useWorkspaceStore } from '@/lib/store/workspace'
+import { useNotesGallery, type GalleryEvent, type GalleryNote, type GalleryTodo } from '@/lib/store/notes-gallery'
 import { migrateNotebooksToNodes } from '@/lib/store/migrate-tree'
-import type { Node } from '@/lib/scene/types'
+import type { Node, PageNode } from '@/lib/scene/types'
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import { cloudConfigured } from '@/lib/data/db'
 import { onReconnect } from '@/lib/sync/connectivity'
-import { stampSyncedContent, syncedContentIds } from '@/lib/sync/page-sync'
+import { contentIdsOf, stampSyncedContent, syncedContentIds } from '@/lib/sync/page-sync'
 import { splitPulledTree } from '@/lib/sync/tree-visibility'
+import { canonicalJSON, fingerprint, mergeById, threeWayMerge } from '@/lib/sync/merge'
+import { PROJECT_QUOTA_BYTES, jsonBytes } from '@/lib/storage/quota'
 
 export const syncConfigured = cloudConfigured
 
-export type SyncPhase = 'offline' | 'syncing' | 'synced' | 'error'
+export type SyncPhase =
+  | 'offline' // signed out / not configured
+  | 'paused' // user paused sync on this device
+  | 'pending' // changes queued, no connection
+  | 'syncing'
+  | 'synced'
+  | 'error' // retrying with backoff
+  | 'quota' // cloud storage full — nothing more uploads until space is freed
 
 interface SyncState {
   phase: SyncPhase
   lastError: string | null
   lastSyncedAt: number | null
+  /** Changes waiting to reach the cloud (pages + tree + account data). */
+  pending: number
+  /** Server-reported usage from the last push (never computed client-side). */
+  usage: { used: number; limit: number } | null
+  /** Conflicts resolved by keeping both copies, this session. */
+  conflictsKept: number
+  paused: boolean
 }
+
+const PAUSE_KEY = 'simblip-sync-paused' // device-local on purpose
 
 export const useSyncStore = create<SyncState>(() => ({
   phase: 'offline',
   lastError: null,
   lastSyncedAt: null,
+  pending: 0,
+  usage: null,
+  conflictsKept: 0,
+  paused: typeof window !== 'undefined' && localStorage.getItem(PAUSE_KEY) === '1',
 }))
 
 const setPhase = (phase: SyncPhase, lastError: string | null = null) =>
   useSyncStore.setState({ phase, lastError, ...(phase === 'synced' ? { lastSyncedAt: Date.now() } : {}) })
 
-// ── Identity ────────────────────────────────────────────────────────────────
-// Authentication is mandatory: the workspace id IS the signed-in profile id.
-
-/** newest remote updated_at we've applied/produced, per user */
-const seenKey = (ws: string) => `simblip-sync-seen:${ws}`
-
 export function workspaceId(): string | null {
   return useAuthStore.getState().profile?.id ?? null
 }
 
-// ── REST helpers ────────────────────────────────────────────────────────────
+// ── Persisted per-user sync ledger ──────────────────────────────────────────
 
-async function rest(path: string, init: RequestInit = {}): Promise<Response> {
+interface Ledger {
+  /** server-clock cursor for incremental pulls */
+  since: string | null
+  after: string
+  /** server rev each page's local copy is based on */
+  revs: Record<string, number>
+  /** fingerprint of what we last pushed / pulled, per page */
+  prints: Record<string, string>
+  treeRev: number | null
+  kvRevs: Record<string, number>
+  dirty: string[]
+  treeDirty: boolean
+  kvDirty: string[]
+  /** pages refused as too large; retried only when their content changes */
+  tooLarge: Record<string, string>
+}
+
+const emptyLedger = (): Ledger => ({
+  since: null,
+  after: '',
+  revs: {},
+  prints: {},
+  treeRev: null,
+  kvRevs: {},
+  dirty: [],
+  treeDirty: false,
+  kvDirty: [],
+  tooLarge: {},
+})
+
+const ledgerKey = (ws: string) => `simblip-sync-ledger:${ws}`
+const baseKey = (ws: string, part: string) => `simblip-sync-base:${ws}:${part}`
+
+function readJSON<T>(key: string): T | null {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? (JSON.parse(raw) as T) : null
+  } catch {
+    return null
+  }
+}
+
+function writeJSON(key: string, value: unknown): void {
+  try {
+    localStorage.setItem(key, JSON.stringify(value))
+  } catch {
+    // Storage full. The base copies are an optimisation (without one the
+    // merge degrades to an additive union — never lossy), and the ledger is
+    // rebuilt from a full pull, so dropping the write loses no user data.
+  }
+}
+
+// ── Tree / account-data normalisation ───────────────────────────────────────
+
+/** A node as it travels: no per-device web caches, no wire-only stamp. */
+function wireNode(n: Node): Node {
+  if (n.kind !== 'page') return n
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { syncedContent: _s, ...rest } = n as PageNode
+  return stripWebCache({ [n.id]: rest as Node })[n.id]
+}
+const nodeEq = (a: Node, b: Node) => canonicalJSON(wireNode(a)) === canonicalJSON(wireNode(b))
+
+/** The account data that syncs. Image notes are files (bytes in OPFS) and
+ *  stay on the device that has them. */
+interface GalleryKv {
+  notes: GalleryNote[]
+  todos: GalleryTodo[]
+  events: GalleryEvent[]
+  eventColors: string[]
+}
+const GALLERY_KEY = 'gallery'
+
+function galleryKv(): GalleryKv {
+  const s = useNotesGallery.getState()
+  return {
+    notes: s.notes.filter((n) => n.kind === 'sticky'),
+    todos: s.todos,
+    events: s.events.filter((e) => !e.holiday),
+    eventColors: s.eventColors,
+  }
+}
+
+function mergeGallery(base: GalleryKv | null, local: GalleryKv, remote: GalleryKv): GalleryKv {
+  return {
+    notes: mergeById(base?.notes ?? null, local.notes, remote.notes ?? []),
+    todos: mergeById(base?.todos ?? null, local.todos, remote.todos ?? []),
+    events: mergeById(base?.events ?? null, local.events, remote.events ?? []),
+    eventColors: [...new Set([...(local.eventColors ?? []), ...(remote.eventColors ?? [])])].slice(-12),
+  }
+}
+
+// ── REST ────────────────────────────────────────────────────────────────────
+
+class HttpError extends Error {
+  constructor(
+    public status: number,
+    public body: Record<string, unknown>
+  ) {
+    super(`Sync ${status}: ${String(body.error ?? '')}`)
+  }
+}
+
+async function api<T>(init: RequestInit & { query?: string } = {}): Promise<T> {
   const token = getAccessToken()
-  const res = await fetch(`/api/pg/${path}`, {
+  const res = await fetch(`/api/sync${init.query ?? ''}`, {
     ...init,
     headers: {
-      // The user's JWT, so the gateway scopes every row to the signed-in profile.
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       'Content-Type': 'application/json',
       ...init.headers,
     },
   })
-  if (!res.ok) throw new Error(`Sync ${res.status}: ${await res.text()}`)
-  return res
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as Record<string, unknown>
+    throw new HttpError(res.status, body)
+  }
+  return (await res.json()) as T
 }
 
-const upsert = (table: string, rows: unknown) =>
-  rest(table, {
-    method: 'POST',
-    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
-    body: JSON.stringify(rows),
-  })
-
-// ── Pull / push ─────────────────────────────────────────────────────────────
-
-async function pull(ws: string, sinceMs: number) {
-  // Pages haven't changed remotely since our last sync are already reflected
-  // in the local archive — refetching them would re-download the full
-  // (potentially hundreds-of-KB, image-bearing) content column for every
-  // page in the workspace on every sign-in/reconcile. Filtering to rows
-  // touched after our last-seen timestamp keeps this to just what's new.
-  const since = new Date(sinceMs).toISOString()
-  const [wsRes, pgRes] = await Promise.all([
-    // Column is still literally named `notebooks` in Postgres (db/schema.sql)
-    // — only the in-memory field was renamed to `nodes`, see lib/scene/types.ts.
-    rest(`simblip_workspaces?id=eq.${ws}&select=notebooks,updated_at`),
-    rest(`simblip_pages?workspace_id=eq.${ws}&updated_at=gt.${since}&select=id,content,viewport,updated_at`),
-  ])
-  const wsRows = (await wsRes.json()) as { notebooks: unknown; updated_at: string }[]
-  const pgRows = (await pgRes.json()) as {
-    id: string
-    content: unknown
-    viewport: unknown
-    updated_at: string
-  }[]
-  if (wsRows.length === 0) return null
-  const newest = Math.max(
-    Date.parse(wsRows[0].updated_at),
-    ...pgRows.map((r) => Date.parse(r.updated_at))
-  )
-  return { nodes: wsRows[0].notebooks, pages: pgRows, newest }
+interface PullResponse {
+  now: string
+  after: string
+  more: boolean
+  workspace: { tree: unknown; rev: number } | null
+  pages: { id: string; content: unknown; viewport: unknown; rev: number }[]
+  kv: { key: string; value: unknown; rev: number }[]
+  serverPages: Record<string, number>
 }
 
-async function pushWorkspace(ws: string) {
-  const { nodes, hiddenNodes } = useWorkspaceStore.getState()
-  const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
-  // The blob is the WHOLE tree — what this device shows plus what it only
-  // carries (lib/sync/page-sync.ts). The column is overwritten wholesale, so
-  // pushing only the visible half would delete every other device's unsynced
-  // pages from their own backup. `nodes` wins on a key collision: this device's
-  // copy is the live one.
-  const tree = { ...hiddenNodes, ...stampSyncedContent(nodes) }
-  await upsert('simblip_workspaces', [
-    // `notebooks` here is the DB column name, not the old field name — see
-    // the comment on pull() above.
-    { id: ws, institution_id: institution, notebooks: tree, updated_at: new Date().toISOString() },
-  ])
+interface PushResponse {
+  workspace: { rev: number } | { conflict: { tree: unknown; rev: number } } | null
+  revs: Record<string, number>
+  conflicts: { id: string; content: unknown; viewport: unknown; rev: number }[]
+  kv: Record<string, number>
+  kvConflicts: { key: string; value: unknown; rev: number }[]
+  usage: { used: number; limit: number }
 }
-
-async function pushPages(ws: string, pageIds: string[]) {
-  const { pages, viewports } = useDocStore.getState()
-  const institution = useAuthStore.getState().profile?.institution_id ?? 'inst-platform'
-  // Per-page opt-in (lib/sync/page-sync.ts): content only leaves the device
-  // for pages the user explicitly switched sync on for. Everything else stays
-  // local — the tree node still travels via pushWorkspace, so another device
-  // lists the page and just finds it empty until sync is enabled.
-  const allowed = syncedContentIds(useWorkspaceStore.getState().nodes)
-  const rows = pageIds
-    .filter((id) => allowed.has(id))
-    .map((id) => {
-      // A page edited and then closed is no longer in memory — read its
-      // content back from the archive so the last edits still reach the
-      // cloud. Without this, switching pages within the 2 s debounce would
-      // quietly drop the change.
-      const content = pages[id] ?? archive.readPage(id)
-      if (!content) return null
-      return {
-        id,
-        workspace_id: ws,
-        institution_id: institution,
-        content,
-        viewport: viewports[id] ?? null,
-        updated_at: new Date().toISOString(),
-      }
-    })
-    .filter((r): r is NonNullable<typeof r> => r !== null)
-  if (rows.length > 0) await upsert('simblip_pages', rows)
-}
-
-const deletePages = (ws: string, ids: string[]) =>
-  Promise.all(
-    ids.map((id) => rest(`simblip_pages?id=eq.${id}&workspace_id=eq.${ws}`, { method: 'DELETE' }))
-  )
 
 // ── Engine ──────────────────────────────────────────────────────────────────
 
 let started = false
 let activeUser: string | null = null
+let ledger: Ledger = emptyLedger()
+/** true while we apply remote data, so our own store writes aren't mistaken
+ *  for user edits and echoed straight back to the server */
+let applyingRemote = false
+let kick: (() => void) | null = null
+let pullNow: (() => Promise<void>) | null = null
+
+const saveLedger = () => {
+  if (!activeUser) return
+  writeJSON(ledgerKey(activeUser), ledger)
+  useSyncStore.setState({
+    pending: ledger.dirty.length + (ledger.treeDirty ? 1 : 0) + ledger.kvDirty.length + pendingPageDeletions().length,
+  })
+}
+
+/** The whole tree this device carries: what it shows plus what it only holds
+ *  for other devices (lib/sync/tree-visibility.ts). */
+const fullTree = (): Record<string, Node> => {
+  const { nodes, hiddenNodes } = useWorkspaceStore.getState()
+  return { ...hiddenNodes, ...nodes }
+}
+
+const pagePrint = (content: unknown, viewport: unknown) => fingerprint([content, viewport ?? null])
+
+/** Pause/resume sync on THIS device. Changes keep queueing while paused. */
+export function setSyncPaused(paused: boolean): void {
+  try {
+    if (paused) localStorage.setItem(PAUSE_KEY, '1')
+    else localStorage.removeItem(PAUSE_KEY)
+  } catch {
+    /* preference only */
+  }
+  useSyncStore.setState({ paused })
+  if (paused) setPhase('paused')
+  else kick?.()
+}
+
+/** Run a pull + push right now (Sync status "Sync now"). */
+export async function syncNow(): Promise<void> {
+  await pullNow?.()
+  kick?.()
+}
+
+/** Owner page (tree node) of a content id — itself, or the page whose
+ *  satellite canvas (sheet, slide, PDF notes/ink) it is. */
+function ownerPageOf(nodes: Record<string, Node>, contentId: string): PageNode | null {
+  const direct = nodes[contentId]
+  if (direct?.kind === 'page') return direct
+  for (const n of Object.values(nodes)) {
+    if (n.kind === 'page' && contentIdsOf(n).includes(contentId)) return n
+  }
+  return null
+}
+
+/** Keep BOTH versions of a page edited on two devices: the local edit stays
+ *  where it is; the other device's version becomes a new page next to it. */
+function keepConflictCopy(contentId: string, remoteContent: unknown): void {
+  const ws = useWorkspaceStore.getState()
+  const owner = ownerPageOf(ws.nodes, contentId)
+  const parentId = owner?.parentId ?? Object.values(ws.nodes).find((n) => n.kind === 'folder' && !n.parentId)?.id
+  if (!parentId) return
+  const label = owner?.name ?? 'Page'
+  const sheetNote = owner && owner.id !== contentId ? ' sheet' : ''
+  const copyId = ws.addPageIn(parentId, `${label}${sheetNote} (other device's version)`, 'board', false)
+  archive.writePage(copyId, remoteContent as never)
+  ledger.dirty = [...new Set([...ledger.dirty, copyId])]
+  useSyncStore.setState((s) => ({ conflictsKept: s.conflictsKept + 1 }))
+  toast.message('Edited on two devices — both versions kept', {
+    description: `The other device's version of “${label}” is saved as a separate page.`,
+  })
+}
+
+/** Adopt a tree: merged three-way against the last agreed copy, then split
+ *  into shown/hidden for this device. Returns true if local had changes the
+ *  remote lacks (so the merged tree must be pushed back). */
+function applyTree(ws: string, remoteRaw: unknown, rev: number): boolean {
+  const remote = migrateNotebooksToNodes(remoteRaw) ?? ((remoteRaw ?? {}) as Record<string, Node>)
+  const base = readJSON<Record<string, Node>>(baseKey(ws, 'tree'))
+  const local = fullTree()
+  const merged = threeWayMerge(base, local, remote, nodeEq)
+  // Per-device web caches survive the merge on the device that has them.
+  for (const [id, n] of Object.entries(merged)) {
+    const mine = local[id] as PageNode | undefined
+    if (n.kind === 'page' && mine?.kind === 'page' && (mine.webCachedHtml || mine.webCachedText)) {
+      merged[id] = { ...n, webCachedHtml: mine.webCachedHtml, webCachedText: mine.webCachedText } as Node
+    }
+    // Keep the remote stamp for visibility decisions.
+    const r = remote[id] as PageNode | undefined
+    if (n.kind === 'page' && r?.kind === 'page' && r.syncedContent !== undefined) {
+      merged[id] = { ...merged[id], syncedContent: r.syncedContent } as Node
+    }
+  }
+  const ws0 = useWorkspaceStore.getState()
+  const split = splitPulledTree(merged, ws0.nodes, ws0.cloudNodeIds)
+  // A page that WAS visible and is now hidden means its owner switched it to
+  // "keep local" elsewhere; its cloud rows are gone, so drop the mirror here.
+  for (const id of Object.keys(split.hiddenNodes)) {
+    if (ws0.nodes[id] && archive.hasPage(id)) archive.dropPage(id)
+  }
+  applyingRemote = true
+  try {
+    useWorkspaceStore.setState({ nodes: split.nodes, hiddenNodes: split.hiddenNodes, cloudNodeIds: split.cloudNodeIds })
+    useWorkspaceStore.getState().pruneMissingPages()
+  } finally {
+    applyingRemote = false
+  }
+  writeJSON(baseKey(ws, 'tree'), remote)
+  ledger.treeRev = rev
+  const ids = new Set([...Object.keys(merged), ...Object.keys(remote)])
+  for (const id of ids) {
+    const m = merged[id]
+    const r = remote[id]
+    if (!m || !r || !nodeEq(m, r)) return true
+  }
+  return false
+}
+
+function applyGallery(ws: string, remote: GalleryKv, rev: number): boolean {
+  const base = readJSON<GalleryKv>(baseKey(ws, `kv:${GALLERY_KEY}`))
+  const local = galleryKv()
+  const merged = mergeGallery(base, local, remote)
+  applyingRemote = true
+  try {
+    useNotesGallery.setState((s) => ({
+      // image notes are this device's own and pass through untouched
+      notes: [...merged.notes, ...s.notes.filter((n) => n.kind !== 'sticky')],
+      todos: merged.todos,
+      events: merged.events,
+      eventColors: merged.eventColors,
+    }))
+  } finally {
+    applyingRemote = false
+  }
+  writeJSON(baseKey(ws, `kv:${GALLERY_KEY}`), remote)
+  ledger.kvRevs[GALLERY_KEY] = rev
+  return canonicalJSON(merged) !== canonicalJSON(mergeGallery(null, remote, remote))
+}
 
 export function startSync() {
   if (started || !syncConfigured || typeof window === 'undefined') return
   started = true
 
-  const dirtyPages = new Set<string>()
-  const deletedPages = new Set<string>()
-  let workspaceDirty = false
   let timer: ReturnType<typeof setTimeout> | null = null
   let flushing = false
+  let failures = 0
+  /** server said sync isn't provisioned (503): no pulls until this time */
+  let unavailableUntil = 0
 
-  const flush = async () => {
+  const schedule = (ms = 2000) => {
+    saveLedger()
+    if (!activeUser) return
+    if (timer) clearTimeout(timer)
+    timer = setTimeout(() => void flush(), ms)
+  }
+  kick = () => schedule(0)
+
+  const markDirty = (ids: Iterable<string>) => {
+    const set = new Set(ledger.dirty)
+    for (const id of ids) set.add(id)
+    ledger.dirty = [...set]
+  }
+
+  const onFailure = (err: unknown) => {
+    if (err instanceof HttpError && err.status === 413 && err.body.error === 'quota_exceeded') {
+      useSyncStore.setState({
+        usage: { used: Number(err.body.used ?? 0), limit: Number(err.body.limit ?? PROJECT_QUOTA_BYTES) },
+      })
+      setPhase('quota', 'Cloud storage is full. Your changes are saved on this device.')
+      return // no auto-retry: only freeing space or a smaller edit helps
+    }
+    if (!navigator.onLine) {
+      setPhase('pending')
+      return // onReconnect resumes
+    }
+    if (err instanceof HttpError && err.status === 503) {
+      // Server not set up for sync yet (migration missing): check back
+      // rarely instead of retrying on the usual backoff ladder.
+      setPhase('error', 'Cloud sync is not set up on this server yet. Your work is saved on this device.')
+      unavailableUntil = Date.now() + 5 * 60_000
+      schedule(5 * 60_000)
+      return
+    }
+    failures++
+    setPhase('error', err instanceof Error ? err.message : String(err))
+    schedule(Math.min(60_000, 2000 * 2 ** failures))
+  }
+
+  const flush = async (): Promise<void> => {
     timer = null
     const ws = activeUser
-    if (!ws) return // signed out: keep the dirty sets for the next sign-in
+    if (!ws) return
+    if (useSyncStore.getState().paused) {
+      setPhase('paused')
+      return
+    }
+    if (!navigator.onLine) {
+      setPhase('pending')
+      return
+    }
     if (flushing) {
-      schedule() // a push is in flight; run again after
+      schedule()
       return
     }
     flushing = true
-    setPhase('syncing')
-    const pageBatch = [...dirtyPages]
-    const delBatch = [...deletedPages, ...drainPageDeletions()]
-    const wsBatch = workspaceDirty
-    dirtyPages.clear()
-    deletedPages.clear()
-    workspaceDirty = false
+    const deletes = drainPageDeletions()
     try {
-      // Workspace row must exist before pages reference it; deletes touch a
-      // disjoint id set so they can run alongside the push instead of after.
-      const delPromise = delBatch.length > 0 ? deletePages(ws, delBatch) : Promise.resolve()
-      if (wsBatch || pageBatch.length > 0) await pushWorkspace(ws)
-      await Promise.all([pushPages(ws, pageBatch), delPromise])
-      localStorage.setItem(seenKey(ws), String(Date.now()))
-      setPhase('synced')
+      setPhase('syncing')
+      const tree = fullTree()
+      const allowed = syncedContentIds(tree)
+      const { pages: resident, viewports } = useDocStore.getState()
+
+      // Collect dirty pages whose content actually changed since last push.
+      type Row = { id: string; content: unknown; viewport: unknown; baseRev: number | null; print: string; bytes: number }
+      const rows: Row[] = []
+      const clean: string[] = []
+      for (const id of ledger.dirty) {
+        if (!allowed.has(id)) {
+          clean.push(id) // kept local (or deleted): nothing to push
+          continue
+        }
+        const content = resident[id] ?? archive.readPage(id) ?? (await archive.readPageDurable(id))
+        if (!content) {
+          clean.push(id)
+          continue
+        }
+        const viewport = viewports[id] ?? null
+        const print = pagePrint(content, viewport)
+        if (ledger.prints[id] === print && ledger.revs[id] !== undefined) {
+          clean.push(id)
+          continue
+        }
+        if (ledger.tooLarge[id] === print) continue // unchanged since refused
+        rows.push({ id, content, viewport, baseRev: ledger.revs[id] ?? null, print, bytes: jsonBytes(content) })
+      }
+      ledger.dirty = ledger.dirty.filter((id) => !clean.includes(id))
+
+      // Size-bounded batches: ≤ 50 rows / ~8 MB each. The first batch also
+      // carries the tree, account data and deletions.
+      const batches: Row[][] = []
+      let cur: Row[] = []
+      let curBytes = 0
+      for (const r of rows) {
+        if (cur.length > 0 && (cur.length >= 50 || curBytes + r.bytes > 8 * 1024 * 1024)) {
+          batches.push(cur)
+          cur = []
+          curBytes = 0
+        }
+        cur.push(r)
+        curBytes += r.bytes
+      }
+      if (cur.length > 0 || batches.length === 0) batches.push(cur)
+
+      let pushTree = ledger.treeDirty
+      let pushKv = ledger.kvDirty.includes(GALLERY_KEY)
+      let pendingDeletes = deletes
+      for (const batch of batches) {
+        if (batch.length === 0 && !pushTree && !pushKv && pendingDeletes.length === 0) continue
+        const treeForPush = pushTree
+          ? Object.fromEntries(Object.entries(stampSyncedContent(tree)).map(([id, n]) => [id, stripWebCache({ [id]: n })[id]]))
+          : null
+        const kvValue = pushKv ? galleryKv() : null
+        let res: PushResponse
+        try {
+          res = await api<PushResponse>({
+            method: 'POST',
+            body: JSON.stringify({
+              deletes: pendingDeletes,
+              workspace: treeForPush ? { tree: treeForPush, baseRev: ledger.treeRev } : undefined,
+              pages: batch.map((r) => ({ id: r.id, content: r.content, viewport: r.viewport, baseRev: r.baseRev })),
+              kv: kvValue ? [{ key: GALLERY_KEY, value: kvValue, baseRev: ledger.kvRevs[GALLERY_KEY] ?? null }] : [],
+            }),
+          })
+        } catch (err) {
+          // One oversized page must not block everything else behind it.
+          if (err instanceof HttpError && err.status === 413 && err.body.error === 'row_too_large') {
+            const bad = batch.find((r) => r.id === err.body.id)
+            if (bad) {
+              ledger.tooLarge[bad.id] = bad.print
+              toast.error('A page is too large to sync', {
+                description: 'It stays safe on this device. Large images belong in files, not on the page.',
+              })
+              schedule(0)
+              return
+            }
+          }
+          throw err
+        }
+        pendingDeletes = []
+        // Page results
+        for (const r of batch) {
+          const rev = res.revs[r.id]
+          if (rev === undefined) continue
+          ledger.revs[r.id] = rev
+          ledger.prints[r.id] = r.print
+          delete ledger.tooLarge[r.id]
+          if (pagePrint(useDocStore.getState().pages[r.id] ?? r.content, useDocStore.getState().viewports[r.id] ?? null) === r.print) {
+            ledger.dirty = ledger.dirty.filter((id) => id !== r.id)
+          }
+        }
+        for (const c of res.conflicts) {
+          // Keep both: the other device's version becomes its own page, then
+          // this device's edit is written on top of the server's rev.
+          keepConflictCopy(c.id, c.content)
+          ledger.revs[c.id] = c.rev
+        }
+        // Tree result
+        if (res.workspace && 'conflict' in res.workspace) {
+          // Someone else moved the tree on: merge theirs with ours and push
+          // the merged tree based on their rev.
+          const localChanges = applyTree(ws, res.workspace.conflict.tree, res.workspace.conflict.rev)
+          ledger.treeDirty = localChanges
+        } else if (res.workspace) {
+          ledger.treeRev = res.workspace.rev
+          writeJSON(baseKey(ws, 'tree'), treeForPush)
+          ledger.treeDirty = false
+        }
+        pushTree = false
+        // Account data result
+        if (kvValue) {
+          const kc = res.kvConflicts.find((k) => k.key === GALLERY_KEY)
+          if (kc) {
+            const changed = applyGallery(ws, kc.value as GalleryKv, kc.rev)
+            if (!changed) ledger.kvDirty = ledger.kvDirty.filter((k) => k !== GALLERY_KEY)
+          } else if (res.kv[GALLERY_KEY] !== undefined) {
+            ledger.kvRevs[GALLERY_KEY] = res.kv[GALLERY_KEY]
+            writeJSON(baseKey(ws, `kv:${GALLERY_KEY}`), kvValue)
+            ledger.kvDirty = ledger.kvDirty.filter((k) => k !== GALLERY_KEY)
+          }
+          pushKv = false
+        }
+        useSyncStore.setState({ usage: res.usage })
+        saveLedger()
+      }
+      failures = 0
+      const more = ledger.dirty.some((id) => !ledger.tooLarge[id]) || ledger.treeDirty || ledger.kvDirty.length > 0
+      if (more) schedule(0)
+      else setPhase('synced')
     } catch (err) {
-      // Re-queue so nothing is lost; next change retries.
-      pageBatch.forEach((id) => dirtyPages.add(id))
-      requeuePageDeletions(delBatch)
-      workspaceDirty ||= wsBatch
-      setPhase('error', err instanceof Error ? err.message : String(err))
+      requeuePageDeletions(deletes)
+      onFailure(err)
     } finally {
       flushing = false
+      saveLedger()
     }
   }
 
-  const schedule = () => {
-    if (!activeUser) return
-    if (timer) clearTimeout(timer)
-    timer = setTimeout(flush, 2000)
+  /** Incremental pull: everything changed on the server since our cursor. */
+  const pull = async (ws: string): Promise<void> => {
+    let firstSync = ledger.since === null
+    for (let guard = 0; guard < 50; guard++) {
+      const qs = new URLSearchParams()
+      if (ledger.since) qs.set('since', ledger.since)
+      if (ledger.after) qs.set('after', ledger.after)
+      const res = await api<PullResponse>({ query: `?${qs}` })
+      if (activeUser !== ws) return // signed out / switched account mid-pull
+
+      if (res.workspace && res.workspace.rev !== ledger.treeRev) {
+        if (applyTree(ws, res.workspace.tree, res.workspace.rev)) ledger.treeDirty = true
+      }
+
+      const dirty = new Set(ledger.dirty)
+      const resident = useDocStore.getState().pages
+      const reopen: Record<string, unknown> = {}
+      const vps: Record<string, unknown> = {}
+      for (const row of res.pages) {
+        if (ledger.revs[row.id] === row.rev) continue
+        const remotePrint = pagePrint(row.content, row.viewport)
+        const local = resident[row.id] ?? archive.readPage(row.id)
+        // Conflicts are about CONTENT: a different scroll position/zoom on the
+        // two devices is not a reason to fork a page.
+        const differs = local ? fingerprint(local) !== fingerprint(row.content) : false
+        const unpushedLocal =
+          differs && (dirty.has(row.id) || (firstSync && ledger.prints[row.id] === undefined))
+        if (unpushedLocal) {
+          // Both sides moved: keep ours in place, theirs as a copy, and push
+          // ours on top of their rev.
+          keepConflictCopy(row.id, row.content)
+          ledger.revs[row.id] = row.rev
+          dirty.add(row.id)
+          continue
+        }
+        archive.writePage(row.id, row.content as never)
+        if (resident[row.id]) reopen[row.id] = row.content
+        if (row.viewport) vps[row.id] = row.viewport
+        ledger.revs[row.id] = row.rev
+        ledger.prints[row.id] = remotePrint
+      }
+      ledger.dirty = [...dirty]
+      if (Object.keys(reopen).length > 0 || Object.keys(vps).length > 0) {
+        applyingRemote = true
+        try {
+          useDocStore.setState((st) => ({
+            pages: { ...st.pages, ...(reopen as typeof st.pages) },
+            viewports: { ...st.viewports, ...(vps as typeof st.viewports) },
+          }))
+          for (const id of Object.keys(reopen)) useDocStore.getState().ensurePage(id)
+        } finally {
+          applyingRemote = false
+        }
+      }
+
+      // Rows the server no longer holds (deleted or made local elsewhere):
+      // forget their rev so a later push recreates rather than conflicts.
+      // Local content is never deleted here.
+      for (const id of Object.keys(ledger.revs)) {
+        if (res.serverPages[id] === undefined && !res.pages.some((p) => p.id === id)) {
+          delete ledger.revs[id]
+          delete ledger.prints[id]
+        }
+      }
+
+      for (const row of res.kv) {
+        if (row.key !== GALLERY_KEY || ledger.kvRevs[row.key] === row.rev) continue
+        if (applyGallery(ws, row.value as GalleryKv, row.rev) && !ledger.kvDirty.includes(GALLERY_KEY)) {
+          ledger.kvDirty.push(GALLERY_KEY)
+        }
+      }
+
+      ledger.since = res.now
+      ledger.after = res.after
+      saveLedger()
+      if (!res.more) break
+      firstSync = false
+    }
   }
 
+  const reconcile = async (ws: string) => {
+    setPhase('syncing')
+    const stored = readJSON<Ledger>(ledgerKey(ws))
+    ledger = { ...emptyLedger(), ...stored }
+    const firstSync = !stored
+    try {
+      await pull(ws)
+      if (firstSync) {
+        // First time this device syncs this account: offer everything it has.
+        // Pages the pull just delivered have matching prints and are skipped;
+        // pages already on the server with identical content are adopted
+        // server-side without a write.
+        const tree = fullTree()
+        const allowed = syncedContentIds(tree)
+        const local = await archive.archivedPageIdsDurable()
+        markDirty([...Object.keys(useDocStore.getState().pages), ...local].filter((id) => allowed.has(id)))
+        ledger.treeDirty = true
+        if (useNotesGallery.getState().events.length + useNotesGallery.getState().todos.length > 0) {
+          ledger.kvDirty = [...new Set([...ledger.kvDirty, GALLERY_KEY])]
+        }
+      }
+      schedule(0)
+    } catch (err) {
+      onFailure(err)
+    }
+  }
+
+  pullNow = async () => {
+    const ws = activeUser
+    if (!ws || useSyncStore.getState().paused || !navigator.onLine || Date.now() < unavailableUntil) return
+    try {
+      await pull(ws)
+      if (ledger.treeDirty || ledger.dirty.length > 0 || ledger.kvDirty.length > 0) schedule(0)
+      else if (useSyncStore.getState().phase !== 'quota') setPhase('synced')
+    } catch (err) {
+      onFailure(err)
+    }
+  }
+
+  // ── Change feeds ──
   useDocStore.subscribe((s, prev) => {
-    if (s.pages === prev.pages) return
+    if (s.pages === prev.pages || applyingRemote || !activeUser) return
     // ONLY content changes mark a page dirty. A page disappearing from the
-    // map now means "closed to save memory" (lazy loading), NOT "deleted" —
-    // inferring deletion from absence here would wipe the notebook from the
-    // cloud every time the user switched page. Real deletions arrive through
-    // the explicit queue below.
-    for (const id of Object.keys(s.pages)) {
-      if (s.pages[id] !== prev.pages[id]) dirtyPages.add(id)
-    }
-    if (dirtyPages.size > 0) schedule()
-  })
-
-  onPageDeleted(schedule)
-
-  // A failed flush() re-queues its batch (see the catch above) but nothing
-  // else pokes schedule() again until the next unrelated edit — without
-  // this, one offline edit followed by silence leaves phase:'error' forever
-  // even after connectivity returns. Retry immediately rather than waiting
-  // out the 2s debounce, since there's no reason to delay once the network
-  // is confirmed back (flush()'s own `flushing` guard still protects against
-  // overlap with an in-progress push).
-  onReconnect(() => void flush())
-
-  useWorkspaceStore.subscribe((s, prev) => {
-    if (s.nodes === prev.nodes) return
-    workspaceDirty = true
+    // map means "closed to save memory" (lazy loading), not "deleted" — real
+    // deletions arrive through the explicit queue (deleted-pages.ts).
+    const changed: string[] = []
+    for (const id of Object.keys(s.pages)) if (s.pages[id] !== prev.pages[id]) changed.push(id)
+    if (changed.length === 0) return
+    markDirty(changed)
     schedule()
   })
 
-  // Sign-in reconcile: adopt the user's cloud copy if it's newer than
-  // anything this browser has synced for them; otherwise publish local.
-  const reconcile = async (ws: string) => {
-    setPhase('syncing')
-    try {
-      const seen = Number(localStorage.getItem(seenKey(ws)) ?? 0)
-      const remote = await pull(ws, seen)
-      if (remote && remote.newest > seen) {
-        // A cloud pull writes `nodes` directly via setState, bypassing
-        // zustand's persist/rehydrate lifecycle entirely (this IS that
-        // lifecycle's network equivalent) — so the legacy-shape migration
-        // has to run here too, not just in workspace.ts's
-        // onRehydrateStorage. migrateNotebooksToNodes returns null if the
-        // remote data is already in the new Record shape (an old account
-        // still on the array shape is the only case that needs migrating).
-        const migrated = migrateNotebooksToNodes(remote.nodes) ?? (remote.nodes as Record<string, Node>)
-        // Not everything in the pulled tree may be SHOWN. A page another device
-        // never opted into sync has no content up here, so listing its title in
-        // this device's sidebar would only offer an empty page the user can't
-        // fill. splitPulledTree parks those in `hiddenNodes` — still persisted
-        // and still pushed back, just never rendered.
-        const ws0 = useWorkspaceStore.getState()
-        const split = splitPulledTree(migrated, ws0.nodes, ws0.cloudNodeIds)
-        // A page that WAS visible and is now hidden means the owner switched its
-        // sync off; its content rows are being deleted server-side, so drop the
-        // local mirror too rather than leaving an unreachable copy on disk.
-        for (const id of Object.keys(split.hiddenNodes)) {
-          if (archive.hasPage(id)) archive.dropPage(id)
-        }
-        useWorkspaceStore.setState({
-          nodes: split.nodes,
-          hiddenNodes: split.hiddenNodes,
-          cloudNodeIds: split.cloudNodeIds,
-        })
-        // The pulled tree replaces whatever this browser had (including a
-        // first-run seed), so anything open that isn't in it must go — else
-        // the canvas shows a page the notebook tree doesn't contain. Hidden
-        // pages count as "not in it", which is what closes a page the moment
-        // its owner revokes sync.
-        useWorkspaceStore.getState().pruneMissingPages()
-        // Land the pulled content in the ARCHIVE, not in memory — pulling a
-        // whole notebook into the store would undo the lazy loading. Only
-        // the page the user opens is hydrated (doc store ensurePage reads
-        // the archive). The one exception is a page that's already open: it
-        // must be refreshed in place, or the canvas would keep showing stale
-        // content until the next switch.
-        const resident = useDocStore.getState().pages
-        const reopen: Record<string, unknown> = {}
-        const viewports: Record<string, unknown> = {}
-        for (const row of remote.pages) {
-          archive.writePage(row.id, row.content as never)
-          if (resident[row.id]) reopen[row.id] = row.content
-          if (row.viewport) viewports[row.id] = row.viewport
-        }
-        useDocStore.setState(
-          (st) =>
-            ({
-              pages: { ...st.pages, ...reopen },
-              viewports: { ...st.viewports, ...viewports },
-            }) as never
-        )
-        for (const id of Object.keys(reopen)) useDocStore.getState().ensurePage(id)
-        localStorage.setItem(seenKey(ws), String(remote.newest))
-        setPhase('synced')
-      } else {
-        // First device for this account, or we're ahead: publish everything.
-        // Every page the user HAS — not just the one that happens to be open
-        // — which now means asking the archive, since memory holds only the
-        // active page.
-        workspaceDirty = true
-        const all = new Set([
-          ...Object.keys(useDocStore.getState().pages),
-          ...archive.archivedPageIds(),
-        ])
-        all.forEach((id) => dirtyPages.add(id))
-        schedule()
-        setPhase('synced')
-      }
-    } catch (err) {
-      setPhase('error', err instanceof Error ? err.message : String(err))
+  useWorkspaceStore.subscribe((s, prev) => {
+    if (s.nodes === prev.nodes || applyingRemote || !activeUser) return
+    ledger.treeDirty = true
+    // A page that just became syncable (e.g. switched back from "keep
+    // local") needs its content pushed, not just its node.
+    const before = syncedContentIds({ ...prev.hiddenNodes, ...prev.nodes })
+    const after = syncedContentIds({ ...s.hiddenNodes, ...s.nodes })
+    const newly = [...after].filter((id) => !before.has(id))
+    if (newly.length > 0) markDirty(newly)
+    schedule()
+  })
+
+  useNotesGallery.subscribe((s, prev) => {
+    if (applyingRemote || !activeUser) return
+    if (s.notes === prev.notes && s.todos === prev.todos && s.events === prev.events && s.eventColors === prev.eventColors) return
+    if (!ledger.kvDirty.includes(GALLERY_KEY)) ledger.kvDirty.push(GALLERY_KEY)
+    schedule()
+  })
+
+  onPageDeleted(() => schedule())
+
+  onReconnect(() => {
+    failures = 0
+    void pullNow?.().then(() => schedule(0))
+  })
+  window.addEventListener('offline', () => {
+    if (activeUser && !useSyncStore.getState().paused) setPhase('pending')
+  })
+
+  // Leaving the page: push immediately rather than waiting out the debounce.
+  // (Anything that doesn't make it is still in the persisted dirty set.)
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') {
+      if (timer) void flush()
+    } else {
+      void pullNow?.()
     }
-  }
+  })
+  window.addEventListener('focus', () => void pullNow?.())
+  setInterval(() => {
+    if (document.visibilityState === 'visible') void pullNow?.()
+  }, 60_000)
 
   // The platform auth store is the single source of identity — boards don't
   // sync notebooks (their pages are temporary presentation copies).
@@ -346,7 +765,9 @@ export function startSync() {
       activeUser = ws
       void reconcile(ws)
     } else if (!ws && activeUser) {
+      saveLedger()
       activeUser = null
+      ledger = emptyLedger()
       setPhase('offline')
     }
   }

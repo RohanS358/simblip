@@ -7,6 +7,7 @@
     "name": "Rohan Singh"
   },
   "scripts": {
+    "prebuild": "node scripts/third-party-licenses.mjs",
     "build": "next build",
     "dev": "next dev",
     "lint": "eslint .",

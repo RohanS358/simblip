@@ -17,14 +17,14 @@
 // fixed reference.
 //
 // Palm rejection, two layers:
-//   1. While a real stylus is down anywhere (penActive, set by canvas.tsx),
-//      touch input here is ignored outright.
+//   1. While a stylus is down (or just lifted) anywhere — isPenActive(),
+//      lib/pointer/pen-active.ts — touch input here is ignored outright.
 //   2. A palm's contact patch is much wider than a fingertip's —
 //      Touch.radiusX/radiusY (Chrome/WebKit) let us drop oversized contacts
 //      before pairing them into a gesture, independent of pen state.
 
 import { useEffect, useRef, type RefObject } from 'react'
-import { penActive } from '@/lib/pointer/pen-active'
+import { isPenActive } from '@/lib/pointer/pen-active'
 import { isPalmTouch } from '@/lib/pointer/palm-reject'
 import { gesturePrefs } from '@/lib/store/preferences'
 
@@ -73,7 +73,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
     }
 
     const onTouchStart = (e: TouchEvent) => {
-      if (penActive.current) return
+      if (isPenActive()) return
       const fingers = fingerTouches(e.touches, gesturePrefs().palmRejectRadiusPx)
       if (fingers.length !== 2) return
       e.preventDefault() // claim the gesture before the browser starts page zoom/scroll
@@ -81,7 +81,7 @@ export function usePinchZoom(ref: RefObject<HTMLElement | null>, handlers: Pinch
     }
 
     const onTouchMove = (e: TouchEvent) => {
-      if (penActive.current) {
+      if (isPenActive()) {
         baselineDist = 0 // pen came down mid-gesture — drop it, don't resume stale
         return
       }

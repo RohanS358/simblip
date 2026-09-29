@@ -78,15 +78,11 @@ const GRANTS: Record<Role, readonly Permission[]> = {
 export const can = (role: Role | null | undefined, p: Permission): boolean =>
   Boolean(role && GRANTS[role]?.includes(p))
 
-/** Where each role lands after signing in. */
-export const homeFor = (role: Role): string =>
-  role === 'board'
-    ? '/board'
-    : role === 'super_admin'
-      ? '/dev'
-      : role === 'admin'
-        ? '/admin'
-        : '/notebook'
+/** Where each role lands after signing in: the notebook, for every person.
+ *  Admin consoles (/admin, /dev) are one tap away from the profile menu, the
+ *  command palette and the mobile More tab. A room board is a classroom
+ *  display account, not a person — it has no notebook and lands on /board. */
+export const homeFor = (role: Role): string => (role === 'board' ? '/board' : '/notebook')
 
 export const ROLE_LABEL: Record<Role, string> = {
   super_admin: 'Platform Admin',

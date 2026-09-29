@@ -23,7 +23,7 @@
 import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
-import { paginate, shiftBeforeBlocks, type Break } from './paginate.mjs'
+import { paginate, type Break } from './paginate.mjs'
 import { formatOf } from './extensions'
 
 export interface PageGeometry {
@@ -62,8 +62,6 @@ interface Measured {
   keepTogether?: boolean
   breakBefore?: boolean
   lines?: { top: number; height: number }[]
-  /** Viewport y (at measure time) of each line's middle — see lineBoxes. */
-  liveTops?: number[]
   /** ProseMirror position of the block's start, for mapping breaks back. */
   pos: number
 }
@@ -104,9 +102,8 @@ function blockBoxes(
 function lineBoxes(
   view: EditorView,
   el: HTMLElement,
-  scale: number,
-  innerBreaks: { line: number; spacer: number }[]
-): { lines: { top: number; height: number }[]; liveTops: number[] } | undefined {
+  scale: number
+): { lines: { top: number; height: number }[] } | undefined {
   if (!el.firstChild) return undefined
   // A TABLE cannot take a mid-block break, so it must never report lines.
   //
@@ -185,22 +182,14 @@ function lineBoxes(
   const lines = [...byTop.values()].sort((a, b) => a.top - b.top)
   if (lines.length < 2) return undefined
 
-  // Viewport y of each line's middle in the LIVE (spacered) layout, which is
-  // the space posAtCoords hit-tests in. A spacer only translates everything
-  // below it, so mapping natural → live is a running sum, not a re-measure.
-  const sorted = [...innerBreaks].sort((a, b) => a.line - b.line)
-  const liveTops = lines.map((l, i) => {
-    const shift = sorted.reduce((acc, b) => (b.line <= i ? acc + b.spacer : acc), 0)
-    return base + (l.top + shift + l.height / 2) * scale
-  })
-  return { lines, liveTops }
+  return { lines }
 }
 
 /** A list's top-level items as its splittable "lines": a page may break
  *  between two items, never inside one (the marker would stay behind). Border
  *  boxes relative to the list's top, with its own spacers hidden so the answer
  *  is spacer-free like every other measurement here. */
-function itemBoxes(el: HTMLElement, scale: number): { lines: { top: number; height: number }[]; liveTops?: number[] } | undefined {
+function itemBoxes(el: HTMLElement, scale: number): { lines: { top: number; height: number }[] } | undefined {
   const items = [...el.children].filter((c): c is HTMLElement => c instanceof HTMLElement && c.tagName === 'LI')
   if (items.length < 2) return undefined
   const spacers = [...el.querySelectorAll<HTMLElement>(':scope > .doc-page-spacer')]
@@ -219,16 +208,39 @@ function itemBoxes(el: HTMLElement, scale: number): { lines: { top: number; heig
   }
 }
 
-/** Reads the natural geometry of every top-level block. `shiftBefore` undoes
- *  the spacers already in the DOM from the previous pass — paginate() works
- *  in spacer-free coordinates (see its header). */
-function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
+/** Total height of the page spacers inside `el` (or that `el` is). Spacer
+ *  heights are set in page px, the space paginate() works in. */
+const spacerPx = (els: Iterable<HTMLElement>) => {
+  let px = 0
+  for (const sp of els) px += parseFloat(sp.style.height) || 0
+  return px
+}
+
+/** Reads the natural geometry of every top-level block — paginate() works in
+ *  spacer-free coordinates (see its header).
+ *
+ *  The spacers to subtract are read off the DOM, not off the previous pass's
+ *  break list. That list is indexed by block NUMBER, and an edit shifts every
+ *  number after it — one Enter moved each remembered spacer onto the wrong
+ *  block, every later position came out off by a spacer, and the page broke
+ *  in the wrong place (a table left straddling two sheets). The DOM is always
+ *  exactly what is on screen, whatever edits happened in between. */
+function measure(view: EditorView, scale: number): Measured[] {
   const out: Measured[] = []
   const doc = view.state.doc
   const containerTop = view.dom.getBoundingClientRect().top
-  // Cumulative spacer height above each block from the last pass (see
-  // shiftBeforeBlocks for why a line-0 break counts toward its own block).
-  const shiftAt = shiftBeforeBlocks(prev, doc.childCount)
+  // Spacer height above each top-level element: block spacers are the
+  // body's own children, mid-block ones live inside the blocks before it.
+  const shiftOf = new Map<Element, number>()
+  let acc = 0
+  for (const child of view.dom.children) {
+    if (child.classList.contains('doc-page-spacer')) {
+      acc += spacerPx([child as HTMLElement])
+      continue
+    }
+    shiftOf.set(child, acc)
+    acc += spacerPx(child.querySelectorAll<HTMLElement>('.doc-page-spacer'))
+  }
 
   let pos = 0
   doc.forEach((node, offset, index) => {
@@ -237,13 +249,12 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
     if (!el || !(el instanceof HTMLElement)) return
     const rect = el.getBoundingClientRect()
     const fmt = formatOf({ type: node.type.name, attrs: node.attrs })
-    // The block's own inner spacers are subtracted inside lineBoxes(), and
-    // the ones before it by shiftAt — so `top`, `height` and every line are
-    // in the spacer-free coordinates paginate() documents.
-    const innerBreaks = prev.filter((b) => b.block === index && b.line > 0)
-    const innerSpacers = innerBreaks.reduce((acc, b) => acc + b.spacer, 0)
+    // The block's own inner spacers are hidden inside lineBoxes()/itemBoxes()
+    // and subtracted here, the ones before it by shiftOf — so `top`, `height`
+    // and every line are in the spacer-free coordinates paginate() documents.
+    const innerSpacers = spacerPx(el.querySelectorAll<HTMLElement>('.doc-page-spacer'))
     const isList = /^(bullet|ordered|task)List$/.test(node.type.name)
-    const measuredLines = isList ? itemBoxes(el, scale) : lineBoxes(view, el, scale, innerBreaks)
+    const measuredLines = isList ? itemBoxes(el, scale) : lineBoxes(view, el, scale)
     out.push({
       // BORDER box, not margin box, and screen → page pixels (see
       // PageGeometry.scale). Deliberately excluding the vertical margins is
@@ -252,13 +263,12 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
       // a heading starts at the margin, not 20px below it. Nothing is lost by
       // it — the following block's own top already sits past this one's
       // trailing space, so the fitting test still sees the real gap.
-      top: (rect.top - containerTop) / scale - shiftAt[index],
+      top: (rect.top - containerTop) / scale - (shiftOf.get(el) ?? 0),
       height: rect.height / scale - innerSpacers,
       keepWithNext: fmt.keepWithNext,
       keepTogether: fmt.keepTogether,
       breakBefore: node.type.name === 'pageBreak',
       lines: measuredLines?.lines,
-      liveTops: measuredLines?.liveTops,
       pos: offset,
     })
   })
@@ -279,7 +289,7 @@ function measure(view: EditorView, prev: Break[], scale: number): Measured[] {
  *  answer, and the anti-oscillation guard froze on a layout with NO breaks —
  *  explicit page breaks included. Layout-based lookups (element rects,
  *  coordsAtPos) can't be occluded. */
-function decorationFor(view: EditorView, br: Break, blocks: Measured[]): Decoration | null {
+function decorationFor(view: EditorView, br: Break, blocks: Measured[], scale: number): Decoration | null {
   const block = blocks[br.block]
   if (!block) return null
 
@@ -303,9 +313,24 @@ function decorationFor(view: EditorView, br: Break, blocks: Measured[]): Decorat
     })
   }
 
-  const y = block.liveTops?.[br.line]
-  if (y === undefined) return null
-  const at = lineStartPos(view, block.pos, y)
+  // block.lines is spacer-free; lineStartPos hit-tests the live layout. The
+  // spacers now inside this block translate one into the other, and they are
+  // read off the DOM (not a previous pass, which an edit may have shifted):
+  // each one's spacer-free top is its live top minus the spacers above it.
+  // Read-only on purpose — hiding them to measure made the ResizeObserver
+  // see a new size every frame and re-run pagination forever.
+  const line = block.lines?.[br.line]
+  const el = view.nodeDOM(block.pos)
+  if (!line || !(el instanceof HTMLElement)) return null
+  const base = el.getBoundingClientRect().top
+  let above = 0
+  let shift = 0
+  for (const sp of el.querySelectorAll<HTMLElement>('.doc-page-spacer')) {
+    const h = parseFloat(sp.style.height) || 0
+    if ((sp.getBoundingClientRect().top - base) / scale - above <= line.top + 0.5) shift += h
+    above += h
+  }
+  const at = lineStartPos(view, block.pos, base + (line.top + shift + line.height / 2) * scale)
   if (at === null) return null
   return Decoration.widget(at, () => spacerEl(br.spacer, 'inline'), {
     side: -1,
@@ -364,7 +389,6 @@ function spacerEl(height: number, mode: 'block' | 'inline'): HTMLElement {
 }
 
 export function paginationPlugin({ geometry, onPaginate }: PaginationOptions) {
-  let breaks: Break[] = []
   let scheduled = 0
   let lastKey = ''
   // Every answer produced since the last real change. Applying decorations
@@ -380,7 +404,7 @@ export function paginationPlugin({ geometry, onPaginate }: PaginationOptions) {
   const run = (view: EditorView) => {
     const geo = geometry()
     if (!(geo.contentHeight > 0)) return
-    const blocks = measure(view, breaks, geo.scale || 1)
+    const blocks = measure(view, geo.scale || 1)
     const result = paginate(blocks, geo)
     // The geometry is part of the key: a page-size, margin or scale change
     // legitimately produces a different answer, and without it an answer
@@ -401,16 +425,12 @@ export function paginationPlugin({ geometry, onPaginate }: PaginationOptions) {
     const decos: Decoration[] = []
     const applied: Break[] = []
     for (const br of result.breaks) {
-      const d = decorationFor(view, br, blocks)
+      const d = decorationFor(view, br, blocks, geo.scale || 1)
       if (d) {
         decos.push(d)
         applied.push(br)
       }
     }
-    // Only what is ACTUALLY in the DOM may be subtracted by the next
-    // measure() — remembering a break whose spacer never rendered skews
-    // every coordinate after it (see decorationFor).
-    breaks = applied
     onPaginate({
       pageCount: result.pageCount,
       // A break that falls INSIDE a block cannot be expressed as "this page
@@ -440,7 +460,15 @@ export function paginationPlugin({ geometry, onPaginate }: PaginationOptions) {
       decorations: (state) => paginationKey.getState(state),
     },
     view: (view) => {
-      const ro = new ResizeObserver(() => {
+      let size = { w: 0, h: 0 }
+      const ro = new ResizeObserver((entries) => {
+        const { width: w, height: h } = entries[entries.length - 1].contentRect
+        // Our own fractional spacers wobble the height by a fraction of a
+        // pixel between passes; treating that as a resize re-ran pagination
+        // every frame, forever. A real reflow (width change, an image or font
+        // loading) moves things by far more than a pixel.
+        if (Math.abs(w - size.w) < 0.5 && Math.abs(h - size.h) < 1) return
+        size = { w, h }
         // A width change re-wraps every line, so every previous answer is void.
         lastKey = ''
         seen = new Set()

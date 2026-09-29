@@ -7,15 +7,21 @@
 // Keep this factual. Every claim below was checked against the code:
 // sessions live in localStorage (lib/auth/store.ts), data goes to the
 // self-hosted Postgres gateway (app/api/pg), files to blob storage, realtime
-// through Redis, AI to a self-hosted Ollama host, and the only third-party
-// recipient is Vercel (hosting + optional analytics).
+// through Redis, AI to a self-hosted Ollama host — or OpenRouter when the
+// operator sets AI_BACKEND=openrouter (lib/ai/generate.ts) — and web pages
+// opened in a Web tab are fetched through /api/web-proxy.
 
-import { TERMS_VERSION, PRIVACY_VERSION } from '@/lib/store/consent'
+/**
+ * Bump when the terms change materially. Users who accepted an older version
+ * are re-prompted; the gate (lib/store/consent.ts) compares against this.
+ */
+export const TERMS_VERSION = '2026-09-27'
 
-export { TERMS_VERSION, PRIVACY_VERSION }
+/** Bump when the privacy policy changes materially. */
+export const PRIVACY_VERSION = '2026-09-27'
 
 /** Human-readable effective date shown alongside the version strings. */
-export const EFFECTIVE_DATE = 'August 13, 2026'
+export const EFFECTIVE_DATE = 'September 27, 2026'
 
 /**
  * The terms a new account confirms one by one. Each is a separate, deliberate
@@ -45,7 +51,19 @@ export const TERMS_ITEMS: readonly TermsItem[] = [
     id: 'ai',
     title: 'AI-generated simulations need checking',
     body:
-      'SIMBLIP can build simulations from a written prompt. The model gets things wrong. Treat what it produces as a draft to verify, not an answer — and follow your institution\'s rules on using AI for graded work.',
+      'SIMBLIP can build simulations from a written prompt. The model gets things wrong. Treat what it produces as a draft to verify, not an answer — and follow your institution\'s rules on using AI for graded work. AI output is not guaranteed to be original or free of other people\'s rights; check before you publish or submit it as your own.',
+  },
+  {
+    id: 'education',
+    title: 'Simulations are teaching models',
+    body:
+      'SIMBLIP\'s physics, circuit, finance and other models are simplified for learning. Do not rely on them for engineering, safety, medical, legal or financial decisions — verify anything that matters against a qualified source or professional.',
+  },
+  {
+    id: 'age',
+    title: 'Younger students use SIMBLIP through their school',
+    body:
+      'If you are under 16 — or under the age of digital consent where you live — your institution is responsible for getting any permission your parent or guardian must give before you use SIMBLIP.',
   },
   {
     id: 'conduct',
@@ -127,14 +145,23 @@ export const DATA_CATEGORIES: readonly DataCategory[] = [
     what: 'The text you type into the AI assistant and the simulation it returns.',
     why: 'To turn your description into a working simulation.',
     where:
-      'Sent to the Ollama model host configured by your operator. In the standard deployment that is a machine your institution runs — prompts are not sent to a commercial AI provider.',
+      'Sent to the model host configured by your operator. In the standard deployment that is an Ollama machine the operator runs. If the operator switches on the OpenRouter backend instead, prompts go to OpenRouter and the model provider it routes them to, under their terms — some free models there may log prompts. Do not put personal information in AI prompts.',
     retention: 'Processed for the request. The resulting simulation is saved with your page.',
   },
   {
+    id: 'web',
+    title: 'Web pages you open',
+    what: 'The address of any website you open in a Web tab, and the page it returns.',
+    why: 'So outside sites can be shown inside your notebook.',
+    where:
+      'Fetched by the SIMBLIP server on your behalf, then by the site you asked for — that site sees the SIMBLIP server, not your browser. Those sites have their own terms and privacy policies.',
+    retention: 'Not stored by SIMBLIP beyond the request. The address is saved with the page.',
+  },
+  {
     id: 'reports',
-    title: 'Bug reports',
+    title: 'Bug reports and privacy requests',
     what:
-      'What you type into a bug report, plus your account id and the page you sent it from.',
+      'What you type into a bug report, plus your account id, the page you sent it from, and your browser and screen details. Privacy requests carry only your account id and the request.',
     why: 'So the problem can be reproduced and fixed.',
     where: 'The SIMBLIP database, readable by the platform operator.',
     retention: 'Until the report is resolved and cleared.',

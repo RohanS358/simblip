@@ -16,15 +16,10 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { scopedJSONStorage } from '@/lib/store/scoped-storage'
+import { TERMS_VERSION } from '@/lib/legal'
 
-/**
- * Bump when the terms change materially. Users who accepted an older version
- * are re-prompted; the gate compares against this exact string.
- */
-export const TERMS_VERSION = '2026-08-13'
+export { TERMS_VERSION, PRIVACY_VERSION } from '@/lib/legal'
 
-/** Bump when the privacy policy changes materially (shown in Settings). */
-export const PRIVACY_VERSION = '2026-08-13'
 
 export interface ConsentState {
   /** Terms version this account accepted, or null if never accepted. */

@@ -20,17 +20,24 @@ interface RedisBridge {
 const g = globalThis as unknown as { __redisBridge?: RedisBridge }
 const bridge: RedisBridge = (g.__redisBridge ??= { pub: null, sub: null })
 
-function makeClient(): Redis {
+function makeClient(commandTimeoutMs?: number): Redis {
   if (!process.env.REDIS_URL) throw new Error('REDIS_URL is not configured')
   return new Redis(process.env.REDIS_URL, {
     maxRetriesPerRequest: 3,
     lazyConnect: false,
+    connectTimeout: 5000,
+    ...(commandTimeoutMs ? { commandTimeout: commandTimeoutMs } : {}),
   })
 }
 
-/** The single shared publisher for this instance. */
+/** The single shared publisher for this instance — also the connection the
+ *  gateway's row/identity cache uses. A 2 s command timeout: with none, a
+ *  half-open connection (idle proxy, laptop sleep) made cache lookups wait
+ *  MINUTES for TCP to give up, and every request behind them — sign-in's
+ *  profile check included — hung with it. Every cache caller already falls
+ *  back to Postgres on error, so timing out is always safe. */
 export function getRedisPub(): Redis {
-  if (!bridge.pub) bridge.pub = makeClient()
+  if (!bridge.pub) bridge.pub = makeClient(2000)
   return bridge.pub
 }
 

@@ -36,6 +36,7 @@ import { uid } from '@/lib/scene/types'
 import { parse } from '@/lib/text/marks'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
 import { useBottomChrome } from '@/hooks/use-dock-clearance'
+import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import {
   Sheet,
   SheetContent,
@@ -552,22 +553,44 @@ export function PresentationView({ pageId }: { pageId: string }) {
   // Swipe (mouse or touch) on the void around the slide also switches
   // slides — same fit-only gate as the wheel handler. A drag starting on
   // the slide itself is normal canvas editing, not navigation.
-  const stageSwipeRef = useRef<{ x: number; y: number } | null>(null)
+  // Swipe = ONE finger (or mouse). A second finger landing means a pinch, and
+  // lifting it used to read as a sideways swipe and flip the slide mid-zoom;
+  // a stylus never flips slides (it writes). Tracked per pointer id.
+  const stageSwipeRef = useRef<{ x: number; y: number; id: number } | null>(null)
+  const stagePointers = useRef(new Set<number>())
   const onStageSwipeStart = (e: React.PointerEvent) => {
+    stagePointers.current.add(e.pointerId)
+    if (stagePointers.current.size > 1 || e.pointerType === 'pen') {
+      stageSwipeRef.current = null
+      return
+    }
     const el = stageRef.current
     if (!el || zoom > fitScale(el) + 0.02) return
-    stageSwipeRef.current = { x: e.clientX, y: e.clientY }
+    stageSwipeRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId }
   }
   const onStageSwipeEnd = (e: React.PointerEvent) => {
+    stagePointers.current.delete(e.pointerId)
     const s = stageSwipeRef.current
+    if (!s || s.id !== e.pointerId) return
     stageSwipeRef.current = null
-    if (!s) return
     const dx = e.clientX - s.x
     const dy = e.clientY - s.y
     if (Math.abs(dx) < 48 || Math.abs(dx) < Math.abs(dy) * 1.5) return
     if (dx < 0) goToSlide(Math.min(slides.length - 1, current + 1))
     else goToSlide(Math.max(0, current - 1))
   }
+
+  // Two-finger pinch zooms the SLIDE. The stage used to allow the browser's
+  // own `pinch-zoom` with nothing handling it, so pinching a slide zoomed the
+  // entire app UI (iOS ignores user-scalable) instead of the slide.
+  const pinchBase = useRef(1)
+  usePinchZoom(stageRef, {
+    onStart: () => {
+      pinchBase.current = zoom
+      stageSwipeRef.current = null
+    },
+    onMove: (ratio) => setZoom(pinchBase.current * ratio),
+  })
 
   const importedRef = useRef(false)
 
@@ -888,17 +911,21 @@ export function PresentationView({ pageId }: { pageId: string }) {
       <div
         ref={stageRef}
         className="min-h-0 flex-1 overflow-auto overscroll-contain bg-muted/40"
-        style={{ touchAction: 'pan-x pan-y pinch-zoom', WebkitOverflowScrolling: 'touch' }}
+        style={{ touchAction: 'pan-x pan-y', WebkitOverflowScrolling: 'touch' }}
         // Clicking the void deselects and starts the swipe-to-change-slide
         // gesture; a drag on the slide itself is normal canvas editing.
         onPointerDown={(e) => {
-          if (!(e.target as HTMLElement).closest('[data-slide-box]')) {
+          if ((e.target as HTMLElement).closest('[data-slide-box]')) stagePointers.current.add(e.pointerId)
+          else {
             useDocStore.getState().setSelection([])
             onStageSwipeStart(e)
           }
         }}
         onPointerUp={onStageSwipeEnd}
-        onPointerCancel={() => (stageSwipeRef.current = null)}
+        onPointerCancel={(e) => {
+          stagePointers.current.delete(e.pointerId)
+          stageSwipeRef.current = null
+        }}
       >
         {importing ? (
           <div className="flex h-full items-center justify-center">

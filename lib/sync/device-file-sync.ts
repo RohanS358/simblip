@@ -1,35 +1,29 @@
 'use client'
 
-// File-bytes transfer between two of the same account's devices, triggered
-// by clicking a device in the cloud icon's popover
-// (components/workspace/sync-status.tsx). Notebook/page text already syncs
-// continuously via lib/sync/cloud.ts's Postgres channel — this module only
-// moves the thing that doesn't: local file bytes (images/PDFs/etc, OPFS +
-// lib/storage/manifest.ts) not yet present on the target device.
+// Cloud copies of opted-in FILE bytes (images, PDFs, PPTX sources…).
 //
-// Flow, entirely reusing the single-file upload/fetch/delete routes that
-// already exist for the presentation-upload use case:
-//   1. sender uploads every local file to Blob via manager.ts's
-//      uploadToCloud() (writes a simblip_file_manifest row).
-//   2. sender PATCHes the target's simblip_devices.pending_pull with those
-//      file ids.
-//   3. target device (on its own presence tick, or immediately if this tab
-//      IS the target and the user is looking at it) pulls each id via
-//      manager.ts's getFile() — which already fetches from Blob, writes
-//      OPFS + local manifest, and clears pending_pull once done.
-//   4. target deletes each Blob copy via the existing
-//      DELETE /api/storage/[id] and clears its own pending_pull.
+// Page content and the tree sync automatically (lib/sync/cloud.ts). File
+// bytes are the large, optional tier: a file uploads only when the user opted
+// it in — on the file itself, through a page/folder set to "Sync with files",
+// or through a category in Sync settings — and its cloud copy then STAYS
+// (counted against the 150 MB project quota) so any device can download it
+// on demand. Turning sync off removes the cloud copy; the local copy is never
+// touched.
 //
-// "Not yet on the target" is judged by the SENDER's own manifest only (was
-// this file ever confirmed pulled by anyone) — there's no per-device
-// registry of which device has which file, so a device that already has a
-// file just re-receives and overwrites it harmlessly (OPFS + manifest
-// writes are idempotent).
+//   1. startFileSync() uploads every opted-in local file that has no cloud
+//      copy yet (debounced), retrying after reconnect. A full quota stops the
+//      loop and is reported — never retried in a tight loop.
+//   2. pushFilesToDevice() additionally asks an online device to PREFETCH
+//      those files now (simblip_devices.pending_pull), so they're there
+//      before the user opens them offline.
+//   3. pullPendingFiles() downloads prefetch requests. It no longer deletes
+//      the cloud copy afterwards: that copy is the user's chosen backup.
 
 import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import * as manifest from '@/lib/storage/manifest'
 import type { FileManifestEntry } from '@/lib/storage/manifest-types'
-import { getFile, uploadToCloud } from '@/lib/storage/manager'
+import { create } from 'zustand'
+import { getFile, uploadToCloud, UploadError } from '@/lib/storage/manager'
 import { onReconnect } from '@/lib/sync/connectivity'
 import { useDevicesStore, type DeviceRow } from '@/lib/sync/devices'
 import { syncedFileIds } from '@/lib/sync/page-sync'
@@ -37,6 +31,18 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { globalPrefAllowsFile } from '@/lib/sync/sync-prefs'
 
 const AUTO_SYNC_DEBOUNCE_MS = 10_000
+
+/** Set when an upload was refused because the project quota is full. */
+export const useFileSyncStore = create<{ quotaBlocked: boolean }>(() => ({ quotaBlocked: false }))
+
+/** Re-arm files refused for quota (after the user freed space). */
+export async function retryQuotaBlockedUploads(): Promise<void> {
+  const profile = useAuthStore.getState().profile
+  if (!profile) return
+  for (const e of await manifest.listByOwner(profile.id)) {
+    if (e.syncError === 'quota') await manifest.putEntry({ ...e, syncStatus: 'local-only', syncError: undefined })
+  }
+}
 
 /** File ids reachable from a sync-enabled page, as of right now. */
 const fromSyncedPages = (): Set<string> => syncedFileIds(useWorkspaceStore.getState().nodes)
@@ -53,6 +59,34 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
   })
   if (!res.ok) throw new Error(`Device sync ${res.status}: ${await res.text()}`)
   return res
+}
+
+const allowedFile = (viaPage: Set<string>) => (e: FileManifestEntry) =>
+  e.syncEnabled === true || viaPage.has(e.id) || globalPrefAllowsFile(e.mime, e.name)
+
+/** Upload every opted-in file that has no cloud copy yet. Sequential (large
+ *  bodies) and stops at the first quota refusal — the rest can't fit either,
+ *  and the UI reports it. A file refused for quota is retried only when the
+ *  user acts (frees space / toggles), not on every tick. */
+export async function uploadOptedIn(ownerId: string, onProgress?: (done: number, total: number) => void) {
+  const viaPage = fromSyncedPages()
+  const entries = (await manifest.listByOwner(ownerId)).filter(
+    (e) =>
+      allowedFile(viaPage)(e) &&
+      (e.syncStatus === 'local-only' || (e.syncStatus === 'sync-failed' && e.syncError !== 'quota'))
+  )
+  for (let i = 0; i < entries.length; i++) {
+    try {
+      await uploadToCloud(entries[i])
+    } catch (err) {
+      if (err instanceof UploadError && err.reason === 'quota') {
+        useFileSyncStore.setState({ quotaBlocked: true })
+        return
+      }
+    }
+    onProgress?.(i + 1, entries.length)
+  }
+  useFileSyncStore.setState({ quotaBlocked: false })
 }
 
 /** Push this account's files to `target` via Blob. `syncStatus` records
@@ -77,16 +111,8 @@ export async function pushFilesToDevice(target: DeviceRow, onProgress?: (done: n
   // manifest at toggle time, so an image dropped onto an already-synced page
   // is covered without anyone re-toggling anything.
   const viaPage = fromSyncedPages()
-  const allowed = (e: FileManifestEntry) =>
-    e.syncEnabled === true || viaPage.has(e.id) || globalPrefAllowsFile(e.mime, e.name)
-  const toUpload = entries.filter(
-    (e) => allowed(e) && (e.syncStatus === 'local-only' || e.syncStatus === 'sync-failed')
-  )
-
-  for (let i = 0; i < toUpload.length; i++) {
-    await uploadToCloud(toUpload[i])
-    onProgress?.(i + 1, toUpload.length)
-  }
+  const allowed = allowedFile(viaPage)
+  await uploadOptedIn(profile.id, onProgress)
 
   const fresh = await manifest.listByOwner(profile.id)
   const ids = fresh.filter((e) => allowed(e) && e.cloudBackedUp).map((e) => e.id)
@@ -123,20 +149,7 @@ export async function pullPendingFiles(): Promise<number> {
 
   await rest(`simblip_devices?id=eq.${row.id}`, { method: 'PATCH', body: JSON.stringify({ pending_pull: [] }) })
 
-  const token = getAccessToken()
-  for (const id of ids) {
-    const blob = await getFile(id) // reseeds OPFS + local manifest as a side effect
-    if (!blob) continue
-    if (token) {
-      // Best-effort: a failed delete here leaves a small Blob leftover under
-      // the 1GB budget rather than losing the file — acceptable, and the
-      // next successful device sync for this id will retry the delete since
-      // the manifest row (and thus the id) is unaffected either way.
-      await fetch(`/api/storage/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }).catch(
-        () => {}
-      )
-    }
-  }
+  for (const id of ids) await getFile(id) // reseeds OPFS + local manifest as a side effect
   return ids.length
 }
 
@@ -157,20 +170,30 @@ export function startFileSync() {
   // them), so catch here — pushFilesToDevice() itself stays un-caught for
   // the manual "Sync files" button, which already surfaces failures via its
   // own try/catch + toast in sync-status.tsx.
-  const runNow = () => {
-    const targets = useDevicesStore.getState().others
-    targets.forEach((device) => {
-      pushFilesToDevice(device).catch((err) => {
-        console.warn('[device-file-sync] auto push failed:', err)
-      })
-    })
+  let running = false
+  const runNow = async () => {
+    const profile = useAuthStore.getState().profile
+    if (!profile || running) return
+    running = true
+    try {
+      // Durable cloud copies first — independent of whether any other
+      // device is online right now.
+      await uploadOptedIn(profile.id)
+      for (const device of useDevicesStore.getState().others) {
+        await pushFilesToDevice(device).catch((err) => console.warn('[device-file-sync] prefetch failed:', err))
+      }
+    } catch (err) {
+      console.warn('[device-file-sync] upload failed:', err)
+    } finally {
+      running = false
+    }
   }
 
   const schedule = () => {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       timer = null
-      runNow()
+      void runNow()
     }, AUTO_SYNC_DEBOUNCE_MS)
   }
 
@@ -198,6 +221,8 @@ export function startFileSync() {
   // resume immediately once the network is confirmed back, same as
   // lib/sync/cloud.ts's reconnect handling.
   onReconnect(() => {
-    if (useAuthStore.getState().profile) runNow()
+    if (useAuthStore.getState().profile) void runNow()
   })
+  // Files opted in on a previous visit that never finished uploading.
+  setTimeout(() => void runNow(), 15_000)
 }

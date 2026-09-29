@@ -53,6 +53,7 @@ import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
 import { PrivacySettings } from './privacy-settings'
 import { StoragePanel } from './storage-panel'
+import { CloudStorageSection } from './cloud-storage'
 import { useSyncPrefsStore, type SyncCategory } from '@/lib/sync/sync-prefs'
 import { Field, Choice, PrefRow, SettingCard, ObsidianPrefRow } from './settings-fields'
 import {
@@ -906,10 +907,56 @@ function GestureSettings() {
         </ObsidianPrefRow>
       </SettingCard>
 
+      <SettingCard title="Stylus & Finger">
+        <ObsidianPrefRow
+          label="Finger drawing in documents, slides and PDFs"
+          detail={
+            gestures.fingerInk === 'auto'
+              ? gestures.penSeen
+                ? 'Automatic — a stylus was detected, so your pen writes and your fingers scroll and select.'
+                : 'Automatic — fingers draw until you use a stylus on this device.'
+              : gestures.fingerInk === 'always'
+                ? 'Fingers draw whenever a drawing tool is picked.'
+                : 'Only the stylus draws; fingers always scroll and select.'
+          }
+        >
+          <Select
+            value={gestures.fingerInk}
+            onValueChange={(v) => setGestures({ fingerInk: v as typeof gestures.fingerInk })}
+          >
+            <SelectTrigger className="h-9 w-36" aria-label="Finger drawing">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Automatic</SelectItem>
+              <SelectItem value="always">Fingers draw</SelectItem>
+              <SelectItem value="never">Stylus only</SelectItem>
+            </SelectContent>
+          </Select>
+        </ObsidianPrefRow>
+        <ObsidianPrefRow
+          label="Pen button erases"
+          detail="Hold the barrel button, or flip to the eraser end, to erase ink while any drawing tool is picked."
+        >
+          <Switch
+            checked={gestures.penButtonErases}
+            onCheckedChange={(v) => setGestures({ penButtonErases: v })}
+            aria-label="Pen button erases"
+          />
+        </ObsidianPrefRow>
+        <p className="text-ui-xs leading-relaxed text-muted-foreground">
+          Pressure, smoothing and stability live under Pen. Palm rejection uses the contact size your browser reports
+          and ignores touches for a moment after the pen lifts; devices that don&rsquo;t report contact size rely on
+          that timing alone. These settings stay on this device.
+        </p>
+      </SettingCard>
+
       <button
         type="button"
         className="text-ui-sm font-medium text-muted-foreground hover:text-foreground"
-        onClick={() => usePrefs.getState().setGestures({ ...DEFAULT_GESTURES })}
+        onClick={() =>
+          usePrefs.getState().setGestures({ ...DEFAULT_GESTURES, penSeen: usePrefs.getState().gestures.penSeen })
+        }
       >
         Reset to defaults
       </button>
@@ -962,9 +1009,14 @@ function SyncPreferencesPanel() {
 
   return (
     <div className="space-y-3">
+      <p className="text-ui-sm leading-relaxed text-muted-foreground">
+        Your notebooks, pages, documents, slides, calendar and to-dos sync automatically to every device you sign in
+        on. Large files — PDFs, slide decks, images — stay on the device that has them unless you choose to back them
+        up, because they use your 150 MB of cloud storage.
+      </p>
       <ObsidianPrefRow
-        label="Sync all content across devices"
-        detail="Automatically sync files matching enabled categories without needing individual per-item toggles."
+        label="Back up files automatically"
+        detail="Upload files of the types below as soon as you add them, so they open on every device."
       >
         <Switch
           checked={globalSync}
@@ -976,7 +1028,7 @@ function SyncPreferencesPanel() {
       {globalSync && (
         <div className="pt-2 pl-3 border-l-2 border-[#7f6df2]/30 space-y-2">
           <p className="text-ui-sm font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-            Enabled File Types
+            File types to back up
           </p>
           {(Object.keys(CAT_LABELS) as SyncCategory[]).map((cat) => (
             <ObsidianPrefRow
@@ -994,7 +1046,8 @@ function SyncPreferencesPanel() {
         </div>
       )}
       <p className="text-ui-xs text-muted-foreground leading-normal pt-1">
-        Items can still be individually opted in or out via right-click in the notebook tree.
+        Any page, folder or file can override this: right-click (or long-press) it → Cloud sync. Device settings such
+        as pen, touch and layout preferences never leave this device.
       </p>
     </div>
   )
@@ -1398,10 +1451,13 @@ export function SettingsDialog({
 
             {activeTab === 'files' && (
               <div className="space-y-4">
-                <SettingCard title="Sync Preferences">
+                <SettingCard title="Cloud Storage">
+                  <CloudStorageSection />
+                </SettingCard>
+                <SettingCard title="What Syncs">
                   <SyncPreferencesPanel />
                 </SettingCard>
-                <SettingCard title="Storage">
+                <SettingCard title="On This Device">
                   <StoragePanel />
                 </SettingCard>
                 <SettingCard title="Backup & Device Sync">

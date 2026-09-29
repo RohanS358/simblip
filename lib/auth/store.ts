@@ -202,10 +202,15 @@ async function tokenGrant(body: unknown): Promise<TokenResponse> {
     const detail = (await res.json().catch(() => null)) as {
       msg?: string
     } | null
+    const msg = detail?.msg ?? `Sign-in failed (${res.status})`
 
-    throw new AuthRejectedError(
-      detail?.msg ?? `Sign-in failed (${res.status})`,
-    )
+    // Only a 4xx is the server REJECTING the credentials/refresh token. A 5xx
+    // or 429 means the server (or its database) is having trouble — treating
+    // that as a rejection signed every user out during a database stall. It
+    // throws a plain Error instead, so refreshIfNeeded() keeps the session on
+    // its offline lease, exactly as it does for a dropped network.
+    if (res.status >= 500 || res.status === 429) throw new Error(msg)
+    throw new AuthRejectedError(msg)
   }
 
   return (await res.json()) as TokenResponse

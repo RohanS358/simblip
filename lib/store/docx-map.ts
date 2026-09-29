@@ -800,6 +800,10 @@ function tableNode(tbl: Element, ctx: Ctx): PmNode {
       if (span > 1) attrs.colspan = span
       const widths = grid.slice(col, col + span)
       if (widths.length === span && widths.every((w) => w > 0)) attrs.colwidth = widths
+      // Cell shading. Header rows are often white text on a dark fill —
+      // dropping the fill left them looking empty.
+      const fill = attr(kid(tcPr, 'shd'), 'fill')
+      if (fill && /^[0-9a-f]{6}$/i.test(fill)) attrs.background = `#${fill.toUpperCase()}`
       const cell: PmNode = {
         type: header ? 'tableHeader' : 'tableCell',
         ...(Object.keys(attrs).length ? { attrs } : {}),

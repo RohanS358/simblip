@@ -278,7 +278,7 @@ export function Landing() {
         <div data-fx="domino" className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
             ['DSA Lab', 'A C++ interpreter lives inside the notebook. Step through your own code and watch arrays, stacks, trees and graph traversals animate as textbook-quality visualizations.', 'var(--accent-violet)'],
-            ['Local AI agent', 'Ask for “a projectile hitting a spring on an incline” and the on-device AI assembles it from real simulation components. Nothing leaves your machine.', 'var(--accent-blue)'],
+            ['Self-hosted AI agent', 'Ask for “a projectile hitting a spring on an incline” and the AI assembles it from real simulation components — on a model host your operator runs, not a commercial chatbot by default.', 'var(--accent-blue)'],
             ['Docs & PDF notebooks', 'Pages now come in three kinds — infinite Board, paged Doc that exports to high-quality PDF, and uploaded PDF/PPT you annotate with the pen.', 'var(--accent-amber)'],
             ['Tabs & split screen', 'Open several boards, docs and PDFs at once in header tabs, drop any two side by side in a resizable split, and take linked per-page notes.', 'var(--accent-mint)'],
           ].map(([t, b, c]) => (
@@ -427,6 +427,7 @@ export function Landing() {
         </span>
         <span className="flex items-center gap-4">
           <a href="/docs" className="hover:text-foreground">Documentation</a>
+          <a href="/legal" className="hover:text-foreground">Privacy &amp; terms</a>
           <SignInLink signedOutLabel="Sign in →" signedInLabel="Open notebook →" className="hover:text-foreground" />
         </span>
       </footer>

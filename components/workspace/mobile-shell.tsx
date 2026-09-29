@@ -6,7 +6,7 @@
 // bottom sheet, the top-right actions collapsed into one menu).
 
 import { useNav } from '@/lib/use-nav'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Image from 'next/image'
 import dynamic from 'next/dynamic'
 import {
@@ -56,9 +56,17 @@ import {
   Gift,
   Gem,
   Grid,
+  CalendarDays,
+  ShieldCheck,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
-import { setPageSyncEnabled, setFolderSyncEnabled } from '@/lib/sync/page-sync'
+import { folderSyncMode, setFolderSyncMode, setPageSyncMode, syncModeOf } from '@/lib/sync/page-sync'
+import { SyncModeMenu } from './sync-mode-menu'
+import { CalendarFull } from './calendar-full'
+import { useKeyboardInset } from '@/hooks/use-keyboard-inset'
+import { keyOf } from '@/lib/calendar/dates.mjs'
+import { expand } from '@/lib/calendar/events.mjs'
+import { useNotesGallery } from '@/lib/store/notes-gallery'
 import { useTheme } from 'next-themes'
 import { isDarkTheme } from '@/components/theme-provider'
 import { useWorkspaceStore, findPageMeta, childrenOf, descendantsOf } from '@/lib/store/workspace'
@@ -237,7 +245,7 @@ function SyncDropdownItem({
       className="justify-between gap-6"
     >
       <span className="flex items-center gap-2">
-        <CloudUpload className="h-4 w-4" /> Sync across devices
+        <CloudUpload className="h-4 w-4" /> Back up &amp; sync file
       </span>
       <Switch
         checked={checked}
@@ -273,7 +281,75 @@ function FileSyncDropdownItem({ fileId }: { fileId: string }) {
   )
 }
 
+/** Home card: today's date and what's on, tapping opens the full calendar. */
+function HomeCalendarCard() {
+  const events = useNotesGallery((s) => s.events)
+  const todayKey = keyOf(new Date())
+  const todays = useMemo(
+    () => (expand(events, todayKey, todayKey) as { ev: { title: string; time?: string } }[]).map((o) => o.ev),
+    [events, todayKey]
+  )
+  const now = new Date()
+  return (
+    <div className="pb-5">
+      <button
+        type="button"
+        onClick={() => {
+          haptic('tick')
+          useNotesGallery.getState().setCalendarOpen(true)
+        }}
+        className="flex w-full items-center gap-3.5 rounded-2xl border border-border/50 bg-card/70 p-3 text-left shadow-xs transition-all active:scale-[0.98] hover:bg-card"
+      >
+        <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl bg-[color-mix(in_oklch,var(--accent-rose)_14%,transparent)] leading-none">
+          <span className="text-ui-2xs font-semibold uppercase text-[var(--accent-rose)]">
+            {now.toLocaleDateString([], { month: 'short' })}
+          </span>
+          <span className="mt-0.5 text-ui-xl font-bold text-foreground">{now.getDate()}</span>
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-ui-md font-semibold text-foreground">Calendar</span>
+          <span className="block truncate text-ui-sm text-muted-foreground">
+            {todays.length === 0
+              ? 'Nothing planned today'
+              : todays.length === 1
+                ? `${todays[0].time ? `${todays[0].time} · ` : ''}${todays[0].title}`
+                : `${todays.length} events today`}
+          </span>
+        </span>
+        <CalendarDays className="h-5 w-5 shrink-0 text-muted-foreground" />
+      </button>
+    </div>
+  )
+}
+
+/** The phone/tablet shell. The full-screen calendar is mounted here too: the
+ *  desktop shell (shell.tsx) mounts its own copy, but MobileShell REPLACES
+ *  that shell, so on phones the calendar used to be unreachable entirely. */
 export function MobileShell() {
+  // ONE tab bar for every tab screen. Each screen used to render its own, so
+  // switching tabs unmounted one bar and mounted another — the shared-layoutId
+  // active pill then animated between two different trees mid-transition and
+  // visibly jumped/flashed. A single persistent bar lets it simply slide.
+  const [editorOpen, setEditorOpen] = useState(false)
+  useKeyboardInset()
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="relative min-h-0 flex-1">
+        <MobileShellScreens onEditorChange={setEditorOpen} />
+      </div>
+      {/* Hidden while typing: on iOS the keyboard would otherwise cover it,
+          and on Android it would sit on top of the keyboard eating space. */}
+      {!editorOpen && (
+        <div className="hide-with-keyboard">
+          <MobileTabBar />
+        </div>
+      )}
+      <CalendarFull />
+    </div>
+  )
+}
+
+function MobileShellScreens({ onEditorChange }: { onEditorChange: (open: boolean) => void }) {
   const router = useNav()
   const { resolvedTheme, setTheme } = useTheme()
   // Mirrored into the persisted mobile-tab store on every change, so
@@ -412,18 +488,15 @@ export function MobileShell() {
   useEffect(() => {
     if (restoredRef.current || !tabHydrated) return
     restoredRef.current = true
-    const saved = useMobileTabStore.getState().view
-    // Only restore a view that still points at something real — a notebook
-    // deleted on another device (or an editor view whose page is gone)
-    // would otherwise land on a blank screen with no way back.
-    const ws = useWorkspaceStore.getState()
-    const valid =
-      saved.kind === 'editor'
-        ? !!ws.activePageId && !!findPageMeta(ws.nodes, ws.activePageId)
-        : saved.kind === 'folder' || saved.kind === 'notebook'
-          ? !!ws.nodes[saved.id]
-          : true
-    if (valid && saved.kind !== 'home') setViewLocal(saved)
+    // A fresh open ALWAYS starts on Home, on the Home tab. It used to drop
+    // you back inside whatever notebook/page you last had open — but that
+    // restored screen had no browser-history entries under it, so Back had
+    // nothing in-app to unwind and left SIMBLIP for the landing page. Every
+    // deeper screen is now reached by navigation that pushes history, so
+    // Back always walks back up to Home. (Recent pages are one tap away in
+    // "Jump back in".)
+    useMobileTabStore.getState().setTab('home')
+    setViewLocal({ kind: 'home' })
   }, [tabHydrated])
 
   // Tapping Home/Notebooks in the persistent tab bar while deep in a
@@ -595,8 +668,24 @@ export function MobileShell() {
 
   // "More" tab — Google Account & Settings surface with Material You
   // styling, profile banner, status indicators, and grouped action cards.
+  // The Shared tab lists the "Shared with me" notebook. Creating it used to
+  // happen DURING render (a store write mid-render — React's "Cannot update a
+  // component while rendering" error, and a double render could create two).
+  const needsSharedNb =
+    mobileTab === 'shared' && !childrenOf(nodes, null).some((n) => n.name === SHARED_NB)
+  useEffect(() => {
+    if (!needsSharedNb) return
+    const ws = store.getState()
+    if (!childrenOf(ws.nodes, null).some((n) => n.name === SHARED_NB)) ws.addNotebook(SHARED_NB)
+  }, [needsSharedNb, store])
+
+  const editorShown = view.kind === 'editor' && Boolean(activePageId)
+  // Layout effect: hide/show the shell's tab bar in the same frame the editor
+  // mounts, not one paint later.
+  useLayoutEffect(() => onEditorChange(editorShown), [editorShown, onEditorChange])
+
   const moreTab = (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+    <div className="relative flex h-full flex-col overflow-hidden bg-background">
       <TahoeWaves height={220} />
       <header
         className="relative z-10 flex shrink-0 items-center justify-between px-5 pt-[max(0.5rem,env(safe-area-inset-top))]"
@@ -617,7 +706,7 @@ export function MobileShell() {
                 {profile?.full_name || 'SIMBLIP User'}
               </span>
               <span className="truncate text-ui-sm font-medium text-muted-foreground">
-                {profile?.email || 'rohan.nandu358@gmail.com'}
+                {profile?.email ?? ''}
               </span>
               <div className="mt-2 flex items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--accent-blue)]/12 px-2.5 py-0.5 text-ui-xs font-bold uppercase tracking-wider text-[var(--accent-blue)]">
@@ -650,6 +739,31 @@ export function MobileShell() {
                 <span className="text-ui-xs font-semibold text-muted-foreground">Staff</span>
               </button>
             )}
+
+            {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
+              <button
+                className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+                onClick={() => router.push(profile?.role === 'super_admin' ? '/dev' : '/admin')}
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-blue)]/15 text-[var(--accent-blue)]">
+                    <ShieldCheck className="h-5 w-5" />
+                  </div>
+                  <span>{profile?.role === 'super_admin' ? 'Platform console' : 'Admin console'}</span>
+                </div>
+              </button>
+            )}
+            <button
+              className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
+              onClick={() => useNotesGallery.getState().setCalendarOpen(true)}
+            >
+              <div className="flex items-center gap-3.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--accent-rose)]/15 text-[var(--accent-rose)]">
+                  <CalendarDays className="h-5 w-5" />
+                </div>
+                <span>Calendar</span>
+              </div>
+            </button>
 
             <button
               className="flex w-full items-center justify-between border-b border-border/30 px-4 py-3.5 text-left text-ui-lg font-medium text-foreground transition-colors active:bg-accent hover:bg-accent/50"
@@ -721,7 +835,6 @@ export function MobileShell() {
           </div>
         </div>
       </main>
-      <MobileTabBar />
       <BugReportDialog open={bugOpen} onOpenChange={setBugOpen} />
       {swarm && <BugSwarm onEnd={() => setSwarm(false)} />}
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
@@ -736,7 +849,7 @@ export function MobileShell() {
   // ── Assignments ──────────────────────────────────────────────────────────
   if (mobileTab === 'assignments' && view.kind === 'assignments') {
     return (
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <TahoeWaves height={180} />
         <header
           className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
@@ -759,7 +872,6 @@ export function MobileShell() {
         <main className="relative z-10 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-24 pt-2">
           <AssignmentsPanel />
         </main>
-        <MobileTabBar />
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
       </div>
@@ -768,16 +880,16 @@ export function MobileShell() {
 
   // ── Shared with me ────────────────────────────────────────────────────────
   if (mobileTab === 'shared' && view.kind !== 'editor') {
-    const ws = store.getState()
     const sharedNb = childrenOf(nodes, null).find((n) => n.name === SHARED_NB)
-    const sharedId = sharedNb?.id ?? ws.addNotebook(SHARED_NB)
-    const kids = childrenOf(nodes, sharedId)
+    // Created by the effect above if missing — never during render.
+    const sharedId = sharedNb?.id ?? null
+    const kids = sharedId ? childrenOf(nodes, sharedId) : []
     const subFolders = kids.filter((n): n is FolderNode => n.kind === 'folder')
     const pages = kids.filter((n) => n.kind === 'page')
     const files = kids.filter((n) => n.kind === 'file')
 
     return (
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <TahoeWaves height={180} />
         <header
           className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
@@ -870,7 +982,6 @@ export function MobileShell() {
             </div>
           )}
         </main>
-        <MobileTabBar />
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {pageDialogs}
         {tutorialOpen && activePageId && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
@@ -881,7 +992,7 @@ export function MobileShell() {
   // ── Editor ────────────────────────────────────────────────────────────────
   if (view.kind === 'editor' && activePageId) {
     return (
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <header
           className="z-40 flex shrink-0 items-center gap-1 border-b border-border/40 bg-background px-2 pt-[max(0px,env(safe-area-inset-top))]"
           style={{ height: 'calc(3rem + env(safe-area-inset-top))' }}
@@ -1141,7 +1252,7 @@ export function MobileShell() {
     const files = kids.filter((n) => n.kind === 'file')
     const parentId = folder.parentId
     return (
-      <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+      <div className="relative flex h-full flex-col overflow-hidden bg-background">
         <TahoeWaves height={180} />
         <header
           className="relative z-10 flex shrink-0 items-center justify-between px-4 pt-[max(0.5rem,env(safe-area-inset-top))]"
@@ -1227,9 +1338,12 @@ export function MobileShell() {
                           <span className={cn('h-3.5 w-3.5 rounded-full', SECTION_DOT[sub.color ?? 'blue'] ?? SECTION_DOT.blue)} /> Choose color
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <SyncDropdownItem
-                          checked={sub.syncEnabled === true}
-                          onToggle={(next) => void setFolderSyncEnabled(sub.id, next)}
+                        <SyncModeMenu
+                          variant="dropdown"
+                          flag={sub.syncEnabled}
+                          effective={folderSyncMode(store.getState().nodes, sub.id)}
+                          inheritable={Boolean(sub.parentId)}
+                          onChange={(mode) => void setFolderSyncMode(sub.id, !sub.parentId && mode === 'auto' ? 'inherit' : mode)}
                         />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
@@ -1369,9 +1483,12 @@ export function MobileShell() {
                             <Download className="h-4 w-4" /> Export JSON
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <SyncDropdownItem
-                            checked={page.syncEnabled === true}
-                            onToggle={(next) => void setPageSyncEnabled(page.id, next)}
+                          <SyncModeMenu
+                            variant="dropdown"
+                            flag={page.syncEnabled}
+                            effective={syncModeOf(store.getState().nodes, page)}
+                            inheritable
+                            onChange={(mode) => void setPageSyncMode(page.id, mode)}
                           />
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
@@ -1455,7 +1572,6 @@ export function MobileShell() {
             </div>
           )}
         </main>
-        <MobileTabBar />
         <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
         {pageDialogs}
         {tutorialOpen && <TutorialPanel pageId={activePageId} onClose={() => setTutorialOpen(false)} />}
@@ -1502,7 +1618,7 @@ export function MobileShell() {
   }
 
   return (
-    <div className="relative flex h-dvh flex-col overflow-hidden bg-background">
+    <div className="relative flex h-full flex-col overflow-hidden bg-background">
       <TahoeWaves height={280} />
 
       {/* Top Status & Brand Header */}
@@ -1522,7 +1638,15 @@ export function MobileShell() {
             SIM<span className="text-[var(--accent-blue)]">BLIP</span>
           </span>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-0.5">
+          <button
+            type="button"
+            aria-label="Calendar"
+            className="flex h-11 w-11 items-center justify-center rounded-xl text-muted-foreground transition-colors active:bg-accent hover:bg-accent hover:text-foreground"
+            onClick={() => useNotesGallery.getState().setCalendarOpen(true)}
+          >
+            <CalendarDays className="h-5 w-5" />
+          </button>
           <SyncStatus />
           <NotificationCenter />
         </div>
@@ -1540,14 +1664,16 @@ export function MobileShell() {
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
           className="relative z-10 flex flex-col items-center justify-center overflow-hidden px-6 pt-2 text-center"
         >
-          <h1 className="text-[2.5rem] sm:text-[3rem] font-light tracking-tight text-foreground leading-[1.08]">
-            Welcome<br />
-            Back,<br />
+          {/* Two lines, fluid size: the old three-line 40px greeting took a
+              quarter of a phone screen before any content. */}
+          <h1 className="text-[clamp(1.75rem,8.5vw,2.75rem)] font-light leading-[1.1] tracking-tight text-foreground">
+            Welcome back,
+            <br />
             <span className="font-normal">{firstName}</span>
           </h1>
 
           {/* Clean Subtitle Stats Row with Clickable Actions */}
-          <div className="mt-4 flex items-center justify-center gap-3 text-ui-md text-muted-foreground font-medium">
+          <div className="mt-2 flex items-center justify-center gap-3 text-ui-md text-muted-foreground font-medium [&>button]:min-h-11 [&>button]:whitespace-nowrap [&>button]:px-1">
             <button
               type="button"
               onClick={() => {
@@ -1589,8 +1715,8 @@ export function MobileShell() {
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[var(--accent-blue)]/12 text-[var(--accent-blue)]">
                 <Search className="h-3.5 w-3.5" />
               </div>
-              <span className="text-ui-lg font-medium text-muted-foreground">
-                Search notebooks, pages & formulas…
+              <span className="min-w-0 flex-1 truncate text-left text-ui-lg font-medium text-muted-foreground">
+                Search notes, pages, formulas…
               </span>
             </button>
           </div>
@@ -1659,6 +1785,9 @@ export function MobileShell() {
             </div>
           </div>
 
+          {/* Calendar — the account's calendar is one tap from Home. */}
+          <HomeCalendarCard />
+
           {/* Jump Back In (Recent Pages Strip) */}
           {recentPages.length > 0 && (
             <div className="pb-5">
@@ -1667,13 +1796,15 @@ export function MobileShell() {
                 {recentPages.map(({ page, notebookName }) => {
                   const KindIcon = KIND_ICON[page.pageKind ?? 'board']
                   return (
-                    <button
-                      key={page.id}
-                      type="button"
-                      className="w-32 shrink-0 text-left transition-transform active:scale-95"
-                      onClick={() => openPage(page.id)}
-                    >
+                    // The live thumbnail renders real components — some with
+                    // their own buttons — so it can't sit INSIDE a <button>
+                    // (invalid nesting; React flagged it as a hydration
+                    // error). The card is a plain box; a full-cover button
+                    // takes the tap, and the preview is inert.
+                    <div key={page.id} className="relative w-32 shrink-0 text-left transition-transform active:scale-95">
                       <div
+                        inert
+                        aria-hidden
                         className="relative w-full overflow-hidden rounded-2xl border border-border/50 bg-card shadow-xs transition-shadow hover:shadow-sm"
                         style={{ aspectRatio: pageAspect(page.pageKind) }}
                       >
@@ -1684,7 +1815,13 @@ export function MobileShell() {
                         <span className="truncate">{page.name}</span>
                       </p>
                       <p className="truncate text-ui-xs text-muted-foreground">{notebookName}</p>
-                    </button>
+                      <button
+                        type="button"
+                        aria-label={`Open ${page.name}`}
+                        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-2 focus-visible:outline-[var(--accent-blue)]"
+                        onClick={() => openPage(page.id)}
+                      />
+                    </div>
                   )
                 })}
               </div>
@@ -1767,9 +1904,12 @@ export function MobileShell() {
                             <BookOpen className="h-4 w-4" /> Choose cover…
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <SyncDropdownItem
-                            checked={nb.syncEnabled === true}
-                            onToggle={(next) => void setFolderSyncEnabled(nb.id, next)}
+                          <SyncModeMenu
+                            variant="dropdown"
+                            flag={nb.syncEnabled}
+                            effective={folderSyncMode(store.getState().nodes, nb.id)}
+                            inheritable={Boolean(nb.parentId)}
+                            onChange={(mode) => void setFolderSyncMode(nb.id, !nb.parentId && mode === 'auto' ? 'inherit' : mode)}
                           />
                           <DropdownMenuSeparator />
                           <DropdownMenuItem variant="destructive" onClick={(e) => {
@@ -1859,9 +1999,12 @@ export function MobileShell() {
                           <BookOpen className="h-4 w-4" /> Choose cover…
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <SyncDropdownItem
-                          checked={nb.syncEnabled === true}
-                          onToggle={(next) => void setFolderSyncEnabled(nb.id, next)}
+                        <SyncModeMenu
+                          variant="dropdown"
+                          flag={nb.syncEnabled}
+                          effective={folderSyncMode(store.getState().nodes, nb.id)}
+                          inheritable={Boolean(nb.parentId)}
+                          onChange={(mode) => void setFolderSyncMode(nb.id, !nb.parentId && mode === 'auto' ? 'inherit' : mode)}
                         />
                         <DropdownMenuSeparator />
                         <DropdownMenuItem variant="destructive" onClick={(e) => {
@@ -1951,7 +2094,6 @@ export function MobileShell() {
         )}
       </AnimatePresence>
 
-      <MobileTabBar />
       <RenameDialog target={renameFor} onClose={() => setRenameFor(null)} />
       <ConfirmDeleteDialog target={deleteFor} onClose={() => setDeleteFor(null)} />
       <AddPageDialog target={addTarget} onOpenChange={(o) => !o && setAddTarget(null)} onCreated={openPage} />

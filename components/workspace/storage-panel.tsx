@@ -5,9 +5,9 @@
 // already tracked for sync. No new persistence, just a view over it.
 
 import { useEffect, useMemo, useState } from 'react'
-import { ChevronDown, File, FileSpreadsheet, FileText, Image as ImageIcon, Presentation, Trash2 } from 'lucide-react'
+import { ChevronDown, Cloud, CloudOff, File, FileSpreadsheet, FileText, Image as ImageIcon, Presentation, Trash2 } from 'lucide-react'
 import { listAllEntries } from '@/lib/storage/manifest'
-import { deleteFiles } from '@/lib/storage/manager'
+import { deleteFiles, setSyncEnabled } from '@/lib/storage/manager'
 import type { FileManifestEntry } from '@/lib/storage/manifest-types'
 import { cn } from '@/lib/utils'
 
@@ -178,6 +178,38 @@ export function StoragePanel() {
                         {f.name}
                       </span>
                       <span className="shrink-0 text-ui-2xs text-muted-foreground">{fmtBytes(f.size)}</span>
+                      {/* Opt this one file into cloud backup (uses the 150 MB
+                          quota) or take its cloud copy away again. */}
+                      <button
+                        type="button"
+                        aria-pressed={f.syncEnabled === true}
+                        aria-label={f.syncEnabled ? `Stop backing up ${f.name}` : `Back up ${f.name} to the cloud`}
+                        title={
+                          f.syncError === 'quota'
+                            ? 'Waiting for cloud space'
+                            : f.syncEnabled
+                              ? f.cloudBackedUp
+                                ? 'Backed up — tap to keep on this device only'
+                                : 'Uploading…'
+                              : 'On this device only — tap to back up'
+                        }
+                        disabled={busy.has(f.id)}
+                        className={cn(
+                          'shrink-0 rounded p-1 transition-colors hover:bg-accent disabled:opacity-40',
+                          f.syncError === 'quota'
+                            ? 'text-[var(--accent-rose)]'
+                            : f.syncEnabled
+                              ? 'text-[var(--accent-mint)]'
+                              : 'text-muted-foreground'
+                        )}
+                        onClick={() => {
+                          const next = !f.syncEnabled
+                          setEntries((prev) => prev?.map((e) => (e.id === f.id ? { ...e, syncEnabled: next } : e)) ?? prev)
+                          void setSyncEnabled(f.id, next)
+                        }}
+                      >
+                        {f.syncEnabled ? <Cloud className="h-3 w-3" /> : <CloudOff className="h-3 w-3" />}
+                      </button>
                       <button
                         type="button"
                         aria-label={`Delete ${f.name}`}

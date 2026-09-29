@@ -555,10 +555,30 @@ export const useDocStore = create<DocState>()(
           }))
           return
         }
+        const placeholder: PageContent = { objects: {}, variables: [] }
         set((s) => ({
-          pages: { ...s.pages, [pageId]: { objects: {}, variables: [] } },
+          pages: { ...s.pages, [pageId]: placeholder },
           scopes: { ...s.scopes, [pageId]: {} },
         }))
+        // Not in the localStorage cache — but it may be in the durable
+        // IndexedDB tier (evicted from the cache under quota pressure, see
+        // page-archive.ts). Fill the page in as soon as it arrives, unless the
+        // user already started drawing on the blank placeholder: then keep
+        // theirs and fold the stored objects in underneath.
+        void archive.readPageDurable(pageId).then((durable) => {
+          if (!durable) return
+          const cur = get().pages[pageId]
+          if (!cur) return
+          const stored = durable as unknown as PageContent
+          const merged: PageContent =
+            cur === placeholder ? stored : { ...stored, objects: { ...stored.objects, ...cur.objects } }
+          const { content, scope } = reevaluate(merged)
+          archive.writePage(pageId, content)
+          set((s) => ({
+            pages: { ...s.pages, [pageId]: content },
+            scopes: { ...s.scopes, [pageId]: scope },
+          }))
+        })
       },
 
       loadPage: (pageId) => get().ensurePage(pageId),

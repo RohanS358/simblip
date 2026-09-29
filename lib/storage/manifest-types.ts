@@ -34,7 +34,10 @@ export interface FileManifestEntry {
    * everything reading it treats `undefined` as false.
    */
   syncEnabled?: boolean
-  /** True once confirmed present in Vercel Blob. */
+  /** Why the last upload failed, when it did: 'quota' (the 150 MB project
+   *  quota is full — retrying won't help until space is freed) or a message. */
+  syncError?: string
+  /** True once confirmed present in cloud storage (/api/storage). */
   cloudBackedUp: boolean
   /** Blob URL once uploaded. */
   cloudUrl?: string

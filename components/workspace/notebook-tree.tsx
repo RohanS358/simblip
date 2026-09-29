@@ -39,7 +39,8 @@ import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
 import { importPageInto } from '@/lib/store/import-page'
 import { bundlePage } from '@/lib/store/page-bundle'
-import { setPageSyncEnabled, setFolderSyncEnabled } from '@/lib/sync/page-sync'
+import { folderSyncMode, setFolderSyncMode, setPageSyncMode, syncModeOf } from '@/lib/sync/page-sync'
+import { SyncModeMenu } from './sync-mode-menu'
 import { openFile as openFileNode } from './open-file'
 import { KIND_ICON } from './tabs-bar'
 import {
@@ -436,9 +437,12 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
             <Pencil className="h-4 w-4" /> Rename
           </ContextMenuItem>
           <ContextMenuSeparator />
-          <SyncMenuItem
-            checked={node.syncEnabled === true}
-            onToggle={(next) => void setFolderSyncEnabled(node.id, next)}
+          <SyncModeMenu
+            variant="context"
+            flag={node.syncEnabled}
+            effective={folderSyncMode(store.getState().nodes, node.id)}
+            inheritable={!isNotebook}
+            onChange={(mode) => void setFolderSyncMode(node.id, isNotebook && mode === 'auto' ? 'inherit' : mode)}
           />
           <ContextMenuSeparator />
           <ContextMenuItem variant="destructive" onClick={() => store.getState().removeNode(node.id)}>
@@ -611,13 +615,14 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
           </>
         )}
         <ContextMenuSeparator />
-        {/* Opt-in per page, default OFF (lib/sync/page-sync.ts): while it's
-            off, neither this page's content nor its images ever leave the
-            device — only the tree entry does, so another device sees the page
-            listed but empty. */}
-        <SyncMenuItem
-          checked={node.syncEnabled === true}
-          onToggle={(next) => void setPageSyncEnabled(node.id, next)}
+        {/* Content syncs by default; files and "keep local" are choices
+            (lib/sync/page-sync.ts). */}
+        <SyncModeMenu
+          variant="context"
+          flag={node.syncEnabled}
+          effective={syncModeOf(store.getState().nodes, node)}
+          inheritable
+          onChange={(mode) => void setPageSyncMode(node.id, mode)}
         />
         <ContextMenuSeparator />
         <ContextMenuItem onClick={() => exportPageJson(node)}>
@@ -654,7 +659,7 @@ function SyncMenuItem({
       className="justify-between gap-6"
     >
       <span className="flex items-center gap-2">
-        <CloudUpload className="h-4 w-4" /> Sync across devices
+        <CloudUpload className="h-4 w-4" /> Back up &amp; sync file
       </span>
       <Switch
         checked={checked}

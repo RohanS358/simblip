@@ -270,7 +270,31 @@ function rewriteHtml(html: string, base: URL): string {
   return html
 }
 
+/**
+ * Only serve requests the app itself made: the Web tab's iframe and the
+ * proxied page's own sub-requests are all same-origin. A link to
+ * /api/web-proxy/<any site> from an email or another site is cross-site (or
+ * "none" when typed/bookmarked) and is refused — otherwise anyone could pass
+ * off arbitrary pages, phishing included, under SIMBLIP's domain.
+ * Browsers without Sec-Fetch-Site (Safari < 16.4) fall back to Referer.
+ * ponytail: header check, not auth — a scripted client can still fetch through
+ * it; add a signed short-lived ticket in the path if that becomes abuse.
+ */
+function fromOwnPage(req: NextRequest): boolean {
+  const site = req.headers.get('sec-fetch-site')
+  if (site) return site === 'same-origin'
+  const referer = req.headers.get('referer')
+  try {
+    return !!referer && new URL(referer).origin === req.nextUrl.origin
+  } catch {
+    return false
+  }
+}
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  if (!fromOwnPage(req)) {
+    return new NextResponse('Open web pages from a Web tab inside SIMBLIP.', { status: 403 })
+  }
   const { path } = await params
   // path is the URL-decoded segments Next already split on '/' — rejoin with
   // '/' since the encoded target URL itself may contain further '/'s that

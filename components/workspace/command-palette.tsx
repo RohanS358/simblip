@@ -211,9 +211,14 @@ export function CommandPalette({
           <CommandItem value="go assignments homework" onSelect={() => run(() => router.push('/assignments'))}>
             <ClipboardList className="h-4 w-4" /> Assignments
           </CommandItem>
-          {isStaff && profile?.role === 'admin' && (
+          {(profile?.role === 'admin' || profile?.role === 'super_admin') && (
             <CommandItem value="go admin console institution" onSelect={() => run(() => router.push('/admin'))}>
               <ShieldCheck className="h-4 w-4" /> Admin console
+            </CommandItem>
+          )}
+          {profile?.role === 'super_admin' && (
+            <CommandItem value="go platform console dev operator" onSelect={() => run(() => router.push('/dev'))}>
+              <ShieldCheck className="h-4 w-4" /> Platform console
             </CommandItem>
           )}
           <CommandItem value="go landing home" onSelect={() => run(() => router.push('/'))}>

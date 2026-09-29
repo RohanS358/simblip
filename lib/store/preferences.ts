@@ -109,6 +109,15 @@ export interface GesturePrefs {
    *  palm instead of a finger (see hooks/use-pinch-zoom.ts PALM_RADIUS).
    *  Range 0-60; 0 disables palm rejection. */
   palmRejectRadiusPx: number
+  /** On documents, slides and PDFs with a drawing tool picked, does a FINGER
+   *  draw? 'auto': yes until a stylus is used on this device, then fingers
+   *  scroll and select while the pen writes (penSeen flips it). Whiteboards
+   *  are unaffected — their finger behaviour is their own. */
+  fingerInk: 'auto' | 'always' | 'never'
+  /** A stylus has been used on this device (set automatically). */
+  penSeen: boolean
+  /** The pen's eraser end or barrel button erases ink while held. */
+  penButtonErases: boolean
 }
 
 export const DEFAULT_GESTURES: GesturePrefs = {
@@ -116,6 +125,14 @@ export const DEFAULT_GESTURES: GesturePrefs = {
   holdBeforeDragMs: 150,
   tapVsDragPx: 8,
   palmRejectRadiusPx: 20,
+  fingerInk: 'auto',
+  penSeen: false,
+  penButtonErases: true,
+}
+
+/** Should a finger touch draw ink on a document/slide/PDF right now? */
+export function fingerDraws(g: GesturePrefs = usePrefs.getState().gestures): boolean {
+  return g.fingerInk === 'always' || (g.fingerInk !== 'never' && !g.penSeen)
 }
 
 export type AngleUnit = 'deg' | 'rad'
@@ -326,7 +343,7 @@ export const usePrefs = create<PrefsState>()(
     }),
     {
       name: 'simblip-preferences', // device-wide, not per user
-      version: 4,
+      version: 5,
       // Sanitise whatever localStorage hands back
       migrate: (persisted) => {
         const s = (persisted ?? {}) as Record<string, unknown>
@@ -376,6 +393,11 @@ export const usePrefs = create<PrefsState>()(
           holdBeforeDragMs: num(gestures.holdBeforeDragMs, DEFAULT_GESTURES.holdBeforeDragMs, 50, 500),
           tapVsDragPx: num(gestures.tapVsDragPx, DEFAULT_GESTURES.tapVsDragPx, 2, 24),
           palmRejectRadiusPx: num(gestures.palmRejectRadiusPx, DEFAULT_GESTURES.palmRejectRadiusPx, 0, 60),
+          fingerInk: ['auto', 'always', 'never'].includes(gestures.fingerInk as string)
+            ? (gestures.fingerInk as GesturePrefs['fingerInk'])
+            : 'auto',
+          penSeen: gestures.penSeen === true,
+          penButtonErases: gestures.penButtonErases !== false,
         }
 
         return s as unknown as PrefsState

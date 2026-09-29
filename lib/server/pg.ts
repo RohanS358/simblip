@@ -95,3 +95,24 @@ export async function insertRow(table: string, row: Record<string, unknown>): Pr
     params
   )
 }
+
+/** Run `fn` inside one transaction on a dedicated pooled client. Anything that
+ *  must see-and-then-write consistently (quota accounting, optimistic
+ *  revision checks) goes through here instead of separate q() calls, which
+ *  could each land on a different connection. */
+export async function tx<T>(fn: (query: typeof q) => Promise<T>): Promise<T> {
+  const client = await getPool().connect()
+  const query = async <R = Record<string, unknown>>(text: string, params: unknown[] = []) =>
+    (await client.query(text, params)).rows as R[]
+  try {
+    await client.query('begin')
+    const out = await fn(query as typeof q)
+    await client.query('commit')
+    return out
+  } catch (err) {
+    await client.query('rollback').catch(() => {})
+    throw err
+  } finally {
+    client.release()
+  }
+}

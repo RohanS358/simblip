@@ -268,9 +268,26 @@ export function docExtensions(options: TextExtensionOptions = {}): Extensions {
     DocImage,
     Table.configure({ resizable: true }),
     TableRow,
-    TableHeader,
-    TableCell,
+    TableHeader.extend({
+      addAttributes() {
+        return { ...this.parent?.(), ...cellBackground }
+      },
+    }),
+    TableCell.extend({
+      addAttributes() {
+        return { ...this.parent?.(), ...cellBackground }
+      },
+    }),
   ]
+}
+
+/** A cell's fill (.docx <w:shd w:fill>), as a CSS colour. */
+const cellBackground = {
+  background: {
+    default: null,
+    parseHTML: (el: HTMLElement) => el.style.backgroundColor || null,
+    renderHTML: (a: { background?: string | null }) => (a.background ? { style: `background-color: ${a.background}` } : {}),
+  },
 }
 
 /** The resolved geometry of one block, for the pagination pass and the .docx

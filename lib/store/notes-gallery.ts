@@ -67,9 +67,25 @@ export interface GalleryEvent {
   repeat?: Repeat
   /** Workspace node ids (pages, files) attached to the event. */
   links?: string[]
-  /** A built-in public holiday (lib/calendar/holidays.ts) — read-only, never
-   *  in the store. */
+  /** Read-only and never in the store: a built-in public holiday
+   *  (lib/calendar/holidays.ts) or an event from a subscribed calendar link
+   *  (lib/calendar/subscriptions.ts). */
   holiday?: boolean
+  /** The iCalendar UID it came from (Settings → Calendar → Import). A
+   *  re-import of the same file updates these instead of duplicating them. */
+  icsUid?: string
+}
+
+/** A calendar followed by link (Google/Outlook/Apple "iCal address"). The
+ *  LINK syncs with the account; its events are fetched, not stored. The URL
+ *  is a bearer secret — shown masked, never sent anywhere but our own
+ *  /api/calendar/fetch. */
+export interface CalendarSubscription {
+  id: string
+  name: string
+  url: string
+  color: string
+  addedAt: number
 }
 
 /** Which calendar leads: the big number, the month grid, the title. The other
@@ -91,6 +107,14 @@ interface NotesGalleryState {
   calendarView: CalendarView
   /** Custom event colours picked with the shared hex picker, newest last. */
   eventColors: string[]
+  subscriptions: CalendarSubscription[]
+  /** Upsert imported events by id; returns how many were new vs updated. */
+  importEvents: (events: GalleryEvent[]) => { added: number; updated: number }
+  /** Remove every event that came from an import (by icsUid presence). */
+  removeImportedEvents: () => number
+  addSubscription: (sub: Omit<CalendarSubscription, 'id' | 'addedAt'>) => string
+  updateSubscription: (id: string, patch: Partial<Omit<CalendarSubscription, 'id'>>) => void
+  removeSubscription: (id: string) => void
   toggle: () => void
   setOpen: (open: boolean) => void
   setWidth: (w: number) => void
@@ -123,6 +147,7 @@ export const useNotesGallery = create<NotesGalleryState>()(
       calendarSystem: 'ad',
       calendarView: 'month',
       eventColors: [],
+      subscriptions: [],
 
       toggle: () => set((s) => ({ open: !s.open })),
       setOpen: (open) => set({ open }),
@@ -188,6 +213,35 @@ export const useNotesGallery = create<NotesGalleryState>()(
       updateEvent: (id, patch) =>
         set((s) => ({ events: s.events.map((e) => (e.id === id ? { ...e, ...patch } : e)) })),
       removeEvent: (id) => set((s) => ({ events: s.events.filter((e) => e.id !== id) })),
+      importEvents: (incoming) => {
+        let added = 0
+        let updated = 0
+        set((s) => {
+          const byId = new Map(s.events.map((e) => [e.id, e]))
+          for (const e of incoming) {
+            const prev = byId.get(e.id)
+            if (prev) updated++
+            else added++
+            // Keep a colour the user already chose for this event.
+            byId.set(e.id, { ...e, color: prev?.color ?? e.color })
+          }
+          return { events: [...byId.values()] }
+        })
+        return { added, updated }
+      },
+      removeImportedEvents: () => {
+        const n = get().events.filter((e) => e.icsUid).length
+        set((s) => ({ events: s.events.filter((e) => !e.icsUid) }))
+        return n
+      },
+      addSubscription: (sub) => {
+        const id = uid()
+        set((s) => ({ subscriptions: [...s.subscriptions, { ...sub, id, addedAt: Date.now() }] }))
+        return id
+      },
+      updateSubscription: (id, patch) =>
+        set((s) => ({ subscriptions: s.subscriptions.map((x) => (x.id === id ? { ...x, ...patch } : x)) })),
+      removeSubscription: (id) => set((s) => ({ subscriptions: s.subscriptions.filter((x) => x.id !== id) })),
       setCalendarOpen: (calendarOpen) => set({ calendarOpen }),
       setCalendarSystem: (calendarSystem) => set({ calendarSystem }),
       setCalendarView: (calendarView) => set({ calendarView }),
@@ -209,6 +263,7 @@ export const useNotesGallery = create<NotesGalleryState>()(
         calendarSystem: s.calendarSystem,
         calendarView: s.calendarView,
         eventColors: s.eventColors,
+        subscriptions: s.subscriptions,
       }),
     }
   )

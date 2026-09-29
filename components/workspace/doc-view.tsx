@@ -419,6 +419,9 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     if (importedRef.current) return
     const fileId = fileUrl?.startsWith('opfs:') ? fileUrl.slice('opfs:'.length) : null
     if (!fileId) return
+    // Rehydrate first: a page evicted to the archive reads as flow-less here
+    // and would be re-imported over everything written since.
+    useDocStore.getState().ensurePage(pageId)
     if (useDocStore.getState().pages[pageId]?.flow) return
     importedRef.current = true
     void (async () => {
@@ -530,10 +533,14 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const maxSheetW = viewW ? Math.max(MIN_SHEET, viewW - contentPadX) : undefined
 
   // The toolbar/inspector need a target sheet from the moment the doc opens.
+  // A `bare` embed only claims it when nobody holds it: activeSheetId is
+  // global, and an embed inside another doc (a Document object's preview)
+  // taking it from the host made the two fight in an update loop.
   useEffect(() => {
+    if (bare && activeSheetId) return
     if (sheets.length && (!activeSheetId || !sheets.includes(activeSheetId)))
       setActiveSheet(sheets[0])
-  }, [sheets, activeSheetId, setActiveSheet])
+  }, [bare, sheets, activeSheetId, setActiveSheet])
 
   // The flowing body reports how many sheets its text now needs; sheets are
   // only ever ADDED. Deleting a trailing sheet automatically would destroy
@@ -842,12 +849,10 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   // Export/zoom don't float their own chrome anymore — published to
   // useDocDockStore and rendered from PageControlsMenu in the tab bar
   // instead (see doc-dock.ts). `bare` embeds (the PDF reader's notes pane)
-  // never publish — that surface has no tab bar and no export of its own.
+  // never publish — that surface has no tab bar and no export of its own —
+  // and never clear it either: a host DocView may own it.
   useEffect(() => {
-    if (bare) {
-      useDocDockStore.getState().set(null)
-      return
-    }
+    if (bare) return
     useDocDockStore.getState().set({
       zoom,
       exporting,

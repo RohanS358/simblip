@@ -20,7 +20,7 @@ import { useDockClearance } from '@/hooks/use-dock-clearance'
 import type { SceneObject, Vec2, GeometryKind } from '@/lib/scene/types'
 import { num, str } from '@/lib/scene/types'
 import { htmlToStoredText, serialize } from '@/lib/text/marks'
-import { usePrefs, penPrefs, gesturePrefs, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
+import { usePrefs, penPrefs, gesturePrefs, fingerDraws, PEN_STYLES, type PenStyle } from '@/lib/store/preferences'
 import { cursorForTool } from '@/lib/scene/tool-cursors'
 import { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 import { matchesCombo, resolveCombo, ACTIONS } from '@/lib/keymap'
@@ -64,7 +64,7 @@ import {
 } from '@/lib/scene/dblclick-policy'
 import { pointsToPath } from '@/components/objects/geometry'
 import { inkPath } from '@/components/objects/ink'
-import { penActive } from '@/lib/pointer/pen-active'
+import { isPenActive, notePenDown } from '@/lib/pointer/pen-active'
 import { isPalmPointer } from '@/lib/pointer/palm-reject'
 import { paintBands } from '@/lib/scene/z-order'
 import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
@@ -327,6 +327,10 @@ type GestureMode =
 
 interface Gesture {
   mode: GestureMode
+  /** The pointer that started this gesture. Only ITS events drive it — a
+   *  palm or second finger landing mid-stroke used to feed its own moves into
+   *  the pen's live stroke (and its lift ended the stroke early). */
+  pointerId?: number
   start: Vec2
   startScreen: Vec2
   startViewport: Viewport
@@ -1853,10 +1857,20 @@ export function InfiniteCanvas({
     useSlashMenuStore.getState().clear()
   }, [slashRequest, active, pageId, toLocal, toCanvas])
 
+  // pointercancel: the browser/OS took this pointer (native scroll won, a
+  // system gesture, the pen left range, a lost capture). Nothing listened for
+  // it before, so the gesture stayed half-alive — the next touch continued an
+  // old stroke or drag. Now it's cancelled cleanly (drags snap back, a
+  // partial stroke is dropped). Stable identity via a ref so beginGesture /
+  // cancelGesture can add and remove the same listener.
+  const cancelRef = useRef<(e: PointerEvent) => void>(() => {})
+  const onWindowPointerCancel = useCallback((e: PointerEvent) => cancelRef.current(e), [])
+
   const onPointerMove = useCallback(
     (e: PointerEvent) => {
       const g = gestureRef.current
       if (!g) return
+      if (g.pointerId !== undefined && e.pointerId !== g.pointerId) return
       const store = useDocStore.getState()
       const dxScreen = e.clientX - g.startScreen.x
       const dyScreen = e.clientY - g.startScreen.y
@@ -2344,9 +2358,11 @@ export function InfiniteCanvas({
   const onPointerUp = useCallback(
     (e: PointerEvent) => {
       const g = gestureRef.current
+      if (g?.pointerId !== undefined && e.pointerId !== g.pointerId) return
       gestureRef.current = null
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onWindowPointerCancel)
       document.body.style.cursor = ''
       setRotatingId(null)
       setRotatingGroupAngle(null)
@@ -2791,6 +2807,7 @@ export function InfiniteCanvas({
     gestureRef.current = null
     window.removeEventListener('pointermove', onPointerMove)
     window.removeEventListener('pointerup', onPointerUp)
+    window.removeEventListener('pointercancel', onWindowPointerCancel)
     document.body.style.cursor = ''
     setRotatingId(null)
     if (g.mode === 'move') {
@@ -2808,6 +2825,11 @@ export function InfiniteCanvas({
     setPlacePreview(null)
     setGuides(null)
   }, [pageId, onPointerMove, onPointerUp])
+
+  cancelRef.current = (e: PointerEvent) => {
+    const g = gestureRef.current
+    if (g && (g.pointerId === undefined || g.pointerId === e.pointerId)) cancelGesture()
+  }
 
   const clearLongPress = useCallback(() => {
     if (longPressRef.current) {
@@ -2979,7 +3001,7 @@ export function InfiniteCanvas({
   const handleTouchDownCapture = (e: React.PointerEvent) => {
     if (e.pointerType === 'pen') {
       lastPenRef.current = Date.now() // stylus present → arm palm rejection
-      penActive.current = true
+      notePenDown()
       return
     }
     if (e.pointerType !== 'touch') return
@@ -3092,6 +3114,7 @@ export function InfiniteCanvas({
       startScreen: { x: e.clientX, y: e.clientY },
       startViewport: vpRef.current, // live — the store deliberately lags a pan
       moved: false,
+      pointerId: e.pointerId,
       // Selecting a group means dragging everything it owns. Expanding the
       // ids HERE is what makes a group move as one unit: the drag loop and
       // the commit both read this map, so neither needs to know that groups
@@ -3119,6 +3142,7 @@ export function InfiniteCanvas({
     if (mode === 'pan' || mode === 'rotate' || mode === 'rotateGroup') document.body.style.cursor = 'grabbing'
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onWindowPointerCancel)
   }
 
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
@@ -3146,16 +3170,32 @@ export function InfiniteCanvas({
     // (single touch) must not ink or marquee — two fingers still pan/zoom.
     if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < PEN_PALM_WINDOW_MS)
       return
-    if (!locked && (e.button === 1 || spaceRef.current)) {
+    // Documents, slides and PDFs (passthrough overlays): once a stylus is in
+    // use on this device, the PEN writes and a FINGER scrolls — the overlay's
+    // touch-action already pans natively, so stepping aside is all it takes.
+    // Before this, a finger swipe to scroll a page with the pen tool picked
+    // drew a stray line instead. Whiteboards (not passthrough) are unchanged.
+    if (e.pointerType === 'touch' && passthrough && editing && tool !== 'select' && tool !== 'lasso' && !fingerDraws())
+      return
+    // The pen's eraser end (buttons bit 32) or barrel button (bit 2) erases
+    // while held, whatever drawing tool is picked.
+    const penErase =
+      e.pointerType === 'pen' &&
+      editing &&
+      tool !== 'select' &&
+      tool !== 'lasso' &&
+      gesturePrefs().penButtonErases &&
+      (e.buttons & 32 || e.buttons & 2) !== 0
+    if (!locked && !penErase && (e.button === 1 || spaceRef.current)) {
       beginGesture('pan', e)
       return
     }
-    if (e.button !== 0) return
+    if (e.button !== 0 && !penErase) return
     const store = useDocStore.getState()
 
     // Eraser: drag over ink strokes to remove them (bare ink only — bodies
     // and components are deleted deliberately, not swept away).
-    if (tool === 'eraser') {
+    if (tool === 'eraser' || penErase) {
       const eraseAt = (clientX: number, clientY: number) => {
         const p = toCanvas(clientX, clientY)
         const page = useDocStore.getState().pages[pageId]
@@ -3173,13 +3213,18 @@ export function InfiniteCanvas({
         if (hits.length > 0) useDocStore.getState().removeObjects(pageId, hits)
       }
       eraseAt(e.clientX, e.clientY)
-      const mv = (ev: PointerEvent) => eraseAt(ev.clientX, ev.clientY)
-      const up = () => {
+      const mv = (ev: PointerEvent) => {
+        if (ev.pointerId === e.pointerId) eraseAt(ev.clientX, ev.clientY)
+      }
+      const up = (ev: PointerEvent) => {
+        if (ev.pointerId !== e.pointerId) return
         window.removeEventListener('pointermove', mv)
         window.removeEventListener('pointerup', up)
+        window.removeEventListener('pointercancel', up)
       }
       window.addEventListener('pointermove', mv)
       window.addEventListener('pointerup', up)
+      window.addEventListener('pointercancel', up)
       return
     }
 
@@ -3498,6 +3543,9 @@ export function InfiniteCanvas({
   // ── Custom right-click menu ───────────────────────────────────────────────
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault() // the browser menu never belongs on the canvas
+    // A pen's barrel button reports as a right-click; while it's erasing, a
+    // menu popping up under the nib would interrupt the stroke.
+    if (editing && tool !== 'select' && gesturePrefs().penButtonErases && isPenActive()) return
     clearLongPress() // Android fires contextmenu on long-press; avoid doubling
     const p = toLocal(e.clientX, e.clientY)
     const hit = (e.target as HTMLElement).closest?.('[data-object-id]')

@@ -5,6 +5,7 @@
 // per-page annotation layer — the shell's real board dock (pen/eraser/undo)
 // draws right on top of the image. No pixel editing of the image itself.
 
+import { FileElsewhereNotice } from './file-elsewhere'
 import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useRef, useState } from 'react'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
@@ -80,10 +81,7 @@ export function ImageView({ pageId }: { pageId: string }) {
   return (
     <div className="flex h-full w-full items-center justify-center overflow-auto bg-muted/40 p-3 sm:p-6">
       {missing ? (
-        <p className="max-w-[36ch] text-center text-ui-sm leading-relaxed text-muted-foreground">
-          This image&rsquo;s file isn&rsquo;t on this device any more. Upload it again to
-          restore it — the page and its annotations are kept.
-        </p>
+        <FileElsewhereNotice kind="image" />
       ) : !url ? (
         <BounceLoader size={170} label="Opening image…" />
       ) : (

@@ -1787,3 +1787,9 @@ html {
   background: var(--muted);
   font-size: 0.9em;
 }
+
+/* Touch shell: bottom navigation steps aside while the on-screen keyboard is
+   up (data-keyboard is set by hooks/use-keyboard-inset.ts). */
+html[data-keyboard='open'] .hide-with-keyboard {
+  display: none;
+}

@@ -37,6 +37,9 @@ interface TableSpec {
   anon?: string[]
   /** extra owner scoping: column that must equal the caller's user id */
   owner?: string
+  /** Written ONLY through /api/sync (revision checks + the 150 MB project
+   *  quota live there). The gateway still serves reads and deletes. */
+  syncOnly?: boolean
 }
 
 const TABLES: Record<string, TableSpec> = {
@@ -46,8 +49,8 @@ const TABLES: Record<string, TableSpec> = {
   room_members: { pk: ['room_id', 'profile_id'] },
   boards: { pk: ['id'] },
   board_sessions: { pk: ['id'] },
-  workspaces: { pk: ['id'], owner: 'id' },
-  pages: { pk: ['id'], owner: 'workspace_id' },
+  workspaces: { pk: ['id'], owner: 'id', syncOnly: true },
+  pages: { pk: ['id'], owner: 'workspace_id', syncOnly: true },
   shares: { pk: ['id'] },
   library_assets: { pk: ['id'] },
   library_favorites: { pk: ['asset_id', 'profile_id'] },
@@ -112,6 +115,11 @@ async function resolve(
   const claims = bearerClaims(req)
   if (!claims && !spec.anon?.includes(method)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+  // Quota and revision checks for notebook data live in /api/sync; a direct
+  // write here would sidestep both.
+  if (spec.syncOnly && (method === 'POST' || method === 'PATCH')) {
+    return NextResponse.json({ error: 'Write through /api/sync' }, { status: 405 })
   }
 
   // SECURITY: role came straight from the JWT, so a demoted or deactivated
@@ -512,9 +520,24 @@ export async function POST(req: Request, { params }: Params) {
       const placeholders = rawKeys.map((k, i) => `$${i + 1}${castFor(table, k)}`)
       // pk column names in spec are raw strings — compare against rawKeys.
       const updatable = rawKeys.filter((k) => !spec.pk.includes(k)).map(ident)
+      // SECURITY: an upsert that hits an EXISTING row must not move it into
+      // the caller's tenant or ownership. Without these guards, knowing a row's
+      // id was enough to take it over: the insert stamped the caller's
+      // institution/owner, the conflict branch copied those onto the victim's
+      // row, and from then on scoping handed it to the attacker (for
+      // file_manifest, that included another user's file bytes). On a mismatch
+      // the update is skipped — the row stays exactly as it was.
+      const guards: string[] = []
+      if (claims && !isOperator(claims)) {
+        if (TENANT_COLUMN.has(table)) guards.push(`simblip_${ident(table)}.institution_id = excluded.institution_id`)
+        if (spec.owner && claims.role !== 'board')
+          guards.push(`simblip_${ident(table)}.${ident(spec.owner)} = excluded.${ident(spec.owner)}`)
+      }
       const conflict =
         updatable.length > 0
-          ? `do update set ${updatable.map((c) => `${c} = excluded.${c}`).join(', ')}`
+          ? `do update set ${updatable.map((c) => `${c} = excluded.${c}`).join(', ')}${
+              guards.length > 0 ? ` where ${guards.join(' and ')}` : ''
+            }`
           : 'do nothing'
       await q(
         `insert into simblip_${ident(table)} (${cols.join(', ')})

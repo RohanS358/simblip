@@ -36,6 +36,7 @@ import { cn } from '@/lib/utils'
 import { DocView } from './doc-view'
 import { InfiniteCanvas } from './canvas'
 import { PdfDropzone } from './pdf-dropzone'
+import { FileElsewhereNotice } from './file-elsewhere'
 import { usePinchZoom } from '@/hooks/use-pinch-zoom'
 import { useTransientHud } from '@/hooks/use-transient-hud'
 
@@ -357,6 +358,9 @@ useLayoutEffect(() => {
 
   const [local, setLocal] = useState<AttachedFile | null>(null)
   const [hydrated, setHydrated] = useState(false)
+  // The page synced here but its source file's bytes didn't (see
+  // file-elsewhere.tsx) — distinct from "no file attached yet".
+  const [fileElsewhere, setFileElsewhere] = useState(false)
   // Resolve the page's file via OPFS + manifest (lib/storage/manager.ts),
   // keyed off meta.fileUrl's `opfs:<fileId>` marker — offline-first: getFile
   // checks this device's local OPFS copy before ever touching the network,
@@ -379,7 +383,9 @@ useLayoutEffect(() => {
       void (async () => {
         try {
           const blob = await getFile(fileId)
-          if (!blob || dead) return
+          if (dead) return
+          setFileElsewhere(!blob)
+          if (!blob) return
           // A .docx opens as a pdf-kind page (see open-file.ts), so on first
           // open the bytes here are still the Word file. Hand it to the same
           // attach pipeline a dropped .docx already uses: it converts, stores
@@ -747,6 +753,11 @@ useLayoutEffect(() => {
         {converting ? (
           <div className="flex h-full flex-col items-center justify-center">
             <BounceLoader size={200} label={converting} />
+          </div>
+        ) : !doc && fileElsewhere && hydrated ? (
+          <div className="flex min-h-full flex-col items-center justify-center gap-6 py-10">
+            <FileElsewhereNotice kind="document" />
+            <PdfDropzone onFiles={(f) => void attach(f[0])} />
           </div>
         ) : !doc ? (
           <PdfDropzone onFiles={(f) => void attach(f[0])} openingLabel={fileUrl ? 'Opening…' : undefined} />

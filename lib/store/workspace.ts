@@ -258,7 +258,7 @@ function panesAliases(panes: string[], activePaneIndex: number) {
 }
 
 /** Drop the heavy web-cache blobs before persisting — see `partialize` below. */
-const stripWebCache = (nodes: Record<string, Node>): Record<string, Node> =>
+export const stripWebCache = (nodes: Record<string, Node>): Record<string, Node> =>
   Object.fromEntries(
     Object.entries(nodes).map(([id, node]) => {
       if (node.kind !== 'page') return [id, node]

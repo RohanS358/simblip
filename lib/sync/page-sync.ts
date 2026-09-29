@@ -1,28 +1,30 @@
 'use client'
 
-// Per-page cloud sync opt-in — the page-level twin of the per-file toggle in
-// lib/storage/manager.ts (`syncEnabled` on a manifest entry).
+// Per-page / per-folder cloud sync MODE.
 //
-// Default OFF. What this gates:
+// Three modes, resolved per page (see syncModeOf):
 //
-//   • the page's CONTENT rows in simblip_pages (lib/sync/cloud.ts), including
-//     every sub-sheet / notes / annotation canvas the page owns,
-//   • the BYTES of every image or source file the page references
-//     (lib/sync/device-file-sync.ts), and
-//   • whether the page is VISIBLE on any OTHER device at all.
+//   'auto'  (default) — the page's CONTENT syncs automatically: board objects,
+//           document text, slide objects, annotations, every satellite canvas.
+//           This is small, essential data and follows the user everywhere
+//           without anyone switching anything on. The BYTES of large source
+//           files the page uses (an uploaded PDF, PPTX, image) stay on the
+//           device that has them — they cost real storage in the 150 MB
+//           project quota, so they only upload when asked.
+//   'full'  — content AND the page's files sync ("Sync with files").
+//   'local' — nothing leaves this device ("Keep on this device only"). The
+//           tree node still travels (so no device loses the tree), but the
+//           page is hidden on every other device — see stampSyncedContent and
+//           splitPulledTree in lib/sync/tree-visibility.ts.
 //
-// That last one is why stampSyncedContent below and splitPulledTree (in
-// lib/sync/tree-visibility.ts) exist. A tree node still travels to the cloud —
-// the tree has to stay whole so nothing is orphaned or lost, and so any device
-// can push it back intact — but an unsynced page's node is parked in the
-// workspace store's `hiddenNodes` on arrival and never rendered. An unsynced page therefore exists only on the device that
-// made it; it shows up elsewhere the moment sync is switched on, and disappears
-// again if it's switched off.
+// Storage: `PageNode.syncEnabled` / `FolderNode.syncEnabled` —
+//   undefined → inherit (nearest folder that sets one, else global prefs,
+//   else 'auto'), true → 'full', false → 'local'.
 //
 // Images are DERIVED, not copied: a page's file ids are recomputed from the
-// live tree + page content on every push, so an image dropped onto a synced
-// page after the toggle is covered automatically instead of silently staying
-// local. The per-file flag still works on its own — the two are OR'd.
+// live tree + page content on every push, so an image dropped onto a 'full'
+// page after the toggle is covered automatically. The per-file flag still
+// works on its own — the two are OR'd.
 
 // NOTE: the workspace store is imported dynamically inside setPageSyncEnabled,
 // not at module scope — workspace.ts imports contentIdsOf from here for its own
@@ -32,16 +34,26 @@ import { markPageDeleted } from '@/lib/store/deleted-pages'
 import type { FolderNode, Node, PageNode } from '@/lib/scene/types'
 import { globalPrefAllowsPage } from '@/lib/sync/sync-prefs'
 
-/** Walk up the tree from a node's parent to see if any ancestor folder has
- *  syncEnabled === true. If so, the node inherits that setting. */
-function ancestorFolderSynced(nodes: Record<string, Node>, nodeId: string): boolean {
-  let cur: Node | undefined = nodes[nodeId]
-  while (cur) {
-    const parent: Node | undefined = cur.parentId ? nodes[cur.parentId] : undefined
-    if (parent?.kind === 'folder' && (parent as FolderNode).syncEnabled === true) return true
+export type SyncMode = 'auto' | 'full' | 'local'
+
+const modeOfFlag = (flag: boolean | undefined): SyncMode | null =>
+  flag === true ? 'full' : flag === false ? 'local' : null
+
+/** The page's effective sync mode: its own flag, else the nearest ancestor
+ *  folder that sets one, else the device's global category prefs, else auto. */
+export function syncModeOf(nodes: Record<string, Node>, page: PageNode): SyncMode {
+  const own = modeOfFlag(page.syncEnabled)
+  if (own) return own
+  let cur: Node | undefined = page
+  while (cur?.parentId) {
+    const parent: Node | undefined = nodes[cur.parentId]
+    if (parent?.kind === 'folder') {
+      const m = modeOfFlag((parent as FolderNode).syncEnabled)
+      if (m) return m
+    }
     cur = parent
   }
-  return false
+  return globalPrefAllowsPage(page.pageKind) ? 'full' : 'auto'
 }
 
 /** Every doc-store content id a page owns: the node id itself plus the
@@ -74,85 +86,77 @@ export function fileIdsOf(page: PageNode): string[] {
   return [...new Set([...(source ? [source] : []), ...embedded])]
 }
 
-const syncedPages = (nodes: Record<string, Node>): PageNode[] =>
-  Object.values(nodes).filter(
-    (n): n is PageNode =>
-      n.kind === 'page' &&
-      (n.syncEnabled === true ||
-        globalPrefAllowsPage(n.pageKind) ||
-        ancestorFolderSynced(nodes, n.id))
-  )
+const pagesIn = (nodes: Record<string, Node>, keep: (m: SyncMode) => boolean): PageNode[] =>
+  Object.values(nodes).filter((n): n is PageNode => n.kind === 'page' && keep(syncModeOf(nodes, n)))
 
-/** Content ids cloud.ts is allowed to push, from the current tree. */
+/** Content ids cloud.ts is allowed to push, from the current tree: every page
+ *  not explicitly kept local. */
 export function syncedContentIds(nodes: Record<string, Node>): Set<string> {
-  return new Set(syncedPages(nodes).flatMap(contentIdsOf))
+  return new Set(pagesIn(nodes, (m) => m !== 'local').flatMap(contentIdsOf))
 }
 
-/** File ids device-file-sync.ts is allowed to upload *because a synced page
+/** File ids device-file-sync.ts is allowed to upload *because a 'full' page
  *  references them* — unioned there with each file's own opt-in flag. */
 export function syncedFileIds(nodes: Record<string, Node>): Set<string> {
-  return new Set(syncedPages(nodes).flatMap(fileIdsOf))
+  return new Set(pagesIn(nodes, (m) => m === 'full').flatMap(fileIdsOf))
+}
+
+const flagOf = (mode: SyncMode | 'inherit'): boolean | undefined =>
+  mode === 'full' ? true : mode === 'local' ? false : undefined
+
+/** Remove what a page no longer allows from the cloud — content rows when it
+ *  went local, file bytes when it left 'full'. Nothing local is touched. */
+async function retract(page: PageNode, from: SyncMode, to: SyncMode): Promise<void> {
+  if (to === 'local' && from !== 'local') contentIdsOf(page).forEach(markPageDeleted)
+  if (from === 'full' && to !== 'full') {
+    const files = fileIdsOf(page)
+    if (files.length === 0) return
+    const { setSyncEnabled, isSyncEnabled } = await import('@/lib/storage/manager')
+    // Sequential on purpose: each call may DELETE from /api/storage. A file
+    // the user opted in on its own keeps its cloud copy.
+    for (const id of files) if (!(await isSyncEnabled(id))) await setSyncEnabled(id, false)
+  }
 }
 
 /**
- * Flip a page's opt-in.
+ * Set a page's sync mode ('inherit' clears its own flag).
  *
- * Turning it OFF also removes what already reached the cloud — the content
- * rows and the images' blobs — because leaving copies up there after the user
- * said "stop syncing this" would make the toggle a lie. Nothing local is
- * touched: this is a sync setting, not a delete. (Same contract as
- * manager.ts's setSyncEnabled for a single file.)
+ * Moving to a narrower mode removes what already reached the cloud — leaving
+ * copies up there after the user said "keep this local" would make the
+ * setting a lie. Nothing local is ever touched: this is a sync setting, not a
+ * delete.
  */
-export async function setPageSyncEnabled(pageId: string, enabled: boolean): Promise<void> {
+export async function setPageSyncMode(pageId: string, mode: SyncMode | 'inherit'): Promise<void> {
   const { useWorkspaceStore } = await import('@/lib/store/workspace')
-  const node = useWorkspaceStore.getState().nodes[pageId]
+  const nodes = useWorkspaceStore.getState().nodes
+  const node = nodes[pageId]
   if (!node || node.kind !== 'page') return
-  useWorkspaceStore.getState().updatePageMeta(pageId, { syncEnabled: enabled })
-  if (enabled) return
-
-  // Reuse the ordinary deletion queue — cloud.ts drains it on its next flush
-  // and DELETEs those simblip_pages rows, exactly as a real page delete does.
-  contentIdsOf(node).forEach(markPageDeleted)
-
-  const files = fileIdsOf(node)
-  if (files.length === 0) return
-  const { setSyncEnabled } = await import('@/lib/storage/manager')
-  // Sequential on purpose: each call issues a DELETE to /api/storage, and a
-  // page can reference dozens of images.
-  for (const id of files) await setSyncEnabled(id, false)
+  const before = syncModeOf(nodes, node)
+  useWorkspaceStore.getState().updatePageMeta(pageId, { syncEnabled: flagOf(mode) })
+  const after = syncModeOf(useWorkspaceStore.getState().nodes, useWorkspaceStore.getState().nodes[pageId] as PageNode)
+  await retract(node, before, after)
 }
 
-/**
- * Flip a folder's opt-in, cascading to every descendant page and file.
- *
- * Turning it ON makes all pages and files inside the folder eligible for sync
- * without requiring individual toggles. Turning it OFF removes cloud copies of
- * all descendant content (same contract as the per-page toggle).
- */
-export async function setFolderSyncEnabled(folderId: string, enabled: boolean): Promise<void> {
+/** Set a folder's sync mode; descendants without their own flag inherit it. */
+export async function setFolderSyncMode(folderId: string, mode: SyncMode | 'inherit'): Promise<void> {
   const { useWorkspaceStore, descendantsOf } = await import('@/lib/store/workspace')
   const nodes = useWorkspaceStore.getState().nodes
   const node = nodes[folderId]
   if (!node || node.kind !== 'folder') return
-
+  const pages = descendantsOf(nodes, folderId).filter((d): d is PageNode => d.kind === 'page')
+  const before = new Map(pages.map((p) => [p.id, syncModeOf(nodes, p)]))
   useWorkspaceStore.setState((s) => ({
-    nodes: { ...s.nodes, [folderId]: { ...s.nodes[folderId], syncEnabled: enabled } as Node },
+    nodes: { ...s.nodes, [folderId]: { ...s.nodes[folderId], syncEnabled: flagOf(mode) } as Node },
   }))
-
-  if (enabled) return
-
-  const descendants = descendantsOf(nodes, folderId)
-  for (const desc of descendants) {
-    if (desc.kind === 'page' && desc.syncEnabled !== true) {
-      contentIdsOf(desc).forEach(markPageDeleted)
-      const files = fileIdsOf(desc)
-      if (files.length > 0) {
-        const { setSyncEnabled } = await import('@/lib/storage/manager')
-        for (const id of files) await setSyncEnabled(id, false)
-      }
-    }
-  }
+  const next = useWorkspaceStore.getState().nodes
+  for (const p of pages) await retract(p, before.get(p.id)!, syncModeOf(next, p))
 }
+
+/** Back-compat wrappers for the old boolean switch: on → 'full', off → 'auto'. */
+export const setPageSyncEnabled = (pageId: string, enabled: boolean) =>
+  setPageSyncMode(pageId, enabled ? 'full' : 'inherit')
+export const setFolderSyncEnabled = (folderId: string, enabled: boolean) =>
+  setFolderSyncMode(folderId, enabled ? 'full' : 'inherit')
 
 // ── Cross-device visibility ─────────────────────────────────────────────────
 
@@ -171,4 +175,10 @@ export function stampSyncedContent(nodes: Record<string, Node>): Record<string, 
       n.kind === 'page' ? [id, { ...n, syncedContent: allowed.has(id) }] : [id, n]
     )
   )
+}
+
+/** Effective mode for pages created inside a folder (its own flag, else its
+ *  ancestors', else the default) — what the folder menu shows. */
+export function folderSyncMode(nodes: Record<string, Node>, folderId: string): SyncMode {
+  return syncModeOf(nodes, { id: '', kind: 'page', parentId: folderId, name: '', order: 0 } as unknown as PageNode)
 }

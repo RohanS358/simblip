@@ -148,6 +148,10 @@ export default function LoginPage() {
           <Link href="/#pricing" className="underline underline-offset-2 hover:text-foreground">
             Licensing
           </Link>
+          {' · '}
+          <Link href="/legal" className="underline underline-offset-2 hover:text-foreground">
+            Privacy &amp; terms
+          </Link>
           {' · '}Built by Rohan Singh
         </p>
       </div>

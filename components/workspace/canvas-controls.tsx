@@ -189,9 +189,11 @@ export function CanvasControls({
             // above it — padding for it again would double the gap. The
             // view's OWN bottom chrome is inside this box though, so that
             // part is on us.
+            // --keyboard-inset (hooks/use-keyboard-inset.ts): with an iOS
+            // keyboard up, the dock rides above it instead of underneath.
             paddingBottom: edgeToolbar
-              ? chromeBottom
-              : `calc(max(1rem, env(safe-area-inset-bottom)) + ${chromeBottom}px)`,
+              ? `calc(${chromeBottom}px + var(--keyboard-inset, 0px))`
+              : `calc(max(1rem, env(safe-area-inset-bottom)) + ${chromeBottom}px + var(--keyboard-inset, 0px))`,
             // See chromeLeft/chromeTop above. An edge bar butts straight up
             // against the header: it has no bottom border any more (its
             // material is a masked layer that fades out below itself, see

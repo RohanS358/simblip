@@ -139,6 +139,9 @@ export function DocFlow({
     [pageId]
   )
   const loadedRef = useRef<string | null>(null)
+  // The last flow this editor wrote itself — anything else landing in the
+  // store is an external write to install (see the subscription below).
+  const emittedRef = useRef<string | undefined>(undefined)
 
   // ── Geometry ───────────────────────────────────────────────────────────
   // Measured off the live sheets rather than recomputed from the store: the
@@ -150,7 +153,11 @@ export function DocFlow({
   const measure = useCallback(() => {
     const host = containerRef.current
     if (!host) return
-    const sheets = host.querySelectorAll<HTMLElement>('[data-sheet]')
+    // Direct children only: a sheet can host a Document object previewing
+    // ANOTHER doc page, whose own sheets would otherwise be counted as ours
+    // (sheets[1] became the preview's first sheet, the gap went negative and
+    // every page-break spacer collapsed to 0px).
+    const sheets = host.querySelectorAll<HTMLElement>(':scope > [data-sheet]')
     const first = sheets[0]
     if (!first) return
     // The sheet's aspectRatio is set from its TRUE size, so height/width
@@ -187,7 +194,7 @@ export function DocFlow({
     if (!host) return
     const ro = new ResizeObserver(measure)
     ro.observe(host)
-    for (const el of host.querySelectorAll('[data-sheet]')) ro.observe(el)
+    for (const el of host.querySelectorAll(':scope > [data-sheet]')) ro.observe(el)
     return () => ro.disconnect()
   }, [measure, containerRef, sheetIds.length, mounted])
 
@@ -225,7 +232,9 @@ export function DocFlow({
       editable,
       immediatelyRender: false,
       onUpdate: ({ editor: ed }) => {
-        setFlow(pageId, serializeDoc(ed.getJSON() as unknown as PmDoc))
+        const flow = serializeDoc(ed.getJSON() as unknown as PmDoc)
+        emittedRef.current = flow
+        setFlow(pageId, flow)
       },
       onFocus: () => setFocused(true),
       onBlur: () => setFocused(false),
@@ -247,6 +256,20 @@ export function DocFlow({
       })
     }
   }, [editor, ensurePage, pageId])
+
+  // Writes that don't come from this editor — the .docx import (DocView runs
+  // it async, so it lands AFTER the one-time load above; without this the
+  // page stayed blank and the first keystroke wrote the empty body back over
+  // the import). The editor's own echoes are skipped via emittedRef.
+  useEffect(() => {
+    if (!editor) return
+    return useDocStore.subscribe((s, prev) => {
+      const flow = s.pages[pageId]?.flow
+      if (!flow || flow === prev.pages[pageId]?.flow || flow === emittedRef.current) return
+      emittedRef.current = flow
+      editor.commands.setContent(parseDoc(flow) as unknown as Record<string, unknown>, { emitUpdate: false })
+    })
+  }, [editor, pageId])
 
   useEffect(() => {
     if (editor) editor.setEditable(editable)
@@ -365,11 +388,12 @@ export function cloneFlowIntoSheets(
   margins: DocMargins = DOC_MARGINS,
   padding: DocMargins = { top: 0, right: 0, bottom: 0, left: 0 }
 ): () => void {
-  const column = container.querySelector<HTMLElement>('.doc-flow')
+  // Not inside a sheet: that would be an embedded preview's body, not ours.
+  const column = container.querySelector<HTMLElement>(':scope > :not([data-sheet]) .doc-flow')
   const wrapper = column?.parentElement
   if (!column || !wrapper) return () => {}
 
-  const sheets = [...container.querySelectorAll<HTMLElement>('[data-sheet]')]
+  const sheets = [...container.querySelectorAll<HTMLElement>(':scope > [data-sheet]')]
   const first = sheets[0]
   if (!first) return () => {}
   const pageH = Number(first.dataset.pageH) || first.offsetHeight

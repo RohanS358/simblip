@@ -6,7 +6,9 @@
 
 import { useState } from 'react'
 import { ChevronDown, ExternalLink, ShieldCheck } from 'lucide-react'
+import { toast } from 'sonner'
 import { useConsent } from '@/lib/store/consent'
+import { getAccessToken, useAuthStore } from '@/lib/auth/store'
 import {
   DATA_CATEGORIES,
   PRIVACY_COMMITMENTS,
@@ -59,7 +61,54 @@ function Disclosure({
   )
 }
 
+const REQUESTS = [
+  ['copy', 'Send me a copy of my data'],
+  ['correct', 'Correct my data'],
+  ['delete', 'Delete my account and data'],
+] as const
+
+/**
+ * Files a data request into the bug-report queue the operator already reads
+ * on /dev. Deliberately carries no browser/screen context — only the account
+ * id and what was asked for.
+ * ponytail: operator acts on it by hand; add a status mail-back when volume warrants.
+ */
+function useDataRequest() {
+  const profile = useAuthStore((s) => s.profile)
+  const [sent, setSent] = useState<string | null>(null)
+  const send = async (kind: string, label: string) => {
+    if (kind === 'delete' && !confirm('Ask for this account and all its data to be deleted? This cannot be undone once acted on.')) return
+    try {
+      const token = getAccessToken()
+      const res = await fetch('/api/pg/simblip_bug_reports', {
+        method: 'POST',
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify([
+          {
+            reporter_id: profile?.id ?? null,
+            institution_id: profile?.institution_id ?? null,
+            title: `[Privacy request] ${label}`,
+            body: `Account ${profile?.email ?? profile?.id ?? 'unknown'} requested: ${kind}.`,
+            context: { kind: 'privacy-request', request: kind, at: new Date().toISOString() },
+            status: 'open',
+          },
+        ]),
+      })
+      if (!res.ok) throw new Error(String(res.status))
+      setSent(kind)
+      toast.success('Request sent. Your institution admin or the operator will follow up.')
+    } catch {
+      toast.error("Couldn't send the request — try again, or ask your institution admin.")
+    }
+  }
+  return { sent, send }
+}
+
 export function PrivacySettings() {
+  const request = useDataRequest()
   const analytics = useConsent((s) => s.analytics)
   const setAnalytics = useConsent((s) => s.setAnalytics)
   const acceptedAt = useConsent((s) => s.acceptedAt)
@@ -157,9 +206,22 @@ export function PrivacySettings() {
         <div className="space-y-2.5 pt-0.5 text-ui-sm leading-relaxed text-muted-foreground">
           <p>
             You can ask for a copy of your data, ask for it to be corrected, or ask for the account
-            to be deleted. Your institution&rsquo;s admin handles these requests — they control the
-            account, not SIMBLIP.
+            to be deleted. Send the request here — it goes to the operator, and your
+            institution&rsquo;s admin can act on it too, since they control the account.
           </p>
+          <div className="flex flex-wrap gap-2 py-1">
+            {REQUESTS.map(([kind, label]) => (
+              <Button
+                key={kind}
+                size="sm"
+                variant="outline"
+                disabled={request.sent === kind}
+                onClick={() => request.send(kind, label)}
+              >
+                {request.sent === kind ? 'Requested' : label}
+              </Button>
+            ))}
+          </div>
           <p>
             You can export your own notebooks yourself at any time from{' '}
             <span className="font-medium text-foreground">Settings → Files and links</span>.
@@ -168,7 +230,10 @@ export function PrivacySettings() {
       </SettingCard>
 
       <p className="px-1 pb-2 font-mono text-ui-xs text-muted-foreground">
-        Privacy policy v{PRIVACY_VERSION} · Terms v{TERMS_VERSION} · Effective {EFFECTIVE_DATE}
+        <a href="/legal" target="_blank" rel="noreferrer" className="underline underline-offset-2">
+          Public copy
+        </a>{' '}
+        · Privacy policy v{PRIVACY_VERSION} · Terms v{TERMS_VERSION} · Effective {EFFECTIVE_DATE}
       </p>
     </div>
   )

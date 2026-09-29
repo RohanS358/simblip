@@ -4,8 +4,11 @@
 // Mounting the shell boots both cloud notebook sync and device presence.
 
 import { useEffect, useState } from 'react'
-import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Loader2, RotateCw } from 'lucide-react'
-import { startSync, syncConfigured, useSyncStore } from '@/lib/sync/cloud'
+import { Cloud, CloudOff, RefreshCw, TriangleAlert, Laptop, ArrowRightLeft, Loader2, RotateCw, PauseCircle, HardDrive } from 'lucide-react'
+import { setSyncPaused, startSync, syncConfigured, syncNow, useSyncStore } from '@/lib/sync/cloud'
+import { useFileSyncStore } from '@/lib/sync/device-file-sync'
+import { QUOTA_WARN_RATIO, fmtBytes } from '@/lib/storage/quota'
+import { Switch } from '@/components/ui/switch'
 import { startDevicePresence, useDevicesStore, refreshDevices, performHeartbeat, type DeviceRow } from '@/lib/sync/devices'
 import { pushFilesToDevice, startFileSync } from '@/lib/sync/device-file-sync'
 import { useAuthStore } from '@/lib/auth/store'
@@ -18,6 +21,10 @@ export function SyncStatus() {
   const phase = useSyncStore((s) => s.phase)
   const lastError = useSyncStore((s) => s.lastError)
   const lastSyncedAt = useSyncStore((s) => s.lastSyncedAt)
+  const pending = useSyncStore((s) => s.pending)
+  const paused = useSyncStore((s) => s.paused)
+  const usage = useSyncStore((s) => s.usage)
+  const filesBlocked = useFileSyncStore((s) => s.quotaBlocked)
   const signedIn = useAuthStore((s) => s.status === 'authed')
   const profileId = useAuthStore((s) => s.profile?.id)
 
@@ -64,19 +71,29 @@ export function SyncStatus() {
     }
   }
 
+  const waiting = pending > 0 ? ` · ${pending} change${pending === 1 ? '' : 's'} waiting` : ''
   const view = !syncConfigured
     ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Local mode — data stays on this device.' }
     : !signedIn || phase === 'offline'
       ? { icon: CloudOff, cls: 'text-muted-foreground/60', label: 'Not syncing — sign in to sync.' }
-      : phase === 'syncing'
-      ? { icon: RefreshCw, cls: 'animate-spin text-[var(--accent-blue)]', label: 'Syncing…' }
-      : phase === 'error'
-        ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: `Sync error — ${lastError ?? ''}` }
-        : {
-            icon: Cloud,
-            cls: 'text-[var(--accent-mint)]',
-            label: lastSyncedAt ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : 'Synced',
-          }
+      : phase === 'paused'
+        ? { icon: PauseCircle, cls: 'text-[var(--accent-amber)]', label: `Sync paused on this device${waiting}` }
+        : phase === 'pending'
+          ? { icon: CloudOff, cls: 'text-[var(--accent-amber)]', label: `Offline — saved on this device${waiting}` }
+          : phase === 'syncing'
+            ? { icon: RefreshCw, cls: 'animate-spin text-[var(--accent-blue)]', label: 'Syncing…' }
+            : phase === 'quota'
+              ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: 'Cloud storage full — changes kept on this device' }
+              : phase === 'error'
+                ? { icon: TriangleAlert, cls: 'text-[var(--accent-rose)]', label: `Sync problem — retrying${waiting}` }
+                : {
+                    icon: Cloud,
+                    cls: 'text-[var(--accent-mint)]',
+                    label: lastSyncedAt
+                      ? `Synced ${new Date(lastSyncedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                      : 'Synced',
+                  }
+  const ratio = usage ? usage.used / usage.limit : 0
 
   const Icon = view.icon
 
@@ -86,7 +103,7 @@ export function SyncStatus() {
         <button
           type="button"
           aria-label={view.label}
-          className="group relative rounded-lg p-1.5 hover:bg-accent/60 transition-colors"
+          className="group relative rounded-lg p-1.5 hover:bg-accent/60 transition-colors pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           <Icon className={cn('h-4 w-4 transition-colors', view.cls)} />
           {others.length > 0 && (
@@ -101,10 +118,64 @@ export function SyncStatus() {
           <div className="min-w-0 flex-1">
             <p className="text-ui-md font-medium leading-none text-foreground">{view.label}</p>
             <p className="mt-1 text-ui-xs text-muted-foreground">
-              Storage budget: 1GB • Local-first storage
+              {phase === 'error' && lastError ? lastError : 'Notes, pages and calendar sync automatically.'}
             </p>
           </div>
         </div>
+
+        {usage && (
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between text-ui-xs">
+              <span className="flex items-center gap-1.5 text-muted-foreground">
+                <HardDrive className="h-3.5 w-3.5" /> Cloud storage
+              </span>
+              <span className="font-medium tabular-nums">
+                {fmtBytes(usage.used)} / {fmtBytes(usage.limit)}
+              </span>
+            </div>
+            <div
+              className="h-1.5 overflow-hidden rounded-full bg-muted"
+              role="meter"
+              aria-label="Cloud storage used"
+              aria-valuemin={0}
+              aria-valuemax={usage.limit}
+              aria-valuenow={usage.used}
+            >
+              <div
+                className={cn(
+                  'h-full rounded-full transition-[width]',
+                  ratio >= 1 ? 'bg-[var(--accent-rose)]' : ratio >= QUOTA_WARN_RATIO ? 'bg-[var(--accent-amber)]' : 'bg-[var(--accent-mint)]'
+                )}
+                style={{ width: `${Math.min(100, ratio * 100)}%` }}
+              />
+            </div>
+            {(ratio >= QUOTA_WARN_RATIO || filesBlocked) && (
+              <p className="text-ui-xs leading-normal text-[var(--accent-rose)]">
+                {ratio >= 1 || phase === 'quota' || filesBlocked
+                  ? 'Full. Nothing is deleted — free space in Settings → Storage to resume.'
+                  : 'Almost full. Manage it in Settings → Storage.'}
+              </p>
+            )}
+          </div>
+        )}
+
+        {signedIn && syncConfigured && (
+          <div className="flex items-center justify-between gap-2">
+            <label className="flex items-center gap-2 text-ui-sm" htmlFor="sync-paused">
+              <Switch id="sync-paused" checked={!paused} onCheckedChange={(on) => setSyncPaused(!on)} />
+              {paused ? 'Sync paused' : 'Sync on'}
+            </label>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              disabled={paused || phase === 'syncing'}
+              onClick={() => void syncNow()}
+            >
+              <RefreshCw className="h-3.5 w-3.5" /> Sync now
+            </Button>
+          </div>
+        )}
 
         <div className="space-y-2">
           <div className="flex items-center justify-between">
@@ -171,7 +242,7 @@ export function SyncStatus() {
         </div>
 
         <p className="text-ui-xs text-muted-foreground leading-normal pt-1 border-t border-border/40">
-          Files are pushed to cloud storage temporarily and deleted immediately after the receiving device downloads them.
+          Files you chose to back up are kept in the cloud; “Sync files” also pre-downloads them to that device.
         </p>
       </PopoverContent>
     </Popover>

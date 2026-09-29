@@ -70,9 +70,14 @@ export function ProfileMenu({ onOpenSettings }: { onOpenSettings?: () => void })
             <ClipboardList className="h-4 w-4" /> Assignments
           </DropdownMenuItem>
         )}
-        {profile.role === 'admin' && (
+        {(profile.role === 'admin' || profile.role === 'super_admin') && (
           <DropdownMenuItem onClick={() => router.push('/admin')}>
             <ShieldCheck className="h-4 w-4" /> Admin console
+          </DropdownMenuItem>
+        )}
+        {profile.role === 'super_admin' && (
+          <DropdownMenuItem onClick={() => router.push('/dev')}>
+            <ShieldCheck className="h-4 w-4" /> Platform console
           </DropdownMenuItem>
         )}
         {onOpenSettings && (

@@ -37,6 +37,7 @@ import {
   PageNumber,
   PageOrientation,
   Paragraph,
+  ShadingType,
   Table,
   TableCell,
   TableRow,
@@ -231,6 +232,10 @@ function tableOf(node: PmNode, input: DocxExportInput): Table {
           (cell) =>
             new TableCell({
               columnSpan: Number(cell.attrs?.colspan) || undefined,
+              shading:
+                typeof cell.attrs?.background === 'string' && /^#[0-9a-f]{6}$/i.test(cell.attrs.background)
+                  ? { fill: cell.attrs.background.slice(1), type: ShadingType.CLEAR, color: 'auto' }
+                  : undefined,
               children: blockParagraphs(cell.content ?? [], input),
             })
         ),

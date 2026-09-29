@@ -152,7 +152,7 @@ export function NotificationCenter() {
         <button
           type="button"
           aria-label={unread > 0 ? `Notifications (${unread} unread)` : 'Notifications'}
-          className="relative rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+          className="relative rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground pointer-coarse:flex pointer-coarse:h-11 pointer-coarse:w-11 pointer-coarse:items-center pointer-coarse:justify-center"
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
