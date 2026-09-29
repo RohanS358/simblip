@@ -67,7 +67,8 @@ import { inkPath } from '@/components/objects/ink'
 import { isPenActive, notePenDown } from '@/lib/pointer/pen-active'
 import { isPalmPointer } from '@/lib/pointer/palm-reject'
 import { paintBands } from '@/lib/scene/z-order'
-import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, scalePoints, scaleInkMeta, unionBox, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
+import { lassoHits } from '@/lib/scene/lasso'
+import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, scalePoints, scaleInkMeta, orientedBox, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
 import { cn } from '@/lib/utils'
 
 const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
@@ -374,6 +375,8 @@ interface Gesture {
   snapStatics?: SceneObject[]
   /** Shift+pen orthogonal routing: committed 90° corners + current axis. */
   orthoPts?: number[][]
+  /** Select-drag: the freeform lasso path so far, page coords. */
+  lassoPts?: Vec2[]
   orthoAxis?: 'h' | 'v'
   orthoVel?: { x: number; y: number }
   orthoPrev?: { x: number; y: number }
@@ -1220,7 +1223,8 @@ export function InfiniteCanvas({
   const playMode = useRuntimeStore((s) => s.mode)
   const editing = playMode === 'edit'
 
-  const [marquee, setMarquee] = useState<{ a: Vec2; b: Vec2 } | null>(null)
+  // Freeform lasso path (page coords) while a select-drag is in progress.
+  const [lasso, setLasso] = useState<Vec2[] | null>(null)
   // Live ink is imperative. Points live in a ref and the SVG path's `d` is
   // written directly on pointermove — re-rendering the whole canvas per
   // pointer event is exactly the pen latency users feel. React re-renders
@@ -2017,7 +2021,13 @@ export function InfiniteCanvas({
           })
         }
       } else if (g.mode === 'marquee') {
-        setMarquee({ a: g.start, b: point })
+        // Freeform lasso: sample the path every few screen px.
+        const pts = (g.lassoPts ??= [g.start])
+        const last = pts[pts.length - 1]
+        if (Math.hypot(point.x - last.x, point.y - last.y) * vpRef.current.zoom > 3) {
+          pts.push(point)
+          setLasso([...pts])
+        }
       } else if (g.mode === 'draw') {
         if (e.shiftKey || store.tool === 'shaper' || (e.pointerType === 'touch' && touchOrthoPen)) {
           // Shift+pen (or the Shaper tool): orthogonal routing. The stroke runs dead-straight
@@ -2221,12 +2231,11 @@ export function InfiniteCanvas({
         const isGroup = obj0.geometry.kind === 'group'
         const isText = obj0.geometry.kind === 'text'
         const isCorner = corner.length === 2
-        // Uniform scale: Shift, any group (children keep absolute coords with
-        // their own rotations — a non-uniform scale would shear them), and a
-        // text box's CORNER grips, which scale the type like Canva/Keynote;
-        // text EDGE grips still just change the wrap width.
+        // Uniform scale: Shift, and the CORNER grips of groups/selections
+        // (handwriting keeps its proportions) and text boxes (scales the type
+        // like Canva/Keynote). Their SIDE grips stretch one axis only.
         let k = 1
-        if (e.shiftKey || isGroup || (isText && isCorner)) {
+        if (e.shiftKey || ((isGroup || isText) && isCorner)) {
           const kw = w / w0
           const kh = h / h0
           // Corners: project the drag onto the box diagonal, so the grip
@@ -2461,23 +2470,11 @@ export function InfiniteCanvas({
       }
 
       if (g.mode === 'marquee') {
-        const point = toCanvas(e.clientX, e.clientY)
-        const x0 = Math.min(g.start.x, point.x)
-        const y0 = Math.min(g.start.y, point.y)
-        const x1 = Math.max(g.start.x, point.x)
-        const y1 = Math.max(g.start.y, point.y)
-        setMarquee(null)
+        setLasso(null)
         if (g.moved) {
-          const hit = Object.values(store.pages[pageId]?.objects ?? {})
-            .filter(
-              (o) =>
-                o.position.x < x1 &&
-                o.position.x + o.size.w > x0 &&
-                o.position.y < y1 &&
-                o.position.y + o.size.h > y0
-            )
-            .map((o) => o.id)
-          store.setSelection(hit)
+          // The path closes itself — an unfinished loop still selects what
+          // it (plus the implied closing edge) encloses.
+          store.setSelection(lassoHits(g.lassoPts ?? [], store.pages[pageId]?.objects ?? {}))
         } else {
           store.setSelection([])
         }
@@ -2866,7 +2863,7 @@ export function InfiniteCanvas({
     }
     setHoldReady(false)
     setStroke(null)
-    setMarquee(null)
+    setLasso(null)
     setPlacePreview(null)
     setGuides(null)
   }, [pageId, onPointerMove, onPointerUp])
@@ -3301,8 +3298,9 @@ export function InfiniteCanvas({
     }
 
     // A single finger (or pen) dragging in select mode behaves exactly like
-    // left-click + drag: a selection marquee. Two fingers still pan/zoom.
-    // Lasso is the same marquee, minus the "drag inside the selection to
+    // left-click + drag: a freeform, self-closing selection lasso (mode
+    // 'marquee', see lib/scene/lasso.ts). Two fingers still pan/zoom.
+    // The Lasso tool is the same gesture, minus the "drag inside the selection to
     // move it" shortcut below — it always redraws a fresh region, even
     // starting on top of an object, so a crowded diagram stays circle-able
     // without grabbing anything by accident (the object layer goes
@@ -3600,11 +3598,10 @@ export function InfiniteCanvas({
       .filter(Boolean) as import('@/lib/scene/types').SceneObject[]
     if (objs.length < 2) return
     store.pushHistory(pageId)
-    const x = Math.min(...objs.map((o) => o.position.x))
-    const y = Math.min(...objs.map((o) => o.position.y))
-    const r = Math.max(...objs.map((o) => o.position.x + o.size.w))
-    const b = Math.max(...objs.map((o) => o.position.y + o.size.h))
-    const center = { x: (x + r) / 2, y: (y + b) / 2 }
+    // Turn about the centre of the box the user sees (the oriented one).
+    const f = orientedBox(objs, store.pages[pageId]?.objects ?? {})
+    if (!f) return
+    const center = { x: f.cx, y: f.cy }
     const p = toCanvas(e.clientX, e.clientY)
     const startRotations = new Map(objs.map((o) => [o.id, o.rotation ?? 0]))
     beginGesture('rotateGroup', e, {
@@ -3625,16 +3622,18 @@ export function InfiniteCanvas({
     const store = useDocStore.getState()
     const objects = store.pages[pageId]?.objects ?? {}
     const sel = store.selection.map((id) => objects[id]).filter((o): o is SceneObject => Boolean(o && !o.metadata.locked))
-    const box = unionBox(sel)
-    if (!box || sel.length < 2) return
+    const f = sel.length < 2 ? null : orientedBox(sel, objects)
+    if (!f) return
     store.pushHistory(pageId)
+    const box = { x: f.cx - f.w / 2, y: f.cy - f.h / 2, w: f.w, h: f.h }
+    // Same frame the enclosure draws — resizing runs in its rotated axes.
     const virtual: SceneObject = {
       id: SELECTION_BOX_ID,
       name: 'Selection',
       geometry: { kind: 'group', children: sel.map((o) => o.id) },
       position: { x: box.x, y: box.y },
       size: { w: box.w, h: box.h },
-      rotation: 0,
+      rotation: f.angle,
       z: 0,
       behaviors: [],
       parameters: {},
@@ -4071,16 +4070,19 @@ export function InfiniteCanvas({
           />
         )}
 
-        {marquee && (
-          <div
-            className="pointer-events-none absolute rounded-md border border-[var(--accent-blue)] bg-[color-mix(in_oklch,var(--accent-blue)_8%,transparent)]"
-            style={{
-              left: Math.min(marquee.a.x, marquee.b.x),
-              top: Math.min(marquee.a.y, marquee.b.y),
-              width: Math.abs(marquee.b.x - marquee.a.x),
-              height: Math.abs(marquee.b.y - marquee.a.y),
-            }}
-          />
+        {lasso && lasso.length > 1 && (
+          // <polygon> closes itself, so the user sees the auto-closed area
+          // that will actually be selected, not just the stroke they drew.
+          <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1} style={{ zIndex: 2147483000 }}>
+            <polygon
+              points={lasso.map((p) => `${p.x},${p.y}`).join(' ')}
+              fill="color-mix(in oklch, var(--accent-blue) 8%, transparent)"
+              stroke="var(--accent-blue)"
+              strokeWidth={1.5 / viewport.zoom}
+              strokeDasharray={`${5 / viewport.zoom} ${4 / viewport.zoom}`}
+              strokeLinejoin="round"
+            />
+          </svg>
         )}
 
         {/* Multi-selection enclosure: one dashed box around everything picked. */}
@@ -4090,20 +4092,45 @@ export function InfiniteCanvas({
           (() => {
             const sel = selection.map((id) => objects[id]).filter(Boolean)
             if (sel.length < 2) return null
-            const odx = liveDragOffset?.dx ?? 0
-            const ody = liveDragOffset?.dy ?? 0
-            const x = Math.min(...sel.map((o) => o.position.x)) - 10 + odx
-            const y = Math.min(...sel.map((o) => o.position.y)) - 10 + ody
-            const r = Math.max(...sel.map((o) => o.position.x + o.size.w)) + 10 + odx
-            const b = Math.max(...sel.map((o) => o.position.y + o.size.h)) + 10 + ody
+            // Tightest box, rotated to match rotated items (lib/scene/group.ts).
+            const f = orientedBox(sel, objects)
+            if (!f) return null
+            const pad = 10
+            const w = f.w + pad * 2
+            const h = f.h + pad * 2
             const cs = 1 / viewport.zoom
             return (
               <div
                 className="absolute rounded-xl border-2 border-[var(--accent-blue)]"
-                style={{ left: x, top: y, width: r - x, height: b - y }}
+                style={{
+                  left: f.cx - w / 2 + (liveDragOffset?.dx ?? 0),
+                  top: f.cy - h / 2 + (liveDragOffset?.dy ?? 0),
+                  width: w,
+                  height: h,
+                  transform: f.angle ? `rotate(${f.angle}deg)` : undefined,
+                  transformOrigin: 'center center',
+                }}
               >
-                {/* Corner dots */}
-                {/* Corner grips — scale the whole selection uniformly. */}
+                {/* Corner grips scale everything uniformly; side grips stretch
+                    it along that axis only. */}
+                {EDGE_HANDLES.map((h) => (
+                  <div
+                    key={h}
+                    role="button"
+                    aria-label={`Stretch selection ${h}`}
+                    className={cn(
+                      'pointer-events-auto absolute rounded-[3px] border border-[var(--accent-blue)] bg-background',
+                      "after:absolute after:-inset-2 after:content-['']",
+                      h === 'n' || h === 's' ? 'h-1.5 w-4' : 'h-4 w-1.5'
+                    )}
+                    style={{
+                      ...HANDLE_POS[h],
+                      transform: `translate(-50%, -50%) scale(${cs})`,
+                      cursor: resizeCursor(h, f.angle),
+                    }}
+                    onPointerDown={(e) => handleSelectionResizeStart(e, h)}
+                  />
+                ))}
                 {CORNER_HANDLES.map((h) => (
                   <div
                     key={h}
@@ -4113,7 +4140,7 @@ export function InfiniteCanvas({
                     style={{
                       ...HANDLE_POS[h],
                       transform: `translate(-50%, -50%) scale(${cs})`,
-                      cursor: resizeCursor(h, 0),
+                      cursor: resizeCursor(h, f.angle),
                     }}
                     onPointerDown={(e) => handleSelectionResizeStart(e, h)}
                   />

@@ -196,7 +196,7 @@ export function groupObjects(pageId: string, ids: string[]) {
   const members = roots
     .map((id) => objects[id])
     .filter((o): o is SceneObject => Boolean(o) && !o.metadata.locked)
-  const group = makeGroup(members)
+  const group = makeGroup(members, undefined, objects)
   if (!group) return
   group.z = nextTopZ(objects)
   store.pushHistory(pageId)
