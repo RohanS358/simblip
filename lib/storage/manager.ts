@@ -178,6 +178,7 @@ export async function setSyncEnabled(fileId: string, enabled: boolean): Promise<
   await manifest.putEntry({
     ...entry,
     syncEnabled: enabled,
+    ...(enabled ? { syncHeld: false } : {}),
     // Re-arm the uploader: a file previously pushed and then disabled is
     // 'synced' + cloudBackedUp, and pushFilesToDevice only ever uploads
     // 'local-only'/'sync-failed' — so without this reset, re-enabling would

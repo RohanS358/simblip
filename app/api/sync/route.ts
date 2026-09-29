@@ -359,3 +359,31 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Sync failed' }, { status: 500 })
   }
 }
+
+/** DELETE /api/sync?types=pages,files,account — wipe the chosen kinds of cloud
+ *  data for this account. The notebook tree is deliberately not offered: other
+ *  devices merge it three-way, and an emptied tree would read as "everything
+ *  was deleted". Local copies are never touched; that is the client's job. */
+export async function DELETE(req: Request) {
+  if (!pgConfigured) return NextResponse.json({ error: 'DATABASE_URL not configured' }, { status: 500 })
+  const claims = bearerClaims(req)
+  if (!claims) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const owner = claims.sub
+  const types = new Set((new URL(req.url).searchParams.get('types') ?? '').split(','))
+  if (![...types].some((t) => ['pages', 'files', 'account'].includes(t))) return badRequest('No types selected')
+  try {
+    await tx(async (query) => {
+      await lockOwner(query, owner)
+      if (types.has('pages')) await query('delete from simblip_pages where workspace_id = $1', [owner])
+      if (types.has('files')) await query('delete from simblip_file_manifest where owner_id = $1', [owner]) // cascades to blobs
+      if (types.has('account')) await query('delete from simblip_user_kv where owner_id = $1', [owner])
+    })
+    if (redisConfigured && types.has('files')) await cacheInvalidate('file_manifest', owner, claims.inst).catch(() => {})
+    return NextResponse.json({ ok: true })
+  } catch (err) {
+    const missing = schemaMissing(err)
+    if (missing) return missing
+    console.error('[sync] clear failed:', err)
+    return NextResponse.json({ error: 'Could not clear cloud data' }, { status: 500 })
+  }
+}

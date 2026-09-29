@@ -24,9 +24,15 @@ import {
   type CloudUsage,
 } from '@/lib/storage/manager'
 import { contentIdsOf, setPageSyncMode, syncedFileIds } from '@/lib/sync/page-sync'
-import { retryQuotaBlockedUploads, useFileSyncStore } from '@/lib/sync/device-file-sync'
-import { syncNow, useSyncStore } from '@/lib/sync/cloud'
+import { holdFilesBack, retryQuotaBlockedUploads, useFileSyncStore } from '@/lib/sync/device-file-sync'
+import { clearCloudData, syncNow, useSyncStore, type CloudClearType } from '@/lib/sync/cloud'
 import type { PageNode } from '@/lib/scene/types'
+
+const CLEARABLE: { type: CloudClearType; cat: keyof CloudUsage['categories']; label: string }[] = [
+  { type: 'pages', cat: 'pages', label: 'Pages & documents' },
+  { type: 'files', cat: 'files', label: 'Backed-up files' },
+  { type: 'account', cat: 'account', label: 'Calendar & notes' },
+]
 
 const CATEGORIES: { key: keyof CloudUsage['categories']; label: string; color: string }[] = [
   { key: 'pages', label: 'Pages & documents', color: 'var(--chart-2)' },
@@ -45,6 +51,8 @@ export function CloudStorageSection() {
   const [local, setLocal] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState<string | null>(null)
   const [showAll, setShowAll] = useState(false)
+  const [clearSel, setClearSel] = useState<CloudClearType[]>([])
+  const [clearing, setClearing] = useState(false)
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -109,6 +117,29 @@ export function CloudStorageSection() {
       toast.error(err instanceof Error ? err.message : 'That didn’t work — nothing was changed.')
     } finally {
       setBusy(null)
+    }
+  }
+
+  const clearCloud = async () => {
+    const names = CLEARABLE.filter((c) => clearSel.includes(c.type)).map((c) => c.label.toLowerCase())
+    if (
+      !confirm(
+        `Clear ${names.join(', ')} from the cloud?\n\nThis removes them from the cloud and from your other devices' cloud copy. Everything on THIS device stays. From now on only new and changed items sync.`
+      )
+    )
+      return
+    setClearing(true)
+    try {
+      await clearCloudData(clearSel)
+      if (clearSel.includes('files')) await holdFilesBack(useAuthStore.getState().profile?.id ?? '')
+      setClearSel([])
+      toast.success('Cloud storage cleared. Only new changes will sync.')
+      await reload()
+      void syncNow()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Couldn’t clear the cloud — nothing was changed.')
+    } finally {
+      setClearing(false)
     }
   }
 
@@ -295,6 +326,35 @@ export function CloudStorageSection() {
           </ul>
         </section>
       )}
+
+      <section className="space-y-2 rounded-lg border border-[var(--accent-rose)]/30 p-3">
+        <h4 className="text-ui-xs font-medium uppercase tracking-wide text-muted-foreground">Clear cloud storage</h4>
+        <p className="text-ui-xs text-muted-foreground">
+          Removes the chosen cloud data. Nothing on this device is deleted, and afterwards only new or changed items
+          sync. Your notebook structure is kept.
+        </p>
+        {CLEARABLE.map((c) => (
+          <label key={c.type} className="flex min-h-9 items-center gap-2 text-ui-sm">
+            <input
+              type="checkbox"
+              checked={clearSel.includes(c.type)}
+              onChange={(e) => setClearSel((v) => (e.target.checked ? [...v, c.type] : v.filter((t) => t !== c.type)))}
+            />
+            <span className="flex-1">{c.label}</span>
+            <span className="text-ui-xs tabular-nums text-muted-foreground">{fmtBytes(usage.categories[c.cat])}</span>
+          </label>
+        ))}
+        <Button
+          size="sm"
+          variant="destructive"
+          className="gap-1.5"
+          disabled={clearSel.length === 0 || clearing}
+          onClick={() => void clearCloud()}
+        >
+          {clearing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+          Clear selected
+        </Button>
+      </section>
     </div>
   )
 }

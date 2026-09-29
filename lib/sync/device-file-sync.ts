@@ -64,6 +64,14 @@ async function rest(path: string, init: RequestInit = {}): Promise<Response> {
 const allowedFile = (viaPage: Set<string>) => (e: FileManifestEntry) =>
   e.syncEnabled === true || viaPage.has(e.id) || globalPrefAllowsFile(e.mime, e.name)
 
+/** "Clear cloud storage" → files: forget the cloud copies and hold every
+ *  existing file back, so only files added from now on upload. */
+export async function holdFilesBack(ownerId: string): Promise<void> {
+  for (const e of await manifest.listByOwner(ownerId)) {
+    await manifest.putEntry({ ...e, syncStatus: 'local-only', cloudBackedUp: false, cloudUrl: undefined, syncError: undefined, syncHeld: true })
+  }
+}
+
 /** Upload every opted-in file that has no cloud copy yet. Sequential (large
  *  bodies) and stops at the first quota refusal — the rest can't fit either,
  *  and the UI reports it. A file refused for quota is retried only when the
@@ -73,6 +81,7 @@ export async function uploadOptedIn(ownerId: string, onProgress?: (done: number,
   const entries = (await manifest.listByOwner(ownerId)).filter(
     (e) =>
       allowedFile(viaPage)(e) &&
+      !e.syncHeld &&
       (e.syncStatus === 'local-only' || (e.syncStatus === 'sync-failed' && e.syncError !== 'quota'))
   )
   for (let i = 0; i < entries.length; i++) {

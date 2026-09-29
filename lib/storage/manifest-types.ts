@@ -34,6 +34,9 @@ export interface FileManifestEntry {
    * everything reading it treats `undefined` as false.
    */
   syncEnabled?: boolean
+  /** Set by "Clear cloud storage": this file existed then, so it is not
+   *  re-uploaded automatically. Turning sync on for it again lifts the hold. */
+  syncHeld?: boolean
   /** Why the last upload failed, when it did: 'quota' (the 150 MB project
    *  quota is full — retrying won't help until space is freed) or a message. */
   syncError?: string

@@ -107,6 +107,9 @@ interface Ledger {
   kvDirty: string[]
   /** pages refused as too large; retried only when their content changes */
   tooLarge: Record<string, string>
+  /** pages deliberately cleared from the cloud: content print at clear time.
+   *  Unchanged since → not re-uploaded; edited → pushed as new. */
+  held: Record<string, string>
 }
 
 const emptyLedger = (): Ledger => ({
@@ -120,6 +123,7 @@ const emptyLedger = (): Ledger => ({
   treeDirty: false,
   kvDirty: [],
   tooLarge: {},
+  held: {},
 })
 
 const ledgerKey = (ws: string) => `simblip-sync-ledger:${ws}`
@@ -258,6 +262,33 @@ const fullTree = (): Record<string, Node> => {
 }
 
 const pagePrint = (content: unknown, viewport: unknown) => fingerprint([content, viewport ?? null])
+
+export type CloudClearType = 'pages' | 'files' | 'account'
+
+/** Clear the chosen kinds of cloud data, then sync only what changes from now
+ *  on: existing local pages/notes are remembered as "cleared" instead of being
+ *  re-uploaded. Nothing local is deleted. */
+export async function clearCloudData(types: CloudClearType[]): Promise<void> {
+  const ws = activeUser
+  if (!ws) throw new Error('Sign in to clear cloud data.')
+  await api({ method: 'DELETE', query: `?types=${types.join(',')}` })
+  if (types.includes('pages')) {
+    const { pages, viewports } = useDocStore.getState()
+    const ids = new Set([...Object.keys(pages), ...(await archive.archivedPageIdsDurable())])
+    for (const id of ids) {
+      const content = pages[id] ?? archive.readPage(id) ?? (await archive.readPageDurable(id))
+      if (content) ledger.held[id] = pagePrint(content, viewports[id] ?? null)
+      delete ledger.revs[id]
+      delete ledger.prints[id]
+    }
+    ledger.dirty = []
+  }
+  if (types.includes('account')) {
+    delete ledger.kvRevs[GALLERY_KEY]
+    ledger.kvDirty = ledger.kvDirty.filter((k) => k !== GALLERY_KEY)
+  }
+  saveLedger()
+}
 
 /** Pause/resume sync on THIS device. Changes keep queueing while paused. */
 export function setSyncPaused(paused: boolean): void {
@@ -473,6 +504,13 @@ export function startSync() {
         if (ledger.prints[id] === print && ledger.revs[id] !== undefined) {
           clean.push(id)
           continue
+        }
+        if (ledger.held[id] !== undefined) {
+          if (ledger.held[id] === print && ledger.revs[id] === undefined) {
+            clean.push(id) // cleared from the cloud on purpose, untouched since
+            continue
+          }
+          delete ledger.held[id]
         }
         if (ledger.tooLarge[id] === print) continue // unchanged since refused
         rows.push({ id, content, viewport, baseRev: ledger.revs[id] ?? null, print, bytes: jsonBytes(content) })
