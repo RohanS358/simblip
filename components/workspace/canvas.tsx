@@ -67,7 +67,7 @@ import { inkPath } from '@/components/objects/ink'
 import { isPenActive, notePenDown } from '@/lib/pointer/pen-active'
 import { isPalmPointer } from '@/lib/pointer/palm-reject'
 import { paintBands } from '@/lib/scene/z-order'
-import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
+import { rootGroupOf, childrenOf, descendantIds, moveGroupBy, scaleGroupTo, scalePoints, scaleInkMeta, unionBox, rotateGroupBy, refitGroup, groupOf } from '@/lib/scene/group'
 import { cn } from '@/lib/utils'
 
 const GRID = 40  // default; overridden at runtime via nbPrefs.gridSize
@@ -344,6 +344,10 @@ interface Gesture {
   rotateCenter?: Vec2
   rotateStartAngle?: number
   rotateStartRotation?: number
+  /** Page objects as they were when a resize/rotate grip was grabbed. Every
+   *  move recomputes from THIS, never from the last frame's result — so min-
+   *  size clamps, rounding and 0°/360° wraps can't accumulate into drift. */
+  startObjects?: Record<string, SceneObject>
   /** Group rotation: center of the group bounding box, start angle, and each
    *  object's rotation at the time the grip was grabbed. */
   rotateGroupCenter?: Vec2
@@ -704,6 +708,8 @@ const HANDLE_POS: Record<ResizeHandle, { left: string; top: string }> = {
 }
 const CORNER_HANDLES: ResizeHandle[] = ['nw', 'ne', 'sw', 'se']
 const EDGE_HANDLES: ResizeHandle[] = ['n', 'e', 's', 'w']
+/** Id of the virtual group a multi-selection scales through. Never stored. */
+const SELECTION_BOX_ID = '__selection__'
 
 // Every other kind (Note, Formula, Graph, Table, Code…) already renders its
 // own rounded-xl card, so the soft rounded-xl + ring-offset selection halo
@@ -758,8 +764,13 @@ const InkBand = memo(function InkBand({ strokes }: { strokes: SceneObject[] }) {
           fill={(obj.metadata.inkColor as string) ?? 'var(--foreground)'}
           fillOpacity={PEN_STYLES[(obj.metadata.inkStyle as PenStyle) ?? 'ink']?.opacity ?? 1}
           stroke="none"
+          // Rotation about the stroke's own box centre, same as ObjectView —
+          // without it a rotated stroke (or one inside a rotated group) only
+          // orbited into place and snapped back upright once deselected.
+          transform={`translate(${obj.position.x} ${obj.position.y})${
+            obj.rotation ? ` rotate(${obj.rotation} ${obj.size.w / 2} ${obj.size.h / 2})` : ''
+          }`}
           style={{
-            transform: `translate(${obj.position.x}px, ${obj.position.y}px)`,
             // Hidden ink still occupies its band; the Layers eye toggle has
             // to work here too, not only on the ObjectView path.
             display: obj.metadata.hidden ? 'none' : undefined,
@@ -853,7 +864,11 @@ const ObjectView = memo(function ObjectView({
   // every auto-generated name ends in a space + digits, so anything that
   // doesn't is one the user typed.
   const isCustomName = !/ \d+$/.test(object.name)
-  const resizable = !['line', 'stroke'].includes(object.geometry.kind)
+  // Ink scales now (points + pen width, see scalePoints/scaleInkMeta);
+  // drawn wires stay fixed — their ends are bound to terminals.
+  const resizable =
+    object.geometry.kind !== 'line' &&
+    !(object.geometry.kind === 'stroke' && object.behaviors.some((b) => b.enabled && b.type === 'wire'))
   const uiScale =
     COMPONENT_UI_KINDS.has(object.geometry.kind) && componentScale !== 1
       ? componentScale
@@ -2184,68 +2199,88 @@ export function InfiniteCanvas({
           )
           return
         }
-        // toCanvas-derived delta (same as 'move' mode above), NOT a raw
-        // screen-pixel delta divided by viewport.zoom alone — dxScreen/
-        // dyScreen are unscaled window.clientX/Y deltas, but the editor
-        // stage itself can carry its own ancestor `transform: scale()` (the
-        // "Fit width"/zoom-to-fit stage in presentation-view.tsx, doc-view,
-        // etc — see toLocal's doc comment). Dividing only by the in-canvas
-        // pan/zoom left that outer stage scale completely uncompensated, so
-        // at any stage zoom other than 100% a resize handle moved faster or
-        // slower than the cursor, and the object visibly "grew" way more
-        // than the drag distance — this was the actual resize-scaling bug.
-        const dx = point.x - g.start.x
-        const dy = point.y - g.start.y
-        // Edges move one axis; the perpendicular one stays frozen.
-        let w = Math.max(16, g.resizeStart.w + (corner.includes('e') ? dx : corner.includes('w') ? -dx : 0))
-        let h = Math.max(16, g.resizeStart.h + (corner.includes('s') ? dy : corner.includes('n') ? -dy : 0))
-        if (e.shiftKey) {
-          const k = Math.max(w / g.resizeStart.w, h / g.resizeStart.h)
-          w = Math.max(16, g.resizeStart.w * k)
-          h = Math.max(16, g.resizeStart.h * k)
+        // `point` is toCanvas-derived (not raw screen px / zoom), so an outer
+        // stage `transform: scale()` (doc-view, presentation fit) is already
+        // compensated — see toLocal's doc comment.
+        const obj0 = g.startObjects?.[g.resizeId]
+        if (!obj0) return
+        // The handles sit on the ROTATED box, so read the drag in the
+        // object's own frame. Using the raw world delta made a rotated
+        // object grow along the wrong axis and slide away from its anchor.
+        const rad = (obj0.rotation * Math.PI) / 180
+        const cos = Math.cos(rad)
+        const sin = Math.sin(rad)
+        const wdx = point.x - g.start.x
+        const wdy = point.y - g.start.y
+        const dx = wdx * cos + wdy * sin
+        const dy = -wdx * sin + wdy * cos
+        const w0 = g.resizeStart.w
+        const h0 = g.resizeStart.h
+        let w = Math.max(16, w0 + (corner.includes('e') ? dx : corner.includes('w') ? -dx : 0))
+        let h = Math.max(16, h0 + (corner.includes('s') ? dy : corner.includes('n') ? -dy : 0))
+        const isGroup = obj0.geometry.kind === 'group'
+        const isText = obj0.geometry.kind === 'text'
+        const isCorner = corner.length === 2
+        // Uniform scale: Shift, any group (children keep absolute coords with
+        // their own rotations — a non-uniform scale would shear them), and a
+        // text box's CORNER grips, which scale the type like Canva/Keynote;
+        // text EDGE grips still just change the wrap width.
+        let k = 1
+        if (e.shiftKey || isGroup || (isText && isCorner)) {
+          const kw = w / w0
+          const kh = h / h0
+          // Corners: project the drag onto the box diagonal, so the grip
+          // stays under the pointer instead of racing ahead on one axis.
+          k = !isCorner
+            ? corner === 'e' || corner === 'w' ? kw : kh
+            : (kw * w0 * w0 + kh * h0 * h0) / (w0 * w0 + h0 * h0)
+          k = Math.max(k, 8 / Math.min(w0, h0))
+          w = w0 * k
+          h = h0 * k
         }
-        const resizingObj = store.pages[pageId]?.objects[g.resizeId]
-        // Polygon points are absolute px baked in at create/last-resize time,
-        // not normalized to size — without this a resized preset shape (star,
-        // arrow, diamond, …) keeps its old outline pasted inside the new box
-        // instead of actually growing/shrinking with it.
-        const presetShape = resizingObj?.geometry.kind === 'polygon' ? resizingObj.geometry.symbol : undefined
+        // Keep the grip OPPOSITE the one being dragged fixed in world space
+        // (in local coords: offset from centre), then rebuild the top-left.
+        const fx = (ww: number) => (corner.includes('e') ? -ww / 2 : corner.includes('w') ? ww / 2 : 0)
+        const fy = (hh: number) => (corner.includes('s') ? -hh / 2 : corner.includes('n') ? hh / 2 : 0)
+        const rot = (x: number, y: number) => ({ x: x * cos - y * sin, y: x * sin + y * cos })
+        const c0 = { x: g.resizeOrigin.x + w0 / 2, y: g.resizeOrigin.y + h0 / 2 }
+        const a0 = rot(fx(w0), fy(h0))
+        const a1 = rot(fx(w), fy(h))
+        const cx = c0.x + a0.x - a1.x
+        const cy = c0.y + a0.y - a1.y
+        const nextBox = { x: cx - w / 2, y: cy - h / 2, w, h }
+        // Resizing a group scales everything it owns (positions, sizes, ink
+        // points, type size) from the snapshot taken at grab time.
+        if (isGroup) {
+          const patch = scaleGroupTo(obj0, g.startObjects!, nextBox)
+          for (const [cid, next] of Object.entries(patch)) {
+            if (cid !== SELECTION_BOX_ID) store.updateObject(pageId, cid, next, { history: false })
+          }
+          return
+        }
+        // Polygon/ink points are absolute px baked in at create time, not
+        // normalized to size — without this a resized preset shape (star,
+        // arrow…) or a pen stroke keeps its old outline pasted inside the
+        // new box instead of actually growing/shrinking with it.
+        const presetShape = obj0.geometry.kind === 'polygon' ? obj0.geometry.symbol : undefined
         const sides = presetShape ? SHAPE_SIDES[presetShape] : undefined
         const fixedPoints = presetShape ? SHAPE_FIXED_POINTS[presetShape] : undefined
-        const ownPoints = resizingObj?.geometry.kind === 'polygon' ? resizingObj.geometry.points : undefined
         const newPoints = sides
           ? regularPolygonPoints(sides, w, h)
           : fixedPoints
             ? fixedPoints.map(([x, y]) => [x * w, y * h])
-            : ownPoints && resizingObj
-              ? // Any other polygon (a prism, a traced outline) scales its
-                // own vertices with the box, relative to its current size.
-                ownPoints.map(([x, y]) => [(x * w) / (resizingObj.size.w || 1), (y * h) / (resizingObj.size.h || 1)])
-              : undefined
-        const nextBox = {
-          x: corner.includes('w') ? g.resizeOrigin.x + (g.resizeStart.w - w) : g.resizeOrigin.x,
-          y: corner.includes('n') ? g.resizeOrigin.y + (g.resizeStart.h - h) : g.resizeOrigin.y,
-          w,
-          h,
-        }
-        // Resizing a group scales everything it owns, so relative layout
-        // inside the group survives the drag. Each child is written with its
-        // own scaled position AND size — children keep absolute coordinates,
-        // so there is no parent transform to inherit.
-        if (resizingObj?.geometry.kind === 'group') {
-          const patch = scaleGroupTo(resizingObj, store.pages[pageId]?.objects ?? {}, nextBox)
-          for (const [cid, next] of Object.entries(patch)) {
-            store.updateObject(pageId, cid, next, { history: false })
-          }
-          return
-        }
+            : scalePoints(obj0.geometry.points, w / (obj0.size.w || 1), h / (obj0.size.h || 1))
         store.updateObject(
           pageId,
           g.resizeId,
           {
             size: { w, h },
             position: { x: nextBox.x, y: nextBox.y },
-            ...(newPoints ? { geometry: { ...resizingObj!.geometry, points: newPoints } } : {}),
+            ...(newPoints ? { geometry: { ...obj0.geometry, points: newPoints } } : {}),
+            ...(isText && k !== 1
+              ? { metadata: { ...obj0.metadata, textScale: ((obj0.metadata.textScale as number | undefined) ?? 1) * k } }
+              : {}),
+            ...(obj0.geometry.kind === 'stroke' ? { metadata: scaleInkMeta(obj0, w / w0, h / h0) } : {}),
           },
           { history: false }
         )
@@ -2313,12 +2348,14 @@ export function InfiniteCanvas({
         if (e.shiftKey) deg = Math.round(deg / 15) * 15
         deg = ((deg % 360) + 360) % 360
         const rounded = Math.round(deg * 10) / 10
-        const rotObj = store.pages[pageId]?.objects[g.rotateId]
+        const rotObj = g.startObjects?.[g.rotateId]
         // Rotating a group turns its members about the GROUP's centre, so it
         // reads as one rigid object instead of each part spinning in place.
-        // The delta (not the absolute angle) is what the children need.
+        // Always from the grab-time snapshot: applying per-frame deltas to
+        // the live state drifted, and the 359°→0° wrap turned into a -359°
+        // delta.
         if (rotObj?.geometry.kind === 'group') {
-          const patch = rotateGroupBy(rotObj, store.pages[pageId]?.objects ?? {}, rounded - rotObj.rotation)
+          const patch = rotateGroupBy(rotObj, g.startObjects!, rounded - rotObj.rotation)
           for (const [cid, next] of Object.entries(patch)) {
             store.updateObject(pageId, cid, next, { history: false })
           }
@@ -2346,7 +2383,10 @@ export function InfiniteCanvas({
           const ry = ocy - cy
           const newCx = cx + rx * cos - ry * sin
           const newCy = cy + rx * sin + ry * cos
-          const startRot = g.rotateGroupStartRotations?.get(id) ?? 0
+          // From the snapshot: rotateGroupStartRotations only lists the
+          // selected ids, so a grouped child used to start from 0° here and
+          // lose its own rotation the moment the selection turned.
+          const startRot = g.startObjects?.[id]?.rotation ?? g.rotateGroupStartRotations?.get(id) ?? 0
           const newRot = ((startRot + deltaDeg) % 360 + 360) % 360
           store.updateObject(pageId, id, {
             position: { x: newCx - startObj.size.w / 2, y: newCy - startObj.size.h / 2 },
@@ -3525,6 +3565,7 @@ export function InfiniteCanvas({
       resizeStart: { ...obj.size },
       resizeOrigin: { ...obj.position },
       resizeCorner: corner,
+      startObjects: store.pages[pageId]?.objects,
     })
   }, [pageId, tool, editing, beginGesture, setCtxMenu])
 
@@ -3545,6 +3586,7 @@ export function InfiniteCanvas({
       rotateCenter: center,
       rotateStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
       rotateStartRotation: obj.rotation,
+      startObjects: store.pages[pageId]?.objects,
     })
     setRotatingId(id)
   }, [pageId, tool, editing, beginGesture, setCtxMenu])
@@ -3569,6 +3611,41 @@ export function InfiniteCanvas({
       rotateGroupCenter: center,
       rotateGroupStartAngle: Math.atan2(p.y - center.y, p.x - center.x),
       rotateGroupStartRotations: startRotations,
+      startObjects: store.pages[pageId]?.objects,
+    })
+  }, [pageId, editing, beginGesture, toCanvas])
+
+  /** Multi-selection corner grip: scale everything picked as one unit (a
+   *  handwritten word is a pile of separate strokes). Reuses the group path
+   *  via a virtual group spanning the selection, so ink points, pen width,
+   *  text size and nested groups all scale the same way a real group does. */
+  const handleSelectionResizeStart = useCallback((e: React.PointerEvent, corner: ResizeHandle) => {
+    if (!editing) return
+    e.stopPropagation()
+    const store = useDocStore.getState()
+    const objects = store.pages[pageId]?.objects ?? {}
+    const sel = store.selection.map((id) => objects[id]).filter((o): o is SceneObject => Boolean(o && !o.metadata.locked))
+    const box = unionBox(sel)
+    if (!box || sel.length < 2) return
+    store.pushHistory(pageId)
+    const virtual: SceneObject = {
+      id: SELECTION_BOX_ID,
+      name: 'Selection',
+      geometry: { kind: 'group', children: sel.map((o) => o.id) },
+      position: { x: box.x, y: box.y },
+      size: { w: box.w, h: box.h },
+      rotation: 0,
+      z: 0,
+      behaviors: [],
+      parameters: {},
+      metadata: {},
+    }
+    beginGesture('resize', e, {
+      resizeId: SELECTION_BOX_ID,
+      resizeStart: { w: box.w, h: box.h },
+      resizeOrigin: { x: box.x, y: box.y },
+      resizeCorner: corner,
+      startObjects: { ...objects, [SELECTION_BOX_ID]: virtual },
     })
   }, [pageId, editing, beginGesture, toCanvas])
 
@@ -4026,20 +4103,21 @@ export function InfiniteCanvas({
                 style={{ left: x, top: y, width: r - x, height: b - y }}
               >
                 {/* Corner dots */}
-                {(['0% 0%', '100% 0%', '0% 100%', '100% 100%'] as const).map((pos) => {
-                  const [lx, ty] = pos.split(' ')
-                  return (
-                    <div
-                      key={pos}
-                      className="pointer-events-none absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--accent-blue)] bg-background"
-                      style={{
-                        left: lx,
-                        top: ty,
-                        transform: `translate(-50%, -50%) scale(${cs})`,
-                      }}
-                    />
-                  )
-                })}
+                {/* Corner grips — scale the whole selection uniformly. */}
+                {CORNER_HANDLES.map((h) => (
+                  <div
+                    key={h}
+                    role="button"
+                    aria-label={`Scale selection ${h}`}
+                    className="pointer-events-auto absolute h-2.5 w-2.5 rounded-[3px] border border-[var(--accent-blue)] bg-background after:absolute after:-inset-2 after:content-['']"
+                    style={{
+                      ...HANDLE_POS[h],
+                      transform: `translate(-50%, -50%) scale(${cs})`,
+                      cursor: resizeCursor(h, 0),
+                    }}
+                    onPointerDown={(e) => handleSelectionResizeStart(e, h)}
+                  />
+                ))}
                 {/* Group rotate grip — same visual language as single-object grip */}
                 <div className="pointer-events-auto absolute" style={{ left: '50%', top: '0%' }}>
                   <div

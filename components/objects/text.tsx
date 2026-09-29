@@ -108,6 +108,11 @@ export function RichTextArea({
   const [editing, setEditing] = useState(false)
   const value = getString(object, 'text')
   const doc = parseDoc(value)
+  // Type size set by scaling the box (corner grips, or a group resize — see
+  // canvas.tsx). Applied as a transform over an unscaled layout box of
+  // (box / scale), so every mark's px size scales together and the stored
+  // document never changes.
+  const scale = (object.metadata.textScale as number | undefined) ?? 1
 
   // Spawned boxes go straight into typing — no click, no double-click.
   useEffect(() => {
@@ -152,13 +157,14 @@ export function RichTextArea({
   const fit = useCallback(() => {
     const el = editing ? (editorRef.current?.view.dom as HTMLElement | undefined) : viewRef.current
     if (!el) return
-    const overflow = el.scrollHeight - el.clientHeight
+    // Measured in the unscaled layout box; the object box is `scale`× that.
+    const overflow = (el.scrollHeight - el.clientHeight) * scale
     if (overflow > 1) {
       updateObject(pageId, object.id, {
         size: { w: object.size.w, h: Math.ceil(object.size.h + overflow + padY) },
       })
     }
-  }, [editing, pageId, object.id, object.size.w, object.size.h, padY, updateObject])
+  }, [editing, pageId, object.id, object.size.w, object.size.h, padY, scale, updateObject])
 
   // The read-only surface needs its own observer; the editing one comes from
   // TiptapArea's onLayoutChange.
@@ -244,7 +250,17 @@ export function RichTextArea({
   return (
     <div
       className={cn(fillHeight ? 'h-full' : 'shrink-0', 'overflow-hidden', hug ? 'w-max' : 'w-full')}
-      style={textFormatStyle(object)}
+      style={{
+        ...textFormatStyle(object),
+        ...(scale !== 1
+          ? {
+              ...(hug ? {} : { width: `${100 / scale}%` }),
+              ...(fillHeight ? { height: `${100 / scale}%` } : {}),
+              transform: `scale(${scale})`,
+              transformOrigin: '0 0',
+            }
+          : {}),
+      }}
     >
       {editing ? (
         <TiptapArea

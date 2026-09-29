@@ -162,37 +162,74 @@ export function moveGroupBy(
   return out
 }
 
+/** Scale an object's own geometry points (ink, polygons, lines) with its
+ *  box. They are object-local px, not normalised, so without this a scaled
+ *  box keeps its old drawing pasted inside it. Extra per-point values (ink
+ *  pressure) ride along untouched. */
+export function scalePoints(points: number[][] | undefined, sx: number, sy: number): number[][] | undefined {
+  return points?.map(([x, y, ...rest]) => [x * sx, y * sy, ...rest])
+}
+
+/** A stroke's pen width scales with it (geometric mean of the axes), or a
+ *  handwritten word blown up 3× comes out as hairlines. */
+export function scaleInkMeta(o: SceneObject, sx: number, sy: number): SceneObject['metadata'] {
+  const size = typeof o.metadata.inkSize === 'number' ? o.metadata.inkSize : 5
+  return { ...o.metadata, inkSize: Math.max(0.5, size * Math.sqrt(sx * sy)) }
+}
+
+export type ScalePatch = {
+  position: Vec2
+  size: { w: number; h: number }
+  geometry?: SceneObject['geometry']
+  metadata?: SceneObject['metadata']
+}
+
 /**
- * Scale a group to a new size, carrying its children proportionally.
+ * Scale a group to a new box, carrying its children proportionally.
  *
- * Each child's offset from the group origin and its own size scale by the
- * same factors, so relative layout inside the group is preserved. Children
- * are NOT allowed to collapse to zero — a group dragged to nothing and back
- * would otherwise leave every child permanently at 0×0.
+ * Works on CENTRES: each child's centre keeps its offset from the group's
+ * centre, scaled. For an unrotated group that is identical to scaling
+ * top-left offsets; for a rotated group it is what keeps the layout rigid —
+ * with a uniform scale (canvas.tsx always scales groups uniformly) scaling
+ * about the centre commutes with the rotation, so nothing shears.
+ *
+ * Children also scale their own geometry points and, for text, the type
+ * size (metadata.textScale), so the group looks zoomed rather than having
+ * its boxes stretch around unscaled contents. Sizes never collapse to zero.
  */
 export function scaleGroupTo(
   group: SceneObject,
   objects: Record<string, SceneObject>,
   next: { x: number; y: number; w: number; h: number }
-): Record<string, { position: Vec2; size: { w: number; h: number } }> {
+): Record<string, ScalePatch> {
   const sx = group.size.w > 0 ? next.w / group.size.w : 1
   const sy = group.size.h > 0 ? next.h / group.size.h : 1
-  const out: Record<string, { position: Vec2; size: { w: number; h: number } }> = {
+  const gcx = group.position.x + group.size.w / 2
+  const gcy = group.position.y + group.size.h / 2
+  const ncx = next.x + next.w / 2
+  const ncy = next.y + next.h / 2
+  const out: Record<string, ScalePatch> = {
     [group.id]: { position: { x: next.x, y: next.y }, size: { w: next.w, h: next.h } },
   }
   for (const id of descendantIds(group, objects)) {
     const o = objects[id]
     if (!o) continue
-    out[id] = {
-      position: {
-        x: next.x + (o.position.x - group.position.x) * sx,
-        y: next.y + (o.position.y - group.position.y) * sy,
-      },
-      size: { w: Math.max(1, o.size.w * sx), h: Math.max(1, o.size.h * sy) },
-    }
+    const w = Math.max(1, o.size.w * sx)
+    const h = Math.max(1, o.size.h * sy)
+    const cx = ncx + (o.position.x + o.size.w / 2 - gcx) * sx
+    const cy = ncy + (o.position.y + o.size.h / 2 - gcy) * sy
+    const patch: ScalePatch = { position: { x: cx - w / 2, y: cy - h / 2 }, size: { w, h } }
+    if (o.geometry.points && o.geometry.kind !== 'group')
+      patch.geometry = { ...o.geometry, points: scalePoints(o.geometry.points, w / (o.size.w || 1), h / (o.size.h || 1)) }
+    if (o.geometry.kind === 'stroke') patch.metadata = scaleInkMeta(o, sx, sy)
+    if (o.geometry.kind === 'text')
+      patch.metadata = { ...o.metadata, textScale: ((o.metadata.textScale as number | undefined) ?? 1) * Math.sqrt(sx * sy) }
+    out[id] = patch
   }
   return out
 }
+
+const wrapDeg = (d: number) => Math.round((((d % 360) + 360) % 360) * 10) / 10
 
 /**
  * Rotate a group by `deltaDeg`: each child orbits the group's centre AND
@@ -211,7 +248,7 @@ export function rotateGroupBy(
   const cy = group.position.y + group.size.h / 2
 
   const out: Record<string, { position: Vec2; rotation: number }> = {
-    [group.id]: { position: group.position, rotation: group.rotation + deltaDeg },
+    [group.id]: { position: group.position, rotation: wrapDeg(group.rotation + deltaDeg) },
   }
   for (const id of descendantIds(group, objects)) {
     const o = objects[id]
@@ -225,7 +262,7 @@ export function rotateGroupBy(
     const ry = ox * sin + oy * cos
     out[id] = {
       position: { x: cx + rx - o.size.w / 2, y: cy + ry - o.size.h / 2 },
-      rotation: o.rotation + deltaDeg,
+      rotation: wrapDeg(o.rotation + deltaDeg),
     }
   }
   return out
