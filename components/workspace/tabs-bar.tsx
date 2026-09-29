@@ -134,8 +134,9 @@ export function TabsBar({
                           : 'Open beside'
                     }
                     className={cn(
-                      'hidden rounded p-0.5 hover:bg-background/60 md:group-hover:flex [@media(pointer:coarse)]:flex items-center gap-0.5',
-                      inPane && paneCount > 1 ? 'flex text-[var(--accent-blue)]' : 'text-muted-foreground',
+                      // Always laid out (just faded) so revealing it on hover never pushes the close button sideways.
+                      'flex rounded p-0.5 hover:bg-background/60 items-center gap-0.5 opacity-0 md:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100',
+                      inPane && paneCount > 1 ? 'opacity-100 text-[var(--accent-blue)]' : 'text-muted-foreground',
                       atMaxPanes && 'opacity-40 cursor-not-allowed'
                     )}
                     onClick={() => {
