@@ -3490,7 +3490,7 @@ export function InfiniteCanvas({
       beginGesture('marquee', e)
       return
     }
-    if (tool === 'pen' && noteAnchor && usePrefs.getState().pen.autoStyle !== false) {
+    if (tool === 'pen' && noteAnchor && usePrefs.getState().pen.autoTool !== false) {
       const a = noteAnchor
       const note = store.pages[pageId]?.objects[a.id]
       if (Date.now() - a.at > NOTE_FOCUS_MS || !note) noteAnchor = null

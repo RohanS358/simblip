@@ -32,6 +32,9 @@ export interface PenPrefs {
   /** Auto pen (lib/scene/pen-auto.ts): pick the style per stroke from context.
    *  Optional so stored prefs from before it existed count as ON. */
   autoStyle?: boolean
+  /** Auto tool: after working in a note, drawing outside it switches to Select.
+   *  Optional for the same reason — undefined counts as ON. */
+  autoTool?: boolean
   /** User-added colours, shown after the basic palette in pen settings. */
   customColors: string[]
   /** Scribble-to-erase: 0 = must scribble hard and long before anything is
