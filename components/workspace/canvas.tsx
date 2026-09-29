@@ -383,6 +383,9 @@ interface Gesture {
    *  one object left a stale multi-selection active and the header's
    *  Delete/etc acted on all of it. */
   clickedId?: string
+  /** Started on empty canvas (palm pan, or inside a multi-selection's
+   *  bounds): released without moving, it's a tap on nothing — deselect. */
+  fromEmpty?: boolean
 }
 
 // Draw-and-hold: freehand ink only upgrades into a component (spring,
@@ -2410,6 +2413,8 @@ export function InfiniteCanvas({
       // as clicking any other single object. Without this, the old
       // multi-selection stayed active (invisibly, since nothing moved) and
       // the next Delete/etc acted on all of it, not just what looked selected.
+      if (g.fromEmpty && !g.moved) store.setSelection([])
+
       if (g.mode === 'move' && !g.moved && g.clickedId !== undefined) {
         const cur = store.selection
         if (cur.length !== 1 || cur[0] !== g.clickedId) store.setSelection([g.clickedId])
@@ -3145,6 +3150,31 @@ export function InfiniteCanvas({
     window.addEventListener('pointercancel', onWindowPointerCancel)
   }
 
+  /** One-finger scroll of the reader (doc / PDF / image) this overlay sits
+   *  in, for when touch-action:none has taken native panning away. Stops the
+   *  moment a second finger lands — that pair belongs to usePinchZoom. */
+  const scrollReaderBy = (e: React.PointerEvent) => {
+    let el = containerRef.current?.parentElement ?? null
+    while (el && !/auto|scroll/.test(getComputedStyle(el).overflow)) el = el.parentElement
+    if (!el) return
+    const scroller = el
+    let last = { x: e.clientX, y: e.clientY }
+    const mv = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId || touchesRef.current.size > 1) return
+      scroller.scrollBy(last.x - ev.clientX, last.y - ev.clientY)
+      last = { x: ev.clientX, y: ev.clientY }
+    }
+    const up = (ev: PointerEvent) => {
+      if (ev.pointerId !== e.pointerId) return
+      window.removeEventListener('pointermove', mv)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', up)
+    }
+    window.addEventListener('pointermove', mv)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', up)
+  }
+
   const handleBackgroundPointerDown = (e: React.PointerEvent) => {
     // Double-tap zoom — only on the bare canvas with the select tool, so it
     // never fights double-click-to-edit on a text box or a formula.
@@ -3171,12 +3201,14 @@ export function InfiniteCanvas({
     if (e.pointerType === 'touch' && editing && tool !== 'select' && Date.now() - lastPenRef.current < PEN_PALM_WINDOW_MS)
       return
     // Documents, slides and PDFs (passthrough overlays): once a stylus is in
-    // use on this device, the PEN writes and a FINGER scrolls — the overlay's
-    // touch-action already pans natively, so stepping aside is all it takes.
+    // use on this device, the PEN writes and a FINGER scrolls. The overlay is
+    // touch-action:none while a drawing tool is up, so the scroll is manual.
     // Before this, a finger swipe to scroll a page with the pen tool picked
     // drew a stray line instead. Whiteboards (not passthrough) are unchanged.
-    if (e.pointerType === 'touch' && passthrough && editing && tool !== 'select' && tool !== 'lasso' && !fingerDraws())
+    if (e.pointerType === 'touch' && passthrough && editing && tool !== 'select' && tool !== 'lasso' && !fingerDraws()) {
+      scrollReaderBy(e)
       return
+    }
     // The pen's eraser end (buttons bit 32) or barrel button (bit 2) erases
     // while held, whatever drawing tool is picked.
     const penErase =
@@ -3255,7 +3287,7 @@ export function InfiniteCanvas({
         }
         if (p.x >= minX && p.x <= maxX && p.y >= minY && p.y <= maxY) {
           // History push deferred to onPointerUp — see handleObjectPointerDown.
-          beginGesture('move', e)
+          beginGesture('move', e, { fromEmpty: true })
           return
         }
       }
@@ -3278,7 +3310,7 @@ export function InfiniteCanvas({
         isPalmPointer(e.nativeEvent, gesturePrefs().palmRejectRadiusPx)
       ) {
         if (Date.now() - lastPenRef.current < PEN_PALM_WINDOW_MS) return
-        beginGesture('pan', e)
+        beginGesture('pan', e, { fromEmpty: true })
         return
       }
       beginGesture('marquee', e)
@@ -3650,8 +3682,12 @@ export function InfiniteCanvas({
       )}
       style={{
         cursor: editing ? cursor : 'default',
-        // Scroll yes, browser pinch-zoom no.
-        ...(passthrough ? { touchAction: 'pan-x pan-y' } : {}),
+        // Scroll yes, browser pinch-zoom no — but only with the select tool.
+        // With a drawing tool up the reader must NOT claim the drag: a native
+        // pan fires pointercancel and drops the stroke mid-line. Same as the
+        // whiteboard's touch-none; a finger then scrolls by hand
+        // (scrollReaderBy) and two fingers go to usePinchZoom.
+        ...(passthrough ? { touchAction: editing && tool !== 'select' ? 'none' : 'pan-x pan-y' } : {}),
         // See the `clickThrough` prop. Only the select tool gives the layer
         // up; every drawing tool needs the background to receive the gesture.
         // Stated EXPLICITLY in both directions, never left unset: a
