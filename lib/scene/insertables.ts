@@ -49,6 +49,7 @@ const WIDGETS: Insertable[] = [
   widget('cashflow', 'Cash Flow', 'economics npv irr annuity salvage marr'),
   widget('truthtable', 'Truth Table', 'digital logic gate boolean inputs outputs'),
   widget('dsa', 'DSA Lab', 'c++ cpp code algorithm sort search recursion pointer array visualize interpreter complexity big-o'),
+  widget('steplab', 'Step Lab', 'scheduling page replacement cache cpu pipeline tcp routing automata dfa graphics sorting search minimax queue simulation algorithm step trace os network compiler database'),
   widget('circle', 'Circle', 'shape ellipse'),
   widget('rect', 'Rectangle', 'shape box square'),
   widget('line', 'Line', 'shape beam segment'),

@@ -107,7 +107,7 @@ export function TabsBar({
                 >
                   <button
                     type="button"
-                    className="flex min-w-0 items-center gap-1.5"
+                    className="flex min-h-6 min-w-0 items-center gap-1.5"
                     title={meta.name}
                     onClick={() => setActivePage(id)}
                   >
@@ -135,7 +135,7 @@ export function TabsBar({
                     }
                     className={cn(
                       // Always laid out (just faded) so revealing it on hover never pushes the close button sideways.
-                      'flex rounded p-0.5 hover:bg-background/60 items-center gap-0.5 opacity-0 md:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100',
+                      'hit-24 gap-0.5 rounded hover:bg-background/60 opacity-0 focus-visible:opacity-100 md:group-hover:opacity-100 [@media(pointer:coarse)]:opacity-100',
                       inPane && paneCount > 1 ? 'opacity-100 text-[var(--accent-blue)]' : 'text-muted-foreground',
                       atMaxPanes && 'opacity-40 cursor-not-allowed'
                     )}
@@ -156,7 +156,7 @@ export function TabsBar({
                   <button
                     type="button"
                     aria-label="Close tab"
-                    className="rounded p-0.5 text-muted-foreground opacity-60 hover:bg-background/60 hover:text-foreground group-hover:opacity-100"
+                    className="hit-24 rounded text-muted-foreground opacity-60 hover:bg-background/60 hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={() => closeTab(id)}
                   >
                     <X className="h-3 w-3" />

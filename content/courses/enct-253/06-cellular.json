@@ -1,0 +1,268 @@
+{
+  "title": "Cellular systems and 5G",
+  "kicker": "ENCT 253 · Data Communication · Chapter 6",
+  "subtitle": "Reusing the same radio frequencies in neighbouring cells is what makes mobile phones scale.",
+  "sections": [
+    {
+      "id": "cell",
+      "locator": "6.1",
+      "title": "The cellular idea",
+      "eyebrow": "Reuse",
+      "body": "<p>Radio spectrum is scarce. Instead of one powerful transmitter for a city, divide the area into <em class=\"term\">cells</em>, each with a low-power base station. Cells far enough apart can reuse the same frequencies. A <em class=\"term\">cluster</em> of <i>N</i> cells uses all the available channels once; with N cells per cluster each cell gets 1/N of the total. Hexagons are the usual picture because they tile the plane.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A system has 120 channels and a cluster size N = 4."
+        },
+        {
+          "toc": "Capacity",
+          "why": "Each cell gets 120 / 4 = 30 channels; a city of 100 cells then supports 3000 simultaneous calls instead of 120.",
+          "math": "\\frac{120}{4}=30,\\ 100\\times30=3000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "reuse",
+          "prompt": "What does a smaller cluster size N give?",
+          "choices": [
+            {
+              "text": "More channels per cell (more capacity) but more co-channel interference.",
+              "correct": true
+            },
+            {
+              "text": "Fewer channels per cell."
+            },
+            {
+              "text": "No change."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Same-frequency cells are closer together."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The opposite: 1/N each."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "N directly sets the channels per cell."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 6.1.1 — frequency reuse",
+          "note": "Neighbouring cells use different frequency sets.",
+          "script": "diagram(\"direction: right\\ngroup \\\"Cluster of 3\\\" { c1, c2, c3 }\\n[Cell A · f1] as c1 #blue\\n[Cell B · f2] as c2 #mint\\n[Cell C · f3] as c3 #amber\\n[Next cluster reuses f1, f2, f3] as r #grey\\nc1 -> c2\\nc2 -> c3\\nc3 -> r : reuse\");"
+        }
+      ]
+    },
+    {
+      "id": "interf",
+      "locator": "6.2",
+      "title": "Interference and handoff",
+      "eyebrow": "Problems",
+      "body": "<p><em class=\"term\">Co-channel interference</em> comes from cells reusing your frequency; <em class=\"term\">adjacent-channel interference</em> from neighbouring frequencies. As a moving phone leaves a cell the network performs a <em class=\"term\">handoff</em> to the next cell without dropping the call: the signal strength from the old station falls below a threshold while the new one rises. Hard handoff breaks before making; soft handoff (CDMA) connects to both for a moment.</p>",
+      "questions": [
+        {
+          "id": "hand",
+          "prompt": "What triggers a handoff?",
+          "choices": [
+            {
+              "text": "The user dialling."
+            },
+            {
+              "text": "The signal from the current base station dropping below a threshold while a neighbour is stronger.",
+              "correct": true
+            },
+            {
+              "text": "A cluster change."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "The mobile keeps measuring neighbours."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a cause."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.2.1 — a handoff",
+          "note": "The network, not the phone, decides.",
+          "script": "diagram(\"mode: sequence\\n[Phone] as p\\n[Base station 1] as b1\\n[Base station 2] as b2\\n[Switching centre] as m\\np -> b1 : measure signal (strong)\\np -> b2 : measure signal (rising)\\nb1 -> m : signal below threshold\\nm -> b2 : prepare channel\\nm --> p : switch to base station 2\\np -> b2 : continues the call\");"
+        }
+      ]
+    },
+    {
+      "id": "gens",
+      "locator": "6.3",
+      "title": "From 1G to 5G",
+      "eyebrow": "Generations",
+      "body": "<p>1G: analog voice (AMPS). 2G: digital voice and SMS (GSM, TDMA; GPRS brought packet data). 3G: CDMA-based, mobile internet (UMTS). 4G (LTE): all-IP, OFDMA, tens to hundreds of Mb/s. 5G: higher speeds, very low latency (~1 ms), massive device counts, using sub-6 GHz and millimetre-wave bands and network slicing. GSM architecture: mobile station, base transceiver station, base station controller, mobile switching centre with home/visitor registers.</p>",
+      "questions": [
+        {
+          "id": "gsm",
+          "prompt": "Which generation first used digital voice?",
+          "choices": [
+            {
+              "text": "1G."
+            },
+            {
+              "text": "2G (GSM).",
+              "correct": true
+            },
+            {
+              "text": "4G."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Analog FM."
+            },
+            {
+              "title": "Correct.",
+              "body": "1G was analog."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Much later."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 6.3.1 — GSM architecture",
+          "note": "The GSM chain from phone to core.",
+          "script": "diagram(\"direction: right\\n[Mobile station + SIM] as ms #blue\\n[Base transceiver station] as bts #mint\\n[Base station controller] as bsc #amber\\n[Mobile switching centre] as msc #violet\\n[HLR / VLR registers] as reg #grey\\nms -> bts : radio\\nbts -> bsc\\nbsc -> msc\\nmsc -> reg : where is the subscriber?\");"
+        }
+      ]
+    },
+    {
+      "id": "five",
+      "locator": "6.4",
+      "title": "5G, SDN, IoT and the cloud",
+      "eyebrow": "Latest trends",
+      "body": "<p>5G’s three use cases: enhanced mobile broadband, ultra-reliable low-latency communication (remote surgery, vehicles) and massive machine-type communication (IoT sensors). Software-defined networking and network function virtualisation run core functions as software in the cloud; edge computing puts processing near the user to cut latency.</p>",
+      "questions": [
+        {
+          "id": "urllc",
+          "prompt": "Which 5G use case targets self-driving vehicles?",
+          "choices": [
+            {
+              "text": "Enhanced mobile broadband."
+            },
+            {
+              "text": "Ultra-reliable low-latency communication.",
+              "correct": true
+            },
+            {
+              "text": "Massive machine-type communication."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is high speed for phones."
+            },
+            {
+              "title": "Correct.",
+              "body": "Decisions cannot wait tens of milliseconds."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is many small sensors."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "prac",
+      "locator": "6.5",
+      "title": "Numericals",
+      "eyebrow": "Practice",
+      "worked": [
+        {
+          "toc": "Formula",
+          "why": "The reuse distance D relates to cell radius R and cluster size N by D = R√(3N)."
+        },
+        {
+          "toc": "Reuse distance",
+          "why": "For N = 7 and R = 2 km.",
+          "math": "D = 2\\sqrt{21}\\approx9.2\\ \\text{km}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dist",
+          "prompt": "Increasing the cluster size N makes the reuse distance…",
+          "choices": [
+            {
+              "text": "Smaller."
+            },
+            {
+              "text": "Unchanged."
+            },
+            {
+              "text": "Larger, reducing co-channel interference.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The formula grows with N."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "N appears in it."
+            },
+            {
+              "title": "Correct.",
+              "body": "D = R√(3N)."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A cellular system has 280 channels, cluster size 7. How many channels per cell? If a region has 140 cells, how many simultaneous calls?</p>",
+          "answer": "280 / 7 = <b>40</b> channels per cell; 140 × 40 = <b>5600</b> simultaneous calls."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Why is a hexagon used to model a cell?</p>",
+          "answer": "It is the regular shape closest to a circle (the ideal coverage of an omnidirectional antenna) that still tiles the plane without gaps or overlaps, unlike circles."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Reuse frequencies across clusters; handoff keeps calls alive.</li><li>Generations: analog → digital → CDMA → all-IP → low latency + massive IoT.</li></ul>"
+    }
+  ]
+}

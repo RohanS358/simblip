@@ -1,0 +1,252 @@
+DATABASE MANAGEMENT SYSTEM
+ENCT 301
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to provide a comprehensive understanding of the
+principles and practices involved in the design and implementation of database
+systems. It enables students to develop data models, and perform data modification,
+processing, and management efficiently. The course also introduces advanced
+concepts such as object-oriented databases, data warehousing, data processing, and
+big data management.
+1
+Introduction
+1.1
+1.2
+1.3
+2
+2.2
+2.3
+3
+Application and evolution of database
+Data abstraction (Physical, logical, and view level) and data independence
+Schema and instances
+Data Models
+2.1
+(7 hours)
+Introduction to data models (Entity-relationship, relational, object model,
+hierarchical, network, graph data models)
+E-R model
+2.2.1 Entities and entity sets
+2.2.2 Attributes and keys
+2.2.3 Strong and weak entity sets
+2.2.4 Relationship and relationship sets (Mapping cardinalities)
+2.2.5 Specialization, generalization and aggregation
+Relational model
+2.3.1 Concept of relational model, key constraints
+2.3.2 Converting ER model into relational model
+Relational Query Languages
+3.1
+3.2
+3.3
+3.4
+3.5
+(3 hours)
+Relational algebra
+Concept of DDL, DML and DCL
+Overview of the SQL query language-DDL and DML queries
+Set operations
+Aggregate functions – GROUP BY – HAVING
+(7 hours)
+3.6 Joins and types of joins
+3.7 Nested sub queries
+3.8 Database modification (Insert, update, delete)
+3.9 Views
+3.10 Triggers and stored procedures
+3.11 Privilege and roles management – GRANT and REVOKE statements
+4
+Database Constraints and Normalization
+4.1
+4.2
+4.3
+4.4
+5
+5.4
+5.5
+5.6
+5.7
+6
+8
+(5 hours)
+Transaction and transaction model - State diagram
+Acid properties
+Concurrent execution of transactions
+Serializability (Conflict and view serializability)
+Lock based protocols
+Deadlock handling and prevention
+Multiple granularity
+Crash Recovery
+8.1
+8.2
+(5 hours)
+Disks and storage
+Records organizations
+Ordered indices
+B+ tree index
+Hashing concepts - Static and dynamic hashing
+Transaction Processing and Concurrency Control
+7.1
+7.2
+7.3
+7.4
+7.5
+7.6
+7.7
+(4 hours)
+Query processing, optimization and evaluation
+Transformation of relational expressions
+Techniques of implementing query optimization - Cost based optimization
+and heuristic optimization
+Query evaluation -Materialization and pipelining
+Denormalization for performance
+Materialized view
+Performance tuning
+File Structure and Hashing
+6.1
+6.2
+6.3
+6.4
+6.5
+7
+Integrity constraints and domain constraints
+Assertions
+Functional dependencies
+Different normal forms (1NF, 2NF, 3NF, BCNF)
+Query Processing and Optimization
+5.1
+5.2
+5.3
+(6 hours)
+Failure classification
+Recovery and atomicity
+(4 hours)
+8.3
+8.4
+8.5
+9
+Log-based recovery
+Shadow paging
+High availability using remote backup systems
+Advanced Database Concepts
+9.1
+9.2
+9.3
+9.4
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+(4 hours)
+Concept of object-oriented databases
+Distributed database model
+Concept of data warehousing and online analytical processing
+Basic concepts of NoSQL and big data
+(15 hours)
+Designing ER model for sample cases
+Converting an ER diagram to a relational schema
+Practice with simple relational algebra queries
+Insert, update and delete with relational algebra queries using assignment
+operator
+Executing DDL commands to create a database, define primary and foreign
+key constraints
+Simple queries with SELECT and filtering
+Complex queries with joins and sub-queries
+Aggregating data with GROUP BY and HAVING
+Database manipulation with INSERT, UPDATE and DELETE queries
+Creating and using views
+Creating users, roles and using GRANT and REVOKE statements
+Triggers and stored procedures
+Identifying functional dependencies and normal forms
+Decomposing a table into BCNF and 3NF
+Introduction to NoSQL databases with MongoDB
+(45 hours)
+Database server installation and configuration
+DB client installation and connection to DB server. Introduction and practice
+with SELECT command with the existing DB
+Further practice with DML queries – Select, insert, update and delete
+Advanced queries with joins and subqueries
+Aggregation and grou8ping
+Practice with DDL commands – Create/alter/drop table, integrity constraints
+and views
+Triggers and stored procedures
+Query processing, optimization, performance tuning and database
+administration
+Group project work
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+1
+Hours
+3
+2
+7
+3
+7
+4
+6
+5
+4
+6
+5
+7
+5
+8
+4
+9
+4
+Total
+45
+* There may be minor deviation in marks distribution.
+Marks distribution*
+3
+9
+9
+9
+6
+8
+8
+4
+4
+60
+References
+1.
+Silberschatz, A., Korth, H.F., Sudarshan, S. (2019). Database system
+concepts. McGraw-Hill.
+2.
+Elmasri, R., Navathe, S.B. (2021). Fundamentals of database systems.
+Pearson.
+3.
+Ramakrishnan, R., Gehrke, J. (2002). Database management systems.
+McGraw-Hill.
+4.
+Connolly, T.M., Begg, C.E. (2021). Database systems: A practical
+approach to design, implementation, and management. Pearson.

@@ -12,12 +12,11 @@
 
 import { BounceLoader } from '@/components/ui/bounce-loader'
 import { useEffect, useRef, useState } from 'react'
-import { Download, Loader2 } from 'lucide-react'
+import { useExportDock } from '@/lib/store/export-dock'
 import { toast } from 'sonner'
 import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
 import { useFilePageContentStore } from '@/lib/store/file-page-content'
 import { getFile } from '@/lib/storage/manager'
-import { Button } from '@/components/ui/button'
 
 type XSpreadsheetFactory = (container: HTMLElement, opts?: Record<string, unknown>) => {
   loadData: (d: unknown) => unknown
@@ -160,14 +159,17 @@ export function XlsxView({ pageId }: { pageId: string }) {
     }
   }
 
+  // The tab bar's shared Export button lists this page's formats.
+  useEffect(() => {
+    useExportDock.getState().set([
+      { id: 'xlsx', label: 'Excel (.xlsx)', hint: 'Editable spreadsheet', busy: exporting, run: () => void exportXlsx() },
+    ])
+    return () => useExportDock.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exporting])
+
   return (
     <div className="flex h-full w-full flex-col">
-      <div className="flex items-center justify-end border-b border-border/60 px-3 py-1.5">
-        <Button variant="outline" size="sm" onClick={() => void exportXlsx()} disabled={exporting}>
-          {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-          Export spreadsheet
-        </Button>
-      </div>
       <div className="relative min-h-0 flex-1">
         {importing && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/80">

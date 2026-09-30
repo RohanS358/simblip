@@ -1,0 +1,290 @@
+{
+  "title": "Software process models",
+  "kicker": "ENCT 352 · Software Engineering · Chapters 1–2",
+  "subtitle": "Building software is not just coding: a process decides what is built, in what order, and how surprises are handled.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "1.1",
+      "title": "Why software engineering",
+      "eyebrow": "The problem",
+      "body": "<p>Software is <em class=\"term\">complex</em>, changes constantly and is invisible, so large projects fail for management reasons more often than technical ones: unclear requirements, poor estimates, weak testing. <em class=\"term\">Software engineering</em> applies systematic, measurable methods to develop, operate and maintain software. Key attributes of good software: <b>maintainable, dependable, efficient, usable</b>.</p>",
+      "questions": [
+        {
+          "id": "attr",
+          "prompt": "Which attribute does most of the lifetime cost depend on?",
+          "choices": [
+            {
+              "text": "Maintainability.",
+              "correct": true
+            },
+            {
+              "text": "Colour scheme."
+            },
+            {
+              "text": "Lines of code."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Most software spends most of its life being changed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Cosmetic."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "A result, not a goal."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water",
+      "locator": "1.2",
+      "title": "Waterfall",
+      "eyebrow": "Plan-driven",
+      "body": "<p>Phases run in sequence: requirements → design → implementation → testing → deployment → maintenance, each signed off before the next. Good when requirements are stable and well understood (e.g. safety-critical specs). Weakness: a mistake found late is expensive, and the customer sees nothing until the end.</p>",
+      "questions": [
+        {
+          "id": "wf",
+          "prompt": "Waterfall suits projects where…",
+          "choices": [
+            {
+              "text": "Requirements are stable and well understood.",
+              "correct": true
+            },
+            {
+              "text": "Requirements change weekly."
+            },
+            {
+              "text": "Nothing is known."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The plan can be fixed up front."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Iterative methods fit better."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Needs exploration."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — waterfall",
+          "note": "The token flows one way; there is no loop back.",
+          "script": "diagram(\"direction: right\\n[Requirements] as r\\n[Design] as d\\n[Implementation] as i\\n[Testing] as t\\n[Deploy] as p\\nr -> d\\nd -> i\\ni -> t\\nt -> p\\n@0 r -> d\\n@1 d -> i\\n@2 i -> t\\n@3 t -> p\\nloop 1\");"
+        }
+      ]
+    },
+    {
+      "id": "iter",
+      "locator": "1.3",
+      "title": "Incremental and spiral",
+      "eyebrow": "Learn as you build",
+      "body": "<p><b>Incremental</b>: deliver working slices; each increment adds features and gets feedback. <b>Spiral</b>: each loop = plan → risk analysis → build prototype → evaluate; risk drives the next loop, so it suits large, uncertain projects. <b>Prototyping</b> builds a throw-away model to clarify requirements.</p>",
+      "questions": [
+        {
+          "id": "sp",
+          "prompt": "The spiral model is driven by…",
+          "choices": [
+            {
+              "text": "Risk analysis.",
+              "correct": true
+            },
+            {
+              "text": "Documentation volume."
+            },
+            {
+              "text": "Fixed phases."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each loop targets the biggest remaining risk."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the driver."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is waterfall."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.3.1 — spiral",
+          "note": "Each trip around the loop reduces risk.",
+          "script": "diagram(\"direction: right\\n[Plan] as p\\n[Risk analysis] as r\\n[Build] as b\\n[Evaluate] as e\\np -> r\\nr -> b\\nb -> e\\ne -> p : next loop\\n@0 p -> r\\n@1 r -> b\\n@2 b -> e\\n@3 e -> p\\nloop 3\");"
+        }
+      ]
+    },
+    {
+      "id": "agile",
+      "locator": "1.4",
+      "title": "Agile and Scrum",
+      "eyebrow": "Short cycles",
+      "body": "<p>The Agile manifesto values working software, customer collaboration and responding to change over plans and paperwork. <b>Scrum</b>: a product owner keeps a prioritised backlog; every 1–4 week sprint the team pulls items, holds a daily stand-up, delivers an increment, then runs a review and retrospective. <b>XP</b> adds practices: pair programming, test-first, continuous integration.</p>",
+      "questions": [
+        {
+          "id": "scrum",
+          "prompt": "At the end of a sprint the team should have…",
+          "choices": [
+            {
+              "text": "A potentially shippable increment.",
+              "correct": true
+            },
+            {
+              "text": "A finished design document."
+            },
+            {
+              "text": "Nothing until release."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Working software, however small."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the goal."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is waterfall thinking."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 1.4.1 — a sprint",
+          "note": "One sprint, replayed.",
+          "script": "diagram(\"mode: sequence\\n[Product owner] as po\\n[Team] as t\\n[Stakeholders] as s\\npo -> t : sprint backlog\\nt -> t : daily stand-up\\nt -> po : working increment\\npo -> s : sprint review\\ns --> po : feedback\\npo -> t : next sprint\\n@0 po -> t : sprint backlog\\n@1 t -> t : daily stand-up\\n@2 t -> po : working increment\\n@3 po -> s : sprint review\\n@4 s -> po : feedback\");"
+        }
+      ]
+    },
+    {
+      "id": "est",
+      "locator": "1.5",
+      "title": "Effort estimation: COCOMO",
+      "eyebrow": "Numbers",
+      "body": "<p>Basic COCOMO (organic projects): effort E = 2.4·(KLOC)^1.05 person-months, development time T = 2.5·E^0.38 months. It is an estimate from size, so it is only as good as the size guess.</p>",
+      "worked": [
+        {
+          "toc": "Effort",
+          "why": "A 32 KLOC organic project. Effort:",
+          "math": "E=2.4\\cdot32^{1.05}=91\\ \\text{PM}"
+        },
+        {
+          "toc": "Time",
+          "why": "Time.",
+          "math": "T=2.5\\cdot91^{0.38}=14\\ \\text{months}"
+        },
+        {
+          "toc": "Team",
+          "why": "Average team size = E/T.",
+          "math": "\\tfrac{91}{14}\\approx6.5",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "coc",
+          "prompt": "Doubling code size in COCOMO (exponent 1.05) raises effort by…",
+          "choices": [
+            {
+              "text": "Exactly double."
+            },
+            {
+              "text": "A bit more than double.",
+              "correct": true
+            },
+            {
+              "text": "Four times."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Exponent is above 1."
+            },
+            {
+              "title": "Correct.",
+              "body": "2^1.05 ≈ 2.07."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That needs an exponent of 2."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-coc",
+          "prompt": "<p>A 10 KLOC organic project. Find the effort.</p>",
+          "answer": "2.4·10^1.05 = 2.4 × 11.22 = <b>26.9 person-months</b>."
+        }
+      ]
+    },
+    {
+      "id": "choose",
+      "locator": "1.6",
+      "title": "Choosing a process",
+      "eyebrow": "Fit to the project",
+      "body": "<table><thead><tr><th>Situation</th><th>Lean towards</th></tr></thead><tbody><tr><td>Fixed, well-known requirements</td><td>Waterfall</td></tr><tr><td>Changing requirements, keen users</td><td>Agile / Scrum</td></tr><tr><td>Large, risky, novel</td><td>Spiral</td></tr><tr><td>Need early feedback on UI</td><td>Prototyping</td></tr></tbody></table>",
+      "questions": [
+        {
+          "id": "ch",
+          "prompt": "A start-up unsure what customers want should prefer…",
+          "choices": [
+            {
+              "text": "Short iterations with frequent feedback.",
+              "correct": true
+            },
+            {
+              "text": "A detailed two-year plan."
+            },
+            {
+              "text": "No process at all."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Agile reduces the cost of being wrong."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It would be wrong by month two."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Chaos is not agility."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

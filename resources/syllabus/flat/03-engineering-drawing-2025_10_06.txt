@@ -1,0 +1,237 @@
+ENGINEERING DRAWING
+ENME 101
+Lecture
+Tutorial
+Practical
+:2
+:0
+:4
+Year : I
+Part : I
+Course Objectives:
+To develop basic projection concepts with reference to points, lines, planes and
+geometrical solids.
+Also, to develop sketching and drafting skills to facilitate
+communication.
+1
+Instrumental Drawing, Technical Lettering Practices and Techniques
+(1 hour)
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+Dimensioning
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+3
+Equipment, materials and drawing sheets
+Description of drawing instruments, auxiliary equipment and drawing
+materials
+Techniques of instrumental drawing
+Pencil sharpening, securing paper, proper use of T- squares, triangles,
+scales dividers, compasses, erasing shields, French curves, inking pens
+Line: Types and uses, thickness
+Fundamentals and techniques
+Size and location dimensioning, SI conversions
+Scales: Types and representative factor
+Use of scales, measurement units, reducing and enlarging drawings
+Placement of dimensions: Aligned and unidirectional, chain,
+parallel/baseline and combined type
+Tolerance dimensioning
+Geometrical Construction
+3.1
+3.2
+3.3
+(1 hour)
+(2 hours)
+Plane geometrical construction: Proportional division of lines, trisection of
+angles, smooth arc and line tangents
+Methods for drawing regular polygons and standard curves such as
+ellipses, parabolas, hyperbolas, involutes, spirals, cycloids and helices
+(Cylindrical and conical), ogee curve
+Techniques to reproduce a given drawing (By construction)
+4
+Basic Descriptive Geometry
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+4.7
+4.8
+4.9
+4.10
+4.11
+4.12
+4.13
+4.14
+4.15
+5
+5.2
+5.3
+6
+Introduction to orthographic projection, principal planes, four quadrants or
+angles
+Projection of points on first, second, third and fourth quadrants
+Projection of lines: Parallel to one of the principal planes, inclined to one of
+the principal plane and parallel to other, Inclined to both principal planes,
+traces of a line
+Projection planes: Perpendicular to both principal planes, parallel to one of
+the principal planes and Inclined to one of the principal planes,
+perpendicular to other and Inclined to both principal planes
+True length of lines: Horizontal, inclined and oblique lines
+Rules for parallel and perpendicular lines
+Point view or end view of a line
+Shortest distance from a point to a line
+Edge view and true shape of an oblique plane
+Angle between two intersecting lines
+Intersection of a line and a plane, visible portion of line
+Angle between a line and a plane
+Dihedral angle between two planes
+Shortest distance between two skew lines
+Angle between two non-intersecting (Skew) lines
+Multi View (Orthographic) Projections
+5.1
+(8 hours)
+Orthographic projections
+5.1.1 First and third angle projection
+5.1.2 Principal views: Methods for obtaining orthographic views, projection
+of lines, angles and plane surfaces, analysis in three views,
+projection of curved lines and surfaces, object orientation and
+selection of views for best representation, full and hidden lines
+5.1.3 Orthographic drawings: Making an orthographic drawing, visualizing
+objects (Pictorial view) from the given views
+5.1.4 Interpretation of adjacent areas, true-length lines, representation of
+holes, conventional practices
+Sectional views: Full, half, offset, broken (Partial), rotated/aligned, revolved,
+removed (Detail) sections, phantom of hidden section, specifying cutting
+planes for sections, convention practices
+Auxiliary views: Basic concept and use, drawing methods and types,
+symmetrical and unilateral auxiliary views, auxiliary sectional views
+Developments and Intersections
+6.1
+6.2
+(4 hours)
+(7 hours)
+Introduction and projection of solids with points transfer
+Developments: General concepts and practical considerations, triangulation
+method for approximate development of surfaces of a right/oblique; Prism,
+cylinder, pyramid, cone, prism and cylinder cut by oblique planes,
+6.3
+7
+frustum/truncated pyramid and cone, transition pieces for connecting
+different shapes and sphere
+Intersections: Lines of intersection of geometric surfaces, piercing point of a
+line and a geometric solid, intersection lines of two planes, intersections of
+– prism and prism, cylinder and prism, cylinder and cylinder, pyramid and
+prism, cone and prism, pyramid and cylinder, cone and cylinder
+Pictorial Drawings
+7.1
+7.2
+7.3
+7.4
+(7 hours)
+Classifications: Advantages and disadvantages
+Isometric view
+7.2.1 Axonometric projection
+7.2.2 Isometric projection and isometric drawing (View)
+7.2.3 Isometric and non-isometric lines; Isometric and non-isometric
+surfaces
+7.2.4 Angles in isometric drawing
+7.2.5 Circles and circular arcs in isometric and non-isometric surfaces
+(Slopes)
+7.2.6 Irregular curves in isometric drawing
+7.2.7 Isometric sectional views
+Oblique drawing
+7.3.1 Procedure for making an oblique drawing
+7.3.2 Rules for placing objects in oblique drawing
+7.3.3 Angles, circles and circular arcs in oblique drawing
+Perspective projection
+7.4.1 Terms used in perspective projection
+7.4.2 Parallel and angular perspective
+7.4.3 Selection of station point
+7.4.4 Perspective projection of right prism and pyramid solid
+Assignments
+1.
+Geometrical construction
+2.
+Descriptive geometry
+3.
+Multi-view Projection I
+4.
+Multi-view Projection II
+5.
+Surface development and intersection
+6.
+Isometric drawing
+7.
+Oblique drawing and perspective projection
+Practical
+(60 hours)
+1.
+Drawing sheet layout, freehand lettering, scale, common graphical
+symbols, sketching of parallel lines, circles, dimensioning
+2.
+Geometrical construction (Sketch and instrumental drawing)
+3.
+Descriptive geometry I (Sketch and instrumental drawing)
+4.
+Descriptive geometry II (Sketch and instrumental drawing)
+5.
+Multiview drawings I (Sketch and instrumental drawing)
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+Multiview drawings II (Sketch and instrumental drawing)
+Multiview, sectional drawings and dimensioning (Sketch and instrumental
+drawing)
+Auxiliary view, sectional drawings and dimensioning (Sketch and
+instrumental drawing)
+Projection of regular geometrical solids with point transfer (Sketch and
+instrumental drawing)
+Surface development of solids I (Sketch and instrumental drawing)
+Surface development of solids II (Sketch and instrumental drawing)
+Intersection of solids (Sketch and instrumental drawing)
+Isometric drawing I (Sketch and instrumental drawing)
+Isometric drawing II (Sketch and instrumental drawing)
+Oblique drawing and perspective projection (Sketch and instrumental
+drawing)
+Reference
+1.
+Luzadder, W.J., Duff, J.M. (1989). Fundamentals of engineering drawing:
+With an introduction to interactive computer graphics for design and
+production (Latest Edition). Prentice-Hall.
+2.
+French, T.E., Vierck, C.J., Foster, R.J. (1993). Engineering drawing and
+graphic technology (Latest Edition). McGraw-Hill.
+3.
+Giesecke, F.E., Mitchell, A., Spencer, H.C., Dygdon, J.T. (2016). Technical
+drawing with engineering graphics. Peachpit Press.
+4.
+Bhatt, N.D. (2023). Elementary engineering drawing. Charotar Publishing
+House.
+5.
+Gill, P.S. (2016). Engineering drawing. S. K. Kataria & Sons.
+6.
+Dhawan, R.K. (2019). A textbook of engineering drawing. S. Chand and
+Company.
+7.
+Luintel, M. C. (2021). Engineering Drawing I. Heritage Publishers &
+Distributors.
+8.
+Luintel, M. C. (2020). Engineering Drawing II. Heritage Publishers &
+Distributors.

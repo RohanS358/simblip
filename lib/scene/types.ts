@@ -54,6 +54,7 @@ export type GeometryKind =
   | 'symbol' // schematic symbol (resistor, gate, hinge…)
   | 'code' // code editor / IDE for SimScript
   | 'dsa' // DSA Lab — C++ IDE + line-by-line algorithm visualizer
+  | 'steplab' // Step Lab — an engine (lib/steplab) that returns frames of drawing primitives: scheduler, cache, automaton, TCP…
   | 'picture' // static raster image placed on the canvas (opfs:<fileId> src) — not the whole-page 'image' PageKind
   | 'group' // container: owns `children`, transforms them as a unit (lib/scene/group.ts)
 
@@ -110,6 +111,7 @@ export type BehaviorType =
   | 'transmissionLine' // on a line: Z0/length/load — input impedance + SWR pattern
   | 'quantumWell' // on a rect: particle-in-a-box — wavefunction/probability/energy levels
   | 'tunnelBarrier' // on a rect: rectangular barrier — tunneling T/R
+  | 'flow' // on a connector: tokens travel along it; on a shape: it glows while a token is there — timing in metadata (lib/physics/flow.ts)
   | 'custom'
 
 export interface Behavior {

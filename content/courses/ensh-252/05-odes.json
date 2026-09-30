@@ -1,0 +1,354 @@
+{
+  "title": "Euler, Heun and Runge–Kutta",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 5",
+  "subtitle": "Step along the solution of dy/dx = f(x, y), using the slope — once, twice, or four times per step.",
+  "sections": [
+    {
+      "id": "ivp",
+      "locator": "5.1",
+      "title": "Initial value problems",
+      "eyebrow": "The setting",
+      "body": "<p>Solve y′ = f(x, y) with y(x₀) = y₀. Numerical methods produce y at x₀, x₀ + h, x₀ + 2h, … <em class=\"term\">One-step</em> methods use only the last point. The running example is y′ = x + y, y(0) = 1, whose exact solution y = 2eˣ − x − 1 gives y(1) = <b>3.43656</b> to compare with.</p>",
+      "questions": [
+        {
+          "id": "ivp",
+          "prompt": "An initial value problem gives…",
+          "choices": [
+            {
+              "text": "The equation and the starting value y(x₀).",
+              "correct": true
+            },
+            {
+              "text": "The whole solution."
+            },
+            {
+              "text": "Only the boundary values."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Without it there are infinitely many solutions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is what we seek."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a boundary-value problem."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "euler",
+      "locator": "5.2",
+      "title": "Euler’s method",
+      "eyebrow": "One slope",
+      "body": "<p>y<sub>n+1</sub> = yₙ + h·f(xₙ, yₙ): walk along the tangent. Simple, but each step has error O(h²) and the total error is O(h) — first order. Halving h halves the error: y(1) is <b>3.18748</b> with h = 0.1 and <b>3.3066</b> with h = 0.05, against the exact 3.43656.</p>",
+      "worked": [
+        {
+          "toc": "Slope",
+          "why": "y′ = x + y, y₀ = 1, h = 0.1. Slope at (0, 1) = 1."
+        },
+        {
+          "toc": "Two steps",
+          "why": "y₁ = 1 + 0.1·1 = 1.1; then slope at (0.1, 1.1) = 1.2 so y₂ = 1.1 + 0.12.",
+          "math": "y_1=1.1,\\ y_2=1.22",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ord1",
+          "prompt": "Euler’s method is first order: halving h…",
+          "choices": [
+            {
+              "text": "Roughly halves the global error.",
+              "correct": true
+            },
+            {
+              "text": "Quarters it."
+            },
+            {
+              "text": "Does nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Error ∝ h."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is second order."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Accuracy improves."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 5.2.1 — Euler with h = 0.1",
+          "note": "Grey = exact, blue = Euler; the gap grows.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"eu\",\"engine\":\"ode\",\"f\":\"x + y\",\"x0\":0,\"y0\":1,\"h\":0.1,\"xEnd\":1,\"methods\":\"euler\",\"exact\":\"2*exp(x) - x - 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "eu": {
+              "euler": "3.18748",
+              "exact": "3.43656"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "heun",
+      "locator": "5.3",
+      "title": "Heun’s method (improved Euler)",
+      "eyebrow": "Two slopes",
+      "body": "<p>Predict with Euler, then average the slope at the start and at the predicted end: k₁ = f(xₙ, yₙ), k₂ = f(xₙ + h, yₙ + hk₁), y<sub>n+1</sub> = yₙ + (h/2)(k₁ + k₂). Second-order: y(1) = <b>3.42816</b> with h = 0.1 — far closer than Euler. It is the trapezoid rule applied to the ODE.</p>",
+      "worked": [
+        {
+          "toc": "Predictor",
+          "why": "One Heun step from (0, 1), h = 0.1. k₁ = f(0, 1) = 1. Predictor y* = 1.1."
+        },
+        {
+          "toc": "Corrected",
+          "why": "k₂ = f(0.1, 1.1) = 1.2; y₁ = 1 + 0.05(1 + 1.2).",
+          "math": "y_1=1.11",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "heunq",
+          "prompt": "Heun’s method improves on Euler by…",
+          "choices": [
+            {
+              "text": "Averaging the slopes at the start and at the predicted end of the step.",
+              "correct": true
+            },
+            {
+              "text": "Using a smaller h automatically."
+            },
+            {
+              "text": "Ignoring the equation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Two slope evaluations per step."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "h is the user’s choice."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 5.3.1 — Euler vs Heun",
+          "note": "Heun hugs the exact curve.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"he\",\"engine\":\"ode\",\"f\":\"x + y\",\"x0\":0,\"y0\":1,\"h\":0.1,\"xEnd\":1,\"methods\":\"euler heun\",\"exact\":\"2*exp(x) - x - 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "he": {
+              "euler": "3.18748",
+              "heun": "3.42816"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "rk4",
+      "locator": "5.4",
+      "title": "Runge–Kutta of order 4",
+      "eyebrow": "Four slopes",
+      "body": "<p>The classic RK4: k₁ = f(xₙ, yₙ); k₂ = f(xₙ + h/2, yₙ + hk₁/2); k₃ = f(xₙ + h/2, yₙ + hk₂/2); k₄ = f(xₙ + h, yₙ + hk₃); y<sub>n+1</sub> = yₙ + (h/6)(k₁ + 2k₂ + 2k₃ + k₄). Fourth-order: error ∝ h⁴ — y(1) = <b>3.43656</b> at h = 0.1, agreeing with the exact 3.43656 to five digits. Each step costs four evaluations, but it reaches a given accuracy with far larger h.</p>",
+      "questions": [
+        {
+          "id": "rk4q",
+          "prompt": "Why is RK4 popular?",
+          "choices": [
+            {
+              "text": "High accuracy (order 4) without needing derivatives of f.",
+              "correct": true
+            },
+            {
+              "text": "It uses one slope per step."
+            },
+            {
+              "text": "It is exact."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Large steps are possible."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It uses four."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is approximate."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 5.4.1 — Euler, Heun and RK4",
+          "note": "All three against the exact curve.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"rk\",\"engine\":\"ode\",\"f\":\"x + y\",\"x0\":0,\"y0\":1,\"h\":0.1,\"xEnd\":1,\"methods\":\"euler heun rk4\",\"exact\":\"2*exp(x) - x - 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "rk": {
+              "euler": "3.18748",
+              "heun": "3.42816",
+              "rk4": "3.43656",
+              "exact": "3.43656"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ode",
+          "prompt": "<p>Solve y′ = x + y, y(0) = 1 to x = 1 with h = 0.1 using Euler and RK4. Compare with the exact 2eˣ − x − 1.</p>",
+          "answer": "Euler <b>3.18748</b>, Heun <b>3.42816</b>, RK4 <b>3.43656</b>, exact <b>3.43656</b>.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "All methods.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"ode\",\"f\":\"x + y\",\"x0\":0,\"y0\":1,\"h\":0.1,\"xEnd\":1,\"methods\":\"euler rk4\",\"exact\":\"2*exp(x) - x - 1\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "euler": "3.18748",
+                "rk4": "3.43656",
+                "exact": "3.43656"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "step",
+      "locator": "5.5",
+      "title": "Step size, stability and stiff equations",
+      "eyebrow": "Practical issues",
+      "body": "<p>Too large an h is inaccurate and, for equations like y′ = −50y, unstable (the explicit Euler method blows up when h &gt; 2/50). Adaptive methods shrink h where the solution changes quickly (Runge–Kutta–Fehlberg compares orders 4 and 5). <em class=\"term\">Stiff</em> problems, with very different time scales, need implicit methods that stay stable at large steps.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "y′ = −50y, y(0) = 1, Euler with h = 0.05."
+        },
+        {
+          "toc": "Blow-up",
+          "why": "y₁ = y₀(1 − 50·0.05) = −1.5: the true solution decays to 0 but the numerical one grows in magnitude — instability.",
+          "math": "1-50h=-1.5,\\ |{-1.5}|>1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "unst",
+          "prompt": "Euler on y′ = −50y with h = 0.05 gives…",
+          "choices": [
+            {
+              "text": "Growing oscillations — the step is beyond the stability limit.",
+              "correct": true
+            },
+            {
+              "text": "A smooth decay."
+            },
+            {
+              "text": "The exact answer."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "|1 − 50h| > 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "h is too large for that."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "systems",
+      "locator": "5.6",
+      "title": "Systems and higher-order equations",
+      "eyebrow": "Extending",
+      "body": "<p>A higher-order ODE becomes a first-order system: y″ = f(x, y, y′) → let u = y, v = y′; then u′ = v, v′ = f(x, u, v). All methods apply componentwise to the vector (u, v). This is how the notebook's physics engine advances every body: position and velocity together.</p>",
+      "worked": [
+        {
+          "toc": "Substitute",
+          "why": "Write y″ + y = 0 as a system.",
+          "math": "u=y,\\ v=y'"
+        },
+        {
+          "toc": "System",
+          "why": "u′ = v, v′ = −u — one Euler step from (1, 0): u₁ = 1, v₁ = −h.",
+          "math": "u'=v,\\ v'=-u",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sys",
+          "prompt": "y″ = −y is converted to a first-order system using…",
+          "choices": [
+            {
+              "text": "y = 2y′."
+            },
+            {
+              "text": "u = y, v = y′, so u′ = v and v′ = −u.",
+              "correct": true
+            },
+            {
+              "text": "It cannot be."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not a conversion."
+            },
+            {
+              "title": "Correct.",
+              "body": "Two first-order equations."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Every ODE can."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

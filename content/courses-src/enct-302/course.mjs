@@ -1,0 +1,13 @@
+export default {
+  id: 'enct-302', code: 'ENCT 302', title: 'Web Application Programming', subject: 'computing', semester: 5, program: 'computer',
+  description: 'From an HTTP request to a deployed app: the browser, JavaScript and the event loop, servers and MVC, REST APIs, web security and delivery — every flow animated.',
+  order: ['01-intro', '02-javascript', '03-server', '04-apis', '05-security', '06-deploy'],
+  lessons: {
+    '01-intro': { path: '1 Introduction', title: 'How the web works' },
+    '02-javascript': { path: '2 JavaScript and Client-Side Programming', title: 'JavaScript, the DOM and the event loop' },
+    '03-server': { path: '3 Server-Side Web Programming', title: 'Servers, routing and MVC' },
+    '04-apis': { path: '4 Web Services and APIs', title: 'REST APIs and JSON' },
+    '05-security': { path: '5 Web Application Security', title: 'XSS, CSRF, injection and tokens' },
+    '06-deploy': { path: '6 Deployment and Modern Trends', title: 'Deployment and modern trends' },
+  },
+}

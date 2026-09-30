@@ -1,0 +1,189 @@
+DATA COMMUNICATION
+ENCT 253
+Lecture
+Tutorial
+Practical
+:3
+:1
+: 3/2
+Year :II
+Part : II
+Course Objectives:
+The objective of this course is to provide students with a solid foundation in the
+principles and theories of data communication, including key terminology, protocols,
+and standards. Also support to explore the various types of transmission media,
+including guided and unguided media, and their characteristics, advantages, and
+disadvantages. Furthermore, it introduces the methods of data encoding, modulation
+techniques, and their implications for effective data transmission.
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+2.3
+2.4
+2.5
+2.6
+3
+Analog data communication, data representation, data flows
+Evolution of data communication
+A communication model, data communication model
+Networks (LAN, WAN), simplified network architecture, the OSI model
+Data communication and networking for today enterprise
+Data Communication Fundamentals
+2.1
+2.2
+(6 hours)
+Analog and digital data
+Analog signals, periodic and aperiodic signals, periodic signals
+characteristics (Time, frequency domain)
+Introduction to Fourier series representation of periodic signal, Fourier
+transform representation of aperiodic signals, digital signals and its
+characteristics
+Analog and digital transmission, transmission mode, transmission
+impairments (Attenuation, distortion, noise)
+Data rate limits channel capacity, Nyquist bandwidth, Shannon capacity
+formula
+Performance of network (Bandwidth, throughput, latency, jitter)
+Transmission Media and Data Compression
+3.1
+3.2
+3.3
+(4 hours)
+(8 hours)
+Guided transmission media: Co-axial cable, twisted pair, optical fiber
+Unguided transmission media: Radio waves, microwaves, infrared
+Antenna basics, satellite communication, Bluetooth, Wi-Fi
+3.4
+3.5
+3.6
+4
+Signal Encoding Technique
+4.1
+4.2
+4.3
+4.4
+5
+5.7
+5.8
+5.9
+6.3
+Tutorial
+1.
+2.
+3.
+4.
+5.
+(8 hours)
+Access introduction to multiplexing, application of multiplexing
+Frequency division multiple
+Time division multiple access
+Asymmetric digital subscriber line, XDSL
+Spread spectrum: DHSS, FHSS, CDMA
+Intro switched communication network, connection oriented and
+connectionless
+Switching devices: Types, importance and application
+Circuit switching network: Circuit switching concepts, message switching
+Packet switching: Virtual switching, datagram switching
+Cellular Wireless Communications and Latest Trends
+6.1
+6.2
+(15 hours)
+Analog data, analog signals: Modulation and its need, AM, FM, PM
+Analog data, digital signals: PAM, PWM, PPM, PCM, DPCM, DM
+Digital data, analog signal: ASK, FSK, PSK, QPSK, QAM
+Digital data, digital signal: RZ, NRZ, AMI, Manchester, differential
+Manchester, B8ZS, HDB3 for data transmission
+Multiplexing and Switching
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+6
+Wireless propagation (Introduction to groundwave propagation, sky wave
+propagation and line of sight propagation), frequency bands
+Error detection and correction: Parity, check sum, cyclic redundancy check,
+hamming code
+Data compression: Lossy and lossless
+(4 hours)
+Overview of 1G, 2G, 3G and 4G
+Cellular technology fundamental terminology: Cell, frequency-reuse,
+cluster, adjacent cell interference, co-channel interference, handoff
+strategies, architecture of GSM basics
+Introduction to 5G networks, software defined networking, IOT
+communication, cloud computing and virtualization in data communication
+(15 hours)
+Tutorials on different protocols in data communication TCP/IP,
+HTTP/HTTPS, FTP
+Explore the function of open systems interconnection (OSI) model, which
+defines seven layers of data communication
+Discover data communication devices and its application
+Identify the application of used network topologies in present scenario
+Collecting ideas on some security aspects of the security on data
+communication on present enterprises system
+Practical
+(22.5 hours)
+1.
+Signal analysis using MATLAB
+2.
+Implementation of small network using hub and switch in physical or
+simulation environment
+3.
+Analog modulation generation and reconstruction
+4.
+Pulse modulation generation and reconstruction
+5.
+Conversion of given binary sequence into different line coding
+6.
+Digital modulation (ASK, FSK, PSK) generation and reconstruction
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Mark distribution*
+1
+4
+5
+2
+6
+3
+8
+4
+15
+5
+8
+6
+4
+Total
+45
+* There may be minor deviation in marks distribution.
+9
+11
+20
+10
+5
+60
+Reference
+1.
+Stallings, W. (2007). Data and Computer Communications. India: Pearson
+Education.
+2.
+Forouzan, B. A., Fegan, S. C. (2007). Data
+Communications
+and
+Networking (McGraw-Hill Forouzan Networking). United Kingdom: McGrawHill Higher Education.
+3.
+Tanenbaum, A. S., Wetherall, D. (2011). Computer
+Networks. India: Pearson Prentice Hall.
+4.
+Rappaport, T. S. (2024). Wireless
+Communications:
+Principles
+and
+Practice. United Kingdom: Cambridge University Press.

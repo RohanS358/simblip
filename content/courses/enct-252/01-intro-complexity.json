@@ -1,0 +1,279 @@
+{
+  "title": "Data structures, ADTs and algorithm analysis",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 1",
+  "subtitle": "Choose how to store data, and know how the cost of working with it grows.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "1.1",
+      "title": "Why structure matters",
+      "eyebrow": "The idea",
+      "body": "<p>A <em class=\"term\">data structure</em> is a way of organising data so that the operations you need are cheap. An array gives instant access by index but costly insertion in the middle; a linked list inserts cheaply but finds slowly; a hash table finds almost instantly but keeps no order. An <em class=\"term\">abstract data type</em> (ADT) states <em>what</em> operations exist (stack: push, pop, peek) independent of <em>how</em> they are implemented (array or linked list).</p>",
+      "questions": [
+        {
+          "id": "adt",
+          "prompt": "What is an ADT?",
+          "choices": [
+            {
+              "text": "A specific array layout."
+            },
+            {
+              "text": "A C++ class only."
+            },
+            {
+              "text": "A specification of operations, independent of implementation.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is an implementation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The idea is language-independent."
+            },
+            {
+              "title": "Correct.",
+              "body": "A stack can be built on an array or on a linked list without changing its users."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — trade-offs",
+          "note": "No structure wins every operation.",
+          "script": "diagram(\"direction: right\\n[Array: O(1) index, O(n) insert] as a #blue\\n[Linked list: O(1) insert at head, O(n) search] as l #mint\\n[Hash table: O(1) average search] as h #amber\\n[Balanced tree: O(log n) everything, ordered] as t #violet\\na -> l : trade\\nl -> h : trade\\nh -> t : trade\");"
+        }
+      ]
+    },
+    {
+      "id": "design",
+      "locator": "1.2",
+      "title": "Algorithm design techniques",
+      "eyebrow": "Strategies",
+      "body": "<p>Recurring strategies: <em class=\"term\">brute force</em> (try everything), <em class=\"term\">divide and conquer</em> (split, solve, combine — merge sort), <em class=\"term\">greedy</em> (take the best local choice — Huffman), <em class=\"term\">dynamic programming</em> (remember sub-answers), <em class=\"term\">backtracking</em> (build and undo), <em class=\"term\">branch and bound</em>, <em class=\"term\">randomised</em> and <em class=\"term\">recursive</em> algorithms.</p>",
+      "questions": [
+        {
+          "id": "dc",
+          "prompt": "Merge sort is an example of…",
+          "choices": [
+            {
+              "text": "Greedy."
+            },
+            {
+              "text": "Brute force."
+            },
+            {
+              "text": "Divide and conquer.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No local best choice is committed to."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would try all permutations."
+            },
+            {
+              "title": "Correct.",
+              "body": "It splits the array, sorts the halves, and merges."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "big",
+      "locator": "1.3",
+      "title": "Growth rates and Big-O",
+      "eyebrow": "Analysis",
+      "body": "<p>We measure cost as a function of input size <i>n</i> and keep only the dominant term. <em class=\"term\">Big-O</em> is an upper bound (f = O(g) if f ≤ c·g for large n), <em class=\"term\">Big-Omega</em> a lower bound, <em class=\"term\">Big-Theta</em> both. Best, worst and average cases can differ: linear search is O(1) best, O(n) worst. Common orders, slowest-growing first: 1, log n, n, n log n, n², n³, 2ⁿ, n!.</p><p>Count real operations: bubble sort on 5 1 4 2 8 makes <b>9</b> comparisons and <b>4</b> swaps; merge sort makes <b>8</b> comparisons.</p>",
+      "worked": [
+        {
+          "toc": "Goal",
+          "why": "Show 3n² + 5n + 20 = O(n²): choose c and n₀ with 3n² + 5n + 20 ≤ c·n² for n ≥ n₀."
+        },
+        {
+          "toc": "Witness c = 28, n₀ = 1",
+          "why": "For n ≥ 1: 5n ≤ 5n² and 20 ≤ 20n², so the sum is at most 28n².",
+          "math": "3n^2+5n+20\\le 28n^2\\quad(n\\ge1)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dom",
+          "prompt": "Simplify 3n² + 5n + 20 to Big-O.",
+          "choices": [
+            {
+              "text": "O(n²).",
+              "correct": true
+            },
+            {
+              "text": "O(n)."
+            },
+            {
+              "text": "O(3n²)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "For large n the n² term dominates; constants are dropped."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The n² term grows faster."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Constants are not written."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.3.1 — bubble sort",
+          "note": "Counters at the bottom are the “cost”.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bub\",\"engine\":\"sorting\",\"algo\":\"bubble\",\"values\":\"5 1 4 2 8\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bub": {
+              "comparisons": "9",
+              "moves": "4"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 1.3.2 — merge sort",
+          "note": "Merge sort does fewer comparisons as n grows.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mer\",\"engine\":\"sorting\",\"algo\":\"merge\",\"values\":\"5 1 4 2 8\",\"width\":600,\"height\":440});",
+          "expect": {
+            "mer": {
+              "comparisons": "8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "loops",
+      "locator": "1.4",
+      "title": "Counting loops",
+      "eyebrow": "Practice",
+      "body": "<p>A single loop to <i>n</i> is O(n); nested loops to <i>n</i> are O(n²); a loop that doubles its counter (<code>i *= 2</code>) runs log₂ n times. Run the program and the DSA Lab counts the iterations.</p>",
+      "questions": [
+        {
+          "id": "log",
+          "prompt": "for (i = 1; i < n; i *= 2) runs how many times?",
+          "choices": [
+            {
+              "text": "n times."
+            },
+            {
+              "text": "n/2 times."
+            },
+            {
+              "text": "About log₂ n.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs i++."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is i += 2."
+            },
+            {
+              "title": "Correct.",
+              "body": "The counter doubles, so it needs log₂ n steps to reach n."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp4",
+          "caption": "Figure 1.4.1 — Counting loops",
+          "note": "The loop runs log₂16 = 4 times.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int n = 16, count = 0;\\n  for (int i = 1; i < n; i *= 2) {\\n    count++;\\n  }\\n  cout << count << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "4"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>What is the complexity of two nested loops, each from 1 to n, with the inner body O(1)?</p>",
+          "answer": "n × n = <b>O(n²)</b>."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>A loop <code>for (i = n; i > 0; i /= 2)</code> — complexity?</p>",
+          "answer": "The counter halves each time: <b>O(log n)</b>."
+        }
+      ]
+    },
+    {
+      "id": "space",
+      "locator": "1.5",
+      "title": "Space complexity and trade-offs",
+      "eyebrow": "Memory",
+      "body": "<p>Space complexity counts the extra memory an algorithm needs. Merge sort needs O(n) extra space; heap sort and quick sort (average) sort in place. Often time can be bought with space — a lookup table or memoisation — and the reverse.</p>",
+      "questions": [
+        {
+          "id": "inplace",
+          "prompt": "Which sort uses O(1) extra space?",
+          "choices": [
+            {
+              "text": "Heap sort (in place).",
+              "correct": true
+            },
+            {
+              "text": "Merge sort."
+            },
+            {
+              "text": "Counting sort."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It rearranges the array itself."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It needs a temporary array."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It needs a count array."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Pick the structure whose cheap operations match your workload.</li><li>Big-O keeps the dominant term: n² beats n log n beats n.</li><li>Measure by counting operations, not seconds.</li></ul>"
+    }
+  ]
+}

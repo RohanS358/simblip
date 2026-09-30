@@ -1,0 +1,431 @@
+{
+  "title": "Time value of money and choosing projects",
+  "kicker": "ENCE 356 · Engineering Economics · Chapters 4 and 5",
+  "subtitle": "A rupee today is worth more than a rupee next year. Put every cash flow on one date and the choice becomes arithmetic.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "4.1",
+      "title": "Why money has a time value",
+      "eyebrow": "Interest",
+      "body": "<p>Money can be invested to earn a return, so Rs 1,000 today can become more later. <b>Simple interest</b> is earned only on the principal; <b>compound interest</b> earns interest on interest: F = P(1 + i)ⁿ. At 10 % for 5 years, Rs 1,000 grows to <b>Rs 1,611</b>; equivalently Rs 1,000 in 5 years is worth only <b>Rs 621</b> today.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "P = 1,000, i = 10 %, n = 5."
+        },
+        {
+          "toc": "Future",
+          "why": "F = P(1 + i)ⁿ.",
+          "math": "F=1000(1.1)^5=1610.51",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cmp",
+          "prompt": "Compared with simple interest, compound interest gives…",
+          "choices": [
+            {
+              "text": "More, because interest earns interest.",
+              "correct": true
+            },
+            {
+              "text": "Less."
+            },
+            {
+              "text": "The same."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Growth is exponential."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only for one period."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-fv",
+          "prompt": "<p>How much will Rs 5,000 be worth in 8 years at 6 % compound interest?</p>",
+          "answer": "F = 5000(1.06)⁸ = <b>Rs 7,969</b>."
+        }
+      ]
+    },
+    {
+      "id": "eq",
+      "locator": "4.2",
+      "title": "Equivalence and the cash-flow diagram",
+      "eyebrow": "Drawing money over time",
+      "body": "<p>Two cash flows are <b>equivalent</b> if they have the same worth at the same date and interest rate. A cash-flow diagram puts time on a horizontal axis, inflows as up arrows and outflows as down arrows. Below: invest 1,000 now and receive 350 at the end of each of 4 years, at MARR = 8 %.</p>",
+      "questions": [
+        {
+          "id": "dir",
+          "prompt": "In a cash-flow diagram the initial investment is drawn as…",
+          "choices": [
+            {
+              "text": "An upward arrow."
+            },
+            {
+              "text": "A horizontal line."
+            },
+            {
+              "text": "A downward arrow at t = 0.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is an inflow."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Time axis."
+            },
+            {
+              "title": "Correct.",
+              "body": "Outflow = down."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 4.2.1 — project A",
+          "note": "The card shows present worth, future worth, IRR and more.",
+          "script": "var cf = create(\"cashflow\", { spec: {\"description\":\"Machine purchase\",\"marr\":8,\"discrete\":[{\"t\":0,\"amount\":-1000}],\"annuities\":[{\"start\":0,\"periods\":4,\"every\":1,\"amount\":350}],\"salvage\":0} });"
+        }
+      ]
+    },
+    {
+      "id": "factors",
+      "locator": "4.3",
+      "title": "The six interest factors",
+      "eyebrow": "Conversion formulas",
+      "body": "<table><thead><tr><th>To find</th><th>Given</th><th>Factor</th></tr></thead><tbody><tr><td>F</td><td>P</td><td>(1 + i)ⁿ</td></tr><tr><td>P</td><td>F</td><td>(1 + i)⁻ⁿ</td></tr><tr><td>P</td><td>A</td><td>[(1 + i)ⁿ − 1] / [i(1 + i)ⁿ]</td></tr><tr><td>A</td><td>P</td><td>i(1 + i)ⁿ / [(1 + i)ⁿ − 1]</td></tr><tr><td>F</td><td>A</td><td>[(1 + i)ⁿ − 1] / i</td></tr><tr><td>A</td><td>F</td><td>i / [(1 + i)ⁿ − 1]</td></tr></tbody></table><p>Annuity A is a uniform end-of-period payment. The present worth of 350 a year for 4 years at 8 % is <b>1159.24</b>; repaying a Rs 1,000 loan over 4 years costs <b>301.92</b> a year.</p>",
+      "worked": [
+        {
+          "toc": "Factor",
+          "why": "P/A factor at 8 %, n = 4.",
+          "math": "\\tfrac{1.08^4-1}{0.08\\cdot1.08^4}=3.3121"
+        },
+        {
+          "toc": "P",
+          "why": "Multiply by the annuity amount 350.",
+          "math": "P=350\\times3.3121=1159.24",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ap",
+          "prompt": "To spread a loan P over n years at interest i, which factor converts P to a yearly payment?",
+          "choices": [
+            {
+              "text": "A/P.",
+              "correct": true
+            },
+            {
+              "text": "P/A."
+            },
+            {
+              "text": "F/P."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Capital recovery factor."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the opposite direction."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Gives a future lump sum."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ap",
+          "prompt": "<p>A Rs 500,000 loan at 12 % is repaid in 5 equal yearly payments. Find the payment.</p>",
+          "answer": "A = 500,000 × A/P = 500,000 × 0.2774 = <b>Rs 138,705</b>."
+        }
+      ]
+    },
+    {
+      "id": "nom",
+      "locator": "4.4",
+      "title": "Nominal and effective rates",
+      "eyebrow": "Compounding more often",
+      "body": "<p>A nominal 12 % compounded monthly is 1 % per month; the effective annual rate is (1 + r/m)ᵐ − 1 = <b>12.68 %</b>, more than 12 % because of within-year compounding. Always match the interest period to the payment period.</p>",
+      "worked": [
+        {
+          "toc": "Per period",
+          "why": "Nominal 18 % compounded quarterly: 4.5 % per quarter."
+        },
+        {
+          "toc": "Effective",
+          "why": "Effective annual rate.",
+          "math": "(1.045)^4-1=19.25\\%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "eff",
+          "prompt": "Nominal 12 % compounded monthly has an effective rate that is…",
+          "choices": [
+            {
+              "text": "Slightly above 12 %.",
+              "correct": true
+            },
+            {
+              "text": "Below 12 %."
+            },
+            {
+              "text": "Exactly 12 %."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Interest on interest inside the year."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Compounding raises it."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only for annual compounding."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pw",
+      "locator": "5.1",
+      "title": "Present worth and MARR",
+      "eyebrow": "Judging one project",
+      "body": "<p>The <b>minimum attractive rate of return (MARR)</b> is the least return the firm will accept. Project <b>net present worth</b> NPW = Σ Cₜ/(1 + MARR)ᵗ. If NPW &gt; 0 the project earns more than MARR — accept. Project A at 8 %: NPW = −1000 + 350·(P/A) = <b>159.24</b>; project B (invest 1,500, receive 500 a year) gives <b>156.06</b>. Both are worth doing on their own; but only one can be built.</p>",
+      "questions": [
+        {
+          "id": "npw",
+          "prompt": "NPW > 0 at the MARR means…",
+          "choices": [
+            {
+              "text": "The project earns more than the MARR: accept.",
+              "correct": true
+            },
+            {
+              "text": "Reject the project."
+            },
+            {
+              "text": "The IRR is below MARR."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Positive surplus in today’s money."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Opposite."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr2",
+          "caption": "Figure 5.1.1 — project B",
+          "note": "Compare its present worth with project A.",
+          "script": "var cf = create(\"cashflow\", { spec: {\"description\":\"Project B\",\"marr\":8,\"discrete\":[{\"t\":0,\"amount\":-1500}],\"annuities\":[{\"start\":0,\"periods\":4,\"every\":1,\"amount\":500}],\"salvage\":0} });"
+        }
+      ]
+    },
+    {
+      "id": "irr",
+      "locator": "5.2",
+      "title": "Internal rate of return",
+      "eyebrow": "The project’s own rate",
+      "body": "<p>The IRR is the rate that makes NPW = 0. Accept if IRR &gt; MARR. Project A: IRR ≈ <b>14.96 %</b>; project B: <b>12.59 %</b>. Both beat 8 %. The IRR is found by trial (or by the card’s solver) — there is no closed form for n &gt; 4.</p>",
+      "worked": [
+        {
+          "toc": "Try 15 %",
+          "why": "Try i = 15 %: NPW = −1000 + 350 × 2.855.",
+          "math": "-0.76"
+        },
+        {
+          "toc": "Interpolate",
+          "why": "That is almost zero, so the IRR is just under 15 %.",
+          "math": "i\\approx14.96\\%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "irrq",
+          "prompt": "The IRR is the discount rate at which…",
+          "choices": [
+            {
+              "text": "NPW equals zero.",
+              "correct": true
+            },
+            {
+              "text": "NPW is maximum."
+            },
+            {
+              "text": "Payback occurs."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Inflows exactly repay outflows with interest."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the definition."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different measure."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "inc",
+      "locator": "5.3",
+      "title": "Comparing alternatives: incremental analysis",
+      "eyebrow": "Mutually exclusive choice",
+      "body": "<p>Only one of A, B can be built. The larger IRR does not always win, and a bigger investment is justified only if its <i>extra</i> money earns enough. Analyse the <b>increment</b> B − A: extra investment 500, extra return 150 a year, incremental IRR ≈ <b>7.71 %</b>. That is below the MARR of 8 %, so the extra 500 is <b>not</b> worth spending: choose A. (Consistent with NPW(A) = 159.24 &gt; NPW(B) = 156.06, even though B has the larger returns.) Compare equal-life options by NPW; unequal lives by annual worth, which repeats each as if replaced.</p>",
+      "worked": [
+        {
+          "toc": "Delta",
+          "why": "Incremental cash flow B − A.",
+          "math": "-500,\\ +150\\times4"
+        },
+        {
+          "toc": "Decide",
+          "why": "Incremental IRR vs MARR 8 %.",
+          "math": "7.71\\%<8\\%\\Rightarrow\\text{choose A}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "incq",
+          "prompt": "The incremental IRR is below MARR. You should…",
+          "choices": [
+            {
+              "text": "Choose the higher-cost alternative."
+            },
+            {
+              "text": "Reject both."
+            },
+            {
+              "text": "Choose the cheaper alternative.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only when the increment beats MARR."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not implied."
+            },
+            {
+              "title": "Correct.",
+              "body": "The extra investment does not earn enough."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-aw",
+          "prompt": "<p>Compute the annual worth of project A at 8 % (PW = 159.24, n = 4).</p>",
+          "answer": "AW = PW × (A/P) = 159.24 × 0.3019 = <b>48.08</b> per year."
+        }
+      ]
+    },
+    {
+      "id": "bc",
+      "locator": "5.4",
+      "title": "Benefit–cost ratio and payback",
+      "eyebrow": "Other criteria",
+      "body": "<p>Public projects use B/C = PW(benefits)/PW(costs); accept if &gt; 1. <b>Payback</b> is the time to recover the investment: simple payback for A = 1000/350 = <b>2.86 years</b>. It ignores the time value and cash flows after payback, so use it only as a rough liquidity check.</p>",
+      "worked": [
+        {
+          "toc": "PWs",
+          "why": "PW(benefits) = 350 × 3.3121 = 1159.2; PW(costs) = 1000."
+        },
+        {
+          "toc": "Ratio",
+          "why": "B/C = 1159.2/1000 = 1.16 > 1: accept at 8 %.",
+          "math": "B/C=1.159",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pb",
+          "prompt": "A weakness of simple payback is that it…",
+          "choices": [
+            {
+              "text": "Needs an interest rate."
+            },
+            {
+              "text": "Ignores the time value of money and later cash flows.",
+              "correct": true
+            },
+            {
+              "text": "Always rejects good projects."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It does not."
+            },
+            {
+              "title": "Correct.",
+              "body": "Quick but blunt."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not always."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

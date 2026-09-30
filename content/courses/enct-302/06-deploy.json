@@ -1,0 +1,276 @@
+{
+  "title": "Deployment and modern trends",
+  "kicker": "ENCT 302 · Web Application Programming · Chapter 6",
+  "subtitle": "Getting code from a laptop to users, repeatably and safely.",
+  "sections": [
+    {
+      "id": "env",
+      "locator": "6.1",
+      "title": "Environments",
+      "eyebrow": "Dev → staging → prod",
+      "body": "<p>Code moves through environments: <b>development</b> (your machine), <b>staging</b> (a production-like copy for final checks), <b>production</b> (real users). Configuration (URLs, secrets) comes from environment variables, never committed to the repository — the same build runs everywhere.</p>",
+      "questions": [
+        {
+          "id": "sec",
+          "prompt": "Database passwords belong in…",
+          "choices": [
+            {
+              "text": "The Git repository."
+            },
+            {
+              "text": "Environment variables / a secrets manager.",
+              "correct": true
+            },
+            {
+              "text": "Client-side JavaScript."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Leaks forever."
+            },
+            {
+              "title": "Correct.",
+              "body": "Not in source control."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Everyone can read it."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "locator": "6.2",
+      "title": "CI/CD pipeline",
+      "eyebrow": "Automation",
+      "body": "<p>Every push triggers: install → lint → test → build → deploy to staging → (approval) → deploy to production. A failing stage stops the line. Automated pipelines make releases boring.</p>",
+      "questions": [
+        {
+          "id": "cicd",
+          "prompt": "Why deploy to staging first?",
+          "choices": [
+            {
+              "text": "It is required by HTTP."
+            },
+            {
+              "text": "It makes code faster."
+            },
+            {
+              "text": "To catch problems in a production-like place before users see them.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Cheap insurance."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 6.2.1 — pipeline",
+          "note": "The token moves on only when the stage passes.",
+          "script": "diagram(\"direction: right\\n[Push] as a\\n[Lint + test] as b\\n[Build image] as c\\n[Staging] as d\\n[Production] as e\\na -> b\\nb -> c\\nc -> d\\nd -> e\\n@0 a -> b\\n@1 b -> c\\n@2 c -> d\\n@3 d -> e\\nloop 2\");"
+        }
+      ]
+    },
+    {
+      "id": "cont",
+      "locator": "6.3",
+      "title": "Containers",
+      "eyebrow": "Same everywhere",
+      "body": "<p>A <b>container</b> (Docker) packages an app with its dependencies, so “works on my machine” means works everywhere. An <b>image</b> is the recipe; a container is a running instance. Kubernetes schedules, scales and heals containers across machines.</p>",
+      "questions": [
+        {
+          "id": "dock",
+          "prompt": "A Docker image is to a container as…",
+          "choices": [
+            {
+              "text": "An object is to a class."
+            },
+            {
+              "text": "A class is to an object.",
+              "correct": true
+            },
+            {
+              "text": "A file is to a folder."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Reversed."
+            },
+            {
+              "title": "Correct.",
+              "body": "Recipe vs running instance."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the analogy."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rel",
+      "locator": "6.4",
+      "title": "Safe release strategies",
+      "eyebrow": "Limit the blast radius",
+      "body": "<p><b>Blue–green</b>: run old (blue) and new (green) side by side, switch traffic, switch back if broken. <b>Canary</b>: send 5 % of traffic to the new version first. <b>Feature flags</b> ship code turned off. Always have a fast rollback.</p>",
+      "worked": [
+        {
+          "toc": "Exposure",
+          "why": "A bug affects 2 % of requests. A 5 % canary sees it on:"
+        },
+        {
+          "toc": "Blast radius",
+          "why": "0.05 × 0.02 = 0.1 % of all traffic, instead of 2 %.",
+          "math": "0.001",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "can",
+          "prompt": "A canary release reduces risk by…",
+          "choices": [
+            {
+              "text": "Testing in production blindly."
+            },
+            {
+              "text": "Exposing few users first.",
+              "correct": true
+            },
+            {
+              "text": "Skipping tests."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is monitored."
+            },
+            {
+              "title": "Correct.",
+              "body": "Bad builds hurt fewer people."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Tests still run."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.4.1 — canary release",
+          "note": "Promote only while the canary looks healthy.",
+          "script": "diagram(\"mode: sequence\\n[Users] as u\\n[Load balancer] as l\\n[Old v1] as o\\n[New v2] as n\\nu -> l : requests\\nl -> o : 95% of traffic\\nl -> n : 5% canary\\nn --> l : errors low\\nl -> n : raise to 100%\\n@0 u -> l : requests\\n@1 l -> o : 95% of traffic\\n@2 l -> n : 5% canary\\n@3 n -> l : errors low\\n@4 l -> n : raise to 100%\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-can",
+          "prompt": "<p>A canary takes 10 % of traffic and the bug hits 3 % of requests. What share of all traffic is affected?</p>",
+          "answer": "0.10 × 0.03 = <b>0.3 %</b>."
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "locator": "6.5",
+      "title": "Performance and caching",
+      "eyebrow": "Fast pages",
+      "body": "<p>Minify and compress (gzip/brotli), cache static files with long max-age and hashed names, serve from a CDN near the user, lazy-load images, avoid render-blocking scripts. Measure with Core Web Vitals: LCP (loading), INP (responsiveness), CLS (layout stability).</p>",
+      "questions": [
+        {
+          "id": "cdn",
+          "prompt": "A CDN speeds up a site mainly by…",
+          "choices": [
+            {
+              "text": "Compressing the database."
+            },
+            {
+              "text": "Serving files from a location near the user.",
+              "correct": true
+            },
+            {
+              "text": "Replacing HTTP."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Lower distance means lower latency."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trend",
+      "locator": "6.6",
+      "title": "Modern trends",
+      "eyebrow": "Where it is going",
+      "body": "<p>Serverless functions (pay per call), edge computing, server-side rendering with hydration, Progressive Web Apps (installable, offline), WebAssembly for near-native speed, WebSockets/SSE for real-time updates, and AI-assisted development. Pick the simplest architecture that meets the need.</p>",
+      "questions": [
+        {
+          "id": "srv",
+          "prompt": "Serverless means…",
+          "choices": [
+            {
+              "text": "You deploy functions; the provider runs and scales servers.",
+              "correct": true
+            },
+            {
+              "text": "No servers exist."
+            },
+            {
+              "text": "Only static files."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Servers still exist, but are not yours to manage."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Someone runs them."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Functions run code."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

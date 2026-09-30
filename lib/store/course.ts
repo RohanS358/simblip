@@ -52,7 +52,7 @@ export interface CourseFigure {
    *  disagrees. Every number the prose quotes from a figure should be pinned
    *  here, so a solver change or a mis-edited script cannot leave the notes
    *  claiming a reading the student will never see. */
-  expect?: Record<string, string>
+  expect?: Record<string, string | Record<string, string>>
 }
 
 /** A multiple-choice check. Wrong answers route to the MISCONCEPTION behind

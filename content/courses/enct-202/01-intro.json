@@ -1,0 +1,261 @@
+{
+  "title": "The data-science lifecycle",
+  "kicker": "ENCT 202 · Foundation of Data Science · Chapter 1",
+  "subtitle": "Data science is a loop, not a line: ask, collect, clean, explore, model, check, deploy — and go round again.",
+  "sections": [
+    {
+      "id": "what",
+      "locator": "1.1",
+      "title": "What data science is",
+      "eyebrow": "Definition",
+      "body": "<p><em class=\"term\">Data science</em> extracts knowledge and decisions from data using statistics, programming and domain understanding. It sits between three skills: mathematics/statistics (what is true?), computing (how to do it at scale?) and the domain (is it meaningful?). Related terms: <b>analytics</b> describes the past, <b>machine learning</b> learns patterns to predict, <b>big data</b> means volume, velocity and variety beyond one machine.</p>",
+      "questions": [
+        {
+          "id": "dsdef",
+          "prompt": "Which best states the aim of data science?",
+          "choices": [
+            {
+              "text": "Turn data into decisions using statistics, computing and domain knowledge.",
+              "correct": true
+            },
+            {
+              "text": "Store as much data as possible."
+            },
+            {
+              "text": "Build the biggest model."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "All three skills are needed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Storage is a means."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Size is not the goal."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loop",
+      "locator": "1.2",
+      "title": "The lifecycle",
+      "eyebrow": "A loop",
+      "body": "<p>Typical stages (CRISP-DM style): business understanding → data collection → preparation → exploration → modeling → evaluation → deployment → monitoring. Results at any stage often send you back: poor evaluation means revisit features or collect more data.</p>",
+      "questions": [
+        {
+          "id": "loopq",
+          "prompt": "Poor evaluation results usually send you…",
+          "choices": [
+            {
+              "text": "Straight to deployment."
+            },
+            {
+              "text": "Back to earlier stages (cleaning, features, more data).",
+              "correct": true
+            },
+            {
+              "text": "To delete the data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unvalidated models are risky."
+            },
+            {
+              "title": "Correct.",
+              "body": "The lifecycle is iterative."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Rarely the answer."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — lifecycle",
+          "note": "Follow the arrows; the “not yet” arrow is the loop.",
+          "script": "diagram(\"Question -> Collect : what data answers it?\\nCollect -> Clean : raw data\\nClean -> Explore : tidy data\\nExplore -> Model : features\\nModel -> Evaluate : predictions\\nEvaluate -> Deploy : good enough\\nEvaluate -> Clean : not yet\\nDeploy -> Question : monitor and refine\");"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "locator": "1.3",
+      "title": "Kinds of data",
+      "eyebrow": "Structure",
+      "body": "<table><thead><tr><th>Kind</th><th>Examples</th></tr></thead><tbody><tr><td>Structured</td><td>tables, SQL rows</td></tr><tr><td>Semi-structured</td><td>JSON, XML, logs</td></tr><tr><td>Unstructured</td><td>text, images, audio</td></tr></tbody></table><p>Variables are <b>numeric</b> (discrete or continuous) or <b>categorical</b> (nominal, or ordinal if ordered). The type decides which summary and chart are allowed.</p>",
+      "questions": [
+        {
+          "id": "ord",
+          "prompt": "“small, medium, large” is…",
+          "choices": [
+            {
+              "text": "Continuous numeric."
+            },
+            {
+              "text": "Nominal."
+            },
+            {
+              "text": "Ordinal categorical.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No numeric values."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Nominal has no order."
+            },
+            {
+              "title": "Correct.",
+              "body": "Categories with an order."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "roles",
+      "locator": "1.4",
+      "title": "Sources and tools",
+      "eyebrow": "Where data comes from",
+      "body": "<p>Sources: databases, APIs, sensors/IoT, web scraping, surveys, logs. Typical tools: Python (pandas, NumPy, scikit-learn), SQL, notebooks, visualisation libraries. Data engineers build pipelines; analysts explain; scientists model.</p>",
+      "questions": [
+        {
+          "id": "src",
+          "prompt": "Sensor readings streaming from a machine are an example of…",
+          "choices": [
+            {
+              "text": "Survey data."
+            },
+            {
+              "text": "Static archive data."
+            },
+            {
+              "text": "High-velocity machine-generated data.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No questionnaire is involved."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They keep arriving."
+            },
+            {
+              "title": "Correct.",
+              "body": "Volume and velocity are big-data traits."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bias",
+      "locator": "1.5",
+      "title": "Good questions and samples",
+      "eyebrow": "Before any code",
+      "body": "<p>A vague goal (“improve sales”) becomes a measurable question (“which customers will churn in 30 days?”). Sampling matters: a random sample represents the population; convenience or self-selected samples are biased. More data does not fix a biased sample.</p>",
+      "worked": [
+        {
+          "toc": "Rate",
+          "why": "A shop has 400 customers; 60 churned last month. Churn rate:",
+          "math": "\\tfrac{60}{400}=0.15"
+        },
+        {
+          "toc": "Baseline",
+          "why": "Predicting “no churn” for everyone is right 85 % of the time yet useless — accuracy alone misleads on imbalanced data.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "samp",
+          "prompt": "An online poll answered only by people who chose to click is…",
+          "choices": [
+            {
+              "text": "A random sample."
+            },
+            {
+              "text": "Unbiased if large."
+            },
+            {
+              "text": "Self-selected and likely biased.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Nobody randomised."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Size does not remove bias."
+            },
+            {
+              "title": "Correct.",
+              "body": "Respondents differ from the population."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lim",
+      "locator": "1.6",
+      "title": "What data cannot tell you",
+      "eyebrow": "Limits",
+      "body": "<p>Correlation is not causation; past patterns may not hold; a model is only as good as its data (“garbage in, garbage out”). Randomised experiments (A/B tests) are how causal claims are earned.</p>",
+      "questions": [
+        {
+          "id": "ab",
+          "prompt": "Which design best supports a causal claim?",
+          "choices": [
+            {
+              "text": "A larger observational dataset."
+            },
+            {
+              "text": "A randomised experiment.",
+              "correct": true
+            },
+            {
+              "text": "A nicer chart."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Confounders remain."
+            },
+            {
+              "title": "Correct.",
+              "body": "Randomisation removes confounders on average."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Looks do not establish cause."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

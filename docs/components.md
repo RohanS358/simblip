@@ -46,3 +46,7 @@
   off the behavior list, never off object identity.
 - shadcn primitives reused as-is; skinning happens in `globals.css` tokens.
 - Every interactive element: focus ring, `aria-label`, keyboard reachable.
+
+## Step Lab (`components/objects/steplab.tsx`)
+
+One card for ~70 step-through engines (schedulers, caches, automata, networks, numerics, statistics, AI, control blocks). Engines are pure functions in `lib/steplab/`; see [steplab.md](steplab.md) and the generated [steplab-engines.md](steplab-engines.md). Shared parameter fields live in `steplab-fields.tsx` (card drawer and inspector).

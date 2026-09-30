@@ -247,3 +247,7 @@ exists, grant with a direct insert or a curl against that endpoint.
 
 Progress (`lib/store/course.ts`) is per-page and persisted locally, so it needs
 no schema change until a teacher has to see it.
+
+## Computer-engineering notes
+
+Chapter-wise notes for the IOE Bachelor in Computer Engineering are authored as sources in `content/courses-src/<course>/` and built with `node scripts/build-courses.mjs`. Which subjects are done, and how to add another programme, is tracked in [curriculum/computer.md](curriculum/computer.md) and [curriculum/README.md](curriculum/README.md); the Step Lab / diagram v2 figures they use are described in [steplab.md](steplab.md).

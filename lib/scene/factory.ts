@@ -152,6 +152,11 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.inputs = str('')
       obj.parameters.outputs = str('')
       break
+    case 'steplab':
+      obj.name = autoName('Step Lab')
+      obj.size = { w: 600, h: 440 }
+      obj.parameters.engine = str('sched')
+      break
     case 'dsa':
       obj.name = autoName('DSA Lab')
       obj.size = { w: 980, h: 620 }
@@ -183,7 +188,7 @@ export function fromRecognition(rec: Recognition): SceneObject {
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics' | 'dsa'
+  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics' | 'dsa' | 'computing'
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -255,6 +260,7 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   quantum: 'Quantum',
   economics: 'Economics',
   dsa: 'DSA',
+  computing: 'Computing',
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -500,6 +506,15 @@ export const COMPONENTS: ComponentDef[] = [
     domain: 'dsa' as const,
     live: true,
     create: (p: Vec2) => createGeometry('dsa', p),
+  },
+
+  // ── Computing: the Step Lab — one card, many topics (lib/steplab). ──
+  {
+    id: 'step-lab',
+    label: 'Step Lab',
+    domain: 'computing' as const,
+    live: true,
+    create: (p: Vec2) => createGeometry('steplab', p),
   },
 
   // ── Economics: engineering-economics cash-flow timeline (money moves

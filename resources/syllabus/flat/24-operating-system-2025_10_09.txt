@@ -1,0 +1,210 @@
+OPERATING SYSTEM
+ENCT 254
+Lecture
+Tutorial
+Practical
+:3
+:1
+: 3/2
+Year : II
+Part : II
+Course Objectives:
+The objective of this course is to familiarize students with the different aspects of
+operating systems and encourage them to use these ideas in designing operating
+systems.
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+1.8
+1.9
+2
+2.3
+3
+Introduction to operating systems
+OS as an extended machine and resource manager
+History of operating system
+Type of operating system: Mainframe, server, personal, smartphone and
+handheld, IOT and embedded, real-time, smart-card
+Operating system components: Kernel, shell, utilities, applications
+Types of OS kernel: Monolithic, micro, nano, layered, hybrid, exo-kernel
+System calls, shell commands, shell programming
+POSIX standard
+Bootloader, MBR/GPT, UEFI and legacy boot
+Process Management
+2.1
+2.2
+3.5
+(7 hours)
+Process description, states and control
+Scheduling algorithms
+2.2.1 First Come First Serve (FCFS)
+2.2.2 Shortest Job First (SJF)
+2.2.3 Shortest Remaining Time(SRT)
+2.2.4 Round Robin (RR)
+2.2.5 Highest Response Ratio Next (HRNN)
+2.2.6 Completely Fair Scheduler (CFS) used in Linux
+Threads and thread scheduling
+Process Communication and Synchronization
+3.1
+3.2
+3.3
+3.4
+(6 hours)
+(10 hours)
+Principles of concurrency, race condition, critical region
+Mutual exclusion, semaphores, and mutex
+Message passing and monitors
+Classical problems of synchronization: Readers-writers problem, producerconsumer problem, dining philosopher problem
+Deadlock: Prevention, ignorance, avoidance, detection and recovery
+4
+I/O and Memory Management
+4.1
+4.2
+5
+5.4
+5.5
+6
+6.2
+6.3
+8
+(4 hours)
+Hypervisors: Type 1 and type 2
+Virtual machines: Creating virtual machine in Qemu/Virtual box/VMWare
+Container virtualization: Docker and Kubernetes
+Power shell and windows subsystem for LINUX (WSL)
+Performance optimization and security in virtualized environments
+Overview of Contemporary OS
+8.1
+8.2
+8.3
+8.4
+(3 hours)
+OS security: Cryptography, multi-factor authentication (MFA), secure boot
+and sandboxing
+Access control: Policies, lists, and OS support
+System administration: User management, environment setup and tools
+(AWK, shell scripts, make)
+Hypervisors and Virtual Systems
+7.1
+7.2
+7.3
+7.4
+7.5
+(3 hours)
+File concepts: Name, structure, types, access, attributes, operations
+Directory structures: Paths and hierarchies (Linux/Windows)
+File system implementation: Inodes, allocation methods (Contiguous,
+linked, indexed)
+File system performance: Factors affecting efficiency
+Example file systems: NTFS, EXT4, FAT32, NFS
+Security and System Administration
+6.1
+7
+I/O management
+4.1.1 Principles of I/O hardware and software
+4.1.2 I/O software layer
+4.1.3 Disk technologies: Magnetic disk, SSD, NVMe storage
+4.1.4 RAID
+4.1.5 Concept of stable storage, cost per bit comparison
+Memory Management
+4.2.1 Memory address, swapping and managing free memory space
+4.2.2 Virtual memory management, paging, segmentation
+4.2.3 Page replacement algorithms (FIFO, LRU, LFU), page fault and hit
+ratio
+4.2.4 Allocation of frames
+4.2.5 Thrashing
+File Systems
+5.1
+5.2
+5.3
+(9 hours)
+Windows and Linux-based OS
+Embedded and mobile OS
+IoT and RT operating system
+Robot and smart card operating system
+(3 hours)
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+(15 hours)
+Unix shell programs to do a variety of tasks
+Problems on scheduling algorithms
+Problems on page replacement algorithms
+Problems on deadlock
+Problems on segmentation and paging
+Comprehensive study on storage technologies with cost/bit and speed
+comparisons
+Study on process management/memory management/IO management/
+security/file system of a selected OS
+7.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+(22.5 hours)
+Basic Unix commands
+Shell Programming
+Implementation of the ls and grep commands
+Programs using the I/O system calls of the UNIX operating system
+Implementation of scheduling algorithms and the producer-consumer
+problem using semaphores
+Implementation of some memory management schemes such as paging
+and segmentation
+Term Project
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks Distribution*
+1
+6
+2
+7
+3
+10
+4
+9
+5
+3
+6
+3
+7
+4
+8
+3
+Total
+45
+* There may be minor deviation in marks distribution.
+8
+10
+13
+12
+4
+4
+5
+4
+60
+Reference
+1.
+Tanenbaum, A.S., Bos, H. (2024). Modern Operating Systems .3rd Edition.
+PHI.
+2.
+Stalling, W. (2008). Operating Systems. 6th Edition. Pearson Education.
+3.
+Chaturvedi, A., Rai, B.L. (2017). UNIX and Shell Programming. University
+Science Press.

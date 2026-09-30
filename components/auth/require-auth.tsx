@@ -46,15 +46,18 @@ export function RequireAuth({
 
   if (status !== 'authed' || !profile || (allow && !allow.includes(profile.role))) {
     return (
-      <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
+      <main
+        aria-busy="true"
+        className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]"
+      >
         <BounceLoader size={240} />
-        <span className="text-ui-md font-extrabold tracking-tight">
+        <h1 className="text-ui-md font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
-        </span>
-        <span className="text-ui-xs text-muted-foreground">
+        </h1>
+        <p role="status" className="text-ui-xs text-muted-foreground">
           {status === 'loading' ? 'Checking your session…' : 'Redirecting to sign in…'}
-        </span>
-      </div>
+        </p>
+      </main>
     )
   }
 

@@ -1,0 +1,308 @@
+{
+  "title": "Training, validation and clustering",
+  "kicker": "ENCT 202 · Foundation of Data Science · Chapter 6",
+  "subtitle": "How do you know a model works? Hide some data, test on it — and learn what to do when there are no labels at all.",
+  "sections": [
+    {
+      "id": "types",
+      "locator": "6.1",
+      "title": "Supervised and unsupervised",
+      "eyebrow": "Kinds of learning",
+      "body": "<p><b>Supervised</b>: examples come with answers (labels) — regression, classification. <b>Unsupervised</b>: no labels; find structure — clustering, dimensionality reduction. <b>Reinforcement</b>: learn from reward by acting.</p>",
+      "questions": [
+        {
+          "id": "sup",
+          "prompt": "Grouping customers with no predefined labels is…",
+          "choices": [
+            {
+              "text": "Unsupervised learning (clustering).",
+              "correct": true
+            },
+            {
+              "text": "Supervised classification."
+            },
+            {
+              "text": "Regression."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "No target column."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Needs labels."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No numeric target."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "perc",
+      "locator": "6.2",
+      "title": "A learning loop: the perceptron",
+      "eyebrow": "Learn from mistakes",
+      "body": "<p>A perceptron predicts sign(w·x + b). For every mistake, nudge the weights toward the correct class: w ← w + η·y·x. On separable data it converges: here in <b>6</b> epochs to w = (1, 0.5), b = -1. Training is this loop: predict, measure error, adjust.</p>",
+      "questions": [
+        {
+          "id": "perq",
+          "prompt": "A perceptron updates its weights when it…",
+          "choices": [
+            {
+              "text": "Misclassifies an example.",
+              "correct": true
+            },
+            {
+              "text": "Classifies correctly."
+            },
+            {
+              "text": "Starts a new epoch."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Correct ones leave it unchanged."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No change then."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only mistakes matter."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 6.2.1 — perceptron",
+          "note": "The boundary rotates after each misclassified point.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"per\",\"engine\":\"perceptron\",\"width\":600,\"height\":440});",
+          "expect": {
+            "per": {
+              "converged": "yes",
+              "epochs": "6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "split",
+      "locator": "6.3",
+      "title": "Train / validation / test",
+      "eyebrow": "Honest evaluation",
+      "body": "<p>Judging a model on the data it trained on rewards memorising. Split: <b>train</b> (fit, e.g. 70 %), <b>validation</b> (choose settings, 15 %), <b>test</b> (final unbiased score, 15 %, used once). <b>k-fold cross-validation</b> rotates the validation part k times and averages — good for small data.</p>",
+      "worked": [
+        {
+          "toc": "Split",
+          "why": "1000 rows split 70 / 15 / 15."
+        },
+        {
+          "toc": "Sizes",
+          "why": "That is 700 training, 150 validation, 150 test rows.",
+          "math": "700+150+150",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "tst",
+          "prompt": "The test set should be used…",
+          "choices": [
+            {
+              "text": "Once, at the very end.",
+              "correct": true
+            },
+            {
+              "text": "After every tweak."
+            },
+            {
+              "text": "For training too."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Reusing it leaks into your choices."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That becomes a validation set."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Destroys the estimate."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.3.1 — data split",
+          "note": "The test set is touched only at the end.",
+          "script": "diagram(\"Dataset -> Train 70% : fit\\nDataset -> Validation 15% : tune\\nDataset -> Test 15% : final score\\nTrain 70% -> Model\\nValidation 15% -> Model : choose settings\\nModel -> Test 15% : evaluate once\");"
+        }
+      ]
+    },
+    {
+      "id": "conf",
+      "locator": "6.4",
+      "title": "Classification metrics",
+      "eyebrow": "Beyond accuracy",
+      "body": "<p>Confusion matrix: TP, FP, FN, TN. Accuracy = (TP + TN)/all; precision = TP/(TP + FP); recall = TP/(TP + FN); F1 is their harmonic mean. With rare positives accuracy is deceiving.</p>",
+      "worked": [
+        {
+          "toc": "Counts",
+          "why": "TP = 8, FP = 2, FN = 4, TN = 86."
+        },
+        {
+          "toc": "Scores",
+          "why": "Precision = 8/10 = 0.8; recall = 8/12 = 0.67; accuracy = 94/100.",
+          "math": "P=0.8,\\ R=0.67",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rec",
+          "prompt": "A cancer screen must miss few real cases, so maximise…",
+          "choices": [
+            {
+              "text": "Recall.",
+              "correct": true
+            },
+            {
+              "text": "Precision."
+            },
+            {
+              "text": "Specificity only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It counts missed positives."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Counts false alarms."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the priority."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-f1",
+          "prompt": "<p>Precision 0.8 and recall 0.667. Find F1.</p>",
+          "answer": "F1 = 2PR/(P + R) = 1.0667/1.4667 = <b>0.727</b>."
+        }
+      ]
+    },
+    {
+      "id": "km",
+      "locator": "6.5",
+      "title": "k-means clustering",
+      "eyebrow": "Unlabelled groups",
+      "body": "<p>Pick k centroids; assign each point to the nearest; move each centroid to its cluster mean; repeat until stable. On the sample data it stops in <b>3</b> iterations with centroids <b>(1.25,1.5) (3.9,5.1)</b> and within-cluster SSE <b>8.525</b>. Choose k with the “elbow” of SSE vs k.</p>",
+      "questions": [
+        {
+          "id": "kmq",
+          "prompt": "k-means alternates between…",
+          "choices": [
+            {
+              "text": "Assigning points and updating centroids.",
+              "correct": true
+            },
+            {
+              "text": "Adding labels and removing labels."
+            },
+            {
+              "text": "Training and testing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Two steps until stable."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It has no labels."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is supervised."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 6.5.1 — k-means",
+          "note": "Watch the crosses move.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"km\",\"engine\":\"kmeans\",\"width\":600,\"height\":440});",
+          "expect": {
+            "km": {
+              "iterations": "3",
+              "sse": "8.525"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bv",
+      "locator": "6.6",
+      "title": "Bias–variance",
+      "eyebrow": "The central trade-off",
+      "body": "<p>Too simple a model is biased (underfits: high error everywhere). Too flexible a model has high variance (overfits: low train, high test error). The best model sits between. More data reduces variance; better features reduce bias.</p>",
+      "questions": [
+        {
+          "id": "bvq",
+          "prompt": "High train error and high test error indicate…",
+          "choices": [
+            {
+              "text": "High bias (underfitting).",
+              "correct": true
+            },
+            {
+              "text": "Overfitting."
+            },
+            {
+              "text": "Leakage."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The model is too simple."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That has low train error."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That shows unrealistically good scores."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

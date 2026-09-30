@@ -605,7 +605,7 @@ html {
   --secondary: oklch(0.94 0.03 330);
   --secondary-foreground: oklch(0.42 0.06 335);
   --muted: oklch(0.93 0.028 330);
-  --muted-foreground: oklch(0.58 0.05 330);
+  --muted-foreground: oklch(0.55 0.05 330);
   --accent: oklch(0.88 0.06 320);
   --accent-foreground: oklch(0.46 0.11 330);
   --destructive: oklch(0.62 0.19 15);
@@ -1241,6 +1241,13 @@ html {
     /* full-strength, not dampened: mixing toward the background drops below
        WCAG AA contrast on the lighter themes well before it looks "faded" */
     color: var(--muted-foreground);
+    opacity: 1;
+    transition: opacity 180ms var(--ease-strong, ease-out);
+  }
+  /* The hint fades the moment you engage with the document instead of
+     sitting under the caret until the first keystroke. */
+  .tiptap-editor .tiptap.ProseMirror-focused p.is-editor-empty:first-child::before {
+    opacity: 0;
   }
   .tiptap-editor .tiptap :where(h1, h2, h3, h4, h5, h6) {
     font-weight: 700;
@@ -1792,4 +1799,29 @@ html {
    up (data-keyboard is set by hooks/use-keyboard-inset.ts). */
 html[data-keyboard='open'] .hide-with-keyboard {
   display: none;
+}
+
+/* Dimmed secondary prose in the LIGHT themes.
+ *
+ * `text-muted-foreground/70` and `/80` carry real prose (sidebar labels,
+ * captions, descriptions; 31 call sites). In the light themes --muted-foreground
+ * is tuned to just clear AA at full strength (default 5.71:1), so any dimming
+ * below 100% drops it under 4.5:1 (default @70% = 2.37:1, @80% = 2.94:1;
+ * scripts/accent-contrast-audit.mjs prints the numbers). Dark themes have the
+ * headroom and are untouched. The /60, /50 and /40 tiers stay dimmed: they are
+ * separators, placeholders and inactive glyphs, held to 3:1 or exempt.
+ * Specificity (:not() list) beats the utility class wherever it is applied. */
+:root:not(.dark, .dim, .midnight, .contrast, .mountains, .diva) .text-muted-foreground\/70,
+:root:not(.dark, .dim, .midnight, .contrast, .mountains, .diva) .text-muted-foreground\/80 {
+  color: var(--muted-foreground);
+}
+
+/* Minimum 24x24 CSS px hit area (WCAG 2.2 SC 2.5.8) for icon-only controls
+ * whose glyph is smaller. Centres the icon; the visual size is unchanged. */
+.hit-24 {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
 }

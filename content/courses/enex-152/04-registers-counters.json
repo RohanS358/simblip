@@ -1,0 +1,331 @@
+{
+  "title": "Registers and counters",
+  "kicker": "ENEX 152 · Digital Logic · Registers and Counters",
+  "subtitle": "Line up flip-flops and you can store a word, shift it, or count with it.",
+  "sections": [
+    {
+      "id": "reg",
+      "locator": "4.1",
+      "title": "Registers",
+      "eyebrow": "Storing a word",
+      "body": "<p>An n-bit register is n D flip-flops sharing one clock: on each clock edge all bits load in parallel. A <b>load-enable</b> input decides whether the register takes new data or holds. Registers are how a CPU keeps values between steps.</p>",
+      "worked": [
+        {
+          "toc": "Count",
+          "why": "A 16-bit register has how many flip-flops?"
+        },
+        {
+          "toc": "Answer",
+          "why": "One per bit.",
+          "math": "16",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ld",
+          "prompt": "Without a load-enable, a register built from D flip-flops would…",
+          "choices": [
+            {
+              "text": "Hold forever."
+            },
+            {
+              "text": "Never change."
+            },
+            {
+              "text": "Take new data on every clock edge.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "D is sampled each edge."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It changes each edge."
+            },
+            {
+              "title": "Correct.",
+              "body": "It could not hold a value."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "shift",
+      "locator": "4.2",
+      "title": "Shift registers",
+      "eyebrow": "Moving bits",
+      "body": "<p>Connect each flip-flop’s Q to the next one’s D: on every clock edge the word shifts one place. Serial-in/serial-out delays data by n clocks; serial-in/parallel-out turns a bit stream into a word (and the reverse converts parallel to serial, used in UART/SPI). Shifting left multiplies by 2; right divides by 2.</p>",
+      "worked": [
+        {
+          "toc": "Shift",
+          "why": "1011 shifted left by one (new bit 0)."
+        },
+        {
+          "toc": "Result",
+          "why": "0110 → value doubles, dropping the old top bit.",
+          "math": "10110_2\\to 0110_2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dly",
+          "prompt": "A 4-bit serial-in serial-out shift register delays a bit by…",
+          "choices": [
+            {
+              "text": "4 clock cycles.",
+              "correct": true
+            },
+            {
+              "text": "1 clock cycle."
+            },
+            {
+              "text": "No delay."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One per stage."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only one stage."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It always delays."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 4.2.1 — 4-bit shift register",
+          "note": "A bit entered now comes out four clocks later.",
+          "script": "var d = create(\"input\", { value: 1, name: \"SIN\" });\nvar c = create(\"clock\", { f: 1, name: \"CLK\" });\nvar r = create(\"register4\", { name: \"SHIFT\" });\nvar o = create(\"output\", { name: \"SOUT\" });\nconnect(d.out, r.sin, \"wire\");\nconnect(c.out, r.clk, \"wire\");\nconnect(r.sout, o.in, \"wire\");\nvar s_d = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"SIN\", targetObjectId: d, targetParamName: \"value\" });"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-sh",
+          "prompt": "<p>The byte 0011 0100 (52) is shifted left two places, zero-filled. Value?</p>",
+          "answer": "Shifting left by 2 multiplies by 4: 52 × 4 = <b>208</b> = 1101 0000."
+        }
+      ]
+    },
+    {
+      "id": "async",
+      "locator": "4.3",
+      "title": "Asynchronous (ripple) counters",
+      "eyebrow": "Count in binary",
+      "body": "<p>Chain T flip-flops (T = 1) so each one clocks the next: the first toggles every clock, the second every two, and so on — the outputs count in binary. An n-bit counter has 2ⁿ states and its top bit runs at f/2ⁿ. Drawback: the change ripples through, so outputs briefly show wrong values (glitches) and the max clock is limited by the delay of n stages.</p>",
+      "worked": [
+        {
+          "toc": "Divide",
+          "why": "A 4-bit counter is clocked at 1600 Hz. Frequency of Q3 (the top bit):"
+        },
+        {
+          "toc": "Answer",
+          "why": "1600 ÷ 2⁴.",
+          "math": "100\\ \\text{Hz}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mod",
+          "prompt": "An n-bit binary counter has how many states?",
+          "choices": [
+            {
+              "text": "2ⁿ.",
+              "correct": true
+            },
+            {
+              "text": "n."
+            },
+            {
+              "text": "n²."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Counts 0 to 2ⁿ − 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Far too few."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr2",
+          "caption": "Figure 4.3.1 — 4-bit counter",
+          "note": "Q0 is half the clock, Q1 a quarter, and so on.",
+          "script": "var c = create(\"clock\", { f: 1, name: \"CLK\" });\nvar k = create(\"counter4\", { mod: \"16\", dir: \"0\", name: \"CNT\" });\nvar q0 = create(\"output\", { name: \"Q0\" });\nvar q1 = create(\"output\", { name: \"Q1\" });\nvar q2 = create(\"output\", { name: \"Q2\" });\nvar q3 = create(\"output\", { name: \"Q3\" });\nconnect(c.out, k.clk, \"wire\");\nconnect(k.q0, q0.in, \"wire\");\nconnect(k.q1, q1.in, \"wire\");\nconnect(k.q2, q2.in, \"wire\");\nconnect(k.q3, q3.in, \"wire\");"
+        }
+      ]
+    },
+    {
+      "id": "sync",
+      "locator": "4.4",
+      "title": "Synchronous counters",
+      "eyebrow": "One clock for all",
+      "body": "<p>In a synchronous counter every flip-flop shares the clock and logic decides which toggle: bit k toggles when all lower bits are 1. No ripple, so it is faster and glitch-free at the cost of a few AND gates. Up/down counting just changes that logic.</p>",
+      "questions": [
+        {
+          "id": "sy",
+          "prompt": "Why is a synchronous counter faster than a ripple counter?",
+          "choices": [
+            {
+              "text": "All flip-flops change on the same clock edge.",
+              "correct": true
+            },
+            {
+              "text": "It uses fewer flip-flops."
+            },
+            {
+              "text": "It has no clock."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "No ripple delay."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Same number."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It does."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modn",
+      "locator": "4.5",
+      "title": "Modulo-N counters",
+      "eyebrow": "Counting to a chosen number",
+      "body": "<p>To count 0…N−1, detect the state N and immediately reset (asynchronous clear) or load 0 (synchronous). A decade (mod-10) counter detects 1010 (10) and resets to 0000. Number of flip-flops needed: n = ⌈log₂ N⌉.</p>",
+      "worked": [
+        {
+          "toc": "Bits",
+          "why": "A mod-60 counter for seconds. Flip-flops needed:"
+        },
+        {
+          "toc": "Answer",
+          "why": "2⁵ = 32 < 60 ≤ 64 = 2⁶, so six flip-flops.",
+          "math": "\\lceil\\log_2 60\\rceil=6",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dec",
+          "prompt": "A mod-10 counter needs at least how many flip-flops?",
+          "choices": [
+            {
+              "text": "3."
+            },
+            {
+              "text": "4.",
+              "correct": true
+            },
+            {
+              "text": "10."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only 8 states."
+            },
+            {
+              "title": "Correct.",
+              "body": "2³ = 8 < 10 ≤ 16."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not one per state."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-mod",
+          "prompt": "<p>A 1 MHz clock drives a mod-1000 counter built from mod-10 stages. Output frequency?</p>",
+          "answer": "1 MHz ÷ 1000 = <b>1 kHz</b>."
+        }
+      ]
+    },
+    {
+      "id": "ring",
+      "locator": "4.6",
+      "title": "Ring and Johnson counters",
+      "eyebrow": "Shift registers that loop",
+      "body": "<p>A <b>ring counter</b> circulates a single 1 round an n-bit shift register: n states, and each state is decoded by one bit (no logic). A <b>Johnson</b> (twisted-ring) counter feeds back the <i>inverted</i> last output, giving 2n states with the same flip-flops.</p>",
+      "worked": [
+        {
+          "toc": "Sequence",
+          "why": "A 4-bit Johnson counter from 0000: 0000 → 1000 → 1100 → 1110 → 1111 → 0111 → 0011 → 0001 → 0000."
+        },
+        {
+          "toc": "Count",
+          "why": "That is 8 states from 4 flip-flops.",
+          "math": "2n=8",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "jc",
+          "prompt": "An n-bit Johnson counter has how many states?",
+          "choices": [
+            {
+              "text": "n."
+            },
+            {
+              "text": "2ⁿ."
+            },
+            {
+              "text": "2n.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the ring counter."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a binary counter."
+            },
+            {
+              "title": "Correct.",
+              "body": "Inverted feedback doubles the ring."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

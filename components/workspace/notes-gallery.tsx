@@ -266,7 +266,7 @@ function GalleryTodos() {
                 type="button"
                 aria-label={`Delete ${t.text}`}
                 onClick={() => removeTodo(t.id)}
-                className="mt-[2px] shrink-0 text-muted-foreground opacity-0 transition-[opacity,color] duration-150 hover:text-destructive focus-visible:opacity-100 group-hover/todo:opacity-100"
+                className="hit-24 -my-1 shrink-0 text-muted-foreground opacity-0 transition-[opacity,color] duration-150 hover:text-destructive focus-visible:opacity-100 group-hover/todo:opacity-100"
               >
                 <Trash2 className="h-3 w-3" />
               </button>
@@ -450,7 +450,7 @@ function GalleryCalendar() {
                 type="button"
                 aria-label={`Delete ${e.title}`}
                 onClick={() => removeEvent(e.id)}
-                className="shrink-0 text-muted-foreground opacity-0 transition-[opacity,color] duration-150 hover:text-destructive focus-visible:opacity-100 group-hover/ev:opacity-100"
+                className="hit-24 -my-1 shrink-0 text-muted-foreground opacity-0 transition-[opacity,color] duration-150 hover:text-destructive focus-visible:opacity-100 group-hover/ev:opacity-100"
               >
                 <Trash2 className="h-3 w-3" />
               </button>

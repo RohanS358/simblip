@@ -1,0 +1,754 @@
+(Micro Syllabus)
+DATABASE MANAGEMENT SYSTEM
+ENCT 301
+Year/Part: III/I
+Teaching Schedule
+Examination Scheme
+Theory
+L
+T
+P
+Total
+3
+1
+3
+7
+Practical
+Final
+Duration (Hrs)
+3
+Assessment
+Marks
+40
+Marks
+60
+Assessment
+Marks
+50
+Final
+Duration (Hrs)
+0
+Tota
+l
+Marks
+0
+150
+Depth Codes
+E-Explanation
+DV-Derivation
+NUM-Numerical
+C-Circuit
+DW-Drawing
+PRG-Programming
+D-Definition
+P-Proof
+S-State
+MP- Mini Project
+QA- Question Answer
+EXP-Experiment
+Q- Quiz
+REV-Review / Recap
+ST- Surprise Test
+Unit
+Topic/ Sub topic
+Depth
+Code
+1
+Introduction
+1.1 Application and evolution
+D, E
+of database
+1.2 Data abstraction (Physical,
+logical, and view level) D, E, I
+and data independence
+1.3 Schema and instances
+D, E, I
+Evaluation
+Unit
+2
+Topic/ Sub topic
+Data Models
+2.1. Introduction to data
+models (Entity-relationship,
+relational, object model,
+hierarchical, network, graph
+data models)
+DM-Demonstration
+I-Illustration
+ACT-Activity-based
+Learning
+PS- Problem Solving
+MT-Mid Term Test
+Description of Depth
+- Definition of data, database and database
+management systems
+- Discussion of application and significance
+of databases and DBMS
+- History of databases and evolution to
+recent trends
+Actual
+plan
+Week
+L T P
+3 1 3
+1.5
+3
+1
+- Description of data abstraction levels along 1
+with block diagram and their significance
+- Principal of physical data independence
+along with practical significance
+- Definition of schema and instances along 0.5 1
+with practical examples
+QA
+Depth
+Code
+D, E, I
+Actual Week
+plan
+L T P
+7 2 6 2, 3
+- Description and significance of data models 0.5
+2
+- Brief description of each type of data model
+- Illustrative example of each data model
+Description of Depth
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+2.2 E-R model
+2.2.1 Entities and entity sets
+2.2.2 Attributes and keys
+2.2.3 Strong and weak entity
+sets
+2.2.4 Relationship and
+relationship sets
+(Mapping cardinalities)
+2.2.5 Specialization,
+generalization and
+aggregation
+2.3 Relational model
+2.3.1 Concept of relational
+model, key constraints
+2.3.2 Converting ER model
+into relational model
+Evaluation
+Unit
+3
+Topic/ Sub topic
+Relational Query
+Languages
+3.1 Relational algebra
+3.2 Concept of DDL, DML
+and DCL
+Actual Week
+plan
+L T P
+- Description and illustration of various 3.5 1 3 2
+D, E, I, DW, concepts and notations in ER models
+ACT
+- Illustration with ER diagram examples
+- Discussion of alternate notation and
+conventions
+- Exercises with mini-cases to design ER
+diagrams
+- Group activities to study real cases and
+design ER models (This can be done for their
+mini course project)
+- Drawing ER diagrams using CASE tools
+D, E, I, DW, - Definition and description of the relational 3 1 3 3
+ACT
+model and key terminologies
+- Description and illustration of different types
+of keys and foreign key constraint
+- Notational conventions and drawing of
+relational schema diagrams
+- Converting ER diagrams to relational
+schemas for different cases (eg, one-to-many
+relations, many-to-many relations, etc.)
+- Group activity/mini-project may be
+continued to convert the develop ER diagram
+to relational schema diagram
+QA, Q, MP
+Depth
+Code
+Description of Depth
+Depth
+Code
+Description of Depth
+D, E, PS
+D, E
+3.3 Overview of the SQL
+query language-DDL and D, E, PS
+DML queries
+3.4 Set operations
+D, E, PS
+Actual Week
+plan
+L T P
+7 3 9 4,5,6
+- Description and usage of relational algebra 1.5 1
+operators with examples
+- Selection, projection, Cartesian product,
+various types of join, rename operations
+- Set operations
+- Modification of relations with assignment
+operator
+- Example queries with relational algebra
+- Practice problems with given cases/schema
+- Description/distinction of DDL, DML and 0.5
+1 3
+DCL queries along with examples in SQL
+- Description of SQL and basics
+- Relation with relational algebra
+- DDL queries and DML queries with
+examples
+- Practice examples
+- Set operations in SQL queries along with
+examples and problem solving
+0.5
+0.5
+3.5 Aggregate functions –
+D, E, PS
+GROUP BY – HAVING
+- Aggregate operations in SQL queries along 0.5
+with examples and problem solving
+3.6 Joins and types of joins
+- Description of various types of joins in SQL 0.5
+along with example
+- Practice with given problems
+D, E, PS
+3
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+Depth
+Code
+3.7 Nested sub queries
+D, E, PS
+3.8 Database modification
+(Insert, update, delete)
+D, E, PS
+3.9 Views
+D, E, PS
+3.10 Triggers and stored
+procedures
+D, E, PS
+3.11 Privilege and roles
+D, E
+management – GRANT
+and REVOKE statements
+Evaluation
+Unit
+4
+Topic/ Sub topic
+Database Constraints
+and Normalization
+4.1 Integrity constraints and
+domain constraints
+4.2 Assertions
+Actual Week
+plan
+L T P
+- Description of various types of nested SQL 0.5
+1
+queries along with examples and problem
+solving
+- Description and examples of insert, update 0.5
+and delete queries in SQL for database
+modification.
+- Practice with given problems
+1
+- Concept of views and its significance in
+databases
+3
+- Creating and using views in SQL
+- Examples and practice problems
+- Managing access control with views
+- Updating views
+- Materialized views
+0.5
+- Creating and using triggers along with
+examples and problems
+- SQL functions and language constructs for
+stored procedures
+- External language routines
+0.5
+- Description of privilege and role based
+access control in DBMS
+- Description of GRANT and REVOKE
+commands, creation of users and roles, along
+with examples
+- Authorization graph for database
+administration
+Description of Depth
+QA, PS, Q,
+MP
+Depth
+Code
+D, E
+D, E
+4.3 Functional dependencies
+D, E, PS
+4.4 Different normal forms
+D, E, PS
+(1NF, 2NF, 3NF, BCNF)
+Description of Depth
+Actual Week
+plan
+L T P
+6 2 6 7, 8
+0.5 1
+- Description of integrity and domain
+constraints along with examples in SQL
+- Relational integrity and key constraints
+- Creating and using assertions in SQL along 0.5
+with examples
+- Functional dependency theory and concepts
+- Concepts and examples of functional
+dependency and attribute closures,
+Armstrong’s axioms, algorithms and tests
+related to closures, etc.
+- Examples and problems related to
+functional dependencies / attribute closures
+- Definition and significance of database
+normalization
+- Definition and criteria for different normal
+forms along with examples
+- Algorithms/procedures for achieving
+database relations in the above normal forms
+- Lossless decomposition of relations
+- Examples and exercises for obtaining the
+normalized forms using given
+3
+2
+3
+1 3
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+Depth
+Code
+Description of Depth
+Actual Week
+plan
+L T P
+algorithms/procedures
+- Properties and comparison of 3NF and
+BCNF
+Evaluation
+Unit
+5
+Topic/ Sub topic
+Query Processing and
+Optimization
+5.1 Query processing,
+optimization and evaluation
+5.2 Transformation of
+relational expressions
+QA, Q, MP
+Depth
+Code
+D, E
+D, E, I
+5.3 Techniques of
+D, E, I
+implementing query
+optimization - Cost based
+optimization and heuristic
+optimization
+5.4 Query evaluation D, E, I,
+Materialization and
+DM
+pipelining
+6
+5.5 Denormalization for
+performance
+D, E
+5.6 Materialized view
+D, E, DM
+5.7 Performance tuning
+D, E, DM
+Evaluation
+QA, Q
+File Structure and
+Hashing
+6.1 Disks and storage
+Description of Depth
+Actual Week
+plan
+L T P
+4 1 3
+9
+1
+- Description and significance of query
+processing and optimization
+- Description of various stages of query
+processing along with block diagram
+- Transformation of relational expressions to 0.5 1
+equivalent forms using various rules
+- Examples and exercises
+- Description of Cost-based optimization and 0.5
+heuristics along with illustrative examples
+- Description of parameters and statistics
+used for cost estimations
+- Description of query evaluation and
+execution plan
+- Description of materialization and
+pipelining schemes along with
+comprehensive examples
+- Demand-driven and Producer-driven
+pipelining
+- Demonstration of query execution plan
+using a DBMS platform (like MS SQL
+server)
+- Description of denormalization used for
+performance along with practical examples
+0.5
+0.5
+- Description and significance of materialized 0.5
+views
+- Demonstration using a DBMS platform
+(like PostgreSQL)
+0.5
+- Description of database performance
+degradation and significance of database
+tuning
+- Description of performance tuning
+operations in DBMS like profiling, preparing
+workload, using performance tuning wizards,
+etc.
+- Demonstration using platforms like MS
+SQL server or PostgreSQL
+5
+D, E
+- Description of various physical storage
+systems including technologies like RAID
+1
+3
+2
+6 10, 11
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+Depth
+Code
+6.2 Records organizations
+D, E, I
+6.3 Ordered indices
+D, E, I
+6.4 B+ tree index
+D, E, I
+6.5 Hashing concepts - Static
+and dynamic hashing
+D, E, I
+Evaluation
+QA, Q
+Unit
+Topic/ Sub topic
+7
+Transaction Processing
+and Concurrency
+Control
+7.1 Transaction and transaction D, E
+model - State diagram
+7.2 ACID properties
+7.3 Concurrent execution of
+transactions
+7.4 Serializability (Conflict
+and view serializability)
+7.5 Lock based protocols
+Depth
+Code
+Description of Depth
+Actual Week
+plan
+L T P
+1
+- Description of file organization
+- Fixed and variable length records
+- Sequential record organization
+- Multi-cluster record organization
+- Database buffer management
+1
+- Description of ordered indices along with
+illustrative examples
+- Primary and secondary indices
+- Dense vs Sparse indices
+- Searching keys in ordered indices
+- Insertions and deletions in ordered indices
+- Multi-level sparse indices
+- Description of B+ tree index structure along 1
+with rules and examples
+- Searching keys in B+ tree index
+- Properties and advantages of B+ tree index
+- Comparison with B tree index
+1
+- Basics of hash functions
+- Description of hash index with examples
+- Static hashing concepts – search and
+inserting keys
+- Overflow buckets
+- Concept of dynamic hashing using
+extendable hash index
+- Bitmap indices
+Description of Depth
+1 3
+1 3
+Actual Week
+plan
+L T P
+5 2 6 12, 13
+0.5
+- Definition and significance of
+3
+transactions along with practical
+examples
+- Description of states of a transaction
+along with a state transition diagram
+D, E, I
+- Description of ACID properties (Atomicity, 1 1
+Consistency, Isolation and Durability)
+- Illustrative example of each property
+0.5
+D, E, I
+- Description of concurrent execution of
+3
+transactions and the importance of
+concurrency along with examples
+- Challenges in concurrent transactions
+execution maintaining ACID properties
+1 1
+D, E, I, PS - Concept of schedules and serializability of
+transactions
+- Conditions for conflict serializability and
+view serializability along with illustrative
+examples
+- Solving example problems of serializability
+1
+D, E, I
+- Description of locks, types and their
+compatibility matrix
+- Description of two-phase locking protocol
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+Depth
+Code
+Description of Depth
+Actual Week
+plan
+L T P
+along with example
+- Implementation of locking using lock table
+Unit
+8
+7.6 Deadlock handling and
+prevention
+D, E, I
+7.7 Multiple granularity
+D, E, I
+Evaluation
+QA, Q
+Topic/ Sub topic
+Depth
+Code
+Crash Recovery
+8.1 Failure classification
+D, E
+8.2 Recovery and atomicity
+D, E, I
+8.3 Log-based recovery
+D, E, I,
+DM, PS
+8.4 Shadow paging
+D, E, I
+8.5 High availability using
+remote backup systems
+D, E, I,
+DM
+Evaluation
+QA, Q
+Unit
+Topic/ Sub topic
+Depth
+Code
+9
+Advanced Database
+Concepts
+9.1 Concept of object-oriented D, E
+databases
+- Introduction to deadlock in transactions
+along with examples
+- Description of Deadlock prevention
+strategies
+- Deadlock detection with wait-for-graph
+- Deadlock recovery
+- Description of multiple granularity – coarse
+and fine level along with example diagram.
+Description of Depth
+- Types of system failures
+- Stable storage implementation
+- Block-level data access
+1
+Actual Week
+plan
+L T P
+4 1 3 14
+0.5
+- Basic concept of recovery and atomicity 0.5
+- Detailed working mechanism of log-based 1.5 1 3
+recovery along with examples
+- Immediate and deferred database
+modification
+- Undo and Redo operations, recovering from
+failure, recovery algorithm
+- Log-based recovery with Checkpointing
+along with examples
+- Demonstration of Log-based backup and
+recovery using DMBS platform like MS SQL
+server.
+- Basic introduction to shadow paging along 0.5
+with block diagram and example
+- Advantages and disadvantages of shadow
+paging
+1
+- Introduction to remote backup systems
+along with block diagram
+- Transfer of control
+- Types of remote backup systems
+- Demonstration of remote backup systems in
+data centers if possible
+Description of Depth
+- Basic concepts of object-based databases
+- Object-relational data model
+- Complex data types and nesting
+- Persistence
+Actual Week
+plan
+L T P
+4 1 3 15
+1
+(Micro Syllabus)
+Unit
+Topic/ Sub topic
+Depth
+Code
+Description of Depth
+Actual Week
+plan
+L T P
+- Object-relational mapping (ORM)
+9.2 Distributed database model D, E
+9.3 Concept of data
+warehousing and online
+analytical processing
+D, E
+9.4 Basic concepts of NoSQL D, E, DM
+and big data
+Evaluation
+- Basic concepts of database partitioning and 1
+replication
+- Homogeneous and heterogeneous
+distributed database systems
+- Basic concepts of distributed file systems
+1
+- Basic concepts and architecture of data
+warehousing along with block diagram.
+- ETL operations, multidimensional data and
+warehouse schemas
+- Basic introduction to OLAP
+- Basic introduction to Big Data and Big Data 1
+storage systems
+- Basic introduction to Hadoop distributed
+file system, key-value storage systems and
+MapReduce
+- Demonstration with a platform like
+MongoDB
+1 3
+QA
+References: (Primarily based on the syllabus, and relevant chapters may be consulted as needed)
+1. Silberschatz, A., Korth, H.F., Sudarshan, S. (2019). Database system concepts. McGraw-Hill.
+2. Elmasri, R., Navathe, S.B. (2021). Fundamentals of database systems. Pearson.
+3. Ramakrishnan, R., Gehrke, J. (2002). Database management systems. McGraw-Hill.
+4. Connolly, T.M., Begg, C.E. (2021). Database systems: A practical approach to
+design,implementation, and management. Pearson.
+(Model Question)
+Database Management System
+ENCT 301
+Year/Part: III/I
+QN
+1
+2
+Question
+Explain the roles of the various layers in data abstraction along with a block diagram
+Design an ER-model for the following mini-case, along with proper cardinality
+constraints.
+“……..Mini-case description……………”
+Explain referential integrity constraint in the relational model along with an
+illustrative example.
+3
+Consider the given relational schema ……………………….
+………………….. schema description
+a) Write a relational algebra query for ….. (query with select/join/group by, etc.)
+b) Write a relational algebra query for …… (database modification query)
+4
+Consider the given relational database schema …………………….
+…………….. schema description
+a) Write an SQL query for … (query with select/joins/group by, etc.)
+b) Write an SQL query for …. (DDL create/alter query)
+c) Write an SQL query for … (insert/update/delete query)
+d) Write an SQL query for … (view/trigger/procedure/grant query)
+5
+a) Formally define a functional dependency. Explain the Armstrong’s axioms for
+functional dependencies.
+b) Explain the conditions for BCNF and 3NF. Compare them and explain which
+normal form would you use in which condition along with proper justification.
+Describe the Pipelining execution strategy for query evaluation. Explain the key
+6
+differences between Denormalization and Materialized Views, focusing on the
+motivation for their use and their impact on data redundancy and consistency.
+a) Why is the B+ tree the preferred index structure for file organization in most
+7
+modern relational database systems?
+b) Briefly describe the mechanism that allows Extendible/Dynamic Hashing to
+grow without reorganizing the entire file.
+a) Define the concept of Conflict Serializability. Provide a involving two
+8
+transactions (T1 and T2) that is NOT serializable and explain why it is not
+Conflict Serializable.
+b) Briefly describe the four primary states in database. Illustrate these states
+using a simple state diagram.
+9
+Describe the mechanism by which Shadow Paging ensures atomicity and durability,
+and state its main advantage over log-based recovery and its primary disadvantage.
+10
+Describe the two primary strategies for distributing data across multiple physical
+locations: Data Replication and Data Fragmentation stating a key advantage of each
+strategy.
+Note: Number of questions and distribution of marks are indicative only.
+Marks
+Unit
+3
+6+3
+1
+2
+2+2
+3
+2*4
+3
+1+2
+4
+3+3
+2+3
+3
+5
+6
+4
+1+3
+7
+3
+2+2
+8
+2+2
+9

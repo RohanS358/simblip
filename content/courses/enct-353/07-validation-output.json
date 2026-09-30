@@ -1,0 +1,264 @@
+{
+  "title": "Verification, validation and output analysis",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapters 7–8",
+  "subtitle": "A simulation gives numbers. These are the checks that say whether to believe them, and how much.",
+  "sections": [
+    {
+      "id": "vv",
+      "locator": "7.1",
+      "title": "Verification versus validation",
+      "eyebrow": "Two questions",
+      "body": "<p><em class=\"term\">Verification</em>: is the model built <em>right</em>? — does the program faithfully implement the conceptual model (debugging, code walkthroughs, tracing, checking against hand calculations, simple cases with known answers)? <em class=\"term\">Validation</em>: is it the <em>right</em> model? — does it reproduce the real system’s behaviour closely enough for its purpose (comparing with real data, expert review, sensitivity analysis)? Naylor and Finger: build face-valid assumptions, test them, and compare the model’s output with the real system.</p>",
+      "questions": [
+        {
+          "id": "vvq",
+          "prompt": "A program crashes on negative inputs. This is a problem of…",
+          "choices": [
+            {
+              "text": "Validation."
+            },
+            {
+              "text": "Random numbers."
+            },
+            {
+              "text": "Verification — the code does not do what was intended.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The issue is correctness of implementation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Validation concerns fit to reality."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 7.1.1 — where V&V apply",
+          "note": "Verification checks the last step; validation checks the whole chain.",
+          "script": "diagram(\"direction: right\\n[Real system] as r #blue\\n[Conceptual model] as c #violet\\n[Computer program] as p #mint\\nr -> c : modelling\\nc -> p : programming\\np --> c : VERIFICATION: same model?\\nc --> r : VALIDATION: same behaviour?\");"
+        }
+      ]
+    },
+    {
+      "id": "errors",
+      "locator": "7.2",
+      "title": "Calibration and sources of error",
+      "eyebrow": "Fitting to reality",
+      "body": "<p><em class=\"term\">Calibration</em> adjusts model parameters until the output matches observed data, iterating between model and real system. Errors: wrong assumptions, wrong input distributions, sampling error, programming bugs, truncation. Techniques: the Turing-style test (can experts tell simulated output from real?), extreme-condition tests, sensitivity analysis (vary an input 10% — does the output change sensibly?).</p>",
+      "questions": [
+        {
+          "id": "sens",
+          "prompt": "A sensitivity analysis varies…",
+          "choices": [
+            {
+              "text": "The random seed only."
+            },
+            {
+              "text": "An input or parameter slightly and watches how the output responds.",
+              "correct": true
+            },
+            {
+              "text": "The output directly."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is replication."
+            },
+            {
+              "title": "Correct.",
+              "body": "Unexpected sensitivity reveals modelling problems."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Output is observed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "locator": "8.1",
+      "title": "Confidence intervals",
+      "eyebrow": "How sure are we?",
+      "body": "<p>One run is a sample of size one. Simulation output is random, so report a <em class=\"term\">confidence interval</em> around the estimate: x̄ ± z·s/√n (or t for small n). A 95% interval means: if the experiment were repeated many times, about 95% of such intervals would contain the true mean. The demonstration builds 40 intervals from fresh samples; the coverage is <b>97.5%</b> (expected ≈ 95).</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "20 replications give a mean wait of 12.0 min with standard deviation 3.0."
+        },
+        {
+          "toc": "Interval",
+          "why": "95% CI half-width ≈ 1.96·3/√20 (use t₁₉ = 2.09 for small n: 1.40).",
+          "math": "\\pm 1.31\\ (z)\\ \\text{or}\\ \\pm1.40\\ (t)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ciq",
+          "prompt": "Doubling the number of replications changes the CI width by a factor of about…",
+          "choices": [
+            {
+              "text": "1/√2 ≈ 0.71.",
+              "correct": true
+            },
+            {
+              "text": "1/2."
+            },
+            {
+              "text": "No change."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Width ∝ 1/√n."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That needs four times as many."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "More data narrows it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 8.1.1 — many 95% intervals",
+          "note": "Green bars contain μ (the blue line); red ones miss.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ci\",\"engine\":\"confint\",\"intervals\":40,\"width\":600,\"height\":440});",
+          "expect": {
+            "ci": {
+              "coverage": "97.5",
+              "halfWidth": "3.92"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "clt",
+      "locator": "8.2",
+      "title": "Why averages are normal: the central limit theorem",
+      "eyebrow": "The justification",
+      "body": "<p>Whatever the shape of the population, the mean of n independent samples is approximately normal with standard deviation σ/√n. The exponential distribution (σ = 1) is very skewed, yet means of samples of 30 have standard deviation <b>0.184</b> against the theoretical <b>0.183</b>. This is why confidence intervals are valid for simulation averages.</p>",
+      "questions": [
+        {
+          "id": "cltq",
+          "prompt": "The standard deviation of sample means of size n is…",
+          "choices": [
+            {
+              "text": "σ."
+            },
+            {
+              "text": "σ·n."
+            },
+            {
+              "text": "σ/√n.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for single values."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Wrong direction."
+            },
+            {
+              "title": "Correct.",
+              "body": "Averaging shrinks the spread."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 8.2.1 — the CLT in action",
+          "note": "The histogram of sample means approaches the amber normal curve.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"clt\",\"engine\":\"clt\",\"population\":\"exponential\",\"n\":30,\"samples\":400,\"width\":600,\"height\":440});",
+          "expect": {
+            "clt": {
+              "sdOfMeans": "0.184",
+              "theorySd": "0.183"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bias",
+      "locator": "8.3",
+      "title": "Initial bias, replications and run length",
+      "eyebrow": "Practical advice",
+      "body": "<p>A simulation starts empty (an empty queue), which is not typical, so early observations are biased — the <em class=\"term\">warm-up</em> or transient period. Remedies: discard an initial segment (Welch's graphical method decides how much), run long enough, or start in a representative state. Independent <em class=\"term\">replications</em> (different seeds) give independent estimates to average; <em class=\"term\">batch means</em> cut one long run into batches and treat batch means as nearly independent.</p>",
+      "questions": [
+        {
+          "id": "warm",
+          "prompt": "The warm-up period is discarded to remove…",
+          "choices": [
+            {
+              "text": "Random number errors."
+            },
+            {
+              "text": "Verification bugs."
+            },
+            {
+              "text": "Bias from the artificial initial conditions.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Different problem."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Different problem."
+            },
+            {
+              "title": "Correct.",
+              "body": "Steady-state statistics should not include the transient."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A queue simulation starts empty. Why does its average wait underestimate the steady-state value if the first observations are included?</p>",
+          "answer": "Early customers find an empty, short queue, so their waits are small; including them pulls the average down. Discarding a warm-up period removes that initial-condition bias."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "8.4",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Verify the code, validate the model, calibrate the parameters.</li><li>Report confidence intervals; discard warm-up; use replications or batch means.</li></ul>"
+    }
+  ]
+}

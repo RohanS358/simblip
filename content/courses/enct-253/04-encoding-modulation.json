@@ -1,0 +1,322 @@
+{
+  "title": "Encoding, sampling and modulation",
+  "kicker": "ENCT 253 · Data Communication · Chapter 4",
+  "subtitle": "The four ways of turning information into signals — every combination of analog/digital data and signal.",
+  "sections": [
+    {
+      "id": "dd",
+      "locator": "4.1",
+      "title": "Digital data, digital signal: line codes",
+      "eyebrow": "Baseband",
+      "body": "<p><em class=\"term\">NRZ-L</em> ties the level to the bit; <em class=\"term\">NRZ-I</em> flips level on a 1 (a transition is easier to detect than an absolute level). <em class=\"term\">RZ</em> returns to zero mid-bit. <em class=\"term\">Manchester</em> puts a transition in every bit (low→high = 1) and <em class=\"term\">differential Manchester</em> codes a bit by whether there is a transition at its start. <em class=\"term\">Bipolar AMI</em> alternates the polarity of 1s, so there is no DC component; its weakness is long runs of 0s, cured by scrambling: <em class=\"term\">B8ZS</em> replaces eight 0s with 000+−0−+, and <em class=\"term\">HDB3</em> replaces four 0s with 000V or B00V. The bits 10110 give AMI <b>+0-+0</b>.</p>",
+      "questions": [
+        {
+          "id": "ami",
+          "prompt": "Bipolar AMI encodes successive 1s as…",
+          "choices": [
+            {
+              "text": "Alternating positive and negative pulses.",
+              "correct": true
+            },
+            {
+              "text": "Always positive pulses."
+            },
+            {
+              "text": "Transitions in mid-bit."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Zero is no pulse; this keeps the average voltage at zero."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is unipolar."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is Manchester."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.1.1 — line codes",
+          "note": "Compare four schemes on the same bits.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lc1\",\"engine\":\"linecode\",\"bits\":\"01001100011\",\"codes\":\"nrzl nrzi manchester diffmanchester\",\"width\":600,\"height\":440});"
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 4.1.2 — AMI versus B8ZS",
+          "note": "B8ZS breaks the run of zeros with deliberate violations.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lc2\",\"engine\":\"linecode\",\"bits\":\"100000000\",\"codes\":\"ami b8zs\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lc2": {
+              "b8zs": "+000+-0-+"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-b8",
+          "prompt": "<p>Encode 100000000 (a 1 followed by eight 0s) with B8ZS, assuming the previous pulse was negative.</p>",
+          "answer": "The 1 is +. Eight zeros become 000VB0VB: V has the polarity of the previous pulse, so: <b>+000+-0-+</b> (+ 000 + − 0 − +).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The waveform.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"linecode\",\"bits\":\"100000000\",\"codes\":\"b8zs\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "b8zs": "+000+-0-+"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ad",
+      "locator": "4.2",
+      "title": "Analog data, digital signal: PCM, DM",
+      "eyebrow": "Digitising voice",
+      "body": "<p><em class=\"term\">PCM</em>: sample at 8 kHz, quantise to 8 bits → 64 kb/s for one voice channel. <em class=\"term\">DPCM</em> sends the difference from a prediction; <em class=\"term\">delta modulation</em> sends one bit per sample: “up” or “down”. Non-uniform quantisation (companding) gives quiet sounds finer steps.</p>",
+      "worked": [
+        {
+          "toc": "Nyquist",
+          "why": "Voice limited to 4 kHz is sampled at 2 × 4000 = 8000 samples/s.",
+          "math": "f_s = 2f_{max} = 8\\ \\text{kHz}"
+        },
+        {
+          "toc": "Bit rate",
+          "why": "With 8 bits per sample.",
+          "math": "8000\\times8=64\\ 000\\ \\text{b/s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pcm",
+          "prompt": "Bit rate of PCM voice with 8 kHz sampling and 8-bit samples?",
+          "choices": [
+            {
+              "text": "64 kb/s.",
+              "correct": true
+            },
+            {
+              "text": "8 kb/s."
+            },
+            {
+              "text": "128 kb/s."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "8000 × 8."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Forgot the bits per sample."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is two channels."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "da",
+      "locator": "4.3",
+      "title": "Digital data, analog signal: ASK, FSK, PSK, QAM",
+      "eyebrow": "Modems and radios",
+      "body": "<p>A carrier sin(2πf<sub>c</sub>t) can carry bits by changing its amplitude (<em class=\"term\">ASK</em>), frequency (<em class=\"term\">FSK</em>) or phase (<em class=\"term\">PSK</em>). <em class=\"term\">QPSK</em> uses four phases so each symbol carries 2 bits; <em class=\"term\">QAM</em> varies amplitude and phase together (16-QAM = 4 bits/symbol). Bit rate = baud rate × bits per symbol.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A link runs at 2400 baud using 16-QAM."
+        },
+        {
+          "toc": "Bits/symbol",
+          "why": "16 states = 4 bits per symbol.",
+          "math": "\\log_2 16 = 4"
+        },
+        {
+          "toc": "Rate",
+          "why": "Bit rate = 2400 × 4.",
+          "math": "9600\\ \\text{b/s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "baud",
+          "prompt": "Baud rate versus bit rate — which is at least as large?",
+          "choices": [
+            {
+              "text": "Baud rate."
+            },
+            {
+              "text": "They are always equal."
+            },
+            {
+              "text": "Bit rate (when each symbol carries ≥ 1 bit).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only if symbols carry less than one bit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only for binary signalling."
+            },
+            {
+              "title": "Correct.",
+              "body": "bit rate = baud × bits per symbol."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 4.3.1 — ASK",
+          "note": "Amplitude encodes the bit.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ask\",\"engine\":\"modulation\",\"scheme\":\"ask\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
+        },
+        {
+          "id": "lab5",
+          "caption": "Figure 4.3.2 — FSK",
+          "note": "Frequency encodes the bit.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fsk\",\"engine\":\"modulation\",\"scheme\":\"fsk\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
+        },
+        {
+          "id": "lab6",
+          "caption": "Figure 4.3.3 — PSK",
+          "note": "Phase flips by 180° for 0.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"psk\",\"engine\":\"modulation\",\"scheme\":\"psk\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
+        }
+      ]
+    },
+    {
+      "id": "aa",
+      "locator": "4.4",
+      "title": "Analog data, analog signal: AM, FM, PM",
+      "eyebrow": "Radio",
+      "body": "<p>Modulation shifts a low-frequency message up to a frequency that antennas and channels handle well, and lets many stations share the air. <em class=\"term\">AM</em>: the carrier amplitude follows the message (bandwidth 2B, simple, noise-prone). <em class=\"term\">FM</em>: the carrier frequency follows it (wider bandwidth, much better noise resistance). <em class=\"term\">PM</em>: the phase follows it. Carson’s rule: FM bandwidth ≈ 2(Δf + B).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Commercial FM: peak deviation 75 kHz, audio bandwidth 15 kHz."
+        },
+        {
+          "toc": "Bandwidth",
+          "why": "Carson’s rule.",
+          "math": "BW\\approx2(75+15)=180\\ \\text{kHz}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fmam",
+          "prompt": "Why is FM less noise-prone than AM?",
+          "choices": [
+            {
+              "text": "FM uses less bandwidth."
+            },
+            {
+              "text": "Noise mostly changes amplitude, and FM information is in frequency.",
+              "correct": true
+            },
+            {
+              "text": "FM has no carrier."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It uses more."
+            },
+            {
+              "title": "Correct.",
+              "body": "An FM receiver can clip amplitude variations."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It has a carrier."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab7",
+          "caption": "Figure 4.4.1 — AM",
+          "note": "AM: the envelope follows the message.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"am\",\"engine\":\"modulation\",\"scheme\":\"am\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
+        },
+        {
+          "id": "lab8",
+          "caption": "Figure 4.4.2 — FM",
+          "note": "FM: the spacing of the waves follows it.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fm\",\"engine\":\"modulation\",\"scheme\":\"fm\",\"bits\":\"1011001\",\"width\":600,\"height\":440});"
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "locator": "4.5",
+      "title": "Why modulate at all",
+      "eyebrow": "Motivation",
+      "body": "<p>An antenna must be a sizeable fraction of a wavelength: for a 3 kHz audio tone (λ = 100 km) that is impractical, but a 100 MHz carrier (λ = 3 m) needs an antenna of about a metre. Modulation also enables frequency-division sharing of a channel.</p>",
+      "questions": [
+        {
+          "id": "ant",
+          "prompt": "What is one reason to modulate a low-frequency signal?",
+          "choices": [
+            {
+              "text": "So it can be radiated by a practical-size antenna.",
+              "correct": true
+            },
+            {
+              "text": "To reduce its power."
+            },
+            {
+              "text": "To make it digital."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Antenna size scales with wavelength."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Modulation can be analog."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Line codes: NRZ, Manchester, AMI (+B8ZS/HDB3 scrambling).</li><li>PCM: 8 kHz × 8 bits = 64 kb/s.</li><li>ASK/FSK/PSK/QAM carry bits; AM/FM/PM carry analog messages.</li><li>Bit rate = baud × bits per symbol.</li></ul>"
+    }
+  ]
+}

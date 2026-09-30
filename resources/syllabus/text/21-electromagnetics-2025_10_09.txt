@@ -1,0 +1,109 @@
+                             ELECTROMAGNETICS
+                                        ENEX 254
+
+Lecture       :3                                                                   Year :II
+Tutorial      :1                                                                   Part : II
+Practical     : 3/2
+
+Course Objectives:
+The objective of this course is to provide students with a basic mathematical concepts
+related to electromagnetic time invariant and time variant fields including electromagnetic
+wave and their transmission on different media
+
+1    Introduction                                                             (4 hours)
+      1.1   Scalar and vector fields
+      1.2   Operations on scalar and vector fields
+      1.3   Co‐ordinate systems (Cartesian, cylindrical and spherical) and conversions
+
+2    Electric Field                                                           (15 hours)
+      2.1  Coulomb’s law
+      2.2  Electric field intensity
+      2.3  Electric flux density
+      2.4  Gauss’s law and applications
+      2.5  Physical significance of divergence, divergence theorem
+      2.6  Electric potential, potential gradient
+      2.7  Energy density in electrostatic field
+      2.8  Electric properties of material medium
+      2.9  Free and bound charges, polarization, relative permittivity, electric dipole
+           electric boundary conditions
+      2.10 Current, current density, conservation of charge, continuity equation,
+           relaxation time
+      2.11 Boundary value problems, Laplace and Poisson equations and their
+           solutions, uniqueness theorem
+
+3    Magnetic Field                                                           (9 hours)
+      3.1   Biot‐Savart’s law
+      3.2   Magnetic field intensity
+      3.3   Ampere’s circuital law and its application
+      3.4   Magnetic flux density
+      3.5   Physical significance of curl, Stoke’s theorem
+      3.6   Scalar and magnetic vector potential
+      3.7   Magnetic properties of material medium
+     3.8    Magnetic force, magnetic torque, magnetic moment, magnetic dipole,
+            magnetization
+     3.9    Magnetic boundary condition
+
+4    Time Varying Fields                                                     (4 hours)
+     4.1    Faraday’s law, transformer EMF, motional EMF
+     4.2    Displacement current
+     4.3    Maxwell’s equations in integral and point forms
+
+5    Plane Waves                                                             (9 hours)
+     5.1    Wave propagation in lossless and lossy dielectric
+     5.2    Plane waves in free space, lossless dielectric, good conductor
+     5.3    Power and poynting theorem average power density
+     5.4    Reflection of plane wave at normal incidence
+     5.5    Standing wave and SWR
+     5.6    Input intrinsic impedance
+
+6    Transmission Lines                                                      (4 hours)
+     6.1    Transmission line equations (Taking analogy from wave equations)
+     6.2    Lossless, lossy and distortionless transmission lines
+     6.3    Input impedance, reflection coefficient, standing wave ratio
+
+Tutorial                                                                    (15 hours)
+    1.      Conversion of coordinate systems (Cartesian to cylindrical /spherical and
+            vice versa, cylindrical to spherical and vice versa)
+    2.      Electric field intensity and flux density (Coulomb’s law, Gauss law,
+            divergence, electric potential and energy density)
+    3.      Boundary condition, electric dipole, and boundary value problems
+    4.      Magnetic fields (Biot-Savart law, Ampere circuit law, Stoke’s theorem,
+            magnetic force and torque)
+    5.      Time varying fields (Transformer/motional EMF, displacement current)
+    6.      Wave propagation equations in lossy and lossless medium (Poynting
+            theorem, standing wave ratio and intrinsic impedance)
+    7.      Transmission line (Lossless, lossy and distortionless)
+
+Practical                                                                   (22.5 hours)
+    1.      Teledeltos (Electro‐conductive) paper mapping of electrostatic fields
+    2.      Determination of dielectric constant, display of a magnetic hysteresis loop
+    3.      Studies of wave propagation on a lumped parameter transmission line
+    4.      Microwave sources, detectors, transmission lines
+    5.      Standing wave patterns on transmission lines, reflections, power patterns on
+            transmission lines, reflections, power measurement
+    6.      Familiarizations of electric and magnetic field measurements using
+            simulation tool
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+
+
+        Chapter                   Hours                    Marks distribution*
+          1                          4                              5
+          2                        15                               20
+          3                         9                               12
+          4                         4                                6
+          5                         9                               12
+          6                         4                                5
+        Total                      45                               60
+        * There may be minor deviation in marks distribution.
+
+References
+    1.   Hayt, W. H. (2001). Engineering Electromagnetics. McGraw‐Hill Book
+         Company.
+    2.   Kraus, J. D. (1973). Electromagnetics. McGraw‐Hill Book Company.
+    3.   Rao, N. N. (1990). Elements of Engineering Electromagnetics. Prentice Hall.
+    4.   Devid K. Cheng, (1989). Field and Wave Electromagnetics. Addison‐Wesley.
+    5.   Sadiku, M. N. O. (2010). Elements of Electromagnetics. Oxford University
+         Press.
+

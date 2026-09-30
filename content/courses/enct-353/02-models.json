@@ -1,0 +1,278 @@
+{
+  "title": "Physical and mathematical models",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 2",
+  "subtitle": "Four kinds of model, and how a differential equation becomes a program.",
+  "sections": [
+    {
+      "id": "types",
+      "locator": "2.1",
+      "title": "Kinds of model",
+      "eyebrow": "Taxonomy",
+      "body": "<p><em class=\"term\">Physical</em> models are scaled or analogue versions of the real thing — static (a scale model of a building) or dynamic (a wind tunnel, a circuit that mimics a mechanical system). <em class=\"term\">Mathematical</em> models describe behaviour with equations — static (an algebraic relation such as Ohm’s law) or dynamic (differential equations in time). Computers make the dynamic mathematical model the workhorse.</p>",
+      "questions": [
+        {
+          "id": "dyn",
+          "prompt": "A differential equation describing how a tank level changes is a…",
+          "choices": [
+            {
+              "text": "Static physical model."
+            },
+            {
+              "text": "Static mathematical model."
+            },
+            {
+              "text": "Dynamic mathematical model.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No equations there."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Static means no time dependence."
+            },
+            {
+              "title": "Correct.",
+              "body": "It relates rates of change to state."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ode",
+      "locator": "2.2",
+      "title": "From a differential equation to a simulation",
+      "eyebrow": "Numerical integration",
+      "body": "<p>Most dynamic models are of the form dy/dx = f(x, y). Euler’s method advances in small steps: y<sub>n+1</sub> = y<sub>n</sub> + h·f(x<sub>n</sub>, y<sub>n</sub>). Runge–Kutta 4 uses four slopes per step and is far more accurate. For y′ = x + y, y(0) = 1 (exact y = 2eˣ − x − 1), at x = 1 with h = 0.1: Euler gives <b>3.18748</b>, RK4 gives <b>3.43656</b>, exact <b>3.43656</b>.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "One Euler step from (0, 1) with h = 0.1 for y′ = x + y."
+        },
+        {
+          "toc": "Step",
+          "why": "Slope f(0,1) = 1, so y₁ = 1 + 0.1·1.",
+          "math": "y_1=1.1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "euler",
+          "prompt": "Why is Euler’s method less accurate than RK4?",
+          "choices": [
+            {
+              "text": "It uses too many steps."
+            },
+            {
+              "text": "It ignores the equation."
+            },
+            {
+              "text": "It uses only the slope at the start of each step.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Step size is chosen by the user."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It uses f."
+            },
+            {
+              "title": "Correct.",
+              "body": "The error per step is O(h²) versus O(h⁵)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.2.1 — Euler versus RK4",
+          "note": "Grey = exact; Euler lags behind; RK4 sits on top of it.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ode\",\"engine\":\"ode\",\"f\":\"x + y\",\"x0\":0,\"y0\":1,\"h\":0.1,\"xEnd\":1,\"methods\":\"euler rk4\",\"exact\":\"2*exp(x) - x - 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ode": {
+              "euler": "3.18748",
+              "rk4": "3.43656",
+              "exact": "3.43656"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "pde",
+      "locator": "2.3",
+      "title": "Partial differential equations: heat flow",
+      "eyebrow": "Space and time",
+      "body": "<p>When the state varies in space as well as time we have a PDE. The heat equation u<sub>t</sub> = α u<sub>xx</sub> is discretised on a grid: u<sub>i</sub>ⁿ⁺¹ = u<sub>i</sub>ⁿ + r(u<sub>i−1</sub>ⁿ − 2u<sub>i</sub>ⁿ + u<sub>i+1</sub>ⁿ) with r = αΔt/Δx². The explicit scheme is stable only for r ≤ ½. A rod with ends held at 100 and 0 relaxes to the straight line between them: mid-rod temperature <b>49.997</b> after 400 steps (steady value 50).</p>",
+      "questions": [
+        {
+          "id": "stab",
+          "prompt": "If r = αΔt/Δx² exceeds ½ in the explicit scheme…",
+          "choices": [
+            {
+              "text": "It just runs faster."
+            },
+            {
+              "text": "The solution becomes unstable and blows up.",
+              "correct": true
+            },
+            {
+              "text": "It becomes more accurate."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It diverges."
+            },
+            {
+              "title": "Correct.",
+              "body": "The simulator refuses r above 0.5."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The opposite."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.3.1 — heat conduction in a rod",
+          "note": "Each curve is a later time; the last approaches a straight line.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"heat\",\"engine\":\"heat1d\",\"steps\":60,\"width\":600,\"height\":440});",
+          "expect": {
+            "heat": {
+              "mid": "35.722",
+              "steadyMid": "50"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mech",
+      "locator": "2.4",
+      "title": "A physical model in the notebook: a damped oscillator",
+      "eyebrow": "Try a physical model",
+      "body": "<p>SIMBLIP’s physics engine is itself a dynamic physical model solving Newton’s second law. A mass on a spring obeys m x″ + c x′ + k x = 0; the solution oscillates with angular frequency ω = √(k/m) and decays if c &gt; 0. Press Simulate and compare the period with 2π√(m/k).</p>",
+      "worked": [
+        {
+          "toc": "Frequency",
+          "why": "m = 1 kg, k = 100 N/m.",
+          "math": "\\omega=\\sqrt{k/m}=10\\ \\text{rad/s}"
+        },
+        {
+          "toc": "Period",
+          "why": "Period.",
+          "math": "T=\\frac{2\\pi}{\\omega}\\approx0.63\\ \\text{s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "T",
+          "prompt": "Quadrupling the mass of a spring-mass system changes the period by a factor of…",
+          "choices": [
+            {
+              "text": "4."
+            },
+            {
+              "text": "2 (T ∝ √m).",
+              "correct": true
+            },
+            {
+              "text": "1/2."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Period goes as the square root."
+            },
+            {
+              "title": "Correct.",
+              "body": "√4 = 2."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Heavier means slower."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "spring",
+          "caption": "Figure 2.4.1 — Figure 2.4.1 — mass on a spring",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 460, height: 460 });\nvar anchor = create(\"hinge\", { x: 300, y: 80 });\nvar bob = create(\"mass\", { x: 300, y: 300, mass: 1 });\nvar spr = create(\"spring\", { length: 200, k: 100 });\nconnect(spr.a, anchor.centre);\nconnect(spr.b, bob.centre);\ngraph.plot(bob.y);",
+          "note": "Press Simulate: m = 1 kg, k = 100 N/m, so T = 2π√(1/100) ≈ 0.63 s."
+        }
+      ]
+    },
+    {
+      "id": "use",
+      "locator": "2.5",
+      "title": "Choosing a model’s level of detail",
+      "eyebrow": "Judgement",
+      "body": "<p>A model should be as simple as the question allows. Include what affects the answer; ignore the rest, and state the assumptions (no air resistance, small angles, constant service rate). Validate by comparing with data; refine only where validation fails.</p>",
+      "questions": [
+        {
+          "id": "assume",
+          "prompt": "Why state a model’s assumptions?",
+          "choices": [
+            {
+              "text": "To lengthen the report."
+            },
+            {
+              "text": "To avoid validation."
+            },
+            {
+              "text": "So users know where it can and cannot be trusted.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They make validation meaningful."
+            },
+            {
+              "title": "Correct.",
+              "body": "Every model is wrong somewhere."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A pendulum model assumes small angles. Why, and what breaks for large angles?</p>",
+          "answer": "For small θ, sin θ ≈ θ, so the equation becomes linear with period independent of amplitude. For large angles the true period grows with amplitude and the linear model underestimates it."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Physical vs mathematical, static vs dynamic.</li><li>ODEs: Euler is simple, RK4 accurate; PDEs: discretise space and time, watch stability.</li></ul>"
+    }
+  ]
+}

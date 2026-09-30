@@ -1,0 +1,13 @@
+export default {
+  id: 'enex-152', code: 'ENEX 152', title: 'Digital Logic', subject: 'digital', semester: 3, program: 'computer',
+  description: 'Gates, combinational blocks and sequential logic, built and simulated as real circuits rather than drawn.',
+  order: ['01-number-systems', '02-gates-boolean', 'adders', '03-flipflops', '04-registers-counters', '05-state-machines-ics'],
+  lessons: {
+    '01-number-systems': { path: 'Introduction — Number Systems and Codes', title: 'Number systems, codes and complements' },
+    '02-gates-boolean': { path: 'Logic Gates, Boolean Algebra and K-Maps', title: 'Gates, Boolean algebra and Karnaugh maps' },
+    'adders': { path: 'Combinational Logic', title: 'Adders — from one bit to a four-bit sum' },
+    '03-flipflops': { path: 'Sequential Logic Circuits', title: 'Latches and flip-flops' },
+    '04-registers-counters': { path: 'Registers and Counters', title: 'Registers and counters' },
+    '05-state-machines-ics': { path: 'Sequential Machine Design and Digital ICs', title: 'State machines and logic families' },
+  },
+}

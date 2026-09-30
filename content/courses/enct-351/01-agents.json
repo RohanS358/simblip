@@ -1,0 +1,275 @@
+{
+  "title": "Intelligent agents",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 1",
+  "subtitle": "Forget “thinking machines”: an agent senses, decides and acts. Everything in AI is a way of making that decision better.",
+  "sections": [
+    {
+      "id": "what",
+      "locator": "1.1",
+      "title": "What is AI?",
+      "eyebrow": "Definitions",
+      "body": "<p>AI has been defined four ways: systems that think like humans, act like humans (the Turing test), think rationally (logic) or act rationally. The last is the working definition: a <em class=\"term\">rational agent</em> does whatever is expected to maximise its performance measure given what it has perceived. Roots: philosophy, mathematics, psychology, neuroscience, linguistics and computer engineering; the field was named in 1956 (Dartmouth).</p>",
+      "questions": [
+        {
+          "id": "turing",
+          "prompt": "The Turing test checks whether a machine can…",
+          "choices": [
+            {
+              "text": "Solve all puzzles."
+            },
+            {
+              "text": "Converse so well that a human judge cannot tell it from a person.",
+              "correct": true
+            },
+            {
+              "text": "Win at chess."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not its aim."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is a test of acting humanly."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "agent",
+      "locator": "1.2",
+      "title": "Agents and environments",
+      "eyebrow": "The model",
+      "body": "<p>An <em class=\"term\">agent</em> perceives its <em class=\"term\">environment</em> through sensors and acts on it through actuators; its behaviour is a mapping from the percept history to an action. A thermostat, a robot vacuum and a chess program all fit.</p>",
+      "questions": [
+        {
+          "id": "loop",
+          "prompt": "In the agent model, actions…",
+          "choices": [
+            {
+              "text": "Are fixed in advance."
+            },
+            {
+              "text": "Never affect percepts."
+            },
+            {
+              "text": "Change the environment, which produces new percepts.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Decisions depend on percepts."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They do."
+            },
+            {
+              "title": "Correct.",
+              "body": "The loop repeats."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — the agent loop",
+          "note": "Press Simulate: the perceive–decide–act loop.",
+          "script": "diagram(\"direction: right\\n[Environment] as e #grey\\n[Sensors] as s #blue\\n[Agent program: decide] as a #violet\\n[Actuators] as c #mint\\ne -> s : percepts\\ns -> a\\na -> c : action\\nc -> e : changes the world\\n@0 e -> s : percept\\n@1 s -> a : sensed state\\n@2 a -> c : decision\\n@3 c -> e : action\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "locator": "1.3",
+      "title": "Kinds of agent",
+      "eyebrow": "Increasing sophistication",
+      "body": "<p><em class=\"term\">Simple reflex</em>: condition–action rules on the current percept (“if the floor is dirty, suck”). <em class=\"term\">Model-based reflex</em>: keeps internal state about what it cannot see. <em class=\"term\">Goal-based</em>: chooses actions that reach a goal (needs search and planning). <em class=\"term\">Utility-based</em>: maximises a measure of how good outcomes are, handling trade-offs. <em class=\"term\">Learning</em> agents improve from experience with a critic and a learning element.</p>",
+      "questions": [
+        {
+          "id": "utility",
+          "prompt": "When do you need a utility-based rather than goal-based agent?",
+          "choices": [
+            {
+              "text": "When there are several ways to reach the goal and some are better (faster, safer, cheaper).",
+              "correct": true
+            },
+            {
+              "text": "When the goal is unknown."
+            },
+            {
+              "text": "When the environment is static."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Utility ranks outcomes; a goal only says done or not."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Different issue."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the reason."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.3.1 — agent types",
+          "note": "Each type adds one ingredient.",
+          "script": "diagram(\"direction: right\\n[Simple reflex] as a #grey\\n[Model-based] as b #blue\\n[Goal-based] as c #mint\\n[Utility-based] as d #amber\\n[Learning] as e #violet\\na -> b : add memory\\nb -> c : add goals\\nc -> d : add preferences\\nd -> e : add learning\");"
+        }
+      ]
+    },
+    {
+      "id": "env",
+      "locator": "1.4",
+      "title": "Properties of environments",
+      "eyebrow": "Why problems differ",
+      "body": "<p>Fully vs partially <em class=\"term\">observable</em>; <em class=\"term\">deterministic</em> vs stochastic; <em class=\"term\">episodic</em> vs sequential; <em class=\"term\">static</em> vs dynamic; <em class=\"term\">discrete</em> vs continuous; single vs multi-agent. Chess is fully observable, deterministic, sequential, static, discrete, two-agent. Driving is partially observable, stochastic, dynamic and continuous — much harder.</p>",
+      "questions": [
+        {
+          "id": "po",
+          "prompt": "Which environment is partially observable?",
+          "choices": [
+            {
+              "text": "Chess."
+            },
+            {
+              "text": "Tic-tac-toe."
+            },
+            {
+              "text": "Poker — opponents’ cards are hidden.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The whole board is visible."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Fully visible."
+            },
+            {
+              "title": "Correct.",
+              "body": "The agent’s percepts do not reveal the full state."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Classify a game of poker on observability and determinism.</p>",
+          "answer": "Partially observable (other hands are hidden) and stochastic (the deal is random); also multi-agent and discrete."
+        }
+      ]
+    },
+    {
+      "id": "agentic",
+      "locator": "1.5",
+      "title": "Agentic AI",
+      "eyebrow": "Today",
+      "body": "<p>Modern language-model “agents” use the same loop: perceive (read a goal, tool outputs), decide (plan a step), act (call a tool, run code) and observe again. The classic vocabulary applies: what is the performance measure, what is observable, what happens when the model's world model is wrong?</p>",
+      "questions": [
+        {
+          "id": "tool",
+          "prompt": "A language-model agent calling a search tool is performing the role of…",
+          "choices": [
+            {
+              "text": "An actuator acting on its environment.",
+              "correct": true
+            },
+            {
+              "text": "A sensor only."
+            },
+            {
+              "text": "A performance measure."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The results come back as new percepts."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It acts first."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That judges success."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "knowledge",
+      "locator": "1.6",
+      "title": "Knowledge and learning",
+      "eyebrow": "Where intelligence comes from",
+      "body": "<p>Intelligence needs knowledge (facts and rules, represented so a program can use them) and the ability to learn it. Symbolic AI encodes knowledge by hand; machine learning extracts it from data. The two are combined in modern systems. The rest of the course is this split: search and logic, then learning.</p>",
+      "worked": [
+        {
+          "toc": "Contrast",
+          "why": "An expert system has 500 hand-written rules; a neural network has 10⁶ weights learned from examples."
+        },
+        {
+          "toc": "Trade-off",
+          "why": "Rules are inspectable but laborious; learned weights are cheap to acquire but hard to explain.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sym",
+          "prompt": "Symbolic AI represents knowledge as…",
+          "choices": [
+            {
+              "text": "Weights only."
+            },
+            {
+              "text": "Explicit rules and facts written by people.",
+              "correct": true
+            },
+            {
+              "text": "Random numbers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is connectionist."
+            },
+            {
+              "title": "Correct.",
+              "body": "In contrast to weights learned from data."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

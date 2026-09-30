@@ -1,0 +1,295 @@
+{
+  "title": "Expert systems, NLP, vision and responsible AI",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapters 6–7",
+  "subtitle": "Where the algorithms go to work — and what we owe the people affected.",
+  "sections": [
+    {
+      "id": "es",
+      "locator": "6.1",
+      "title": "Expert systems",
+      "eyebrow": "Knowledge as rules",
+      "body": "<p>An <em class=\"term\">expert system</em> captures a specialist’s knowledge as if–then rules plus an <em class=\"term\">inference engine</em> that applies them: <em class=\"term\">forward chaining</em> starts from facts and derives conclusions; <em class=\"term\">backward chaining</em> starts from a goal and looks for supporting facts. A user interface and an explanation facility (“why?”) complete it. Classic examples: MYCIN (medical diagnosis), XCON (configuring computers).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Rules: R1 fever∧rash → measles-suspect; R2 measles-suspect∧contact → measles. Facts: fever, rash, contact."
+        },
+        {
+          "toc": "Forward chain",
+          "why": "Forward chaining: R1 fires (adds measles-suspect), then R2 fires (adds measles).",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fwd",
+          "prompt": "Forward chaining proceeds from…",
+          "choices": [
+            {
+              "text": "A goal back to facts."
+            },
+            {
+              "text": "Known facts toward conclusions.",
+              "correct": true
+            },
+            {
+              "text": "Random guesses."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is backward chaining."
+            },
+            {
+              "title": "Correct.",
+              "body": "Backward chaining starts from a goal."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 6.1.1 — expert system architecture",
+          "note": "The engine matches rules against facts until nothing new follows.",
+          "script": "diagram(\"direction: right\\n[Knowledge base: rules] as kb #blue\\n[Inference engine] as ie #violet\\n[Working memory: facts] as wm #amber\\n[User interface + explanation] as ui #mint\\nui -> wm : facts\\nwm -> ie\\nkb -> ie\\nie -> wm : new facts\\nie -> ui : conclusion + why\\n@0 ui -> wm : symptoms\\n@1 wm -> ie : facts\\n@2 kb -> ie : rules\\n@3 ie -> ui : diagnosis\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "nlp",
+      "locator": "6.2",
+      "title": "Natural language processing",
+      "eyebrow": "Language",
+      "body": "<p>NLP works through levels: phonetic, morphological (word forms), lexical, syntactic (structure — parse trees), semantic (meaning), pragmatic (context). Challenges: ambiguity (“I saw the man with the telescope”), idiom, context. Modern methods pre-train large neural language models on huge text and adapt them to translation, summarisation, question answering and dialogue.</p>",
+      "questions": [
+        {
+          "id": "amb",
+          "prompt": "“I saw the man with the telescope” is hard because it is…",
+          "choices": [
+            {
+              "text": "Too short."
+            },
+            {
+              "text": "Written in code."
+            },
+            {
+              "text": "Syntactically ambiguous — two parse trees.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the issue."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Who has the telescope?"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vis",
+      "locator": "6.3",
+      "title": "Computer vision and robotics",
+      "eyebrow": "Seeing and acting",
+      "body": "<p>A vision pipeline: acquire an image, pre-process (denoise, normalise), extract features (edges, corners, learned features), detect or classify objects, interpret the scene. A robot adds sensing (cameras, lidar, encoders), planning (search, A*), control (feedback loops) and actuators. Self-driving cars combine all of them.</p>",
+      "questions": [
+        {
+          "id": "plan",
+          "prompt": "In the robot pipeline, which stage decides the route?",
+          "choices": [
+            {
+              "text": "Sensing."
+            },
+            {
+              "text": "Control."
+            },
+            {
+              "text": "Planning.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It only measures."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It follows the planned path."
+            },
+            {
+              "title": "Correct.",
+              "body": "Perception interprets the scene; control executes the plan."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.3.1 — a robot’s pipeline",
+          "note": "Perceive, plan, act — the agent loop again.",
+          "script": "diagram(\"direction: right\\n[Sensors: camera, lidar] as s #blue\\n[Perception: detect objects] as p #mint\\n[Planning: choose a path] as pl #violet\\n[Control: steer, brake] as c #amber\\n(Vehicle moves) as v\\ns -> p\\np -> pl\\npl -> c\\nc -> v\\nv --> s : new view of the world\\n@0 s -> p : frame\\n@1 p -> pl : objects\\n@2 pl -> c : trajectory\\n@3 c -> v : commands\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "emerging",
+      "locator": "7.1",
+      "title": "Sequence models, federated learning, edge AI",
+      "eyebrow": "Trends",
+      "body": "<p>Sequence-to-sequence models turn one sequence into another (translation) with an encoder and decoder, now built with attention. <em class=\"term\">Federated learning</em> trains a shared model across many devices without collecting their raw data: each device computes an update locally and only the updates are averaged centrally (privacy). <em class=\"term\">Edge AI</em> runs models on the device (phone, camera) for low latency and privacy, with compression (quantisation, pruning) to fit.</p>",
+      "questions": [
+        {
+          "id": "fed",
+          "prompt": "In federated learning what is sent to the server?",
+          "choices": [
+            {
+              "text": "All user data."
+            },
+            {
+              "text": "Model updates, not raw data.",
+              "correct": true
+            },
+            {
+              "text": "Nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is centralised training."
+            },
+            {
+              "title": "Correct.",
+              "body": "That protects privacy."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Then nothing is learned."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 7.1.1 — one round of federated learning",
+          "note": "Raw data never leaves the devices.",
+          "script": "diagram(\"mode: sequence\\n[Server] as s\\n[Phone A] as a\\n[Phone B] as b\\ns -> a : current model\\ns -> b : current model\\na -> a : train on local data\\nb -> b : train on local data\\na --> s : weight update only\\nb --> s : weight update only\\ns -> s : average the updates\");"
+        }
+      ]
+    },
+    {
+      "id": "ethics",
+      "locator": "7.2",
+      "title": "Ethics and responsible AI",
+      "eyebrow": "Consequences",
+      "body": "<p>Models inherit bias from data and can harm people: unfair decisions in hiring or lending, invasive surveillance, opaque reasoning, misinformation, energy cost. Principles: fairness, transparency and explainability, accountability, privacy, safety and robustness, human oversight. Practice: audit data and outcomes across groups, document models, test adversarially, keep a human in high-stakes loops.</p>",
+      "questions": [
+        {
+          "id": "bias",
+          "prompt": "Why can a high overall accuracy still hide unfairness?",
+          "choices": [
+            {
+              "text": "Accuracy is always wrong."
+            },
+            {
+              "text": "Fair systems must be 100% accurate."
+            },
+            {
+              "text": "Errors may be concentrated on a particular group.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is fine as an average."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not achievable."
+            },
+            {
+              "title": "Correct.",
+              "body": "Average performance says nothing about its distribution."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A loan model is 95% accurate overall but approves 80% of one group and 40% of another with equal repayment records. What is the problem and one remedy?</p>",
+          "answer": "It shows disparate impact — accuracy hides unequal error rates. Remedies: audit and rebalance the training data, add fairness constraints or post-processing thresholds per group, and keep human review for borderline cases."
+        }
+      ]
+    },
+    {
+      "id": "sust",
+      "locator": "7.3",
+      "title": "Sustainable AI",
+      "eyebrow": "Cost",
+      "body": "<p>Training large models consumes large amounts of energy. Efficiency measures: smaller models, distillation, sparse computation, reuse through transfer learning, efficient hardware, and running in regions with clean energy. Sustainable AI asks whether the benefit is worth the cost.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A training run uses 1000 MWh at 0.4 kg CO₂ per kWh."
+        },
+        {
+          "toc": "Footprint",
+          "why": "Emissions = 10⁶ kWh × 0.4 kg.",
+          "math": "4\\times10^5\\ \\text{kg}=400\\ \\text{tonnes}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dist",
+          "prompt": "Model distillation helps sustainability by…",
+          "choices": [
+            {
+              "text": "Making models larger."
+            },
+            {
+              "text": "Removing the data."
+            },
+            {
+              "text": "Training a small model to mimic a large one, cutting inference cost.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The opposite."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Less computation per query."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,276 @@
+{
+  "title": "Understanding and cleaning data",
+  "kicker": "ENCT 202 · Foundation of Data Science · Chapter 3",
+  "subtitle": "Most of a data scientist’s time goes here: real data is missing, duplicated, mis-typed and on wildly different scales.",
+  "sections": [
+    {
+      "id": "profile",
+      "locator": "3.1",
+      "title": "Profiling a dataset",
+      "eyebrow": "First look",
+      "body": "<p>Before changing anything, ask: how many rows and columns? what type is each? how many values are missing? what are the min, max, mean? are there duplicates? Quick profiling catches a column of ages containing −1 or 999 before a model learns from it.</p>",
+      "questions": [
+        {
+          "id": "prof",
+          "prompt": "An age column has a maximum of 999. This is most likely…",
+          "choices": [
+            {
+              "text": "A real age."
+            },
+            {
+              "text": "A sign of an excellent dataset."
+            },
+            {
+              "text": "A placeholder for “unknown”, to be treated as missing.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Nobody is 999."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is an error."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sentinel values must be recognised."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "missing",
+      "locator": "3.2",
+      "title": "Missing values",
+      "eyebrow": "Holes in the table",
+      "body": "<p>Options: <b>drop</b> rows or columns (fine if few), <b>impute</b> with mean/median/mode, or model the missing value from others. Median is safer for skewed data. Adding a “was missing” flag preserves the information that it was absent.</p>",
+      "worked": [
+        {
+          "toc": "Median",
+          "why": "Ages: 20, 22, 24, —, 90. The median of the known ones.",
+          "math": "\\text{median}=23"
+        },
+        {
+          "toc": "Impute",
+          "why": "Mean would be 39, dragged up by 90; fill with 23.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "imp",
+          "prompt": "Which fill is most robust for skewed income data?",
+          "choices": [
+            {
+              "text": "Median.",
+              "correct": true
+            },
+            {
+              "text": "Mean."
+            },
+            {
+              "text": "Zero."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Outliers do not move it."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Pulled by large values."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Invents poverty."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-imp",
+          "prompt": "<p>Values 4, 6, 8, —, 100: mean vs median imputation for the gap?</p>",
+          "answer": "Mean of known = 29.5; median = <b>7</b>. The median ignores the outlier 100."
+        }
+      ]
+    },
+    {
+      "id": "outlier",
+      "locator": "3.3",
+      "title": "Outliers",
+      "eyebrow": "Unusual points",
+      "body": "<p>Flag a value if |z| &gt; 3, or if it lies beyond 1.5·IQR from the quartiles. Then <em>investigate</em>: a typo is fixed, a real extreme is kept (or modelled separately). Never delete just because it is inconvenient.</p>",
+      "questions": [
+        {
+          "id": "out",
+          "prompt": "Quartiles 10 and 20 give upper fence…",
+          "choices": [
+            {
+              "text": "35.",
+              "correct": true
+            },
+            {
+              "text": "30."
+            },
+            {
+              "text": "50."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Q3 + 1.5×IQR = 20 + 15."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is Q3 + IQR."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too generous."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scale",
+      "locator": "3.4",
+      "title": "Scaling and encoding",
+      "eyebrow": "Making features comparable",
+      "body": "<p>Distance-based and gradient-based methods are thrown off by features in different units (salary in lakhs vs age in years). <b>Min–max</b>: (x − min)/(max − min) maps to [0, 1]. <b>Standardise</b>: (x − μ)/σ. Categories become numbers by <b>one-hot</b> encoding (one 0/1 column per category), or by ordering for ordinals.</p>",
+      "worked": [
+        {
+          "toc": "Min–max",
+          "why": "Ages 20, 30, 50. Min–max of 30:",
+          "math": "\\tfrac{30-20}{50-20}=0.33",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "oh",
+          "prompt": "Colour ∈ {red, green, blue} one-hot encoded gives…",
+          "choices": [
+            {
+              "text": "Three 0/1 columns.",
+              "correct": true
+            },
+            {
+              "text": "One column 1,2,3."
+            },
+            {
+              "text": "Six columns."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Exactly one is 1 per row."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That invents an order."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too many."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pipe",
+      "locator": "3.5",
+      "title": "A cleaning pipeline",
+      "eyebrow": "Do it in order",
+      "body": "<p>A repeatable pipeline: load → fix types → remove duplicates → handle missing → treat outliers → encode → scale → split. Fit scalers on the training set only and apply them to the test set; fitting on all data leaks information.</p>",
+      "questions": [
+        {
+          "id": "leak",
+          "prompt": "Computing the scaling mean using the test set is…",
+          "choices": [
+            {
+              "text": "Data leakage.",
+              "correct": true
+            },
+            {
+              "text": "Best practice."
+            },
+            {
+              "text": "Harmless."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The test set must stay unseen."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It contaminates evaluation."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Scores become optimistic."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.5.1 — cleaning pipeline",
+          "note": "Each stage takes the previous stage’s output.",
+          "script": "diagram(\"Raw data -> Fix types\\nFix types -> Drop duplicates\\nDrop duplicates -> Impute missing\\nImpute missing -> Handle outliers\\nHandle outliers -> Encode\\nEncode -> Scale\\nScale -> Clean data\");"
+        }
+      ]
+    },
+    {
+      "id": "integ",
+      "locator": "3.6",
+      "title": "Combining sources",
+      "eyebrow": "Joins and integrity",
+      "body": "<p>Datasets are merged by a key (join). Watch for duplicate keys, mismatched formats (“NP” vs “Nepal”), and inconsistent units. Validate counts before and after a join; an inner join loses unmatched rows, a left join keeps them with blanks.</p>",
+      "questions": [
+        {
+          "id": "join",
+          "prompt": "Keep all customers even if they have no orders:",
+          "choices": [
+            {
+              "text": "Inner join."
+            },
+            {
+              "text": "Left join from customers.",
+              "correct": true
+            },
+            {
+              "text": "Cross join."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Drops customers without orders."
+            },
+            {
+              "title": "Correct.",
+              "body": "Unmatched order fields stay blank."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Every pairing."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

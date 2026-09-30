@@ -1,0 +1,338 @@
+{
+  "title": "Functional dependencies and normal forms",
+  "kicker": "ENCT 301 · Database Management System · Chapter 4",
+  "subtitle": "Bad table design makes data contradict itself. Functional dependencies say exactly which designs are bad.",
+  "sections": [
+    {
+      "id": "anom",
+      "locator": "4.1",
+      "title": "Why design matters: update anomalies",
+      "eyebrow": "The problem",
+      "body": "<p>Suppose one table holds (student, course, instructor, instructor office). The office is repeated on every enrolment. Change an instructor’s office and you must update many rows — forget one and the data disagrees (<em class=\"term\">update anomaly</em>). A new instructor with no students cannot be recorded (<em class=\"term\">insertion anomaly</em>); deleting the last enrolment loses the instructor’s details (<em class=\"term\">deletion anomaly</em>). Normalisation removes them by splitting tables.</p>",
+      "questions": [
+        {
+          "id": "anom",
+          "prompt": "Repeating an instructor’s office on every enrolment row risks…",
+          "choices": [
+            {
+              "text": "Faster queries."
+            },
+            {
+              "text": "Lost indexes."
+            },
+            {
+              "text": "An update anomaly: changing it in some rows but not others.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the issue."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "The fact is stored many times."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fd",
+      "locator": "4.2",
+      "title": "Functional dependencies and closure",
+      "eyebrow": "The idea",
+      "body": "<p>X → Y (a <em class=\"term\">functional dependency</em>) means any two rows that agree on X agree on Y — e.g. studentID → name. The <em class=\"term\">closure</em> X⁺ is everything X determines: start with X and keep adding the right side of any dependency whose left side is already present. For R(A,B,C,D,E) with A→B, B→C, CD→E: A⁺ = <b>ABC</b>... it stops at ABC because E needs D as well.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Is AD a key of R(A,B,C,D,E)? Compute (AD)⁺."
+        },
+        {
+          "toc": "Closure",
+          "why": "AD → B (A→B) → C (B→C) → E (CD→E). Every attribute is reached.",
+          "math": "(AD)^+=ABCDE",
+          "hero": true
+        },
+        {
+          "toc": "Minimal",
+          "why": "Neither A nor D alone reaches everything, so AD is a candidate key (minimal)."
+        }
+      ],
+      "questions": [
+        {
+          "id": "clo",
+          "prompt": "What is the closure X⁺?",
+          "choices": [
+            {
+              "text": "The attributes of X."
+            },
+            {
+              "text": "All attributes functionally determined by X.",
+              "correct": true
+            },
+            {
+              "text": "All keys of the relation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It includes what X implies."
+            },
+            {
+              "title": "Correct.",
+              "body": "If X⁺ is every attribute, X is a superkey."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not keys — attributes."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.2.1 — closure of A",
+          "note": "Closure steps, then keys, then the normal-form check.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cl\",\"engine\":\"fd\",\"attrs\":\"ABCDE\",\"fds\":\"A->B;B->C;CD->E\",\"closureOf\":\"A\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cl": {
+              "closure": "ABC",
+              "keys": "AD",
+              "normalForm": "1NF"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "keys",
+      "locator": "4.3",
+      "title": "Finding candidate keys",
+      "eyebrow": "A method",
+      "body": "<p>Attributes that appear on no right-hand side must be in every key. Compute their closure; if it covers everything, you are done, otherwise add more attributes. For the example the key is <b>AD</b>. Prime attributes are those in some candidate key.</p>",
+      "questions": [
+        {
+          "id": "must",
+          "prompt": "An attribute that never appears on the right of any FD…",
+          "choices": [
+            {
+              "text": "Is never in a key."
+            },
+            {
+              "text": "Can be dropped."
+            },
+            {
+              "text": "Must belong to every candidate key.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The opposite."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It carries information."
+            },
+            {
+              "title": "Correct.",
+              "body": "Nothing else can derive it."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-key",
+          "prompt": "<p>R(A,B,C,D,E) with A→B, B→C, CD→E. Find the candidate key(s).</p>",
+          "answer": "Attributes A and D are never on a right-hand side, so both are in every key; (AD)⁺ = ABCDE, so the only candidate key is <b>AD</b>.",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "The closure of AD.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"fd\",\"attrs\":\"ABCDE\",\"fds\":\"A->B;B->C;CD->E\",\"closureOf\":\"AD\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "closure": "ABCDE",
+                "keys": "AD"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nf",
+      "locator": "4.4",
+      "title": "1NF, 2NF, 3NF, BCNF",
+      "eyebrow": "The ladder",
+      "body": "<p><em class=\"term\">1NF</em>: every cell holds one atomic value. <em class=\"term\">2NF</em>: 1NF and no <em>partial dependency</em> — no non-prime attribute depends on part of a candidate key. <em class=\"term\">3NF</em>: 2NF and no <em>transitive</em> dependency — for every X→A, X is a superkey or A is prime. <em class=\"term\">BCNF</em>: for every X→A, X is a superkey (stricter). Examples from the checker: R(A,B,C) with A→B, B→C is <b>2NF</b> (B→C is transitive); R(A,B,C,D) with AB→C, B→D is <b>1NF</b> (D depends on part of the key AB); R(A,B,C) with AB→C, C→B is <b>3NF</b> (C→B is allowed in 3NF since B is prime, but C is not a superkey).</p>",
+      "questions": [
+        {
+          "id": "bcnf",
+          "prompt": "Which is strictly stronger than 3NF?",
+          "choices": [
+            {
+              "text": "2NF."
+            },
+            {
+              "text": "1NF."
+            },
+            {
+              "text": "BCNF.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Weaker."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Weakest."
+            },
+            {
+              "title": "Correct.",
+              "body": "Every determinant must be a superkey."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 4.4.1 — transitive dependency",
+          "note": "The last frame lists each violation.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nf1\",\"engine\":\"fd\",\"attrs\":\"ABC\",\"fds\":\"A->B;B->C\",\"closureOf\":\"A\",\"width\":600,\"height\":440});",
+          "expect": {
+            "nf1": {
+              "normalForm": "2NF"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 4.4.2 — partial dependency",
+          "note": "D depends on only part of the key.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nf2\",\"engine\":\"fd\",\"attrs\":\"ABCD\",\"fds\":\"AB->C;B->D\",\"closureOf\":\"B\",\"width\":600,\"height\":440});",
+          "expect": {
+            "nf2": {
+              "normalForm": "1NF"
+            }
+          }
+        },
+        {
+          "id": "lab5",
+          "caption": "Figure 4.4.3 — 3NF but not BCNF",
+          "note": "3NF but not BCNF.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nf3\",\"engine\":\"fd\",\"attrs\":\"ABC\",\"fds\":\"AB->C;C->B\",\"closureOf\":\"AB\",\"width\":600,\"height\":440});",
+          "expect": {
+            "nf3": {
+              "normalForm": "3NF"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "decomp",
+      "locator": "4.5",
+      "title": "Decomposition",
+      "eyebrow": "Fixing a design",
+      "body": "<p>To remove a violation, split the table along the offending dependency: for A→B→C, split R(A,B,C) into R1(A,B) and R2(B,C). A good decomposition is <em class=\"term\">lossless</em> (joining the parts gives back exactly the original — the common attributes must be a key of one part) and ideally <em class=\"term\">dependency-preserving</em>. Denormalising (re-joining) is sometimes chosen deliberately for read speed.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Decompose R(A,B,C) with A→B, B→C to 3NF."
+        },
+        {
+          "toc": "Split",
+          "why": "R1(A,B) and R2(B,C). Common attribute B is a key of R2, so the join is lossless.",
+          "math": "R=R_1\\bowtie R_2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lossless",
+          "prompt": "A decomposition into R1 and R2 is lossless when…",
+          "choices": [
+            {
+              "text": "They have no common attributes."
+            },
+            {
+              "text": "Both are in BCNF."
+            },
+            {
+              "text": "Their common attributes are a key of R1 or R2.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Then the join would be a product."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not sufficient."
+            },
+            {
+              "title": "Correct.",
+              "body": "Then the natural join returns exactly the original rows."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "constraints",
+      "locator": "4.6",
+      "title": "Integrity constraints and assertions",
+      "eyebrow": "Keeping data valid",
+      "body": "<p>Domain constraints restrict values (age &gt; 0); key and NOT NULL constraints; referential integrity (foreign keys); CHECK conditions and general assertions; triggers for richer rules. The DBMS refuses updates that violate them.</p>",
+      "questions": [
+        {
+          "id": "ri",
+          "prompt": "Referential integrity requires a foreign-key value to…",
+          "choices": [
+            {
+              "text": "Be unique."
+            },
+            {
+              "text": "Match an existing key in the referenced table (or be NULL).",
+              "correct": true
+            },
+            {
+              "text": "Be numeric."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a key constraint."
+            },
+            {
+              "title": "Correct.",
+              "body": "You cannot enrol in a course that does not exist."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a domain constraint."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

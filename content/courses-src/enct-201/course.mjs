@@ -1,0 +1,14 @@
+export default {
+  id: 'enct-201', code: 'ENCT 201', title: 'Computer Graphics and Visualization', subject: 'computing', semester: 3, program: 'computer',
+  description: 'From pixels to 3-D: rasterisation, clipping, transformations, projection, curves, shading and animation — each algorithm drawn pixel by pixel.',
+  order: ['01-pipeline-devices', '02-raster', '03-clipping', '04-transformations', '05-curves-surfaces', '06-visibility-shading', '07-animation-trends'],
+  lessons: {
+    '01-pipeline-devices': { path: '1 Introduction and Application', title: 'Display devices and the graphics pipeline' },
+    '02-raster': { path: '2 Raster Graphics and Algorithms', title: 'Drawing lines, circles and filling regions' },
+    '03-clipping': { path: '2 Raster Graphics and Algorithms', title: 'Clipping' },
+    '04-transformations': { path: '3 Coordinate Systems and Viewing Transformations', title: '2-D and 3-D transformations and projection' },
+    '05-curves-surfaces': { path: '4 Curve Modeling and Surface Modelling', title: 'Bézier curves and polygon surfaces' },
+    '06-visibility-shading': { path: '5–6 Visible Surface Determination and Illumination', title: 'Hidden surfaces, lighting and shading' },
+    '07-animation-trends': { path: '7–8 Animation and Latest Trends', title: 'Animation, AR/VR and real-time graphics' },
+  },
+}

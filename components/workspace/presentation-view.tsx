@@ -32,6 +32,7 @@ import { LiveFrame } from './page-thumbnail'
 import { SLIDE_W, SLIDE_H } from '@/lib/scene/frames'
 import { play, stop } from '@/lib/physics/world'
 import { cn } from '@/lib/utils'
+import { useExportDock } from '@/lib/store/export-dock'
 import { uid } from '@/lib/scene/types'
 import { parse } from '@/lib/text/marks'
 import { useIsMobile, useIsNarrow } from '@/hooks/use-mobile'
@@ -829,6 +830,15 @@ export function PresentationView({ pageId }: { pageId: string }) {
     }
   }
 
+  // The tab bar's shared Export button lists this page's formats.
+  useEffect(() => {
+    useExportDock.getState().set([
+      { id: 'pptx', label: 'PowerPoint (.pptx)', hint: 'Editable slides', busy: exporting, run: () => void exportPptx() },
+    ])
+    return () => useExportDock.getState().set(null)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exporting, slides, meta?.name])
+
   const activeSlideId = slides[current]
 
   // sidebar.tsx's Inspector reads activeSheetId (not activePageId) for doc/
@@ -1270,15 +1280,6 @@ export function PresentationView({ pageId }: { pageId: string }) {
         </span>
 
         <div className="ml-auto flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            disabled={exporting || importing}
-            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-border/60 bg-background/60 px-3 py-1.5 text-ui-sm font-medium text-foreground transition-colors hover:bg-accent disabled:pointer-events-none disabled:opacity-40"
-            onClick={() => void exportPptx()}
-          >
-            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{exporting ? 'Exporting…' : 'Export PowerPoint'}</span>
-          </button>
           <button
             type="button"
             disabled={importing || slides.length === 0}

@@ -1,0 +1,308 @@
+{
+  "title": "Random numbers and their tests",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 6",
+  "subtitle": "Computers cannot be random, so we build generators whose output passes every test for randomness we can think of.",
+  "sections": [
+    {
+      "id": "props",
+      "locator": "6.1",
+      "title": "What we need from a generator",
+      "eyebrow": "Properties",
+      "body": "<p>We want numbers that look <em class=\"term\">uniformly distributed</em> on [0, 1) and <em class=\"term\">independent</em>. Practical needs: fast, reproducible (same seed, same stream — essential for debugging), a long <em class=\"term\">period</em> before repeating, and the ability to produce several independent streams. Since an algorithm produces them they are <em class=\"term\">pseudo-random</em>.</p>",
+      "questions": [
+        {
+          "id": "seed",
+          "prompt": "Why is reproducibility (a seed) desirable in simulation?",
+          "choices": [
+            {
+              "text": "It makes numbers more random."
+            },
+            {
+              "text": "You can rerun exactly the same experiment to debug or compare designs fairly.",
+              "correct": true
+            },
+            {
+              "text": "It speeds up the CPU."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It does not."
+            },
+            {
+              "title": "Correct.",
+              "body": "Common random numbers reduce variance between compared systems."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lcg",
+      "locator": "6.2",
+      "title": "The linear congruential method",
+      "eyebrow": "The classic",
+      "body": "<p>X<sub>n+1</sub> = (a·X<sub>n</sub> + c) mod m; U<sub>n</sub> = X<sub>n</sub>/m. With a = 5, c = 3, m = 16, X₀ = 7 the sequence is <b>7 6 1 8 11 10 5 12 15 14 9 0 3 2 13 4 7</b> — it visits all 16 values before repeating (<b>full period yes</b>). The Hull–Dobell theorem: full period m iff c and m are coprime, a−1 is divisible by every prime factor of m, and by 4 if m is divisible by 4. A poor choice (a = 4, c = 0, m = 16, X₀ = 1) cycles early: period <b>1</b>. A multiplicative (c = 0) generator can reach at most m−1.</p>",
+      "worked": [
+        {
+          "toc": "X₁",
+          "why": "X₀ = 7, X₁ = (5·7 + 3) mod 16.",
+          "math": "38\\bmod16=6"
+        },
+        {
+          "toc": "X₂",
+          "why": "X₂ = (5·6 + 3) mod 16.",
+          "math": "33\\bmod16=1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "period",
+          "prompt": "The maximum possible period of an LCG with modulus m is…",
+          "choices": [
+            {
+              "text": "m.",
+              "correct": true
+            },
+            {
+              "text": "m²"
+            },
+            {
+              "text": "Infinite."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "There are only m distinct states."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The state is one number below m."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "A finite machine must repeat."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 6.2.1 — a full-period generator",
+          "note": "Frame 2 shows where the cycle closes.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"good\",\"engine\":\"lcg\",\"a\":5,\"c\":3,\"m\":16,\"seed\":7,\"width\":600,\"height\":440});",
+          "expect": {
+            "good": {
+              "sequence": "7 6 1 8 11 10 5 12 15 14 9 0 3 2 13 4 7",
+              "period": "16",
+              "fullPeriod": "yes"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 6.2.2 — a bad generator",
+          "note": "The same modulus with bad constants repeats almost immediately.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bad\",\"engine\":\"lcg\",\"a\":4,\"c\":0,\"m\":16,\"seed\":1,\"width\":600,\"height\":440});",
+          "expect": {
+            "bad": {
+              "period": "1",
+              "fullPeriod": "no"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-lcg",
+          "prompt": "<p>Generate the first 6 numbers for X₀ = 7, a = 5, c = 3, m = 16 and find the period.</p>",
+          "answer": "Sequence <b>7 6 1 8 11 10 5 12 15 14 9 0 3 2 13 4 7</b>; period <b>16</b>.",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The generator.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"lcg\",\"a\":5,\"c\":3,\"m\":16,\"seed\":7,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "sequence": "7 6 1 8 11 10 5 12 15 14 9 0 3 2 13 4 7",
+                "period": "16"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "chi",
+      "locator": "6.3",
+      "title": "Testing uniformity: χ² and Kolmogorov–Smirnov",
+      "eyebrow": "Does it look uniform?",
+      "body": "<p>The <em class=\"term\">chi-square test</em> splits [0,1) into k classes and compares observed counts Oᵢ with the expected n/k: χ² = Σ(Oᵢ − Eᵢ)²/Eᵢ; reject uniformity if it exceeds the critical value for k−1 degrees of freedom (14.07 for 8 classes at 5%). The <em class=\"term\">Kolmogorov–Smirnov</em> test compares the empirical CDF with the ideal diagonal: D = max gap, critical value ≈ 1.36/√n. Here χ² = <b>0</b> and D = <b>0.0625</b>.</p>",
+      "questions": [
+        {
+          "id": "alpha",
+          "prompt": "A significance level of 5% in a randomness test means…",
+          "choices": [
+            {
+              "text": "A good generator is wrongly rejected about 5% of the time.",
+              "correct": true
+            },
+            {
+              "text": "The generator is 5% random."
+            },
+            {
+              "text": "5 numbers were tested."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The level is the false-rejection rate."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 6.3.1 — χ² and KS",
+          "note": "Frames 3 and 4 show the two tests.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"tests\",\"engine\":\"lcg\",\"a\":5,\"c\":3,\"m\":16,\"seed\":7,\"count\":64,\"width\":600,\"height\":440});",
+          "expect": {
+            "tests": {
+              "chi2": "0",
+              "ks": "0.0625"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "other",
+      "locator": "6.4",
+      "title": "Other tests: gap, poker, autocorrelation",
+      "eyebrow": "Independence",
+      "body": "<p>Uniformity is not enough — the sequence 0.1, 0.2, 0.3… is uniform but not random. Tests of independence: the <em class=\"term\">gap test</em> (gaps between occurrences of a digit should be geometric), the <em class=\"term\">poker test</em> (frequencies of patterns such as all different, one pair, three of a kind), <em class=\"term\">runs tests</em> (lengths of ascending/descending runs), and <em class=\"term\">autocorrelation</em> (correlation between U<sub>i</sub> and U<sub>i+k</sub> should be near 0).</p>",
+      "worked": [
+        {
+          "toc": "All different",
+          "why": "Poker test on 3-digit groups: probability all three digits differ = 10·9·8/10³.",
+          "math": "0.72"
+        },
+        {
+          "toc": "Check",
+          "why": "Exactly one pair: 3·10·9/10³ = 0.27; all same 10/10³ = 0.01. Total 1.00.",
+          "math": "0.72+0.27+0.01=1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "indep",
+          "prompt": "The sequence 0.1, 0.2, 0.3, …, 0.9 fails which kind of test?",
+          "choices": [
+            {
+              "text": "Uniformity."
+            },
+            {
+              "text": "Independence — consecutive values are perfectly correlated.",
+              "correct": true
+            },
+            {
+              "text": "Period."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is evenly spread."
+            },
+            {
+              "title": "Correct.",
+              "body": "It passes a uniformity test."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Length is not the issue."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dist",
+      "locator": "6.5",
+      "title": "Generating other distributions",
+      "eyebrow": "From uniform to anything",
+      "body": "<p>Given U ~ Uniform(0,1): the <em class=\"term\">inverse transform</em> method sets X = F⁻¹(U). For the exponential with rate λ, F(x) = 1 − e^(−λx), so X = −ln(1−U)/λ. Others: <em class=\"term\">rejection</em> sampling, <em class=\"term\">composition</em> (mix distributions), <em class=\"term\">convolution</em> (sum of variables: Erlang = sum of exponentials). Discrete: divide [0,1) into intervals of the given probabilities.</p>",
+      "worked": [
+        {
+          "toc": "Formula",
+          "why": "Generate an exponential(λ = 2) variate from U = 0.6.",
+          "math": "X=-\\frac{\\ln(1-0.6)}{2}"
+        },
+        {
+          "toc": "Value",
+          "why": "ln 0.4 = −0.916.",
+          "math": "X=\\frac{0.916}{2}=0.458",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "inv",
+          "prompt": "The inverse-transform method produces X from U by…",
+          "choices": [
+            {
+              "text": "Adding U to a constant."
+            },
+            {
+              "text": "Applying the inverse CDF, X = F⁻¹(U).",
+              "correct": true
+            },
+            {
+              "text": "Squaring U."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "The CDF maps X to uniform, so its inverse maps uniform to X."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not general."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>LCG: X ← (aX + c) mod m; full period needs Hull–Dobell.</li><li>Test uniformity (χ², KS) and independence (runs, gaps, autocorrelation).</li><li>Inverse transform: X = F⁻¹(U).</li></ul>"
+    }
+  ]
+}

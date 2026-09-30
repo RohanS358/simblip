@@ -666,7 +666,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                     await deleteSession(sn.id)
                     void refreshSessions()
                   }}
-                  className="rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                  className="hit-24 rounded text-muted-foreground opacity-0 transition-opacity hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
                 >
                   <Trash2 className="h-3 w-3" />
                 </button>

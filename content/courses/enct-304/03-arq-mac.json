@@ -1,0 +1,305 @@
+{
+  "title": "Flow control and shared media",
+  "kicker": "ENCT 304 · Computer Networks · Chapter 3",
+  "subtitle": "How a sender keeps the wire busy without drowning the receiver, recovers from loss, and shares a cable with others.",
+  "sections": [
+    {
+      "id": "sw",
+      "locator": "3.6",
+      "title": "Stop-and-wait",
+      "eyebrow": "The simplest ARQ",
+      "body": "<p>In <em class=\"term\">ARQ</em> (automatic repeat request) the receiver acknowledges good frames and the sender retransmits after a timeout. <em class=\"term\">Stop-and-wait</em> sends one frame, waits for its ACK, then sends the next. It is correct and trivial, but the link sits idle for a whole round trip per frame: with a long pipe the utilisation is tiny.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "1 Mb/s link, 1000-bit frames, one-way delay 20 ms."
+        },
+        {
+          "toc": "Utilisation",
+          "why": "Frame time 1 ms; round trip 40 ms. Utilisation = frame time / (frame time + RTT).",
+          "math": "U=\\frac{1}{1+40}\\approx 2.4\\%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "idle",
+          "prompt": "Why is stop-and-wait poor on a long fast link?",
+          "choices": [
+            {
+              "text": "It drops frames."
+            },
+            {
+              "text": "The sender idles for a whole round trip after each frame.",
+              "correct": true
+            },
+            {
+              "text": "It needs large buffers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is reliable."
+            },
+            {
+              "title": "Correct.",
+              "body": "Bandwidth × delay bits could be in flight but only one frame is."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "One frame buffer is enough."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.6.1 — stop-and-wait",
+          "note": "Four frames take 16 time units: each waits for its own acknowledgement.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sw\",\"engine\":\"arq\",\"protocol\":\"stopwait\",\"frames\":4,\"prop\":2,\"lose\":\"\",\"width\":600,\"height\":440});",
+          "expect": {
+            "sw": {
+              "totalTime": "16"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "window",
+      "locator": "3.7",
+      "title": "Sliding window: Go-Back-N and Selective Repeat",
+      "eyebrow": "Keep the pipe full",
+      "body": "<p>A <em class=\"term\">sliding window</em> lets the sender have up to <i>W</i> unacknowledged frames in flight. <em class=\"term\">Go-Back-N</em>: the receiver accepts only the next expected frame, so one loss forces the sender to resend that frame <em>and all after it</em>. <em class=\"term\">Selective Repeat</em>: the receiver buffers out-of-order frames and acknowledges each, so only the lost frame is resent. With window 4 and frame 2 lost: Go-Back-N retransmits <b>4</b> frames, Selective Repeat just <b>1</b>.</p>",
+      "questions": [
+        {
+          "id": "gbn",
+          "prompt": "Why does Go-Back-N resend frames that arrived safely?",
+          "choices": [
+            {
+              "text": "The receiver discarded them: it accepts frames only in order.",
+              "correct": true
+            },
+            {
+              "text": "The ACKs for them were lost."
+            },
+            {
+              "text": "The window was too small."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That keeps the receiver trivial — no buffer — at the cost of extra traffic."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The scenario loses only frame 2."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The cause is in-order-only reception."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.7.1 — Go-Back-N",
+          "note": "Go-Back-N: after the loss the whole window is resent.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"gbn\",\"engine\":\"arq\",\"protocol\":\"gbn\",\"frames\":8,\"window\":4,\"prop\":2,\"lose\":\"2\",\"width\":600,\"height\":440});",
+          "expect": {
+            "gbn": {
+              "retransmissions": "4",
+              "totalTime": "17"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 3.7.2 — Selective Repeat",
+          "note": "Selective Repeat: one retransmission.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sr\",\"engine\":\"arq\",\"protocol\":\"sr\",\"frames\":8,\"window\":4,\"prop\":2,\"lose\":\"2\",\"width\":600,\"height\":440});",
+          "expect": {
+            "sr": {
+              "retransmissions": "1",
+              "totalTime": "17"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-win",
+          "prompt": "<p>A 1 Mb/s link, 1000-bit frames, RTT 40 ms. What window size keeps the link fully busy?</p>",
+          "answer": "Frame time 1 ms; RTT 40 ms. Window ≥ 1 + 40/1 = <b>41</b> frames."
+        }
+      ]
+    },
+    {
+      "id": "mac",
+      "locator": "3.8",
+      "title": "Random access: ALOHA and CSMA",
+      "eyebrow": "Sharing one cable",
+      "body": "<p>When many stations share a medium, collisions happen. <em class=\"term\">Pure ALOHA</em>: transmit whenever you like — maximum throughput 18.4% (1/2e). <em class=\"term\">Slotted ALOHA</em>: transmit only at slot starts — 36.8% (1/e). <em class=\"term\">CSMA</em> listens first; <em class=\"term\">CSMA/CD</em> (Ethernet) also listens while sending and aborts on a collision, then waits a random back-off that doubles each time; <em class=\"term\">CSMA/CA</em> (Wi-Fi) cannot hear collisions, so it avoids them with random waits and acknowledgements.</p>",
+      "worked": [
+        {
+          "toc": "Pure",
+          "why": "Pure ALOHA throughput S = G·e^(−2G) peaks at G = 0.5.",
+          "math": "S_{max}=0.5e^{-1}\\approx0.184"
+        },
+        {
+          "toc": "Slotted",
+          "why": "Slotted ALOHA S = G·e^(−G) peaks at G = 1.",
+          "math": "S_{max}=e^{-1}\\approx0.368",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ca",
+          "prompt": "Why can Wi-Fi not use collision detection?",
+          "choices": [
+            {
+              "text": "Wi-Fi never has collisions."
+            },
+            {
+              "text": "It would be too slow."
+            },
+            {
+              "text": "A station cannot hear other transmissions while it is sending on the same radio channel.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It has plenty."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The issue is physical."
+            },
+            {
+              "title": "Correct.",
+              "body": "So it avoids collisions (CSMA/CA) rather than detecting them."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "switching",
+      "locator": "3.9",
+      "title": "Switched Ethernet and VLANs",
+      "eyebrow": "Modern LANs",
+      "body": "<p>A switch gives every port its own collision domain, so modern Ethernet is full duplex and needs no CSMA/CD. A <em class=\"term\">VLAN</em> splits one physical switch into several logical LANs; frames carry an 802.1Q tag with a VLAN id, and only a router moves traffic between VLANs. Uses: isolate departments, limit broadcasts, apply security.</p>",
+      "questions": [
+        {
+          "id": "vlan",
+          "prompt": "Hosts in different VLANs on the same switch can talk only via…",
+          "choices": [
+            {
+              "text": "The switch alone."
+            },
+            {
+              "text": "A hub."
+            },
+            {
+              "text": "A router (layer 3).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would defeat the separation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "VLANs are separate broadcast domains."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 3.9.1 — two VLANs on one switch",
+          "note": "A and B talk directly; A and C must go through the router.",
+          "script": "diagram(\"direction: right\\ngroup \\\"VLAN 10 · Sales\\\" { a, b }\\ngroup \\\"VLAN 20 · Lab\\\" { c, d }\\n[PC A] as a #blue\\n[PC B] as b #blue\\n[PC C] as c #mint\\n[PC D] as d #mint\\n[Switch] as sw #violet\\n[Router] as r #amber\\na -> sw\\nb -> sw\\nc -> sw\\nd -> sw\\nsw -> r : tagged trunk\");"
+        }
+      ]
+    },
+    {
+      "id": "eff",
+      "locator": "3.10",
+      "title": "Efficiency of the window",
+      "eyebrow": "How full is the pipe?",
+      "body": "<p>Link utilisation with a window of <i>W</i> frames is U = W × t<sub>frame</sub> / (t<sub>frame</sub> + RTT), capped at 1. The product bandwidth × delay tells you how many bits are needed in flight to fill the pipe; choose W at least that many frames.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "100 Mb/s link, 1250-byte frames (10 000 bits), RTT 10 ms."
+        },
+        {
+          "toc": "Frame time",
+          "why": "Frame time = 10 000 / 10⁸ = 0.1 ms; RTT / frame time = 100.",
+          "math": "t_f=0.1 \text{ms}"
+        },
+        {
+          "toc": "Utilisation",
+          "why": "Window needed to fill the pipe: 1 + 100 = 101 frames. With W = 7, utilisation is only 7 / 101.",
+          "math": "U=\frac{7}{101}approx 6.9%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bd",
+          "prompt": "What does bandwidth × delay tell you?",
+          "choices": [
+            {
+              "text": "The frame error rate."
+            },
+            {
+              "text": "How many bits must be in flight to keep the link busy.",
+              "correct": true
+            },
+            {
+              "text": "The number of routers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "It sizes the window."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.11",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Sliding windows keep the pipe full; window ≥ 1 + RTT/frame-time.</li><li>GBN resends the window; SR resends only the lost frame.</li><li>CSMA/CD detects, CSMA/CA avoids.</li></ul>"
+    }
+  ]
+}

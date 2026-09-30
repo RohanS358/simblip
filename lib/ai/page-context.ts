@@ -63,6 +63,7 @@ const SHOWN_PARAMS: Record<string, string[]> = {
   trigger: ['condition'],
   code: ['source'],
   dsa: ['source'],
+  steplab: ['engine', 'algo'],
   picture: ['src'],
   surface3d: ['equation'],
   cashflow: ['spec'],

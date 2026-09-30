@@ -1,0 +1,259 @@
+DATA STRUCTURE AND ALGORITHMS
+ENCT 252
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : II
+Part : II
+Course Objectives:
+The objective of this course is to impart fundamental knowledge on the design and
+implementation of data structures for storing information. It also covers various
+algorithms used in computer science. Upon completion of this course, students will be
+able to design and choose the appropriate data structure and efficient algorithm to
+achieve optimal performance
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+2
+Introduction to data structures
+1.1.1 Need of data structures
+1.1.2 Types of data structures and its characteristics
+Abstract data type (ADT)
+Basics of algorithm design techniques (Brute Force, divide and conquer,
+Greedy algorithms, branch and bound, backtracking, randomized,
+recursive, dynamic programming)
+Algorithm analysis
+1.4.1 Time and space complexity
+1.4.2 Best, worst and average case analysis
+1.4.3 Rate of growth
+1.4.4 Asymptotic notations: Big Oh, Big Omega and Big Theta
+Stack and Recursion
+2.1
+2.2
+2.3
+2.4
+(4 hours)
+(7 hours)
+Definition of stack and its operations
+Array implementation of stack ADT
+Stack applications
+2.3.1 Expression conversion: Infix to postfix and prefix expression
+2.3.2 Expression evaluation: Infix and postfix expression evaluation
+Recursion
+2.4.1 Concept of recursion
+2.4.2 Recursion and stack
+2.4.3 Recursion vs iteration
+2.4.4 Execution of recursive calls
+2.4.5 Types of recursions
+2.4.6 Applications of recursion: Tower of Hanoi
+3
+Queues
+3.1
+3.2
+3.3
+4
+5
+(6 hours)
+Definition of list and its operations
+Array implementation of list ADT
+Static list and its limitations
+Linked list: Definition and its operations
+Types of linked list: Singly, doubly, circular
+Application of linked list
+4.6.1 Linked list implementation of stack and queue ADT
+4.6.2 Solving polynomial equations using linked list
+Tree
+(7 hours)
+5.1
+5.2
+Definition and tree terminologies
+Binary trees
+5.2.1 Definition and types
+5.2.2 Array and linked list representation
+5.2.3 Traversal algorithms: Pre-order, in-order and post-order traversal
+5.2.4 Application of full binary tree: Huffman algorithm
+Binary search tree
+5.3.1 Definition and operations on binary search tree: Insertion, deletion,
+searching and traversing
+5.3.2 Construction of binary search tree
+Balanced binary tree
+5.4.1 Problem with unbalanced binary trees
+5.4.2 Balanced binary search tree
+5.4.3 AVL tree, definition and need of AVL tree, construction of AVL tree:
+Insertion, deletion on AVL tree and rotation operations
+Introduction to red-black tree
+B-Tree: Need, definition and construction of B-tree
+5.3
+5.4
+5.5
+5.6
+6
+Definition of queue and its operations
+Array implementation of queue ADT
+Types of queue ADT: Linear, circular, double ended and priority queues
+Linked List
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+(5 hours)
+Graphs
+6.1
+6.2
+6.3
+6.4
+(6 hours)
+Definition, terminologies and types of graphs
+Representation of graphs: Adjacency matrix, incidence matrix and
+adjacency list
+Transitive closure and Warshall’s algorithm
+Graph traversals: Breadth-first search, depth-first search and topological
+sort
+6.5
+6.6
+7
+Sorting Algorithms
+7.1
+7.2
+7.3
+8
+Minimum spanning tree: Kruskal’s algorithm and prim’s algorithm
+Shortest-paths problems: Dijkstra’s algorithm, Floyd- Warshall algorithm
+Definition of sorting and its applications
+Types of sorting: Internal/external sort, stable/unstable sort, in-place/ not inplace sort, adaptive/ non-adaptive sort
+Sorting algorithms and its efficiency: Bubble, insertion, selection, shell,
+quick, merge, radix and heap sorting
+Searching Algorithms
+8.1
+8.2
+8.3
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+(5 hours)
+(5 hours)
+Definition of searching techniques and its applications
+Different searching algorithms and its efficiency
+8.2.1 Sequential search
+8.2.2 Binary search
+Hashing
+8.3.1 Definition and its applications
+8.3.2 Hash function
+8.3.3 Hash table
+8.3.4 Collision in hash table
+8.3.5 Collision resolution techniques: Chaining method and open
+addressing method (Linear probing, quadratic probing and double
+hashing)
+(15 hours)
+Analyzing time and space complexity of basic algorithms and comparing
+best, worst, and average cases with examples
+Solving problems using stacks: Converting infix expressions to
+postfix/prefix, evaluating postfix expressions, balancing parentheses,
+reversing a string
+Solving Tower of Hanoi recursively and analyzing tail vs non-tail recursion
+Solving polynomial addition using linked lists
+Implementing tree traversals: Preorder, inorder, postorder
+Constructing a binary search tree (BST) and performing insertion, deletion,
+and searching, balancing BSTs with AVL tree operations (Rotations,
+insertion, deletion), constructing B-Trees (Insertion, deletion)
+Implementing Huffman coding for text compression
+Solving shortest path problems using Dijkstra’s and Floyd-Warshall
+algorithms
+Implementing Kruskal’s and Prim’s algorithms for minimum spanning tree
+Analyzing and comparing sorting algorithm efficiencies
+Implementing linear search and binary search
+Designing a hash table with different collision resolution techniques
+(Chaining, linear probing, quadratic probing, double hashing)
+Practical
+(45 hours)
+1.
+Implementation of stack using array, applications of stack- conversion of
+infix to prefix and postfix expression, evaluation of prefix and postfix
+expression, matching parenthesis, reversal of string
+2.
+Implementation of recursive algorithms (Tail and non-tail method)- Factorial,
+sum of natural numbers, Fibonacci series, implementation of Tower of
+Hanoi
+3.
+Implementations of linear queue and circular queue using arrays
+4.
+Implementation of static list, implementation of linked list: Singly and doubly
+linked lists
+5.
+Implementation of stack and queue using linked list, application of linked
+list- polynomial addition
+6.
+Implementation of in-order, pre-order and post-order tree traversals
+7.
+Implementation of breadth-first and depth-first search to traverse a graph
+8.
+Implementation of different sorting algorithms
+9.
+Implementation of different searching algorithms
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+4
+5
+2
+7
+9
+3
+5
+7
+4
+6
+8
+5
+7
+9
+6
+6
+8
+7
+5
+7
+8
+5
+7
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+Reference
+1.
+Langsam, Y. Augenstein .M. J. and Tenenbaum A. M. (1996). Data
+Structures using C and C++. Prentice Hall Press.
+2.
+Rowe, G. W. (1997). Introduction to data structures and algorithms with
+C++. Prentice-Hall, India.
+3.
+Cormen, T. H., Leiserson, C. E., Rivest, R. L., and Stein, C, (2022).
+Introduction to algorithms. MIT press.
+4.
+Kruse, R. L., and Ryba, A. J., (1998). Data structures and program design in
+C++. Prentice Hall, India.
+5.
+Thareja, R. (2014). Data Structures Using C. Oxford University Press.

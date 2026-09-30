@@ -1,0 +1,232 @@
+{
+  "title": "What an operating system is",
+  "kicker": "ENCT 254 · Operating System · Chapter 1",
+  "subtitle": "One program that manages every other: it shares the hardware, hides its ugliness, and draws the line between trusted and untrusted code.",
+  "sections": [
+    {
+      "id": "roles",
+      "locator": "1.1",
+      "title": "Two jobs in one",
+      "eyebrow": "The idea",
+      "body": "<p>An <em class=\"term\">operating system</em> does two things. It is an <b>extended machine</b>: it hides the raw hardware behind clean abstractions — files instead of disk sectors, processes instead of a shared CPU, sockets instead of network cards. And it is a <b>resource manager</b>: it decides who gets the CPU, memory and devices, and stops programs from trampling each other.</p><p>The <em class=\"term\">kernel</em> is the part that always runs in privileged mode. Around it sit the <em class=\"term\">shell</em> (the command interpreter), utilities and applications, which run in user mode and reach the kernel only through <em class=\"term\">system calls</em>.</p>",
+      "questions": [
+        {
+          "id": "syscall",
+          "prompt": "Why can a user program not simply call a kernel function directly?",
+          "choices": [
+            {
+              "text": "Because kernel functions are written in a different language."
+            },
+            {
+              "text": "Because it would be too slow."
+            },
+            {
+              "text": "User code runs unprivileged; a system call is the controlled doorway that switches the CPU into kernel mode.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Language is irrelevant. The barrier is hardware-enforced privilege, not syntax."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Speed is not the reason — protection is."
+            },
+            {
+              "title": "Correct.",
+              "body": "The trap instruction changes the privilege level and jumps to a fixed, checked entry point. Without it any program could read another’s memory or rewrite the disk."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — layers of a system",
+          "note": "A request travels down through the system-call boundary; the answer comes back up.",
+          "script": "diagram(\"direction: down\\n[Applications] as app #blue\\n[Shell and utilities] as sh #blue\\n[System-call interface] as sc #amber\\n[Kernel: scheduler, memory, file system, drivers] as k #violet\\n[Hardware: CPU, RAM, disk, network] as hw #grey\\napp -> sc : open(), read(), fork()\\nsh -> sc\\nsc -> k\\nk -> hw\\n@0 app -> sc : read()\\n@1.2 sc -> k : trap\\n@2.4 k -> hw : disk I/O\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "kinds",
+      "locator": "1.2",
+      "title": "Kinds of kernel",
+      "eyebrow": "Structure",
+      "body": "<p>A <em class=\"term\">monolithic</em> kernel (classic Unix, Linux) runs everything — scheduler, file systems, drivers — in one address space: fast, but a buggy driver can crash the machine. A <em class=\"term\">microkernel</em> keeps only the essentials (scheduling, IPC, basic memory) in the kernel and runs the rest as user-mode servers: safer and easier to extend, but every service call costs a message. <em class=\"term\">Layered</em> kernels stack strict layers; <em class=\"term\">hybrid</em> kernels (Windows NT, macOS) mix the two; <em class=\"term\">exokernels</em> expose raw hardware and leave abstraction to libraries.</p>",
+      "questions": [
+        {
+          "id": "micro",
+          "prompt": "What is the main price of a microkernel?",
+          "choices": [
+            {
+              "text": "It cannot run on modern hardware."
+            },
+            {
+              "text": "It has no memory protection."
+            },
+            {
+              "text": "More message passing between user-mode servers, so each service call is slower.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Microkernels (QNX, seL4, Mach-based systems) run well on modern hardware."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Quite the opposite: protection between services is its selling point."
+            },
+            {
+              "title": "Correct.",
+              "body": "Isolation is bought with context switches and copies: a file read becomes a message to the file server and a reply."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.2.1 — two kernel designs",
+          "note": "Where the boundary sits decides speed versus isolation.",
+          "script": "diagram(\"direction: right\\ngroup \\\"Monolithic\\\" { m1, m2 }\\ngroup \\\"Microkernel\\\" { u1, u2, mk }\\n[Everything in one kernel] as m1 #violet\\n[Hardware] as m2 #grey\\n[File server] as u1 #blue\\n[Driver] as u2 #blue\\n[Tiny kernel: IPC, scheduling, memory] as mk #violet\\nm1 -> m2\\nu1 -> mk : message\\nu2 -> mk : message\");"
+        }
+      ]
+    },
+    {
+      "id": "boot",
+      "locator": "1.3",
+      "title": "From power button to login",
+      "eyebrow": "Booting",
+      "body": "<p>At power-on the CPU runs firmware from a fixed address. Legacy <em class=\"term\">BIOS</em> loads the first 512-byte sector — the <em class=\"term\">MBR</em> — which chain-loads a bootloader; modern <em class=\"term\">UEFI</em> reads a bootloader from an EFI system partition on a <em class=\"term\">GPT</em> disk directly, and can verify its signature (secure boot). The bootloader loads the kernel into memory and jumps to it; the kernel initialises devices, mounts the root file system and starts the first user process (<code>init</code>/<code>systemd</code>), which starts everything else.</p>",
+      "worked": [
+        {
+          "toc": "Sector 0",
+          "why": "Firmware finds the boot device and reads sector 0 (512 bytes)."
+        },
+        {
+          "toc": "Layout",
+          "why": "The 446-byte boot code plus the 64-byte partition table plus the 2-byte signature fill the sector: 446 + 64 + 2 = 512.",
+          "math": "446 + 64 + 2 = 512",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mbr",
+          "prompt": "Why is the MBR bootloader so small?",
+          "choices": [
+            {
+              "text": "To save disk space."
+            },
+            {
+              "text": "It must fit in one 512-byte sector the firmware can read before any file system exists.",
+              "correct": true
+            },
+            {
+              "text": "Because the kernel is tiny."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "One sector is nothing on a modern disk; the limit comes from what firmware loads, not from capacity."
+            },
+            {
+              "title": "Correct.",
+              "body": "The firmware knows nothing about files; it can only read sector 0. That tiny code loads a bigger loader that does understand file systems."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Kernels are megabytes; the MBR code only starts the chain."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 1.3.1 — the boot chain",
+          "note": "Each stage is small and loads the next, bigger one.",
+          "script": "diagram(\"direction: right\\n(Power on) as a\\n[Firmware: BIOS / UEFI] as b #amber\\n[Bootloader: GRUB] as c #blue\\n[Kernel loads] as d #violet\\n[init / systemd] as e #mint\\n(Login) as f\\na -> b\\nb -> c : POST, find boot device\\nc -> d : load kernel + initrd\\nd -> e : mount root, start drivers\\ne -> f : start services\\n@0 a -> b\\n@1 b -> c\\n@2 c -> d\\n@3 d -> e\\n@4 e -> f\\nloop 6\");"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "locator": "1.4",
+      "title": "A zoo of operating systems",
+      "eyebrow": "Kinds",
+      "body": "<p>Mainframe and server systems maximise throughput and uptime; personal systems favour responsiveness; smartphone and embedded systems live with tight power and memory; <em class=\"term\">real-time</em> systems guarantee that a task finishes <em>by its deadline</em> (hard) or usually does (soft). The same ideas — processes, memory, files — appear in all of them with different priorities.</p>",
+      "questions": [
+        {
+          "id": "hard",
+          "prompt": "What defines a hard real-time system?",
+          "choices": [
+            {
+              "text": "It is very fast."
+            },
+            {
+              "text": "It cannot multitask."
+            },
+            {
+              "text": "Missing a deadline is a failure, not merely a slowdown.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Speed helps, but the requirement is a guaranteed bound, not raw speed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Real-time systems multitask routinely; they schedule to meet deadlines."
+            },
+            {
+              "title": "Correct.",
+              "body": "Anti-lock brakes or a pacemaker must respond within a bound; predictability matters more than average speed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 1.4.1 — system types",
+          "note": "One family tree of requirements.",
+          "script": "diagram(\"direction: right\\n[Batch / mainframe] as a #grey\\n[Server] as b #blue\\n[Desktop] as c #mint\\n[Mobile / embedded] as d #amber\\n[Real-time] as e #rose\\na -> b : interactive, networked\\nb -> c : GUI, single user\\nc -> d : power, size limits\\nd -> e : deadlines\");"
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "locator": "1.5",
+      "title": "Quick checks",
+      "eyebrow": "Practice",
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Name three system calls and what each asks the kernel to do.</p>",
+          "answer": "<code>open()</code> — the file system finds a file and returns a handle; <code>fork()</code> — the process manager duplicates the calling process; <code>read()</code> — a driver fetches bytes from a file or device into the caller’s buffer."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Compare a monolithic kernel and a microkernel in one sentence each.</p>",
+          "answer": "Monolithic: all services in one privileged address space — fast, less isolated. Microkernel: minimal privileged core plus user-mode services — isolated, slower because of message passing."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>OS = extended machine + resource manager.</li><li>User mode ↔ kernel mode only through system calls.</li><li>Kernel designs trade speed against isolation.</li><li>Boot is a chain of ever-larger loaders.</li></ul>"
+    }
+  ]
+}

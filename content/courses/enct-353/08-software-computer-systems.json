@@ -1,0 +1,289 @@
+{
+  "title": "Simulation tools and simulating computer systems",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapters 9–10",
+  "subtitle": "From Python to GPSS, and using simulation to design the very machines that run it.",
+  "sections": [
+    {
+      "id": "lang",
+      "locator": "9.1",
+      "title": "Simulation languages and tools",
+      "eyebrow": "The landscape",
+      "body": "<p>You can write a simulator in any language — Java, Python (SimPy), C++ — but dedicated tools save effort. <em class=\"term\">GPSS</em> models a system as transactions flowing through blocks (GENERATE, QUEUE, SEIZE, ADVANCE, RELEASE, TERMINATE). Commercial packages (Arena, AnyLogic, Simulink) add graphical building and animation. Whatever the tool, the core is the same: a clock, an event list, random streams and statistics collectors.</p>",
+      "questions": [
+        {
+          "id": "gpss",
+          "prompt": "In GPSS, transactions represent…",
+          "choices": [
+            {
+              "text": "The servers."
+            },
+            {
+              "text": "The random numbers."
+            },
+            {
+              "text": "The entities moving through the system (customers, jobs, packets).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Servers are facilities."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Those come from streams."
+            },
+            {
+              "title": "Correct.",
+              "body": "Blocks describe what happens to them."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 9.1.1 — a GPSS model",
+          "note": "A GPSS single-server model as a block chain.",
+          "script": "diagram(\"direction: right\\n(GENERATE arrivals) as g\\n[QUEUE wait] as q #amber\\n[SEIZE server] as s #blue\\n[ADVANCE service time] as a #violet\\n[RELEASE server] as r #blue\\n(TERMINATE) as t\\ng -> q\\nq -> s\\ns -> a\\na -> r\\nr -> t\\n@0 g -> q : customer\\n@1 q -> s : next\\n@2 s -> a : service\\n@3 a -> r : done\\n@4 r -> t : leaves\\nloop 6\");"
+        }
+      ]
+    },
+    {
+      "id": "code",
+      "locator": "9.2",
+      "title": "A queue simulator in code",
+      "eyebrow": "From scratch",
+      "body": "<p>Even a few lines of C++ give a working model. This program simulates a single-server queue with a deterministic pattern (arrival every 3 units, service of 2 each) and prints each customer’s wait — run it and step through with the DSA Lab.</p>",
+      "worked": [
+        {
+          "toc": "Why no wait",
+          "why": "Arrival every 3, service 2 ⇒ the server is free before each arrival."
+        },
+        {
+          "toc": "Try it",
+          "why": "Change the service time to 4: customer i starts at max(arrival, previous finish).",
+          "math": "0,1,2,3,4\\ \\text{wait units}\\to 10",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "det",
+          "prompt": "Why is this model’s total wait 0?",
+          "choices": [
+            {
+              "text": "Service time 2 is less than the inter-arrival gap 3, so the server is always free.",
+              "correct": true
+            },
+            {
+              "text": "The code is wrong."
+            },
+            {
+              "text": "The clock is broken."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "ρ = 2/3 with no randomness."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is correct."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Nothing is broken."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 9.2.1 — A queue simulator in code",
+          "note": "Service (2) is faster than arrivals (every 3), so nobody waits: total wait 0.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int serverFree = 0, totalWait = 0;\\n  for (int i = 0; i < 5; i++) {\\n    int arrive = i * 3;\\n    int start = arrive > serverFree ? arrive : serverFree;\\n    totalWait += start - arrive;\\n    serverFree = start + 2;\\n  }\\n  cout << totalWait << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cpu",
+      "locator": "10.1",
+      "title": "CPU and memory simulation",
+      "eyebrow": "Designing hardware",
+      "body": "<p>Computer architects evaluate designs before building them. A <em class=\"term\">CPU simulator</em> executes instructions and counts cycles; a <em class=\"term\">memory simulator</em> replays an address trace through a cache model. The scheduling chapter's Round Robin with quantum 4 yields an average wait of <b>5.67</b>; a direct-mapped cache on the address trace 0 8 0 6 8 suffers <b>5</b> misses. Changing the parameters and re-running is exactly a simulation experiment.</p>",
+      "questions": [
+        {
+          "id": "trace",
+          "prompt": "Trace-driven simulation of a cache replays…",
+          "choices": [
+            {
+              "text": "A recorded sequence of memory addresses through the cache model.",
+              "correct": true
+            },
+            {
+              "text": "Random numbers only."
+            },
+            {
+              "text": "The compiler output."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Changing cache parameters is then cheap."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is synthetic."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a trace."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 10.1.1 — CPU scheduling simulation",
+          "note": "A scheduler is a simulation of a CPU.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cpu\",\"engine\":\"sched\",\"algo\":\"rr\",\"quantum\":4,\"procs\":\"P1,0,24;P2,0,3;P3,0,3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cpu": {
+              "avgWT": "5.67"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 10.1.2 — cache simulation",
+          "note": "A cache is a simulation of memory.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mem\",\"engine\":\"cache\",\"lines\":4,\"block\":1,\"addrs\":\"0 8 0 6 8\",\"mapping\":\"direct\",\"width\":600,\"height\":440});",
+          "expect": {
+            "mem": {
+              "misses": "5",
+              "hitRate": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "net",
+      "locator": "10.2",
+      "title": "Network simulation",
+      "eyebrow": "Packets and links",
+      "body": "<p>Network simulators (ns-3, OMNeT++, Cisco Packet Tracer) model nodes, links, queues and protocols as discrete events: a packet arrives at a router, waits in a queue, is transmitted, propagates. A router output port is exactly an M/M/1-style queue: at ρ = 0.5 the simulated utilisation is <b>0.485</b> and the mean number in system <b>0.863</b>.</p>",
+      "questions": [
+        {
+          "id": "ns",
+          "prompt": "What kind of simulation are network simulators?",
+          "choices": [
+            {
+              "text": "Continuous."
+            },
+            {
+              "text": "Discrete-event: state changes at packet events.",
+              "correct": true
+            },
+            {
+              "text": "Monte Carlo without time."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Packets are discrete."
+            },
+            {
+              "title": "Correct.",
+              "body": "The clock jumps between arrivals, transmissions and timeouts."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They model time explicitly."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 10.2.1 — a router output queue",
+          "note": "A router port as a queue.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"rt\",\"engine\":\"mm1\",\"lambda\":0.5,\"mu\":1,\"customers\":2000,\"seed\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "rt": {
+              "utilisation": "0.485",
+              "avgInSystem": "0.863",
+              "theoryL": "1"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Why simulate a new cache design rather than build it?</p>",
+          "answer": "Building hardware costs months and millions; a trace-driven simulator evaluates hit rate and AMAT for many sizes and policies in minutes and reveals the best design before any silicon is made."
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "locator": "10.3",
+      "title": "High-level system simulation",
+      "eyebrow": "Whole-machine",
+      "body": "<p>Full-system simulators (gem5, QEMU) boot an operating system on a model of a computer, trading speed for detail — cycle-accurate is slowest. Choosing the abstraction level is the main design decision: the right model answers the question at the lowest cost.</p>",
+      "questions": [
+        {
+          "id": "level",
+          "prompt": "A more detailed simulator is…",
+          "choices": [
+            {
+              "text": "Usually slower, because it models more.",
+              "correct": true
+            },
+            {
+              "text": "Always better."
+            },
+            {
+              "text": "Always faster."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Pick the least detail that answers the question."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Cost matters."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The opposite."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "10.4",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Simulation languages package the clock, event list, streams and statistics.</li><li>CPU, memory and network simulators are DES in disguise.</li></ul>"
+    }
+  ]
+}

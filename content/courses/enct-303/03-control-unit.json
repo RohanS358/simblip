@@ -1,0 +1,245 @@
+{
+  "title": "Hardwired and microprogrammed control",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 3",
+  "subtitle": "The control unit turns an opcode into the exact sequence of signals that move data through the machine.",
+  "sections": [
+    {
+      "id": "micro",
+      "locator": "3.1",
+      "title": "Micro-operations",
+      "eyebrow": "The smallest steps",
+      "body": "<p>An instruction is carried out as a sequence of <em class=\"term\">micro-operations</em>, each a register-transfer that fits in one clock. Fetch, for example, is: MAR ← PC; MDR ← Memory[MAR]; IR ← MDR; PC ← PC + 1. A <em class=\"term\">control word</em> is the set of signals (which register loads, which bus is driven, what the ALU does) asserted in one step.</p>",
+      "questions": [
+        {
+          "id": "ctl",
+          "prompt": "What is a control word?",
+          "choices": [
+            {
+              "text": "The bundle of control signals asserted during one micro-operation step.",
+              "correct": true
+            },
+            {
+              "text": "The opcode."
+            },
+            {
+              "text": "The data being processed."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each bit enables a register load, selects a bus source or picks an ALU function."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The opcode chooses which sequence of control words to issue."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Data travels on the data path; control words steer it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.1.1 — instruction fetch",
+          "note": "Four micro-operations make up instruction fetch.",
+          "script": "diagram(\"direction: right\\n[PC] as pc #blue\\n[MAR] as mar #violet\\n[Memory] as mem #mint\\n[MDR] as mdr #violet\\n[IR] as ir #amber\\npc -> mar : T1: MAR ← PC\\nmar -> mem : T2: read\\nmem -> mdr : MDR ← M[MAR]\\nmdr -> ir : T3: IR ← MDR\\n@0 pc -> mar : PC\\n@1.2 mar -> mem : address\\n@2.4 mem -> mdr : data\\n@3.6 mdr -> ir : opcode\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "hard",
+      "locator": "3.2",
+      "title": "Hardwired control",
+      "eyebrow": "Logic gates",
+      "body": "<p>A <em class=\"term\">hardwired</em> control unit generates signals with combinational logic: a step counter decoded to timing signals T1, T2…, an opcode decoder, and gates that AND them together (e.g. “load IR = T3”). It is very fast, but changing the instruction set means redesigning the logic — the usual choice for RISC.</p>",
+      "questions": [
+        {
+          "id": "hw",
+          "prompt": "Main advantage of hardwired control?",
+          "choices": [
+            {
+              "text": "Easy to change."
+            },
+            {
+              "text": "Needs less hardware."
+            },
+            {
+              "text": "Speed — signals come straight out of gates with no memory lookup.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the microprogrammed advantage."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Complex instruction sets need a lot of logic."
+            },
+            {
+              "title": "Correct.",
+              "body": "The price is that it is hard to modify."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mp",
+      "locator": "3.3",
+      "title": "Microprogrammed control",
+      "eyebrow": "A computer inside the computer",
+      "body": "<p>In a <em class=\"term\">microprogrammed</em> unit the control words are stored in a fast <em class=\"term\">control memory</em>. Each instruction’s opcode selects the start of a <em class=\"term\">microroutine</em>; a <em class=\"term\">micro-program counter</em> steps through it, reading one <em class=\"term\">microinstruction</em> per clock and sending its bits to the data path. A microinstruction also says what comes next: fall through, jump, or branch on a condition flag. Changing or extending the instruction set is just rewriting the microcode (Wilkes’ original idea), which is why CISC machines use it.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A machine has 64 micro-routines of at most 16 microinstructions each and 40 control signals."
+        },
+        {
+          "toc": "Size",
+          "why": "Control memory holds 64 × 16 = 1024 words. Each word carries the 40 signals plus a next-address field of ⌈log₂1024⌉ = 10 bits.",
+          "math": "1024\\times(40+10)=51200\\ \\text{bits}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mpadv",
+          "prompt": "Why do CISC designers like microprogramming?",
+          "choices": [
+            {
+              "text": "New or complex instructions are added by writing microcode, not redesigning logic.",
+              "correct": true
+            },
+            {
+              "text": "It is the fastest method."
+            },
+            {
+              "text": "It needs no memory."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Flexibility is bought with an extra memory lookup per step."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Hardwired is faster."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It needs a control store."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 3.3.1 — microprogrammed control unit",
+          "note": "Each clock reads one microinstruction.",
+          "script": "diagram(\"direction: right\\n[Instruction register (opcode)] as ir #blue\\n[Mapping: opcode → start address] as map #amber\\n[Micro-program counter] as upc #violet\\n[Control memory] as cm #mint\\n[Control word → data path] as cw #rose\\nir -> map\\nmap -> upc : load\\nupc -> cm : address\\ncm -> cw : microinstruction\\ncm --> upc : next address / branch\\n@0 ir -> map : opcode\\n@1.2 map -> upc : start address\\n@2.4 upc -> cm : µPC\\n@3.6 cm -> cw : control word\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "horiz",
+      "locator": "3.4",
+      "title": "Horizontal and vertical microcode",
+      "eyebrow": "Encoding",
+      "body": "<p><em class=\"term\">Horizontal</em> microinstructions give every control signal its own bit: wide, fast, highly parallel. <em class=\"term\">Vertical</em> ones encode the signals in fields (like opcodes) and need decoders: narrow but slower. Real designs mix them.</p>",
+      "questions": [
+        {
+          "id": "wide",
+          "prompt": "A horizontal microinstruction is…",
+          "choices": [
+            {
+              "text": "Wide, with one bit per control signal.",
+              "correct": true
+            },
+            {
+              "text": "Narrow and encoded."
+            },
+            {
+              "text": "Stored in the main memory."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That allows many micro-operations in the same clock."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is vertical."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It lives in control memory."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seq",
+      "locator": "3.5",
+      "title": "Sequencing the microprogram",
+      "eyebrow": "What runs next",
+      "body": "<p>After each microinstruction the next address comes from: the incremented µPC (most steps), a jump field, a conditional branch on a flag, a mapping from the opcode (at the start), or a stack for microsubroutines. Address generation is the control unit’s own program counter logic.</p>",
+      "questions": [
+        {
+          "id": "next",
+          "prompt": "Which source normally supplies the next microaddress?",
+          "choices": [
+            {
+              "text": "A random number."
+            },
+            {
+              "text": "µPC + 1.",
+              "correct": true
+            },
+            {
+              "text": "The data bus."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Most microinstructions simply fall through to the next word."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not normally."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 3.5.1 — microinstruction sequencing",
+          "note": "A conditional microbranch.",
+          "script": "diagram(\"direction: down\\n(Fetch microroutine) as f\\n[Map opcode to start] as m\\n<Condition met?> as c\\n[µPC ← branch target] as b\\n[µPC ← µPC + 1] as n\\n(Execute next microinstruction) as e\\nf -> m\\nm -> c\\nc -> b : yes\\nc -> n : no\\nb -> e\\nn -> e\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Instructions = sequences of micro-operations; a control word drives one step.</li><li>Hardwired: fast, rigid. Microprogrammed: flexible, a bit slower.</li><li>Horizontal = wide and parallel; vertical = narrow and encoded.</li></ul>"
+    }
+  ]
+}

@@ -1,0 +1,330 @@
+{
+  "title": "Continuous systems: feedback and block diagrams",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 3",
+  "subtitle": "The analog-computer idea, made digital: wire integrators, gains and sums into a diagram and let it run.",
+  "sections": [
+    {
+      "id": "analog",
+      "locator": "3.1",
+      "title": "Analog computers and block diagrams",
+      "eyebrow": "History",
+      "body": "<p>Before digital machines, continuous models ran on <em class=\"term\">analog computers</em>: op-amp circuits wired as summers, gains and integrators, solving differential equations in real time. A <em class=\"term\">hybrid</em> computer paired analog parts with a digital controller. Modern <em class=\"term\">continuous system simulation languages</em> (CSSLs — Simulink, Modelica) keep the same picture: a <em class=\"term\">block diagram</em> of integrators, gains and sums. Below is the simulator built into this notebook.</p>",
+      "questions": [
+        {
+          "id": "int",
+          "prompt": "An integrator fed a constant 2 for 3 seconds outputs…",
+          "choices": [
+            {
+              "text": "2."
+            },
+            {
+              "text": "3."
+            },
+            {
+              "text": "6.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the input."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the time."
+            },
+            {
+              "title": "Correct.",
+              "body": "∫ 2 dt = 2t."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.1.1 — the integrator",
+          "note": "An integrator fed a constant 2 ramps at 2 per second.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"int\",\"engine\":\"blocks\",\"blocks\":\"r: const(2)\\ni: integrator\\ny: scope\\nr -> i -> y\",\"time\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "int": {
+              "final": "6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "from",
+      "locator": "3.2",
+      "title": "Turning an equation into a diagram",
+      "eyebrow": "The recipe",
+      "body": "<p>Solve the highest derivative, then integrate down. For y′ + y = u: y′ = u − y, so a sum forms u − y, an integrator gives y, and a feedback wire returns y to the sum. The first-order system responds to a step by rising as 1 − e⁻ᵗ, with time constant 1 s.</p>",
+      "worked": [
+        {
+          "toc": "Rearrange",
+          "why": "y′ + y = u, u = step(1). Rearranged y′ = u − y."
+        },
+        {
+          "toc": "Response",
+          "why": "Steady state: y′ = 0, so y = u = 1. Time constant τ = 1: about 63% (0.632) at t = 1 and 98% near t = 4.",
+          "math": "y(t)=1-e^{-t}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fb",
+          "prompt": "Why is there a feedback wire from y back to the sum?",
+          "choices": [
+            {
+              "text": "Because y′ depends on y itself: y′ = u − y.",
+              "correct": true
+            },
+            {
+              "text": "To add noise."
+            },
+            {
+              "text": "To slow the simulation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The loop is the equation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.2.1 — y′ + y = u",
+          "note": "y′ = u − y, drawn as a loop.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fo\",\"engine\":\"blocks\",\"blocks\":\"u: step(1)\\ns: sum(+-)\\ni: integrator\\ny: scope\\nu -> s -> i -> y\\ni -> s\",\"time\":6,\"width\":600,\"height\":440});",
+          "expect": {
+            "fo": {
+              "final": "0.9975",
+              "settling": "3.8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "second",
+      "locator": "3.3",
+      "title": "Second-order systems: oscillation",
+      "eyebrow": "Mass–spring–damper",
+      "body": "<p>A second-order plant 1/(s² + 2ζωₙs + ωₙ²) oscillates when the damping ratio ζ is less than 1. With ωₙ = 1 and ζ = 0.2 the step response overshoots by exp(−πζ/√(1−ζ²)) ≈ 52.7%: the simulator gives <b>52.7%</b> overshoot and settles at <b>0.9999</b>. ζ = 1 is critical damping (fastest without overshoot); ζ &gt; 1 is sluggish.</p>",
+      "questions": [
+        {
+          "id": "zeta",
+          "prompt": "The damping ratio ζ = 0.2 means the response is…",
+          "choices": [
+            {
+              "text": "Overdamped."
+            },
+            {
+              "text": "Unstable."
+            },
+            {
+              "text": "Underdamped — it oscillates with noticeable overshoot.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs ζ > 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Positive damping is stable."
+            },
+            {
+              "title": "Correct.",
+              "body": "ζ < 1."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 3.3.1 — ζ = 0.2",
+          "note": "An underdamped response.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sec\",\"engine\":\"blocks\",\"blocks\":\"r: step(1)\\ng: tf(1 ; 1 0.4 1)\\ny: scope\\nr -> g -> y\",\"time\":40,\"width\":600,\"height\":440});",
+          "expect": {
+            "sec": {
+              "overshoot": "52.7",
+              "settling": "19.59",
+              "final": "0.9999"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-os",
+          "prompt": "<p>For 1/(s² + 0.4s + 1) find the damping ratio and predicted overshoot. Then check it against the simulator.</p>",
+          "answer": "2ζωₙ = 0.4 with ωₙ = 1 → ζ = 0.2; overshoot = e^(−π·0.2/√0.96) = 52.7%. Simulator: <b>52.7%</b>.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "Measured overshoot.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"blocks\",\"blocks\":\"r: step(1)\\ng: tf(1 ; 1 0.4 1)\\ny: scope\\nr -> g -> y\",\"time\":40,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "overshoot": "52.7"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "loop",
+      "locator": "3.4",
+      "title": "Feedback systems",
+      "eyebrow": "Closing the loop",
+      "body": "<p>In a <em class=\"term\">feedback control</em> system the output is compared with a reference; the error drives a controller that drives the plant. With proportional gain K around the plant 1/(s+1) the closed loop settles at K/(1+K) of the reference: K = 2 gives <b>0.6667</b> — a permanent <em class=\"term\">steady-state error</em>. Adding integral action removes it: a PI controller (kp = 2, ki = 1) settles at <b>0.9999</b>.</p>",
+      "worked": [
+        {
+          "toc": "Closed loop",
+          "why": "Closed loop with gain K around 1/(s+1): y = K/(s+1+K) · r."
+        },
+        {
+          "toc": "Steady state",
+          "why": "Final value for a unit step: K/(1+K). For K = 2: 2/3 ≈ 0.667.",
+          "math": "\\frac{2}{3}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ss",
+          "prompt": "Why does proportional control alone leave a steady-state error?",
+          "choices": [
+            {
+              "text": "A non-zero output needs a non-zero error to keep the controller producing it.",
+              "correct": true
+            },
+            {
+              "text": "The plant is noisy."
+            },
+            {
+              "text": "The gain is too high."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Integral action accumulates the error until it vanishes."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The plant here is noiseless."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Higher gain only reduces the error."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 3.4.1 — proportional control",
+          "note": "Proportional only: settles at 2/3.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"p\",\"engine\":\"blocks\",\"width\":600,\"height\":440});",
+          "expect": {
+            "p": {
+              "final": "0.6667"
+            }
+          }
+        },
+        {
+          "id": "lab6",
+          "caption": "Figure 3.4.2 — PI control",
+          "note": "Integral action drives the error to zero.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pi\",\"engine\":\"blocks\",\"blocks\":\"r: step(1)\\ne: sum(+-)\\nc: pid(2, 1, 0)\\np: tf(1 ; 1 1)\\ny: scope\\nr -> e -> c -> p -> y\\np -> e\",\"time\":20,\"width\":600,\"height\":440});",
+          "expect": {
+            "pi": {
+              "final": "0.9999"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nonlin",
+      "locator": "3.5",
+      "title": "Nonlinear blocks and limits",
+      "eyebrow": "Real hardware",
+      "body": "<p>Actuators saturate, sensors have delays. Insert a saturation block: output clipped to ±1. A sine of amplitude 3 becomes a flattened wave — a first taste of distortion. Delays and saturation are why real systems need more care than their linear models.</p>",
+      "questions": [
+        {
+          "id": "sat",
+          "prompt": "A saturation block limits…",
+          "choices": [
+            {
+              "text": "The frequency."
+            },
+            {
+              "text": "The input noise."
+            },
+            {
+              "text": "The output to a maximum and minimum value.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Beyond the limits the output stays flat."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab7",
+          "caption": "Figure 3.5.1 — saturation",
+          "note": "Peaks are clipped at ±1.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sat\",\"engine\":\"blocks\",\"blocks\":\"r: sine(3, 0.5)\\ns: sat(-1, 1)\\ny: scope\\nr -> s -> y\",\"time\":4,\"width\":600,\"height\":440});",
+          "expect": {
+            "sat": {
+              "y_final": "-0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Solve for the highest derivative, integrate down, feed back.</li><li>ζ &lt; 1 overshoots; P alone leaves steady-state error; I removes it.</li></ul>"
+    }
+  ]
+}

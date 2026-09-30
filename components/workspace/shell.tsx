@@ -563,12 +563,16 @@ export function WorkspaceShell() {
 
   if (!ready) {
     return (
-      <div className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]">
+      <main
+        aria-busy="true"
+        className="canvas-dots flex h-dvh flex-col items-center justify-center gap-3 bg-background [background-size:24px_24px]"
+      >
         <BounceLoader size={240} />
-        <span className="text-ui-md font-extrabold tracking-tight">
+        <h1 className="text-ui-md font-extrabold tracking-tight">
           SIM<span className="text-[var(--accent-blue)]">BLIP</span>
-        </span>
-      </div>
+        </h1>
+        <p role="status" className="sr-only">Loading your workspace</p>
+      </main>
     )
   }
 
@@ -812,14 +816,14 @@ export function WorkspaceShell() {
 
       <footer className="z-40 flex h-6 shrink-0 items-center gap-3 border-t border-border/40 px-4 text-ui-2xs text-muted-foreground">
         {profile && (
-          <span className="font-medium">
+          <span className="min-w-0 truncate font-medium">
             {profile.full_name} · {ROLE_LABEL[profile.role]}
           </span>
         )}
         {institution && <span className="hidden sm:inline">{institution.name}</span>}
         <div className="flex-1" />
-        {activePageId && <span>{objectCount} objects</span>}
-        <span>SIMBLIP · Built by Rohan Singh</span>
+        {activePageId && <span className="hidden whitespace-nowrap min-[480px]:inline">{objectCount} objects</span>}
+        <span className="shrink-0 whitespace-nowrap">SIMBLIP · Built by Rohan Singh</span>
       </footer>
 
       <CommandPalette

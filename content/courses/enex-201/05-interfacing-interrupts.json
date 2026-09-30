@@ -1,0 +1,365 @@
+{
+  "title": "Memory, I/O interfacing and interrupts",
+  "kicker": "ENEX 201 · Microprocessors · Chapters 4–6",
+  "subtitle": "Connecting real chips to the bus so the processor reaches each one at exactly the right address.",
+  "sections": [
+    {
+      "id": "decode",
+      "locator": "4.1",
+      "title": "Address decoding",
+      "eyebrow": "Chip select",
+      "body": "<p>Each memory or I/O chip has a chip-select input; <em class=\"term\">address decoding</em> turns the high address lines into select signals so exactly one chip responds. <em class=\"term\">Full (unique) decoding</em> uses all the high lines, so each location has one address; <em class=\"term\">partial (non-unique) decoding</em> ignores some, so the chip appears at several addresses (simpler hardware). Decoders (74LS138 3-to-8) or NAND gates generate the selects.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "An 8 KB RAM (2000H–3FFFH) on an 8085. Which lines select it?"
+        },
+        {
+          "toc": "Select code",
+          "why": "8 KB = 2¹³, so A0–A12 go to the chip. The range 2000H–3FFFH has A15A14A13 = 001.",
+          "math": "\\text{A15 A14 A13}=0\\,0\\,1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dec",
+          "prompt": "Why must address decoding ensure only one chip responds?",
+          "choices": [
+            {
+              "text": "To save memory."
+            },
+            {
+              "text": "Two chips driving the data bus at once would cause bus contention and corrupt data.",
+              "correct": true
+            },
+            {
+              "text": "To speed up the clock."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Correct.",
+              "body": "The decoder guarantees exclusive selection."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.1.1 — a decoder selects a chip",
+          "note": "Three upper address lines pick one 8 KB block.",
+          "script": "diagram(\"direction: right\\n[A15 A14 A13] as hi #blue\\n[3-to-8 decoder] as dec #violet\\n[Y0 → ROM 0000-1FFF] as y0 #mint\\n[Y1 → RAM 2000-3FFF] as y1 #mint\\n[Y2 → PPI 4000-5FFF] as y2 #amber\\nhi -> dec\\ndec -> y0 : 000\\ndec -> y1 : 001\\ndec -> y2 : 010\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A 4 KB ROM must start at 4000H. What is its address range, and which address lines are decoded?</p>",
+          "answer": "4 KB = 2¹² → 12 lines on the chip (A0–A11). Range <b>4000H–4FFFH</b>; A15–A12 = 0100 must be decoded."
+        }
+      ]
+    },
+    {
+      "id": "map",
+      "locator": "4.2",
+      "title": "Memory-mapped I/O versus I/O-mapped I/O",
+      "eyebrow": "Where are the devices?",
+      "body": "<p>In <em class=\"term\">memory-mapped</em> I/O a device lives in the memory address space, so ordinary instructions (MOV, LDA, STA) access it, at the cost of memory addresses. In <em class=\"term\">I/O-mapped</em> (isolated) I/O a separate 256-port space is reached by IN and OUT with the IO/M̅ line high; the memory map stays free.</p>",
+      "questions": [
+        {
+          "id": "io",
+          "prompt": "Which instructions access an I/O-mapped device on the 8085?",
+          "choices": [
+            {
+              "text": "LDA and STA."
+            },
+            {
+              "text": "IN port and OUT port.",
+              "correct": true
+            },
+            {
+              "text": "PUSH and POP."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Those are memory operations."
+            },
+            {
+              "title": "Correct.",
+              "body": "They assert IO/M̅ so memory does not respond."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Those are stack operations."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ppi",
+      "locator": "4.3",
+      "title": "Parallel interface: the 8255 PPI",
+      "eyebrow": "Ports",
+      "body": "<p>The 8255 gives three 8-bit ports (A, B, C) programmed through a control word. Mode 0: simple input/output; Mode 1: strobed I/O with handshake; Mode 2: bidirectional. Handshaking: the device signals “data ready”, the processor reads and acknowledges — needed when the two run at different speeds.</p>",
+      "worked": [
+        {
+          "toc": "Control word",
+          "why": "Program the 8255: port A output, port B input, port C output, Mode 0. Control word: D7 = 1 (mode set), D6–D5 = 00, D4 = 0 (A out), D3 = 0 (C upper out), D2 = 0, D1 = 1 (B in), D0 = 0 (C lower out).",
+          "math": "10000010_2 = 82H",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "hs",
+          "prompt": "Why use handshaking?",
+          "choices": [
+            {
+              "text": "To increase the data width."
+            },
+            {
+              "text": "So fast and slow devices transfer data without loss.",
+              "correct": true
+            },
+            {
+              "text": "To avoid using ports."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each side waits for the other’s signal."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It uses port lines."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "serial",
+      "locator": "4.4",
+      "title": "Serial interface",
+      "eyebrow": "One wire",
+      "body": "<p>Serial transmission sends bits one after another. <em class=\"term\">Asynchronous</em>: each character is framed by a start bit (0) and stop bit(s) (1) so the receiver re-synchronises every byte; <em class=\"term\">synchronous</em>: a continuous block with a shared clock or sync characters, more efficient. RS-232 defines voltage levels and a 9/25-pin connector; USB is the modern serial bus; the 8251 USART does the conversion. Baud 9600 with 8N1 frames (10 bits/char) moves 960 characters/s.</p>",
+      "worked": [
+        {
+          "toc": "Frame",
+          "why": "A link at 9600 baud sends 8 data bits, no parity, 1 stop bit (8N1)."
+        },
+        {
+          "toc": "Throughput",
+          "why": "Bits per character = 1 start + 8 data + 1 stop = 10, so characters per second = 9600/10.",
+          "math": "960\\ \\text{chars/s}",
+          "hero": true
+        },
+        {
+          "toc": "Efficiency",
+          "why": "Efficiency = 8/10 = 80%."
+        }
+      ],
+      "questions": [
+        {
+          "id": "start",
+          "prompt": "What is the purpose of the start bit in asynchronous serial?",
+          "choices": [
+            {
+              "text": "It is the parity bit."
+            },
+            {
+              "text": "It marks the beginning of a character so the receiver can synchronise its clock.",
+              "correct": true
+            },
+            {
+              "text": "It carries data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "The line idles high; the falling edge is the signal."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "int",
+      "locator": "5.1",
+      "title": "Interrupts",
+      "eyebrow": "Attention, please",
+      "body": "<p>Polling asks the device repeatedly; an <em class=\"term\">interrupt</em> lets the device ask for attention, so the CPU does useful work meanwhile. The 8085 has five hardware interrupts in priority order: TRAP (non-maskable), RST7.5, RST6.5, RST5.5 and INTR; each RST has a fixed vector (RST7.5 → 003CH, 6.5 → 0034H, 5.5 → 002CH, TRAP → 0024H). EI/DI enable and disable maskable interrupts; SIM/RIM set and read the masks. Processing: finish the instruction, push PC, jump to the vector, run the service routine, RET/EI.</p>",
+      "questions": [
+        {
+          "id": "trap",
+          "prompt": "Which 8085 interrupt cannot be masked?",
+          "choices": [
+            {
+              "text": "INTR."
+            },
+            {
+              "text": "RST5.5."
+            },
+            {
+              "text": "TRAP.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Maskable by DI."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Maskable by the SIM mask."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is non-maskable and highest priority."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 5.1.1 — 8085 interrupt processing",
+          "note": "The interrupted program continues unaware.",
+          "script": "diagram(\"mode: sequence\\n[Main program] as p\\n[8085] as c\\n[ISR at vector] as i\\np -> c : executing\\nc -> c : interrupt request, EI is on\\nc -> i : push PC, jump to vector\\ni -> i : service the device\\ni --> c : EI, RET\\nc --> p : resume at the pushed PC\");"
+        }
+      ]
+    },
+    {
+      "id": "8086",
+      "locator": "5.2",
+      "title": "8086 interrupts and the vector table",
+      "eyebrow": "256 vectors",
+      "body": "<p>The 8086 supports 256 interrupt types. Type <i>n</i> has a 4-byte entry (IP then CS) at address 4n in the <em class=\"term\">interrupt vector table</em> occupying 0000H–03FFH. Sources: hardware (NMI type 2, INTR with type from the PIC), software (<code>INT n</code>) and exceptions (divide error type 0, single-step type 1, breakpoint type 3, overflow type 4). The 8259 PIC prioritises up to 8 (cascaded, 64) devices.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Where is the vector for interrupt type 21H?"
+        },
+        {
+          "toc": "Vector address",
+          "why": "Address = 4 × 21H = 84H; the four bytes at 0084H–0087H hold IP then CS of the handler.",
+          "math": "4\\times21_{16}=84_{16}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "vec",
+          "prompt": "How many bytes does one 8086 interrupt vector occupy?",
+          "choices": [
+            {
+              "text": "2."
+            },
+            {
+              "text": "4 (a 2-byte IP and a 2-byte CS).",
+              "correct": true
+            },
+            {
+              "text": "8."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is only the offset."
+            },
+            {
+              "title": "Correct.",
+              "body": "The table has 256 × 4 = 1 KB."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too many."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p2",
+          "prompt": "<p>Where in memory is the vector for INT 10H?</p>",
+          "answer": "4 × 10H = <b>40H</b>: bytes 0040H–0043H."
+        }
+      ]
+    },
+    {
+      "id": "adv",
+      "locator": "6.1",
+      "title": "Advanced topics: RISC, CISC, control, DSP",
+      "eyebrow": "Looking outward",
+      "body": "<p>Accumulator-based machines (8085) route every result through A; register-based machines (8086 and later) use many registers. Hardwired control is fast; microprogrammed control is flexible. RISC (few simple instructions, pipelined) versus CISC (many complex ones). Multitasking needs protection and memory management support; a digital signal processor adds hardware multiply–accumulate and Harvard buses for real-time filtering.</p>",
+      "questions": [
+        {
+          "id": "dsp",
+          "prompt": "What operation do DSPs optimise above all?",
+          "choices": [
+            {
+              "text": "String search."
+            },
+            {
+              "text": "Multiply–accumulate (MAC).",
+              "correct": true
+            },
+            {
+              "text": "Branching."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not specifically."
+            },
+            {
+              "title": "Correct.",
+              "body": "Filters and transforms are sums of products."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the focus."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p3",
+          "prompt": "<p>Give one reason a DSP uses a Harvard architecture.</p>",
+          "answer": "It can fetch an instruction and two data operands in the same cycle, sustaining one multiply–accumulate per cycle for filters."
+        }
+      ]
+    }
+  ]
+}

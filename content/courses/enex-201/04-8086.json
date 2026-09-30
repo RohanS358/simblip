@@ -1,0 +1,317 @@
+{
+  "title": "8086: BIU, EU, segments and assembly",
+  "kicker": "ENEX 201 · Microprocessors · Chapter 3",
+  "subtitle": "A 16-bit processor that fetches the next instruction while executing the current one — and reaches 1 MB with 16-bit registers.",
+  "sections": [
+    {
+      "id": "split",
+      "locator": "3.1",
+      "title": "BIU and EU",
+      "eyebrow": "Two units working at once",
+      "body": "<p>The 8086 is split into a <em class=\"term\">Bus Interface Unit</em> (BIU) that generates addresses, fetches instructions into a 6-byte <em class=\"term\">queue</em> and reads/writes memory, and an <em class=\"term\">Execution Unit</em> (EU) that decodes and executes from the queue. While the EU works on one instruction the BIU is already fetching the next: a two-stage pipeline. A jump empties the queue.</p>",
+      "questions": [
+        {
+          "id": "queue",
+          "prompt": "Why does a jump slow the 8086 down?",
+          "choices": [
+            {
+              "text": "The ALU is slow."
+            },
+            {
+              "text": "The prefetched bytes in the queue are the wrong ones and must be discarded.",
+              "correct": true
+            },
+            {
+              "text": "Jumps use segment registers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "The BIU restarts fetching from the new address."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the reason."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.1.1 — BIU and EU",
+          "note": "Fetch and execute overlap.",
+          "script": "diagram(\"direction: right\\n[BIU: address generation, bus control] as biu #blue\\n[6-byte instruction queue] as q #amber\\n[EU: decoder, ALU, registers, flags] as eu #mint\\n[Memory] as mem #grey\\nmem -> biu : fetch next instructions\\nbiu -> q : store\\nq -> eu : next instruction\\neu -> biu : operand reads / writes\\n@0 mem -> biu : code\\n@1 biu -> q : bytes\\n@2 q -> eu : instruction\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "regs",
+      "locator": "3.2",
+      "title": "Registers",
+      "eyebrow": "Programmer’s view",
+      "body": "<p>General registers AX, BX, CX, DX (each splits into high/low bytes AH/AL…), pointers SP, BP, and index registers SI, DI; segment registers CS, DS, SS, ES; instruction pointer IP; and a flag register with carry, parity, auxiliary carry, zero, sign, overflow and the control flags trap, interrupt, direction. CX often counts loops; BX is a base address; DX holds I/O ports.</p>",
+      "questions": [
+        {
+          "id": "ax",
+          "prompt": "AL is…",
+          "choices": [
+            {
+              "text": "A segment register."
+            },
+            {
+              "text": "The stack pointer."
+            },
+            {
+              "text": "The low byte of AX.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Those are CS, DS, SS, ES."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is SP."
+            },
+            {
+              "title": "Correct.",
+              "body": "AH and AL are its two halves."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seg",
+      "locator": "3.3",
+      "title": "Segmented memory: a 20-bit address from 16-bit registers",
+      "eyebrow": "The key trick",
+      "body": "<p>16-bit registers reach only 64 KB, yet the 8086 addresses 1 MB. Every address is a <b>segment:offset</b> pair; the physical address is segment × 16 + offset (shift the segment left 4 bits and add). Code is fetched from CS:IP, data from DS:offset, the stack from SS:SP. Many pairs name the same byte: 2000:0010 and 2001:0000 are both 20010H.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Segment 2000H, offset 0050H."
+        },
+        {
+          "toc": "Physical address",
+          "why": "Physical = 2000H × 10H + 0050H.",
+          "math": "20000H + 0050H = 20050H",
+          "hero": true
+        },
+        {
+          "toc": "Aliasing",
+          "why": "The same byte as 2005H:0000H, since 2005H × 10H = 20050H."
+        }
+      ],
+      "questions": [
+        {
+          "id": "seg",
+          "prompt": "Physical address for segment 3000H and offset 0100H?",
+          "choices": [
+            {
+              "text": "3100H."
+            },
+            {
+              "text": "300100H."
+            },
+            {
+              "text": "30100H.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Forgot to multiply the segment by 16."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Shifted too far."
+            },
+            {
+              "title": "Correct.",
+              "body": "30000H + 0100H."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 3.3.1 — forming a physical address",
+          "note": "Segment × 16 + offset.",
+          "script": "diagram(\"direction: right\\n[Segment register 2000H] as s #blue\\n[Shift left 4 bits: 20000H] as sh #violet\\n[Offset 0050H] as o #amber\\n[Adder] as a #mint\\n(Physical address 20050H) as p\\ns -> sh\\nsh -> a\\no -> a\\na -> p\\n@0 s -> sh : 2000H\\n@1 sh -> a : 20000H\\n@2 o -> a : +0050H\\n@3 a -> p : 20050H\\nloop 5\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>CS = 1234H, IP = 0020H. Physical address of the next instruction?</p>",
+          "answer": "12340H + 0020H = <b>12360H</b>."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>How many bytes can one segment hold?</p>",
+          "answer": "The offset is 16 bits: 2¹⁶ = <b>64 KB</b>."
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "locator": "3.4",
+      "title": "Addressing modes",
+      "eyebrow": "Operands",
+      "body": "<p>Register (MOV AX,BX); immediate (MOV AX,1234H); direct (MOV AX,[2000H]); register indirect (MOV AX,[BX]); based (MOV AX,[BX+4]); indexed (MOV AX,[SI]); based-indexed (MOV AX,[BX+SI+8]). Memory operands default to the DS segment, except those using BP, which default to SS.</p>",
+      "questions": [
+        {
+          "id": "bp",
+          "prompt": "Which segment register is used by default with [BP]?",
+          "choices": [
+            {
+              "text": "DS."
+            },
+            {
+              "text": "SS (the stack segment).",
+              "correct": true
+            },
+            {
+              "text": "CS."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for BX, SI, DI."
+            },
+            {
+              "title": "Correct.",
+              "body": "BP normally addresses stack frames."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is for code."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "asm",
+      "locator": "3.5",
+      "title": "Assembly language, assembling and linking",
+      "eyebrow": "Writing programs",
+      "body": "<p>An assembly statement has label, mnemonic, operands and a comment. Directives (<code>SEGMENT</code>, <code>DB</code>, <code>DW</code>, <code>ASSUME</code>, <code>END</code>) guide the assembler but emit no instructions. The tool chain: editor → assembler (.ASM → .OBJ; a <em class=\"term\">two-pass</em> assembler builds the symbol table on pass 1 and emits code on pass 2) → linker (.OBJ → .EXE) → run. DOS services through <code>INT 21H</code> (AH = 09H prints a string, 4CH terminates) and <code>INT 10H</code> (video).</p>",
+      "questions": [
+        {
+          "id": "pass",
+          "prompt": "Why does an assembler need two passes?",
+          "choices": [
+            {
+              "text": "To check spelling twice."
+            },
+            {
+              "text": "To link the file."
+            },
+            {
+              "text": "Forward references: a jump may name a label defined later, so all labels must be known first.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the linker."
+            },
+            {
+              "title": "Correct.",
+              "body": "Pass 1 records addresses, pass 2 uses them."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 3.5.1 — the tool chain",
+          "note": "From text to a running program.",
+          "script": "diagram(\"direction: right\\n[source.asm] as a #blue\\n[Assembler: pass 1 symbols, pass 2 code] as as #violet\\n[source.obj] as o #mint\\n[Linker] as l #violet\\n[program.exe] as e #amber\\na -> as\\nas -> o\\no -> l\\nl -> e\\n@0 a -> as : text\\n@1 as -> o : machine code\\n@2 o -> l : object\\n@3 l -> e : executable\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "prog",
+      "locator": "3.6",
+      "title": "A first 8086 program, traced with the 8085 engine",
+      "eyebrow": "Ideas carry over",
+      "body": "<p>The same patterns — pointer, counter, loop, compare — apply on the 8086 with different mnemonics: <code>MOV CX,4</code>, <code>ADD AL,[SI]</code>, <code>INC SI</code>, <code>LOOP AGAIN</code> (decrements CX and jumps if non-zero). Practise the ideas on the simulator with the 8085 equivalent.</p>",
+      "worked": [
+        {
+          "toc": "Code",
+          "why": "8086 version of the same loop."
+        },
+        {
+          "toc": "Translation",
+          "why": "MOV CX,3 / MOV SI,2050H / XOR AL,AL / AGAIN: ADD AL,[SI] / INC SI / LOOP AGAIN.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "loopins",
+          "prompt": "The 8086 LOOP instruction…",
+          "choices": [
+            {
+              "text": "Jumps unconditionally."
+            },
+            {
+              "text": "Decrements CX and jumps if CX ≠ 0.",
+              "correct": true
+            },
+            {
+              "text": "Increments CX."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is JMP."
+            },
+            {
+              "title": "Correct.",
+              "body": "It folds the DCR + JNZ pair into one."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It decrements."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 3.6.1 — the loop pattern",
+          "note": "Sum three bytes: 0AH + 14H + 1EH = 3CH.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lp\",\"engine\":\"cpu8085\",\"program\":\"LXI H,2050H\\nMVI C,03H\\nMVI A,00H\\nAGAIN: ADD M\\nINX H\\nDCR C\\nJNZ AGAIN\\nHLT\",\"memory\":\"2050=0A,14,1E\",\"watch\":\"2050,2051,2052\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lp": {
+              "A": "3C"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

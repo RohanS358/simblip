@@ -1,0 +1,308 @@
+{
+  "title": "Uninformed and informed search",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 2 (search)",
+  "subtitle": "Problem solving as finding a path through a space of states: blind search, then search that can see where the goal is.",
+  "sections": [
+    {
+      "id": "formal",
+      "locator": "2.1",
+      "title": "Formulating a problem",
+      "eyebrow": "States and actions",
+      "body": "<p>A well-defined search problem has an <em class=\"term\">initial state</em>, a set of <em class=\"term\">actions</em>, a <em class=\"term\">transition model</em> (state + action → state), a <em class=\"term\">goal test</em> and a <em class=\"term\">path cost</em>. A route-finding problem: states are cities, actions are roads, cost is distance. A solution is a sequence of actions from start to goal; an optimal solution has least cost. Search strategies are compared on completeness, optimality, time and space.</p>",
+      "questions": [
+        {
+          "id": "opt",
+          "prompt": "A search strategy is optimal if it…",
+          "choices": [
+            {
+              "text": "Always finds some solution."
+            },
+            {
+              "text": "Always finds a least-cost solution.",
+              "correct": true
+            },
+            {
+              "text": "Uses little memory."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is completeness."
+            },
+            {
+              "title": "Correct.",
+              "body": "Completeness only says it finds one."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is space efficiency."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "unin",
+      "locator": "2.2",
+      "title": "Breadth-first and depth-first",
+      "eyebrow": "Blind search",
+      "body": "<p><em class=\"term\">BFS</em> expands the shallowest node first (a FIFO queue): complete, optimal when steps cost the same, but memory grows as bᵈ. <em class=\"term\">DFS</em> expands the deepest first (a stack): tiny memory, but can dive forever and need not find the shortest path. <em class=\"term\">Iterative deepening</em> runs depth-limited DFS with limits 0, 1, 2… combining BFS’s optimality with DFS’s memory. On the small maze: BFS cost <b>5</b>, DFS cost <b>5</b> (a longer, legal route).</p>",
+      "questions": [
+        {
+          "id": "bfsopt",
+          "prompt": "Why is BFS optimal when every step costs the same?",
+          "choices": [
+            {
+              "text": "It uses a stack."
+            },
+            {
+              "text": "It ignores the goal."
+            },
+            {
+              "text": "It reaches the goal at the smallest depth first.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is DFS."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It tests each node."
+            },
+            {
+              "title": "Correct.",
+              "body": "Shallowest also means fewest steps."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.2.1 — BFS",
+          "note": "BFS fans out evenly.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bfs\",\"engine\":\"search\",\"algo\":\"bfs\",\"grid\":\"S...;.##.;...G\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bfs": {
+              "cost": "5",
+              "expanded": "10"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 2.2.2 — DFS",
+          "note": "DFS follows one branch deep.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dfs\",\"engine\":\"search\",\"algo\":\"dfs\",\"grid\":\"S...;.##.;...G\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dfs": {
+              "cost": "5",
+              "expanded": "6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "heur",
+      "locator": "2.3",
+      "title": "Heuristics: greedy best-first and A*",
+      "eyebrow": "Informed search",
+      "body": "<p>A <em class=\"term\">heuristic</em> h(n) estimates the cost from n to the goal (here the Manhattan distance). <em class=\"term\">Greedy best-first</em> expands the node with the smallest h: fast, but not optimal. <em class=\"term\">A*</em> expands the smallest f(n) = g(n) + h(n), where g is the cost so far: it is optimal if h is <em class=\"term\">admissible</em> (never overestimates). On an open 4×8 grid BFS expands <b>32</b> cells, greedy <b>11</b> and A* <b>11</b> — all three find the cost-10 path except greedy may not in general.</p>",
+      "questions": [
+        {
+          "id": "adm",
+          "prompt": "A heuristic is admissible if it…",
+          "choices": [
+            {
+              "text": "Is always 0."
+            },
+            {
+              "text": "Never overestimates the true remaining cost.",
+              "correct": true
+            },
+            {
+              "text": "Is exact."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is admissible but useless."
+            },
+            {
+              "title": "Correct.",
+              "body": "This guarantees A* is optimal."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Exact is allowed, not required."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.3.1 — A* on the maze",
+          "note": "A* expands fewer cells than BFS and still finds the optimal path.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"astar\",\"engine\":\"search\",\"algo\":\"astar\",\"grid\":\"S...;.##.;...G\",\"width\":600,\"height\":440});",
+          "expect": {
+            "astar": {
+              "cost": "5",
+              "expanded": "6"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 2.3.2 — greedy on an open grid",
+          "note": "Greedy heads straight for the goal.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"greedy\",\"engine\":\"search\",\"algo\":\"greedy\",\"grid\":\"S.......;........;........;.......G\",\"width\":600,\"height\":440});",
+          "expect": {
+            "greedy": {
+              "cost": "10",
+              "expanded": "11"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-astar",
+          "prompt": "<p>On the grid S...;.##.;...G, how many cells does A* expand and what is the path cost?</p>",
+          "answer": "Path cost <b>5</b>, expansions <b>6</b> (BFS: 10).",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "A*.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"search\",\"algo\":\"astar\",\"grid\":\"S...;.##.;...G\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "cost": "5",
+                "expanded": "6"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "csp",
+      "locator": "2.4",
+      "title": "Constraint satisfaction",
+      "eyebrow": "Puzzles with rules",
+      "body": "<p>A <em class=\"term\">CSP</em> has variables, domains and constraints (map colouring: neighbouring regions differ; sudoku; timetabling). Solve by <em class=\"term\">backtracking</em>: assign a variable, check constraints, undo on failure. Improve with constraint propagation (node/arc/path consistency) and variable-ordering heuristics (most constrained first).</p>",
+      "worked": [
+        {
+          "toc": "Order",
+          "why": "Colour WA, NT, SA, Q with 3 colours so neighbours differ. SA touches WA, NT and Q, so colour it first (most constrained)."
+        },
+        {
+          "toc": "Solution",
+          "why": "SA = red; WA = green, NT = blue (differs from both), Q = green (differs from NT and SA).",
+          "math": "\\text{SA=R, WA=G, NT=B, Q=G}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mrv",
+          "prompt": "Why assign the most constrained variable first?",
+          "choices": [
+            {
+              "text": "It has the fewest legal values, so failures show up early and save backtracking.",
+              "correct": true
+            },
+            {
+              "text": "It has the most values."
+            },
+            {
+              "text": "It is alphabetically first."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The “fail-first” principle."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Irrelevant."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia6",
+          "caption": "Figure 2.4.1 — a map-colouring constraint graph",
+          "note": "Adjacent regions may not share a colour; SA touches everything.",
+          "script": "diagram(\"direction: right\\n[WA] as wa #blue\\n[NT] as nt #mint\\n[SA] as sa #amber\\n[Q] as q #violet\\nwa -- nt\\nwa -- sa\\nnt -- sa\\nnt -- q\\nsa -- q\");"
+        }
+      ]
+    },
+    {
+      "id": "cmp",
+      "locator": "2.5",
+      "title": "Comparing strategies",
+      "eyebrow": "Summary table",
+      "body": "<table><thead><tr><th>Strategy</th><th>Complete</th><th>Optimal</th><th>Time</th><th>Space</th></tr></thead><tbody><tr><td>BFS</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>bᵈ</td></tr><tr><td>DFS</td><td>no (infinite depth)</td><td>no</td><td>bᵐ</td><td>b·m</td></tr><tr><td>Iterative deepening</td><td>yes</td><td>yes (unit cost)</td><td>bᵈ</td><td>b·d</td></tr><tr><td>Greedy</td><td>no</td><td>no</td><td>bᵐ</td><td>bᵐ</td></tr><tr><td>A*</td><td>yes</td><td>yes (admissible h)</td><td>exp.</td><td>all nodes</td></tr></tbody></table>",
+      "worked": [
+        {
+          "toc": "Node count",
+          "why": "Branching factor b = 3, solution depth d = 4: BFS generates about 1 + 3 + 9 + 27 + 81 nodes.",
+          "math": "\\frac{3^5-1}{3-1}=121",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mem",
+          "prompt": "Which uninformed strategy needs the least memory?",
+          "choices": [
+            {
+              "text": "BFS."
+            },
+            {
+              "text": "A*."
+            },
+            {
+              "text": "DFS — only the current path is stored.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Stores the whole frontier."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Stores all generated nodes."
+            },
+            {
+              "title": "Correct.",
+              "body": "O(b·m) against BFS’s O(bᵈ)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>BFS: shortest in steps; DFS: small memory; A*: optimal and focused with an admissible heuristic.</li><li>CSP: backtracking plus propagation.</li></ul>"
+    }
+  ]
+}

@@ -103,7 +103,7 @@ export async function GET(req: Request) {
   })
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   if (!pgConfigured) {
     return NextResponse.json({ error: 'Allowances need DATABASE_URL' }, { status: 500 })
   }
@@ -166,4 +166,15 @@ export async function DELETE(req: Request) {
   // would be a surprising amount of damage for a toggle.
   await q('delete from simblip_course_allowances where id = $1', [id])
   return NextResponse.json({ ok: true })
+}
+
+/** An unexpected database error used to escape as an empty 500, which the console
+ *  showed as "Unexpected end of JSON input". Say what actually went wrong. */
+export async function POST(req: Request) {
+  try {
+    return await handlePost(req)
+  } catch (e) {
+    console.error('[courses/allowances]', e)
+    return NextResponse.json({ error: e instanceof Error ? e.message : 'Server error' }, { status: 500 })
+  }
 }

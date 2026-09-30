@@ -84,6 +84,8 @@ import {
 } from '@/components/objects/chart'
 import { isBody } from '@/lib/behaviors/registry'
 import { specsForGeometry, behaviorSpec, NO_BEHAVIOR_KINDS } from '@/lib/behaviors/registry'
+import { runEngine } from '@/lib/steplab/registry'
+import { EnginePicker, ParamFields, ResultChips, labParams, labEngine } from '@/components/objects/steplab-fields'
 import { recommendedHeight } from '@/lib/circuit/engine'
 import {
   DropdownMenu,
@@ -564,6 +566,42 @@ function ExprInput({
             </Tooltip>
           ))}
         </ul>
+      )}
+    </div>
+  )
+}
+
+/** Step Lab: the topic, its parameters with their hints, and the numbers the run produced. */
+function StepLabOptions({ pageId, object }: { pageId: string; object: SceneObject }) {
+  const setStringParam = useDocStore((s) => s.setStringParam)
+  const pushHistory = useDocStore((s) => s.pushHistory)
+  const params = labParams(object)
+  const key = JSON.stringify(params)
+  const result = useMemo(() => runEngine(params), [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  const engine = labEngine(params)
+  const edit = (name: string, value: string) => setStringParam(pageId, object.id, name, value)
+  const switchEngine = (id: string) => {
+    pushHistory(pageId)
+    for (const name of Object.keys(params)) if (name !== 'engine') edit(name, '')
+    edit('engine', id)
+  }
+  return (
+    <div className="space-y-2" onKeyDown={(e) => e.stopPropagation()}>
+      <SectionTitle>Step Lab</SectionTitle>
+      <label className="flex items-center gap-2 text-ui-xs">
+        <span className="w-20 shrink-0 text-muted-foreground">Topic</span>
+        <EnginePicker value={engine?.id ?? ''} onChange={switchEngine} />
+      </label>
+      {engine && <p className="text-ui-2xs leading-relaxed text-muted-foreground">{engine.blurb}</p>}
+      {engine && <ParamFields engine={engine} params={params} onEdit={edit} onFocus={() => pushHistory(pageId)} />}
+      <SectionTitle>Results</SectionTitle>
+      {result.ok ? (
+        <>
+          <ResultChips summary={result.trace.summary} />
+          <p className="text-ui-2xs text-muted-foreground">{result.trace.frames.length} steps</p>
+        </>
+      ) : (
+        <p className="text-ui-xs text-[var(--accent-rose)]">{result.error}</p>
       )}
     </div>
   )
@@ -3665,6 +3703,8 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
       {object.geometry.kind === 'chart' && <ChartOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'cashflow' && <CashflowOptions pageId={pageId} object={object} />}
+
+      {object.geometry.kind === 'steplab' && <StepLabOptions pageId={pageId} object={object} />}
 
       {object.geometry.kind === 'truthtable' && (
         <TruthTableOptions pageId={pageId} object={object} />

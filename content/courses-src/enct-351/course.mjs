@@ -1,0 +1,14 @@
+export default {
+  id: 'enct-351', code: 'ENCT 351', title: 'Artificial Intelligence', subject: 'computing', semester: 6, program: 'computer',
+  description: 'Agents, search, adversarial games, knowledge and uncertainty, learning and neural networks — every algorithm run step by step.',
+  order: ['01-agents', '02-search', '03-games-local-search', '04-knowledge-uncertainty', '05-machine-learning', '06-neural-networks', '07-applications-trends'],
+  lessons: {
+    '01-agents': { path: '1 Introduction', title: 'Intelligent agents' },
+    '02-search': { path: '2 Problem Solving and Search', title: 'Uninformed and informed search' },
+    '03-games-local-search': { path: '2 Problem Solving and Search', title: 'Games, local search and genetic algorithms' },
+    '04-knowledge-uncertainty': { path: '3 Knowledge Representation and Probabilistic Reasoning', title: 'Logic, Bayes and fuzzy reasoning' },
+    '05-machine-learning': { path: '4 Machine Learning Fundamentals', title: 'Learning from data' },
+    '06-neural-networks': { path: '5 Neural Networks and Deep Learning', title: 'Perceptrons and backpropagation' },
+    '07-applications-trends': { path: '6–7 AI Applications and Emerging Trends', title: 'Expert systems, NLP, vision and responsible AI' },
+  },
+}

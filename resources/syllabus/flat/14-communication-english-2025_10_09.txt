@@ -1,0 +1,175 @@
+COMMUNICATION ENGLISH
+ENSH 204
+Lecture
+Tutorial
+Practical
+:3
+:0
+:1
+Year : II
+Part : I
+Course Objectives:
+The general objective of this course is to focus on English as a communication tool.
+Specifically, it emphasizes using English for professional communication for
+engineering works. It aims to increase English language ability to use appropriate
+research formats and methodology, develop concept papers, prepare research
+proposals and abstracts, set research questions, write a literature review, determine a
+research gap, link ideas, write technical proposals, prepare formal and informal reports
+and engage in project works, seminars/conferences.
+1
+Technical Communication
+1.1
+1.2
+2
+2.2
+2.3
+3
+Definition, nature and scope of technical communication
+Professional ethics in communication (Ethical issues, plagiarism and
+copyright concerns, honesty, transparency and clarity)
+Writing Skills
+2.1
+3.2
+3.3
+3.4
+3.5
+(8 hours)
+Principles of effective technical writing (Clarity, conciseness and
+coherence)
+Grammar (Pronoun and its antecedent, subject-verb agreement, non-finite
+verbs), sentence construction (Simple, compound, complex, and mixed
+sentences), error analysis and punctuation
+Bias-free language guideline, reducing bias
+Technical Writing
+3.1
+(2 hours)
+(15 hours)
+Technical proposals (Purpose, types, structure, key considerations and
+examples)
+Research proposals and reports (Title page, table of contents, summary
+and abstract)
+Technical reports (Progress, feasibility and case study)
+Manuscript for journal (Structure, key considerations and examples)
+Citation and referencing (In-text citation, direct quote citations, indent
+citation, indirect citation, citing from books and journals, citing multiple
+authors in a single text, citing multiple texts from the same author, using
+numerical, pagination, preparing a reference page
+4
+Business Correspondence
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+5
+6
+Writing formal letters (Applications, inquiries, complaints and orders)
+E-mails (Structure, etiquette, and tone)
+Notice, minutes and memos
+Resume and cover letter
+Press release/communique
+Calling tender and responding to it
+Listening and Oral Communication
+5.1
+5.2
+5.3
+5.4
+5.5
+(4 hours)
+Active listening (Barriers and strategies)
+Effective speaking skills (Clarity, tone and pace)
+Oral presentation skills (Structuring a presentation and handling questions)
+Group discussions (Strategies and active participation)
+Public speaking and speech delivery techniques
+Use of Visual Aids in Communication
+6.1
+6.2
+6.3
+6.4
+(10 hours)
+(6 hours)
+Tables
+Graphs
+Charts
+Diagrams
+Practical
+(15 hours)
+1. Listening skill test
+2. Visual skill test
+3. Reading skill test
+4. Oral communication test
+5. Presentation skill test
+6. Research proposals and project proposals
+7. Team-based technical writing and presentations
+8. Presentation on the prescribed texts
+8.1 “Which is More Important When Designing a Building: Beauty or
+Function?” from Unlock: Reading and Writing Skills by Chris Sowton
+8.2 On Being Modern-minded (Bertrand Russell)
+8.3 A Fable of Tomorrow” from The Silent Spring by Rachel Carson
+8.4 Religion and Science (From The World as I See It- Albert Einstein)
+8.5 “The Tamarisk Hunter” from Metatropolis by Paolo Bacigalupi
+8.6 Artificial Intelligence from The Art of Doing Science and Engineering by
+Richard W. Hamming
+8.7 Guglielmo Marconi and the History of Radio. Part II (Gerald A. Isted)
+8.8 Human-Centered Design (From The Design of Everyday Things- Don
+Norman)
+8.9 “The Paper Managerie” from The Paper Managerie and Other Stories by
+Ken Liu
+8.10 “The Algorithm Will Save Us” from The New Voices of Fantasy by Sam J.
+Miller
+8.11 “The Phantom Heart” by Laurence Yep
+8.12 “Everyday Use” by Alice Walker
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+2
+5
+2
+8
+10
+3
+15
+20
+4
+10
+10
+5
+4
+10
+6
+6
+5
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+References
+1. Markel, M. and Selber, S. A. (2018). Technical communication (12th edition).
+Bedford/St. Martin's.
+2. Ingre, D. (2017). Engineering communication: A practical guide to workplace
+communications for engineers (2nd edition). Cengage Learning.
+3. Weisman, H. M. (2000). Technical communication for engineers: A handbook
+for engineers, scientists, and technicians. Prentice Hall.
+4. Stevenson, S. and Whitmore, S. (2002). Strategies for engineering
+communication. John Wiley & Sons.
+5. Rothwell, E. J., Cloud, M. J. (2017). Engineering writing by design: Creating
+formal documents of lasting value. CRC Press.
+6. Blake, G., Bly, R. W. (1993). The elements of technical writing. Macmillan.
+7. Beer, D., Mc Murrey, D. (2013). A guide to writing as an engineer (4th
+edition). John Wiley and Sons.
+8. Farhathullah, T. M. (2002). Communication skills for technical students. Orient
+Longman.
+9. Lebrun, J. L. (2007). Scientific writing: A reader and writer’s guide. World
+Scientific Publishing.
+10. Ligawa. H. (2021). Communication skills notes. Siaya Institute of Technology.
+11. Katz, M. J. (2009). From research to manuscript: A guide to scientific writing
+(2nd edition). Springer.
+12. Swales, J. M., Feak, C. B. (2012). Academic writing for graduate students:
+Essential tasks and skills (3rd edition). University of Michigan Press.
+13. Hofmann, A. H. (2014). Scientific writing and communication: Papers,
+proposals, and presentations (2nd edition). Oxford University Press.

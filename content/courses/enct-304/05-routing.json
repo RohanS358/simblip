@@ -1,0 +1,274 @@
+{
+  "title": "Routing algorithms and protocols",
+  "kicker": "ENCT 304 · Computer Networks · Chapter 4 (routing)",
+  "subtitle": "How routers learn the cheapest path: by knowing the whole map, or by asking their neighbours.",
+  "sections": [
+    {
+      "id": "fwd",
+      "locator": "4.6",
+      "title": "Forwarding versus routing",
+      "eyebrow": "Two jobs",
+      "body": "<p><em class=\"term\">Forwarding</em> is the per-packet act of looking up the destination in the forwarding table and choosing the output port — fast, done in hardware. <em class=\"term\">Routing</em> is the slower process that <em>builds</em> that table. Routes can be static (configured by hand) or dynamic (learned by a routing protocol). Within an organisation routers use an <em class=\"term\">interior</em> protocol (RIP, OSPF, EIGRP); between organisations the Internet uses the exterior protocol <em class=\"term\">BGP</em>.</p>",
+      "questions": [
+        {
+          "id": "fwd",
+          "prompt": "Which is done for every packet?",
+          "choices": [
+            {
+              "text": "Routing."
+            },
+            {
+              "text": "Forwarding — a table lookup.",
+              "correct": true
+            },
+            {
+              "text": "Neither."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Running Dijkstra per packet would be far too slow."
+            },
+            {
+              "title": "Correct.",
+              "body": "Routing runs in the background updating the table."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Every packet is forwarded."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ls",
+      "locator": "4.7",
+      "title": "Link state: Dijkstra",
+      "eyebrow": "Know the map",
+      "body": "<p>In <em class=\"term\">link-state</em> routing (OSPF) every router floods the state of its links, so all routers hold the same map, then each runs Dijkstra’s algorithm to find least-cost paths from itself. Repeatedly settle the nearest unsettled node and relax its neighbours. On the textbook graph from node u the costs to v, x, w, y, z come out as <b>2, 1, 3, 2, 4</b>; the route to z is <b>u→x→y→z</b>.</p>",
+      "questions": [
+        {
+          "id": "dj",
+          "prompt": "Dijkstra’s algorithm requires that link costs be…",
+          "choices": [
+            {
+              "text": "Non-negative.",
+              "correct": true
+            },
+            {
+              "text": "All equal."
+            },
+            {
+              "text": "Integers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A negative edge could make an already-settled node cheaper to reach later."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Weights may differ."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Any non-negative real works."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.7.1 — Dijkstra from u",
+          "note": "Watch the tree of shortest paths grow.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dj\",\"engine\":\"routing\",\"algo\":\"dijkstra\",\"source\":\"u\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dj": {
+              "d_z": "4",
+              "path_z": "u→x→y→z"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-dj",
+          "prompt": "<p>Find least-cost paths from u in the graph u–v 2, u–x 1, u–w 5, v–x 2, v–w 3, x–w 3, x–y 1, w–y 1, w–z 5, y–z 2.</p>",
+          "answer": "D(v)=2, D(x)=1, D(w)=3 (via x, y), D(y)=2, D(z)=4 via <b>u→x→y→z</b>.",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "Each step settles the nearest node.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"routing\",\"algo\":\"dijkstra\",\"source\":\"u\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "d_z": "4"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dv",
+      "locator": "4.8",
+      "title": "Distance vector: Bellman–Ford",
+      "eyebrow": "Ask your neighbours",
+      "body": "<p>In <em class=\"term\">distance-vector</em> routing (RIP) each router knows only its links and its neighbours’ tables. Periodically it recomputes D(i,j) = min over neighbours k of [cost(i,k) + D(k,j)]. Information spreads one hop per round, and the tables converge to the same answers as Dijkstra. Problems: slow convergence and the <em class=\"term\">count-to-infinity</em> problem when a link fails, mitigated by split horizon and a small maximum hop count (RIP: 15).</p>",
+      "questions": [
+        {
+          "id": "ctinf",
+          "prompt": "What is the count-to-infinity problem?",
+          "choices": [
+            {
+              "text": "Routers run out of memory."
+            },
+            {
+              "text": "Costs overflow."
+            },
+            {
+              "text": "After a failure, routers keep advertising stale routes to each other and the cost climbs slowly.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the issue."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The trouble is slow convergence."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each router believes a neighbour’s outdated offer; it takes many rounds to give up."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 4.8.1 — distance-vector rounds",
+          "note": "Amber entries improved this round.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dv\",\"engine\":\"routing\",\"algo\":\"dv\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dv": {
+              "row_u": "0 2 1 3 2 4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "protocols",
+      "locator": "4.9",
+      "title": "RIP, OSPF, EIGRP, BGP",
+      "eyebrow": "In practice",
+      "body": "<p>RIP: distance vector, hop count, 15 max. OSPF: link state, areas, fast convergence. EIGRP: Cisco’s advanced distance vector. BGP: path-vector between autonomous systems; it is policy-driven, not cost-driven. Supporting protocols: ARP maps IP to MAC on a link; ICMP reports errors and powers ping/traceroute.</p>",
+      "questions": [
+        {
+          "id": "arp",
+          "prompt": "What does ARP do?",
+          "choices": [
+            {
+              "text": "Maps an IP address to a MAC address on the local link.",
+              "correct": true
+            },
+            {
+              "text": "Maps names to IPs."
+            },
+            {
+              "text": "Finds the shortest route."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Frames need a MAC destination even though packets carry IP."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is DNS."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is routing."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 4.9.1 — ARP around a router",
+          "note": "ARP resolves the next hop on each link.",
+          "script": "diagram(\"mode: sequence\\n[Host A] as a\\n[Router] as r\\n[Host B] as b\\na -> r : ARP: who has gateway IP?\\nr --> a : ARP reply: my MAC\\na -> r : IP packet for B (router MAC)\\nr -> b : ARP: who has B?\\nb --> r : B’s MAC\\nr -> b : IP packet (B’s MAC)\");"
+        }
+      ]
+    },
+    {
+      "id": "cc",
+      "locator": "4.10",
+      "title": "Congestion and traffic shaping",
+      "eyebrow": "Overload",
+      "body": "<p>When offered load exceeds capacity, queues grow and packets are dropped. Control can be open-loop (traffic shaping with a <em class=\"term\">leaky bucket</em> or <em class=\"term\">token bucket</em>) or closed-loop (feedback such as TCP’s window, next lesson). A token bucket lets bursts through up to its depth, then enforces the average rate.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A token bucket adds tokens at 100 packets/s and holds at most 50. The source bursts."
+        },
+        {
+          "toc": "Behaviour",
+          "why": "It can send 50 packets at once, then 100 per second sustained.",
+          "math": "r=100\\ \\text{pkt/s},\\ b=50",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "leaky",
+          "prompt": "A leaky bucket smooths traffic by…",
+          "choices": [
+            {
+              "text": "Letting bursts pass unchanged."
+            },
+            {
+              "text": "Releasing packets at a constant rate whatever the input burstiness.",
+              "correct": true
+            },
+            {
+              "text": "Adding delay at random."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the token bucket (up to its depth)."
+            },
+            {
+              "title": "Correct.",
+              "body": "Excess is queued or dropped."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.11",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Forwarding = lookup; routing = table building.</li><li>Link state: full map + Dijkstra. Distance vector: neighbours’ tables + Bellman–Ford.</li><li>BGP glues autonomous systems together by policy.</li></ul>"
+    }
+  ]
+}

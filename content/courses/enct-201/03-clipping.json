@@ -1,0 +1,288 @@
+{
+  "title": "Clipping",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 2 (clipping)",
+  "subtitle": "Do not draw what you cannot see: find the part of each line that lies inside the window.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "2.6",
+      "title": "Why clip",
+      "eyebrow": "Saving work",
+      "body": "<p>Anything outside the window is wasted effort (and could overflow the frame buffer). <em class=\"term\">Clipping</em> removes it before rasterising. The design goal: decide most cases — fully inside, fully outside — very cheaply, and compute intersections only when needed.</p>",
+      "questions": [
+        {
+          "id": "clipwhy",
+          "prompt": "Main purpose of clipping is to…",
+          "choices": [
+            {
+              "text": "Colour the objects."
+            },
+            {
+              "text": "Discard geometry outside the window before drawing it.",
+              "correct": true
+            },
+            {
+              "text": "Rotate the scene."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is shading."
+            },
+            {
+              "title": "Correct.",
+              "body": "Saves time and protects memory."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a transformation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cohen",
+      "locator": "2.7",
+      "title": "Cohen–Sutherland",
+      "eyebrow": "Outcodes",
+      "body": "<p>Give each endpoint a 4-bit <em class=\"term\">outcode</em> (Top, Bottom, Right, Left): a bit is 1 if the point lies beyond that edge. If both codes are 0000 — <em class=\"term\">trivially accept</em>. If the AND of the codes is non-zero — both ends are beyond the same edge — <em class=\"term\">trivially reject</em>. Otherwise clip the outside endpoint to one window edge by intersection and repeat. For the window (10,10)–(50,50) the line (0,20)–(60,40) clips to <b>10,23.33 50,36.67</b>.</p>",
+      "worked": [
+        {
+          "toc": "Outcodes",
+          "why": "P1 = (0,20) is left of x = 10: outcode 0001. P2 = (60,40) is right of x = 50: outcode 0010."
+        },
+        {
+          "toc": "Left edge",
+          "why": "AND = 0000, OR ≠ 0000: undecided, so clip. Intersection with x = 10: y = 20 + (40−20)·(10−0)/(60−0).",
+          "math": "y=20+\\tfrac{10}{60}\\cdot20=23.33",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "accept",
+          "prompt": "Both endpoints have outcode 0000. The line is…",
+          "choices": [
+            {
+              "text": "Trivially rejected."
+            },
+            {
+              "text": "Clipped twice."
+            },
+            {
+              "text": "Trivially accepted — entirely inside.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs a shared 1 bit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Nothing to clip."
+            },
+            {
+              "title": "Correct.",
+              "body": "No intersection needed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.7.1 — Cohen–Sutherland",
+          "note": "Amber box = window; the blue line shrinks edge by edge.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cs\",\"engine\":\"clip\",\"algo\":\"cohen\",\"window\":\"10 10 50 50\",\"line\":\"0 20 60 40\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cs": {
+              "result": "10,23.33 50,36.67"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 2.7.2 — trivial reject",
+          "note": "Both ends are left of the window: trivially rejected.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"rj\",\"engine\":\"clip\",\"algo\":\"cohen\",\"window\":\"10 10 50 50\",\"line\":\"0 0 5 60\",\"width\":600,\"height\":440});",
+          "expect": {
+            "rj": {
+              "result": "rejected"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-cs",
+          "prompt": "<p>Clip the line (0,20)–(60,40) against the window x,y ∈ [10,50].</p>",
+          "answer": "Result <b>10,23.33 50,36.67</b> (left edge at y≈23.33, right edge at y≈36.67).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "Steps.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"clip\",\"algo\":\"cohen\",\"window\":\"10 10 50 50\",\"line\":\"0 20 60 40\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "result": "10,23.33 50,36.67"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "liang",
+      "locator": "2.8",
+      "title": "Liang–Barsky",
+      "eyebrow": "Parametric",
+      "body": "<p>Write the line as P(t) = P₁ + t·(P₂ − P₁), 0 ≤ t ≤ 1. Each window edge gives an inequality t·p ≤ q with p = −Δx, Δx, −Δy, Δy and q = x₁ − xmin, xmax − x₁, …. Where p &lt; 0 the line enters: raise t₀ to max(q/p); where p &gt; 0 it leaves: lower t₁ to min(q/p). If t₀ &gt; t₁ the line is outside. Faster than Cohen–Sutherland because it computes at most one intersection per end. Same example: <b>10,23.33 50,36.67</b>.</p>",
+      "questions": [
+        {
+          "id": "lb",
+          "prompt": "In Liang–Barsky, t₀ > t₁ means…",
+          "choices": [
+            {
+              "text": "No part of the line is inside the window.",
+              "correct": true
+            },
+            {
+              "text": "The line is inside."
+            },
+            {
+              "text": "The window is empty."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The entering point comes after the leaving point."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Then t₀ ≤ t₁."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 2.8.1 — Liang–Barsky",
+          "note": "Watch t₀ rise and t₁ fall.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lb\",\"engine\":\"clip\",\"algo\":\"liang\",\"window\":\"10 10 50 50\",\"line\":\"0 20 60 40\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lb": {
+              "result": "10,23.33 50,36.67"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "poly",
+      "locator": "2.9",
+      "title": "Polygon and text clipping",
+      "eyebrow": "More than lines",
+      "body": "<p>Clipping a polygon must produce a polygon, not loose lines. Sutherland–Hodgman clips against one window edge at a time, keeping inside vertices and adding intersection points; it is right for convex polygons and can leave extra edges for concave ones, which Weiler–Atherton handles by walking the boundaries. Text is clipped per character (all-or-none), per string, or per pixel (most exact).</p>",
+      "questions": [
+        {
+          "id": "wa",
+          "prompt": "Which algorithm clips concave polygons correctly?",
+          "choices": [
+            {
+              "text": "Cohen–Sutherland."
+            },
+            {
+              "text": "Weiler–Atherton.",
+              "correct": true
+            },
+            {
+              "text": "DDA."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for lines."
+            },
+            {
+              "title": "Correct.",
+              "body": "It follows the polygon and window boundaries, allowing several output pieces."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a line-drawing algorithm."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "point",
+      "locator": "2.10",
+      "title": "Point clipping",
+      "eyebrow": "The simplest",
+      "body": "<p>A point (x, y) is inside the window iff xmin ≤ x ≤ xmax and ymin ≤ y ≤ ymax. Everything else builds on this test.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Window [10, 50] × [10, 50]. Is (30, 55) inside?"
+        },
+        {
+          "toc": "Answer",
+          "why": "y = 55 > 50: outside (outcode 1000, above).",
+          "math": "1000_2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pt",
+          "prompt": "Is (50, 50) inside the window [10, 50] × [10, 50]?",
+          "choices": [
+            {
+              "text": "No."
+            },
+            {
+              "text": "Yes — the edges are included.",
+              "correct": true
+            },
+            {
+              "text": "Only for x."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Boundaries are inside."
+            },
+            {
+              "title": "Correct.",
+              "body": "The tests use ≤."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Both coordinates pass."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.11",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Cohen–Sutherland: outcodes, accept/reject fast, else clip an edge at a time.</li><li>Liang–Barsky: parametric t₀…t₁ interval, fewer intersections.</li></ul>"
+    }
+  ]
+}

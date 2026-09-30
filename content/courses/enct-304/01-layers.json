@@ -1,0 +1,257 @@
+{
+  "title": "Layers, encapsulation and devices",
+  "kicker": "ENCT 304 · Computer Networks · Chapter 1",
+  "subtitle": "A network is a stack of small promises: each layer uses the one below and offers a simpler service to the one above.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "1.1",
+      "title": "Why layers",
+      "eyebrow": "The idea",
+      "body": "<p>Sending a web page across the world involves electrical signals, error checking, finding a route, making delivery reliable and speaking HTTP. Nobody builds that as one program. A <em class=\"term\">layered architecture</em> splits the job: each layer talks to the <em>same layer</em> on the other machine through a <em class=\"term\">protocol</em>, and uses only the service of the layer beneath it. Layers can be replaced independently — Wi-Fi for Ethernet — without touching the layers above.</p><p>The <em class=\"term\">OSI</em> model has seven layers (physical, data link, network, transport, session, presentation, application); the <em class=\"term\">TCP/IP</em> model that the Internet actually uses has four: link, internet, transport, application.</p>",
+      "questions": [
+        {
+          "id": "layer",
+          "prompt": "Which layer is responsible for end-to-end delivery between processes?",
+          "choices": [
+            {
+              "text": "Network."
+            },
+            {
+              "text": "Data link."
+            },
+            {
+              "text": "Transport.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It addresses hosts and finds routes, not processes."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It handles one hop only."
+            },
+            {
+              "title": "Correct.",
+              "body": "IP moves packets between hosts; transport (TCP/UDP) connects a process on one host to a process on the other using port numbers."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — the OSI stack",
+          "note": "TCP/IP folds layers 5–7 into “application” and 1–2 into “link”.",
+          "script": "diagram(\"direction: right\\ngroup \\\"OSI\\\" { o7, o6, o5, o4, o3, o2, o1 }\\n[7 Application] as o7 #blue\\n[6 Presentation] as o6 #blue\\n[5 Session] as o5 #blue\\n[4 Transport] as o4 #mint\\n[3 Network] as o3 #amber\\n[2 Data link] as o2 #violet\\n[1 Physical] as o1 #rose\\no7 -> o6\\no6 -> o5\\no5 -> o4\\no4 -> o3\\no3 -> o2\\no2 -> o1\");"
+        }
+      ]
+    },
+    {
+      "id": "encap",
+      "locator": "1.2",
+      "title": "Encapsulation",
+      "eyebrow": "Wrapping",
+      "body": "<p>Going down the stack each layer adds its own header (the data link layer also a trailer) around what it was given. The application data becomes a TCP <em>segment</em>, then an IP <em>packet</em>, then an Ethernet <em>frame</em>, then bits. The receiver peels the headers off in reverse. Each header carries exactly what that layer needs: ports, IP addresses, MAC addresses.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A 1000-byte application message goes through TCP (20-byte header), IP (20) and Ethernet (14 + 4 trailer)."
+        },
+        {
+          "toc": "On the wire",
+          "why": "Frame size = 1000 + 20 + 20 + 14 + 4.",
+          "math": "1058\\ \\text{bytes}",
+          "hero": true
+        },
+        {
+          "toc": "Overhead",
+          "why": "Overhead fraction.",
+          "math": "\\frac{58}{1058}\\approx 5.5\\%"
+        }
+      ],
+      "questions": [
+        {
+          "id": "hdr",
+          "prompt": "In which order are headers added as data travels down the stack?",
+          "choices": [
+            {
+              "text": "Data link first, then network."
+            },
+            {
+              "text": "Transport, then network, then data link.",
+              "correct": true
+            },
+            {
+              "text": "All at once by the application."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the order they are removed at the receiver."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each layer wraps what it receives from above, so the lowest layer’s header ends up outermost."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Each layer adds its own."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.2.1 — encapsulation",
+          "note": "Press Simulate to watch the headers accumulate.",
+          "script": "diagram(\"direction: right\\n[Application data] as a #blue\\n[TCP header + data = segment] as t #mint\\n[IP header + segment = packet] as i #amber\\n[Frame header + packet + trailer = frame] as f #violet\\n(Bits on the wire) as w\\na -> t : add ports\\nt -> i : add IP addresses\\ni -> f : add MAC addresses + CRC\\nf -> w\\n@0 a -> t : data\\n@1.2 t -> i : segment\\n@2.4 i -> f : packet\\n@3.6 f -> w : frame\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "locator": "1.3",
+      "title": "Networks and topologies",
+      "eyebrow": "Shapes",
+      "body": "<p>A <em class=\"term\">LAN</em> covers a building, a <em class=\"term\">MAN</em> a city, a <em class=\"term\">WAN</em> a country or more. Topologies: <em class=\"term\">bus</em> (one shared cable), <em class=\"term\">star</em> (all to a central switch — the modern LAN), <em class=\"term\">ring</em>, <em class=\"term\">mesh</em> (many links, resilient). In a <em class=\"term\">client–server</em> network servers provide services; in <em class=\"term\">peer-to-peer</em> every host is both.</p>",
+      "questions": [
+        {
+          "id": "star",
+          "prompt": "Why do modern LANs use a star rather than a bus?",
+          "choices": [
+            {
+              "text": "A star uses less cable."
+            },
+            {
+              "text": "Switches are free."
+            },
+            {
+              "text": "A fault in one cable affects one host, and a switch gives each link its own bandwidth.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It uses more."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They cost money; the benefit is isolation."
+            },
+            {
+              "title": "Correct.",
+              "body": "On a bus a single break or collision disturbs everyone."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "devices",
+      "locator": "1.4",
+      "title": "Devices by layer",
+      "eyebrow": "Hardware",
+      "body": "<p>A <em class=\"term\">repeater</em>/<em class=\"term\">hub</em> regenerates bits (layer 1, floods every port, one collision domain). A <em class=\"term\">bridge</em>/<em class=\"term\">switch</em> forwards frames by MAC address (layer 2), learning which address lives on which port. A <em class=\"term\">router</em> forwards packets between networks by IP address (layer 3). A <em class=\"term\">gateway</em> translates between different protocol stacks, often at the application layer.</p>",
+      "questions": [
+        {
+          "id": "sw",
+          "prompt": "A switch receives a frame for a MAC address it has not seen before. What does it do?",
+          "choices": [
+            {
+              "text": "Drops it."
+            },
+            {
+              "text": "Floods it out of every port except the one it came from, then learns the sender’s port.",
+              "correct": true
+            },
+            {
+              "text": "Sends it to the router."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would make a new host unreachable."
+            },
+            {
+              "title": "Correct.",
+              "body": "Once the destination replies, the switch knows its port."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Switches do not reason about IP."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 1.4.1 — devices and layers",
+          "note": "Each step up the layers sees more of the packet.",
+          "script": "diagram(\"direction: right\\n[Hub: layer 1, floods] as h #rose\\n[Switch: layer 2, by MAC] as s #violet\\n[Router: layer 3, by IP] as r #amber\\n[Gateway: layer 7, translates] as g #blue\\nh -> s\\ns -> r\\nr -> g\");"
+        }
+      ]
+    },
+    {
+      "id": "addr",
+      "locator": "1.5",
+      "title": "Addressing at each layer",
+      "eyebrow": "Who is who",
+      "body": "<p>Four kinds of address work together: a <b>port</b> picks the process (transport), an <b>IP address</b> picks the host across networks (network), a <b>MAC address</b> picks the interface on one link (data link), and a <b>name</b> such as <code>example.com</code> is turned into an IP by DNS (application). Along a route the IP addresses stay the same end to end while the MAC addresses change at every hop.</p>",
+      "questions": [
+        {
+          "id": "mac",
+          "prompt": "Which address is rewritten at every router along the path?",
+          "choices": [
+            {
+              "text": "The MAC addresses.",
+              "correct": true
+            },
+            {
+              "text": "The IP addresses."
+            },
+            {
+              "text": "The port numbers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each hop is a new link with its own frame."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They are end-to-end (barring NAT)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They name processes and stay put."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A host sends a packet to a server in another network. Which addresses change at the router and which stay the same?</p>",
+          "answer": "Source and destination <b>IP</b> addresses stay the same (except with NAT); the frame’s <b>MAC</b> source and destination are rewritten at each hop because MAC addresses only mean something on one link."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Layers hide complexity; each talks to its peer via a protocol.</li><li>Going down, headers are added; going up, removed.</li><li>Hub → switch → router see layers 1 → 2 → 3.</li></ul>"
+    }
+  ]
+}

@@ -1,0 +1,255 @@
+{
+  "title": "Turing machines",
+  "kicker": "ENCT 203 · Theory of Computation · Chapter 4",
+  "subtitle": "An infinite tape, a moving head and a finite rulebook: the simplest machine that can compute anything a computer can.",
+  "sections": [
+    {
+      "id": "def",
+      "locator": "4.1",
+      "title": "The machine",
+      "eyebrow": "Definition",
+      "body": "<p>A <em class=\"term\">Turing machine</em> has an infinite tape of cells, a head that reads and writes one cell, and a finite control. Each step: read the symbol, then (depending on state and symbol) write a symbol, move Left, Right or Stay, and change state. It halts in an accepting or rejecting state. Its description is a table of rules <code>state, read → state, write, move</code>.</p>",
+      "questions": [
+        {
+          "id": "tape",
+          "prompt": "What can a Turing machine do that a finite automaton cannot?",
+          "choices": [
+            {
+              "text": "Read the input."
+            },
+            {
+              "text": "Write to its tape and revisit cells — unbounded read/write memory.",
+              "correct": true
+            },
+            {
+              "text": "Have states."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A DFA reads too."
+            },
+            {
+              "title": "Correct.",
+              "body": "That is what makes it a general computer."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "So does a DFA."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.1.1 — incrementing 1011",
+          "note": "Binary increment: walk to the right end, then add 1 moving left.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"inc\",\"engine\":\"tm\",\"input\":\"1011\",\"width\":600,\"height\":440});",
+          "expect": {
+            "inc": {
+              "tape": "1100",
+              "steps": "8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp",
+      "locator": "4.2",
+      "title": "Computing with a Turing machine",
+      "eyebrow": "Functions",
+      "body": "<p>Beyond accepting strings, a TM can <em>compute</em>: the tape at halt is the output. The increment machine turns 1011 (eleven) into <b>1100</b> (twelve) and 111 into <b>1000</b>. In the same style you can build machines for addition, copying, comparison and multiplication; composing them gives any algorithm.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Trace the carry in 1011 + 1."
+        },
+        {
+          "toc": "Increment",
+          "why": "Scan right to the blank, step back; 1 + 1 = 0 carry 1, 1 + 1 = 0 carry 1, then 0 + 1 = 1 stop.",
+          "math": "1011+1=1100",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "inc",
+          "prompt": "What does the increment machine leave on the tape for input 111?",
+          "choices": [
+            {
+              "text": "1000.",
+              "correct": true
+            },
+            {
+              "text": "1110."
+            },
+            {
+              "text": "111."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "All carries propagate to a new leading 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is not 7 + 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Nothing would change."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pal",
+      "locator": "4.3",
+      "title": "A decider: palindromes",
+      "eyebrow": "Accepting a language",
+      "body": "<p>This machine checks whether a string over {a, b} is a palindrome: erase the first symbol, remember it in the state, run to the far end, compare with the last symbol, erase that too, return to the start and repeat. abba → <b>accepted</b>, abb → <b>rejected</b>. A finite automaton cannot do this; neither can a PDA on its own for all palindromes of unknown middle — the TM simply moves back and forth.</p>",
+      "questions": [
+        {
+          "id": "pal2",
+          "prompt": "Why does this machine erase symbols as it matches them?",
+          "choices": [
+            {
+              "text": "To save space."
+            },
+            {
+              "text": "Because blanks are accepted."
+            },
+            {
+              "text": "Erasing marks what has been checked so the head knows where the unmatched middle begins.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The tape is infinite."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "The tape is its working memory."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.3.1 — abba",
+          "note": "Each round strips a matching pair.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pal\",\"engine\":\"tm\",\"spec\":\"start: q0\\naccept: qa\\nblank: _\\nq0,a -> q1,_,R\\nq0,b -> q2,_,R\\nq0,_ -> qa,_,S\\nq1,a -> q1,a,R\\nq1,b -> q1,b,R\\nq1,_ -> q3,_,L\\nq2,a -> q2,a,R\\nq2,b -> q2,b,R\\nq2,_ -> q4,_,L\\nq3,a -> q5,_,L\\nq3,_ -> qa,_,S\\nq4,b -> q5,_,L\\nq4,_ -> qa,_,S\\nq5,a -> q5,a,L\\nq5,b -> q5,b,L\\nq5,_ -> q0,_,R\",\"input\":\"abba\",\"width\":600,\"height\":440});",
+          "expect": {
+            "pal": {
+              "outcome": "accepted"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "var",
+      "locator": "4.4",
+      "title": "Variants that add no power",
+      "eyebrow": "Robustness",
+      "body": "<p>Multiple tapes, a two-way infinite tape, nondeterminism, a stay move, even extra heads: each can be simulated by a plain single-tape TM (possibly slower). Every reasonable model of computation — lambda calculus, recursive functions, RAM machines — turns out equivalent. That consistency is the evidence behind the Church–Turing thesis.</p>",
+      "questions": [
+        {
+          "id": "multi",
+          "prompt": "Does a two-tape Turing machine recognise more languages than a one-tape one?",
+          "choices": [
+            {
+              "text": "Yes, twice as many."
+            },
+            {
+              "text": "No — it can be simulated by a single tape, only slower.",
+              "correct": true
+            },
+            {
+              "text": "Only with nondeterminism."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Same class."
+            },
+            {
+              "title": "Correct.",
+              "body": "Extra tapes change speed, not computability."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Also the same."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hier",
+      "locator": "4.5",
+      "title": "Unrestricted grammars and the hierarchy",
+      "eyebrow": "Top of the ladder",
+      "body": "<p>Unrestricted (type-0) grammars have productions α → β with no constraint; they generate exactly the recursively enumerable languages, those a TM can accept (possibly running forever on non-members). A TM that always halts decides a <em>recursive</em> language. Type-1 context-sensitive, type-2 context-free and type-3 regular grammars complete the Chomsky hierarchy.</p>",
+      "questions": [
+        {
+          "id": "re",
+          "prompt": "A language is recursively enumerable if…",
+          "choices": [
+            {
+              "text": "Some Turing machine accepts exactly its strings (it may loop on others).",
+              "correct": true
+            },
+            {
+              "text": "A TM decides it and always halts."
+            },
+            {
+              "text": "It is finite."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A decider must always halt; an acceptor need not."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is recursive (decidable)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not required."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Match each class to its machine: regular, context-free, context-sensitive, recursively enumerable.</p>",
+          "answer": "Regular — finite automaton; context-free — pushdown automaton; context-sensitive — linear-bounded automaton; recursively enumerable — Turing machine."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>TM = finite control + unbounded tape; rules: state, read → state, write, move.</li><li>It computes functions and decides languages; variants are equivalent.</li></ul>"
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+                          COMPUTER NETWORKS
+                                       ENCT 304
+
+Lecture       :3                                                                Year : III
+Tutorial      :1                                                                 Part : I
+Practical     :3
+
+Course Objectives:
+The objective of this course is to provide fundamental concepts and principles of
+computer networks. It focuses on various network architectures, protocols, standards,
+and the networking device functionalities. The course also aims to equip students with
+the skills to design, implement, test and troubleshoot basic network configurations.
+
+1    Introduction                                                              (5 hours)
+      1.1   Computer network, importance and applications
+      1.2   Types of computer networks
+      1.3   Network topologies
+      1.4   Client/server and P2P networks
+      1.5   Protocols and standards, need of standardization
+      1.6   Layered network architecture, OSI and TCP/IP reference models
+      1.7   Addressing at different layers
+      1.8   Networking devices: Repeater, hub, bridge, switch, router, gateway
+
+2    Physical Layer                                                          (5 hours)
+      2.1   Network monitoring: Bandwidth, throughput, delay, round-trip-time
+      2.2   Multiplexing - FDM, TDM, WDM
+      2.3   Switching - circuit switching, packet switching, datagram and virtual circuit
+            switching
+      2.4   Transmission media - Guided (twisted pair, coaxial, optical fiber) and
+            unguided media (radio waves, microwaves, infrared)
+      2.5   Ethernet cable standards (twisted pair and optical fiber)
+      2.6   Data encoding: Manchester, NRZ-I, MLT3, 4B/5B
+
+3    Data Link Layer                                                          (8 hours)
+      3.1   Data link layer functions - Framing, error control, flow control, access
+            control
+      3.2   Error control codes: Parity, checksum, CRC
+      3.3   Data link protocols: PPP, HDLC
+      3.4   Logical link control (LLC) and media access control (MAC) sublayers
+      3.5   Random access protocols: ALOHA, CSMA, CSMA/CD, CSMA/CA
+    3.6 Token based protocols: Token bus, token ring, FDDI
+    3.7 Ethernet (IEEE 802.3) and its evolution, bridged and switched Ethernet
+    3.8 WLAN (Wi-Fi) and IEEE 802.11
+    3.9 VLAN and its importance
+    3.10 Virtual circuit switching: ATM, MPLS
+
+4   Network Layer                                                        (12 hours)
+    4.1  Network layer functions and services
+    4.2  Connection oriented and connectionless network services
+    4.3  Logical addressing and its importance
+    4.4  IPv4 addressing and classes, private and public IP address, sub-netting
+         and super-netting, VLSM, CIDR
+    4.5 Unicast, multicast and broadcast addresses
+    4.6 Routing and types of routing: Static and dynamic, unicast and multicast,
+         interior and exterior, distance vector and link state
+    4.7 Routing protocols: RIP, OSPF, EIGRP, BGP
+    4.8 Network address translation (NAT)
+    4.9 IPv6 addressing, need and features of iPv6
+    4.10 Protocols: IPv4, ARP, ICMP, IPv6, ICMPv6
+    4.11 Transition from IPv4 to IPv6 and strategies
+    4.12 Traffic shaping and congestion control mechanisms
+
+5   Transport Layer                                                      (5 hours)
+    5.1   Transport layer functions and services
+    5.2   Elements of transport layer protocols: process-to-process communication,
+          addressing, multiplexing and de-multiplexing, segmentation and
+          reassembly, error control, flow control
+    5.3   Transport protocols: TCP and UDP
+    5.4   TCP services: connection setup and release, reliable, stream oriented,
+          flow-control, error-control
+    5.5   Introduction to socket and socket programming
+
+6   Upper Layers and Network Design                                      (6 hours)
+    6.1   Functions and services of session, presentation and application layers
+    6.2   Introduction to upper layer protocols: DHCP, HTTP, HTTPS, FTP, SMTP,
+          POP, IMAP
+    6.3   DNS, its function and DNS queries
+    6.4   Network management tools and protocols (SNMP)
+    6.5   Basics of web, e-mail, DNS and proxy server configurations
+    6.6   VoIP, FoIP and IP interconnection
+    6.7   Network design and configuration guidelines
+7    Advanced Topics                                                        (4 hours)
+      7.1   Introduction to software-defined networking (SDN), basic architecture,
+            importance and applications
+      7.2   Network security and its importance
+      7.3   Overview of content delivery networks (CDNs), named data networking
+            (NDN), intent based networking (IBN)
+      7.4   Quantum network, network virtualization and recent trends in networking
+
+Tutorial                                                                      (15 hours)
+     1.     Comparison of OSI and TCP/IP models
+     2.     Comparison of twisted-pair, coaxial, and fiber optic in terms of cost,
+            bandwidth, applications and so on
+      3.    Datalink layer frames and framing techniques
+      4.    Comparison of CSMA/CD and CSMA/CA
+      5.    IP address classes, reserved IP addresses, subnetting (FLSM and VLSM),
+            supernetting, comparison between IPv4 and IPv6
+      6.    Comparison of different routing protocols with their applications
+      7.    TCP and UDP protocols, their applications
+      8.    TCP 3-way handshake with message flow
+      9.    Application protocols to services (HTTP → Web, SMTP → Email, FTP →
+            File transfer, DNS → Name resolution)
+      10.   Working of DNS
+
+Practical                                                                    (45 hours)
+      1.    Network cabling: Preparation of network cables and their uses
+      2.    Network commands which are very important for testing and
+            troubleshooting
+      3.    Basic router configurations, basic network setup: IP address, subnet mask,
+            default gateway
+      4.    Subnetting and supernetting
+      5.    Configuration of static routes and default routes
+      6.    Dynamic routing configurations: RIP, EIGRP, OSPF, BGP
+      7.    Configuration of switch, VLAN configuration and inter-VLAN routing
+      8.    Server configurations: DHCP, web, DNS
+      9.    Wireless network setup and packet analysis
+      10.   Network troubleshooting: Diagnosing and resolving network issues
+      11.   Network design: Design a complete network on given requirements using
+            simulators like Cisco packet tracer or GNS3 or Mininet or equivalent tool
+      12.   Presentation and review
+
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+        Chapter                   Hours                  Marks distribution*
+         1                           5                            6
+         2                           5                            6
+         3                           8                           12
+         4                          12                           15
+         5                           5                            6
+         6                           6                            9
+         7                           4                            6
+        Total                       45                           60
+* There may be minor deviations in marks distribution.
+
+References
+    1.   Forouzan, B. A. (2012). Data communications and networking. McGraw‑Hill.
+    2.   Kurose, J. F., Ross, K. W. (2017). Computer networking: A top‑down
+         approach. Pearson.
+    3.   Tanenbaum, A.S., Feamster, N. (2021). Computer networks. Pearson.
+    4.   Stevens, W.R., Fall, K.R. (2011). TCP/IP illustrated: The protocols.
+         Addison‑Wesley.
+    5.   RFCs and online resources for protocol specifications.
+

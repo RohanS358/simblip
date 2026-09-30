@@ -232,6 +232,7 @@ var n = create("note", { text: "reminder", color: "amber" });        // 220x180,
 var tx = create("text", { text: "# Heading" });                      // 320x48 markdown text block
 var f = create("formula", { latex: "s = ut + \\frac{1}{2}at^2" });    // 300x96 KaTeX + solver
 var cf = create("cashflow", {});                                     // 480x300, empty spec pre-filled
+var sl = create("steplab", { engine: "sched", algo: "rr", quantum: 2 }); // 600x440 Step Lab — see STEP LAB below
 var tt = create("truthtable", { inputs: "A,B", outputs: "Q" });      // 320x260
 var lab = create("dsa", { source: "int main() { ... }" });           // 980x620 DSA Lab (aliases: "dsa-lab")
 var sys = create("system", { domain: "mechanics" });                 // 460x320 dashed system boundary
@@ -240,6 +241,34 @@ var ide = create("code", { source: "// SimScript…" });               // 420x30
 
 Any parameter the factory declares for a kind is settable by name, even if it
 is not listed above — that is what keeps this list from going stale.
+
+
+## `create("steplab", …)` — step-through algorithm lab
+
+One card, ~70 engines (schedulers, caches, automata, routing, sorting, numerical methods, statistics, AI, control blocks …). `engine` selects the function; every other non-reserved prop is a string parameter of that engine. The full list with parameters and default values is generated in [docs/steplab-engines.md](docs/steplab-engines.md); how it works is in [docs/steplab.md](docs/steplab.md).
+
+```javascript
+var lab = create("steplab", { engine: "paging", algo: "lru", frames: 3, refs: "7 0 1 2 0 3 0 4" });
+var dfa = create("steplab", { engine: "dfa", spec: "start: q0\naccept: q2\nq0,1 -> q1\nq1,1 -> q2", input: "11" });
+var fb = create("steplab", { engine: "blocks", time: 8,              // block-diagram simulator: unity feedback around 1/(s+1)
+  blocks: "r: step(1)\ne: sum(+-)\nk: gain(2)\ng: tf(1 ; 1 1)\ny: scope\nr -> e -> k -> g -> y\ng -> e" });
+```
+- Parameter names are NEVER SimScript reserved props (`x y z width height name rotation dir fill stroke opacity radius color align locked hidden`) — the engines are named accordingly (`sweep`, `value`, `at`, `units`, `zcrit`).
+- Results ("avgWT", "faults", "root"…) appear as chips on the last frame and can be pinned by a lesson with `expect`.
+
+### Diagram v2 (sequence, UML, stores, animation)
+
+Extra statements for `diagram(source)`:
+
+| Statement | Meaning |
+|---|---|
+| `mode: sequence` | Participants in columns, messages top-down in written order; `a -> a : text` is a self-message |
+| `{Name \| attr ; attr \| method() ; method()}` | UML class box (name \| attributes \| methods) |
+| `[\|Orders DB\|]` | Data store |
+| `@1.5+0.8 a -> b : label` | A token travels the arrow `a -> b` at t = 1.5 s for 0.8 s (animation; needs the arrow to exist) |
+| `loop 12` | Restart the animation every 12 s (0 = once). With no `@` lines a sequence plays its messages in order |
+
+Animation is the `flow` behavior (`speed`, `loop`) and is driven by the run clock — Play, step and scrub work like any simulation. In `@` lines write `->` even for a dashed reply.
 
 ---
 

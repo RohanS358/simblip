@@ -1,0 +1,256 @@
+{
+  "title": "File systems, protection, virtual machines and contemporary systems",
+  "kicker": "ENCT 254 · Operating System · Chapters 5–8",
+  "subtitle": "How bytes become named files, how access is controlled, and how one machine pretends to be many.",
+  "sections": [
+    {
+      "id": "files",
+      "locator": "5.1",
+      "title": "Files, directories and inodes",
+      "eyebrow": "Naming",
+      "body": "<p>A <em class=\"term\">file</em> is a named sequence of bytes with attributes (size, owner, permissions, times). Directories map names to files, forming a tree. On Unix-style systems the name points to an <em class=\"term\">inode</em>: a small record holding the attributes and the locations of the data blocks; the name itself is just an entry in a directory — which is why two names can reach one inode (a hard link).</p>",
+      "questions": [
+        {
+          "id": "hard",
+          "prompt": "What does deleting one of two hard links to a file do?",
+          "choices": [
+            {
+              "text": "Deletes the data immediately."
+            },
+            {
+              "text": "Turns the other link into a dangling pointer."
+            },
+            {
+              "text": "Removes one directory entry; the data stays until the link count reaches zero.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The other name still needs it."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a symbolic link; hard links are equal peers."
+            },
+            {
+              "title": "Correct.",
+              "body": "The inode counts its names; only at zero are blocks freed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — from a path to data",
+          "note": "Path lookup walks directories until it reaches the inode.",
+          "script": "diagram(\"direction: right\\n[/home/ram/notes.txt] as path #blue\\n[Directory entry: name → inode 117] as dir #amber\\n[Inode 117: size, owner, permissions, block pointers] as ino #violet\\n[Data blocks] as blk #mint\\npath -> dir : resolve each component\\ndir -> ino\\nino -> blk : direct, indirect pointers\\n@0 path -> dir\\n@1.2 dir -> ino\\n@2.4 ino -> blk\\nloop 4.5\");"
+        }
+      ]
+    },
+    {
+      "id": "alloc",
+      "locator": "5.2",
+      "title": "Allocating disk blocks",
+      "eyebrow": "Layout",
+      "body": "<p><em class=\"term\">Contiguous</em> allocation is fast for sequential reads but fragments. <em class=\"term\">Linked</em> allocation chains blocks (FAT keeps the chain in a table) — no fragmentation, slow random access. <em class=\"term\">Indexed</em> allocation gives the file an index block (ext4/NTFS style, with extents) — fast random access at the cost of the index.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "An inode holds 12 direct pointers and one single-indirect block of 1024 pointers; blocks are 4 KB."
+        },
+        {
+          "toc": "Maximum file size",
+          "why": "Direct data: 12 × 4 KB = 48 KB. Indirect: 1024 × 4 KB = 4 MB. Maximum without further levels:",
+          "math": "48\\,\\text{KB} + 4096\\,\\text{KB} = 4144\\,\\text{KB}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "idx",
+          "prompt": "Which allocation method is best for random access?",
+          "choices": [
+            {
+              "text": "Linked."
+            },
+            {
+              "text": "None can do random access."
+            },
+            {
+              "text": "Indexed (or contiguous).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Random access means walking the chain."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Indexed can."
+            },
+            {
+              "title": "Correct.",
+              "body": "Block k is found by one index lookup; linked allocation must follow k pointers."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "security",
+      "locator": "6.1",
+      "title": "Protection and security",
+      "eyebrow": "Who may do what",
+      "body": "<p><em class=\"term\">Authentication</em> proves who you are (passwords, keys, multi-factor). <em class=\"term\">Authorisation</em> decides what you may do: an <em class=\"term\">access-control list</em> is stored with each object (who may touch me), a <em class=\"term\">capability</em> is held by each subject (what I may touch). Secure boot verifies each boot stage's signature; <em class=\"term\">sandboxing</em> confines a program to a restricted environment so a compromise stays small.</p>",
+      "questions": [
+        {
+          "id": "acl",
+          "prompt": "An access-control list is attached to…",
+          "choices": [
+            {
+              "text": "The user."
+            },
+            {
+              "text": "The CPU."
+            },
+            {
+              "text": "The object (file/resource): it lists who may do what.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a capability."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Hardware only enforces privilege levels."
+            },
+            {
+              "title": "Correct.",
+              "body": "A capability list is attached to the subject instead."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.1.1 — login then access",
+          "note": "Authentication first, then a check on every access.",
+          "script": "diagram(\"mode: sequence\\n[User] as u\\n[Login service] as l\\n[Kernel] as k\\nu -> l : username + password + code\\nl -> l : verify hash, check 2nd factor\\nl --> u : session token\\nu -> k : open(file) with token\\nk -> k : check access-control list\\nk --> u : granted / denied\");"
+        }
+      ]
+    },
+    {
+      "id": "virt",
+      "locator": "7.1",
+      "title": "Hypervisors, VMs and containers",
+      "eyebrow": "Sharing a machine",
+      "body": "<p>A <em class=\"term\">hypervisor</em> lets several operating systems share one machine. Type 1 runs directly on hardware (Xen, ESXi, KVM); Type 2 runs as an application on a host OS (VirtualBox). A <em class=\"term\">container</em> (Docker) virtualises the <em>operating system</em> instead: containers share one kernel but see separate process, file and network namespaces — lighter and faster to start than a full VM, but with weaker isolation. Kubernetes schedules containers across many machines.</p>",
+      "questions": [
+        {
+          "id": "cont",
+          "prompt": "Why does a container start faster than a VM?",
+          "choices": [
+            {
+              "text": "Containers run on special hardware."
+            },
+            {
+              "text": "Containers are not isolated at all."
+            },
+            {
+              "text": "It has no guest kernel to boot — it shares the host’s.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They run on ordinary hardware."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They are isolated by namespaces and cgroups, though less strongly than VMs."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is just isolated processes."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 7.1.1 — VM vs container",
+          "note": "A VM carries a whole OS; a container shares the host kernel.",
+          "script": "diagram(\"direction: right\\ngroup \\\"Virtual machines\\\" { vm1, vm2, hyp }\\ngroup \\\"Containers\\\" { c1, c2, rt }\\n[Guest OS 1 + app] as vm1 #blue\\n[Guest OS 2 + app] as vm2 #blue\\n[Hypervisor] as hyp #violet\\n[Container A] as c1 #mint\\n[Container B] as c2 #mint\\n[Shared host kernel] as rt #violet\\nvm1 -> hyp\\nvm2 -> hyp\\nc1 -> rt\\nc2 -> rt\");"
+        }
+      ]
+    },
+    {
+      "id": "contemp",
+      "locator": "8.1",
+      "title": "Windows, Linux, mobile, embedded, real-time",
+      "eyebrow": "Contemporary systems",
+      "body": "<p>Linux (monolithic, modular), Windows NT (hybrid kernel), Android (Linux kernel plus a managed runtime), iOS/macOS (XNU, a Mach–BSD hybrid). Embedded and IoT systems favour small real-time kernels (FreeRTOS, Zephyr); robots add middleware such as ROS; smart-cards run tiny, tightly secured systems. The same five concerns — processes, memory, files, I/O, protection — recur everywhere with different trade-offs.</p>",
+      "questions": [
+        {
+          "id": "android",
+          "prompt": "Android’s kernel is…",
+          "choices": [
+            {
+              "text": "Windows NT."
+            },
+            {
+              "text": "Linux.",
+              "correct": true
+            },
+            {
+              "text": "A microkernel."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Android applications run on a managed runtime above a Linux kernel."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Linux is monolithic/modular."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "locator": "8.2",
+      "title": "Exercises",
+      "eyebrow": "Practice",
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A 4 KB-block file system uses 12 direct and 1 single-indirect pointer (4-byte pointers). What is the largest file?</p>",
+          "answer": "An indirect block holds 4096/4 = 1024 pointers. Total = (12 + 1024) × 4 KB = <b>4144 KB</b>."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Give one advantage and one risk of containers over VMs.</p>",
+          "answer": "Advantage: start in milliseconds and use far less memory because they share the kernel. Risk: a kernel vulnerability affects every container on the host."
+        }
+      ]
+    }
+  ]
+}

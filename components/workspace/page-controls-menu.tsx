@@ -13,16 +13,18 @@
 
 import { useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, Columns2, Download, FileDown, FileUp, GalleryThumbnails, Link as LinkIcon,
-  Link2Off, Loader2, MonitorPlay, NotebookPen, Rows, Square, ZoomIn, ZoomOut,
+  ChevronLeft, ChevronRight, Columns2, FileUp, GalleryThumbnails, Link as LinkIcon,
+  Link2Off, MonitorPlay, NotebookPen, Rows, Square, ZoomIn, ZoomOut,
 } from 'lucide-react'
 import { usePdfDockStore } from '@/lib/store/pdf-dock'
+import { useExportDock } from '@/lib/store/export-dock'
 import { useDocDockStore } from '@/lib/store/doc-dock'
 import { useTransportDockStore } from '@/lib/store/transport-dock'
 import { usePrefs } from '@/lib/store/preferences'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
-import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWorkspaceStore, findPageMeta } from '@/lib/store/workspace'
+import { ExportButton } from './export-button'
 import { PresentDialog } from './page-actions'
 import { HoldableMergedTransport } from './transport'
 import {
@@ -84,7 +86,7 @@ function ZoomGroup({
           <button
             type="button"
             aria-label="Zoom options"
-            className="min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-ui-2xs tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            className="min-h-6 min-w-9 shrink-0 rounded-md px-0.5 text-center font-mono text-ui-2xs tabular-nums text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
           >
             {Math.round(zoom * 100)}%
           </button>
@@ -140,6 +142,7 @@ export function PageControlsMenu({
   const dockHasTransport = dockPrefs.layoutMode === 'extended' && dockPrefs.showTransport
   const role = useAuthStore((s) => s.profile?.role ?? null)
   const pageName = useWorkspaceStore((s) => (pageId ? s.nodes[pageId]?.name : undefined))
+  const isBoard = useWorkspaceStore((s) => !!pageId && (findPageMeta(s.nodes, pageId)?.pageKind ?? 'board') === 'board')
   const [presenting, setPresenting] = useState(false)
 
   const showPdf = !!pdfDock
@@ -148,7 +151,10 @@ export function PageControlsMenu({
   const showZoom = showPdf || showDoc
   const showPresent = showPdf && !!pageId && can(role, 'share-pages')
 
-  if (!showPdf && !showDoc && !showSim) return null
+  const showBoard = isBoard && !!pageId && !showPdf && !showDoc
+  const published = useExportDock((s) => s.items)
+
+  if (!showPdf && !showDoc && !showSim && !showBoard && !published?.length) return null
 
   return (
     <div className="flex shrink-0 items-center pr-1">
@@ -234,9 +240,6 @@ export function PageControlsMenu({
               {pdfDock.linked ? <LinkIcon className="h-3.5 w-3.5" /> : <Link2Off className="h-3.5 w-3.5" />}
             </DockBtn>
           )}
-          <DockBtn label="Download original" onClick={pdfDock.download}>
-            <Download className="h-3.5 w-3.5" />
-          </DockBtn>
           <DockBtn label="Replace file" onClick={pdfDock.replace}>
             <FileUp className="h-3.5 w-3.5" />
           </DockBtn>
@@ -253,32 +256,12 @@ export function PageControlsMenu({
           >
             <GalleryThumbnails className="h-3.5 w-3.5" />
           </DockBtn>
-          <DockBtn
-            label={docDock.exporting ? 'Exporting…' : 'Export PDF'}
-            disabled={docDock.exporting}
-            onClick={docDock.exportPdf}
-          >
-            {docDock.exporting ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <FileDown className="h-3.5 w-3.5" />
-            )}
-          </DockBtn>
-          <DockBtn
-            label={docDock.exportingDocx ? 'Exporting…' : 'Export .docx'}
-            disabled={docDock.exportingDocx}
-            onClick={docDock.exportDocx}
-          >
-            {docDock.exportingDocx ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Download className="h-3.5 w-3.5" />
-            )}
-          </DockBtn>
         </div>
       )}
 
-      {(showPdf || showDoc) && showSim && <Divider />}
+      <ExportButton pageId={pageId} board={showBoard} />
+
+      {showSim && <Divider />}
       {showSim && <HoldableMergedTransport pageId={pageId!} />}
 
       {showPresent && (

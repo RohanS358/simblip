@@ -1,0 +1,318 @@
+{
+  "title": "Functions, recursion and structures",
+  "kicker": "ENCT 101 · Computer Programming · Chapters 7–8",
+  "subtitle": "Break a big problem into named pieces, and group related data into one unit.",
+  "sections": [
+    {
+      "id": "fn",
+      "locator": "7.1",
+      "title": "Defining and calling functions",
+      "eyebrow": "Reuse with a name",
+      "body": "<p>A function has a return type, name, parameters and body: <code>int square(int x) { return x * x; }</code>. Declare a <b>prototype</b> before use so the compiler knows the signature. <code>void</code> functions return nothing. Benefits: reuse, testing one piece at a time, readability.</p>",
+      "questions": [
+        {
+          "id": "proto",
+          "prompt": "A function prototype tells the compiler…",
+          "choices": [
+            {
+              "text": "The function’s algorithm."
+            },
+            {
+              "text": "The name, parameter types and return type.",
+              "correct": true
+            },
+            {
+              "text": "Where the function is stored."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the body."
+            },
+            {
+              "title": "Correct.",
+              "body": "So calls can be checked before the body is seen."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The linker finds that."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scope",
+      "locator": "7.2",
+      "title": "Scope and lifetime",
+      "eyebrow": "Where a name is visible",
+      "body": "<p>Local variables live inside a function (or block) and vanish when it returns; each call has its own copy. Global variables are visible everywhere but make code harder to reason about. <code>static</code> locals keep their value between calls.</p>",
+      "questions": [
+        {
+          "id": "loc",
+          "prompt": "Two different functions each declare <code>int i</code>. They are…",
+          "choices": [
+            {
+              "text": "The same variable."
+            },
+            {
+              "text": "Separate variables.",
+              "correct": true
+            },
+            {
+              "text": "A compile error."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only globals are shared."
+            },
+            {
+              "title": "Correct.",
+              "body": "Locals are private to their function."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Perfectly legal."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "locator": "7.3",
+      "title": "The call stack",
+      "eyebrow": "What happens on a call",
+      "body": "<p>Each call pushes a <b>stack frame</b> holding parameters, locals and the return address; return pops it. Recursion simply stacks many frames.</p>",
+      "worked": [
+        {
+          "toc": "Expand",
+          "why": "fact(4) = 4 × fact(3) = 4 × 3 × fact(2)."
+        },
+        {
+          "toc": "Unwind",
+          "why": "= 4 × 3 × 2 × 1.",
+          "math": "24",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "base",
+          "prompt": "A recursive function must have…",
+          "choices": [
+            {
+              "text": "No parameters."
+            },
+            {
+              "text": "A base case that stops the calls.",
+              "correct": true
+            },
+            {
+              "text": "A loop."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not required."
+            },
+            {
+              "title": "Correct.",
+              "body": "Otherwise the stack overflows."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not required."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 7.3.1 — The call stack",
+          "note": "Five nested frames build up, then unwind multiplying.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint fact(int n) {\\n  if (n <= 1) return 1;\\n  return n * fact(n - 1);\\n}\\nint main() {\\n  cout << fact(5) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "120"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-fib",
+          "prompt": "<p>Given fib(0)=0, fib(1)=1, fib(n)=fib(n−1)+fib(n−2), find fib(6).</p>",
+          "answer": "0,1,1,2,3,5,<b>8</b>."
+        }
+      ]
+    },
+    {
+      "id": "rec",
+      "locator": "7.4",
+      "title": "Recursion vs iteration",
+      "eyebrow": "Two ways to repeat",
+      "body": "<p>Anything recursive can be written with a loop. Recursion is natural for trees and divide-and-conquer; iteration is cheaper (no frames). The naive recursive Fibonacci recomputes subproblems: fib(6) makes 25 calls.</p>",
+      "questions": [
+        {
+          "id": "ri",
+          "prompt": "Why is iteration usually cheaper than recursion?",
+          "choices": [
+            {
+              "text": "Loops are always shorter."
+            },
+            {
+              "text": "No stack frame per step.",
+              "correct": true
+            },
+            {
+              "text": "Recursion is illegal in C."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not always."
+            },
+            {
+              "title": "Correct.",
+              "body": "Less memory and overhead."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is legal."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 7.4.1 — Recursion vs iteration",
+          "note": "Step through to see the overlapping calls.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint fib(int n) {\\n  if (n < 2) return n;\\n  return fib(n - 1) + fib(n - 2);\\n}\\nint main() {\\n  cout << fib(6) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "struct",
+      "locator": "8.1",
+      "title": "Structures",
+      "eyebrow": "Grouping data",
+      "body": "<p>A <code>struct</code> bundles fields of different types: <code>struct Student { int roll; int marks; };</code>. Access with the dot operator (<code>s.marks</code>), or arrow through a pointer (<code>p-&gt;marks</code>). Assigning one struct to another copies every field.</p>",
+      "worked": [
+        {
+          "toc": "Layout",
+          "why": "struct { char c; int i; } on a typical machine: c takes 1 byte, then 3 bytes of padding so i is 4-aligned."
+        },
+        {
+          "toc": "Size",
+          "why": "Total size 1 + 3 + 4.",
+          "math": "8\\ \\text{bytes}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "arrow",
+          "prompt": "Given <code>struct S *p</code>, field x is reached by…",
+          "choices": [
+            {
+              "text": "p.x"
+            },
+            {
+              "text": "p->x.",
+              "correct": true
+            },
+            {
+              "text": "*p.x"
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only for a struct value."
+            },
+            {
+              "title": "Correct.",
+              "body": "Arrow dereferences and selects."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Wrong precedence."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 8.1.1 — Structures",
+          "note": "Copying a struct copies the fields; t is independent of s.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Student { int roll; int marks; };\\nint main() {\\n  Student s;\\n  s.roll = 7;\\n  s.marks = 88;\\n  Student t = s;\\n  t.marks = 90;\\n  cout << s.marks << \\\" \\\" << t.marks << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "88 90"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pad",
+          "prompt": "<p>struct { int a; char b; int c; } with 4-byte alignment: size?</p>",
+          "answer": "a 4 + b 1 + 3 pad + c 4 = <b>12 bytes</b>."
+        }
+      ]
+    },
+    {
+      "id": "union",
+      "locator": "8.2",
+      "title": "Arrays of structs, unions, enums",
+      "eyebrow": "Combining",
+      "body": "<p>An array of structs models a table (students). A <code>union</code> shares one memory slot between its members (size = largest member). <code>enum</code> gives names to integer constants (<code>enum {RED, GREEN, BLUE};</code> = 0, 1, 2). <code>typedef</code> creates a shorter type name.</p>",
+      "questions": [
+        {
+          "id": "un",
+          "prompt": "A union of an int (4 B) and a double (8 B) occupies…",
+          "choices": [
+            {
+              "text": "8 bytes.",
+              "correct": true
+            },
+            {
+              "text": "12 bytes."
+            },
+            {
+              "text": "4 bytes."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Members overlap; size is the largest."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a struct with no padding."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too small for the double."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

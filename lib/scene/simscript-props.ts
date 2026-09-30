@@ -23,6 +23,7 @@ import { num, str } from './types'
 export const CANVAS_ALIASES: Record<string, GeometryKind> = {
   ide: 'code', simscript: 'code',
   'dsa-lab': 'dsa', dsalab: 'dsa',
+  'step-lab': 'steplab', lab: 'steplab', stepper: 'steplab',
   'truth-table': 'truthtable',
   'grid-table': 'gridtable',
   '3d': 'surface3d', 'surface-3d': 'surface3d', 'graph3d': 'surface3d',
@@ -39,7 +40,7 @@ export const canvasKindOf = (kind: string): GeometryKind =>
 export const CANVAS_KINDS = new Set<GeometryKind>([
   'rect', 'circle', 'line', 'polygon', 'text', 'note', 'formula', 'graph',
   'surface3d', 'chart', 'cashflow', 'truthtable', 'table', 'gridtable',
-  'slider', 'button', 'trigger', 'code', 'dsa', 'picture',
+  'slider', 'button', 'trigger', 'code', 'dsa', 'steplab', 'picture',
 ])
 
 /** Props a caller may pass that are positional//styling, never a parameter. */
@@ -130,6 +131,15 @@ export function applyKindProps(obj: SceneObject, gk: GeometryKind, props: Record
 
   } else if (gk === 'code' || gk === 'dsa') {
     if (props.source !== undefined) setStr('source', props.source)
+
+  } else if (gk === 'steplab') {
+    // Every non-positional prop is an ENGINE ARGUMENT (lib/steplab): the set
+    // is open-ended — each engine declares its own — so nothing is matched
+    // against a fixed parameter list. Arrays are joined the way engines parse.
+    for (const [k, v] of Object.entries(props)) {
+      if (RESERVED_PROPS.has(k)) continue
+      setStr(k, Array.isArray(v) ? asRows(v, ';', ' ') : v)
+    }
 
   } else if (gk === 'cashflow') {
     if (props.spec !== undefined)

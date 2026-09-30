@@ -1,0 +1,360 @@
+{
+  "title": "Replacement analysis and risk",
+  "kicker": "ENCE 356 · Engineering Economics · Chapters 6 and 7",
+  "subtitle": "When is an old machine worth keeping, and how sure are we of any of these numbers?",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "6.1",
+      "title": "Why and when to replace",
+      "eyebrow": "Defender vs challenger",
+      "body": "<p>Assets are replaced because of <b>physical deterioration</b> (rising maintenance), <b>obsolescence</b> (better technology) or changed requirements. The decision compares the current asset, the <em class=\"term\">defender</em>, with the best available replacement, the <em class=\"term\">challenger</em>. Use today’s <i>market value</i> of the defender as its investment — what you forgo by keeping it. What you paid for it long ago is a sunk cost.</p>",
+      "questions": [
+        {
+          "id": "sunk",
+          "prompt": "The defender’s original purchase price should be…",
+          "choices": [
+            {
+              "text": "Ignored; use its current market value.",
+              "correct": true
+            },
+            {
+              "text": "Used as its first cost."
+            },
+            {
+              "text": "Added to the challenger’s cost."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Sunk cost."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The past cost is irrelevant."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Never."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ea",
+      "locator": "6.2",
+      "title": "Comparing by equivalent annual cost",
+      "eyebrow": "Unequal lives",
+      "body": "<p>Defender: market value 20,000 now, 3 more years, operating cost 6,000/yr, salvage 8,000. Challenger: 60,000, 6 years, operating cost 2,000/yr, salvage 10,000. MARR 10 %. Equivalent annual cost EAC = P·(A/P) + AOC − S·(A/F). Defender: <b>Rs 11,625</b>; challenger: <b>Rs 14,480</b>. The lower EAC wins: keep the defender.</p>",
+      "worked": [
+        {
+          "toc": "Capital",
+          "why": "Capital recovery of 60,000 over 6 years at 10 %.",
+          "math": "60000\\times0.2296=13,776"
+        },
+        {
+          "toc": "EAC",
+          "why": "Add operating cost, subtract the salvage credit.",
+          "math": "EAC=14,480",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "eac",
+          "prompt": "To compare machines with different lives, use…",
+          "choices": [
+            {
+              "text": "Simple totals of spending."
+            },
+            {
+              "text": "Equivalent annual cost (or annual worth).",
+              "correct": true
+            },
+            {
+              "text": "Payback only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Ignores time and life."
+            },
+            {
+              "title": "Correct.",
+              "body": "It puts both on a per-year basis."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Ignores long-run cost."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 6.2.1 — challenger cash flow",
+          "note": "The card’s annual worth is the negative of the EAC.",
+          "script": "var cf = create(\"cashflow\", { spec: {\"description\":\"Challenger machine\",\"marr\":10,\"discrete\":[{\"t\":0,\"amount\":-60000},{\"t\":6,\"amount\":10000}],\"annuities\":[{\"start\":0,\"periods\":6,\"every\":1,\"amount\":-2000}],\"salvage\":0} });"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ea",
+          "prompt": "<p>A pump costs 18,000 and lasts 5 years with no salvage and 1,500 a year operating cost. Find the EAC at 8 %.</p>",
+          "answer": "18,000 × A/P(8 %, 5) = 18,000 × 0.2505 = 4,508; plus 1,500 = <b>Rs 6,008</b> per year."
+        }
+      ]
+    },
+    {
+      "id": "life",
+      "locator": "6.3",
+      "title": "Economic life",
+      "eyebrow": "When to stop using an asset",
+      "body": "<p>As an asset ages its maintenance rises and its salvage falls. The <b>economic life</b> is the retention period that minimises the equivalent annual cost. For a 50,000 machine with falling salvage and rising maintenance at 10 %, the annual cost over n years is: 1 yr 24,000; 2 yr 20,429; 3 yr 19,483; 4 yr 19,315; 5 yr 19,542. The minimum is at <b>4 years</b> (Rs 19,315).</p>",
+      "worked": [
+        {
+          "toc": "Formula",
+          "why": "EAC(n) = [P − S·(P/F) + Σ O&M·(P/F)] · (A/P)."
+        },
+        {
+          "toc": "Minimum",
+          "why": "Evaluate for n = 1…5 and pick the smallest: n = 4.",
+          "math": "n^*=4",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "el",
+          "prompt": "The economic life is the period that…",
+          "choices": [
+            {
+              "text": "Minimises equivalent annual cost.",
+              "correct": true
+            },
+            {
+              "text": "Matches the physical life."
+            },
+            {
+              "text": "Maximises salvage."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Before it, capital cost dominates; after it, upkeep does."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Usually shorter."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the criterion."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ins",
+      "locator": "6.4",
+      "title": "Replacement over a finite horizon",
+      "eyebrow": "Practical checks",
+      "body": "<p>Assuming identical replacements forever is a modelling choice. If the planning horizon is finite (a 4-year contract) compare the cash flows over exactly that horizon, including the salvage at its end. Technology that improves rapidly favours shorter horizons and leasing.</p>",
+      "questions": [
+        {
+          "id": "hz",
+          "prompt": "Which assumption underlies the EAC comparison of unequal-life machines?",
+          "choices": [
+            {
+              "text": "Neither can be repeated."
+            },
+            {
+              "text": "They cost the same."
+            },
+            {
+              "text": "Each can be repeated identically.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Then use the horizon."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not needed."
+            },
+            {
+              "title": "Correct.",
+              "body": "The annual cost continues."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "risk",
+      "locator": "7.1",
+      "title": "Risk and uncertainty",
+      "eyebrow": "Estimates are guesses",
+      "body": "<p>Every input is an estimate. <b>Sensitivity analysis</b> changes one input at a time (±20 %) to see which matters most; <b>scenario analysis</b> changes sets of inputs together (best / expected / worst); <b>probabilistic analysis</b> gives inputs distributions and finds the distribution of the outcome. The <b>expected value</b> of an outcome is Σ p·x.</p>",
+      "worked": [
+        {
+          "toc": "Outcomes",
+          "why": "Project NPW: +40,000 with prob 0.3, +10,000 with prob 0.5, −20,000 with prob 0.2."
+        },
+        {
+          "toc": "Expectation",
+          "why": "E[NPW] = 0.3·40000 + 0.5·10000 + 0.2·(−20000).",
+          "math": "E=12000+5000-4000=13000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ev",
+          "prompt": "Expected value of a risky project is…",
+          "choices": [
+            {
+              "text": "The most likely outcome."
+            },
+            {
+              "text": "The probability-weighted average outcome.",
+              "correct": true
+            },
+            {
+              "text": "The worst outcome."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the mode."
+            },
+            {
+              "title": "Correct.",
+              "body": "Σ p·x."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ev",
+          "prompt": "<p>Outcomes +50,000 (p = 0.4), +10,000 (p = 0.4), −30,000 (p = 0.2). Expected NPW?</p>",
+          "answer": "20,000 + 4,000 − 6,000 = <b>Rs 18,000</b>."
+        }
+      ]
+    },
+    {
+      "id": "norm",
+      "locator": "7.2",
+      "title": "NPW as a random variable",
+      "eyebrow": "How likely a loss?",
+      "body": "<p>If the NPW is roughly normal with mean Rs 12,000 and standard deviation Rs 9,000, the chance of a loss is P(NPW &lt; 0) = Φ(−μ/σ) = Φ(−1.33) ≈ <b>9.12 %</b>. A project can have a positive expected value and still carry a one-in-ten chance of losing money; decision-makers weigh that risk against the return. Adding many independent projects reduces the relative spread — diversification, the central limit theorem at work (means of 30 draws have sd 0.184).</p>",
+      "questions": [
+        {
+          "id": "prl",
+          "prompt": "Mean NPW 12,000 and σ 9,000: P(NPW < 0) corresponds to z =",
+          "choices": [
+            {
+              "text": "+1.33."
+            },
+            {
+              "text": "−0.75."
+            },
+            {
+              "text": "−1.33.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Sign reversed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Inverted ratio."
+            },
+            {
+              "title": "Correct.",
+              "body": "(0 − 12000)/9000."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 7.2.1 — P(NPW < 0)",
+          "note": "The shaded tail is the probability of a negative NPW.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"risk\",\"engine\":\"dist\",\"kind\":\"normal\",\"mu\":12000,\"sigma\":9000,\"from\":-40000,\"to\":0,\"width\":640,\"height\":290});",
+          "expect": {
+            "risk": {
+              "prob": "0.09121"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mc",
+      "locator": "7.3",
+      "title": "Monte Carlo on cash flows",
+      "eyebrow": "Simulate the future",
+      "body": "<p>Give each uncertain input a distribution (demand ~ N(1000, 100), price ~ uniform 40–60), draw values many times, compute the NPW each time, and read the distribution: mean, spread, probability of loss. The error in any estimated probability shrinks like 1/√n, so 10,000 trials give about 1 % precision.</p>",
+      "questions": [
+        {
+          "id": "mcq",
+          "prompt": "A Monte Carlo study reports a 12 % chance NPW < 0. That means…",
+          "choices": [
+            {
+              "text": "The project will lose 12 %."
+            },
+            {
+              "text": "In 12 % of simulated futures the project lost money.",
+              "correct": true
+            },
+            {
+              "text": "It is certain to profit."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A probability, not a loss size."
+            },
+            {
+              "title": "Correct.",
+              "body": "A frequency over many trials."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 7.3.1 — Monte Carlo loop",
+          "note": "Each loop is one simulated future.",
+          "script": "diagram(\"direction: right\\n[Random inputs: demand, price, cost] as a\\n[Compute NPW] as b\\n[Record result] as c\\n<Enough trials?> as d\\n[Histogram of NPW] as e\\na -> b\\nb -> c\\nc -> d\\nd -> a : no\\nd -> e : yes\\n@0 a -> b\\n@1 b -> c\\n@2 c -> d\\n@3 d -> a : no\\nloop 3\");"
+        }
+      ]
+    }
+  ]
+}

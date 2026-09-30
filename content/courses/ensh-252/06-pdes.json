@@ -1,0 +1,274 @@
+{
+  "title": "Finite differences for heat and Laplace equations",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 6",
+  "subtitle": "Replace derivatives by differences on a grid and a partial differential equation becomes arithmetic.",
+  "sections": [
+    {
+      "id": "classes",
+      "locator": "6.1",
+      "title": "Kinds of PDE",
+      "eyebrow": "Classification",
+      "body": "<p>Second-order linear PDEs Auₓₓ + Buₓᵧ + Cuᵧᵧ = … are <em class=\"term\">elliptic</em> (B² − 4AC &lt; 0: Laplace, Poisson — steady states), <em class=\"term\">parabolic</em> (= 0: heat equation — diffusion) or <em class=\"term\">hyperbolic</em> (&gt; 0: wave equation — propagation). The type decides which numerical scheme is stable and what boundary or initial data are needed.</p>",
+      "worked": [
+        {
+          "toc": "Parabolic",
+          "why": "Classify uₜ = α uₓₓ: write it as α uₓₓ − uₜ = 0, with only one second derivative (A = α, B = C = 0).",
+          "math": "B^2-4AC=0",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "type",
+          "prompt": "The 1-D heat equation is…",
+          "choices": [
+            {
+              "text": "Elliptic."
+            },
+            {
+              "text": "Parabolic.",
+              "correct": true
+            },
+            {
+              "text": "Hyperbolic."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is Laplace."
+            },
+            {
+              "title": "Correct.",
+              "body": "B² − 4AC = 0."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the wave equation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fd",
+      "locator": "6.2",
+      "title": "Finite-difference approximations",
+      "eyebrow": "Derivatives to differences",
+      "body": "<p>Central differences on a grid with spacing h: uₓ ≈ (uᵢ₊₁ − uᵢ₋₁)/(2h), uₓₓ ≈ (uᵢ₊₁ − 2uᵢ + uᵢ₋₁)/h². In time, uₜ ≈ (uᵢⁿ⁺¹ − uᵢⁿ)/Δt. Each approximation has a known truncation error.</p>",
+      "worked": [
+        {
+          "toc": "Values",
+          "why": "u = x² at x = 2 with h = 0.5: u(1.5) = 2.25, u(2) = 4, u(2.5) = 6.25."
+        },
+        {
+          "toc": "u″",
+          "why": "Second difference.",
+          "math": "u_{xx}\\approx\\tfrac{2.25-8+6.25}{0.25}=2\\ (\\text{exact }2)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fdq",
+          "prompt": "The central second-difference of a parabola is…",
+          "choices": [
+            {
+              "text": "Always zero."
+            },
+            {
+              "text": "Exact — the formula is exact for quadratics.",
+              "correct": true
+            },
+            {
+              "text": "Always wrong."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It gives the constant u″."
+            },
+            {
+              "title": "Correct.",
+              "body": "The error term involves the fourth derivative."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is exact here."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "heat",
+      "locator": "6.3",
+      "title": "The explicit scheme for the heat equation",
+      "eyebrow": "Marching in time",
+      "body": "<p>uᵢⁿ⁺¹ = uᵢⁿ + r(uᵢ₋₁ⁿ − 2uᵢⁿ + uᵢ₊₁ⁿ), r = αΔt/Δx². Each new value is a weighted average of a point and its neighbours. A rod with ends at 100 and 0 starts at 0 and relaxes toward the straight line: after 400 steps the middle reads <b>49.997</b> (steady value 50). The scheme is stable only if r ≤ ½.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Interior node with neighbours 100 and 0, itself at 0, r = 0.25."
+        },
+        {
+          "toc": "One step",
+          "why": "New value = 0 + 0.25(100 − 0 + 0).",
+          "math": "u^{n+1}=25",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "stable",
+          "prompt": "What happens if r > 0.5 in the explicit scheme?",
+          "choices": [
+            {
+              "text": "Nothing; it is unconditionally stable."
+            },
+            {
+              "text": "The numerical solution oscillates and grows without bound.",
+              "correct": true
+            },
+            {
+              "text": "It converges faster."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only implicit schemes are."
+            },
+            {
+              "title": "Correct.",
+              "body": "The scheme is conditionally stable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It blows up."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 6.3.1 — heat diffusing along a rod",
+          "note": "Successive profiles; dark curves are earlier times.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"heat\",\"engine\":\"heat1d\",\"steps\":60,\"width\":600,\"height\":440});",
+          "expect": {
+            "heat": {
+              "mid": "35.722",
+              "steadyMid": "50"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-h",
+          "prompt": "<p>Why does the simulator refuse r = 0.6? What can you change?</p>",
+          "answer": "The explicit scheme is stable only for αΔt/Δx² ≤ ½. Reduce the time step Δt (or increase Δx) until r ≤ 0.5."
+        }
+      ]
+    },
+    {
+      "id": "lap",
+      "locator": "6.4",
+      "title": "Laplace’s equation: relaxation",
+      "eyebrow": "Steady state",
+      "body": "<p>∇²u = 0 becomes uᵢⱼ = ¼(uᵢ₊₁,ⱼ + uᵢ₋₁,ⱼ + uᵢ,ⱼ₊₁ + uᵢ,ⱼ₋₁): every interior value is the average of its four neighbours. Start with a guess, set the boundary values, and repeatedly replace each point by the average (Gauss–Seidel iteration) until nothing changes. This is exactly the electrostatic potential in a box with fixed-voltage walls.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "A 3×3 grid, top edge 100, other edges 0. Find the centre value by symmetry with all four neighbours averaging in."
+        },
+        {
+          "toc": "Centre",
+          "why": "For the single interior point: u = ¼(100 + 0 + 0 + 0).",
+          "math": "u=25",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "avg",
+          "prompt": "At a solution of Laplace’s equation each interior point equals…",
+          "choices": [
+            {
+              "text": "The maximum of its neighbours."
+            },
+            {
+              "text": "The average of its neighbours.",
+              "correct": true
+            },
+            {
+              "text": "Zero."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "The mean-value property."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only with zero boundary."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crank",
+      "locator": "6.5",
+      "title": "Implicit schemes and accuracy",
+      "eyebrow": "Beyond explicit",
+      "body": "<p>The implicit (backward-time) scheme and Crank–Nicolson evaluate the spatial differences at the new time level. Each step solves a tridiagonal linear system (Gaussian elimination in O(n)), but they are stable for any step size, so the time step is chosen for accuracy only. Crank–Nicolson is second-order in time.</p>",
+      "questions": [
+        {
+          "id": "impl",
+          "prompt": "Implicit schemes are attractive because they…",
+          "choices": [
+            {
+              "text": "Remain stable for large time steps, at the cost of solving a system each step.",
+              "correct": true
+            },
+            {
+              "text": "Need no equation solving."
+            },
+            {
+              "text": "Are first order always."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Unconditional stability."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They solve a system."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Crank–Nicolson is second order."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Central differences turn PDEs into arithmetic on a grid.</li><li>Explicit heat scheme needs r ≤ ½; Laplace relaxes to the neighbour average.</li></ul>"
+    }
+  ]
+}

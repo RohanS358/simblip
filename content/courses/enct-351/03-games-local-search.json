@@ -1,0 +1,294 @@
+{
+  "title": "Games, local search and genetic algorithms",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 2 (adversarial and optimisation)",
+  "subtitle": "When an opponent answers back, and when the path does not matter — only the final state.",
+  "sections": [
+    {
+      "id": "minimax",
+      "locator": "2.7",
+      "title": "Minimax",
+      "eyebrow": "Two players",
+      "body": "<p>In a zero-sum game two players alternate. MAX tries to maximise a score, MIN to minimise it. <em class=\"term\">Minimax</em> looks ahead to the leaves, scores them with an evaluation function, and backs values up: MAX nodes take the largest child, MIN nodes the smallest. The root value is the best MAX can guarantee against perfect play. Cost: bᵈ nodes.</p>",
+      "questions": [
+        {
+          "id": "minmax",
+          "prompt": "At a MIN node minimax takes…",
+          "choices": [
+            {
+              "text": "The largest."
+            },
+            {
+              "text": "The smallest child value.",
+              "correct": true
+            },
+            {
+              "text": "The average."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a MAX node."
+            },
+            {
+              "title": "Correct.",
+              "body": "The opponent chooses what is worst for MAX."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is expectimax."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.7.1 — minimax",
+          "note": "All 8 leaves are evaluated; value 5.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mm\",\"engine\":\"minimax\",\"pruning\":\"off\",\"width\":600,\"height\":440});",
+          "expect": {
+            "mm": {
+              "value": "5",
+              "leavesEvaluated": "8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ab",
+      "locator": "2.8",
+      "title": "Alpha–beta pruning",
+      "eyebrow": "Skipping what cannot matter",
+      "body": "<p><em class=\"term\">Alpha–beta</em> carries two bounds: α, the best MAX is already assured, and β, the best MIN is already assured. When α ≥ β the remaining children cannot change the decision and are <em class=\"term\">pruned</em>. It returns the same value as minimax but evaluates fewer leaves: here <b>5</b> of 8, value 5. With perfect move ordering it searches about b^(d/2) nodes — doubling the depth you can afford.</p>",
+      "questions": [
+        {
+          "id": "same",
+          "prompt": "Does alpha–beta pruning change the game-theoretic value at the root?",
+          "choices": [
+            {
+              "text": "No — it returns exactly the minimax value, only faster.",
+              "correct": true
+            },
+            {
+              "text": "Yes, it approximates it."
+            },
+            {
+              "text": "Only for MIN nodes."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It prunes branches that cannot affect the result."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is exact."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Both."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.8.1 — alpha–beta",
+          "note": "Dashed red branches are never examined.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ab\",\"engine\":\"minimax\",\"pruning\":\"on\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ab": {
+              "value": "5",
+              "leavesEvaluated": "5"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ab",
+          "prompt": "<p>Leaves 3 5 6 9 1 2 0 −1 under a MAX–MIN–MAX tree of branching 2. Find the root value and how many leaves alpha–beta evaluates.</p>",
+          "answer": "Root value <b>5</b>; <b>5</b> of 8 leaves are evaluated (9 and the whole (0,−1) branch are pruned).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "Pruned branches.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"minimax\",\"pruning\":\"on\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "leavesEvaluated": "5"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hill",
+      "locator": "2.9",
+      "title": "Local search: hill climbing and simulated annealing",
+      "eyebrow": "Only the state matters",
+      "body": "<p>For timetabling or n-queens the path is irrelevant. <em class=\"term\">Hill climbing</em> moves to the best neighbouring state until none is better; it gets stuck on <em class=\"term\">local maxima</em>, plateaus and ridges. <em class=\"term\">Simulated annealing</em> sometimes accepts a worse move with probability e^(−Δ/T), where the temperature T falls over time: early on it explores, later it settles. Random restarts also help.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Current cost 10; a neighbour has cost 12 (Δ = 2). Temperature T = 4."
+        },
+        {
+          "toc": "Acceptance",
+          "why": "Probability of accepting the worse move.",
+          "math": "e^{-2/4}=e^{-0.5}\\approx0.61",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sa",
+          "prompt": "Why does simulated annealing accept worse moves?",
+          "choices": [
+            {
+              "text": "To escape local optima.",
+              "correct": true
+            },
+            {
+              "text": "By mistake."
+            },
+            {
+              "text": "To save memory."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "As T falls it behaves more and more like hill climbing."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is deliberate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ga",
+      "locator": "2.10",
+      "title": "Genetic algorithms",
+      "eyebrow": "Evolution as search",
+      "body": "<p>A <em class=\"term\">genetic algorithm</em> keeps a population of candidate solutions (bit strings). Each generation: <em class=\"term\">selection</em> (fitter individuals are more likely parents, e.g. roulette wheel), <em class=\"term\">crossover</em> (swap tails at a random cut) and <em class=\"term\">mutation</em> (rare bit flips). Here it maximises f(x) = x² over 5-bit strings (optimum 31² = 961); after 30 generations of 10 individuals the best fitness reaches <b>961</b> (optimum 961).</p>",
+      "questions": [
+        {
+          "id": "mut",
+          "prompt": "What is the role of mutation?",
+          "choices": [
+            {
+              "text": "Select the fittest."
+            },
+            {
+              "text": "Keep diversity and reintroduce lost genetic material.",
+              "correct": true
+            },
+            {
+              "text": "Combine parents."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is selection."
+            },
+            {
+              "title": "Correct.",
+              "body": "Without it the population may converge prematurely."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is crossover."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 2.10.1 — a genetic algorithm",
+          "note": "Watch fitness climb generation by generation.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ga\",\"engine\":\"ga\",\"generations\":10,\"population\":6,\"width\":600,\"height\":440});",
+          "expect": {
+            "ga": {
+              "best": "961",
+              "optimum": "961"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.11",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Minimax backs up values; alpha–beta prunes without changing them.</li><li>Local search ignores the path; annealing escapes local optima; GAs evolve populations.</li></ul>"
+    },
+    {
+      "id": "ex",
+      "locator": "2.12",
+      "title": "Try it",
+      "eyebrow": "Practice",
+      "body": "<p>Change the leaf values and watch which branches get pruned. Good ordering (best move first) prunes the most; bad ordering prunes nothing.</p>",
+      "questions": [
+        {
+          "id": "order",
+          "prompt": "When does alpha–beta prune the most?",
+          "choices": [
+            {
+              "text": "When the tree is shallow."
+            },
+            {
+              "text": "When the best moves are examined first.",
+              "correct": true
+            },
+            {
+              "text": "Never."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Depth is not the factor."
+            },
+            {
+              "title": "Correct.",
+              "body": "Good bounds are found early."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It depends on ordering."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 2.12.1 — reordered leaves",
+          "note": "The same leaves in the opposite order: check the pruning.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ord\",\"engine\":\"minimax\",\"pruning\":\"on\",\"leaves\":\"9 5 6 3 2 1 -1 0\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ord": {
+              "leavesEvaluated": "6"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

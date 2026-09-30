@@ -40,15 +40,34 @@ function rateLimited(key: string): boolean {
   return rec.count > MAX_ATTEMPTS
 }
 
+// Per-IP ceiling across ALL emails, counting FAILURES only. The ip+email key
+// alone let one address spray a different email per attempt, every one costing
+// a scrypt hash. Successful sign-ins are not counted: a whole classroom logs in
+// from one school IP at the start of a lesson.
+const IP_MAX_FAILURES = 100
+const ipFailures = new Map<string, { count: number; resetAt: number }>()
+const ipBlocked = (ip: string): boolean => {
+  const rec = ipFailures.get(ip)
+  return !!rec && Date.now() <= rec.resetAt && rec.count >= IP_MAX_FAILURES
+}
+function noteIpFailure(ip: string): void {
+  const now = Date.now()
+  const rec = ipFailures.get(ip)
+  if (!rec || now > rec.resetAt) {
+    ipFailures.set(ip, { count: 1, resetAt: now + WINDOW_MS })
+    if (ipFailures.size > 5000) for (const [k, v] of ipFailures) if (now > v.resetAt) ipFailures.delete(k)
+  } else rec.count++
+}
+
 /** Successful login clears the counter, so ordinary users are never locked. */
 const clearAttempts = (key: string) => attempts.delete(key)
 
 /** Best-effort client identity for rate limiting. */
+const clientIp = (req: Request): string =>
+  req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip') || 'unknown'
+
 function clientKey(req: Request, email: string): string {
-  const ip =
-    req.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
-    req.headers.get('x-real-ip') ||
-    'unknown'
+  const ip = clientIp(req)
   // Keyed on ip+email: one attacker can't lock out every account from one IP,
   // and one victim's account can't be locked out from many IPs either.
   return `${ip}:${email.toLowerCase()}`
@@ -81,7 +100,7 @@ export async function POST(req: Request) {
     if (body.grant === 'password') {
       const email = String(body.email ?? '').trim()
       const key = clientKey(req, email)
-      if (rateLimited(key)) {
+      if (rateLimited(key) || ipBlocked(clientIp(req))) {
         return NextResponse.json(
           { msg: 'Too many sign-in attempts. Try again in a few minutes.' },
           { status: 429, headers: { 'Retry-After': String(WINDOW_MS / 1000) } }
@@ -108,6 +127,7 @@ export async function POST(req: Request) {
         if (p && passwordOk && !p.active) {
           console.warn(`[auth] sign-in refused: profile ${p.id} is deactivated`)
         }
+        noteIpFailure(clientIp(req))
         return NextResponse.json({ msg: 'Invalid email or password.' }, { status: 400 })
       }
       clearAttempts(key)
@@ -130,9 +150,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ msg: 'Unknown grant.' }, { status: 400 })
   } catch (err) {
-    return NextResponse.json(
-      { msg: err instanceof Error ? err.message : 'Auth failed' },
-      { status: 500 }
-    )
+    // The driver's message can name columns, hosts or constraints.
+    console.error('[auth] failed:', err)
+    return NextResponse.json({ msg: 'Sign-in is unavailable right now. Try again shortly.' }, { status: 500 })
   }
 }

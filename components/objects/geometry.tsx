@@ -1730,6 +1730,14 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             )
           })()}
         {flowOverlays(d)}
+        {/* A diagram animation token (lib/physics/flow.ts): hidden until the run
+            clock puts one on this arrow, then moved and labelled by the runtime. */}
+        {object.metadata.flow != null && object.behaviors.some((b) => b.enabled && b.type === 'flow') && (
+          <g data-flow-token="" style={{ opacity: 0, pointerEvents: 'none' }}>
+            <rect x={-16} y={-9} width={32} height={18} rx={9} fill="var(--accent-mint)" stroke="var(--card)" strokeWidth={1.5} />
+            <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={600} fill="var(--background)" style={{ fontFamily: 'var(--font-mono)' }} />
+          </g>
+        )}
         {endColor && (
           <>
             <circle data-endpoint="a" cx={a[0]} cy={a[1]} r={3.5} fill={endColor} />

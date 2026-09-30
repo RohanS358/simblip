@@ -1,0 +1,39 @@
+{
+  "id": "enex-201",
+  "code": "ENEX 201",
+  "title": "Microprocessors",
+  "subject": "computing",
+  "semester": 3,
+  "program": "computer",
+  "description": "The Intel 8085 and 8086: architecture, assembly programming, timing, interfacing and interrupts — programs assembled and single-stepped.",
+  "order": [
+    "01-introduction",
+    "02-8085-architecture",
+    "03-8085-programming",
+    "04-8086",
+    "05-interfacing-interrupts"
+  ],
+  "published": true,
+  "lessons": {
+    "01-introduction": {
+      "path": "1 Introduction",
+      "title": "The stored-program computer and its buses"
+    },
+    "02-8085-architecture": {
+      "path": "2 Intel 8085 Microprocessor",
+      "title": "8085 architecture, instruction set and timing"
+    },
+    "03-8085-programming": {
+      "path": "2 Intel 8085 Microprocessor",
+      "title": "8085 assembly programming"
+    },
+    "04-8086": {
+      "path": "3 Intel 8086 Microprocessor",
+      "title": "8086: BIU, EU, segments and assembly"
+    },
+    "05-interfacing-interrupts": {
+      "path": "4–6 Microprocessor System, Interrupts, Advanced Topics",
+      "title": "Memory, I/O interfacing and interrupts"
+    }
+  }
+}

@@ -1,0 +1,282 @@
+{
+  "title": "8085 architecture, instruction set and timing",
+  "kicker": "ENEX 201 · Microprocessors · Chapter 2 (hardware)",
+  "subtitle": "Seven registers, five flags, a 16-bit address bus — and a timing diagram that shows exactly when each signal moves.",
+  "sections": [
+    {
+      "id": "arch",
+      "locator": "2.1",
+      "title": "Internal architecture",
+      "eyebrow": "Inside the chip",
+      "body": "<p>The 8085 has an 8-bit ALU; the <em class=\"term\">accumulator</em> A; general registers B, C, D, E, H, L (usable as 16-bit pairs BC, DE, HL); the 16-bit <em class=\"term\">program counter</em> and <em class=\"term\">stack pointer</em>; an instruction register and decoder; timing and control; and five flags: Sign, Zero, Auxiliary carry, Parity, Carry. The HL pair doubles as memory pointer M.</p>",
+      "questions": [
+        {
+          "id": "flags",
+          "prompt": "How many flags does the 8085 have?",
+          "choices": [
+            {
+              "text": "Three."
+            },
+            {
+              "text": "Five: S, Z, AC, P, CY.",
+              "correct": true
+            },
+            {
+              "text": "Eight."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Fewer than it has."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each records an outcome of the last ALU operation."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "One per register bit — no."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 2.1.1 — 8085 block diagram",
+          "note": "The functional blocks of the 8085.",
+          "script": "diagram(\"direction: right\\n[Registers B C D E H L] as r #blue\\n[Accumulator A] as a #mint\\n[ALU + flags S Z AC P CY] as alu #amber\\n[PC / SP] as pc #violet\\n[Instruction register + decoder] as ir #rose\\n[Timing & control] as tc #grey\\npc -> ir : fetch\\nir -> tc : decode\\ntc -> alu : control\\nr -> alu\\na -> alu\\nalu -> a : result\");"
+        }
+      ]
+    },
+    {
+      "id": "pins",
+      "locator": "2.2",
+      "title": "Pins and the multiplexed bus",
+      "eyebrow": "Wires",
+      "body": "<p>To save pins the low address byte and the data share lines AD0–AD7. During T1 of a machine cycle they carry A0–A7 and the <em class=\"term\">ALE</em> (address latch enable) pulse tells an external 74LS373 latch to capture them; afterwards the same lines carry data. The high byte A8–A15 is on its own pins. Control signals: RD̅, WR̅, IO/M̅, S0, S1. Interrupts: TRAP, RST7.5, RST6.5, RST5.5, INTR.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Why is a latch needed?"
+        },
+        {
+          "toc": "Answer",
+          "why": "The lines AD0–AD7 carry the low address only briefly (T1). The latch holds it stable while the lines switch to carrying data.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ale",
+          "prompt": "What does ALE tell the external latch?",
+          "choices": [
+            {
+              "text": "Start a read."
+            },
+            {
+              "text": "“The lines AD0–AD7 now carry the low address byte — capture it.”",
+              "correct": true
+            },
+            {
+              "text": "Reset the CPU."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is RD̅."
+            },
+            {
+              "title": "Correct.",
+              "body": "After ALE falls they carry data."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iset",
+      "locator": "2.3",
+      "title": "Instruction set groups and formats",
+      "eyebrow": "What it can do",
+      "body": "<p>Data transfer (MOV, MVI, LDA, STA, LXI, LDAX, PUSH, POP), arithmetic (ADD, ADI, SUB, INR, DCR, INX, DAD, DAA), logic (ANA, ORA, XRA, CMP, rotates), branch (JMP, conditional jumps, CALL, RET) and machine control (HLT, NOP, EI, DI). Instructions are 1, 2 or 3 bytes: opcode only; opcode + 8-bit data; opcode + 16-bit address or data.</p>",
+      "questions": [
+        {
+          "id": "len",
+          "prompt": "How many bytes is LXI H,2050H?",
+          "choices": [
+            {
+              "text": "2."
+            },
+            {
+              "text": "1."
+            },
+            {
+              "text": "3 — opcode 21H plus the two address bytes 50H, 20H.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is MVI."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is MOV."
+            },
+            {
+              "title": "Correct.",
+              "body": "Low byte first (little-endian)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.3.1 — instruction lengths",
+          "note": "One-, two- and three-byte instructions: look at the machine-code column.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"len\",\"engine\":\"cpu8085\",\"program\":\"MVI A,05H\\nMOV B,A\\nLXI H,2050H\\nMOV M,B\\nHLT\",\"memory\":\"\",\"watch\":\"2050\",\"width\":600,\"height\":440});",
+          "expect": {
+            "len": {
+              "A": "05",
+              "B": "05",
+              "m2050": "05"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "locator": "2.4",
+      "title": "Addressing modes",
+      "eyebrow": "Finding operands",
+      "body": "<p>Immediate (MVI B,05H), register (MOV A,B), direct (LDA 2050H), register indirect (MOV A,M — HL points to the byte), and implied (CMA, RAL act on A). Four of the five are visible in the program above.</p>",
+      "questions": [
+        {
+          "id": "ind",
+          "prompt": "MOV A,M uses which addressing mode?",
+          "choices": [
+            {
+              "text": "Immediate."
+            },
+            {
+              "text": "Register indirect — HL holds the address.",
+              "correct": true
+            },
+            {
+              "text": "Direct."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No value is in the instruction."
+            },
+            {
+              "title": "Correct.",
+              "body": "M stands for the memory byte HL points at."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No address is in the instruction."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "timing",
+      "locator": "2.5",
+      "title": "Instruction cycle, machine cycle, T-state",
+      "eyebrow": "Timing",
+      "body": "<p>A <em class=\"term\">T-state</em> is one clock period. A <em class=\"term\">machine cycle</em> (opcode fetch, memory read/write, I/O read/write) takes 3–6 T-states; an <em class=\"term\">instruction cycle</em> is one to five machine cycles. The opcode fetch is 4 T-states (T1 address out + ALE, T2 RD̅, T3 read, T4 decode). At 3 MHz, T = 1/(3×10⁶) = 0.333 µs, so a 4-T instruction takes 1.33 µs.</p>",
+      "worked": [
+        {
+          "toc": "Cycles",
+          "why": "LDA 2050H takes 4 machine cycles (opcode fetch, two operand reads, data read)."
+        },
+        {
+          "toc": "Time",
+          "why": "T-states: 4 + 3 + 3 + 3 = 13. At 3 MHz: 13 × 0.333 µs.",
+          "math": "13/3\\approx4.33\\ \\mu\\text{s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ts",
+          "prompt": "How many T-states does an opcode fetch take on the 8085?",
+          "choices": [
+            {
+              "text": "3."
+            },
+            {
+              "text": "4.",
+              "correct": true
+            },
+            {
+              "text": "6."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a memory read."
+            },
+            {
+              "title": "Correct.",
+              "body": "T1 address, T2 read strobe, T3 data, T4 decode."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is for CALL-type cycles."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 2.5.1 — opcode fetch timing",
+          "note": "The opcode fetch machine cycle.",
+          "script": "diagram(\"mode: sequence\\n[8085] as c\\n[Latch] as l\\n[Memory] as m\\nc -> l : T1: address A0-A7 on AD0-AD7, ALE high\\nc -> m : T1: address A8-A15\\nc -> m : T2: RD goes low\\nm --> c : T3: opcode on the data bus\\nc -> c : T4: decode\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-t",
+          "prompt": "<p>The default program in the figure below adds two bytes. How many T-states does it take, and how long at 3 MHz?</p>",
+          "answer": "The simulator totals <b>48</b> T-states → 16.00 µs at 3 MHz.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "Run to the end and read the T-state counter.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"cpu8085\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "tstates": "48",
+                "A": "3C"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>8085: A, B–L, PC, SP, five flags; 16-bit address, 8-bit data multiplexed with A0–A7.</li><li>Opcode fetch = 4 T-states; time = T-states / f.</li></ul>"
+    }
+  ]
+}

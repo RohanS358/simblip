@@ -1,0 +1,248 @@
+COMPUTER PROGRAMMING
+ENCT 101
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : I
+Part : I
+Course Objectives:
+The primary goal of this course is to provide students with a solid foundation in the
+principles of programming and to impart practical skills in the C programming language.
+This course ensures that students comprehend the fundamental concepts of variables,
+data types, control structures, and functions within the context of C. Advanced topics
+such as pointers, structures, file handling and the standard C library are explored to
+broaden students' programming capabilities. Also, through project-based assessments
+and evaluations, students apply their knowledge to real-world scenarios, fostering
+creativity and project development skills.
+1
+Introduction to Computer Programming
+1.1
+1.2
+1.3
+2
+Overview of C Programming
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+2.9
+(3 hours)
+Definition of a computer program and programming language
+Types and generations of programming languages
+Problem-solving using a computer
+1.3.1 Problem analysis
+1.3.2 Algorithm and flowchart
+1.3.3 Programming
+1.3.4 Compilation, linking and execution
+1.3.5 Debugging and testing
+1.3.6 Documentation
+Introduction to C programming
+History and importance of C
+C headers and library functions
+Basic structure of a C program
+Preprocessor directives
+Tokens in C (Character set, keywords and identifiers)
+Type casting (Implicit and explicit)
+Data types, variables and constants
+Compiler and IDE for C programming
+(3 hours)
+3
+Operators and Expressions
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+3.7
+4
+4.3
+5
+5.4
+5.5
+(8 hours)
+Introduction to simple and compound statement
+Sequential statement
+Branching statement
+5.3.1 Simple if statement
+5.3.2 if-else statement
+5.3.3 Nested if-else statement
+5.3.4 else-if ladder
+5.3.5 switch statement
+5.3.6 go to statement
+Looping statement
+5.4.1 for loop
+5.4.2 while loop
+5.4.3 do while
+5.4.4 Nested loop
+Loop interruption
+5.5.1 break
+5.5.2 continue
+Array and Pointer
+6.1
+6.2
+6.3
+(3 hours)
+Introduction to data I/O in C
+Unformatted I/O
+4.2.1 Character I/O
+4.2.2 String I/O
+Formatted I/O
+4.3.1 Control string (Flags, field width, precision, and specifier)
+4.3.2 Formatted I/O (scanf(), printf())
+Control Structures
+5.1
+5.2
+5.3
+6
+Introduction to operators and expressions
+Arithmetic, relational and logical operators
+Assignment, increment and decrement operators
+Conditional, bitwise and special operators
+Comma operator, size of operator
+Evaluation and type conversion in expressions
+Operator precedence and associativity
+Input and Output
+4.1
+4.2
+(4 hours)
+Introduction to an array
+One-dimensional array
+Two-dimensional array
+(7 hours)
+6.4
+6.5
+6.6
+6.7
+6.8
+6.9
+6.10
+7
+User-defined Functions
+7.1
+7.2
+7.3
+7.4
+7.5
+7.6
+7.7
+7.8
+7.9
+8
+(5 hours)
+Defining a structure
+Declaring and accessing structure elements
+Initializing structure
+Array of structure
+Array as member to structure
+Pointer as member to structure
+Structure as a member to structure
+Passing and returning structures to/from function
+File Management
+9.1
+9.2
+9.3
+9.4
+(6 hours)
+Introduction to function
+Advantages of function
+Elements of user-defined function
+7.3.1 Function definition
+7.3.2 Function prototype
+7.3.3 Function parameters
+Storage class
+Scope rules
+Category of functions
+7.6.1 Functions with no arguments and no return values
+7.6.2 Functions with arguments and no return values
+7.6.3 Functions with arguments and return values
+7.6.4 Functions with no arguments and return values
+Recursive functions
+Function call by values and reference
+Passing array and string to function
+Structures
+8.1
+8.2
+8.3
+8.4
+8.5
+8.6
+8.7
+8.8
+9
+Multidimensional array
+Introduction to string
+String handling functions
+Definition of a pointer
+Pointer declaration
+Pointer arithmetic
+Relationship between pointer and arrays
+Introduction
+Binary and text file in C
+File opening modes
+Defining, opening and closing file
+(4 hours)
+9.5
+9.6
+9.7
+10
+Input-output operations on files
+9.5.1 Character I/O (fputc(), fgetc())
+9.5.2 String I/O (fgets(), fputs())
+9.5.3 Formatted I/O (fscanf(), fprintf())
+9.5.4 Record I/O (fwrite(), fread())
+Overview of random file access
+Error handling
+Recent Trends in Programming
+10.1
+10.2
+10.3
+10.4
+(2 hours)
+Introduction to object oriented programming (OOP)
+Definitions of class, method and object in OOP
+Difference between procedure oriented and OOP
+Overview of other high level programming languages
+,
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+(45 hours)
+Lab 1: Introduction and demonstrations of projects written in C
+Lab 2: Formatted and unformatted Input/output in C
+Lab 3: Branching in control structure
+Lab 4: Looping in control structure
+Lab 5: Array in C
+Lab 6: String in C
+Lab 7: Pointers in C
+Lab 8: User defined functions in C
+Lab 9: Structure in C
+Lab 10: File handling in C
+Group project on C maximum 4 students in a group at the end of the
+course.
+Reference
+1.
+Lafore, R. (1993). The Waite Group's C programming using Turbo C++ (1st
+ed.). SAMS Publishing.
+2.
+Balagurusamy, E. (2019). Programming in ANSI C (8th ed.). McGraw Hill
+Education.
+3.
+Gottfried, B. S. (2010). Programming with C (3rd ed.). McGraw Hill
+Education.

@@ -1,0 +1,314 @@
+{
+  "title": "Graphs: traversal, spanning trees, shortest paths",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 6",
+  "subtitle": "Things and the links between them: maps, networks, dependencies.",
+  "sections": [
+    {
+      "id": "rep",
+      "locator": "6.1",
+      "title": "Graphs and how to store them",
+      "eyebrow": "Definitions",
+      "body": "<p>A <em class=\"term\">graph</em> G = (V, E) has vertices and edges (directed or undirected, weighted or not). Store it as an <em class=\"term\">adjacency matrix</em> (an n×n table: O(1) edge test, O(n²) space — good for dense graphs) or an <em class=\"term\">adjacency list</em> (each vertex lists its neighbours: O(n + e) space — good for sparse graphs).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A graph has 1000 vertices and 3000 edges."
+        },
+        {
+          "toc": "Space",
+          "why": "Matrix: 1000² = 10⁶ cells. List: 1000 + 2·3000 = 7000 entries (undirected).",
+          "math": "10^6\\ \\text{vs}\\ 7000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "list",
+          "prompt": "Which representation suits a sparse graph?",
+          "choices": [
+            {
+              "text": "Adjacency matrix."
+            },
+            {
+              "text": "Adjacency list.",
+              "correct": true
+            },
+            {
+              "text": "Neither."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It wastes n² space."
+            },
+            {
+              "title": "Correct.",
+              "body": "It stores only the edges that exist."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Both work; one is leaner."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trav",
+      "locator": "6.2",
+      "title": "BFS and DFS",
+      "eyebrow": "Exploring",
+      "body": "<p><em class=\"term\">Breadth-first search</em> uses a queue and visits vertices level by level — it finds the fewest-edge path in an unweighted graph. <em class=\"term\">Depth-first search</em> uses a stack (or recursion), dives as deep as it can, then backtracks; it is the basis of cycle detection and topological sort. Both run in O(n + e). On the small graph A–B, A–C, B–D, C–D, D–E from A, BFS visits <b>A B C D E</b>.</p>",
+      "questions": [
+        {
+          "id": "bfsq",
+          "prompt": "Which data structure drives breadth-first search?",
+          "choices": [
+            {
+              "text": "A queue.",
+              "correct": true
+            },
+            {
+              "text": "A stack."
+            },
+            {
+              "text": "A heap."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "First discovered is first explored, giving level order."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That gives DFS."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is Dijkstra/Prim."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 6.2.1 — BFS",
+          "note": "Amber = frontier, green = visited.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bfs\",\"engine\":\"graphalgo\",\"algo\":\"bfs\",\"graph\":\"A-B;A-C;B-D;C-D;D-E\",\"start\":\"A\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bfs": {
+              "order": "A B C D E"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 6.2.2 — DFS",
+          "note": "DFS dives first.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dfs\",\"engine\":\"graphalgo\",\"algo\":\"dfs\",\"graph\":\"A-B;A-C;B-D;C-D;D-E\",\"start\":\"A\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dfs": {
+              "order": "A B D E C"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mst",
+      "locator": "6.3",
+      "title": "Minimum spanning trees",
+      "eyebrow": "Cheapest connection",
+      "body": "<p>A <em class=\"term\">spanning tree</em> connects all n vertices with n−1 edges; the minimum one has least total weight. <em class=\"term\">Kruskal</em>: sort edges, take each unless it forms a cycle (union–find). <em class=\"term\">Prim</em>: grow one tree, always adding the cheapest edge leaving it. On the textbook graph both give total weight <b>37</b> (Prim 37).</p>",
+      "questions": [
+        {
+          "id": "cyc",
+          "prompt": "Why does Kruskal skip an edge whose ends are already connected?",
+          "choices": [
+            {
+              "text": "It is too heavy."
+            },
+            {
+              "text": "It is directed."
+            },
+            {
+              "text": "Adding it would create a cycle, which a tree cannot have.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Weight order already handled."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not relevant."
+            },
+            {
+              "title": "Correct.",
+              "body": "A cycle means one edge is redundant."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 6.3.1 — Kruskal",
+          "note": "Skipped edges would close a cycle.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"kr\",\"engine\":\"graphalgo\",\"algo\":\"kruskal\",\"width\":600,\"height\":440});",
+          "expect": {
+            "kr": {
+              "weight": "37"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 6.3.2 — Prim",
+          "note": "Prim grows outward from A.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pr\",\"engine\":\"graphalgo\",\"algo\":\"prim\",\"start\":\"A\",\"width\":600,\"height\":440});",
+          "expect": {
+            "pr": {
+              "weight": "37"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-mst",
+          "prompt": "<p>Find the MST weight of the graph in the figure.</p>",
+          "answer": "Both Kruskal and Prim give <b>37</b>.",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "Prim’s result.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"graphalgo\",\"algo\":\"prim\",\"start\":\"A\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "weight": "37"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sp",
+      "locator": "6.4",
+      "title": "Shortest paths",
+      "eyebrow": "Weights",
+      "body": "<p><em class=\"term\">Dijkstra</em> settles the nearest unsettled vertex and relaxes its edges (non-negative weights; O((n + e) log n) with a heap). <em class=\"term\">Floyd–Warshall</em> computes all-pairs shortest paths with three nested loops, O(n³): for each intermediate k, dist[i][j] = min(dist[i][j], dist[i][k] + dist[k][j]). See the routing lesson in Computer Networks for the step-by-step picture of Dijkstra.</p>",
+      "questions": [
+        {
+          "id": "neg",
+          "prompt": "Dijkstra can fail when…",
+          "choices": [
+            {
+              "text": "an edge has negative weight.",
+              "correct": true
+            },
+            {
+              "text": "The graph is undirected."
+            },
+            {
+              "text": "The graph is large."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A settled vertex might later be reachable more cheaply through a negative edge."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It works on undirected graphs."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Size only affects speed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab6",
+          "caption": "Figure 6.4.1 — Dijkstra",
+          "note": "Dijkstra on the textbook graph.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dj\",\"engine\":\"routing\",\"algo\":\"dijkstra\",\"source\":\"u\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dj": {
+              "d_z": "4",
+              "path_z": "u→x→y→z"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "topo",
+      "locator": "6.5",
+      "title": "Topological sort and transitive closure",
+      "eyebrow": "Dependencies",
+      "body": "<p>In a directed acyclic graph a <em class=\"term\">topological order</em> lists vertices so every edge points forward — a valid order for building tasks that depend on one another. Repeatedly remove a vertex with no incoming edges (Kahn). For a>b, a>c, b>d, c>d one order is <b>a b c d</b>. <em class=\"term\">Warshall’s algorithm</em> computes reachability (transitive closure) with the same triple loop as Floyd using OR instead of min.</p>",
+      "questions": [
+        {
+          "id": "dag",
+          "prompt": "A topological order exists only if the graph is…",
+          "choices": [
+            {
+              "text": "Undirected."
+            },
+            {
+              "text": "Directed and acyclic.",
+              "correct": true
+            },
+            {
+              "text": "Connected."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Order needs direction."
+            },
+            {
+              "title": "Correct.",
+              "body": "A cycle would need every member to precede the others."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not required."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab7",
+          "caption": "Figure 6.5.1 — topological sort",
+          "note": "Remove nodes with in-degree 0.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"tp\",\"engine\":\"graphalgo\",\"algo\":\"topo\",\"graph\":\"a>b;a>c;b>d;c>d\",\"start\":\"a\",\"width\":600,\"height\":440});",
+          "expect": {
+            "tp": {
+              "order": "a b c d"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Lists for sparse, matrices for dense graphs.</li><li>BFS = queue, DFS = stack; MST by Kruskal or Prim; Dijkstra for non-negative weights.</li></ul>"
+    }
+  ]
+}

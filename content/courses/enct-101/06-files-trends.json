@@ -1,0 +1,276 @@
+{
+  "title": "Files and where programming is heading",
+  "kicker": "ENCT 101 · Computer Programming · Chapters 9–10",
+  "subtitle": "Variables vanish when the program ends; files remember. Then a glance at how programming grew up.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "9.1",
+      "title": "Why files",
+      "eyebrow": "Persistence",
+      "body": "<p>Variables live in RAM and disappear at exit. A <em class=\"term\">file</em> stores data on disk as a stream of bytes. <b>Text files</b> hold characters (readable, line-oriented); <b>binary files</b> hold raw bytes (compact, fast, not human-readable).</p>",
+      "questions": [
+        {
+          "id": "txt",
+          "prompt": "Binary files differ from text files in that they…",
+          "choices": [
+            {
+              "text": "Cannot be read by programs."
+            },
+            {
+              "text": "Are always smaller in RAM."
+            },
+            {
+              "text": "Store raw bytes, not character lines.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They can."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Compact but unreadable."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "life",
+      "locator": "9.2",
+      "title": "The file lifecycle",
+      "eyebrow": "Open → use → close",
+      "body": "<p><code>FILE *f = fopen(\"data.txt\", \"r\");</code> returns a pointer, or NULL if opening fails — always check. Modes: <code>r</code> read, <code>w</code> write (truncates!), <code>a</code> append, <code>r+</code> read/write; add <code>b</code> for binary. Then use <code>fprintf/fscanf</code> (formatted), <code>fgets/fputs</code> (lines), <code>fread/fwrite</code> (blocks), and finally <code>fclose(f)</code> so buffered data is flushed.</p>",
+      "questions": [
+        {
+          "id": "w",
+          "prompt": "Opening an existing file with mode “w” will…",
+          "choices": [
+            {
+              "text": "Erase its contents.",
+              "correct": true
+            },
+            {
+              "text": "Append to it."
+            },
+            {
+              "text": "Open it read-only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Use “a” to keep and append."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is “a”."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is “r”."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 9.2.1 — writing a file",
+          "note": "Data sits in a buffer until fclose or a flush.",
+          "script": "diagram(\"mode: sequence\\n[Program] as p\\n[C library buffer] as b\\n[Disk file] as d\\np -> b : fopen(\\\"data.txt\\\",\\\"w\\\")\\nb -> d : create / truncate\\np -> b : fprintf(f, \\\"42\\\")\\np -> b : fclose(f)\\nb -> d : flush buffer to disk\\n@0 p -> b : fopen(\\\"data.txt\\\",\\\"w\\\")\\n@1 b -> d : create / truncate\\n@2 p -> b : fprintf(f, \\\"42\\\")\\n@3 p -> b : fclose(f)\\n@4 b -> d : flush buffer to disk\");"
+        }
+      ]
+    },
+    {
+      "id": "read",
+      "locator": "9.3",
+      "title": "Reading until the end",
+      "eyebrow": "Loops over files",
+      "body": "<p>Read in a loop until the function reports end of file: <code>while (fscanf(f, \"%d\", &amp;x) == 1)</code> stops when a value could not be read. Checking <code>feof</code> before reading causes the classic “last line processed twice” bug.</p>",
+      "worked": [
+        {
+          "toc": "Loop",
+          "why": "A file holds 5 numbers: 4 6 8 2 10. Read and sum."
+        },
+        {
+          "toc": "Sum",
+          "why": "4 + 6 + 8 + 2 + 10.",
+          "math": "30",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "eof",
+          "prompt": "The safest read loop tests…",
+          "choices": [
+            {
+              "text": "The return value of the read function.",
+              "correct": true
+            },
+            {
+              "text": "feof before each read."
+            },
+            {
+              "text": "The file size."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It says whether a value was obtained."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Causes an extra pass."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not reliable."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-fs",
+          "prompt": "<p>A binary file stores 250 records of 24 bytes each. File size?</p>",
+          "answer": "250 × 24 = <b>6000 bytes</b>."
+        }
+      ]
+    },
+    {
+      "id": "seek",
+      "locator": "9.4",
+      "title": "Random access",
+      "eyebrow": "Jump around a file",
+      "body": "<p><code>fseek(f, offset, SEEK_SET)</code> moves the position; <code>ftell</code> reports it. With fixed-size records, record n starts at byte n × size, so any record can be read without scanning the rest.</p>",
+      "questions": [
+        {
+          "id": "sk",
+          "prompt": "Records are 32 bytes. Record 10 (counting from 0) starts at byte…",
+          "choices": [
+            {
+              "text": "32."
+            },
+            {
+              "text": "320.",
+              "correct": true
+            },
+            {
+              "text": "10."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is record 1."
+            },
+            {
+              "title": "Correct.",
+              "body": "10 × 32."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Forgot the size."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "paradigm",
+      "locator": "10.1",
+      "title": "Paradigms",
+      "eyebrow": "Styles of programming",
+      "body": "<p><b>Procedural</b> (C): a program is functions acting on data. <b>Object-oriented</b> (C++, Java, Python): data and the functions that act on it are bundled in classes. <b>Functional</b>: programs are compositions of pure functions. Modern languages mix them.</p>",
+      "questions": [
+        {
+          "id": "oop",
+          "prompt": "The main idea of object-oriented programming is to…",
+          "choices": [
+            {
+              "text": "Avoid functions."
+            },
+            {
+              "text": "Replace loops with gotos."
+            },
+            {
+              "text": "Bundle data with the operations on it.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Methods are functions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Encapsulation into classes."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 10.1.1 — procedural → OOP",
+          "note": "Data and behaviour move together in OOP.",
+          "script": "diagram(\"direction: right\\n{Procedural C | struct Student | printStudent(s)} as a\\n{Object-oriented C++ | class Student: data | print()} as b\\na -> b : evolves into\");"
+        }
+      ]
+    },
+    {
+      "id": "trend",
+      "locator": "10.2",
+      "title": "Recent trends",
+      "eyebrow": "Looking ahead",
+      "body": "<p>Memory-safe languages (Rust), scripting for data and AI (Python), web and mobile (JavaScript/Kotlin), WebAssembly, AI coding assistants, open-source libraries and version control as everyday tools. C remains the language of operating systems, embedded devices and compilers — learning it teaches how the machine really works.</p>",
+      "questions": [
+        {
+          "id": "why",
+          "prompt": "C is still taught first because it…",
+          "choices": [
+            {
+              "text": "Shows how memory, pointers and the machine really work.",
+              "correct": true
+            },
+            {
+              "text": "Is the easiest language."
+            },
+            {
+              "text": "Has no bugs."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Everything else is built on those ideas."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is not."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It has plenty."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

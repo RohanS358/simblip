@@ -1,0 +1,714 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<title>SIMBLIP Architecture Atlas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* Layout: sticky header + tab rail, one scrollable/zoomable SVG per module, detail panel underneath. */
+:root{
+  --bg:#f3f6f9; --panel:#ffffff; --fg:#14202e; --muted:#5b6b7d; --line:#d3dce6; --edge:#51647a; --box-shadow:rgba(20,32,46,.08);
+  --ui:#2563c9;     --ui-bg:#e4eefc;
+  --state:#7a3fc4;  --state-bg:#eee6fa;
+  --engine:#b45f06; --engine-bg:#fdefd9;
+  --server:#0e7c86; --server-bg:#dcf3f4;
+  --data:#2f7d32;   --data-bg:#e2f3e2;
+  --ai:#b8286a;     --ai-bg:#fbe4ef;
+  --ext:#4a5868;    --ext-bg:#e8edf2;
+  --cont:#eaeff5;   --cont-line:#c5d0dc;
+  --sans:'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d141c; --panel:#141d28; --fg:#e4ebf3; --muted:#93a3b5; --line:#263444; --edge:#8ea2b8; --box-shadow:rgba(0,0,0,.4);
+  --ui:#6ea6ff;--ui-bg:#15294a; --state:#b98cf0;--state-bg:#2a1e42; --engine:#f0a24c;--engine-bg:#3a2810;
+  --server:#4cc9d3;--server-bg:#0f3237; --data:#6fcf74;--data-bg:#173a1a; --ai:#f27bb0;--ai-bg:#421629;
+  --ext:#a9b8c9;--ext-bg:#222e3b; --cont:#111a24;--cont-line:#2a3a4c; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d141c; --panel:#141d28; --fg:#e4ebf3; --muted:#93a3b5; --line:#263444; --edge:#8ea2b8; --box-shadow:rgba(0,0,0,.4);
+  --ui:#6ea6ff;--ui-bg:#15294a; --state:#b98cf0;--state-bg:#2a1e42; --engine:#f0a24c;--engine-bg:#3a2810;
+  --server:#4cc9d3;--server-bg:#0f3237; --data:#6fcf74;--data-bg:#173a1a; --ai:#f27bb0;--ai-bg:#421629;
+  --ext:#a9b8c9;--ext-bg:#222e3b; --cont:#111a24;--cont-line:#2a3a4c; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);font-size:14px;line-height:1.5;margin:0;padding-inline:16px;padding-block:0 48px}
+header{max-width:1600px;margin:0 auto;padding-block:22px 10px}
+h1{font-size:1.55rem;font-weight:600;margin:0;letter-spacing:-.01em;text-wrap:balance}
+.sub{color:var(--muted);margin:.35rem 0 0;max-width:80ch}
+.rail{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);border-bottom:1px solid var(--line);margin-inline:-16px;padding-inline:16px}
+.rail-in{max-width:1600px;margin:0 auto;display:flex;gap:6px;overflow-x:auto;padding-block:8px;scrollbar-width:thin}
+.tab{flex:none;font:500 13px var(--sans);color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;padding:6px 11px;cursor:pointer;white-space:nowrap}
+.tab:hover{color:var(--fg);background:var(--panel)}
+.tab[aria-selected="true"]{color:var(--fg);background:var(--panel);border-color:var(--line);box-shadow:0 1px 0 var(--box-shadow)}
+.tab:focus-visible,.btn:focus-visible,.node:focus-visible{outline:2px solid var(--ui);outline-offset:2px}
+.tab small{font-family:var(--mono);color:var(--muted);margin-right:6px;font-size:11px}
+main{max-width:1600px;margin:0 auto;padding-top:16px}
+.head{display:flex;flex-wrap:wrap;gap:8px 24px;align-items:end;justify-content:space-between;margin-bottom:10px}
+.head h2{margin:0;font-size:1.15rem;font-weight:600}
+.head p{margin:.2rem 0 0;color:var(--muted);max-width:90ch}
+.head>div{min-width:0}
+.tools{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{font:500 12px var(--mono);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:5px 10px;cursor:pointer}
+.btn:hover{border-color:var(--edge)}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:0 0 10px;padding:0;list-style:none;font-size:12px;color:var(--muted)}
+.legend li{display:flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:3px;border:1.5px solid}
+.stage{background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:78vh;padding:6px}
+svg{display:block;color:var(--fg);font-family:var(--sans)}
+.cont rect{fill:var(--cont);stroke:var(--cont-line);stroke-width:1}
+.cont text{fill:var(--muted);font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase}
+.node{cursor:pointer}
+.node rect{stroke-width:1.6;filter:drop-shadow(0 1px 1.5px var(--box-shadow))}
+.node .t{font:600 12.5px var(--sans);fill:var(--fg)}
+.node .s{font:400 10px var(--mono);fill:var(--muted)}
+.k-ui rect{fill:var(--ui-bg);stroke:var(--ui)} .k-state rect{fill:var(--state-bg);stroke:var(--state)}
+.k-engine rect{fill:var(--engine-bg);stroke:var(--engine)} .k-server rect{fill:var(--server-bg);stroke:var(--server)}
+.k-data rect{fill:var(--data-bg);stroke:var(--data)} .k-ai rect{fill:var(--ai-bg);stroke:var(--ai)} .k-ext rect{fill:var(--ext-bg);stroke:var(--ext)}
+.node:hover rect{stroke-width:2.6}
+.node.sel rect{stroke-width:3.2}
+.edge path{fill:none;stroke:var(--edge);stroke-width:1.4}
+.edge.dash path{stroke-dasharray:5 4}
+.edge text{font:400 10.5px var(--mono);fill:var(--fg);paint-order:stroke;stroke:var(--panel);stroke-width:4px;stroke-linejoin:round;text-anchor:middle}
+.dim{opacity:.16}
+.hi path{stroke:var(--ui);stroke-width:2.4}
+.detail{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:16px;margin-top:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;min-width:0}
+.card h3{margin:0 0 6px;font-size:.95rem;font-weight:600}
+.card p{margin:.3rem 0;color:var(--fg)}
+.card .k{font:500 11px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:10px 0 3px}
+.card ul{margin:0;padding-left:1.1rem}
+.card li{margin:2px 0}
+code,.f{font-family:var(--mono);font-size:12px;background:var(--cont);padding:1px 5px;border-radius:4px;overflow-wrap:anywhere}
+.hint{color:var(--muted)}
+.note{margin-top:14px;color:var(--muted);font-size:12.5px;max-width:110ch}
+@media (max-width:820px){.detail{grid-template-columns:1fr}.stage{max-height:70vh}}
+@media (prefers-reduced-motion:no-preference){.edge path,.node rect{transition:stroke-width .12s,opacity .12s}}
+</style>
+
+<header>
+  <h1>SIMBLIP Architecture Atlas</h1>
+  <p class="sub">One page per layer of the system, drawn from the codebase as it stands on 2026-09-30. Click any box to see what it does, which files own it, and what it connects to. Scroll or zoom inside a diagram.</p>
+</header>
+<nav class="rail" aria-label="Diagrams"><div class="rail-in" id="tabs" role="tablist"></div></nav>
+<main>
+  <div class="head">
+    <div><h2 id="dTitle"></h2><p id="dBlurb"></p></div>
+    <div class="tools">
+      <button class="btn" id="zout" aria-label="Zoom out">−</button>
+      <button class="btn" id="zfit">Fit width</button>
+      <button class="btn" id="z100">100%</button>
+      <button class="btn" id="zin" aria-label="Zoom in">+</button>
+      <button class="btn" id="theme" aria-label="Toggle theme">Theme</button>
+    </div>
+  </div>
+  <ul class="legend" aria-label="Legend">
+    <li><span class="sw" style="background:var(--ui-bg);border-color:var(--ui)"></span>UI / routes</li>
+    <li><span class="sw" style="background:var(--state-bg);border-color:var(--state)"></span>State</li>
+    <li><span class="sw" style="background:var(--engine-bg);border-color:var(--engine)"></span>Engines / logic</li>
+    <li><span class="sw" style="background:var(--server-bg);border-color:var(--server)"></span>Server</li>
+    <li><span class="sw" style="background:var(--data-bg);border-color:var(--data)"></span>Storage / data</li>
+    <li><span class="sw" style="background:var(--ai-bg);border-color:var(--ai)"></span>AI</li>
+    <li><span class="sw" style="background:var(--ext-bg);border-color:var(--ext)"></span>People / external</li>
+    <li>Solid arrow: call or data flow · Dashed: optional, async or fallback</li>
+  </ul>
+  <div class="stage" id="stage"></div>
+  <div class="detail">
+    <div class="card" id="info"></div>
+    <div class="card" id="about"></div>
+  </div>
+  <p class="note" id="note"></p>
+</main>
+
+<script>
+(function(){
+const W=200,H=62,PX=250,PY=100,PAD=34,TOP=20;
+const N=(id,c,r,t,s,k,d,f,o)=>Object.assign({id,c,r,t,s,k,d:d||'',f:f||[]},o||{});
+const B=(label,c0,r0,c1,r1)=>({label,c0,r0,c1,r1});
+const E=(a,b,label,o)=>Object.assign({a,b,label:label||''},o||{});
+const T={};
+
+/* ───────────── 0 · SYSTEM MAP ───────────── */
+T.map={tab:'System map',title:'The whole system on one page',
+blurb:'Eight layers, top to bottom: people, routes, workspace UI, engines, state, on-device storage and sync, server routes, backing services. Every other tab zooms into one layer.',
+note:'Rule of the design: every object is dumb geometry plus a list of behaviors. The editor, canvas, undo, persistence, sync and AI never learn about physics; solvers read behaviors. The UI reads and writes State directly (that arrow skips the engines layer here for clarity). Arrows between layers show the main path only; the other tabs show the rest.',
+boxes:[B('People & devices',0,0,4,0),B('Routes · Next.js App Router (app/)',0,1.75,5,1.75),B('Workspace UI · components/workspace',0,3.5,5,3.5),B('Domain engines · pure TypeScript',0,5.25,5,5.25),B('State · Zustand stores (lib/store)',0,7,5,7),B('On-device storage & sync',0,8.75,5,8.75),B('Server · Next.js route handlers on Vercel Functions',0,10.5,6,10.5),B('Backing services',0,12.25,5,12.25)],
+nodes:[
+N('teacher',0,0,'Teacher','laptop · phone · tablet','ext','Builds notebooks and simulations, uses the AI assistant, shares pages, sets assignments, presents on the classroom board.'),
+N('student',1,0,'Student','no AI · no publishing','ext','Builds systems by hand. Cannot use AI, publish to the library or share pages. Pulls assignments and submits.'),
+N('admin',2,0,'Institution admin','people · rooms · library','ext','Manages people, rooms, boards, library approval, announcements and branding for one tenant.'),
+N('board',3,0,'Classroom board','always-on display + QR','ext','A dedicated account (role board) signed in on a classroom screen. Shows a rotating pairing QR until a teacher presents.'),
+N('operator',4,0,'Platform operator','provisions tenants','ext','role super_admin. There is no public sign-up: the operator provisions an institution and its admin (db/provision.sql, /api/admin/provision).'),
+N('r_land',0,1.75,'Landing · Docs · Tutorial','/ · /docs · /tutorial','ui','Marketing page with ballpit hero, the in-app documentation with screenshots, and the guided tutorial route.',['app/page.tsx','app/docs/page.tsx','app/tutorial/page.tsx','components/landing/*']),
+N('r_login',1,1.75,'Sign in','/login','ui','Password sign-in against /api/auth. Accounts are created by operators or admins, never self-service.',['app/login/page.tsx']),
+N('r_nb',2,1.75,'Workspace','/notebook','ui','The main product. Wrapped in RequireAuth. Everything you build lives here.',['app/notebook/page.tsx','components/auth/require-auth.tsx']),
+N('r_board',3,1.75,'Board & Present','/board · /present','ui','/board is the classroom display; /present is the presentation surface a teacher drives.',['app/board/page.tsx','app/present/page.tsx']),
+N('r_asg',4,1.75,'Assignments','/assignments · /insights','ui','Teacher and student dashboards: assigned, opened, in progress, submitted, late, reviewed.',['app/assignments/**']),
+N('r_admin',5,1.75,'Admin & Dev consoles','/admin · /dev · /train','ui','Tenant admin console, operator dev console (bug reports, provisioning) and the SimScript training dataset page.',['app/admin/page.tsx','app/dev/page.tsx','app/train/page.tsx']),
+N('shell',0,3.5,'Workspace shell','sidebar · tabs · toolbar','ui','Desktop-grade chrome: notebook tree, split panes, toolbar, transport (Play/Pause/Step/Reset), command palette, settings, notifications.',['components/workspace/shell.tsx','sidebar.tsx','toolbar.tsx','transport.tsx']),
+N('pv',1,3.5,'PageView router','8 page kinds','ui','Renders an open page by kind: board, doc, pdf, image, xlsx, pptx, web, course.',['components/workspace/page-view.tsx']),
+N('canvas',2,3.5,'Infinite canvas','gestures · objects','ui','One transformed layer holds every object. A pointer state machine kept in refs means drags re-render only the objects they move.',['components/workspace/canvas.tsx']),
+N('aip',3,3.5,'AI panel','chat · attachments','ai','Prompt box, model picker, streaming script preview, Add to canvas.',['components/workspace/ai-panel.tsx']),
+N('insp',4,3.5,'Inspector & palette','behaviors · layers','ui','Edit any object parameter or attach behaviors. Palette entries are factory presets.',['inspector.tsx','palette.tsx','layers-panel.tsx']),
+N('mob',5,3.5,'Mobile shell','tab bar · gestures','ui','Bottom tab navigation, iOS-style settings, 44px targets, swipe-back, palm rejection.',['mobile-shell.tsx','mobile-tab-bar.tsx']),
+N('scn',0,5.25,'SimScript & scene','factory · diagram · lint','engine','A small script language that creates scene objects. Also the AI output format.',['lib/scene/simscript.ts','diagram.ts']),
+N('world',1,5.25,'World runtime','Matter.js · 120 Hz','engine','Compiles the drawn page into one Matter.js world on Play and writes transforms straight to the DOM.',['lib/physics/world.ts']),
+N('ckt',2,5.25,'Circuit solver','BDF2 · nodal analysis','engine','Terminals joined by wires, symbols as components, stepped inside the world loop.',['lib/circuit/engine.ts']),
+N('opt',3,5.25,'Optics · Waves · Quantum','rays · Fresnel · psi','engine','Ray tracer, wave/transmission-line engine and particle-in-a-box/tunneling.',['lib/optics/engine.ts','lib/waves/engine.ts','lib/quantum/engine.ts']),
+N('frm',4,5.25,'Formula & graphs','mathjs · LaTeX · steps','engine','Expressions compiled once and evaluated every frame against the page scope.',['lib/formula/*']),
+N('dsa',5,5.25,'DSA Lab','C++ interpreter · trace','engine','Interprets C++ line by line and visualizes memory, trees, graphs, BSTs.',['lib/dsa/interpreter.ts']),
+N('ws',0,7,'Workspace store','folder / page / file tree','state','Flat id-to-node map. A notebook is a top-level folder. Content lives elsewhere.',['lib/store/workspace.ts']),
+N('doc',1,7,'Document store','objects · variables · history','state','Page content plus editor state (selection, viewport, tool). Undo history is an in-memory ring per page.',['lib/store/document.ts']),
+N('prefs',2,7,'Preferences','pen · gestures · sync','state','Per-device settings. Pen size lives only here.',['lib/store/preferences.ts']),
+N('auth',3,7,'Auth store','JWT · role · tenant','state','Holds the access/refresh tokens and the profile. Sets the active user id so every other store persists under a per-user key.',['lib/auth/store.ts']),
+N('chat',4,7,'AI chat store','sessions · references','state','Conversation threads and Ask-about-this attachments.',['lib/store/ai-chat.ts','ai-sessions.ts']),
+N('course',5,7,'Course store','lesson · MCQ picks','state','Only the chosen MCQ option per question is persisted in the browser.',['lib/store/course.ts']),
+N('dl',0,8.75,'Data layer','lib/data/db.ts','data','list / insert / update / remove / subscribe. Cloud mode talks to /api/pg; local mode uses localStorage tables and BroadcastChannel.',['lib/data/db.ts']),
+N('sync',1,8.75,'Sync engine','dirty set · 3-way merge','data','Offline-first, automatic, quota-aware push and pull of the tree, pages and account data.',['lib/sync/cloud.ts','merge.ts','page-sync.ts']),
+N('opfs',2,8.75,'OPFS','file bytes, by id','data','Origin Private File System. PDFs, PPTX and images live here by default and never touch the network unless opted in.',['lib/storage/opfs.ts','manager.ts']),
+N('idb',3,8.75,'IndexedDB','page archive · manifest','data','Durable per-page archive and the file manifest.',['lib/store/page-archive-idb.ts','lib/storage/manifest.ts']),
+N('ls',4,8.75,'localStorage','per-user cache','data','Store persistence and the fast page-archive cache, keyed by user id.',['lib/store/scoped-storage.ts']),
+N('sw',5,8.75,'Service worker','offline shell · PWA','data','Network-first with cache fallback for same-origin GETs. API calls are never cached.',['public/sw.js','components/pwa-register.tsx']),
+N('a_pg',0,10.5,'/api/pg/[table]','tenant-scoped gateway','server','Generic table gateway with tenant and owner scoping. Replaces Supabase PostgREST.',['app/api/pg/[table]/route.ts']),
+N('a_sync',1,10.5,'/api/sync','revisions · 150 MB quota','server','The only write path for workspaces, pages and user_kv.',['app/api/sync/route.ts']),
+N('a_store',2,10.5,'/api/storage · /files','file bytes in Postgres','server','Opted-in file bytes and presentation session files.',['app/api/storage/**','app/api/files/**']),
+N('a_auth',3,10.5,'/api/auth','password · refresh','server','scrypt password check, HS256 JWT access (1 h) and refresh (30 d) tokens, rate limited.',['app/api/auth/route.ts']),
+N('a_ai',4,10.5,'/api/ai','route · generate · lint','ai','Intent router, one verified SimScript generation, explain lane, edit plans.',['app/api/ai/route.ts']),
+N('a_bl',5,10.5,'/api/board-live/[id]','WebSocket fan-out','server','Realtime channel for a live board session.',['app/api/board-live/[sessionId]/route.ts']),
+N('a_misc',6,10.5,'Other routes','courses · devices · calendar','server','/api/courses/*, /api/devices, /api/calendar/fetch, /api/web-proxy, /api/dev/*, /api/admin/provision.',[]),
+N('pg',0,12.25,'PostgreSQL','28 simblip_* tables','data','Single source of truth. Tenants, notebooks, sessions, files, courses.',['db/schema.sql','db/migrations/*']),
+N('vercel',2,12.25,'Vercel Functions','Fluid Compute · bom1','ext','Region pinned to Mumbai for Nepal/India users. Runs the routes and holds WebSockets.',['vercel.ts']),
+N('ollama',3,12.25,'Ollama (local LLM)','probed at 400 ms','ext','Preferred generator when reachable at OLLAMA_HOST.',['lib/ai/generate.ts']),
+N('orouter',4,12.25,'OpenRouter','hosted fallback','ext','Used when AI_BACKEND=openrouter or no local model answers.',['lib/ai/generate.ts']),
+N('redis',5,12.25,'Redis','pub/sub · cache · presence','data','Board-live fan-out, identity/row cache, AI generation cache, device presence. Nothing durable.',['lib/server/redis.ts'])
+],
+edges:[
+E('teacher','r_nb','opens'),E('student','r_login','signs in'),E('admin','r_admin','manages'),E('board','r_board','QR'),E('operator','r_admin','provision',{d:1}),
+E('r_nb','shell','renders'),E('r_board','pv','presents',{d:1}),E('r_asg','insp','opens',{d:1}),
+E('shell','world','Play'),E('aip','scn','script',{}),E('canvas','frm','graphs',{d:1}),E('pv','scn','',{d:1,sa:-40,sb:40}),
+E('world','ckt','steps'),E('ckt','opt','',{}),E('opt','frm','',{d:1}),
+E('world','doc','reads scene'),E('scn','doc','creates objects',{sa:-30,sb:-40}),E('frm','chat','',{d:1,sa:40,sb:0}),
+E('ws','dl','',{d:1}),E('doc','sync','dirty pages'),E('doc','idb','archive',{sa:40,sb:-30}),E('prefs','ls','persist',{sa:20,sb:-20}),E('auth','dl','token',{d:1,sa:-30,sb:40}),E('course','sw','',{d:1}),
+E('dl','a_pg','REST'),E('sync','a_sync','push / pull'),E('opfs','a_store','bytes',{d:1}),E('idb','a_auth','',{d:1,sa:0,sb:20}),E('ls','a_ai','',{d:1,sa:0,sb:0}),E('sw','a_bl','',{d:1}),
+E('a_pg','pg','SQL',{sa:-40,sb:-50}),E('a_sync','pg','tx + lock',{sa:-20,sb:-10}),E('a_store','pg','bytea',{sa:0,sb:20}),E('a_auth','pg','',{sa:-30,sb:50}),
+E('a_ai','ollama','',{sa:-50,sb:0}),E('a_ai','orouter','fallback',{d:1,sa:30,sb:0}),E('a_bl','redis','pub/sub'),E('a_pg','redis','cache',{d:1,sa:40,sb:-60})
+]};
+
+/* ───────────── 1 · WORKSPACE CLIENT ───────────── */
+T.client={tab:'Workspace client',title:'The workspace client',
+blurb:'How a signed-in browser turns the /notebook route into a working canvas, document viewer or course reader, and where each piece of state lives.',
+note:'Design constraint: React never sits in the 60 Hz path. During Play the runtime writes transforms directly onto registered DOM elements, and graphs read ring buffers at 12 Hz or less. The workspace tree store is persisted through the same per-user scoped storage as the page archive.',
+boxes:[B('Entry',0,0,2,0),B('Shell chrome',0,1.75,5,1.75),B('Router, tree state, renderers',0,3.5,4,3.5),B('PageView: one renderer per page kind',0,5.25,7,5.25),B('Stores & persistence',0,7,5,8.75)],
+nodes:[
+N('route',0,0,'/notebook route','app/notebook/page.tsx','ui','Client route for the whole workspace.',['app/notebook/page.tsx']),
+N('req',1,0,'RequireAuth','gate + terms gate','ui','Authentication is mandatory. TermsGate and StorageNotice sit at layout level for consent.',['components/auth/require-auth.tsx','components/legal/*']),
+N('shell',2,0,'Workspace shell','composes all panes','ui','Left rail, split panes, top bar, dock, transport.',['components/workspace/shell.tsx']),
+N('side',0,1.75,'Sidebar & tree','notebooks · sections','ui','Notebook tree with context menu (rename, duplicate, share, assign, present, add to library, export, delete).',['sidebar.tsx','notebook-tree.tsx','notebook-panel.tsx']),
+N('tabs',1,1.75,'Tabs & split panes','multi-page work','ui','Open several pages and view them side by side.',['tabs-bar.tsx']),
+N('tool',2,1.75,'Toolbar & transport','tools · Play/Pause/Step','ui','Tool selection and simulation transport. Single pill for the active board page.',['toolbar.tsx','transport.tsx']),
+N('pal',3,1.75,'Palette · Cmd-K','insert · search','ui','Component palette (factory presets) and the global command palette.',['palette.tsx','command-palette.tsx']),
+N('panels',4,1.75,'Side panels','AI · library · storage','ui','AI panel, library, uploads, shared, assignments, courses, calendar, layers, contents.',['ai-panel.tsx','library-panel.tsx','courses-panel.tsx']),
+N('mob',5,1.75,'Mobile shell','tab bar · settings','ui','Separate shell under 768 px width.',['mobile-shell.tsx']),
+N('wss',0,3.5,'workspace store','tree · persisted','state','Zustand persist, name simblip-workspace, scoped per user. Flat id map of folder, page and file nodes.',['lib/store/workspace.ts']),
+N('pv',1,3.5,'PageView router','picks a renderer by kind','ui','Renders an open page by its kind. Shared by desktop split panes and the mobile shell.',['components/workspace/page-view.tsx']),
+N('objs',3,3.5,'Object renderers','components/objects (31)','ui','note, text, formula, graph, graph-3d, surface3d, chart, cashflow, table, gridtable, slider, button, trigger, truthtable, code, dsa*, picture, group, geometry.',['components/objects/*']),
+N('reg',4,3.5,'Element registry','DOM handles for the runtime','engine','ObjectViews register their wrapper element so the world runtime can set transforms directly.',['lib/physics/world.ts registerElement']),
+N('v_board',0,5.25,'board · InfiniteCanvas','objects · pen · lasso','ui','Infinite canvas. Draw-and-hold recognizes circle/rect/line/spring. Freeform lasso, rotated selection box, groups, layers.',['canvas.tsx']),
+N('v_doc',1,5.25,'doc · DocView','Tiptap · paginate','ui','Word-style flowing document. One ProseMirror column with injected page-break spacers.',['doc-view.tsx','doc-flow.tsx','lib/text/paginate.mjs']),
+N('v_pdf',2,5.25,'pdf · PdfView','pdf.js · ink · OCR','ui','Reads PDFs with per-page ink annotation.',['pdf-view.tsx']),
+N('v_img',3,5.25,'image · ImageView','annotate on image','ui','Whole-page image with annotation layer.',['image-view.tsx']),
+N('v_xls',4,5.25,'xlsx · XlsxView','x-data-spreadsheet','ui','Real spreadsheet editor, converted via SheetJS.',['xlsx-view.tsx','lib/store/xlsx-convert.ts']),
+N('v_ppt',5,5.25,'pptx · Presentation','slides · present mode','ui','Real slide editor with an OOXML compiler.',['presentation-view.tsx']),
+N('v_web',6,5.25,'web · WebView','proxied iframe','ui','Browses pages through /api/web-proxy in a sandboxed iframe.',['web-view.tsx']),
+N('v_crs',7,5.25,'course · CourseView','lessons with live figures','ui','Prebuilt lessons whose figures run real simulations.',['course-view.tsx','course-figure.tsx']),
+N('dst',1,7,'document store','pages cache · history','state','pages map is a cache of open pages only. Undo history is an in-memory ring.',['lib/store/document.ts']),
+N('arch',2,7,'page archive','localStorage + IndexedDB','data','Source of durable page content. Eviction from the doc store loses nothing.',['lib/store/page-archive.ts','page-archive-idb.ts']),
+N('pcache',3,7,'page cache policy','3 min grace · cap','engine','Closed pages linger 3 minutes, are flushed when heap or main thread is strained, and total cached pages are capped.',['lib/store/page-cache.ts']),
+N('prf',4,7,'preferences','pen · keymap · gestures','state','Per-device settings.',['lib/store/preferences.ts','lib/keymap.ts']),
+N('scoped',2,8.75,'scoped storage','name:userId keys','data','Several accounts (teacher, student, board) can share a machine without seeing each other.',['lib/store/scoped-storage.ts'])
+],
+edges:[
+E('route','req','wraps'),E('req','shell','renders'),
+E('shell','tool','',{sa:0}),E('shell','tabs','',{sa:-40}),E('shell','panels','',{sa:40}),
+E('side','wss','tree ops'),E('tabs','pv','opens'),E('pal','objs','inserts'),E('objs','reg','DOM'),
+E('pv','v_board','',{sa:-90,sb:0}),E('pv','v_doc','',{sa:-65}),E('pv','v_pdf','',{sa:-40}),E('pv','v_img','',{sa:-15}),E('pv','v_xls','',{sa:10}),E('pv','v_ppt','',{sa:35}),E('pv','v_web','',{sa:60}),E('pv','v_crs','',{sa:85}),
+E('v_board','objs','draws',{d:1,sa:50,sb:-60}),
+E('v_board','dst','reads / writes',{sa:-30,sb:-40}),E('v_doc','dst','',{sa:0,sb:0}),E('v_board','prf','pen prefs',{d:1,sa:60,sb:20}),
+E('dst','arch','archive'),E('arch','pcache','evict'),E('arch','scoped','keys',{d:1})
+]};
+
+/* ───────────── 2 · SCENE MODEL ───────────── */
+T.scene={tab:'Scene & behaviors',title:'Scene model: geometry + behaviors',
+blurb:'The core idea. A PageDoc holds SceneObjects. Each one is dumb geometry plus a list of behaviors. A drawing becomes physical only when behaviors are attached, and the solver family that reads them does the simulating.',
+note:'Extension path for a new domain: add rows to lib/behaviors/registry.ts, write a solver keyed off those behaviors, add palette entries. The scene graph, canvas, inspector, undo, persistence, sync and AI contract already handle it. Named variables (expressions) live on the PageDoc and are re-read every tick, so editing one bends a running experiment.',
+boxes:[B('Ways an object gets created',0,0,4,0),B('Document model (lib/scene/types.ts)',0,1.75,3,1.75),B('Behavior list',1,3.5,1,3.5),B('Behavior families (BehaviorType, 33 types)',0,5.25,5,5.25),B('Solvers',0,7,4,7)],
+nodes:[
+N('c_pen',0,0,'Pen sketch','recognize on hold','ui','Zigzag becomes a spring, ring a circle. Recognition upgrades geometry only, so a wrong guess costs nothing.',['lib/sketch/recognize.ts','features.ts']),
+N('c_pal',1,0,'Palette presets','factory functions','ui','A Mass is a circle with a rigidBody attached: nothing a user could not draw.',['lib/scene/factory.ts','insertables.ts']),
+N('c_ss',2,0,'SimScript','create("bulb",{R:20})','engine','Script language executed via new Function in the browser. The AI writes it, the linter checks it.',['lib/scene/simscript.ts']),
+N('c_imp',3,0,'Importers','pptx · docx · pdf · picture','engine','Documents become pages or objects.',['lib/store/*-import.ts']),
+N('c_conn',4,0,'Connectors & diagrams','diagram("…") layout','engine','Boxes and arrows are written, then ranked, ordered and routed orthogonally. The result is real labelled shapes and anchored connectors.',['lib/scene/diagram.ts','connectors.ts']),
+N('pdoc',0,1.75,'PageDoc','objects{} · variables[]','state','Flat map of objects by id plus named variables (expressions compiled once with compileExpr). Belongs to a PageNode whose kind is board, doc, pdf, image, xlsx, pptx, web or course.',['lib/scene/types.ts','lib/formula/engine.ts']),
+N('obj',1,1.75,'SceneObject','id · position · size · z','state','id, name, geometry, position, size, rotation, z, behaviors[], parameters, metadata.',['lib/scene/types.ts']),
+N('geo',2,1.75,'Geometry (22 kinds)','circle rect polygon line stroke','ui','Includes content kinds: text, note, formula, graph, surface3d, chart, cashflow, truthtable, table, gridtable, slider, button, trigger, symbol, code, dsa, picture, group. A group owns children by id and moves them as a unit.',[]),
+N('beh',1,3.5,'Behavior[]','type · enabled · params','engine','Params are expressions with hard min/max bounds, so a typed value, variable or AI import cannot push a solver into NaN. The registry table drives the inspector, the world builder and the AI importer.',['lib/behaviors/registry.ts']),
+N('f_mech',0,5.25,'Mechanics','rigidBody staticBody spring','engine','rigidBody, staticBody, spring, rope, rod, damper, hinge, motor, force, torsionSpring.',[]),
+N('f_elec',1,5.25,'Electrical & fields','wire node charge efield','engine','wire, electricalNode, charge, efield, bfield, dielectric.',[]),
+N('f_opt',2,5.25,'Optics','lightSource lens mirror slit','engine','lightSource, thinLens, opticalMirror, opticalScreen, slit, refractor.',[]),
+N('f_wav',3,5.25,'Waves & EM','waveSource boundary line','engine','waveSource, waveBoundary, transmissionLine.',[]),
+N('f_qm',4,5.25,'Quantum','well · tunnel barrier','engine','quantumWell, tunnelBarrier.',[]),
+N('f_oth',5,5.25,'Reserved','heatSource sensor custom','engine','Registered; solver on the roadmap.',[]),
+N('s_world',0,7,'physics/world.ts','Matter.js rigid bodies','engine','1,635 lines. Bodies, constraints from spatial relationships, motors, force fields, charges, dielectrics.',['lib/physics/world.ts']),
+N('s_ckt',1,7,'circuit/engine.ts','nodal solver','engine','1,712 lines. Wires join the terminals they touch. SI physics, BDF2 integration.',['lib/circuit/engine.ts']),
+N('s_opt',2,7,'optics/engine.ts','ray tracer','engine','Single photon, Snell, TIR, Fresnel, dispersion, diffraction, gratings.',['lib/optics/engine.ts']),
+N('s_wav',3,7,'waves + quantum','plane waves · psi','engine','',['lib/waves/engine.ts','lib/quantum/engine.ts']),
+N('s_none',4,7,'Nothing attached','it is just a drawing','ext','An object with no behaviors is a note, sketch or diagram. This is why there are no special cases.',[])
+],
+edges:[
+E('c_pen','geo','recognized',{d:1}),E('c_pal','obj','',{sa:0,sb:-60}),E('c_ss','obj','creates',{sa:0,sb:-20}),E('c_imp','obj','',{sa:0,sb:20}),E('c_conn','obj','',{d:1,sa:0,sb:60}),
+E('pdoc','obj','contains'),E('obj','geo','has one'),E('obj','beh','has many'),
+E('beh','f_mech','',{sa:-60}),E('beh','f_elec','',{sa:-30}),E('beh','f_opt','',{sa:0}),E('beh','f_wav','',{sa:30}),E('beh','f_qm','',{sa:60}),E('beh','f_oth','',{d:1,sa:80}),
+E('f_mech','s_world','read by'),E('f_elec','s_ckt','read by'),E('f_opt','s_opt','read by'),E('f_wav','s_wav','read by'),E('f_qm','s_wav','',{sa:0,sb:40}),
+E('f_elec','s_world','fields',{sa:-40,sb:40,d:1})
+]};
+
+/* ───────────── 3 · SIMULATION ───────────── */
+T.sim={tab:'Simulation runtime',title:'One Play frame, and the other engines',
+blurb:'What happens when the user presses Play, frame by frame, plus the engines that run outside the rigid-body loop (formula/graph, DSA Lab, cash flow).',
+note:'Edit, Play, Pause, Step, Reset: Reset discards the runtime and the edited scene was never mutated. A scoped run only builds the objects inside a chosen system boundary. Each course figure is its own scratch page with its own transport. Charge, E-field, B-field and dielectric behaviors act on rigid bodies inside the Matter step.',
+boxes:[B('Play: build once',0,0,2,0),B('Every frame',0,1.75,4,2.75),B('Outputs',0,4.5,4,4.5),B('Engines outside the loop',0,6.25,4,6.25)],
+nodes:[
+N('play',0,0,'Play pressed','transport.tsx','ui','Transport state lives in the world runtime store: edit, running, paused, plus scopeId and pageId.',['components/workspace/transport.tsx']),
+N('build',1,0,'buildWorld()','compile page → one world','engine','Bodies from rigidBody/staticBody; springs, ropes, rods, hinges attach to what their endpoints touch; nothing found means world anchor. buildCircuit() gathers terminals joined by wires.',['lib/physics/world.ts','lib/circuit/engine.ts']),
+N('circ',2,0,'buildCircuit()','terminals · wires','engine','Terminals of symbols joined by wires touching them.',['lib/circuit/engine.ts']),
+N('raf',0,1.75,'rAF + accumulator','fixed 120 Hz steps','engine','Display rate drives rendering; physics advances in fixed steps.',[]),
+N('expr',1,1.75,'Evaluate live exprs','g, k, motor, forces','engine','Every behavior param is re-evaluated against the page scope each tick.',['lib/formula/engine.ts','scope.ts']),
+N('matter',2,1.75,'Matter.Engine.update','rigid bodies + fields','engine','Concave collision meshes via poly-decomp. Coulomb, qE, qv×B and dielectric behaviors act here.',[]),
+N('stepc',3,1.75,'stepCircuit()','currents · voltages','engine','',[]),
+N('optic',4,1.75,'Optics / waves / psi','trace · fields','engine','',['lib/optics/engine.ts','waves/engine.ts','quantum/engine.ts']),
+N('reg',1,2.75,'Element registry','registerElement()','engine','Without registration a figure renders, plays and shows nothing.',[]),
+N('bus',2,2.75,'Simulation bus','ring buffers per body','engine','Pushes {x,y,vx,vy,angle,ω,KE} samples.',['lib/physics/bus.ts']),
+N('evlog',3,2.75,'Event log','collisions · triggers','engine','',['lib/physics/event-log.ts']),
+N('dom',0,4.5,'DOM transforms','no React re-render','ui','Body transforms, meter readouts and current flow along wires are written straight to elements.',[]),
+N('graphs',1,4.5,'Graph objects','≤ 12 Hz','ui','Read ring buffers, sample expressions (plot-sample.ts).',['components/objects/graph.tsx','lib/formula/plot-sample.ts']),
+N('clock',2,4.5,'Transport clock','≤ 6 Hz','ui','',[]),
+N('probes',3,4.5,'Probes & meters','probe layer','ui','Draggable probes read values from a running world.',['components/workspace/probe-layer.tsx','lib/scene/probes.ts']),
+N('evp',4,4.5,'Event log panel','','ui','',['components/workspace/event-log-panel.tsx']),
+N('formula',0,6.25,'Formula engine','mathjs · LaTeX · steps','engine','Symbolic steps for worked derivations, LaTeX render via KaTeX.',['lib/formula/engine.ts','latex.ts','steps.ts']),
+N('surf',1,6.25,'Surface 3D','three · r3f','engine','z=f(x,y) and implicit surfaces.',['components/objects/surface3d.tsx','graph-3d.tsx']),
+N('dsa',2,6.25,'DSA Lab','C++ → trace → viz','engine','3,301-line interpreter with pair/map/set/pqueue/deque, analysis and trace; renders memory, tree, graph, BST views.',['lib/dsa/*','components/objects/dsa*.tsx']),
+N('econ',3,6.25,'Cash flow','engineering economics','engine','IRR / NPV timeline component.',['lib/econ/engine.ts','components/objects/cashflow.tsx']),
+N('tt',4,6.25,'Truth table','from simulating a circuit','engine','',['lib/circuit/truth-table.ts'])
+],
+edges:[
+E('play','build','compile'),E('build','circ',''),E('build','raf','world ready',{sa:-40,sb:-40}),
+E('raf','expr','tick'),E('expr','matter','params'),E('matter','stepc',''),E('stepc','optic',''),
+E('matter','reg','xforms',{sa:-30,sb:30}),E('matter','bus','samples'),E('stepc','evlog','',{d:1}),
+E('reg','dom','writes',{d:1}),E('bus','graphs','buffer',{sa:-30}),E('bus','clock',''),E('evlog','probes',''),E('optic','evp','',{d:1}),
+E('graphs','formula','',{d:1}),E('formula','surf','',{d:1}),E('probes','tt','',{d:1,sa:20,sb:-20}),E('clock','dsa','',{d:1,sa:-40,sb:40})
+]};
+
+/* ───────────── 4 · AI PIPELINE ───────────── */
+T.ai={tab:'AI pipeline',title:'AI: prompt to verified SimScript',
+blurb:'The AI is an assistant that produces what a user could type by hand. Nothing it returns touches the canvas until the user presses Add to canvas.',
+note:'This replaced a 103-tool function-calling agent (about 18k prompt tokens per step, up to 24 steps). The SimScript path costs about 1k prompt tokens and one call. Verification is free, generation is not, so the linter runs on every result including cache hits. The Explain lane returns Markdown with LaTeX and lands as notes.',
+boxes:[B('Client',0,0,3,0),B('/api/ai route',0,1.75,2,1.75),B('Lanes',0,3.5,3,3.5),B('Generator & cache',0,5.25,4,5.25),B('Verify & repair',0,7,3,7)],
+nodes:[
+N('panel',0,0,'AI panel','prompt · model · intent','ai','Student role has no AI permission (use-ai is teacher/admin only).',['components/workspace/ai-panel.tsx']),
+N('ctx',1,0,'Page context','digest · surface · selection','ai','A digest, never a raw PageDoc: variables, object ids and params, visible bounds, free space, whether something is selected.',['lib/ai/page-context.ts']),
+N('hist',2,0,'History & attachments','last 3 turns','ai','Sends only the tail of the thread.',['lib/store/ai-chat.ts','lib/ai/attachments.ts']),
+N('add',3,0,'Add to canvas','executeSimScript','ai','User action. Runs the verified script through ordinary undoable store actions.',['lib/scene/simscript.ts','lib/ai/apply-ops.ts']),
+N('zod',0,1.75,'Validate request','zod · 4000 chars','server','prompt, stream, intent, model, shots, pageDigest, pageSurface, hasSelection, pageObjects, history.',['app/api/ai/route.ts']),
+N('router',1,1.75,'classifyIntent','pure function, no model','ai','Regex router over the prompt: simulate, explain, both, edit. Edit needs an attached page or selection.',['lib/ai/route-intent.ts']),
+N('sse',2,1.75,'SSE stream','tokens for display','server','Optional. Tokens are display only; the verified return value is authoritative.',[]),
+N('lane_s',0,3.5,'Simulate lane','few-shot + ~1k-token prompt','ai','Retrieves worked examples, sends SimScript system prompt, one generation.',['lib/ai/few-shot.ts','simscript-corpus.ts','generate.ts']),
+N('lane_e',1,3.5,'Explain lane','Markdown + LaTeX notes','ai','Derivations and numericals land as notes, not scenes.',['lib/ai/explain.ts']),
+N('lane_ed',2,3.5,'Edit lane','edit plan on selection','ai','Plan verified against pageObjects ids and params.',['lib/ai/edit.ts','edit-ops.ts']),
+N('lane_sl',3,3.5,'Slides · placement','slides.ts · placement.ts','ai','Slide intent and non-overlapping placement.',['lib/ai/slides.ts','placement.ts']),
+N('cache',0,5.25,'Generation cache','Redis, key = hash of tuple','data','Memoizes the generator, not the pipeline. No REDIS_URL means no-op. Bypassable only in development.',['lib/ai/cache.ts']),
+N('pick',1,5.25,'pickGenerator','Ollama or OpenRouter','ai','AI_BACKEND=openrouter or ollama forces a backend; otherwise probe OLLAMA_HOST /api/tags for 400 ms.',['lib/ai/generate.ts']),
+N('oll',2,5.25,'Ollama','local model per lane','ext','OLLAMA_SCRIPT_MODEL, OLLAMA_EXPLAIN_MODEL, OLLAMA_MODEL. Weights prewarmed at module init.',[]),
+N('orr',3,5.25,'OpenRouter','OPENROUTER_API_KEY','ext','Hosted fallback.',[]),
+N('train',4,5.25,'/api/train/simscript','dataset · Modelfile','server','Every corpus sample is linted before it is served: jsonl, modelfile, prompt or check.',['app/api/train/simscript/route.ts']),
+N('fix',0,7,'autofix','connector & prop fixes','engine','',['lib/ai/simscript-fix.ts']),
+N('lint',1,7,'simscript-lint','static check <1 ms','engine','Rejects invented kinds and unknown calls before they can reach a canvas.',['lib/ai/simscript-lint.ts']),
+N('repair',2,7,'repair loop','max 2 retries','ai','A model that has not converged in two tries is not going to on the third.',[]),
+N('fail',3,7,'Honest failure','last attempt returned','ai','GenerationFailedError returns the message and script so users can read and fix it.',[])
+],
+edges:[
+E('panel','zod','POST'),E('ctx','zod','',{sa:0,sb:40}),E('hist','zod','',{sa:0,sb:70}),E('sse','panel','tokens',{d:1,sa:0,sb:50}),E('add','lane_sl','',{d:1}),
+E('zod','router',''),E('router','lane_s','simulate',{sa:-40,sb:30}),E('router','lane_e','explain',{sa:-10,sb:0}),E('router','lane_ed','edit',{sa:20,sb:-30}),E('router','lane_sl','slides',{d:1,sa:50,sb:-40}),
+E('lane_s','cache',''),E('lane_e','pick','',{sa:0,sb:0}),E('lane_ed','pick','',{sa:0,sb:30}),E('lane_sl','pick','',{d:1,sa:0,sb:60}),
+E('cache','pick','miss'),E('pick','oll','local'),E('pick','orr','hosted',{d:1,sa:40,sb:0}),
+E('pick','lint','script'),E('lint','fix','fixable'),E('lint','repair','errors'),E('repair','fail','after 2'),E('repair','cache','regenerate',{d:1,sa:-40,sb:40})
+]};
+
+/* ───────────── 5 · SERVER & API ───────────── */
+T.server={tab:'Server & API',title:'Server: routes, libraries and backing stores',
+blurb:'Every route handler, the shared server libraries beneath them, and what each one touches. The gateway is self-hosted: raw pg, scrypt and JWT. Supabase is gone.',
+note:'In local demo mode (no DATABASE_URL) the client uses its own localStorage database and course files under content/courses/, so the whole feature set runs in one browser with zero infrastructure. NEXT_PUBLIC_CLOUD follows DATABASE_URL unless set explicitly. calendar/fetch and web-proxy keep their own protections (SSRF guard, iframe sandbox).',
+boxes:[B('Edge',0,0,2,0),B('Core route handlers (app/api)',0,1.75,6,1.75),B('Server libraries (lib/server)',0,3.5,5,3.5),B('Stores',0,5.25,5,5.25),B('Supporting routes',0,7,4,7)],
+nodes:[
+N('br',0,0,'Browser','fetch + WebSocket','ext','Bearer access token on REST. WebSockets pass ?token= because browsers cannot set handshake headers.',[]),
+N('proxy',1,0,'proxy.ts','CSP with nonce','server','Next 16 proxy. Excludes /api, static assets and sw.js. unsafe-eval is deliberate because SimScript runs via new Function.',['proxy.ts']),
+N('hdrs',2,0,'next.config headers','HSTS · COOP · nosniff','server','Static headers on every route including /api. Long cache for /fonts and icons.',['next.config.mjs']),
+N('auth',0,1.75,'/api/auth','grant: password|refresh','server','scrypt verify, 10 attempts per 15 min per key (in-memory), access 1 h, refresh 30 d.',['app/api/auth/route.ts']),
+N('pgw',1,1.75,'/api/pg/[table]','GET POST PATCH DELETE','server','PostgREST-style dialect. Whitelisted tables. Non-operators hard-scoped to their institution; owner-scoped tables narrowed further; workspaces and pages are syncOnly for writes.',['app/api/pg/[table]/route.ts']),
+N('sync',2,1.75,'/api/sync','GET pull · POST push','server','Deletes first, revision check per row (conflict returns server copy), net growth vs 150 MB quota, write with rev+1.',['app/api/sync/route.ts']),
+N('stor',3,1.75,'/api/storage/[id]','bytea + quota + usage','server','Owner-scoped file bytes. Active content types (html, svg, js, xml) are only ever served as download.',['app/api/storage/*']),
+N('files',4,1.75,'/api/files/[...path]','session files','server','Presentation files 3 h TTL, notebook docs 7 days renewed on read.',['app/api/files/[...path]/route.ts']),
+N('bl',5,1.75,'/api/board-live/[id]','WebSocket','server','Verify token, authorizeBoardSession, require status live, upgrade, register socket, publish messages.',['app/api/board-live/[sessionId]/route.ts']),
+N('crs',6,1.75,'/api/courses/*','list · lesson · grants','server','GET tree, ?lesson=ID, grants and allowances (admin), publish.',['app/api/courses/**']),
+N('lauth',0,3.5,'server/auth.ts','scrypt · HS256 JWT','server','AUTH_SECRET required in production to mint tokens (dev fallback is public).',['lib/server/auth.ts']),
+N('lpg',1,3.5,'server/pg.ts','Pool max 3, q(), tx()','server','Per-instance pool. Effective connections = max × warm instances. Upgrade path is a pooler (PgBouncer).',['lib/server/pg.ts']),
+N('lquota',2,3.5,'server/quota.ts','advisory lock per owner','server','Serializes quota-affecting writes for one account. Sizes are server-computed.',['lib/server/quota.ts']),
+N('lred',3,3.5,'server/redis.ts','1 pub + 1 sub / instance','server','Free tier allows 30 connections, so exactly one publisher and one subscriber per warm instance, held on globalThis.',['lib/server/redis.ts']),
+N('lbus',4,3.5,'board-live-bus.ts','local fanout + Redis','server','Same-instance sockets get the event directly; everything is also published on channel simblip:board-live.',['lib/server/board-live-bus.ts','board-session-auth.ts']),
+N('lcal',5,3.5,'course-files.ts','demo lesson fallback','server','Falls back to content/courses/*.json when no database.',['lib/server/course-files.ts']),
+N('ext',0,5.25,'Ollama · OpenRouter','AI backends','ext','',[]),
+N('pg',1,5.25,'PostgreSQL','DATABASE_URL','data','',[]),
+N('redis',3,5.25,'Redis','REDIS_URL','data','',[]),
+N('fsx',5,5.25,'content/courses','offline lessons','data','Lesson JSON traced into the deployment via outputFileTracingIncludes.',[]),
+N('ai',0,7,'/api/ai · /ai/models','AI gateway','ai','maxDuration 300 s. See the AI pipeline tab.',['app/api/ai/*']),
+N('dev',1,7,'/api/devices','presence in Redis','server','TTL 180 s keys plus an index set pruned lazily.',['app/api/devices/route.ts']),
+N('cal',2,7,'/api/calendar/fetch','iCal subscription','server','SSRF protection lives in lib/server/calendar-fetch.ts.',['app/api/calendar/fetch/route.ts','lib/server/calendar-fetch.ts']),
+N('wp',3,7,'/api/web-proxy/*','page proxy','server','Path-based proxy for WebView with ATTR_REWRITES and iframe sandbox.',['app/api/web-proxy/**']),
+N('ops',4,7,'/api/dev · /admin/provision','operator tools','server','db-ping and tenant provisioning.',['app/api/dev/*','app/api/admin/provision'])
+],
+edges:[
+E('br','proxy','pages'),E('proxy','hdrs','',{d:1}),
+E('br','auth','sign in',{sa:-50,sb:-40}),E('br','pgw','REST',{sa:-20,sb:-20}),E('br','sync','push',{sa:10,sb:0,d:1}),
+E('auth','lauth',''),E('pgw','lpg',''),E('sync','lquota',''),E('sync','lpg','tx',{sa:-30,sb:30}),E('stor','lquota',''),E('bl','lbus',''),E('crs','lcal','',{d:1}),E('files','lpg','',{d:1,sa:-30,sb:50}),E('pgw','lred','cache',{d:1,sa:30,sb:-40}),
+E('lpg','pg','SQL'),E('lquota','pg','',{sa:-30,sb:30}),E('lauth','pg','',{sa:20,sb:-40}),E('lred','redis','ioredis'),E('lbus','redis','',{sa:-20,sb:30}),E('lcal','fsx','',{d:1}),
+E('ai','ext','',{d:1}),E('ai','redis','gen cache',{d:1,sa:40,sb:-50}),E('dev','redis','',{sa:20,sb:-20}),E('ops','pg','',{d:1,sa:-40,sb:60})
+]};
+
+/* ───────────── 6 · DATABASE ───────────── */
+T.db={tab:'Database',title:'Database: tenants, classrooms, notebooks, files, courses',
+blurb:'Every table carries institution_id and hangs off simblip_institutions, and most rows also name an owner or author in simblip_profiles (shown in each box). Arrows point from the table holding the foreign key to the table it references, verified against db/schema.sql and migrations 001-003.',
+note:'Not every column is shown, and the institution_id and profile references are stated in the boxes instead of drawn, because nearly every table has them. profiles.password_hash never crosses the gateway in either direction. Migration 003 (user_kv, revisions, size_bytes) is required for sync v2 and the 150 MB quota.',
+boxes:[B('Tenancy & identity',0,0,3,0),B('Classroom',0,1.75,4,3.5),B('Notebook sync',0,5.25,2,5.25),B('Files & devices',0,7,3,7),B('Library & courses',0,8.75,4,8.75),B('Support',0,10.5,1,10.5)],
+nodes:[
+N('inst',0,0,'institutions','the tenant','data','Name, slug, logo, accent colour, settings. Parent of every other table.',['db/schema.sql']),
+N('prof',1,0,'profiles','role · email · hash','data','Roles: super_admin, admin, teacher, student, board. References institutions.',[]),
+N('room',2,0,'rooms','class groups','data','References institutions.',[]),
+N('rmem',3,0,'room_members','room_id + profile_id','data','memberRole teacher or student. References rooms and profiles.',[]),
+N('bses',0,1.75,'board_sessions','teacher_id · live · edited','data','status live/ended, temporary copy, remote commands, rotating pairing code. References boards and profiles.',[]),
+N('brd',1,1.75,'boards','one per room · board acct','data','room_id is unique. profile_id is the board account.',[]),
+N('shr',2,1.75,'shares','sender · target room|profile','data','Clone-on-share. Target is a profile or a room.',[]),
+N('asg',3,1.75,'assignments','teacher_id · starter page','data','Targets rooms. References profiles.',[]),
+N('ann',4,1.75,'announcements','author · room or all','data','room_id optional.',[]),
+N('sub',3,3.5,'submissions','student_id · status','data','Status: assigned to reviewed, with feedback. References assignments and profiles.',[]),
+N('wksp',0,5.25,'workspaces','id = profile id','data','One row per user: the notebook tree, with rev.',[]),
+N('pges',1,5.25,'pages','workspace_id · rev · size','data','Written only through /api/sync.',[]),
+N('ukv',2,5.25,'user_kv','owner · calendar todos sticky','data','Account-level data, migration 003.',['db/migrations/003-sync-storage-quota.sql']),
+N('fblob',0,7,'file_blobs','bytea','data','id references file_manifest, cascade delete.',[]),
+N('fman',1,7,'file_manifest','owner · mime · sha256 · size','data','Owner-scoped. Counts against quota.',[]),
+N('sfil',2,7,'session_files','path → bytes, TTL','data','Presentation files and notebook docs, swept by age.',[]),
+N('dvc',3,7,'devices','owner · pending_pull','data','Table exists; live presence is served from Redis.',[]),
+N('fav',0,8.75,'library_favorites','asset_id + profile_id','data','',[]),
+N('lib',1,8.75,'library_assets','uploader · published','data','Admin approval gates student visibility.',[]),
+N('less',2,8.75,'course_lessons','course_id · CourseDoc JSON','data','Lesson content lives only in Postgres.',[]),
+N('crse',3,8.75,'courses','syllabus catalogue','data','Migration 001.',['db/migrations/001-course-mode.sql']),
+N('grnt',4,8.75,'course_grants · allowances','to profile or room','data','Migration 002 adds allowances.',['db/migrations/002-course-allowances.sql']),
+N('skt',0,10.5,'sketch_templates','anonymous GET/POST','data','The only table open without a JWT.',[]),
+N('bug',1,10.5,'bug_reports','reporter, null on delete','data','Read by operators in /dev.',[])
+],
+edges:[
+E('prof','inst','institution_id'),E('rmem','room','room_id'),E('room','inst','',{d:1,sa:0,sb:70}),
+E('bses','brd','board_id'),E('brd','room','room_id',{sa:0,sb:-60}),E('shr','room','target',{d:1,sa:0,sb:0}),E('asg','room','rooms',{d:1,sa:0,sb:40}),E('ann','room','optional',{d:1,sa:0,sb:70}),
+E('sub','asg','assignment_id'),
+E('pges','wksp','workspace_id'),
+E('fblob','fman','id'),
+E('fav','lib','asset_id'),E('less','crse','course_id'),E('grnt','crse','course_id')
+]};
+
+/* ───────────── 7 · SYNC & STORAGE ───────────── */
+T.sync={tab:'Sync & storage',title:'Storage tiers and the sync engine',
+blurb:'Three data tiers: mandatory small data that syncs automatically, optional large file bytes, and device-only settings. Offline edits are never lost, and a stale device gets a conflict instead of an overwrite.',
+note:'Per-page sync mode: auto (content syncs, files stay local), full (content and files), local (nothing leaves; the tree node travels but the page is hidden on other devices). Merge rule: an edit beats a concurrent delete; with no base copy it degrades to a union where local wins. GC sweeps OPFS blobs no longer referenced by FileNode.fileId, PageNode.fileUrl or picture geometry.src.',
+boxes:[B('This device',0,0,4,1),B('Sync engine (lib/sync)',0,2.75,4,2.75),B('Cloud',0,4.5,4,4.5)],
+nodes:[
+N('edit',0,0,'User edit','any store mutation','ui','',[]),
+N('dst',1,0,'document store','pages cache','state','',['lib/store/document.ts']),
+N('arch',2,0,'page archive','localStorage + IndexedDB','data','Every change lands here immediately. This is why lazy loading is safe.',['lib/store/page-archive.ts']),
+N('dirty',4,0,'Persisted dirty set','survives crash / offline','data','A closed tab or offline spell never loses a pending change.',['lib/sync/cloud.ts']),
+N('gc',0,1,'storage GC','sweeps unreferenced blobs','engine','',['lib/storage/gc.ts']),
+N('opfs',1,1,'OPFS blobs','flat /simblip/<user>/files/<id>','data','Flat namespace so reparenting never renames files on disk.',['lib/storage/opfs.ts']),
+N('man',2,1,'file manifest','IndexedDB simblip-manifest','data','Identity, sync status, indexed by owner and syncStatus.',['lib/storage/manifest.ts']),
+N('pcache',3,1,'page cache policy','grace · pressure · cap','engine','Closed pages linger 3 minutes, then flush to the archive.',['lib/store/page-cache.ts']),
+N('fsync',0,2.75,'File sync','opt-in upload / download','engine','Categories, per file, or via Sync with files. A full quota stops the loop.',['lib/sync/device-file-sync.ts']),
+N('mode',1,2.75,'Sync mode & visibility','auto · full · local','engine','',['lib/sync/page-sync.ts','tree-visibility.ts']),
+N('pull',2,2.75,'cloud.ts pull','since server timestamp','engine','Server clock, so device skew cannot hide a change.',['lib/sync/cloud.ts']),
+N('merge',3,2.75,'3-way merge','base · local · remote','engine','Id-keyed collections: tree, calendar, todos, notes.',['lib/sync/merge.ts']),
+N('push',4,2.75,'cloud.ts push','incremental, debounced','engine','Only dirty pages, only if content changed. Resumes on reconnect (connectivity.ts).',['lib/sync/cloud.ts','connectivity.ts']),
+N('fapi',0,4.5,'/api/storage/[id]','bytes in file_blobs','server','',['app/api/storage/[id]/route.ts']),
+N('dev',1,4.5,'/api/devices','presence · prefetch ask','server','pushFilesToDevice asks an online device to prefetch via simblip_devices.pending_pull.',['lib/sync/devices.ts']),
+N('rows',2,4.5,'workspaces · pages · user_kv','rev + size_bytes','data','',[]),
+N('quota',3,4.5,'Quota check','150 MB per account','server','Net byte growth of the whole batch.',['lib/storage/quota.ts','lib/server/quota.ts']),
+N('api',4,4.5,'POST/GET /api/sync','one tx per push','server','Advisory lock per owner. 413 when over quota.',['app/api/sync/route.ts'])
+],
+edges:[
+E('edit','dst','mutate'),E('dst','arch','save'),E('arch','dirty','joins',{}),E('pcache','arch','evicts',{d:1}),
+E('gc','opfs','',{d:1}),E('opfs','man',''),
+E('dirty','push','dirty'),E('man','fsync','opted in',{d:1}),E('mode','pull','filter'),E('pull','merge','diff'),E('merge','push','write'),
+E('push','api','rows'),E('api','quota','check'),E('quota','rows','commit'),E('rows','pull','since ts',{d:1}),
+E('fsync','fapi','PUT'),E('fsync','dev','',{d:1,sa:30,sb:-30})
+]};
+
+/* ───────────── 8 · CLASSROOM ───────────── */
+T.class={tab:'Classroom & roles',title:'Roles, boards, sharing, assignments',
+blurb:'A multi-tenant education platform. The institution is the tenant, roles gate features, and every hand-off (share, assignment, board session) works on copies so original teaching material is never edited live.',
+note:'Board sessions degrade gracefully: if the WebSocket drops (Vercel force-closes long connections), the client falls back to its 4 s and 1.1 s polls and reconnects. Pairing codes rotate after every session. Teacher permissions: use-ai, share-pages, create-assignments, review-submissions, publish-library, browse-library, present-on-board, edit-notebooks.',
+boxes:[B('Roles (lib/auth/types.ts)',0,0,4,0),B('Hand-offs that clone',2,1.75,5,1.75),B('Live board session',0,3.5,4,5.25)],
+nodes:[
+N('brd',0,0,'board','present-on-board only','ext','A device identity, not a person.',[]),
+N('tch',1,0,'teacher','use-ai · share · assign · present','ext','',[]),
+N('stu',2,0,'student','edit · submit · browse library','ext','No AI, no library publishing, no sharing.',[]),
+N('adm',3,0,'admin','manage-institution','ext','People, rooms, boards, library approval, announcements, branding.',[]),
+N('sa',4,0,'super_admin','provisions tenants','ext','Reserved operator role. Bypasses tenant scoping in /api/pg.',[]),
+N('clone',2,1.75,'Clone-on-share','shares table','data','Recipients (person or whole room) get an owned copy in Shared with me.',['lib/data/shares.ts']),
+N('asg',3,1.75,'Assignments','freeze page → rooms → submit','data','Student pulls a working copy, submits; teacher reviews with feedback. Dashboard shows live status.',['lib/data/assignments.ts','app/assignments/**']),
+N('lib',4,1.75,'Institution library','publish · approve · favorite','data','Teachers publish; admin approves for students; insertion always clones.',['lib/data/library.ts']),
+N('ann',5,1.75,'Announcements','room or tenant','data','Feed the notification center.',['lib/data/announcements.ts','components/workspace/notifications.tsx']),
+N('qr',0,3.5,'Board shows QR','rotating pairing code','ui','Always visible bottom-left on /board.',['app/board/page.tsx']),
+N('scan',1,3.5,'Teacher scans','picks notebook/section/page','ui','Then Present.',[]),
+N('sess',2,3.5,'board_sessions row','temporary copy of the page','data','status live; edits stream into edited.',['lib/data/board-session-page.ts']),
+N('ws',3,3.5,'WebSocket','teacher · desktop · board · students','server','Roles: teacher, desktop (same teacher, second tab), board, student.',['lib/data/board-live-client.ts']),
+N('rem',4,3.5,'Remote control','next slide · viewport sync','ui','Present mode syncs viewport and accepts remote commands.',['lib/data/board-follow.ts','board-live-cursor.ts']),
+N('bus',2,5.25,'Fan-out bus','local sockets + Redis pub/sub','server','',['lib/server/board-live-bus.ts']),
+N('authz',3,5.25,'authorizeBoardSession','who may join as what','server','Tenant check, then teacher / board account / room member.',['lib/server/board-session-auth.ts']),
+N('end',4,5.25,'End session','Merge or Discard','ui','Merge flows changes back into the teacher page; Discard leaves the original untouched.',[])
+],
+edges:[
+E('brd','qr','shows'),E('tch','scan','scans'),E('tch','clone','shares',{d:1,sa:30,sb:-30}),E('tch','asg','assigns',{d:1,sa:60,sb:-40}),E('stu','asg','submits',{d:1,sa:20,sb:30}),E('adm','lib','approves',{d:1,sa:30,sb:-30}),E('adm','ann','',{d:1,sa:60,sb:-20}),
+E('qr','scan','scan'),E('scan','sess','Present'),E('sess','ws','live'),E('ws','rem','cmds'),
+E('ws','bus','publish',{sa:-30,sb:20}),E('ws','authz','join'),E('rem','end',''),E('end','sess','merge / discard',{d:1,sa:-40,sb:40})
+]};
+
+/* ───────────── 9 · DOCUMENTS ───────────── */
+T.docs={tab:'Documents & files',title:'Documents: import, edit, export',
+blurb:'Six of the eight page kinds are real editors, not screenshots. Files are decoded on import, stored as a page plus bytes in OPFS, and exported back out to their original formats.',
+note:'Everything that leaves the device (shares, assignments, submissions, board sessions, exports) travels as a PageBundle, which is itself a valid PageDoc. Old payloads without a bundle still import as boards. KaTeX is lazy loaded for math in documents.',
+boxes:[B('In',1.5,0,1.5,0),B('Importers (lib/store)',0,1.75,3,1.75),B('Page kinds & editors',0,3.5,4,3.5),B('Engines & bundles',0,5.25,4,5.25),B('Out',0,7,3,7)],
+nodes:[
+N('drop',1.5,0,'Drop / open file','canvas or sidebar','ui','',['components/workspace/open-file.ts','pdf-dropzone.tsx']),
+N('dimp',0,1.75,'docx-import','map + tables','engine','Paginates, keeps table backgrounds.',['lib/store/docx-import.ts','docx-map.ts']),
+N('pimp',1,1.75,'pptx-import','OOXML compiler','engine','custGeom, rotation, flipH/flipV, nested transforms, autofit.',['lib/store/pptx-import.ts']),
+N('ximp',2,1.75,'xlsx-convert','SheetJS ⇄ x-data-spreadsheet','engine','',['lib/store/xlsx-convert.ts']),
+N('bimp',3,1.75,'Bytes as-is','pdf · image','data','Stored in OPFS through the storage manager.',['lib/storage/manager.ts']),
+N('k_doc',0,3.5,'doc','Tiptap v3 + ProseMirror','ui','Word-style flow with pagination and PDF/DOCX export.',['doc-view.tsx']),
+N('k_ppt',1,3.5,'pptx','objects on slides','ui','Slide objects are ordinary scene objects. pptx-preview renders source.',['presentation-view.tsx']),
+N('k_xls',2,3.5,'xlsx','spreadsheet','ui','',['xlsx-view.tsx','public/vendor/x-data-spreadsheet']),
+N('k_pdf',3,3.5,'pdf','pdf.js + ink + OCR','ui','tesseract.js for OCR, per-page ink layers.',['pdf-view.tsx','lib/store/pdf-*.ts']),
+N('k_img',4,3.5,'image · picture','annotate · place','ui','Palette extraction tints the UI to the image.',['image-view.tsx','lib/color/*']),
+N('tt',0,5.25,'Tiptap extensions','marks · styles','engine','',['lib/text/extensions.ts','doc-styles.ts']),
+N('pg',2,5.25,'paginate.mjs','break list + spacers','engine','The one real layout algorithm. The browser does line breaking; this decides page boundaries. The body stays ONE ProseMirror column.',['lib/text/paginate.mjs']),
+N('pb',3,5.25,'page-bundle','portable PageBundle','data','Packs kind, tree metadata and dependent content pages.',['lib/store/page-bundle.ts']),
+N('opfs',4,5.25,'OPFS + manifest','source bytes','data','',['lib/storage/manager.ts']),
+N('ex_d',0,7,'docx-export','docx lib','engine','',['lib/store/docx-export.ts']),
+N('ex_p',1,7,'pptx-export','pptxgenjs','engine','',['lib/store/pptx-export.ts']),
+N('ex_pdf',2,7,'to-pdf','print pipeline','engine','',['lib/store/to-pdf.ts']),
+N('ex_zip',3,7,'workspace-bundle','zip backup / restore','data','Settings → Backup. Same-account restore. Files stored as raw zip entries.',['lib/store/workspace-bundle.ts'])
+],
+edges:[
+E('drop','dimp','.docx',{sa:-70}),E('drop','pimp','.pptx',{sa:-25}),E('drop','ximp','.xlsx',{sa:25}),E('drop','bimp','.pdf .png',{sa:70}),
+E('dimp','k_doc',''),E('pimp','k_ppt',''),E('ximp','k_xls',''),E('bimp','k_pdf',''),E('bimp','k_img','',{d:1,sa:40,sb:-30}),
+E('k_doc','tt',''),E('k_doc','pg','',{sa:30,sb:-30}),E('k_ppt','pb','',{d:1,sa:30,sb:-40}),E('k_pdf','opfs','bytes',{d:1,sa:30,sb:-30}),E('k_img','opfs',''),
+E('tt','ex_d',''),E('k_ppt','ex_p'),E('pg','ex_pdf'),E('pb','ex_zip')
+]};
+
+/* ───────────── 10 · COURSES & TOUR ───────────── */
+T.course={tab:'Courses & tutorial',title:'Course Mode and the guided walkthrough',
+blurb:'Lessons are authored offline by Claude and gated by a linter, then read by students. Nothing is generated at runtime. The walkthrough engine is a scripted cursor that drives the real UI.',
+note:'Lesson content lives ONLY in Postgres (or content/courses/*.json in demo mode). Reaching a student takes a grant to them or to a room they belong to, resolved server-side. The admin grant UI is not built yet; the API is.',
+boxes:[B('Author offline',0,0,3,0),B('Serve',0,1.75,3,1.75),B('Read & run',0,3.5,2,3.5),B('Around the reader',0,5.25,1,5.25),B('Walkthrough engine',0,7,3,7)],
+nodes:[
+N('skill',0,0,'course-author skill','.claude/skills','ai','Deep notes with live SimScript figures, block diagrams, derivations, worked numericals and MCQs.',['.claude/skills/course-author/*']),
+N('lint',1,0,'lint-course.mjs','gate','engine','Parses SimScript and diagram() source offline and rejects broken lessons before they ship.',[]),
+N('pub',2,0,'publish-course.mjs','lint, then write','engine','',[]),
+N('cdb',3,0,'courses · lessons','Postgres','data','',['db/migrations/001-course-mode.sql']),
+N('files',0,1.75,'content/courses','demo fallback','data','',['lib/server/course-files.ts']),
+N('list',1,1.75,'GET /api/courses','syllabus tree','server','Semester-grouped tree with titles only; ?lesson=ID returns one CourseDoc.',['app/api/courses/route.ts']),
+N('panel',2,1.75,'Courses panel','sidebar section','ui','',['courses-panel.tsx']),
+N('gr',3,1.75,'Grants API','admin grant / revoke','server','',['app/api/courses/grants/route.ts']),
+N('flow',0,3.5,'Page kind course','JSON in page.flow','state','Stored in the page flow field so shares, assignments and sync carry it unchanged.',['lib/store/course-content.ts']),
+N('view',1,3.5,'CourseView','reader + outline','ui','Publishes to the shared Contents panel like PDFs do.',['course-view.tsx','lib/store/toc.ts']),
+N('fig',2,3.5,'CourseFigure','own Simulate/Pause/Reset','ui','One world at a time. Starting a figure resets the running one. Figure objects go through registerElement.',['course-figure.tsx']),
+N('mcq',0,5.25,'MCQ picks','only browser state','state','',['lib/store/course.ts']),
+N('ask',1,5.25,'Ask about this','selection → AI','ai','Selection becomes a ChatAttachment.',['lib/store/ai-reference.ts']),
+N('acts',0,7,'walkthrough-acts','scripted steps','ui','',['lib/walkthrough/walkthrough-acts.ts']),
+N('drv',1,7,'cursor driver','moves a real cursor','engine','Resolves selectors and canvas coordinates. A blocking modal pauses the tour.',['walkthrough-cursor-driver.ts']),
+N('nar',2,7,'narrator + overlay','captions','ui','',['walkthrough-narrator.ts','components/workspace/walkthrough-overlay.tsx']),
+N('eng',3,7,'walkthrough-engine','runs acts against stores','engine','Always reads fresh Zustand state, since every set() makes a new object.',['walkthrough-engine.ts'])
+],
+edges:[
+E('skill','lint','draft'),E('lint','pub','pass'),E('pub','cdb','SQL'),
+E('gr','cdb','grants',{d:1}),E('cdb','list','lessons',{sa:-30,sb:30}),E('files','list','no DB',{d:1}),E('list','panel','tree'),
+E('panel','flow','open',{sa:0,sb:30}),E('list','flow','JSON',{d:1,sa:-30,sb:-30}),E('flow','view','reads'),E('view','fig','runs'),
+E('view','mcq','picks',{d:1,sa:-30,sb:20}),E('view','ask','',{d:1,sa:30,sb:-20}),
+E('acts','drv',''),E('drv','nar',''),E('nar','eng',''),E('eng','fig','drives UI',{d:1,sa:20,sb:40})
+]};
+
+/* ───────────── 11 · DEPLOY & SECURITY ───────────── */
+T.ops={tab:'Deploy & security',title:'Deployment, configuration and defenses',
+blurb:'How the app is hosted, which environment variables switch which behavior, and every layer that protects a tenant’s data.',
+note:'Known scaling notes from the code: the Postgres pool is per instance (default max 3), Redis free tier allows 30 connections, and the local-Ollama path only exists where a local model is reachable. A hosted deployment needs AI_BACKEND=openrouter. Legal surfaces credit the author, Rohan Singh.',
+boxes:[B('Runtime',0,0,3,0),B('Environment switches',0,1.75,4,1.75),B('Defense in depth',0,3.5,4,4.5)],
+nodes:[
+N('next',0,0,'Next.js 16 · React 19','App Router','ui','Turbopack build. prebuild generates third-party licenses.',['package.json']),
+N('vfn',1,0,'Vercel Functions','Fluid Compute · bom1','ext','Region pinned to Mumbai. Instances are reused across concurrent requests, so a small pool serves real traffic.',['vercel.ts']),
+N('pwa',2,0,'PWA','manifest · sw · install','ui','Installable on iOS and macOS. Shell works offline.',['app/manifest.ts','public/sw.js','components/install-prompt.tsx']),
+N('ana',3,0,'Consented analytics','@vercel/analytics','ui','Loaded only after consent.',['components/legal/consented-analytics.tsx']),
+N('e_db',0,1.75,'DATABASE_URL','+ SSL · PG_POOL_MAX','server','Also flips NEXT_PUBLIC_CLOUD to 1 unless set explicitly. Without it the app runs on its local database.',['next.config.mjs','lib/server/pg.ts']),
+N('e_red',1,1.75,'REDIS_URL','optional','server','Absent: cache, AI memo and presence degrade to no-ops; board-live uses local fan-out only.',['lib/server/redis.ts']),
+N('e_auth',2,1.75,'AUTH_SECRET','required in production','server','Production refuses to mint tokens with the public dev secret.',['lib/server/auth.ts']),
+N('e_ai',3,1.75,'AI_BACKEND · OLLAMA_*','OPENROUTER_*','ai','',['lib/ai/generate.ts']),
+N('e_pub',4,1.75,'NEXT_PUBLIC_*','CLOUD · BOARD_LIVE · SITE_URL','ui','',[]),
+N('d_csp',0,3.5,'CSP + nonce','proxy.ts','server','Per-request nonce, strict-dynamic, frame-ancestors self, object-src none, upgrade-insecure-requests.',['proxy.ts']),
+N('d_hdr',1,3.5,'HSTS · COOP · nosniff','next.config.mjs','server','',[]),
+N('d_jwt',2,3.5,'JWT + tenant scoping','server-enforced','server','Every table except sketch_templates needs a token. Non-operators are pinned to their institution.',['app/api/pg/[table]/route.ts']),
+N('d_pw',3,3.5,'scrypt + rate limit','10 / 15 min','server','',['lib/server/auth.ts','app/api/auth/route.ts']),
+N('d_rbac',4,3.5,'RBAC permissions','GRANTS per role','state','',['lib/auth/types.ts']),
+N('d_quota',0,4.5,'Quota + advisory lock','150 MB, 5 s lock timeout','server','',['lib/server/quota.ts']),
+N('d_ssrf',1,4.5,'SSRF guard','calendar fetch','server','',['lib/server/calendar-fetch.ts']),
+N('d_file',2,4.5,'Active-content download','html/svg/js as attachment','server','',['app/api/storage/[id]/route.ts']),
+N('d_sync',3,4.5,'Revision conflicts','no silent overwrite','server','',['app/api/sync/route.ts']),
+N('d_law',4,4.5,'Terms gate & notice','consent','ui','',['components/legal/*'])
+],
+edges:[
+E('next','vfn','deploys to'),E('vfn','pwa','serves',{d:1}),E('pwa','ana','',{d:1}),
+E('vfn','e_db','',{sa:-60}),E('vfn','e_red','',{sa:-20}),E('vfn','e_auth','',{sa:20}),E('vfn','e_ai','',{sa:60}),
+E('e_db','d_quota','',{d:1,sa:0,sb:0}),E('e_auth','d_jwt','',{sa:0,sb:0}),E('e_auth','d_pw','',{sa:20,sb:0,d:1})
+]};
+
+/* ───────────── ENGINE ───────────── */
+const $=s=>document.querySelector(s);
+const tabsEl=$('#tabs'),stage=$('#stage'),infoEl=$('#info'),aboutEl=$('#about');
+let cur=null,zoom=1,fitMode=true,vb={w:0,h:0},selected=null,D=null;
+const ids=Object.keys(T);
+ids.forEach((id,i)=>{const b=document.createElement('button');b.className='tab';b.setAttribute('role','tab');b.dataset.id=id;b.innerHTML='<small>'+String(i).padStart(2,'0')+'</small>'+T[id].tab;b.onclick=()=>show(id);tabsEl.appendChild(b)});
+
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const px=n=>PAD+n.c*PX, py=n=>PAD+TOP+n.r*PY;
+const wOf=n=>((n.cw||1)-1)*PX+W;
+function ns(tag,attrs,parent){const e=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const k in attrs)e.setAttribute(k,attrs[k]);if(parent)parent.appendChild(e);return e}
+
+function anchor(n,side,off){const x=px(n),y=py(n),w=wOf(n);
+  if(side==='r')return[x+w,y+H/2+off];if(side==='l')return[x,y+H/2+off];
+  if(side==='b')return[x+w/2+off,y+H];return[x+w/2+off,y]}
+
+function route(a,b,o){
+  const ax=px(a)+W/2,ay=py(a)+H/2,bx=px(b)+W/2,by=py(b)+H/2;
+  const dx=bx-ax,dy=by-ay;
+  const sa=o.sa||0,sb=o.sb||0;
+  if(Math.abs(dy)<8||Math.abs(dx)>Math.abs(dy)*2.2&&Math.abs(dy)<H){ // horizontal
+    const s=dx>0?'r':'l',e=dx>0?'l':'r';
+    const p1=anchor(a,s,sa/3),p2=anchor(b,e,sb/3);
+    const mx=(p1[0]+p2[0])/2;
+    return{h:1,d:'M'+p1+' H'+mx+' V'+p2[1]+' H'+p2[0],lx:mx,ly:(p1[1]+p2[1])/2-5,end:[p2[0],p2[1],dx>0?0:180]};
+  }
+  const s=dy>0?'b':'t',e=dy>0?'t':'b';
+  const p1=anchor(a,s,sa),p2=anchor(b,e,sb);
+  const frac=o.m==null?.5:o.m;
+  const my=p1[1]+(p2[1]-p1[1])*frac;
+  return{d:'M'+p1+' V'+my+' H'+p2[0]+' V'+p2[1],lx:(p1[0]+p2[0])/2,ly:my-5,end:[p2[0],p2[1],dy>0?90:270],vx:p1[0]};
+}
+
+function draw(){
+  const d=D;stage.innerHTML='';
+  const by={};d.nodes.forEach(n=>by[n.id]=n);
+  let maxX=0,maxY=0;
+  d.nodes.forEach(n=>{maxX=Math.max(maxX,px(n)+wOf(n));maxY=Math.max(maxY,py(n)+H)});
+  const vw=maxX+PAD+16,vh=maxY+PAD;vb={w:vw,h:vh};
+  const svg=ns('svg',{viewBox:'0 0 '+vw+' '+vh,role:'img','aria-label':d.title+'. '+d.blurb});
+  const defs=ns('defs',{},svg);
+  const m=ns('marker',{id:'ah',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'8',markerHeight:'8',orient:'auto-start-reverse'},defs);
+  ns('path',{d:'M0 0L10 5L0 10z',fill:'var(--edge)'},m);
+  const mh=ns('marker',{id:'ahh',viewBox:'0 0 10 10',refX:'9',refY:'5',markerWidth:'8',markerHeight:'8',orient:'auto-start-reverse'},defs);
+  ns('path',{d:'M0 0L10 5L0 10z',fill:'var(--ui)'},mh);
+  const gC=ns('g',{},svg),gE=ns('g',{},svg),gN=ns('g',{},svg);
+  (d.boxes||[]).forEach(b=>{
+    const x=PAD+b.c0*PX-16,y=PAD+TOP+b.r0*PY-30,w=(b.c1-b.c0)*PX+W+32,h=(b.r1-b.r0)*PY+H+30+16;
+    const g=ns('g',{class:'cont'},gC);ns('rect',{x,y,width:w,height:h,rx:10},g);
+    const t=ns('text',{x:x+12,y:y+18},g);t.textContent=b.label;
+  });
+  const seen={};
+  d.edges.forEach((e,i)=>{
+    const a=by[e.a],b=by[e.b];if(!a||!b){console.warn('bad edge',e.a,e.b);return}
+    if(e.m==null){const k=a.r+'>'+b.r;const j=seen[k]=(seen[k]||0)+1;e.m=[.5,.38,.62,.28,.72,.45,.55][(j-1)%7]}
+    const r=route(a,b,e);
+    const g=ns('g',{class:'edge'+(e.d?' dash':''),'data-a':e.a,'data-b':e.b},gE);
+    const p=ns('path',{d:r.d,'marker-end':'url(#ah)'},g);
+    if(e.label){const gap=PX-W-4;if(r.h&&e.label.length*6.4>gap){const tt=ns('title',{},g);tt.textContent=e.label}else{const t=ns('text',{x:r.lx,y:r.ly},g);t.textContent=e.label}}
+  });
+  d.nodes.forEach(n=>{
+    const g=ns('g',{class:'node k-'+n.k.trim(),tabindex:'0',role:'button','aria-label':n.t+'. '+n.s,'data-id':n.id,transform:'translate('+px(n)+','+py(n)+')'},gN);
+    ns('rect',{width:wOf(n),height:H,rx:8},g);
+    const two=n.s.length>0;
+    const t=ns('text',{class:'t',x:12,y:two?24:36},g);t.textContent=n.t;
+    if(two){const s=ns('text',{class:'s',x:12,y:44},g);s.textContent=n.s}
+    g.querySelectorAll('text').forEach(tx=>{tx.dataset.fit=1});
+    g.addEventListener('click',()=>select(n.id));
+    g.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();select(n.id)}});
+  });
+  stage.appendChild(svg);
+  svg.querySelectorAll('text[data-fit]').forEach(tx=>{const avail=tx.parentNode.firstChild.getAttribute('width')-24;const len=tx.getComputedTextLength();if(len>avail){tx.setAttribute('textLength',avail);tx.setAttribute('lengthAdjust','spacingAndGlyphs')}});
+  applyZoom();
+}
+
+function applyZoom(){
+  const svg=stage.querySelector('svg');if(!svg)return;
+  if(fitMode){zoom=Math.max(.3,Math.min(1,(stage.clientWidth-14)/vb.w))}
+  svg.setAttribute('width',Math.round(vb.w*zoom));svg.setAttribute('height',Math.round(vb.h*zoom));
+}
+
+function select(id){
+  selected=id;const svg=stage.querySelector('svg');
+  svg.querySelectorAll('.node').forEach(g=>g.classList.toggle('sel',g.dataset.id===id));
+  const con=new Set([id]);
+  svg.querySelectorAll('.edge').forEach(g=>{
+    const on=g.dataset.a===id||g.dataset.b===id;
+    if(on){con.add(g.dataset.a);con.add(g.dataset.b)}
+    g.classList.toggle('hi',on);g.classList.toggle('dim',!on);
+    g.querySelector('path').setAttribute('marker-end',on?'url(#ahh)':'url(#ah)');
+  });
+  svg.querySelectorAll('.node').forEach(g=>g.classList.toggle('dim',!con.has(g.dataset.id)));
+  const n=D.nodes.find(x=>x.id===id);
+  const inc=D.edges.filter(e=>e.b===id).map(e=>D.nodes.find(x=>x.id===e.a));
+  const out=D.edges.filter(e=>e.a===id).map(e=>D.nodes.find(x=>x.id===e.b));
+  const li=(arr,lab)=>arr.length?'<div class="k">'+lab+'</div><ul>'+arr.map(x=>'<li>'+esc(x.t)+'</li>').join('')+'</ul>':'';
+  infoEl.innerHTML='<h3>'+esc(n.t)+'</h3><p class="hint">'+esc(n.s)+'</p>'+(n.d?'<p>'+esc(n.d)+'</p>':'<p class="hint">Part of the flow shown. See connected boxes.</p>')
+   +(n.f.length?'<div class="k">Where it lives</div><ul>'+n.f.map(f=>'<li><span class="f">'+esc(f)+'</span></li>').join('')+'</ul>':'')
+   +li(inc,'Receives from')+li(out,'Sends to')
+   +'<p class="hint" style="margin-top:10px"><a href="#" id="clr" style="color:var(--ui)">Clear selection</a></p>';
+  $('#clr').onclick=ev=>{ev.preventDefault();clearSel()};
+}
+function clearSel(){
+  selected=null;const svg=stage.querySelector('svg');
+  svg.querySelectorAll('.dim,.hi,.sel').forEach(g=>g.classList.remove('dim','hi','sel'));
+  svg.querySelectorAll('.edge path').forEach(p=>p.setAttribute('marker-end','url(#ah)'));
+  infoEl.innerHTML='<h3>Select a box</h3><p class="hint">Click any box to highlight its connections and read what it does. Keyboard: Tab to a box, Enter to select.</p>';
+}
+
+function show(id){
+  cur=id;D=T[id];fitMode=true;
+  tabsEl.querySelectorAll('.tab').forEach(b=>b.setAttribute('aria-selected',b.dataset.id===id));
+  $('#dTitle').textContent=D.title;$('#dBlurb').textContent=D.blurb;$('#note').textContent=D.note||'';
+  const cnt=D.nodes.length;
+  aboutEl.innerHTML='<h3>In this diagram</h3><p>'+cnt+' components, '+D.edges.length+' connections.</p><div class="k">Boxes by layer</div><ul>'+(D.boxes||[]).map(b=>'<li>'+esc(b.label)+'</li>').join('')+'</ul>';
+  draw();clearSel();
+  try{history.replaceState(null,'','#'+id)}catch(e){}
+  try{localStorage.setItem('atlas-tab',id)}catch(e){}
+  stage.scrollTo(0,0);
+}
+$('#zin').onclick=()=>{fitMode=false;zoom=Math.min(2.5,zoom*1.2);applyZoom()};
+$('#zout').onclick=()=>{fitMode=false;zoom=Math.max(.3,zoom/1.2);applyZoom()};
+$('#zfit').onclick=()=>{fitMode=true;applyZoom()};
+$('#z100').onclick=()=>{fitMode=false;zoom=1;applyZoom()};
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme: dark)').matches;r.dataset.theme=dark?'light':'dark'};
+addEventListener('resize',()=>{if(fitMode)applyZoom()});
+addEventListener('hashchange',()=>{const h=location.hash.slice(1);if(T[h]&&h!==cur)show(h)});
+let start=(location.hash||'').slice(1);
+if(!T[start]){try{start=localStorage.getItem('atlas-tab')}catch(e){}}
+if(!T[start])start='map';
+show(start);
+})();
+</script>
+</body></html>

@@ -1,0 +1,297 @@
+{
+  "title": "IPv4 addressing and subnetting",
+  "kicker": "ENCT 304 · Computer Networks · Chapter 4 (addressing)",
+  "subtitle": "An IP address is a 32-bit number cut into “which network” and “which host”. Every subnetting question is where to cut.",
+  "sections": [
+    {
+      "id": "addr",
+      "locator": "4.1",
+      "title": "Reading an address",
+      "eyebrow": "The format",
+      "body": "<p>An IPv4 address is 32 bits written as four decimal bytes. The <em class=\"term\">subnet mask</em> (or prefix length /<i>n</i>) marks the first <i>n</i> bits as the <b>network</b> part; the rest identify the <b>host</b>. Originally the split was fixed by <em class=\"term\">class</em>: A (first bit 0, /8), B (10, /16), C (110, /24), D (1110, multicast), E (reserved). Modern <em class=\"term\">CIDR</em> allows any prefix length.</p>",
+      "questions": [
+        {
+          "id": "class",
+          "prompt": "Which class is 172.16.5.9 (original classful addressing)?",
+          "choices": [
+            {
+              "text": "A."
+            },
+            {
+              "text": "B — the first byte 172 is between 128 and 191.",
+              "correct": true
+            },
+            {
+              "text": "C."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Class A is 1–126."
+            },
+            {
+              "title": "Correct.",
+              "body": "Class B starts with bits 10."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Class C is 192–223."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.1.1 — address, mask, network, broadcast",
+          "note": "192.168.10.77/26 is on network 192.168.10.64 with broadcast 192.168.10.127 and 62 usable hosts.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sn\",\"engine\":\"subnet\",\"address\":\"192.168.10.77/26\",\"width\":600,\"height\":440});",
+          "expect": {
+            "sn": {
+              "network": "192.168.10.64",
+              "broadcast": "192.168.10.127",
+              "hosts": "62"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "subnet",
+      "locator": "4.2",
+      "title": "Network, broadcast and usable hosts",
+      "eyebrow": "The three numbers",
+      "body": "<p>AND the address with the mask to get the <b>network address</b>; set all host bits to 1 for the <b>broadcast address</b>; the usable hosts lie between them: 2<sup>h</sup> − 2 where <i>h</i> is the number of host bits (the all-zeros and all-ones addresses are reserved).</p>",
+      "worked": [
+        {
+          "toc": "Binary",
+          "why": "192.168.10.77/26: the last byte 77 = 01001101, and /26 leaves 6 host bits.",
+          "math": "77 = 01\\,001101"
+        },
+        {
+          "toc": "Network and broadcast",
+          "why": "Network: zero the host bits → 01000000 = 64. Broadcast: set them → 01111111 = 127.",
+          "math": "192.168.10.64\\ \\text{to}\\ 192.168.10.127"
+        },
+        {
+          "toc": "Hosts",
+          "why": "Usable hosts.",
+          "math": "2^6-2=62",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "hosts",
+          "prompt": "How many usable hosts in a /27?",
+          "choices": [
+            {
+              "text": "32."
+            },
+            {
+              "text": "30.",
+              "correct": true
+            },
+            {
+              "text": "27."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Two addresses are reserved."
+            },
+            {
+              "title": "Correct.",
+              "body": "32 − 5 = 27 bits network leaves 5 host bits: 2⁵ − 2 = 30."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the prefix length."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vlsm",
+      "locator": "4.3",
+      "title": "VLSM: sizing each subnet",
+      "eyebrow": "Variable length",
+      "body": "<p><em class=\"term\">VLSM</em> gives each network just the block it needs. Sort requirements largest first, give each the smallest power-of-two block that fits its hosts + 2, and place blocks back to back so they stay aligned. From 192.168.1.0/24 for 100, 50, 20 and 10 hosts: <b>192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28</b>.</p>",
+      "questions": [
+        {
+          "id": "vorder",
+          "prompt": "Why allocate the largest subnet first?",
+          "choices": [
+            {
+              "text": "Big blocks must start on big alignment boundaries; allocating them first avoids wasted gaps.",
+              "correct": true
+            },
+            {
+              "text": "It is alphabetical."
+            },
+            {
+              "text": "Routers require it."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Small blocks can fill the leftover space."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is a planning convention."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.3.1 — VLSM allocation",
+          "note": "Largest first keeps the blocks aligned.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"vl\",\"engine\":\"subnet\",\"address\":\"192.168.1.0/24\",\"hosts\":\"100 50 20 10\",\"width\":600,\"height\":440});",
+          "expect": {
+            "vl": {
+              "vlsm": "192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-vlsm",
+          "prompt": "<p>Divide 192.168.1.0/24 into subnets for 100, 50, 20 and 10 hosts.</p>",
+          "answer": "100 hosts → /25 (126 usable); 50 → /26 (62); 20 → /27 (30); 10 → /28 (14). Result: <b>192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28</b>.",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The allocation.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"subnet\",\"address\":\"192.168.1.0/24\",\"hosts\":\"100 50 20 10\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "vlsm": "192.168.1.0/25 192.168.1.128/26 192.168.1.192/27 192.168.1.224/28"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "special",
+      "locator": "4.4",
+      "title": "Private, public, NAT and multicast",
+      "eyebrow": "Special ranges",
+      "body": "<p>Private ranges (10/8, 172.16/12, 192.168/16) are not routed on the Internet; <em class=\"term\">NAT</em> rewrites a private source address and port to the router’s public address, keeping a table so replies return to the right host. Unicast goes to one host, broadcast to all hosts on a network, multicast (224/4) to a group. IPv6 (128-bit, written in hex) removes the address shortage and most need for NAT; transition uses dual stack, tunnelling or translation.</p>",
+      "questions": [
+        {
+          "id": "nat",
+          "prompt": "Why can several hosts share one public IP through NAT?",
+          "choices": [
+            {
+              "text": "The router tells their connections apart by port number and remembers each mapping.",
+              "correct": true
+            },
+            {
+              "text": "They all have the same private address."
+            },
+            {
+              "text": "NAT removes the need for ports."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The translation table records (private IP, port) ↔ (public IP, port)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Private addresses are unique inside."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Ports make it work."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 4.4.1 — NAT in action",
+          "note": "The NAT table maps the public port back to the private host.",
+          "script": "diagram(\"mode: sequence\\n[Host 192.168.1.5] as h\\n[NAT router] as r\\n[Server 203.0.113.9] as s\\nh -> r : src 192.168.1.5:5000\\nr -> s : src 198.51.100.1:40001 (table entry made)\\ns --> r : dst 198.51.100.1:40001\\nr --> h : dst 192.168.1.5:5000\");"
+        }
+      ]
+    },
+    {
+      "id": "magic",
+      "locator": "4.5",
+      "title": "Subnetting by the “magic number”",
+      "eyebrow": "A quick method",
+      "body": "<p>For a mask whose interesting byte is <i>m</i>, the block size (\"magic number\") is 256 − <i>m</i>. Subnets start at multiples of it. For /26 the mask byte is 192, the block size 64, so subnets start at 0, 64, 128, 192 — and 77 falls in the block starting at 64.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Which subnet holds 10.1.1.130/27?"
+        },
+        {
+          "toc": "Block",
+          "why": "/27 → mask byte 224 → block 32. Multiples of 32: …, 96, 128, 160. 130 lies in the block starting at 128.",
+          "math": "128le130<160",
+          "hero": true
+        },
+        {
+          "toc": "Range",
+          "why": "So network 10.1.1.128, broadcast 10.1.1.159, usable .129–.158."
+        }
+      ],
+      "questions": [
+        {
+          "id": "block",
+          "prompt": "Block size of a /28?",
+          "choices": [
+            {
+              "text": "28."
+            },
+            {
+              "text": "14."
+            },
+            {
+              "text": "16.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the prefix."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the usable hosts."
+            },
+            {
+              "title": "Correct.",
+              "body": "/28 leaves 4 host bits: 2⁴ = 16 addresses per subnet."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Network = address AND mask; broadcast = host bits all 1; hosts = 2ʰ − 2.</li><li>VLSM: largest block first.</li><li>NAT trades address space for a translation table.</li></ul>"
+    }
+  ]
+}

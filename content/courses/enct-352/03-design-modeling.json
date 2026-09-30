@@ -1,0 +1,296 @@
+{
+  "title": "Architecture and UML models",
+  "kicker": "ENCT 352 · Software Engineering · Chapters 4–5",
+  "subtitle": "Draw the system before you build it: boxes for structure, sequences for behaviour.",
+  "sections": [
+    {
+      "id": "arch",
+      "locator": "4.1",
+      "title": "Architectural styles",
+      "eyebrow": "Shape of the whole",
+      "body": "<p>Architecture = the major components and how they communicate. Common styles: <b>layered</b> (UI → business → data), <b>client–server</b>, <b>MVC</b>, <b>pipe-and-filter</b>, <b>microservices</b>, <b>event-driven</b>. Each trades simplicity, scalability and independence.</p>",
+      "questions": [
+        {
+          "id": "lay",
+          "prompt": "In a strict layered style the UI may call…",
+          "choices": [
+            {
+              "text": "Only the layer directly beneath it.",
+              "correct": true
+            },
+            {
+              "text": "The database directly."
+            },
+            {
+              "text": "Any layer both ways."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Keeps layers independent."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Skips the business rules."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Creates a tangle."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.1.1 — layered architecture",
+          "note": "Each layer talks only to the one below.",
+          "script": "diagram(\"direction: down\\n[Presentation layer] as u\\n[Business logic] as b\\n[Data access] as d\\n[|Database|] as db\\nu -> b : calls\\nb -> d : calls\\nd -> db : SQL\\n@0 u -> b\\n@1 b -> d\\n@2 d -> db\\nloop 2\");"
+        }
+      ]
+    },
+    {
+      "id": "mvc",
+      "locator": "4.2",
+      "title": "MVC request path",
+      "eyebrow": "Separating concerns",
+      "body": "<p>Model holds data and rules, View renders, Controller handles input and coordinates. Changing the UI does not touch the rules.</p>",
+      "questions": [
+        {
+          "id": "mvcq",
+          "prompt": "Business rules belong in the…",
+          "choices": [
+            {
+              "text": "View."
+            },
+            {
+              "text": "Browser."
+            },
+            {
+              "text": "Model.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Presentation only."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not trusted."
+            },
+            {
+              "title": "Correct.",
+              "body": "Views should only display."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 4.2.1 — MVC request",
+          "note": "The controller never builds HTML itself.",
+          "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[Controller] as c\\n[Model] as m\\n[View] as v\\nb -> c : GET /orders/7\\nc -> m : find(7)\\nm --> c : order\\nc -> v : render(order)\\nv --> b : HTML\\n@0 b -> c : GET /orders/7\\n@1 c -> m : find(7)\\n@2 m -> c : order\\n@3 c -> v : render(order)\\n@4 v -> b : HTML\");"
+        }
+      ]
+    },
+    {
+      "id": "uc",
+      "locator": "5.1",
+      "title": "Use case diagrams",
+      "eyebrow": "Who does what",
+      "body": "<p>Actors (people or systems) sit outside a system boundary; ovals are use cases; lines show participation; <i>include</i> (mandatory sub-behaviour) and <i>extend</i> (optional) relate use cases.</p>",
+      "questions": [
+        {
+          "id": "inc",
+          "prompt": "“Place order” always needs “Pay”. Relationship?",
+          "choices": [
+            {
+              "text": "Include.",
+              "correct": true
+            },
+            {
+              "text": "Extend."
+            },
+            {
+              "text": "Inheritance between actors."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Mandatory reuse."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is optional."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different relation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 5.1.1 — use cases",
+          "note": "Placing an order always includes paying.",
+          "script": "diagram(\"direction: right\\n[Customer] as c\\n(Place order) as po\\n(Pay) as pay\\n[Admin] as a\\n(Manage stock) as ms\\nc -> po\\npo -> pay : includes\\na -> ms\");"
+        }
+      ]
+    },
+    {
+      "id": "class",
+      "locator": "5.2",
+      "title": "Class diagrams",
+      "eyebrow": "Static structure",
+      "body": "<p>Boxes with name, attributes, operations; lines show association (with multiplicity), aggregation/composition (whole–part), inheritance (is-a).</p>",
+      "questions": [
+        {
+          "id": "mult",
+          "prompt": "“1 to 0..*” between Customer and Order means…",
+          "choices": [
+            {
+              "text": "Every customer has exactly one order."
+            },
+            {
+              "text": "A customer may have zero or many orders; each order has one customer.",
+              "correct": true
+            },
+            {
+              "text": "Orders own customers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is 1..1."
+            },
+            {
+              "title": "Correct.",
+              "body": "Read each end separately."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Reversed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 5.2.1 — class diagram",
+          "note": "Multiplicity reads “one customer, many orders”.",
+          "script": "diagram(\"direction: down\\n{Customer | name ; email | placeOrder()} as c\\n{Order | date ; total | addItem()} as o\\n{Item | sku ; price} as i\\nc -> o : 1 places 0..*\\no -> i : 1 contains 1..*\");"
+        }
+      ]
+    },
+    {
+      "id": "seq",
+      "locator": "5.3",
+      "title": "Sequence diagrams",
+      "eyebrow": "Behaviour over time",
+      "body": "<p>Lifelines run downward; arrows are messages in order; dashed arrows are returns. They show one scenario of one use case.</p>",
+      "questions": [
+        {
+          "id": "sq",
+          "prompt": "A dashed arrow back in a sequence diagram is…",
+          "choices": [
+            {
+              "text": "A lost message."
+            },
+            {
+              "text": "A return or reply.",
+              "correct": true
+            },
+            {
+              "text": "A deleted object."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Different notation."
+            },
+            {
+              "title": "Correct.",
+              "body": "Solid arrows are calls."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is an X on the lifeline."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia5",
+          "caption": "Figure 5.3.1 — checkout scenario",
+          "note": "Replay to watch control pass between objects.",
+          "script": "diagram(\"mode: sequence\\n[Customer] as c\\n[Shop UI] as u\\n[Order service] as o\\n[Payment] as p\\nc -> u : checkout\\nu -> o : createOrder\\no -> p : charge\\np --> o : approved\\no --> u : order id\\nu --> c : confirmation\\n@0 c -> u : checkout\\n@1 u -> o : createOrder\\n@2 o -> p : charge\\n@3 p -> o : approved\\n@4 o -> u : order id\\n@5 u -> c : confirmation\");"
+        }
+      ]
+    },
+    {
+      "id": "dfd",
+      "locator": "5.4",
+      "title": "Data flow and activity diagrams",
+      "eyebrow": "Flow of data and control",
+      "body": "<p>A DFD shows processes (circles), stores (open rectangles), external entities (squares) and data flows; it has <b>levels</b> — level 0 is the context diagram. An <b>activity diagram</b> shows the control flow of a process with decisions and parallel forks.</p>",
+      "worked": [
+        {
+          "toc": "Rule",
+          "why": "A DFD process has 3 inputs and 1 output: it must change data, not just pass it on — otherwise it is not a process.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dfdq",
+          "prompt": "A data store in a DFD may connect directly to…",
+          "choices": [
+            {
+              "text": "Another data store."
+            },
+            {
+              "text": "An external entity."
+            },
+            {
+              "text": "A process only.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not allowed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Must go through a process."
+            },
+            {
+              "title": "Correct.",
+              "body": "Stores exchange data through processes."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia6",
+          "caption": "Figure 5.4.1 — DFD",
+          "note": "A level-1 DFD fragment.",
+          "script": "diagram(\"direction: right\\n[Student] as s\\n((1 Register)) as r\\n[|Student records|] as db\\n((2 Issue ID)) as i\\ns -> r : form\\nr -> db : record\\ndb -> i : record\\ni -> s : ID card\");"
+        }
+      ]
+    }
+  ]
+}

@@ -87,6 +87,7 @@ const RUNNABLE_BEHAVIORS = new Set([
   'dielectric',
   'torsionSpring',
   'heatSource',
+  'flow', // diagram animation: tokens travelling along arrows (lib/physics/flow.ts)
 ])
 
 function isSimulatable(objects: SceneObject[]): boolean {

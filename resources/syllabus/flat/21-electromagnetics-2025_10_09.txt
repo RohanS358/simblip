@@ -1,0 +1,181 @@
+ELECTROMAGNETICS
+ENEX 254
+Lecture
+Tutorial
+Practical
+:3
+:1
+: 3/2
+Year :II
+Part : II
+Course Objectives:
+The objective of this course is to provide students with a basic mathematical concepts
+related to electromagnetic time invariant and time variant fields including electromagnetic
+wave and their transmission on different media
+1
+Introduction
+1.1
+1.2
+1.3
+2
+(4 hours)
+Scalar and vector fields
+Operations on scalar and vector fields
+Co‐ordinate systems (Cartesian, cylindrical and spherical) and conversions
+Electric Field
+(15 hours)
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+2.9
+Coulomb’s law
+Electric field intensity
+Electric flux density
+Gauss’s law and applications
+Physical significance of divergence, divergence theorem
+Electric potential, potential gradient
+Energy density in electrostatic field
+Electric properties of material medium
+Free and bound charges, polarization, relative permittivity, electric dipole
+electric boundary conditions
+2.10 Current, current density, conservation of charge, continuity equation,
+relaxation time
+2.11 Boundary value problems, Laplace and Poisson equations and their
+solutions, uniqueness theorem
+3
+Magnetic Field
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+3.7
+Biot‐Savart’s law
+Magnetic field intensity
+Ampere’s circuital law and its application
+Magnetic flux density
+Physical significance of curl, Stoke’s theorem
+Scalar and magnetic vector potential
+Magnetic properties of material medium
+(9 hours)
+3.8
+3.9
+4
+Time Varying Fields
+4.1
+4.2
+4.3
+5
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+(9 hours)
+Wave propagation in lossless and lossy dielectric
+Plane waves in free space, lossless dielectric, good conductor
+Power and poynting theorem average power density
+Reflection of plane wave at normal incidence
+Standing wave and SWR
+Input intrinsic impedance
+Transmission Lines
+6.1
+6.2
+6.3
+(4 hours)
+Faraday’s law, transformer EMF, motional EMF
+Displacement current
+Maxwell’s equations in integral and point forms
+Plane Waves
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+6
+Magnetic force, magnetic torque, magnetic moment, magnetic dipole,
+magnetization
+Magnetic boundary condition
+(4 hours)
+Transmission line equations (Taking analogy from wave equations)
+Lossless, lossy and distortionless transmission lines
+Input impedance, reflection coefficient, standing wave ratio
+(15 hours)
+Conversion of coordinate systems (Cartesian to cylindrical /spherical and
+vice versa, cylindrical to spherical and vice versa)
+Electric field intensity and flux density (Coulomb’s law, Gauss law,
+divergence, electric potential and energy density)
+Boundary condition, electric dipole, and boundary value problems
+Magnetic fields (Biot-Savart law, Ampere circuit law, Stoke’s theorem,
+magnetic force and torque)
+Time varying fields (Transformer/motional EMF, displacement current)
+Wave propagation equations in lossy and lossless medium (Poynting
+theorem, standing wave ratio and intrinsic impedance)
+Transmission line (Lossless, lossy and distortionless)
+(22.5 hours)
+Teledeltos (Electro‐conductive) paper mapping of electrostatic fields
+Determination of dielectric constant, display of a magnetic hysteresis loop
+Studies of wave propagation on a lumped parameter transmission line
+Microwave sources, detectors, transmission lines
+Standing wave patterns on transmission lines, reflections, power patterns on
+transmission lines, reflections, power measurement
+Familiarizations of electric and magnetic field measurements using
+simulation tool
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+4
+5
+2
+15
+3
+9
+4
+4
+5
+9
+6
+4
+Total
+45
+* There may be minor deviation in marks distribution.
+20
+12
+6
+12
+5
+60
+References
+1.
+Hayt, W. H. (2001). Engineering Electromagnetics. McGraw‐Hill Book
+Company.
+2.
+Kraus, J. D. (1973). Electromagnetics. McGraw‐Hill Book Company.
+3.
+Rao, N. N. (1990). Elements of Engineering Electromagnetics. Prentice Hall.
+4.
+Devid K. Cheng, (1989). Field and Wave Electromagnetics. Addison‐Wesley.
+5.
+Sadiku, M. N. O. (2010). Elements of Electromagnetics. Oxford University
+Press.

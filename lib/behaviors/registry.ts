@@ -291,6 +291,17 @@ export const BEHAVIOR_SPECS: BehaviorSpec[] = [
     ],
   },
   {
+    type: 'flow',
+    label: 'Flow Animation',
+    geometry: [],
+    hint: 'Animates a diagram: tokens travel along this arrow, or this box lights up while a token is inside it. The timeline is written in the diagram (@1.5 a -> b : label); Play runs it.',
+    live: true,
+    params: [
+      { name: 'speed', label: 'Speed ×', default: '1', min: 0.1, max: 10 },
+      { name: 'loop', label: 'Repeat every (s, 0 = once)', default: '0', min: 0, max: 600 },
+    ],
+  },
+  {
     type: 'waveBoundary',
     label: 'Wave Boundary',
     geometry: ['line'],
@@ -372,7 +383,7 @@ export function specsForGeometry(kind: GeometryKind): BehaviorSpec[] {
 // e.g. a fresh text box — a dead end, since the panel it opens has nowhere to
 // show that behavior. Single source both call sites read, so they can't drift.
 export const NO_BEHAVIOR_KINDS: GeometryKind[] = [
-  'note', 'text', 'formula', 'graph', 'surface3d', 'chart', 'cashflow', 'truthtable',
+  'note', 'text', 'formula', 'graph', 'surface3d', 'chart', 'cashflow', 'truthtable', 'steplab',
 ]
 
 export function createBehavior(type: BehaviorType): Behavior {

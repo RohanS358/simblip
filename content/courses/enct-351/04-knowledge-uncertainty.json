@@ -1,0 +1,315 @@
+{
+  "title": "Logic, Bayes and fuzzy reasoning",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 3",
+  "subtitle": "Representing what an agent knows — exactly, probably, or vaguely.",
+  "sections": [
+    {
+      "id": "kb",
+      "locator": "3.1",
+      "title": "Knowledge-based agents and logic",
+      "eyebrow": "Symbols",
+      "body": "<p>A <em class=\"term\">knowledge-based agent</em> stores sentences in a knowledge base and infers new ones. <em class=\"term\">Propositional logic</em> uses true/false statements with ¬ ∧ ∨ → ↔; <em class=\"term\">first-order (predicate) logic</em> adds objects, predicates and quantifiers: ∀x Human(x) → Mortal(x). Inference rules: modus ponens, resolution. Semantic networks, frames and knowledge graphs store facts as nodes and links.</p>",
+      "worked": [
+        {
+          "toc": "Facts",
+          "why": "KB: Human(Socrates); ∀x Human(x) → Mortal(x). Instantiate x = Socrates."
+        },
+        {
+          "toc": "Inference",
+          "why": "Modus ponens gives Mortal(Socrates).",
+          "math": "\\text{Human(S)},\\ \\text{Human(S)}\\to\\text{Mortal(S)}\\ \\vdash\\ \\text{Mortal(S)}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fol",
+          "prompt": "What does first-order logic add over propositional logic?",
+          "choices": [
+            {
+              "text": "Probabilities."
+            },
+            {
+              "text": "Objects, predicates and quantifiers (∀, ∃).",
+              "correct": true
+            },
+            {
+              "text": "Nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is another extension."
+            },
+            {
+              "title": "Correct.",
+              "body": "It can say something about all members of a class."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is far more expressive."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.1.1 — a knowledge graph fragment",
+          "note": "A tiny semantic network.",
+          "script": "diagram(\"direction: right\\n[Socrates] as s #blue\\n[Human] as h #mint\\n[Mortal] as m #amber\\ns -> h : is a\\nh -> m : implies\");"
+        }
+      ]
+    },
+    {
+      "id": "bayes",
+      "locator": "3.2",
+      "title": "Bayes' theorem",
+      "eyebrow": "Updating beliefs",
+      "body": "<p>P(H | E) = P(E | H) · P(H) / P(E). A disease affects 1% of people; a test detects it 90% of the time (sensitivity) and correctly clears 91% of healthy people (specificity). What is the chance you have it given a positive test? Count 1000 people: 10 are sick, 9 of them test positive; of 990 healthy, 9% = 89.1 also test positive. Of about 98 positives, 9 are truly sick: <b>9.2%</b>. A low prior keeps the posterior small even for a decent test.</p>",
+      "questions": [
+        {
+          "id": "prior",
+          "prompt": "Why is the posterior so low even though the test is 90% sensitive?",
+          "choices": [
+            {
+              "text": "The test is unreliable."
+            },
+            {
+              "text": "Probabilities cannot be updated."
+            },
+            {
+              "text": "The condition is rare (1%), so false positives outnumber true positives.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is good; the prior is tiny."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the whole point of Bayes."
+            },
+            {
+              "title": "Correct.",
+              "body": "The prior matters as much as the test."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.2.1 — Bayes by counting",
+          "note": "Counting people makes the formula obvious.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"by\",\"engine\":\"bayes\",\"prior\":0.01,\"sensitivity\":0.9,\"specificity\":0.91,\"width\":600,\"height\":440});",
+          "expect": {
+            "by": {
+              "posterior": "0.0917",
+              "truePositives": "9",
+              "falsePositives": "89.1"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-by",
+          "prompt": "<p>Prior 1%, sensitivity 90%, specificity 91%. Find P(disease | positive).</p>",
+          "answer": "True positives 9, false positives 89.1 → 9 / 98.1 = <b>0.0917</b> ≈ 9.2%.",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The last frame.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"bayes\",\"prior\":0.01,\"sensitivity\":0.9,\"specificity\":0.91,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "posterior": "0.0917"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "net",
+      "locator": "3.3",
+      "title": "Bayesian networks",
+      "eyebrow": "Many variables",
+      "body": "<p>A <em class=\"term\">Bayesian network</em> is a directed acyclic graph where each node holds P(node | parents). It encodes a joint distribution compactly as a product: P(x₁…xₙ) = ∏ P(xᵢ | parents(xᵢ)). Example: Burglary → Alarm ← Earthquake; Alarm → JohnCalls. Evidence on a leaf updates beliefs about causes.</p>",
+      "worked": [
+        {
+          "toc": "Tables",
+          "why": "P(B) = 0.001, P(E) = 0.002. Alarm probabilities given (B,E) are listed in its table."
+        },
+        {
+          "toc": "Compactness",
+          "why": "The full joint factorises as P(B)P(E)P(A|B,E)P(J|A)P(M|A) — 5 small tables instead of one with 2⁵ entries.",
+          "math": "2^5=32\\ \\text{vs}\\ 1+1+4+2+2=10",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bn",
+          "prompt": "Why are Bayesian networks compact?",
+          "choices": [
+            {
+              "text": "They store no probabilities."
+            },
+            {
+              "text": "They ignore dependencies."
+            },
+            {
+              "text": "Each node needs only its conditional table given its parents.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They store many."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They encode them."
+            },
+            {
+              "title": "Correct.",
+              "body": "Independence assumptions are built into the graph."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 3.3.1 — a Bayesian network",
+          "note": "Arrows point from cause to effect.",
+          "script": "diagram(\"direction: down\\n[Burglary] as b #rose\\n[Earthquake] as e #amber\\n[Alarm] as a #violet\\n[John calls] as j #blue\\n[Mary calls] as m #blue\\nb -> a\\ne -> a\\na -> j\\na -> m\");"
+        }
+      ]
+    },
+    {
+      "id": "fuzzy",
+      "locator": "3.4",
+      "title": "Fuzzy logic",
+      "eyebrow": "Degrees of truth",
+      "body": "<p>Real concepts are vague: 28 °C is somewhat warm and a little hot. <em class=\"term\">Fuzzy sets</em> give each value a membership in [0, 1]. A <em class=\"term\">fuzzy inference system</em> has four steps: fuzzify the input (here μ<sub>cold</sub> = 0, μ<sub>warm</sub> = 0.7, μ<sub>hot</sub> = 0.2), fire the rules (IF warm THEN fan medium…) with strength min(condition), aggregate the clipped outputs, and <em class=\"term\">defuzzify</em> by centroid — here a fan speed of <b>58.9%</b>.</p>",
+      "questions": [
+        {
+          "id": "mu",
+          "prompt": "A fuzzy membership value of 0.7 means…",
+          "choices": [
+            {
+              "text": "70% chance of belonging."
+            },
+            {
+              "text": "It is definitely a member."
+            },
+            {
+              "text": "The element belongs to the set to degree 0.7.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Membership is a degree of truth, not a chance."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would be 1."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is not a probability."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 3.4.1 — fuzzy control of a fan",
+          "note": "Four frames: sets, fuzzify, rules, defuzzify.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fz\",\"engine\":\"fuzzy\",\"temp\":28,\"width\":600,\"height\":440});",
+          "expect": {
+            "fz": {
+              "muWarm": "0.7",
+              "muHot": "0.2",
+              "speed": "58.9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.5",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Logic: exact. Probability: uncertainty about facts. Fuzzy: vagueness in concepts.</li><li>Bayes: posterior ∝ likelihood × prior; Bayesian nets factorise the joint.</li></ul>"
+    },
+    {
+      "id": "ex",
+      "locator": "3.6",
+      "title": "Try it",
+      "eyebrow": "Practice",
+      "questions": [
+        {
+          "id": "rules",
+          "prompt": "In fuzzy inference each rule fires with strength…",
+          "choices": [
+            {
+              "text": "Always 1."
+            },
+            {
+              "text": "The membership of its condition (min for AND).",
+              "correct": true
+            },
+            {
+              "text": "The square of the output."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Then it would be crisp."
+            },
+            {
+              "title": "Correct.",
+              "body": "The consequent set is clipped at that height."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p2",
+          "prompt": "<p>Fuzzy fan controller: temperature 35 °C. Which rules fire most strongly?</p>",
+          "answer": "At 35 °C μ<sub>hot</sub> is about 0.67 and μ<sub>warm</sub> about 0 — the “hot → fan high” rule dominates; run the card with temp 35 to see.",
+          "verify": {
+            "id": "lab6",
+            "caption": "temperature 35",
+            "note": "temp 35.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"hot\",\"engine\":\"fuzzy\",\"temp\":35,\"width\":600,\"height\":440});",
+            "expect": {
+              "hot": {
+                "muHot": "0.667",
+                "speed": "79.7"
+              }
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

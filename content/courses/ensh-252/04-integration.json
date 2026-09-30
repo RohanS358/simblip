@@ -1,0 +1,322 @@
+{
+  "title": "Numerical differentiation and integration",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 4",
+  "subtitle": "Slopes from differences, areas from slices — and how error shrinks as the slices get thinner.",
+  "sections": [
+    {
+      "id": "diff",
+      "locator": "4.1",
+      "title": "Numerical differentiation",
+      "eyebrow": "Slopes",
+      "body": "<p>From the definition f′(x) ≈ [f(x + h) − f(x)]/h (forward difference, error O(h)); the central difference [f(x + h) − f(x − h)]/(2h) has error O(h²). Shrinking h reduces truncation error but amplifies round-off error, so there is an optimal h (around 10⁻⁵ for double precision central differences).</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Estimate the derivative of sin x at x = 0 with h = 0.1."
+        },
+        {
+          "toc": "Central difference",
+          "why": "Central: [sin 0.1 − sin(−0.1)]/0.2 = 0.19967/0.2.",
+          "math": "0.99833\\ (\\text{true }1)",
+          "hero": true
+        },
+        {
+          "toc": "Forward",
+          "why": "Forward: sin 0.1 / 0.1 = 0.99833 too at this point (symmetry); at other x the central is much better."
+        }
+      ],
+      "questions": [
+        {
+          "id": "cdiff",
+          "prompt": "Which difference formula is more accurate for the same h?",
+          "choices": [
+            {
+              "text": "Forward."
+            },
+            {
+              "text": "They are identical."
+            },
+            {
+              "text": "The central difference, error O(h²).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is less accurate."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Orders differ."
+            },
+            {
+              "title": "Correct.",
+              "body": "Forward difference is O(h)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trap",
+      "locator": "4.2",
+      "title": "The trapezoidal rule",
+      "eyebrow": "Area by slices",
+      "body": "<p>Replace the curve over each subinterval by a straight line: ∫f ≈ h[½f₀ + f₁ + … + f<sub>n−1</sub> + ½fₙ]. The error is O(h²) — halve h, quarter the error. For ∫₀^π sin x dx = 2: four intervals give <b>1.896119</b> (error 1.04e-1); 32 intervals give <b>1.998393</b>.</p>",
+      "worked": [
+        {
+          "toc": "Values",
+          "why": "n = 4 strips on [0, π]: h = π/4 and the function values at 0, π/4, π/2, 3π/4, π.",
+          "math": "0,\\ .7071,\\ 1,\\ .7071,\\ 0"
+        },
+        {
+          "toc": "Area",
+          "why": "Trapezoid sum.",
+          "math": "h[\\tfrac12(0)+.7071+1+.7071+\\tfrac12(0)]=\\tfrac{\\pi}{4}(2.4142)=1.896",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "o2",
+          "prompt": "Halving the step size of the trapezoidal rule reduces the error by about…",
+          "choices": [
+            {
+              "text": "4 (error ∝ h²).",
+              "correct": true
+            },
+            {
+              "text": "2."
+            },
+            {
+              "text": "16."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Second-order accuracy."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would be first order."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is fourth order (Simpson)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.2.1 — trapezoids for ∫ sin x",
+          "note": "Each frame doubles the number of strips; the error drops.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"tr\",\"engine\":\"integrate\",\"rule\":\"trapezoid\",\"f\":\"sin(x)\",\"a\":0,\"b\":3.14159265358979,\"n\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "tr": {
+              "value": "1.974232",
+              "error": "2.58e-2"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "simp",
+      "locator": "4.3",
+      "title": "Simpson’s rule",
+      "eyebrow": "Parabolas",
+      "body": "<p>Fit a parabola through each pair of strips: ∫f ≈ (h/3)[f₀ + 4f₁ + 2f₂ + 4f₃ + … + fₙ], with n even. The error is O(h⁴) and the rule is exact for cubics. Same four intervals: Simpson gives <b>2.00456</b> (error 4.56e-3) — much better than the trapezoid's 1.04e-1.</p>",
+      "worked": [
+        {
+          "toc": "Weights",
+          "why": "n = 4, h = π/4; coefficients 1, 4, 2, 4, 1 on the values 0, .7071, 1, .7071, 0."
+        },
+        {
+          "toc": "Area",
+          "why": "Sum.",
+          "math": "\\tfrac{h}{3}(0+4(.7071)+2(1)+4(.7071)+0)=2.0046",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "evenn",
+          "prompt": "Simpson’s 1/3 rule requires…",
+          "choices": [
+            {
+              "text": "An odd number."
+            },
+            {
+              "text": "An even number of subintervals.",
+              "correct": true
+            },
+            {
+              "text": "Equal function values."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That breaks the pairing."
+            },
+            {
+              "title": "Correct.",
+              "body": "Parabolas span pairs of strips."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.3.1 — Simpson’s 1/3 rule",
+          "note": "Parabolic arcs follow the curve closely.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sp\",\"engine\":\"integrate\",\"rule\":\"simpson\",\"f\":\"sin(x)\",\"a\":0,\"b\":3.14159265358979,\"n\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "sp": {
+              "value": "2.000269",
+              "error": "2.69e-4"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-simp",
+          "prompt": "<p>Approximate ∫₀^π sin x dx with n = 4 using the trapezoid and Simpson rules. Compare with 2.</p>",
+          "answer": "Trapezoid <b>1.896119</b> (error 1.04e-1); Simpson <b>2.00456</b> (error 4.56e-3).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "Simpson at n = 4.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"integrate\",\"rule\":\"simpson\",\"f\":\"sin(x)\",\"a\":0,\"b\":3.14159265358979,\"n\":4,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "value": "2.00456",
+                "error": "4.56e-3"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "romberg",
+      "locator": "4.4",
+      "title": "Richardson extrapolation and Romberg",
+      "eyebrow": "Getting more from two estimates",
+      "body": "<p>If the trapezoid error is C·h², then from estimates T(h) and T(h/2): better = [4T(h/2) − T(h)]/3 cancels the h² term. Repeating gives Romberg integration, a triangle of ever better values. Note that one extrapolation of the trapezoid rule equals Simpson's rule.</p>",
+      "worked": [
+        {
+          "toc": "Two estimates",
+          "why": "T(π/2) = 1.5708 (n = 2) and T(π/4) = 1.8961 (n = 4)."
+        },
+        {
+          "toc": "Improved",
+          "why": "Extrapolate.",
+          "math": "\\tfrac{4(1.8961)-1.5708}{3}=2.0046",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rich",
+          "prompt": "Richardson extrapolation of two trapezoid estimates gives…",
+          "choices": [
+            {
+              "text": "Simpson’s rule.",
+              "correct": true
+            },
+            {
+              "text": "The midpoint rule."
+            },
+            {
+              "text": "The exact answer."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "(4T(h/2) − T(h))/3."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the same."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only approximately better."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gauss",
+      "locator": "4.5",
+      "title": "Gauss quadrature (idea)",
+      "eyebrow": "Choosing the points too",
+      "body": "<p>Newton–Cotes rules fix equally spaced nodes. Gaussian quadrature chooses both nodes and weights: an n-point rule is exact for polynomials up to degree 2n − 1. The two-point rule on [−1, 1] uses nodes ±1/√3 with weights 1 and 1.</p>",
+      "worked": [
+        {
+          "toc": "Sum",
+          "why": "Integrate x² on [−1, 1] by the 2-point Gauss rule.",
+          "math": "1\\cdot\\tfrac13+1\\cdot\\tfrac13"
+        },
+        {
+          "toc": "Exact",
+          "why": "= 2/3, the exact value.",
+          "math": "\\tfrac23",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "gq",
+          "prompt": "The 2-point Gauss rule is exact for polynomials up to degree…",
+          "choices": [
+            {
+              "text": "1."
+            },
+            {
+              "text": "3.",
+              "correct": true
+            },
+            {
+              "text": "2."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Trapezoid manages that."
+            },
+            {
+              "title": "Correct.",
+              "body": "2n − 1 = 3."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Simpson manages 3 as well."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Central difference O(h²); trapezoid O(h²); Simpson O(h⁴), n even.</li><li>Extrapolate to cancel leading error terms.</li></ul>"
+    }
+  ]
+}

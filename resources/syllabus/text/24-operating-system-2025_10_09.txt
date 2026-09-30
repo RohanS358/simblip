@@ -1,0 +1,130 @@
+                            OPERATING SYSTEM
+                                     ENCT 254
+
+Lecture       :3                                                             Year : II
+Tutorial      :1                                                             Part : II
+Practical     : 3/2
+
+Course Objectives:
+The objective of this course is to familiarize students with the different aspects of
+operating systems and encourage them to use these ideas in designing operating
+systems.
+
+1    Introduction                                                         (6 hours)
+     1.1    Introduction to operating systems
+     1.2    OS as an extended machine and resource manager
+     1.3    History of operating system
+     1.4    Type of operating system: Mainframe, server, personal, smartphone and
+            handheld, IOT and embedded, real-time, smart-card
+     1.5    Operating system components: Kernel, shell, utilities, applications
+     1.6    Types of OS kernel: Monolithic, micro, nano, layered, hybrid, exo-kernel
+     1.7    System calls, shell commands, shell programming
+     1.8    POSIX standard
+     1.9    Bootloader, MBR/GPT, UEFI and legacy boot
+
+2    Process Management                                                   (7 hours)
+     2.1    Process description, states and control
+     2.2    Scheduling algorithms
+            2.2.1 First Come First Serve (FCFS)
+            2.2.2 Shortest Job First (SJF)
+            2.2.3 Shortest Remaining Time(SRT)
+            2.2.4 Round Robin (RR)
+            2.2.5 Highest Response Ratio Next (HRNN)
+            2.2.6 Completely Fair Scheduler (CFS) used in Linux
+     2.3    Threads and thread scheduling
+
+3    Process Communication and Synchronization                            (10 hours)
+     3.1    Principles of concurrency, race condition, critical region
+     3.2    Mutual exclusion, semaphores, and mutex
+     3.3    Message passing and monitors
+     3.4    Classical problems of synchronization: Readers-writers problem, producer-
+            consumer problem, dining philosopher problem
+     3.5    Deadlock: Prevention, ignorance, avoidance, detection and recovery
+4   I/O and Memory Management                                           (9 hours)
+    4.1   I/O management
+          4.1.1 Principles of I/O hardware and software
+          4.1.2 I/O software layer
+          4.1.3 Disk technologies: Magnetic disk, SSD, NVMe storage
+          4.1.4 RAID
+          4.1.5 Concept of stable storage, cost per bit comparison
+    4.2   Memory Management
+          4.2.1 Memory address, swapping and managing free memory space
+          4.2.2 Virtual memory management, paging, segmentation
+          4.2.3 Page replacement algorithms (FIFO, LRU, LFU), page fault and hit
+                ratio
+          4.2.4 Allocation of frames
+          4.2.5 Thrashing
+
+5   File Systems                                                        (3 hours)
+    5.1   File concepts: Name, structure, types, access, attributes, operations
+    5.2   Directory structures: Paths and hierarchies (Linux/Windows)
+    5.3   File system implementation: Inodes, allocation methods (Contiguous,
+          linked, indexed)
+    5.4   File system performance: Factors affecting efficiency
+    5.5   Example file systems: NTFS, EXT4, FAT32, NFS
+
+6   Security and System Administration                                  (3 hours)
+    6.1   OS security: Cryptography, multi-factor authentication (MFA), secure boot
+          and sandboxing
+    6.2   Access control: Policies, lists, and OS support
+    6.3    System administration: User management, environment setup and tools
+          (AWK, shell scripts, make)
+
+7   Hypervisors and Virtual Systems                                     (4 hours)
+    7.1   Hypervisors: Type 1 and type 2
+    7.2   Virtual machines: Creating virtual machine in Qemu/Virtual box/VMWare
+    7.3   Container virtualization: Docker and Kubernetes
+    7.4   Power shell and windows subsystem for LINUX (WSL)
+    7.5   Performance optimization and security in virtualized environments
+
+8   Overview of Contemporary OS                                         (3 hours)
+    8.1   Windows and Linux-based OS
+    8.2   Embedded and mobile OS
+    8.3   IoT and RT operating system
+    8.4   Robot and smart card operating system
+Tutorial                                                                (15 hours)
+    1.        Unix shell programs to do a variety of tasks
+    2.        Problems on scheduling algorithms
+    3.        Problems on page replacement algorithms
+    4.        Problems on deadlock
+    5.        Problems on segmentation and paging
+    6.        Comprehensive study on storage technologies with cost/bit and speed
+              comparisons
+    7.        Study on process management/memory management/IO management/
+              security/file system of a selected OS
+
+Practical                                                                  (22.5 hours)
+    1.        Basic Unix commands
+    2.        Shell Programming
+    3.        Implementation of the ls and grep commands
+    4.        Programs using the I/O system calls of the UNIX operating system
+    5.        Implementation of scheduling algorithms and the producer-consumer
+              problem using semaphores
+    6.        Implementation of some memory management schemes such as paging
+              and segmentation
+    7.        Term Project
+
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+
+
+           Chapter                   Hours                   Marks Distribution*
+             1                        6                               8
+             2                        7                              10
+             3                       10                              13
+             4                        9                              12
+             5                        3                               4
+             6                        3                               4
+             7                        4                               5
+             8                        3                               4
+           Total                     45                              60
+           * There may be minor deviation in marks distribution.
+
+Reference
+    1.    Tanenbaum, A.S., Bos, H. (2024). Modern Operating Systems .3rd Edition.
+          PHI.
+    2.    Stalling, W. (2008). Operating Systems. 6th Edition. Pearson Education.
+    3.    Chaturvedi, A., Rai, B.L. (2017). UNIX and Shell Programming. University
+          Science Press.
+

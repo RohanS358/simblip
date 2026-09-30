@@ -487,3 +487,19 @@ update simblip_file_blobs set size_bytes = octet_length(data) where size_bytes =
 --   • The `simblip-session` storage bucket becomes simblip_session_files
 --     (ephemeral; safe to start empty).
 -- ═══════════════════════════════════════════════════════════════════════════
+
+-- ── 004 · policy indexes (see db/migrations/004-policy-indexes.sql) ────────
+create index if not exists simblip_room_members_profile_idx
+  on simblip_room_members (profile_id);
+
+create index if not exists simblip_submissions_student_idx
+  on simblip_submissions (student_id);
+create index if not exists simblip_submissions_assignment_idx
+  on simblip_submissions (assignment_id);
+
+create index if not exists simblip_assignments_teacher_idx
+  on simblip_assignments (teacher_id);
+create index if not exists simblip_board_sessions_teacher_idx
+  on simblip_board_sessions (teacher_id);
+create index if not exists simblip_shares_sender_idx
+  on simblip_shares (sender_id);

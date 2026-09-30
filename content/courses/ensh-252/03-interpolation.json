@@ -1,0 +1,284 @@
+{
+  "title": "Polynomial interpolation",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 3",
+  "subtitle": "Given a handful of measurements, find a curve through all of them and read values in between.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "3.1",
+      "title": "The interpolation problem",
+      "eyebrow": "Filling gaps",
+      "body": "<p>Given points (x₀,y₀)…(xₙ,yₙ) find a function p with p(xᵢ) = yᵢ, then use it to estimate values between the points. Exactly one polynomial of degree ≤ n passes through n+1 points with distinct x’s — every method (Lagrange, Newton, divided differences) finds the <em>same</em> polynomial in a different form.</p>",
+      "questions": [
+        {
+          "id": "uniq",
+          "prompt": "How many polynomials of degree ≤ 3 pass through 4 points with distinct x?",
+          "choices": [
+            {
+              "text": "Infinitely many."
+            },
+            {
+              "text": "None, in general."
+            },
+            {
+              "text": "Exactly one.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That holds for degree > 3."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "One always exists."
+            },
+            {
+              "title": "Correct.",
+              "body": "The interpolating polynomial is unique."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lag",
+      "locator": "3.2",
+      "title": "Lagrange form",
+      "eyebrow": "Weighted blend",
+      "body": "<p>P(x) = Σ yᵢ·Lᵢ(x), where Lᵢ(x) = ∏<sub>j≠i</sub> (x − xⱼ)/(xᵢ − xⱼ) equals 1 at xᵢ and 0 at all other nodes. Simple to write, awkward to extend: adding a point changes every term. For the points (0,1), (1,3), (2,2), (3,5) the value at x = 1.5 is <b>2.4375</b>.</p>",
+      "worked": [
+        {
+          "toc": "Two points",
+          "why": "Linear interpolation between (1, 3) and (2, 2) at x = 1.5.",
+          "math": "P(1.5)=3+\\frac{1.5-1}{2-1}(2-3)"
+        },
+        {
+          "toc": "Compare",
+          "why": "= 2.5 — the cubic through all four points gives a different value, using more information.",
+          "math": "\\text{cubic}: 2.4375",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "basis",
+          "prompt": "The Lagrange basis polynomial Lᵢ(xᵢ) equals…",
+          "choices": [
+            {
+              "text": "1, and 0 at every other node.",
+              "correct": true
+            },
+            {
+              "text": "0 at xᵢ."
+            },
+            {
+              "text": "xᵢ."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That is why yᵢLᵢ reproduces yᵢ at xᵢ."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.2.1 — building the polynomial",
+          "note": "Each frame adds a point and raises the degree.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lag\",\"engine\":\"interp\",\"points\":\"0,1;1,3;2,2;3,5\",\"at\":1.5,\"width\":600,\"height\":440});",
+          "expect": {
+            "lag": {
+              "value": "2.4375",
+              "degree": "3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "newton",
+      "locator": "3.3",
+      "title": "Newton divided differences",
+      "eyebrow": "Easy to extend",
+      "body": "<p>P(x) = c₀ + c₁(x − x₀) + c₂(x − x₀)(x − x₁) + … The coefficients cₖ are divided differences f[x₀…xₖ] computed in a triangle: f[xᵢ,xᵢ₊₁] = (yᵢ₊₁ − yᵢ)/(xᵢ₊₁ − xᵢ), then differences of differences. A new point only adds one term. The value at 1.5 is the same, <b>2.4375</b>.</p>",
+      "worked": [
+        {
+          "toc": "First",
+          "why": "Points (0,1), (1,3), (2,2). First differences: (3−1)/1 = 2 and (2−3)/1 = −1.",
+          "math": "f[0,1]=2,\\ f[1,2]=-1"
+        },
+        {
+          "toc": "Second",
+          "why": "Second difference: (−1 − 2)/(2 − 0).",
+          "math": "f[0,1,2]=-1.5"
+        },
+        {
+          "toc": "Polynomial",
+          "why": "P(x) = 1 + 2x − 1.5x(x − 1). Check P(2) = 1 + 4 − 3 = 2 ✓.",
+          "math": "P(x)=1+2x-1.5x(x-1)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "addpt",
+          "prompt": "What is the advantage of Newton’s form?",
+          "choices": [
+            {
+              "text": "It is more accurate than Lagrange."
+            },
+            {
+              "text": "Adding a data point adds one term without recomputing the others.",
+              "correct": true
+            },
+            {
+              "text": "It needs equally spaced points."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Same polynomial."
+            },
+            {
+              "title": "Correct.",
+              "body": "The earlier coefficients are unchanged."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not required."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-int",
+          "prompt": "<p>Interpolate the value at x = 1.5 through (0,1), (1,3), (2,2), (3,5).</p>",
+          "answer": "<b>2.4375</b> (Lagrange and Newton agree: 2.4375).",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "The fit.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"interp\",\"points\":\"0,1;1,3;2,2;3,5\",\"at\":1.5,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "value": "2.4375"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "err",
+      "locator": "3.4",
+      "title": "Error and the trouble with high degree",
+      "eyebrow": "Caveats",
+      "body": "<p>The error at x is f⁽ⁿ⁺¹⁾(ξ)/(n+1)! · ∏(x − xᵢ): small when the nodes are close to x and the function is smooth. Using many equally spaced nodes can make things worse near the ends (Runge’s phenomenon), so practice uses low-degree pieces (splines) or Chebyshev nodes instead of one high-degree polynomial.</p>",
+      "questions": [
+        {
+          "id": "runge",
+          "prompt": "Why avoid one high-degree polynomial through many equally spaced points?",
+          "choices": [
+            {
+              "text": "It can oscillate wildly near the ends (Runge’s phenomenon).",
+              "correct": true
+            },
+            {
+              "text": "It is too slow to evaluate."
+            },
+            {
+              "text": "It cannot pass through the points."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Piecewise low-degree splines behave better."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It does."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "spl",
+      "locator": "3.5",
+      "title": "Piecewise linear and splines",
+      "eyebrow": "Practical choices",
+      "body": "<p>Join the points with straight segments (piecewise linear: continuous, corners at the data) or with cubic pieces matching slope and curvature at each point (cubic spline: smooth). Tables of trigonometric values use linear interpolation between entries; drawing programs use splines.</p>",
+      "worked": [
+        {
+          "toc": "Table",
+          "why": "sin 30° = 0.5000 and sin 40° = 0.6428 from a table. Estimate sin 34°."
+        },
+        {
+          "toc": "Estimate (true 0.5592)",
+          "why": "Linear interpolation.",
+          "math": "0.5+\\tfrac{4}{10}(0.1428)=0.5571",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lin",
+          "prompt": "Linear interpolation between table entries is exact when the function is…",
+          "choices": [
+            {
+              "text": "A straight line between them.",
+              "correct": true
+            },
+            {
+              "text": "Any polynomial."
+            },
+            {
+              "text": "Periodic."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Curvature is what introduces error."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only degree 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not sufficient."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>One unique polynomial of degree ≤ n through n+1 points; Lagrange and Newton are two forms.</li><li>Use low-degree pieces for many points.</li></ul>"
+    }
+  ]
+}

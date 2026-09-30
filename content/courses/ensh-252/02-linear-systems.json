@@ -1,0 +1,303 @@
+{
+  "title": "Gauss elimination, Jacobi and Gauss–Seidel",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 2",
+  "subtitle": "Solving Ax = b two ways: a fixed number of steps (direct), or creeping closer each pass (iterative).",
+  "sections": [
+    {
+      "id": "gauss",
+      "locator": "2.1",
+      "title": "Gaussian elimination",
+      "eyebrow": "Direct",
+      "body": "<p>Write the system as an augmented matrix [A | b]. <em class=\"term\">Forward elimination</em> subtracts multiples of a pivot row to put zeros below the diagonal, giving an upper-triangular system; <em class=\"term\">back-substitution</em> then solves from the last unknown upward. Cost ≈ n³/3 multiplications. For 2x + y − z = 8, −3x − y + 2z = −11, −2x + y + 2z = −3 the solution is x, y, z = <b>2 3 -1</b>.</p>",
+      "worked": [
+        {
+          "toc": "Multiplier",
+          "why": "Eliminate x from row 2 using row 1: multiplier m = −3/2 (after any row swap).",
+          "math": "R_2\\leftarrow R_2-m R_1"
+        },
+        {
+          "toc": "Solution",
+          "why": "Back-substitute: the last row gives z = −1, then y = 3, then x = 2.",
+          "math": "x=2,\\ y=3,\\ z=-1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "piv",
+          "prompt": "Why swap rows to use the largest available pivot?",
+          "choices": [
+            {
+              "text": "It reduces round-off error and avoids dividing by zero or a tiny number.",
+              "correct": true
+            },
+            {
+              "text": "It makes the matrix symmetric."
+            },
+            {
+              "text": "It changes the solution."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "This is partial pivoting."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the purpose."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Row swaps do not change it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.1.1 — Gaussian elimination with pivoting",
+          "note": "Amber cells are being eliminated; blue is the active row.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"g\",\"engine\":\"gauss\",\"width\":600,\"height\":440});",
+          "expect": {
+            "g": {
+              "solution": "2 3 -1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sing",
+      "locator": "2.2",
+      "title": "When elimination fails",
+      "eyebrow": "Singular systems",
+      "body": "<p>If a zero pivot remains after pivoting, the matrix is singular: the system has no solution or infinitely many. x + y = 2, 2x + 2y = 4 has infinitely many (the rows are dependent); x + y = 2, x + y = 3 has none. Ill-conditioned systems (nearly singular) give wildly different answers for tiny changes in the data — a property of the problem, not the method.</p>",
+      "questions": [
+        {
+          "id": "zero",
+          "prompt": "A zero pivot that cannot be removed by row swaps indicates…",
+          "choices": [
+            {
+              "text": "A coding bug."
+            },
+            {
+              "text": "A large solution."
+            },
+            {
+              "text": "A singular matrix — no unique solution.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is mathematics."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "The rows are linearly dependent."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-g",
+          "prompt": "<p>Solve 2x + y − z = 8, −3x − y + 2z = −11, −2x + y + 2z = −3 by Gaussian elimination.</p>",
+          "answer": "x, y, z = <b>2 3 -1</b>.",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "Step through the elimination.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"gauss\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "solution": "2 3 -1"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "iter",
+      "locator": "2.3",
+      "title": "Jacobi and Gauss–Seidel",
+      "eyebrow": "Iterative",
+      "body": "<p>For large sparse systems iteration is cheaper. Solve each equation for its own unknown: xᵢ = (bᵢ − Σⱼ≠ᵢ aᵢⱼxⱼ)/aᵢᵢ. <em class=\"term\">Jacobi</em> updates every unknown from the <em>previous</em> iterate; <em class=\"term\">Gauss–Seidel</em> uses each new value immediately, usually converging about twice as fast. Both converge if the matrix is <em class=\"term\">diagonally dominant</em> (|aᵢᵢ| &gt; Σ|aᵢⱼ| on every row). For 10x − y + 2z = 6, −x + 11y − z = 25, 2x − y + 10z = −11 (dominant: <b>yes</b>) the answer is <b>1.04327 2.26923 -1.08173</b> after 12 Gauss–Seidel sweeps.</p>",
+      "questions": [
+        {
+          "id": "dom",
+          "prompt": "Diagonal dominance guarantees…",
+          "choices": [
+            {
+              "text": "Convergence of Jacobi and Gauss–Seidel.",
+              "correct": true
+            },
+            {
+              "text": "A solution in one step."
+            },
+            {
+              "text": "That the matrix is symmetric."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is a sufficient (not necessary) condition."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Iteration still takes many steps."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.3.1 — Jacobi",
+          "note": "Jacobi: all updates from the old values.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"jac\",\"engine\":\"iterative\",\"method\":\"jacobi\",\"iterations\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "jac": {
+              "x": "1.04328 2.26922 -1.08171",
+              "dominant": "yes"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 2.3.2 — Gauss–Seidel",
+          "note": "Gauss–Seidel: new values used at once.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"gs\",\"engine\":\"iterative\",\"method\":\"seidel\",\"iterations\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "gs": {
+              "x": "1.04327 2.26923 -1.08173"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmp",
+      "locator": "2.4",
+      "title": "Direct versus iterative",
+      "eyebrow": "Choosing",
+      "body": "<p>Direct methods (elimination, LU) give an answer after a fixed amount of work and handle any non-singular matrix, but cost O(n³) and fill in zeros. Iterative methods cost O(n) per sweep for sparse matrices and can stop at the accuracy you need, but may not converge. Real solvers use LU for moderate sizes and preconditioned Krylov methods for huge sparse ones.</p>",
+      "worked": [
+        {
+          "toc": "Sparse",
+          "why": "A system with n = 10 000 unknowns, 5 non-zeros per row."
+        },
+        {
+          "toc": "Cost",
+          "why": "One Gauss–Seidel sweep ≈ 5×10⁴ operations; elimination ≈ n³/3 ≈ 3×10¹¹. Even 100 sweeps are far cheaper.",
+          "math": "5\\times10^4\\ \\text{vs}\\ 3\\times10^{11}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sparse",
+          "prompt": "For a huge sparse system an iterative method is attractive because…",
+          "choices": [
+            {
+              "text": "It always converges."
+            },
+            {
+              "text": "It is exact."
+            },
+            {
+              "text": "Each sweep costs little and preserves sparsity.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It needs conditions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is approximate."
+            },
+            {
+              "title": "Correct.",
+              "body": "Elimination fills in the zeros."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lu",
+      "locator": "2.5",
+      "title": "LU factorisation",
+      "eyebrow": "Reusing the work",
+      "body": "<p>Gaussian elimination records its multipliers: A = LU with L lower-triangular (multipliers below a unit diagonal) and U the upper-triangular result. To solve Ax = b: solve Ly = b by forward substitution, then Ux = y by back-substitution. Factor once, then solve for many right-hand sides cheaply.</p>",
+      "worked": [
+        {
+          "toc": "L",
+          "why": "A = [[2, 1], [4, 5]]. Multiplier m₂₁ = 4/2 = 2.",
+          "math": "L=\\begin{pmatrix}1&0\\\\2&1\\end{pmatrix}"
+        },
+        {
+          "toc": "U",
+          "why": "Eliminate: row 2 − 2·row 1 gives [0, 3].",
+          "math": "U=\\begin{pmatrix}2&1\\\\0&3\\end{pmatrix}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lu",
+          "prompt": "The entries of L below the diagonal are…",
+          "choices": [
+            {
+              "text": "The pivots."
+            },
+            {
+              "text": "The elimination multipliers.",
+              "correct": true
+            },
+            {
+              "text": "The solution."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Those are U’s diagonal."
+            },
+            {
+              "title": "Correct.",
+              "body": "They record what was subtracted."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Elimination + pivoting is direct; Jacobi/Seidel iterate and need diagonal dominance.</li><li>LU reuses the work across right-hand sides.</li></ul>"
+    }
+  ]
+}

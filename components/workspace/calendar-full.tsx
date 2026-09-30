@@ -60,6 +60,7 @@ import {
 } from '@/lib/calendar/events.mjs'
 import { useSpring } from '@/lib/motion'
 import { Switch } from '@/components/ui/switch'
+import { DatePicker, TimePicker } from './date-time-pickers'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import {
   eventColor,
@@ -315,27 +316,17 @@ function EventEditor({ draft: initial, onClose }: { draft: Draft; onClose: () =>
       <span className="w-12 shrink-0 text-ui-sm">{label}</span>
       <div className="flex min-w-0 flex-1 flex-col items-end gap-0.5">
         <div className="flex items-center gap-1.5">
-          <input
-            type="date"
-            required
+          <DatePicker
             value={d[dateKey]}
-            onChange={(e) => {
-              const v = e.target.value
-              if (!v) return
+            onChange={(v) => {
               // Moving the start drags the end along, keeping the length.
               if (dateKey === 'date')
                 set({ date: v, endDate: addDays(v, Math.max(0, dayNum(d.endDate) - dayNum(d.date))) })
               else set({ endDate: v < d.date ? d.date : v })
             }}
-            className={cn(FIELD, 'w-auto py-1 tabular-nums')}
           />
           {!d.allDay && (
-            <input
-              type="time"
-              value={d[timeKey]}
-              onChange={(e) => e.target.value && set({ [timeKey]: e.target.value })}
-              className={cn(FIELD, 'w-auto py-1 tabular-nums')}
-            />
+            <TimePicker value={d[timeKey]} onChange={(v) => set({ [timeKey]: v })} label={timeKey === 'time' ? 'Start time' : 'End time'} />
           )}
         </div>
         <span className="text-ui-2xs text-muted-foreground">
@@ -1282,14 +1273,7 @@ function DayPanel({
               className={cn(FIELD, 'min-w-0 flex-1')}
               aria-label="Note title"
             />
-            <input
-              type="time"
-              value={noteTime}
-              onChange={(e) => setNoteTime(e.target.value)}
-              className={cn(FIELD, 'w-auto tabular-nums')}
-              aria-label="Time (optional)"
-              title="Time (optional)"
-            />
+            <TimePicker value={noteTime} onChange={setNoteTime} label="Time (optional)" />
           </div>
           <button
             type="button"
@@ -1354,6 +1338,8 @@ function CalendarScreen() {
     const onKey = (e: KeyboardEvent) => {
       const typing = (e.target as HTMLElement)?.closest('input, textarea, select, [contenteditable]')
       if (e.key === 'Escape') {
+        // An open date/time picker takes the key: it closes, the editor stays.
+        if (document.querySelector('[data-slot=popover-content][data-state=open]')) return
         e.stopImmediatePropagation()
         if (draftRef.current) setDraft(null)
         else if (panelRef.current) setDayPanel(null)

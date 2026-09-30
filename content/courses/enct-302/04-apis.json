@@ -1,0 +1,287 @@
+{
+  "title": "REST APIs and JSON",
+  "kicker": "ENCT 302 · Web Application Programming · Chapter 4",
+  "subtitle": "An API is a contract between programs: what to ask, in what shape, and what comes back.",
+  "sections": [
+    {
+      "id": "rest",
+      "locator": "4.1",
+      "title": "REST principles",
+      "eyebrow": "Resources and verbs",
+      "body": "<p><em class=\"term\">REST</em> models an API as <b>resources</b> with URLs (<code>/books</code>, <code>/books/7</code>) and uses HTTP methods as verbs: GET read, POST create, PUT replace, PATCH change, DELETE remove. Stateless requests; standard status codes (201 Created, 400 Bad Request, 401 Unauthorized, 404 Not Found). Nouns in URLs, not verbs: <code>DELETE /books/7</code>, not <code>/deleteBook</code>.</p>",
+      "questions": [
+        {
+          "id": "rs",
+          "prompt": "Which is RESTful for deleting book 7?",
+          "choices": [
+            {
+              "text": "GET /deleteBook?id=7."
+            },
+            {
+              "text": "POST /books/remove."
+            },
+            {
+              "text": "DELETE /books/7.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Verb in the URL, unsafe GET."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not resource-oriented."
+            },
+            {
+              "title": "Correct.",
+              "body": "Verb is the method; noun is the URL."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "json",
+      "locator": "4.2",
+      "title": "JSON",
+      "eyebrow": "The data format",
+      "body": "<p>JSON is text for objects, arrays, strings, numbers, booleans and null: <code>{\"id\": 7, \"title\": \"SICP\", \"tags\": [\"cs\"]}</code>. <code>JSON.stringify</code> / <code>JSON.parse</code> convert. Keys are quoted with double quotes; no trailing commas, no comments.</p>",
+      "questions": [
+        {
+          "id": "js",
+          "prompt": "Which is valid JSON?",
+          "choices": [
+            {
+              "text": "{\"a\": 1}",
+              "correct": true
+            },
+            {
+              "text": "{a: 1}"
+            },
+            {
+              "text": "{'a': 1}"
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Double-quoted key."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unquoted key."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Single quotes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crud",
+      "locator": "4.3",
+      "title": "A CRUD conversation",
+      "eyebrow": "Create, read, update, delete",
+      "body": "<p>Creating returns 201 and the new resource; reading returns 200; updating returns 200 or 204; deleting 204; a missing id 404.</p>",
+      "questions": [
+        {
+          "id": "c201",
+          "prompt": "A successful POST that creates a resource returns…",
+          "choices": [
+            {
+              "text": "404."
+            },
+            {
+              "text": "201 Created.",
+              "correct": true
+            },
+            {
+              "text": "301."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not found."
+            },
+            {
+              "title": "Correct.",
+              "body": "With the new resource or its URL."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Redirect."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.3.1 — CRUD over HTTP",
+          "note": "The same URL changes meaning with the method.",
+          "script": "diagram(\"mode: sequence\\n[Client] as c\\n[API] as a\\n[DB] as d\\nc -> a : POST /books {title}\\na -> d : INSERT\\nd --> a : id 7\\na --> c : 201 Created {id 7}\\nc -> a : GET /books/7\\na --> c : 200 {id 7, title}\\nc -> a : DELETE /books/7\\na --> c : 204 No Content\\n@0 c -> a : POST /books {title}\\n@1 a -> d : INSERT\\n@2 d -> a : id 7\\n@3 a -> c : 201 Created {id 7}\\n@4 c -> a : GET /books/7\\n@5 a -> c : 200 {id 7, title}\\n@6 c -> a : DELETE /books/7\\n@7 a -> c : 204 No Content\");"
+        }
+      ]
+    },
+    {
+      "id": "idem",
+      "locator": "4.4",
+      "title": "Idempotence and safety",
+      "eyebrow": "Retry rules",
+      "body": "<p>Safe methods (GET) change nothing. Idempotent methods (GET, PUT, DELETE) give the same final state if repeated; POST is not — retrying it may create two orders. Use an idempotency key for payments.</p>",
+      "worked": [
+        {
+          "toc": "Repeat",
+          "why": "PUT /books/7 {title: \"A\"} sent twice."
+        },
+        {
+          "toc": "Result",
+          "why": "Final state is the same both times — it is idempotent.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "idm",
+          "prompt": "Retrying a timed-out POST /orders may…",
+          "choices": [
+            {
+              "text": "Create a duplicate order.",
+              "correct": true
+            },
+            {
+              "text": "Never matter."
+            },
+            {
+              "text": "Always be rejected."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "POST is not idempotent."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It can."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not by default."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "auth",
+      "locator": "4.5",
+      "title": "Authentication for APIs",
+      "eyebrow": "Who is calling?",
+      "body": "<p>Clients send a credential with each request: an API key, or a bearer token in <code>Authorization: Bearer …</code>. OAuth 2.0 lets a user grant an app limited access without sharing a password; JWTs are signed, self-describing tokens (header.payload.signature) the server can verify without a lookup.</p>",
+      "questions": [
+        {
+          "id": "oa",
+          "prompt": "OAuth’s main benefit is…",
+          "choices": [
+            {
+              "text": "Faster databases."
+            },
+            {
+              "text": "No need for HTTPS."
+            },
+            {
+              "text": "Granting limited access without sharing the password.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "HTTPS is mandatory."
+            },
+            {
+              "title": "Correct.",
+              "body": "The user logs in only at the auth server."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 4.5.1 — OAuth code flow",
+          "note": "The app never sees the password.",
+          "script": "diagram(\"mode: sequence\\n[App] as a\\n[User] as u\\n[Auth server] as s\\n[API] as p\\na -> u : redirect to login\\nu -> s : log in and approve\\ns --> a : authorisation code\\na -> s : code for token\\ns --> a : access token\\na -> p : GET /me (Bearer token)\\np --> a : user data\\n@0 a -> u : redirect to login\\n@1 u -> s : log in and approve\\n@2 s -> a : authorisation code\\n@3 a -> s : code for token\\n@4 s -> a : access token\\n@5 a -> p : GET /me (Bearer token)\\n@6 p -> a : user data\");"
+        }
+      ]
+    },
+    {
+      "id": "ver",
+      "locator": "4.6",
+      "title": "Good API design",
+      "eyebrow": "Habits",
+      "body": "<p>Version the API (<code>/v1/</code>); paginate lists (<code>?page=2&amp;limit=20</code>); return consistent error bodies; rate-limit; document with OpenAPI. Status 429 tells a client to slow down.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "1,050 records, 20 per page."
+        },
+        {
+          "toc": "Pages",
+          "why": "Pages = ⌈1050/20⌉.",
+          "math": "53",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pag",
+          "prompt": "Why paginate a list endpoint?",
+          "choices": [
+            {
+              "text": "It hides errors."
+            },
+            {
+              "text": "Bound response size and latency.",
+              "correct": true
+            },
+            {
+              "text": "JSON requires it."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Huge lists are slow."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pg",
+          "prompt": "<p>2,345 records at 50 per page. How many pages?</p>",
+          "answer": "⌈2345/50⌉ = <b>47</b>."
+        }
+      ]
+    }
+  ]
+}

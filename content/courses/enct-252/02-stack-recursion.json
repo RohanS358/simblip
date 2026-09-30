@@ -1,0 +1,303 @@
+{
+  "title": "Stacks, expressions and recursion",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 2",
+  "subtitle": "Last in, first out — and why that is exactly the shape of function calls.",
+  "sections": [
+    {
+      "id": "stack",
+      "locator": "2.1",
+      "title": "The stack ADT",
+      "eyebrow": "LIFO",
+      "body": "<p>A <em class=\"term\">stack</em> allows insertion and removal only at one end, the top: <b>push</b> adds, <b>pop</b> removes, <b>peek</b> reads. The last item pushed is the first popped (LIFO). An array with a <code>top</code> index implements it; overflow (push on full) and underflow (pop on empty) must be checked. All operations are O(1).</p>",
+      "questions": [
+        {
+          "id": "lifo",
+          "prompt": "Push 1, 2, 3 then pop twice. What is on top?",
+          "choices": [
+            {
+              "text": "3."
+            },
+            {
+              "text": "1.",
+              "correct": true
+            },
+            {
+              "text": "2."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It was popped first."
+            },
+            {
+              "title": "Correct.",
+              "body": "3 and 2 leave first; 1 remains."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It was popped second."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 2.1.1 — The stack ADT",
+          "note": "Pushed 10 20 30 40; popped in reverse.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <stack>\\nusing namespace std;\\nint main() {\\n  stack<int> s;\\n  for (int i = 1; i <= 4; i++) s.push(i * 10);\\n  while (!s.empty()) {\\n    cout << s.top() << \\\" \\\";\\n    s.pop();\\n  }\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "40 30 20 10"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "postfix",
+      "locator": "2.2",
+      "title": "Infix to postfix with a stack",
+      "eyebrow": "Expressions",
+      "body": "<p>Humans write <em class=\"term\">infix</em> (A+B) which needs precedence rules; <em class=\"term\">postfix</em> (AB+) does not. To convert: operands go straight to the output; an operator first pops any stacked operator of higher or equal precedence, then is pushed; \"(\" is pushed, \")\" pops until \"(\". At the end pop everything. A+B*C−(D/E) becomes <b>A B C * + D E / -</b>.</p>",
+      "worked": [
+        {
+          "toc": "Method",
+          "why": "Evaluate the postfix of (2+3)*4−6/2 using a stack of numbers: push operands, each operator pops two."
+        },
+        {
+          "toc": "Result",
+          "why": "2 3 + → 5; 5 4 × → 20; 6 2 / → 3; 20 3 − → 17.",
+          "math": "2 3 + 4 * 6 2 / -\\ \\Rightarrow\\ 17",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "prec",
+          "prompt": "In A+B*C, which operator is applied first, and what does the postfix look like?",
+          "choices": [
+            {
+              "text": "+ first; A B + C *."
+            },
+            {
+              "text": "* first; postfix A B C * +.",
+              "correct": true
+            },
+            {
+              "text": "Left to right; A B + C *."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would be (A+B)*C."
+            },
+            {
+              "title": "Correct.",
+              "body": "* has higher precedence, so B and C are multiplied before the addition."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Precedence overrides left-to-right."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.2.1 — infix → postfix",
+          "note": "Stack on the bottom row, output above it.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"inf\",\"engine\":\"infix\",\"expr\":\"A+B*C-(D/E)\",\"width\":600,\"height\":440});",
+          "expect": {
+            "inf": {
+              "postfix": "A B C * + D E / -"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pf",
+          "prompt": "<p>Convert A+B*C−(D/E) to postfix.</p>",
+          "answer": "<b>A B C * + D E / -</b>",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The conversion.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"infix\",\"expr\":\"A+B*C-(D/E)\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "postfix": "A B C * + D E / -"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "rec",
+      "locator": "2.3",
+      "title": "Recursion",
+      "eyebrow": "A function that calls itself",
+      "body": "<p>A <em class=\"term\">recursive</em> function solves a problem by calling itself on a smaller one. It needs a <b>base case</b> (stop) and a step that moves toward it. Each call gets its own frame on the <em class=\"term\">call stack</em>; returns unwind it. Factorial: n! = n × (n−1)!, with 0! = 1. Run it and the Lab shows the stack grow and shrink.</p>",
+      "questions": [
+        {
+          "id": "base",
+          "prompt": "What happens if a recursive function has no base case?",
+          "choices": [
+            {
+              "text": "It returns 0."
+            },
+            {
+              "text": "It recurses until the stack overflows.",
+              "correct": true
+            },
+            {
+              "text": "It runs once."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Nothing returns."
+            },
+            {
+              "title": "Correct.",
+              "body": "Every call makes another call; frames pile up without end."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It keeps calling itself."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp4",
+          "caption": "Figure 2.3.1 — Recursion",
+          "note": "fact(5) makes 5 nested calls, then multiplies on the way back.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint fact(int n) {\\n  if (n <= 1) return 1;\\n  return n * fact(n - 1);\\n}\\nint main() {\\n  cout << fact(5) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "120"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hanoi",
+      "locator": "2.4",
+      "title": "Tower of Hanoi",
+      "eyebrow": "Recursion at its best",
+      "body": "<p>Move <i>n</i> disks from A to C using B, one at a time, never a larger on a smaller. Recursively: move n−1 disks A→B, move the largest A→C, move n−1 disks B→C. The count satisfies T(n) = 2T(n−1) + 1, so T(n) = 2ⁿ − 1. For 4 disks: <b>15</b> moves.</p>",
+      "worked": [
+        {
+          "toc": "Recurrence",
+          "why": "T(1) = 1 and T(n) = 2T(n−1) + 1."
+        },
+        {
+          "toc": "Closed form",
+          "why": "Expanding: T(n) = 2ⁿ − 1.",
+          "math": "T(4)=2^4-1=15",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "hn",
+          "prompt": "Moves needed for 5 disks?",
+          "choices": [
+            {
+              "text": "25."
+            },
+            {
+              "text": "32."
+            },
+            {
+              "text": "31.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not exponential."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "One too many."
+            },
+            {
+              "title": "Correct.",
+              "body": "2⁵ − 1."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 2.4.1 — three disks",
+          "note": "Seven moves for three disks.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"h3\",\"engine\":\"hanoi\",\"disks\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "h3": {
+              "moves": "7"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "iter",
+      "locator": "2.5",
+      "title": "Recursion versus iteration",
+      "eyebrow": "Choosing",
+      "body": "<p>Anything recursive can be written with a loop and an explicit stack. Recursion is natural for trees and divide-and-conquer; it costs stack space and call overhead. <em class=\"term\">Tail recursion</em> (the recursive call is the last action) can be turned into a loop by the compiler. Naive Fibonacci recurses twice and recomputes the same values exponentially — memoisation fixes it.</p>",
+      "questions": [
+        {
+          "id": "fib",
+          "prompt": "Why is naive recursive Fibonacci slow?",
+          "choices": [
+            {
+              "text": "It recomputes the same sub-problems exponentially many times.",
+              "correct": true
+            },
+            {
+              "text": "Recursion is always slow."
+            },
+            {
+              "text": "The base case is missing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "fib(n) calls fib(n−1) and fib(n−2), which overlap heavily."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not always."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It has one."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Stack = LIFO, O(1) push/pop; it underlies calls, undo and expression evaluation.</li><li>Recursion = base case + smaller problem; the call stack holds the frames.</li></ul>"
+    }
+  ]
+}

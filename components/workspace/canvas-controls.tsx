@@ -111,7 +111,7 @@ export function CanvasControls({
   // Phone only — a tablet is a touch device with room for a side dock, so it
   // keeps whatever side you picked. Mirrors `condensed` in toolbar.tsx.
   const isNarrow = useIsNarrow()
-  const condensed = isMobile && isNarrow
+  const condensed = isNarrow
   const dockSide = condensed && (dockPrefs.fixedSide === 'left' || dockPrefs.fixedSide === 'right')
     ? 'bottom'
     : dockPrefs.fixedSide
@@ -141,7 +141,7 @@ export function CanvasControls({
           : 'col-start-3 row-start-2 justify-self-end self-center'
 
   // If in Draggable mode, position is controlled by dragPosition or floating overlay
-  const isDraggable = dockPrefs.positionMode === 'draggable' && !isMobile
+  const isDraggable = dockPrefs.positionMode === 'draggable' && !isMobile && !condensed
 
   // How much app chrome FLOATS over this overlay, and therefore has to be
   // padded around. On the desktop shell the header and the sidebar both paint

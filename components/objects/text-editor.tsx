@@ -78,6 +78,8 @@ export function TiptapArea({
     // hydration mismatch for the editor's DOM.
     immediatelyRender: false,
     editorProps: {
+      // ProseMirror renders role=textbox with no name (axe: aria-input-field-name).
+      attributes: { role: 'textbox', 'aria-label': placeholder ? `Text box: ${placeholder}` : 'Text box', 'aria-multiline': 'true' },
       handleKeyDown: (_view, event) => {
         // Tab indents a list item, but ONLY inside a list. Anywhere else it
         // must stay a focus move: this is a canvas app, not a document

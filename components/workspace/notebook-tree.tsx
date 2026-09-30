@@ -356,7 +356,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               type="button"
               aria-label={isCollapsed ? 'Expand folder' : 'Collapse folder'}
               onClick={() => handlers.toggleCollapsed(node.id)}
-              className="rounded text-muted-foreground transition-transform duration-150 ease-strong active:scale-90"
+              className="hit-24 rounded text-muted-foreground transition-transform duration-150 ease-strong active:scale-90"
             >
               <ChevronRight className={cn('h-3.5 w-3.5 transition-transform', !isCollapsed && 'rotate-90')} />
             </button>
@@ -379,7 +379,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label="New folder"
-                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+                className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   store.getState().addFolder('New Folder', node.id)
@@ -390,7 +390,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label="Add page"
-                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+                className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   handlers.setAddTarget({ parentId: node.id })
@@ -401,7 +401,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label="Rename"
-                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+                className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   handlers.setRenaming(node.id)
@@ -412,7 +412,7 @@ function FolderRow({ node, depth, handlers }: { node: FolderNode; depth: number;
               <button
                 type="button"
                 aria-label={`Delete ${isNotebook ? 'notebook' : 'folder'}`}
-                className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
+                className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
                 onClick={(e) => {
                   e.stopPropagation()
                   store.getState().removeNode(node.id)
@@ -565,7 +565,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             <button
               type="button"
               aria-label="Rename"
-              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+              className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 handlers.setRenaming(node.id)
@@ -576,7 +576,7 @@ function PageRow({ node, depth, handlers }: { node: PageNode; depth: number; han
             <button
               type="button"
               aria-label="Delete page"
-              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
+              className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 store.getState().removeNode(node.id)
@@ -739,7 +739,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             <button
               type="button"
               aria-label="Rename"
-              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+              className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 handlers.setRenaming(node.id)
@@ -750,7 +750,7 @@ function FileRow({ node, depth, handlers }: { node: FileNode; depth: number; han
             <button
               type="button"
               aria-label="Delete file"
-              className="rounded p-0.5 text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
+              className="hit-24 rounded text-muted-foreground transition-[color,background-color,transform] duration-150 ease-strong hover:bg-destructive/10 hover:text-destructive active:scale-90"
               onClick={(e) => {
                 e.stopPropagation()
                 store.getState().removeNode(node.id)

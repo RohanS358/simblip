@@ -1,0 +1,276 @@
+{
+  "title": "JavaScript, the DOM and the event loop",
+  "kicker": "ENCT 302 · Web Application Programming · Chapter 2",
+  "subtitle": "JavaScript runs one thing at a time — yet handles clicks, timers and network replies. The event loop is the trick.",
+  "sections": [
+    {
+      "id": "lang",
+      "locator": "2.1",
+      "title": "The language in brief",
+      "eyebrow": "Basics",
+      "body": "<p>Variables: <code>let</code>, <code>const</code> (block-scoped; prefer const). Types: number, string, boolean, null, undefined, object, array, function. Functions are values: <code>const add = (a, b) =&gt; a + b</code>. Use <code>===</code>, not <code>==</code>, to avoid coercion surprises (<code>0 == '0'</code> is true).</p>",
+      "questions": [
+        {
+          "id": "eq",
+          "prompt": "0 === \"0\" is…",
+          "choices": [
+            {
+              "text": "true."
+            },
+            {
+              "text": "An error."
+            },
+            {
+              "text": "false.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is == behaviour."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No error."
+            },
+            {
+              "title": "Correct.",
+              "body": "Strict equality compares type too."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dom",
+      "locator": "2.2",
+      "title": "The DOM and events",
+      "eyebrow": "Changing the page",
+      "body": "<p>The <em class=\"term\">DOM</em> is the page as a tree of objects. <code>document.querySelector('#btn')</code> finds a node; <code>el.textContent = …</code> changes it; <code>el.addEventListener('click', fn)</code> reacts. Events <b>bubble</b> up from the target to ancestors, so one listener on a list can handle all its items (event delegation).</p>",
+      "questions": [
+        {
+          "id": "bub",
+          "prompt": "Event bubbling means an event…",
+          "choices": [
+            {
+              "text": "Stays on the target."
+            },
+            {
+              "text": "Goes only to siblings."
+            },
+            {
+              "text": "Travels from the target up through its ancestors.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "So parents can listen."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "loop",
+      "locator": "2.3",
+      "title": "The event loop",
+      "eyebrow": "One thread, many tasks",
+      "body": "<p>JavaScript has one call stack. Slow work (timers, network, I/O) is handed to the browser; when it finishes, a callback is queued. The <em class=\"term\">event loop</em> moves a queued callback onto the stack only when the stack is empty. <b>Microtasks</b> (promise callbacks) run before the next <b>macrotask</b> (timer, event).</p>",
+      "questions": [
+        {
+          "id": "to",
+          "prompt": "`setTimeout(f, 0); console.log(\"a\")` prints…",
+          "choices": [
+            {
+              "text": "“a” first, then f runs.",
+              "correct": true
+            },
+            {
+              "text": "f first."
+            },
+            {
+              "text": "Nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The callback waits until the stack is empty."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is queued, not immediate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Both run."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 2.3.1 — timer and event loop",
+          "note": "A 0 ms timer still waits for the stack to empty.",
+          "script": "diagram(\"mode: sequence\\n[Call stack] as s\\n[Web APIs] as w\\n[Task queue] as q\\ns -> w : setTimeout(cb, 0)\\ns -> s : run remaining code\\nw -> q : timer done, enqueue cb\\nq -> s : stack empty, push cb\\ns -> s : run cb\\n@0 s -> w : setTimeout(cb, 0)\\n@1 s -> s : run remaining code\\n@2 w -> q : timer done, enqueue cb\\n@3 q -> s : stack empty, push cb\\n@4 s -> s : run cb\");"
+        }
+      ]
+    },
+    {
+      "id": "async",
+      "locator": "2.4",
+      "title": "Promises and async/await",
+      "eyebrow": "Waiting without blocking",
+      "body": "<p>A <code>Promise</code> represents a future value: pending → fulfilled or rejected. <code>await</code> pauses an <code>async</code> function (not the thread) until the promise settles: <code>const res = await fetch(url); const data = await res.json();</code>. Handle failure with <code>try/catch</code>; run independent requests together with <code>Promise.all</code>.</p>",
+      "worked": [
+        {
+          "toc": "Times",
+          "why": "Two independent requests take 300 ms and 200 ms."
+        },
+        {
+          "toc": "Parallel",
+          "why": "Sequential: 500 ms. With Promise.all: the max of the two.",
+          "math": "300\\ \\text{ms}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pall",
+          "prompt": "Promise.all([a, b]) of 300 ms and 200 ms calls takes about…",
+          "choices": [
+            {
+              "text": "300 ms.",
+              "correct": true
+            },
+            {
+              "text": "500 ms."
+            },
+            {
+              "text": "200 ms."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "They run concurrently; total is the slowest."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is sequential."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Must wait for both."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pa",
+          "prompt": "<p>Three independent fetches take 100, 250 and 150 ms. Time with Promise.all vs one after another?</p>",
+          "answer": "Parallel: <b>250 ms</b>; sequential: 500 ms."
+        }
+      ]
+    },
+    {
+      "id": "fetch",
+      "locator": "2.5",
+      "title": "Fetch in action",
+      "eyebrow": "Talking to a server",
+      "body": "<p>A click handler calls <code>fetch('/api/items')</code>, awaits JSON and updates the DOM — no page reload. The browser’s same-origin policy blocks reading responses from other origins unless the server allows it via CORS headers.</p>",
+      "questions": [
+        {
+          "id": "cors",
+          "prompt": "CORS is a rule enforced by…",
+          "choices": [
+            {
+              "text": "The DNS server."
+            },
+            {
+              "text": "The operating system."
+            },
+            {
+              "text": "The browser, based on server headers.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "It protects users across origins."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 2.5.1 — AJAX update",
+          "note": "The page never reloads.",
+          "script": "diagram(\"mode: sequence\\n[User] as u\\n[Browser JS] as j\\n[Server] as s\\nu -> j : click Load\\nj -> s : fetch /api/items\\ns --> j : 200 JSON\\nj -> j : update DOM\\nj --> u : list appears\\n@0 u -> j : click Load\\n@1 j -> s : fetch /api/items\\n@2 s -> j : 200 JSON\\n@3 j -> j : update DOM\\n@4 j -> u : list appears\");"
+        }
+      ]
+    },
+    {
+      "id": "spa",
+      "locator": "2.6",
+      "title": "Frameworks and state",
+      "eyebrow": "Structuring big UIs",
+      "body": "<p>Frameworks (React, Vue, Svelte) describe the UI as a function of <b>state</b>: change the state and the framework updates only the DOM parts that differ (virtual DOM or fine-grained reactivity). Keep state minimal, derive the rest, and lift shared state up to the nearest common parent.</p>",
+      "questions": [
+        {
+          "id": "st",
+          "prompt": "In a component framework the UI is…",
+          "choices": [
+            {
+              "text": "Edited by hand per click."
+            },
+            {
+              "text": "A function of the state.",
+              "correct": true
+            },
+            {
+              "text": "Independent of state."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is manual DOM work."
+            },
+            {
+              "title": "Correct.",
+              "body": "Change state, UI follows."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Then it could not change."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

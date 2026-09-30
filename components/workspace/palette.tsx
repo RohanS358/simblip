@@ -51,6 +51,7 @@ const DOMAINS = [
   { id: "quantum", label: "Quantum", hue: 270 },
   { id: "economics", label: "Economics", hue: 165 },
   { id: "dsa", label: "DSA", hue: 25 },
+  { id: "computing", label: "Computing", hue: 215 },
 ] as const;
 
 type DomainId = (typeof DOMAINS)[number]["id"];

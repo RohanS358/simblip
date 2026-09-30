@@ -1,0 +1,282 @@
+{
+  "title": "Performance and the instruction cycle",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 1",
+  "subtitle": "How to say a computer is “fast” with a number, and what the processor actually does between two ticks.",
+  "sections": [
+    {
+      "id": "orgarch",
+      "locator": "1.1",
+      "title": "Organisation versus architecture",
+      "eyebrow": "Vocabulary",
+      "body": "<p><em class=\"term\">Computer architecture</em> is what a programmer can see: the instruction set, registers, addressing modes and data types. <em class=\"term\">Computer organisation</em> is how it is built to provide that: control signals, buses, cache design, the technology. Two machines with the same architecture (two x86 chips) can have very different organisations — and different speeds.</p><p>A computer is a <em class=\"term\">processor</em> that fetches instructions and data from <em class=\"term\">memory</em>, with <em class=\"term\">I/O</em> to the outside world, joined by a <em class=\"term\">bus</em>. A multi-core processor simply puts several processors on one chip sharing the memory system.</p>",
+      "questions": [
+        {
+          "id": "arch",
+          "prompt": "Two processors run the same programs but one is faster. What differs?",
+          "choices": [
+            {
+              "text": "Architecture."
+            },
+            {
+              "text": "Organisation — same architecture, different implementation.",
+              "correct": true
+            },
+            {
+              "text": "The programs."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A different architecture could not run the same binaries."
+            },
+            {
+              "title": "Correct.",
+              "body": "The instruction set is identical (that is what “same programs” means); speed comes from pipelines, caches and clock rate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The programs are given as identical."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — the von Neumann machine",
+          "note": "The three buses carry addresses, data and control signals.",
+          "script": "diagram(\"direction: right\\n[CPU: control unit + ALU + registers] as cpu #blue\\n[Main memory] as mem #mint\\n[I/O modules] as io #amber\\ncpu -> mem : address bus, data bus\\nmem -> cpu : data\\ncpu -> io : control bus\\nio -> cpu : interrupt\\n@0 cpu -> mem : address\\n@1.2 mem -> cpu : instruction\\n@2.4 cpu -> io : command\\n@3.6 io -> cpu : interrupt\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "cycle",
+      "locator": "1.2",
+      "title": "The instruction cycle",
+      "eyebrow": "The heartbeat",
+      "body": "<p>Every instruction goes through the same loop: <em class=\"term\">fetch</em> it from the address in the program counter, <em class=\"term\">decode</em> what it asks for, <em class=\"term\">execute</em> it (possibly fetching operands and writing a result), then advance the program counter. A jump simply loads a new address into the counter. Interrupts are checked between instructions.</p><p>Watch an Intel 8085 do exactly this: each step is one instruction, the highlighted row is the one about to run, and the registers and flags change beneath.</p>",
+      "questions": [
+        {
+          "id": "pc",
+          "prompt": "After a normal (non-jump) instruction executes, what happens to the program counter?",
+          "choices": [
+            {
+              "text": "It stays at the same address."
+            },
+            {
+              "text": "It is cleared to zero."
+            },
+            {
+              "text": "It is advanced to the next instruction (by the instruction’s length).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Then the same instruction would run forever."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only reset does that."
+            },
+            {
+              "title": "Correct.",
+              "body": "A jump, call or return overwrites it; everything else just steps forward, which is why straight-line code runs in order."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.2.1 — fetch – decode – execute",
+          "note": "Adds 25H + 17H: the result 3CH lands in memory at 2052H.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cpu\",\"engine\":\"cpu8085\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cpu": {
+              "A": "3C",
+              "m2052": "3C",
+              "tstates": "48"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "locator": "1.3",
+      "title": "Measuring performance",
+      "eyebrow": "Numbers",
+      "body": "<p>Execution time = instruction count × <em class=\"term\">CPI</em> (cycles per instruction) × clock period. The clock rate is only one of the three factors; a faster clock with a worse CPI can be slower. <em class=\"term\">MIPS</em> = instruction count / (time × 10⁶) = clock rate / (CPI × 10⁶), but MIPS misleads across different instruction sets.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A 2 GHz processor runs a program of 10⁹ instructions at CPI 1.5."
+        },
+        {
+          "toc": "Execution time",
+          "why": "Cycles = instructions × CPI. Time = cycles / clock.",
+          "math": "t = \\frac{10^9\\times1.5}{2\\times10^9}=0.75\\ \\text{s}",
+          "hero": true
+        },
+        {
+          "toc": "MIPS",
+          "why": "MIPS = clock / (CPI × 10⁶).",
+          "math": "\\text{MIPS}=\\frac{2000}{1.5}\\approx1333"
+        }
+      ],
+      "questions": [
+        {
+          "id": "cpi",
+          "prompt": "A compiler change cuts the instruction count by 20% but raises CPI by 30%. Net effect on time?",
+          "choices": [
+            {
+              "text": "20% faster."
+            },
+            {
+              "text": "No change."
+            },
+            {
+              "text": "Slower by 4%: 0.8 × 1.3 = 1.04.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That ignores the CPI penalty."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "0.8 × 1.3 is not 1."
+            },
+            {
+              "title": "Correct.",
+              "body": "Time scales with the product; a saving in one factor can be eaten by another."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "amdahl",
+      "locator": "1.4",
+      "title": "Amdahl's law",
+      "eyebrow": "Limits",
+      "body": "<p>Speeding up only a fraction <i>f</i> of a program by a factor <i>s</i> gives overall speed-up 1 / ((1 − f) + f/s). The serial part (1 − f) caps everything: even with infinite <i>s</i> the limit is 1/(1 − f). This is why adding cores helps a little for mostly-serial programs.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A program spends 80% of its time in a part that can be made 4× faster.",
+          "math": "f = 0.8,\\ s = 4"
+        },
+        {
+          "toc": "Speed-up",
+          "why": "Apply the law.",
+          "math": "\\text{speed-up}=\\frac{1}{0.2+0.8/4}=\\frac{1}{0.4}=2.5",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cap",
+          "prompt": "If 10% of a program is serial, the maximum speed-up with unlimited processors is…",
+          "choices": [
+            {
+              "text": "10×.",
+              "correct": true
+            },
+            {
+              "text": "Unlimited."
+            },
+            {
+              "text": "90×."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "1 / (1 − f) = 1 / 0.1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The serial part never shrinks."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Confuses the parallel fraction with the speed-up."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A 500 MHz machine executes 10⁸ instructions with a CPI of 2.5. Execution time?</p>",
+          "answer": "Cycles = 2.5 × 10⁸; time = 2.5×10⁸ / 5×10⁸ = <b>0.5 s</b>."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Half of a program is sped up 10×. Overall speed-up?</p>",
+          "answer": "1 / (0.5 + 0.5/10) = 1 / 0.55 ≈ <b>1.82</b>. The untouched half dominates."
+        }
+      ]
+    },
+    {
+      "id": "risc",
+      "locator": "1.5",
+      "title": "RISC and CISC",
+      "eyebrow": "Two philosophies",
+      "body": "<p><em class=\"term\">CISC</em> machines (x86) have many complex, variable-length instructions, some of which do a lot of work. <em class=\"term\">RISC</em> machines (ARM, RISC-V, MIPS) have few, simple, fixed-length instructions, use load/store for all memory access and keep many registers — which makes pipelining easy. Berkeley RISC added <em class=\"term\">overlapped register windows</em>: each procedure gets a window of registers that overlaps its caller's, so parameters are passed without touching memory.</p>",
+      "questions": [
+        {
+          "id": "load",
+          "prompt": "Why do RISC processors allow only load/store instructions to touch memory?",
+          "choices": [
+            {
+              "text": "It keeps every other instruction register-to-register and fixed in duration, which makes pipelining simple.",
+              "correct": true
+            },
+            {
+              "text": "To save registers."
+            },
+            {
+              "text": "Because memory is unreliable."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Uniform timing is the key enabler of a smooth pipeline."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "RISC has more registers, not fewer."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Irrelevant."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 1.5.1 — RISC vs CISC",
+          "note": "Complexity lives in microcode (CISC) or in the compiler (RISC).",
+          "script": "diagram(\"direction: right\\ngroup \\\"CISC\\\" { c1, c2 }\\ngroup \\\"RISC\\\" { r1, r2 }\\n[Few instructions? No: many, complex, variable length] as c1 #amber\\n[Microcode decodes them] as c2 #amber\\n[Few, simple, fixed length] as r1 #mint\\n[Hardwired + pipelined] as r2 #mint\\nc1 -> c2\\nr1 -> r2\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Architecture = visible contract; organisation = implementation.</li><li>Time = instructions × CPI × period.</li><li>Amdahl: the serial fraction limits speed-up.</li><li>The instruction cycle: fetch, decode, execute, repeat.</li></ul>"
+    }
+  ]
+}

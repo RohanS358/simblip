@@ -1,0 +1,270 @@
+{
+  "title": "What simulation is, and Monte Carlo",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 1",
+  "subtitle": "When the real system is too costly, too slow or too dangerous to try, build a model and run that instead.",
+  "sections": [
+    {
+      "id": "sys",
+      "locator": "1.1",
+      "title": "Systems, models and simulation",
+      "eyebrow": "Vocabulary",
+      "body": "<p>A <em class=\"term\">system</em> is a set of entities interacting toward a goal, inside an <em class=\"term\">environment</em>. A <em class=\"term\">model</em> is a simplified representation of it. <em class=\"term\">Simulation</em> is running the model over time to see how the system behaves. Systems are <em class=\"term\">continuous</em> (state changes smoothly: a tank filling) or <em class=\"term\">discrete</em> (state changes at events: customers arriving). Models may be static or dynamic, deterministic or stochastic.</p>",
+      "questions": [
+        {
+          "id": "disc",
+          "prompt": "A bank queue is best modelled as…",
+          "choices": [
+            {
+              "text": "A discrete-event system: state changes at arrivals and departures.",
+              "correct": true
+            },
+            {
+              "text": "A continuous system."
+            },
+            {
+              "text": "A static model."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Nothing changes between events."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The number of customers is an integer that jumps."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It evolves in time."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "why",
+      "locator": "1.2",
+      "title": "When to simulate, and the steps of a study",
+      "eyebrow": "Method",
+      "body": "<p>Simulate when experimenting on the real system is expensive, dangerous or impossible, when an analytic solution does not exist, or to compare designs cheaply. Advantages: what-if experiments, time compression, insight. Disadvantages: needs skill and data, results are estimates not proofs, can be costly to build. A study proceeds: formulate the problem → set objectives → conceptual model → collect data → translate to a program → verify → validate → design experiments → run → analyse → document.</p>",
+      "questions": [
+        {
+          "id": "steps",
+          "prompt": "In a simulation study, validation asks…",
+          "choices": [
+            {
+              "text": "Does the code compile?"
+            },
+            {
+              "text": "Is the random generator long enough?"
+            },
+            {
+              "text": "Does the model represent the real system well enough?",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is far weaker."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "A separate check."
+            },
+            {
+              "title": "Correct.",
+              "body": "Verification asks whether the program implements the model correctly."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — steps in a simulation study",
+          "note": "Two loops back: verification and validation.",
+          "script": "diagram(\"direction: down\\n[Problem formulation and objectives] as a #blue\\n[Conceptual model and data] as b #blue\\n[Build the computer model] as c #violet\\n<Verified? does the code do what we meant> as v #amber\\n<Validated? does it match reality> as w #amber\\n[Design experiments, run, analyse] as d #mint\\n(Recommendations) as e\\na -> b\\nb -> c\\nc -> v\\nv -> c : no\\nv -> w : yes\\nw -> b : no\\nw -> d : yes\\nd -> e\");"
+        }
+      ]
+    },
+    {
+      "id": "mc",
+      "locator": "1.3",
+      "title": "Monte Carlo simulation",
+      "eyebrow": "Sampling to compute",
+      "body": "<p><em class=\"term\">Monte Carlo</em> uses random sampling to estimate a quantity. Throw random points at the unit square; the fraction that lands inside the quarter-circle x² + y² ≤ 1 estimates its area π/4. With 5000 points the estimate is <b>3.18</b> (error 0.0384). The error shrinks like 1/√n: a hundred times more points for ten times the accuracy — slow, but it works for problems (high-dimensional integrals, risk) where nothing else does.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "Out of 1000 random points, 786 fall inside the quarter circle."
+        },
+        {
+          "toc": "Estimate",
+          "why": "π ≈ 4 × 786/1000.",
+          "math": "\\pi\\approx3.144",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rate",
+          "prompt": "To make a Monte Carlo estimate 10× more accurate you need about…",
+          "choices": [
+            {
+              "text": "100× as many samples.",
+              "correct": true
+            },
+            {
+              "text": "10× as many."
+            },
+            {
+              "text": "The same number."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Error ∝ 1/√n."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That gives only √10."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "More samples are needed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.3.1 — estimating π",
+          "note": "Green points fell inside the arc, red outside.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mc\",\"engine\":\"montecarlo\",\"points\":400,\"width\":600,\"height\":440});",
+          "expect": {
+            "mc": {
+              "estimate": "3.33",
+              "error": "0.1884"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-mc",
+          "prompt": "<p>Estimate π with Monte Carlo using 5000 points. How close do you get?</p>",
+          "answer": "The run gives <b>3.18</b>, off by <b>0.0384</b>; different seeds give different errors of the same order (~0.03).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "More points, smaller error.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"montecarlo\",\"points\":5000,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "estimate": "3.18",
+                "error": "0.0384"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "des",
+      "locator": "1.4",
+      "title": "Discrete-event simulation",
+      "eyebrow": "Jumping between events",
+      "body": "<p>A discrete-event simulator keeps a clock and an ordered <em class=\"term\">future event list</em>. Loop: take the earliest event, advance the clock to its time, update the state (and statistics), schedule any new events it causes. Nothing happens between events, so the clock skips over idle time. Arrivals, service completions and breakdowns are typical events.</p>",
+      "questions": [
+        {
+          "id": "clock",
+          "prompt": "Between two events the simulation clock…",
+          "choices": [
+            {
+              "text": "Jumps straight to the next event time.",
+              "correct": true
+            },
+            {
+              "text": "Ticks in equal steps."
+            },
+            {
+              "text": "Stops."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "No change occurs in between, so no computation is needed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is time-stepping."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It advances to the next event."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 1.4.1 — the event loop",
+          "note": "The heart of every discrete-event simulator.",
+          "script": "diagram(\"direction: down\\n(Initialise: clock = 0, schedule the first arrival) as i\\n[Pop the earliest event from the list] as p #blue\\n[Advance the clock to that time] as a #violet\\n[Update state and statistics] as u #mint\\n[Schedule new events] as s #amber\\n<List empty or time up?> as e\\n(Report) as r\\ni -> p\\np -> a\\na -> u\\nu -> s\\ns -> e\\ne -> p : no\\ne -> r : yes\");"
+        }
+      ]
+    },
+    {
+      "id": "mcdes",
+      "locator": "1.5",
+      "title": "Monte Carlo versus discrete-event",
+      "eyebrow": "Choosing",
+      "body": "<p>Monte Carlo typically has no notion of time — each trial is independent (estimating π, the chance a project overruns). Discrete-event simulation tracks a system’s evolution in time (queues, factories, networks). Many studies combine them: DES with random inter-arrival and service times <em>is</em> Monte Carlo over a dynamic model.</p>",
+      "questions": [
+        {
+          "id": "indep",
+          "prompt": "Which is typically time-independent?",
+          "choices": [
+            {
+              "text": "A bank queue simulation."
+            },
+            {
+              "text": "A Monte Carlo estimate of an integral.",
+              "correct": true
+            },
+            {
+              "text": "A traffic simulation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It evolves in time."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each sample stands alone."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Also dynamic."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Model → run → analyse; verify and validate.</li><li>Monte Carlo: error ∝ 1/√n. DES: clock jumps between events.</li></ul>"
+    }
+  ]
+}

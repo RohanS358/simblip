@@ -46,6 +46,15 @@ export function hashPassword(password: string): string {
   return `scrypt:${salt}:${scryptSync(password, salt, 64).toString('hex')}`
 }
 
+/** Minimum bar for a password set through a provisioning route. Returns a
+ *  user-facing problem, or null when acceptable. (`String(undefined)` used to
+ *  become the literal password "undefined" when the field was missing.) */
+export function passwordProblem(pw: unknown): string | null {
+  if (typeof pw !== 'string' || pw.length < 8) return 'Password must be at least 8 characters.'
+  if (pw.length > 200) return 'Password is too long.'
+  return null
+}
+
 export function verifyPassword(password: string, stored: string | null | undefined): boolean {
   if (!stored) return false
   const [scheme, salt, hex] = stored.split(':')

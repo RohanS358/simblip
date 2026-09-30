@@ -695,6 +695,7 @@ const COMPONENT_UI_KINDS = new Set([
   'truthtable',
   'code',
   'dsa',
+  'steplab',
   'circle',
   'rect',
   'symbol',
@@ -1000,7 +1001,7 @@ const ObjectView = memo(function ObjectView({
             transformOrigin: 'center center',
           }}
         >
-          {(['table', 'gridtable', 'dsa', 'code', 'cashflow', 'graph', 'surface3d', 'chart', 'truthtable'].includes(object.geometry.kind) ||
+          {(['table', 'gridtable', 'dsa', 'steplab', 'code', 'cashflow', 'graph', 'surface3d', 'chart', 'truthtable'].includes(object.geometry.kind) ||
             object.metadata?.render === 'system') && (
             <button
               type="button"
@@ -1323,6 +1324,24 @@ export function InfiniteCanvas({
   // and stays transparent over text (drag still selects words). A pointerdown
   // anywhere in the reading area outside an object drops the selection.
   const [overBlank, setOverBlank] = useState(false)
+  // A stylus has touched this reader: from then on the PEN owns the paper
+  // (drag = lasso, tap = caret) and a FINGER scrolls. Without this the reader
+  // stays in native-scroll mode, where a pen drag is a scroll that fires
+  // pointercancel and never becomes a selection.
+  const [penSeen, setPenSeen] = useState(false)
+  const docPen = !!passthrough && penSeen
+  useEffect(() => {
+    if (!passthrough || penSeen) return
+    const seen = (e: PointerEvent) => {
+      if (e.pointerType === 'pen') setPenSeen(true)
+    }
+    window.addEventListener('pointerdown', seen, true)
+    window.addEventListener('pointermove', seen, true)
+    return () => {
+      window.removeEventListener('pointerdown', seen, true)
+      window.removeEventListener('pointermove', seen, true)
+    }
+  }, [passthrough, penSeen])
   // Stylus eraser end / barrel button held (also while hovering): show the
   // eraser cursor so you can tell it's on. CSS can't see pointer buttons.
   const [penErasing, setPenErasing] = useState(false)
@@ -3378,8 +3397,26 @@ export function InfiniteCanvas({
     // touch-action:none while a drawing tool is up, so the scroll is manual.
     // Before this, a finger swipe to scroll a page with the pen tool picked
     // drew a stray line instead. Whiteboards (not passthrough) are unchanged.
-    if (e.pointerType === 'touch' && passthrough && editing && tool !== 'select' && tool !== 'lasso' && !fingerDraws()) {
+    if (
+      e.pointerType === 'touch' &&
+      passthrough &&
+      editing &&
+      (tool === 'select' || tool === 'lasso' ? docPen : !fingerDraws())
+    ) {
       scrollReaderBy(e)
+      if (tool === 'select') {
+        // A finger TAP still drops the selection and lands the caret (the
+        // layer is solid now, so the tap never reaches the text itself).
+        const { clientX: x0, clientY: y0 } = e
+        const up = (ev: PointerEvent) => {
+          if (ev.pointerId !== e.pointerId) return
+          window.removeEventListener('pointerup', up)
+          if (Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) return
+          useDocStore.getState().setSelection([])
+          if (clickThrough) placeBodyCaret(ev.clientX, ev.clientY, containerRef.current)
+        }
+        window.addEventListener('pointerup', up)
+      }
       return
     }
     // The pen's eraser end (buttons bit 32) or barrel button (bit 2) erases
@@ -3467,7 +3504,7 @@ export function InfiniteCanvas({
       }
       // Passthrough overlay: this touch belongs to the reader's native
       // scroll (touch-action pans it) — just drop any selection on tap.
-      if (passthrough && e.pointerType === 'touch') {
+      if (passthrough && e.pointerType === 'touch' && tool === 'select') {
         store.setSelection([])
         return
       }
@@ -3920,14 +3957,14 @@ export function InfiniteCanvas({
         // pan fires pointercancel and drops the stroke mid-line. Same as the
         // whiteboard's touch-none; a finger then scrolls by hand
         // (scrollReaderBy) and two fingers go to usePinchZoom.
-        ...(passthrough ? { touchAction: editing && tool !== 'select' ? 'none' : 'pan-x pan-y' } : {}),
+        ...(passthrough ? { touchAction: editing && (tool !== 'select' || docPen) ? 'none' : 'pan-x pan-y' } : {}),
         // See the `clickThrough` prop. Only the select tool gives the layer
         // up; every drawing tool needs the background to receive the gesture.
         // Stated EXPLICITLY in both directions, never left unset: a
         // click-through host turns pointer-events off on the wrapper around
         // this canvas, and pointer-events is an inherited property, so an
         // absent value here would mean "none" even while a pen is selected.
-        ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank ? ('none' as const) : ('auto' as const) } : {}),
+        ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank && !docPen ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={handleTouchDownCapture}
       onPointerMoveCapture={handleTouchMoveCapture}

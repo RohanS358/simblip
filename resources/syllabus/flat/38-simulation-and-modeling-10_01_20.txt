@@ -1,0 +1,241 @@
+SIMULATION AND MODELING
+ENCT 353
+Lecture
+Tutorial
+Practical
+:3
+:1
+: 3/2
+Year : III
+Part : II
+Course Objectives:
+The objective of this course is to develop knowledge of modeling and simulation
+techniques for discrete and continuous systems. It emphasizes the development and
+analysis of simulation models, generation and testing of random numbers and variables,
+and application of simulation methods to evaluate the performance of stochastic systems.
+1
+Introduction to Simulation
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+1.8
+2
+3
+(5 hours)
+Continuous system models
+Analog computer
+Analog methods
+Hybrid simulation
+Digital-analog simulators
+Continuous system simulation languages (CSSLs)
+Feedback systems
+Simulation of Queuing System
+4.1
+(4 hours)
+Differential and partial differential equations
+Static physical model
+Dynamic physical model
+Static mathematical models
+Dynamic mathematical models
+Simulation of Continuous System
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+3.7
+4
+System and system environment concepts
+Continuous and discrete systems
+Types of models
+Model development life cycle
+Simulation and steps in simulation study
+Advantages and disadvantages of simulation
+Monte-Carlo simulation
+Discrete-event system simulation
+Physical and Mathematical Models
+2.1
+2.2
+2.3
+2.4
+2.5
+(4 hours)
+Elements of queuing system
+(6 hours)
+4.2
+4.3
+4.4
+4.5
+4.6
+4.7
+4.8
+5
+Markov Chains
+5.1
+5.2
+5.3
+6
+6.5
+6.6
+8
+9
+(4 hours)
+Confidence intervals and hypothesis testing
+Estimation methods
+Simulation run statistics
+Replication of runs
+Elimination of initial bias
+Simulation software
+9.1
+(3 hours)
+Verification and validation
+Verification of simulation models
+Calibration and validation of models
+Naylor and finger validation process
+Validation: Errors
+Analysis of simulation output
+8.1
+8.2
+8.3
+8.4
+8.5
+(10 hours)
+Properties of random numbers
+Generation of pseudo-random numbers
+Random number generation: Linear and arithmetic congruential methods
+Tests for random numbers
+6.4.1 Kolmogorov-Smirnov test
+6.4.2 Chi-Square (𝛘2) test
+6.4.3 Gap test
+6.4.4 Poker’s method
+6.4.5 Testing for auto correlation
+Generating discrete distribution
+Inversion, rejection, composition and convolution
+Verification and Validation of Simulation Models
+7.1
+7.2
+7.3
+7.4
+7.5
+(3 hours)
+Key features of Markov chains
+Markov process with examples
+Applications of Markov chains
+Random Number
+6.1
+6.2
+6.3
+6.4
+7
+Characteristics of queuing systems
+Model of queuing system
+Types of queuing system
+Queuing notation (Kendall’s notation)
+Measurement of system performance
+Network of queues
+Applications of queuing system
+Simulation in Java
+(3 hours)
+9.2
+9.3
+9.4
+10
+Simulation in GPSS
+Simulation in Python
+Other simulation software
+Simulation of Computer Systems
+10.1
+10.2
+10.3
+10.4
+10.5
+Tutorial
+1.
+2.
+3.
+4.
+5.
+(3 hours)
+Simulation tools
+High level computer: System simulation
+CPU simulation
+Memory simulation
+Simulation of computer networks
+(15 hours)
+Poisson process
+Monte Carlo simulation
+Queuing system and Markov chains
+Different methods of random number generation
+Kolmogorov-Smirnov test, Chi-square test,
+autocorrelation test
+Modeling continuous and discrete systems
+Simulation output analysis
+6.
+7.
+Practical
+1.
+2.
+3.
+4.
+5.
+gap-test,
+poker
+and
+(22.5 hours)
+Simulation of the R-C amplifier circuit and mass spring damper system
+Generation of random number
+Chi-square goodness-of-fit test and Kolmogorov-Smirnov test
+Simulation of queuing system
+Simulation of Markov chain
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapters
+Hours
+Marks distribution*
+1, 2
+8
+10
+3
+5
+4
+6
+5
+3
+6
+10
+7
+3
+8
+4
+9, 10
+6
+Total
+45
+* There may be minor deviation in marks distribution.
+7
+8
+5
+13
+4
+5
+8
+60
+References
+1.
+Banks, J. (2005). Discrete-event system simulation. Pearson.
+2.
+Gordon, G. (1978). System simulation (Latest Edition). Prentice Hall.
+3.
+Law, A. M., Kelton, W. D. (2007). Simulation modeling and analysis. McGrawHill Education.
+4.
+Rubinstein, R. Y., Melamed, B. (1998). Modern simulation and modeling
+(Latest Edition). John Wiley & Sons.
+5.
+Singh, V. P. (2009). System modeling and simulation. New Age International
+Publishers.

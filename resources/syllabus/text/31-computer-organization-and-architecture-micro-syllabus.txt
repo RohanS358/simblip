@@ -1,0 +1,337 @@
+                                                                                           (Micro Syllabus-Format)
+
+
+                         COMPUTER ORGANIZATION AND ARCHITECTURE
+                                        ENCT 303
+
+Year/Part: III/I
+
+  Teaching Schedule                                       Examination Scheme
+                                           Theory                                     Practical
+                                                     Final                                    Final             Total
+ L     T    P    Total     Assessment                                   Assessment
+                                                                                        Duration
+                             Marks         Duration (Hrs)     Marks       Marks                         Marks
+                                                                                         (Hrs.)
+ 3     1   1.5     5.5          40               3              60           25            0              0     125
+
+Depth Codes
+
+ E-Explanation                  C-Circuit                     D-Definition                DM-Demonstration
+ DV-Derivation                  DW-Drawing                    P-Proof                     I-Illustration
+ NUM-Numerical                  PRG-Programming               S-State                     ACT-Activity-based
+                                                                                          Learning
+ MP- Mini Project               EXP-Experiment                REV-Review / Recap          PS- Problem Solving
+ QA- Question Answer            Q- Quiz                       ST- Surprise Test           MT-Mid Term Test
+
+Unit             Topic/ Sub topic       Depth                Description of Depth                   Actual Week
+                                        Code                                                         plan
+                                                                                                   L T P
+ 1     Introduction
+       1.1 Organization                 E, D         Introduction to computer organization and 0.5                1
+           and Architecture                          computer architecture with their significances
+                                                     and differences
+       1.2 Structure of a computer,    E, I          Structure of a computer, single processor,     1             1
+       single processor, multi-core                  multi-core computer
+       computer
+       1.3 Performance Assessment NUM, PS            Instruction execution rate: CPI, MIPS, 1                     1
+       1.3.1 Clock speed and                         MFLOPS, arithmetic mean, harmonic mean,
+       instruction per second                        speed metric, geometric mean, rate metric,
+       1.3.2 Instruction execution                   Amdahl’s law, speed up formulas with
+       rate: CPI, MIPS rate, MFLOPS
+                                                     numerical examples
+       rate, arithmetic mean,
+       harmonic mean, speed metric,
+       geometric mean, rate metric,
+       Amdahl’s law, speed up
+       1.4 Computer function           DW, I         State diagram of instruction fetch and       1.5             1
+       Instruction Fetch and                         execute cycle with and without interrupt
+           Execute                                   cycle
+       Instruction cycle state diagram
+       Numerical       examples      on NUM          Numerical examples                                  2        2
+       performance assessment
+
+       1.5 Computer component,          DW, E        Computer components with their               0.5             2
+           interconnection structure,                interconnection structure, bus
+           bus interconnection, PCI                  interconnections, types and PCI interface
+
+       1.6 RISC architecture,        E               RISC concepts, overlapped register window 1.5                2
+          Overlapped register window                 and Berkeley RISC explanation
+          Berkeley RISC
+                                                                                            (Micro Syllabus-Format)
+
+Unit             Topic/ Sub topic           Depth           Description of Depth                         Actual Week
+                                            Code                                                          plan
+                                                                                                        L T P
+       Evaluation                       QA, Q
+
+
+
+Unit             Topic/ Sub topic           Depth           Description of Depth                         Actual Week
+                                            Code                                                          plan
+                                                                                                        L T P
+2      Central Processing Unit
+       (CPU)
+       2.1 Processor Bus OrganizationE              CPU bus signals and flow, diagrams and          1            3
+                                                    explanation
+       2.2     Processor      register I, E         Processor register organization             1                3
+       Organization: Control word,                  Control word and microoperations of Control
+       examples of microoperations                  Unit.
+                                                    Microoperations of various instructions
+       2.3 Stack Organization       NUM             Stack Organization Register stack, memory           1        3
+          Register stack, memory                    stack, reverse polish notation, evaluation of
+          stack, reverse polish                     arithmetic expressions
+          notation, evaluation of                   Usage of Register and memory stack
+          arithmetic expressions
+       2.4 Instruction formats: CPU E, NUM          Instruction formats: CPU organization, zero         1        3
+           organization, zero and                   and more address instruction formats
+           more address instruction                 Evaluation of an expression in 0, 1, 2, 3
+           formats                                  address instruction formats
+
+
+       2.5 Addressing modes: Types, E, I            Addressing modes: Types, examples,                  1        4
+           examples, strengths and                  strengths and weaknesses
+           weaknesses
+
+       2.6 Instruction set              E           Data transfer and data manipulation 1                        4
+                                                    instructions: Arithmetic, logical and shift
+                                                    operations, program control instruction
+                                                    explanation and examples
+
+       2.7 Status bit conditions        I           Status bit flags: Carry, overflow, sign, zero   0.5          4
+
+       2.8 Interrupt: Definition, types, E          Types of Interrupts and ISR flow diagram        0.5          4
+           processing and ISR
+
+                                         NUM         Coding examples of different instruction               2   4,5
+                                                    formats
+
+       Evaluation                       QA, Q
+                                                                                          (Micro Syllabus-Format)
+
+Unit            Topic/ Sub topic         Depth          Description of Depth                         Actual Week
+                                         Code                                                         plan
+                                                                                                    L T P
+3      Control Unit (CU)
+       3.1 Hardwired control unit          E     Hardwired control unit diagram and             1              5
+                                                 explanation
+
+       3.2 Microprogrammed control        E, I   Microprogrammed control unit diagram and 1                    5
+           unit                                  explanation
+
+       3.3 Microinstructions, control     DW     Micro instruction format, control memory,          1          5
+           memory        organization,           Wilkes control architecture: diagram and
+           Wilkes control                        explanation
+       3.4 Microinstruction                E     Microinstruction sequencing: Design                1          6
+           sequencing:         Design            considerations, sequencing techniques,
+           considerations, sequencing            address generation, microinstruction
+           techniques,         address           encoding
+                                                 Next address generation using micro
+           generation,
+                                                 instruction sequencing
+           microinstruction encoding
+       3.5 Application              of     E     Application of microprogramming                 0.5           6
+           microprogramming
+       3.6 Microinstruction execution     E      Process of microinstruction execution           0.5           6
+                                         NUM     Microprogramming examples in CU                        2      6
+
+       Evaluation                        QA, Q
+
+
+
+Unit            Topic/ Sub topic         Depth          Description of Depth                         Actual Week
+                                         Code                                                         plan
+                                                                                                    L T P
+4      Memory System
+       4.1 Characteristics of memory      D, E   Characteristics of memory system: Access       1              7
+           system                                time, cycle time, bandwidth explanation
+       4.2 Memory classification and     E, DW   Memory classification and hierarchy:    1                     7
+           hierarchy                             Register, Cache memory, Main memory,
+                                                 Virtual memory
+       4.3 Semiconductor      memory     E, I    Semiconductor memory and its types: RAM 1                     7
+           and its types, read only              (SRAM and DRAM), ROM (ROM, PROM,
+           memory,         read/write            EPROM, EEPROM), Flash memory
+           memory
+       4.4 RAM        modules    and     I, E    RAM modules and interfaces: DDR, DIMM,             1          7
+           interfaces: DDR, DIMM                 SODIMM explanation
+           and SODIMM
+       4.5 Cache memory               E, NUM,    Cache principles explanation, Elements of 2                   8
+                                         DW      cache design: Cache size, mapping function,
+                                                 replacement algorithms, write policy, block
+                                                 size, single and multilevel caches and unified
+                                                 versus split cache, mapping, replacement,
+                                                 write policy
+       4.6 External Memory                E      Magnetic Disk, RAID level 1 to 5, optical      1              8
+                                                 memory, Magnetic tape, SSD
+                                                                                              (Micro Syllabus-Format)
+
+Unit             Topic/ Sub topic             Depth          Description of Depth             Actual Week
+                                              Code                                             plan
+                                                                                             L T P
+                                             NUM      Numerical on cache memory mapping: Hit     2    8,9
+                                                      and miss ratio
+
+       Evaluation                             QA, Q
+
+
+
+Unit             Topic/ Sub topic             Depth          Description of Depth                        Actual Week
+                                              Code                                                        plan
+                                                                                                        L T P
+5      Computer Arithmetic
+       5.1 ALU (Arithmetic and logic           D, E   ALU components and operation, design steps 1                 9
+           unit)
+       5.2 Integer      representation:       E, DW   Integer representation: Sign-magnitude       1               9
+           Sign-magnitude                             representation, two’s complement
+           representation,        two’s               representation, converting between different
+           complement                                 bit lengths, fixed-point representation
+           representation, converting
+           between      different   bit
+           lengths,         fixed-point
+           representation
+
+       5.3 Integer arithmetic                  E, I   Addition, subtraction, multiplication        3              9,10
+                                                      (Unsigned, signed using Booth) and division
+                                                      algorithm (Restoring and non-restoring)
+                                                      Flowchart with examples
+       5.4 Floating-point arithmetic           I, E   Floating-point representation: Principles, 2                 10
+                                                      IEEE standard for binary floating-point
+                                                      arithmetic algorithm, addition, subtraction,
+                                                      multiplication and division algorithm
+                                              NUM     Numerical examples on design of arithmetic           2       11
+                                                      circuit, logic circuit and ALU for various
+                                                      arithmetic algorithms
+       Evaluation                             QA, Q
+
+
+
+Unit             Topic/ Sub topic             Depth          Description of Depth                        Actual Week
+                                              Code                                                        plan
+                                                                                                        L T P
+6      Pipelining and Vector
+       Processing
+       6.1 Pipelining    and           its      E     Different stages of Pipelining and their      0.5            12
+           importance                                 significances
+       6.2 Instruction and arithmetic           E     Instruction and arithmetic pipelining         0.5            12
+           pipelining
+       6.3 Pipelining hazards: Data,           PS     Pipelining hazards: Data, structural and      1              12
+           structural  and control                    control hazards
+           hazards
+       6.4 RISC pipeline                        I     RISC execution stages                          0.5           12
+                                                                                         (Micro Syllabus-Format)
+
+Unit             Topic/ Sub topic         Depth          Description of Depth                     Actual Week
+                                          Code                                                      plan
+                                                                                                 L T P
+       6.5 Parallel processing              E     Parallel Processing types                     0.5       12
+       6.6 Vector processing                E     Vector operations, Matrix multiplication, 0.5               13
+                                                  Memory interleaving, Superscalar processors,
+                                                  Supercomputers explanation
+       6.7 Array processors: Attached       E     Array processors: Attached array processor   0.5            13
+           array processor and                    and SIMD array processor
+           SIMD array processor
+       Evaluation                         QA, Q
+
+
+
+Unit             Topic/ Sub topic         Depth          Description of Depth                     Actual Week
+                                          Code                                                     plan
+                                                                                                 L T P
+7      Input/ Output
+       7.1 External devices                 E     External device characteristics              0.5            13
+
+       7.2 I/O modules: Module              E     I/O modules: Block diagram of I/O modules 0.5 0.5           13
+           function, module structure             with functions
+       7.3 Programmed I/O, I/O             PS     Programmed I/O, I/O commands, I/O            0.5 0.5        13
+           commands,                I/O           instructions
+           instructions, flowchart                Flowcharts with explanation
+       7.4 Interrupt     driven    I/O,     I     Interrupt driven I/O, interrupt processing    0.5 0.5       13
+           interrupt processing and               ISR, flowcharts
+           flowchart
+       7.5 Direct memory access             E     Direct memory access (DMA): Drawbacks of 1 0.5            13,14
+           (DMA): Drawbacks of                    programmed and interrupt driven I/O, DMA
+           programmed and interrupt               function, typical DMA block diagram and
+           driven I/O, DMA function,              possible DMA configuration
+           typical     DMA       block            Comparison and working principles
+           diagram and possible DMA
+           configuration
+       7.6 I/O       channels      and      E     I/O channels and processors: The evolution of 1             14
+           processors: The evolution              the I/O function, characteristics of I/O
+           of the I/O function,                   channels, features of I/O channels
+           characteristics    of    I/O
+           channels
+       7.7 The external interface:          E     The external interface: Types of interfaces, 1              14
+           Types of interfaces, point-            point-to point and multiple configurations,
+           to point and multiple                  small computer system interface (SCSI)
+           configurations,       small
+           computer system interface
+           (SCSI)
+
+
+       Evaluation                         QA, Q
+                                                                                         (Micro Syllabus-Format)
+
+ Unit            Topic/ Sub topic         Depth          Description of Depth                       Actual Week
+                                          Code                                                       plan
+                                                                                                   L T P
+ 8      Multiprocessor System
+        8.1 Multiprocessor computers        E     Multiprocessor computers and their           1              15
+            and their characteristics             characteristics
+        8.2 Multi-core computers and       E, I   Multi-core computers and their architecture 0.5             15
+            their architecture
+        8.3 Interconnection structure:    E, DW   Explanation of types of interconnection      1.5            15
+            Time-shared common bus,               structures
+            multiport memory, crossbar            Time-shared common bus, multiport
+            switch,          multistage           memory, crossbar switch, multistage
+                                                  switching network and hypercube system
+            switching network and
+                                                  Comparison between them
+            hypercube system
+        8.4 Interprocessor arbitration      E     Explanation of interprocessor arbitration        1          15
+        8.5 Interprocessor                E, DW   Interprocessor communication explanation     1              15
+             communication          and           with synchronizing process
+            Synchronization
+        Evaluation                        QA, Q
+
+
+References: (Primarily based on the syllabus, and relevant chapters may be consulted as needed)
+   1.  Stallings, W. (2018). Computer organization and architecture. Prentice Hall of India.
+   2.  Mano, M. M. (2008). Computer system architecture. Pearson Education.
+   3.  Hennessy, J. L., Patterson, D. A. (2000). Computer architecture: A quantitative approach.
+       Harcourt Asia.
+                                                                                             Model Question
+
+
+
+                     COMPUTER ORGANIZATION AND ARCHITECTURE
+                                                 ENCT 303
+
+Year/Part: III/I
+
+
+
+ QN   Question                                                                       Marks   Unit
+
+ 1    Differentiate between Computer organization and architecture. Draw the         (3+3)   1
+      instruction cycle state diagram with interrupt.
+ 2    Write a code for X=((A+B) *(C-D)) /E using three address, two address, one     6       2
+      address and zero address format.
+ 3    What do you mean by addressing modes? List out its types and explain them      4       2
+      with examples.
+ 4    Differentiate between Hardwired and Microprogrammed Control Unit.
+      Explain with diagram the working of microprogram sequencer for control         (2+4)   3
+      memory.
+ 5    Explain the characteristics of a memory system briefly. Explain direct cache
+      mapping technique with example.                                                5       4
+ 6    Explain different write policy techniques in cache memory.                     5       4
+ 7    Explain Booth’s algorithm. Multiply -9 X -5 using Booth’s multiplication       6       5
+      algorithm.
+ 8    Explain floating point division algorithm with example.                        4       5
+ 9    Explain six stage instruction pipelines with examples. Draw a time space       6       6
+      diagram for 5 segments and 7 tasks.
+ 10   Why IOP is used in input-output organization? With the help of a neat          (2+4)   7
+      diagram, explain how DMA technique is used to transfer data in a computer
+      system.
+ 11   Compare and contrast different interconnection structures.                     6       8
+               Note: Number of questions and distribution of marks are indicative only.
+

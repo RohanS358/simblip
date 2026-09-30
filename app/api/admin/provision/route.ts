@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { insertRow, pgConfigured, q } from '@/lib/server/pg'
-import { bearerClaims, hashPassword } from '@/lib/server/auth'
+import { bearerClaims, hashPassword, passwordProblem } from '@/lib/server/auth'
 
 // Institution-admin provisioning (cloud mode). Password hashes never reach
 // the browser, so account creation and resets go through this route.
@@ -34,6 +34,10 @@ export async function POST(req: Request) {
   const institutionId = caller.institution_id
 
   const { action, payload } = (await req.json()) as { action: string; payload: Record<string, unknown> }
+  if (action === 'createPerson' || action === 'resetPassword' || action === 'createBoard') {
+    const problem = passwordProblem(payload?.password)
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
+  }
 
   try {
     // ── Create a teacher or student in the caller's institution ────────────

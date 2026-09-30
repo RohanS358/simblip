@@ -1,0 +1,335 @@
+{
+  "title": "Binomial, Poisson, normal and the central limit theorem",
+  "kicker": "ENSH 304 · Probability and Statistics · Chapter 2",
+  "subtitle": "Three shapes describe most of what we count and measure — and one theorem explains why the bell curve turns up everywhere.",
+  "sections": [
+    {
+      "id": "disc",
+      "locator": "2.1",
+      "title": "Discrete vs continuous",
+      "eyebrow": "Two kinds of variable",
+      "body": "<p>A <em class=\"term\">discrete</em> variable takes countable values and has a probability mass function p(x) with Σp = 1. A <em class=\"term\">continuous</em> variable has a density f(x) with total area 1; probabilities are areas, so P(X = a) = 0 and P(a ≤ X ≤ b) = ∫f dx. The <em class=\"term\">cdf</em> F(x) = P(X ≤ x) works for both.</p>",
+      "questions": [
+        {
+          "id": "cont",
+          "prompt": "For a continuous X, P(X = 2.5) equals…",
+          "choices": [
+            {
+              "text": "f(2.5)."
+            },
+            {
+              "text": "1/2."
+            },
+            {
+              "text": "0.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Density is not probability."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Nothing suggests that."
+            },
+            {
+              "title": "Correct.",
+              "body": "A single point has no area."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "binom",
+      "locator": "2.2",
+      "title": "Binomial distribution",
+      "eyebrow": "Counting successes",
+      "body": "<p>n independent trials, each succeeding with probability p: P(X = k) = ⁿCₖ pᵏ(1 − p)ⁿ⁻ᵏ, mean np, variance np(1 − p). For 10 fair coin tosses the chance of 4 to 6 heads is <b>0.65625</b>.</p>",
+      "worked": [
+        {
+          "toc": "k = 5",
+          "why": "P(X = 5) = ¹⁰C₅ (½)¹⁰ = 252/1024.",
+          "math": "P(5)=0.246"
+        },
+        {
+          "toc": "Total",
+          "why": "Add k = 4 and 6 (210/1024 each).",
+          "math": "P(4\\le X\\le6)=0.656",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bmean",
+          "prompt": "A binomial with n = 40, p = 0.25 has mean…",
+          "choices": [
+            {
+              "text": "10.",
+              "correct": true
+            },
+            {
+              "text": "0.25."
+            },
+            {
+              "text": "7.5."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "np."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is p."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the variance np(1−p)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.2.1 — heads in 10 tosses",
+          "note": "Shaded bars sum to the probability.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bin\",\"engine\":\"dist\",\"kind\":\"binomial\",\"n\":10,\"p\":0.5,\"from\":4,\"to\":6,\"width\":600,\"height\":440});",
+          "expect": {
+            "bin": {
+              "prob": "0.65625"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "pois",
+      "locator": "2.3",
+      "title": "Poisson distribution",
+      "eyebrow": "Rare events in an interval",
+      "body": "<p>For events arriving independently at average rate λ per interval: P(X = k) = e⁻λ λᵏ/k!, with mean = variance = λ. It is the limit of the binomial as n → ∞, p → 0 with np = λ. With λ = 4 calls per hour, P(at most 2 calls) = <b>0.2381</b>.</p>",
+      "questions": [
+        {
+          "id": "pv",
+          "prompt": "A Poisson variable has variance…",
+          "choices": [
+            {
+              "text": "Equal to its mean λ.",
+              "correct": true
+            },
+            {
+              "text": "λ²."
+            },
+            {
+              "text": "√λ."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A signature property."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not for Poisson."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the standard deviation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.3.1 — λ = 4",
+          "note": "Bars for k = 0, 1, 2 are shaded.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"poi\",\"engine\":\"dist\",\"kind\":\"poisson\",\"n\":10,\"lambda\":4,\"from\":0,\"to\":2,\"width\":600,\"height\":440});",
+          "expect": {
+            "poi": {
+              "prob": "0.2381"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "norm",
+      "locator": "2.4",
+      "title": "The normal distribution",
+      "eyebrow": "The bell curve",
+      "body": "<p>f(x) = exp(−(x − μ)²/2σ²)/(σ√2π). Standardise with z = (x − μ)/σ and read the standard table. The 68–95–99.7 rule: P(|Z| ≤ 1) = <b>0.68269</b>, P(|Z| ≤ 1.96) = <b>0.95</b>.</p>",
+      "worked": [
+        {
+          "toc": "z-score",
+          "why": "Heights ~ N(170, 10²). P(X > 185): z = (185 − 170)/10.",
+          "math": "z=1.5"
+        },
+        {
+          "toc": "Table",
+          "why": "Tail area beyond 1.5 is 0.0668.",
+          "math": "P=0.0668",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "z",
+          "prompt": "x = 55 from N(40, 5²) has z =",
+          "choices": [
+            {
+              "text": "3.",
+              "correct": true
+            },
+            {
+              "text": "15."
+            },
+            {
+              "text": "0.33."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "(55 − 40)/5."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Forgot to divide by σ."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Divided by the wrong thing."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.4.1 — z between ±1.96",
+          "note": "The central 95 % of the standard normal.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nor\",\"engine\":\"dist\",\"kind\":\"normal\",\"mu\":0,\"sigma\":1,\"from\":-1.96,\"to\":1.96,\"width\":600,\"height\":440});",
+          "expect": {
+            "nor": {
+              "prob": "0.95"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "approx",
+      "locator": "2.5",
+      "title": "Binomial becomes normal",
+      "eyebrow": "Approximation",
+      "body": "<p>When np and n(1 − p) are both at least about 5, Binomial(n, p) ≈ N(np, np(1 − p)). Step through n = 5, 10, 30 below and the bars fit the curve ever better. Apply a ±½ continuity correction when converting a count to a continuous area.</p>",
+      "questions": [
+        {
+          "id": "cc",
+          "prompt": "Approximating P(X ≤ 12) for a binomial by a normal, use…",
+          "choices": [
+            {
+              "text": "The area below 12."
+            },
+            {
+              "text": "The area below 12.5.",
+              "correct": true
+            },
+            {
+              "text": "The area below 13."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Undercounts half a bar."
+            },
+            {
+              "title": "Correct.",
+              "body": "Continuity correction adds ½."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Overcounts."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 2.5.1 — n = 5, 10, 30",
+          "note": "Each frame increases n.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"appr\",\"engine\":\"dist\",\"kind\":\"binomial\",\"n\":\"5 10 30\",\"p\":0.5,\"width\":600,\"height\":440});"
+        }
+      ]
+    },
+    {
+      "id": "clt",
+      "locator": "2.6",
+      "title": "The central limit theorem",
+      "eyebrow": "Why the bell shows up",
+      "body": "<p>Take samples of size n from <em>any</em> population with mean μ and sd σ. The sample means X̄ are approximately N(μ, σ²/n) for large n, with standard error σ/√n. Start from a lopsided exponential population; single draws have sd <b>1.034</b>, yet means of 30 have sd <b>0.184</b> (theory 0.183) and a bell shape.</p>",
+      "questions": [
+        {
+          "id": "se",
+          "prompt": "Quadrupling the sample size changes the standard error by a factor of…",
+          "choices": [
+            {
+              "text": "¼."
+            },
+            {
+              "text": "½.",
+              "correct": true
+            },
+            {
+              "text": "2."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would be for variance."
+            },
+            {
+              "title": "Correct.",
+              "body": "σ/√n."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Wrong direction."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 2.6.1 — means of 30",
+          "note": "The histogram of 400 sample means is symmetric.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"clt\",\"engine\":\"clt\",\"population\":\"exponential\",\"n\":30,\"width\":600,\"height\":440});",
+          "expect": {
+            "clt": {
+              "sdOfMeans": "0.184",
+              "theorySd": "0.183"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-se",
+          "prompt": "<p>Weights have σ = 12 g. What is the standard error of the mean of 36 items?</p>",
+          "answer": "σ/√n = 12/6 = <b>2 g</b>."
+        }
+      ]
+    }
+  ]
+}

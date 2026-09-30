@@ -1,0 +1,239 @@
+                                                                                          Micro Syllabus (WAP)
+
+
+                                   Web Application Programming
+                                                  ENCT 302
+
+   Year/Part: III/I
+
+       Teaching Schedule                                   Examination Scheme
+                                             Theory                                       Practical
+                                                        Final                                         Final                        Total
+   L      T      P    Total    Assessment                                  Assessment
+                                 Marks       Duration (Hrs)     Marks        Marks        Duration (Hrs)          Marks
+    3     1      3     7          40                3             60           50               -                      -           150
+
+   Depth Codes
+
+       E-Explanation               C-Circuit                    D-Definition                  DM-Demonstration
+       DV-Derivation               DW-Drawing                   P-Proof                       I-Illustration
+       NUM-Numerical               PRG-Programming              S-State                       ACT-Activity-based
+                                                                                              Learning
+       MP- Mini Project            EXP-Experiment               REV-Review / Recap            PS- Problem Solving
+       QA- Question Answer         Q-Quiz                       ST- Surprise Test             MT-Mid Term Test
+
+
+
+                                   Depth                                                                  Actual Plan
+UNIT          Topic/Subtopic                                Description of Depth                                                   Week
+                                   Code                                                                   L        T       P
+
+   1 Introduction                                                                                             6        2       2         2
+
+      Overview of Web                       Explain the concept of traditional vs. modern web
+      Applications &                        apps , Explain evolution of static to dynamic web
+      Evolution of Web                      application, Explain the concept multi-tier &
+  1.1 Architecture              E, D, I, QA single-page architectures with diagrams.                  1
+      Client–Server
+      Architecture, HTTP,
+      HTTPS, URLs, DNS,         E, D, I,    Architecture diagrams, HTTP request–response
+  1.2 Web Browsers              DW, QA      cycle, DNS lookup flow, browser rendering basics. 1
+      HTML Basics: Syntax,
+      Tags, Attributes,    E, DM, I,        Demonstration of basic HTML structure, headings,
+  1.3 Document Structure   PRG              paragraphs, links, images.                       1                    0.5 0.5
+      Forms & Inputs, Tables, DM, PRG,      Practical implementation of forms, interactive
+  1.4 Lists, Multimedia       NUM, QA       inputs, audio/video tags.                                 0.5         0.5 0.5
+      Semantic HTML5                                                                                              0.2 0.2
+  1.5 Elements                  E, I, DM    Header, footer, section, article, nav, etc.               0.5         5   5
+                                                                                             Micro Syllabus (WAP)
+
+
+                                     Depth                                                                Actual Plan
+UNIT         Topic/Subtopic                                   Description of Depth                                                      Week
+                                     Code                                                                 L         T           P
+
+        CSS Basics: Selectors,
+        Properties, Values, Box E, DM,         CSS rules, inline/internal/external styles,                      0.2 0.2
+    1.6 Model                   PRG, PS        margin/padding/border.                                 1         5   5
+        CSS Framework:             DM, PRG,    Grid system demo, containers, responsive layout
+    1.7 Bootstrap Introduction     ACT         activity.                                              1         0.5 0.5
+          JavaScript and Client-
+        2 Side Programming                                                                                 12           4           4      4
+                                   E, D, DM,   Intro to scripting, JS execution model, placement in
+    2.1 JavaScript Essentials      QA          HTML                                                 0.5
+         Data Types, Variables,
+         Control Structures,                                                                                    0.2 0.2
+2.1.1    Functions                 E, DM, PS Practical coding of loops, conditionals, functions.      1         5   5
+         DOM Manipulation,       DM, ACT, Selecting elements, updating UI, event listeners,                     0.2 0.2
+2.1.2    Events, Form Validation PRG      validation.                                                 1         5   5
+         Local Storage &           E, DM,      Storing and retrieving key-value data; building a
+2.1.3    Session Storage           PRG         small demo.                                            0.5
+         GUI Interactions (Basic
+2.1.4    Dynamic UI)             DM, ACT, I Hover effects, dynamic menus, modals (JS-only).           1         0.5 0.5
+         JavaScript Library:       E, DM,
+2.1.5    jQuery                    PRG         DOM shortcuts, event handling, AJAX basics.            1         0.5 0.5
+        Modern JavaScript          E, D, DM,   Let/const, arrow functions, destructuring,
+    2.2 (ES6+)                     PS          spread/rest.                                           1
+         sync Operations:
+         Callbacks, Promises,      E, I, DM,   Understanding async flow; building simple API                    0.2 0.2
+2.2.1    Async/Await               PS          calls.                                                 0.5       5   5
+2.2.2    Modules and Imports       DM, PRG     Structuring JS files using ES modules.                 0.25
+        Client-Side
+    2.3 Applications
+         Client-Side
+         Applications:
+2.3.1    Introduction to React JS E, I, DM     React JSX, components, rendering.                      0.25
+         Traditional Multi-Page
+2.3.2    Apps vs SPAs              E, I, QA    SPA concept, reload-free navigation.                   0.5
+         React Component-          DM, ACT,
+2.3.3    Based UI & Props          PRG      Building functional components with props.                1         1           1
+                                                                                       Micro Syllabus (WAP)
+
+
+                                   Depth                                                              Actual Plan
+UNIT         Topic/Subtopic                                Description of Depth                                                       Week
+                                   Code                                                               L           T           P
+
+         State Management &     DM, PS,
+2.3.4    Data Flow              PRG         useState, one-way data flow, parent-child states.     0.5         0.5 0.5
+         Client-Side Routing
+2.3.5    (React Router)         DM, PS      Navigation without reloading, routing basics.         1           0.5 0.5
+         Fetch API: Fetching,
+         Displaying Data,
+         Handling Errors &      DM, NUM,                                                                      0.2 0.2
+2.3.6    Loading States         PRG      Working with real/placeholder API, error handling. 1                 5   5
+         Comparison of JS
+         Libraries: React vs
+2.3.7    Angular vs Vue         E, I, REV   Strengths, weaknesses, use cases.                     1
+          Server-Side Web
+        3 Programming                                                                                     9           4           4      4
+        Introduction to MVC
+        Architecture                        Model–View–Controller pattern, flow diagrams,
+    3.1 .                       E, D, I, QA responsibilities.                                     0.5
+        Role of Backend in
+        Web Applications
+    3.2 .                       E, I, D     Server logic, routing, business logic, security layers 0.5
+        Backend Web
+        Framework: Django
+    3.3 (Overview)              E, DM, I    Django apps, MTV pattern, project structure.          0.5
+        Handling Requests &     DM, PRG,
+    3.4 Responses               ACT         Writing views, HTTP methods, JSON response.           1           0.5 0.5
+        Form Data Handling &
+        Sessions             DM, PS,
+    3.5 .                    PRG            Form POST processing, CSRF, session usage             1           0.5 0.5
+        Routing, Middleware,
+        Templates               DM, DW,     URL dispatcher, custom middleware, Template
+    3.6 .                       PRG         language                                              1           0.5 0.5
+        Overview &
+        Comparison of Backend
+        Frameworks                          Django vs Flask vs FastAPI vs .NET MVC vs Rails
+    3.7 .                     E, I, REV     vs Spring Boot vs Node.js                       0.5
+        Database Integration:
+        Relational vs NoSQL,    E, DM,      Using Django ORM, basic models, performing
+    3.8 CRUD, ORM               PRG         CRUD.                                                 2           1           1
+                                                                                       Micro Syllabus (WAP)
+
+
+                                   Depth                                                             Actual Plan
+UNIT      Topic/Subtopic                                   Description of Depth                                                      Week
+                                   Code                                                              L           T           P
+
+      Authentication &
+      Authorization: Cookies,
+  3.9 Sessions, JWT           E, DM, PS Login flow, cookies vs sessions, intro to JWT.           1           0.5 0.5
+      Middleware for
+      Logging, Error
+      Handling, Security        DM, PRG,    Build simple custom middleware for logging &
+  3.1 .                         ACT         error handling                                       1           1           1
+   4 Web Services & APIs                                                                                 7           3           3      3
+      API Basics: Role in                   What APIs are, why they are used, browser–server
+  4.1 Web Applications          E, D, I, QA communication.                                   0.5
+      REST Principles and       E, D, DW,   HTTP verbs, endpoints, statelessness, resource
+  4.2 RESTful API Design        DM          modeling, API structure.                             1           0.5 0.5
+      JSON vs XML Data          E, D, I,    JSON syntax, XML structure, differences, parsing
+  4.3 Exchange                  NUM         demo.                                                0.5         0.5 0.5
+
+      Data Validation &         DM, PS,     Validating request data, serializing/deserializing
+  4.4 Serialization             PRG         objects (Django REST or similar).                    2           0.5 0.5
+      Microservices                         Microservices concepts, API gateway, loose
+  4.5 Architecture Basics       E, I, DM    coupling, communication.                             1
+      Building & Testing a      DM, PRG,    Implementing endpoints, returning JSON, testing
+  4.6 Simple REST API           ACT         via Postman/browser.                                 2           1.5 1.5
+     Web Application
+   5 Security                                                                                            6           1           1      1
+      Common
+      Vulnerabilities: XSS,                 Explanation + demonstration of vulnerabilities with              0.2 0.2
+  5.1 SQL Injection, CSRF       E, D, I, DM small examples.                                     1            5   5
+      Security Best Practices
+      (Input Validation,
+      Sanitization, HTTPS,
+      Secure Cookies, Env                 Secure coding practices, showing                                   0.2 0.2
+  5.2 Variables)                E, DM, PS validation/sanitization techniques.                    2           5   5
+      Authentication Practices E, D, DM,    Password hashing, sessions, JWT flow, secure                     0.2 0.2
+  5.3 & Token Handling         PS           token handling.                                      2           5   5
+      Security in Full-Stack
+      Apps: CORS, Safe          E, DM,      CORS policies, session hardening, browser security               0.2 0.2
+  5.4 Sessions                  ACT         settings.                                          1             5   5
+                                                                                     Micro Syllabus (WAP)
+
+
+                                Depth                                                             Actual Plan
+UNIT     Topic/Subtopic                                  Description of Depth                                              Week
+                                Code                                                              L        T       P
+
+     Web Application
+     Deployment and
+   6 Modern Trends                                                                                    5        1       1      1
+
+      Full-Stack Development              Understanding frontend–backend integration, build
+  6.1 Overview               E, I, D      pipeline, API integration                         1
+                                       Unit tests, integration tests, UI testing basics,
+  6.2 Testing and QA         E, DM, PS automation overview.                                   1           0.5 0.5
+                                          Pipelines, GitHub Actions, Docker intro,
+  6.3 DevOps, CI/CD          E, D, DM     deployment workflow.                                1           0.5 0.5
+      Progressive Web Apps                Service workers, caching, offline-first, manifest
+  6.4 (PWAs)                 E, I, DM     files.                                              1
+      Responsive Design &               Mobile-first approach, breakpoints, UX
+  6.5 Usability              DM, ACT, I considerations.                                       1
+                                                                          Model Question (WAP)
+
+
+                            Web Application Programming
+                                          ENCT 302
+
+
+
+Answer ALL questions:
+
+1. Explain the concept of semantic web [4 Marks]
+2. Design an HTML form for student registration with the following: name, email, phone, program
+selection (dropdown), and a submit button. [ 4 Marks]
+3. Explain DOM manipulation and event handling using JavaScript with suitable code examples.
+Demonstrate add/remove DOM nodes dynamically. A college wants to develop a Single Page
+Application (SPA) for course selection using React JS. [10 Marks]
+            A. Draw an architecture diagram for SPA using React (components, props, state,
+                router).
+            B. Explain the flow of data from a backend API to UI components using fetch() and
+                state hooks.
+            C. Compare React with Angular and Vue.
+4. List and explain any three features of Modern JavaScript with code snippets (ES6+). [6 Marks]
+5. Explain Model-View-Controller (MVC) architecture with a labeled diagram. [ 4 Marks]
+6. Write a Django flow for: [8 Marks]
+    A. URL routing
+    B. View handling form data
+    C. Template rendering
+    D. Session storage
+     Design the complete request to response cycle using a block diagram.
+7. Explain JSON versus XML, with examples, advantages, and data parsing workflow [ 4 Marks]
+8. Consider a hospital management system designing Microservices Architecture. Explain with an
+architectural diagram highlighting: [5 Marks]
+    A. API gateway
+    B. Service communication
+    C. Independent deployments
+    D. Database per service strategy
+9. Explain SQL Injection, XSS, and CSRF with examples. [4 marks]
+10. Explain why CORS is needed in full-stack applications. [4 marks]
+11. Write short notes non: [3 Marks + 4 Marks]
+    A. Continuous Integration and Continuous Delivery
+    B. Progressive web apps
+

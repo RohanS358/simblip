@@ -1,0 +1,218 @@
+WEB APPLICATION PROGRAMMING
+ENCT 302
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to provide comprehensive understanding of web
+technologies for developing responsive and interactive web applications. The course
+emphasizes the use of modern front-end frameworks and tools, as well as techniques
+for integrating front-end interfaces with back-end APIs and databases. By the end of
+the course, students will be able to design, implement and evaluate contemporary
+applications while exploring current trends and future directions in web development.
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+Overview of web applications and evolution of web architecture
+Client-server architecture, HTTP, HTTPS, URLs, DNS, web browsers
+Html basics: Syntax, tags, attributes, forms and inputs, tables, lists,
+multimedia, semantic HTML5 elements
+CSS basics: Selectors, properties, values, box model
+CSS framework: Bootstrap
+JavaScript and Client-Side Programming
+2.1
+2.2
+2.3
+(6 hours)
+(12 hours)
+JavaScript essentials
+2.1.1 Data types, variables, control structures, functions
+2.1.2 Dom manipulation, events, and form validation
+2.1.3 Local storage and session storage
+2.1.4 GUI interactions
+2.1.5 JavaScript library: jQuery
+Modern JavaScript (ES6+)
+2.2.1 Arrow functions, destructuring, spread/rest operators
+2.2.2 Callbacks, promises, async/await
+2.2.3 Modules and imports
+Client-side applications
+2.3.1 Client-side web application development using React JS library
+2.3.2 Traditional multi-page apps vs. single-page apps (SPAs)
+2.3.3 Component-based UI and props
+2.3.4 State management and data flow
+2.3.5 Client-side routing and navigation without reloads
+2.3.6 Fetch API: Fetching, displaying data, handling errors and loading
+states
+2.3.7 Comparison of modern JavaScript libraries: React, Angular, Vue
+3
+Server-Side Web Programming
+(9 hours)
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+3.7
+MVC architecture in web development
+Role of backend in web applications
+Backend web framework: Django
+Handling requests and responses
+Form data handling and sessions
+Routing, middleware, templating concepts
+Overview and comparison of backend frameworks: Django, flask, fastapi,
+dot NET MVC framework, ruby on rails, java spring boot, node.js
+3.8 Database integration: Relational versus NoSQL, CRUD operations, ORM
+concept
+3.9 Authentication and authorization: Cookies, sessions, JWT
+3.10 Middleware for logging, error handling, and security
+4
+Web Services and APIs
+4.1
+4.2
+4.3
+4.4
+4.5
+5
+5.3
+5.4
+6
+API basics: Role in web applications
+REST principles and design, RESTful APIs
+JSON versus XML data exchange
+Data validation and serialization
+Microservices
+Web Application Security
+5.1
+5.2
+Tutorial
+1.
+2.
+3.
+4.
+5.
+(6 hours)
+Common vulnerabilities: XSS, SQL injection, CSRF
+Security best practices: Input validation, sanitization, https, secure cookies,
+env variables
+Authentication practices and token handling
+Security in full-stack apps: CORS, safe sessions
+Web Application Deployment and Modern Trends
+6.1
+6.2
+6.3
+6.4
+(7 hours)
+(5 hours)
+Full-stack development
+Testing and QA
+DevOps, continuous integration (CI) and continuous delivery (CD)
+Progressive web apps (PWAs), responsive design and usability
+(15 hours)
+Walkthrough of client-server request flow (DNS→HTTP/HTTPS→ Browser)
+Guided coding: HTML page with semantic tags, styled with CSS
+grid/flexbox
+JavaScript and client-side programming
+Hands-on exercises with DOM manipulation, event handling
+Form validation and local storage demo
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+Guided task: Small SPA with component-based UI and fetch API
+integration
+Discuss request/response cycle with server framework
+Guided coding: Simple CRUD using Django/Flask (e.g., library system)
+Session handling and authentication example
+REST principles with examples
+Hands-on exercise: Build a simple REST API endpoint and test with
+fetch/postman
+Demonstration of XSS and SQL Injection vulnerabilities
+Guided exercise: Secure login form with input validation and session/token
+handling
+Discussion on PWAs, serverless, microservices
+Case study/tutorial: Compare a traditional app vs. PWA features
+(45 hours)
+Build a responsive personal portfolio page using semantic HTML5, CSS
+grid/flexbox, and media queries
+Create a dynamic to-do list app with DOM events, localstorage, and
+JavaScript event handling (using jQuery)
+Develop a CRUD application (e.g., library system) using a server-side
+framework (Django/Flask/FastAPI)
+Create a frontend in React that fetches data from your backend API and
+displays it dynamically.
+Extend the CRUD app with user authentication (Login/logout), form
+validation, and secure token/session handling
+Develop a comprehensive project that encompasses the complete process
+of front-end and back-end web application development and deployment.
+The project should be carried out over at least six to seven lab sessions,
+covering the following stages: Project proposal, front-end UI/UX design,
+back-end and database design, API design and integration, testing and
+deployment, and culminating in a final presentation and demonstration
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+6
+8
+2
+12
+3
+9
+4
+7
+5
+6
+6
+5
+Total
+45
+* There may be minor deviation in marks distribution.
+16
+12
+9
+8
+7
+60
+References
+1.
+Copes, F. (2019). The JavaScript Handbook.
+(https://flaviocopes.com/the-javascript-handbook-2019-edition/)
+2.
+Nixon, R. (2025). Learning PHP, MySQL & JavaScript: A Step-by-Step
+Guide to Creating Dynamic Websites. O’Reilly Media.
+3.
+Vincent, W. S. (2025). Django for Beginners: Build websites with Python
+and Django.
+4.
+Richardson, L., & Amundsen, M. (2013). RESTful Web APIs: Services for a
+Changing World. O’Reilly Media.
+5.
+Hoffman, A. (2024). Web Application Security: Exploitation and
+Countermeasures for Modern Web Applications (2nd ed.). O’Reilly Media.

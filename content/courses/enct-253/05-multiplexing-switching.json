@@ -1,0 +1,283 @@
+{
+  "title": "Multiplexing, spread spectrum and switching",
+  "kicker": "ENCT 253 · Data Communication · Chapter 5",
+  "subtitle": "How many conversations share one wire, and how a call finds its way across a network.",
+  "sections": [
+    {
+      "id": "fdm",
+      "locator": "5.1",
+      "title": "Frequency-division and time-division multiplexing",
+      "eyebrow": "Sharing a link",
+      "body": "<p><em class=\"term\">Multiplexing</em> combines many signals onto one medium. <em class=\"term\">FDM</em> gives each signal its own frequency band (radio stations, cable TV) with guard bands between them. <em class=\"term\">TDM</em> gives each signal the whole channel for a short time slot in rotation: synchronous TDM wastes slots when a source is idle; statistical TDM allocates slots on demand. <em class=\"term\">WDM</em> is FDM for light: each colour carries a channel on one fibre.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A T1 line multiplexes 24 voice channels, each 64 kb/s, plus 8 kb/s framing."
+        },
+        {
+          "toc": "T1 rate",
+          "why": "24 × 64 = 1536 kb/s; add 8 kb/s framing.",
+          "math": "24\\times64+8=1544\\ \\text{kb/s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "guard",
+          "prompt": "Why does FDM need guard bands?",
+          "choices": [
+            {
+              "text": "To save power."
+            },
+            {
+              "text": "To keep neighbouring signals from interfering as filters are not perfectly sharp.",
+              "correct": true
+            },
+            {
+              "text": "To synchronise clocks."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the purpose."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each band is separated by unused spectrum."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is TDM."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — time-division multiplexing",
+          "note": "Three sources take turns in fixed time slots.",
+          "script": "diagram(\"direction: right\\n[Source 1] as a #blue\\n[Source 2] as b #mint\\n[Source 3] as c #amber\\n[Multiplexer] as m #violet\\n[One shared link] as l #grey\\n[Demultiplexer] as d #violet\\na -> m\\nb -> m\\nc -> m\\nm -> l\\nl -> d\\n@0 a -> m : slot 1\\n@1 b -> m : slot 2\\n@2 c -> m : slot 3\\n@3 m -> l : frame\\n@4 l -> d : frame\\nloop 6\");"
+        }
+      ]
+    },
+    {
+      "id": "dsl",
+      "locator": "5.2",
+      "title": "ADSL and xDSL",
+      "eyebrow": "Broadband over the phone line",
+      "body": "<p><em class=\"term\">ADSL</em> uses the copper pair in three frequency bands: voice (0–4 kHz), upstream and a much wider downstream band — asymmetric because home users download more than they upload. It uses discrete multitone: the band is split into 4 kHz sub-channels, each modulated with as many bits as its own signal-to-noise ratio allows. Speed falls with distance from the exchange.</p>",
+      "questions": [
+        {
+          "id": "adsl",
+          "prompt": "What does the “A” in ADSL stand for?",
+          "choices": [
+            {
+              "text": "Analog."
+            },
+            {
+              "text": "Asymmetric — downstream is faster than upstream.",
+              "correct": true
+            },
+            {
+              "text": "Advanced."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "DSL is digital."
+            },
+            {
+              "title": "Correct.",
+              "body": "Most traffic flows toward the user."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the meaning."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ss",
+      "locator": "5.3",
+      "title": "Spread spectrum and CDMA",
+      "eyebrow": "Hiding in the noise",
+      "body": "<p><em class=\"term\">Spread spectrum</em> deliberately uses far more bandwidth than needed: <em class=\"term\">FHSS</em> hops the carrier among frequencies in a pseudo-random sequence; <em class=\"term\">DSSS</em> multiplies each bit by a fast chipping code. In <em class=\"term\">CDMA</em> every user has a different orthogonal code and all transmit at once on the same band; the receiver recovers one user by correlating with that user’s code — the others average to zero.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "Two users with orthogonal codes c₁ = (+1 +1 +1 +1) and c₂ = (+1 −1 +1 −1). User 1 sends bit +1, user 2 sends bit −1."
+        },
+        {
+          "toc": "Sum",
+          "why": "The channel carries the sum: c₁ − c₂ = (0, 2, 0, 2).",
+          "math": "(0,2,0,2)"
+        },
+        {
+          "toc": "Recover user 1",
+          "why": "Receiver for user 1 correlates with c₁ and divides by 4.",
+          "math": "\\frac{0+2+0+2}{4}=+1",
+          "hero": true
+        },
+        {
+          "toc": "Recover user 2",
+          "why": "For user 2: correlate with c₂ = (0·1 + 2·(−1) + 0·1 + 2·(−1))/4 = −1 ✓.",
+          "math": "-1"
+        }
+      ],
+      "questions": [
+        {
+          "id": "cdma",
+          "prompt": "In CDMA how does a receiver pick out one user from the combined signal?",
+          "choices": [
+            {
+              "text": "By listening on a special frequency."
+            },
+            {
+              "text": "By correlating with that user’s spreading code.",
+              "correct": true
+            },
+            {
+              "text": "By waiting for its time slot."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "All share the band."
+            },
+            {
+              "title": "Correct.",
+              "body": "Orthogonal codes make other users cancel."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is TDMA."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sw",
+      "locator": "5.4",
+      "title": "Circuit, message and packet switching",
+      "eyebrow": "Crossing a network",
+      "body": "<p><em class=\"term\">Circuit switching</em> reserves a path for the whole call (telephone): guaranteed rate, set-up delay, idle capacity wasted. <em class=\"term\">Message switching</em> stores and forwards whole messages. <em class=\"term\">Packet switching</em> cuts data into packets routed separately: efficient for bursty traffic, variable delay. Two flavours: <em class=\"term\">datagram</em> (each packet routed independently, may arrive out of order) and <em class=\"term\">virtual circuit</em> (a path is set up first; packets follow it in order).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Send a 1.5 MB file over 4 hops of 1 Mb/s each, propagation ignored. Packet size 1500 B, 1000 packets."
+        },
+        {
+          "toc": "Message",
+          "why": "Store-and-forward message switching: each hop retransmits the whole file: 4 × 12 s = 48 s.",
+          "math": "4\\times\\frac{12\\times10^6}{10^6}=48\\ \\text{s}"
+        },
+        {
+          "toc": "Packets",
+          "why": "Packet switching pipelines: first hop takes 12 s, then the last packet needs 3 more hop-times of 12 ms: ≈ 12.04 s.",
+          "math": "12+3(0.012)\\approx12.04\\ \\text{s}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pkt",
+          "prompt": "Why is packet switching better for bursty data?",
+          "choices": [
+            {
+              "text": "Capacity is shared; nothing is reserved during silences.",
+              "correct": true
+            },
+            {
+              "text": "It guarantees constant delay."
+            },
+            {
+              "text": "It needs no addresses."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Circuit switching wastes the idle reserved path."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Delay varies."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Each packet carries one."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 5.4.1 — a circuit-switched call",
+          "note": "Circuit switching: three phases.",
+          "script": "diagram(\"mode: sequence\\n[Sender] as s\\n[Switch A] as a\\n[Switch B] as b\\n[Receiver] as r\\ns -> a : call setup\\na -> b : setup\\nb -> r : setup\\nr --> s : connected\\ns -> r : data over the reserved path\\ns -> r : teardown\");"
+        }
+      ]
+    },
+    {
+      "id": "dev",
+      "locator": "5.5",
+      "title": "Switching devices",
+      "eyebrow": "Hardware",
+      "body": "<p>A crossbar switch connects any input to any output with n² crosspoints; multistage (Banyan/Clos) networks use fewer small switches at the price of possible blocking. A packet switch adds buffers to hold packets contending for the same output.</p>",
+      "questions": [
+        {
+          "id": "xbar",
+          "prompt": "Crosspoints in an n × n crossbar?",
+          "choices": [
+            {
+              "text": "n log n."
+            },
+            {
+              "text": "n².",
+              "correct": true
+            },
+            {
+              "text": "2n."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a multistage network."
+            },
+            {
+              "title": "Correct.",
+              "body": "One crosspoint for every input–output pair."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too few."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A 16 × 16 crossbar has how many crosspoints, and an omega network with 2×2 switches how many switches?</p>",
+          "answer": "Crossbar: 16² = <b>256</b>. Omega: (16/2) × log₂16 = 8 × 4 = <b>32</b> switches."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "5.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>FDM splits frequency, TDM splits time, WDM splits colour, CDMA splits by code.</li><li>Circuit switching reserves; packet switching shares.</li></ul>"
+    }
+  ]
+}

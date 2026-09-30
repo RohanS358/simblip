@@ -1,0 +1,293 @@
+{
+  "title": "Control charts",
+  "kicker": "ENSH 304 · Probability and Statistics · Chapter 5",
+  "subtitle": "A factory cannot inspect every item — but it can watch the average and notice the moment the process drifts.",
+  "sections": [
+    {
+      "id": "var",
+      "locator": "5.1",
+      "title": "Two kinds of variation",
+      "eyebrow": "Noise vs signal",
+      "body": "<p>Every process varies. <em class=\"term\">Common-cause</em> variation is the steady random noise of a healthy process; <em class=\"term\">special-cause</em> variation comes from something specific (worn tool, new supplier). Statistical quality control (SQC) separates the two so we act only on real changes.</p>",
+      "questions": [
+        {
+          "id": "cs",
+          "prompt": "A sudden jump after changing supplier is…",
+          "choices": [
+            {
+              "text": "Common-cause."
+            },
+            {
+              "text": "Sampling error only."
+            },
+            {
+              "text": "Special-cause variation.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is steady noise."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "A step change is not noise."
+            },
+            {
+              "title": "Correct.",
+              "body": "It has an assignable cause."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "xbar",
+      "locator": "5.2",
+      "title": "The X̄ chart",
+      "eyebrow": "Watching the mean",
+      "body": "<p>Take small samples (size n) regularly and plot each sample mean. Centre line = grand mean X̿. Control limits sit three standard errors away: UCL, LCL = X̿ ± 3σ/√n (or X̿ ± A₂R̄ from tabulated constants). Because P(|Z| ≤ 3) = <b>0.9973</b>, a healthy process almost never crosses them by chance: about 1 false alarm in 370.</p>",
+      "worked": [
+        {
+          "toc": "SE",
+          "why": "Grand mean 50, σ = 4, n = 4. SE = 4/√4.",
+          "math": "SE=2"
+        },
+        {
+          "toc": "Limits",
+          "why": "Limits = 50 ± 3·2.",
+          "math": "LCL=44,\\ UCL=56",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lim",
+          "prompt": "Control limits are placed at…",
+          "choices": [
+            {
+              "text": "The specification limits."
+            },
+            {
+              "text": "One standard error."
+            },
+            {
+              "text": "Three standard errors from the centre line.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Specs are customer requirements, not process behaviour."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Far too many false alarms."
+            },
+            {
+              "title": "Correct.",
+              "body": "Catches ≈ 99.73 % of ordinary variation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.2.1 — monitoring loop",
+          "note": "The loop an operator runs.",
+          "script": "diagram(\"Process -> Sample n items : every hour\\nSample n items -> Plot mean : compute x̄\\nPlot mean -> Inside limits? : compare to LCL, UCL\\nInside limits? -> Continue : yes\\nInside limits? -> Investigate cause : no\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-xb",
+          "prompt": "<p>Process mean 100, σ = 6, samples of n = 9. Find the X̄ chart limits.</p>",
+          "answer": "SE = 6/3 = 2 → LCL = <b>94</b>, UCL = <b>106</b>."
+        }
+      ]
+    },
+    {
+      "id": "rules",
+      "locator": "5.3",
+      "title": "Signals beyond one point",
+      "eyebrow": "Patterns that matter",
+      "body": "<p>A single point outside the limits is one signal. Others: 7 points in a row on one side of the centre line, 6 steadily rising, 2 of 3 beyond 2σ. Each pattern is unlikely under pure noise, so it flags a shift earlier than waiting for the limit.</p>",
+      "questions": [
+        {
+          "id": "run",
+          "prompt": "Eight consecutive points above the centre line suggest…",
+          "choices": [
+            {
+              "text": "The mean has shifted.",
+              "correct": true
+            },
+            {
+              "text": "Everything is normal."
+            },
+            {
+              "text": "The limits are too wide."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Probability under noise ≈ (½)⁸."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is very unlikely by chance."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Limits are not the issue."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "p",
+      "locator": "5.4",
+      "title": "Charts for attributes",
+      "eyebrow": "Counting defects",
+      "body": "<p>For defective fractions use the p-chart: centre p̄, limits p̄ ± 3√(p̄(1 − p̄)/n). For defects per unit use the c-chart: c̄ ± 3√c̄ (Poisson). Lower limits below zero are set to zero.</p>",
+      "worked": [
+        {
+          "toc": "σ_p",
+          "why": "p̄ = 0.04, n = 100: √(0.04·0.96/100) = 0.0196."
+        },
+        {
+          "toc": "Limits",
+          "why": "UCL = 0.04 + 0.0588; LCL negative, use 0.",
+          "math": "UCL=0.0988",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cc",
+          "prompt": "A c-chart monitors…",
+          "choices": [
+            {
+              "text": "Sample means."
+            },
+            {
+              "text": "Defects per unit.",
+              "correct": true
+            },
+            {
+              "text": "Sample ranges."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is X̄."
+            },
+            {
+              "title": "Correct.",
+              "body": "Poisson counts."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is R."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cap",
+      "locator": "5.5",
+      "title": "Process capability",
+      "eyebrow": "Is the process good enough?",
+      "body": "<p>Control asks “is it stable?”; capability asks “does it meet the spec?” Cp = (USL − LSL)/6σ. Cp ≥ 1.33 is comfortable; Cp = 1 leaves 0.27 % out of spec. Cpk = min(USL − μ, μ − LSL)/3σ also penalises an off-centre mean.</p>",
+      "worked": [
+        {
+          "toc": "Cp",
+          "why": "Spec 40–60, σ = 2.5: 6σ = 15.",
+          "math": "C_p=\\tfrac{20}{15}"
+        },
+        {
+          "toc": "Verdict",
+          "why": "So Cp = 1.33 if the mean is centred.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cp",
+          "prompt": "Cp = 1.33 means the spec width is…",
+          "choices": [
+            {
+              "text": "Six standard deviations."
+            },
+            {
+              "text": "Exactly 3σ."
+            },
+            {
+              "text": "Eight standard deviations wide.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is Cp = 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is Cp = 0.5."
+            },
+            {
+              "title": "Correct.",
+              "body": "1.33 × 6σ = 8σ."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "acc",
+      "locator": "5.6",
+      "title": "Acceptance sampling",
+      "eyebrow": "Inspecting lots",
+      "body": "<p>A single-sampling plan (n, c) inspects n items from a lot and accepts if at most c are defective. The operating-characteristic curve plots P(accept) against the lot defect rate — computed with the binomial (or Poisson). Producer’s risk α rejects a good lot; consumer’s risk β accepts a bad one.</p>",
+      "questions": [
+        {
+          "id": "oc",
+          "prompt": "Plan n = 50, c = 0 versus c = 2. Which accepts more lots?",
+          "choices": [
+            {
+              "text": "c = 0."
+            },
+            {
+              "text": "c = 2.",
+              "correct": true
+            },
+            {
+              "text": "They are the same."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Strictest."
+            },
+            {
+              "title": "Correct.",
+              "body": "More defects are tolerated."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "c changes acceptance."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,249 @@
+{
+  "title": "The communication model",
+  "kicker": "ENCT 253 · Data Communication · Chapter 1",
+  "subtitle": "Every link, from a USB cable to a satellite, is the same five boxes.",
+  "sections": [
+    {
+      "id": "model",
+      "locator": "1.1",
+      "title": "Source, transmitter, medium, receiver, destination",
+      "eyebrow": "The model",
+      "body": "<p>A <em class=\"term\">source</em> produces information; a <em class=\"term\">transmitter</em> converts it into a signal suited to the <em class=\"term\">transmission medium</em>; the medium carries it (and corrupts it with <em class=\"term\">noise</em>); a <em class=\"term\">receiver</em> recovers the information and hands it to the <em class=\"term\">destination</em>. A telephone call, a Wi-Fi download and a radio broadcast fit this chain exactly.</p>",
+      "questions": [
+        {
+          "id": "noise",
+          "prompt": "Where does noise enter the communication model?",
+          "choices": [
+            {
+              "text": "In the transmission medium (and the receiver), corrupting the signal.",
+              "correct": true
+            },
+            {
+              "text": "At the source only."
+            },
+            {
+              "text": "Nowhere — digital signals are perfect."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That is why receivers need margins and error control."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The source is the information."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Digital signals are also corrupted; they are just easier to regenerate."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — the communication model",
+          "note": "Press Simulate: the message becomes a signal and back.",
+          "script": "diagram(\"direction: right\\n(Source: voice, bits) as s\\n[Transmitter: encode / modulate] as t #blue\\n[Medium: copper, fibre, air] as m #amber\\n[Receiver: demodulate / decode] as r #blue\\n(Destination) as d\\n[Noise] as n #rose\\ns -> t\\nt -> m : signal\\nm -> r : signal + noise\\nr -> d\\nn --> m\\n@0 s -> t : message\\n@1 t -> m : signal\\n@2 m -> r : noisy signal\\n@3 r -> d : message\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "flow",
+      "locator": "1.2",
+      "title": "Data flow and network types",
+      "eyebrow": "Directions",
+      "body": "<p><em class=\"term\">Simplex</em>: one direction only (broadcast TV). <em class=\"term\">Half duplex</em>: both directions, one at a time (walkie-talkie). <em class=\"term\">Full duplex</em>: both at once (telephone, modern Ethernet). A <em class=\"term\">LAN</em> spans a building, a <em class=\"term\">WAN</em> a country; the OSI model organises the protocols in seven layers (see the Computer Networks course).</p>",
+      "questions": [
+        {
+          "id": "duplex",
+          "prompt": "A walkie-talkie is…",
+          "choices": [
+            {
+              "text": "Half duplex.",
+              "correct": true
+            },
+            {
+              "text": "Full duplex."
+            },
+            {
+              "text": "Simplex."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Both can talk but not simultaneously."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That allows simultaneous talk and listen."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is one-way only."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "analog",
+      "locator": "1.3",
+      "title": "Analog and digital",
+      "eyebrow": "Two kinds of data and signal",
+      "body": "<p><em class=\"term\">Analog</em> data (voice, temperature) varies continuously; <em class=\"term\">digital</em> data is a set of discrete values. Either can travel as an analog signal (telephone line, radio) or a digital one (voltage pulses). Digital signals can be <em>regenerated</em> at repeaters, removing accumulated noise; analog signals can only be amplified, noise included — the core advantage of digital transmission.</p>",
+      "questions": [
+        {
+          "id": "regen",
+          "prompt": "Why can digital signals be regenerated?",
+          "choices": [
+            {
+              "text": "They contain no noise."
+            },
+            {
+              "text": "They are slower."
+            },
+            {
+              "text": "Only a few discrete levels exist, so the receiver can decide which was sent and re-create a clean signal.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They do; it is removed at decisions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "An analog repeater amplifies the noise too."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.3.1 — data vs signal",
+          "note": "All four combinations exist.",
+          "script": "diagram(\"direction: right\\n[Analog data → analog signal: telephone] as a #amber\\n[Analog data → digital signal: PCM] as b #mint\\n[Digital data → analog signal: modem, Wi-Fi] as c #blue\\n[Digital data → digital signal: Ethernet] as d #violet\\na -> b : sample + quantise\\nb -> c : modulate\\nc -> d : line code\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Give an example of (a) digital data over an analog signal, and (b) analog data over a digital signal.</p>",
+          "answer": "(a) A modem or Wi-Fi sending bits by modulating a carrier. (b) A digital phone call: voice is sampled and encoded by PCM."
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "locator": "1.4",
+      "title": "Performance measures",
+      "eyebrow": "Numbers",
+      "body": "<p><em class=\"term\">Bandwidth</em>: range of frequencies (Hz) — or, loosely, the bit rate a link supports. <em class=\"term\">Throughput</em>: bits actually delivered per second. <em class=\"term\">Latency</em>: time for a bit to arrive = propagation + transmission + queueing. <em class=\"term\">Jitter</em>: variation in latency (bad for voice). Bandwidth–delay product = capacity × delay = bits in flight.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A 10 Mb/s link, 2000 km of fibre (propagation 2×10⁸ m/s), sending a 1000-byte packet."
+        },
+        {
+          "toc": "Components",
+          "why": "Transmission time = 8000 bits / 10⁷ = 0.8 ms. Propagation = 2×10⁶ m / 2×10⁸ = 10 ms.",
+          "math": "t_{tx}=0.8\\ \\text{ms},\\ t_{p}=10\\ \\text{ms}"
+        },
+        {
+          "toc": "BDP",
+          "why": "Bandwidth–delay product = 10⁷ × 0.01 s = 10⁵ bits in flight.",
+          "math": "10^7\\times0.01=10^5\\ \\text{bits}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lat",
+          "prompt": "Which component of delay grows with distance?",
+          "choices": [
+            {
+              "text": "Transmission delay."
+            },
+            {
+              "text": "Propagation delay.",
+              "correct": true
+            },
+            {
+              "text": "Queueing delay."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It depends on packet size and bit rate."
+            },
+            {
+              "title": "Correct.",
+              "body": "The signal travels at a finite speed."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It depends on load."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.5",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Source → transmitter → medium (+noise) → receiver → destination.</li><li>Digital signals can be regenerated; analog can only be amplified.</li><li>Delay = transmission + propagation (+queueing).</li></ul>"
+    },
+    {
+      "id": "extra",
+      "locator": "1.6",
+      "title": "The enterprise view",
+      "eyebrow": "Where it is used",
+      "body": "<p>Today’s enterprise network links branch LANs over WAN services, carries voice and video alongside data (which is why jitter matters), and depends on cloud and mobile access. The protocols and encodings in the following chapters are the machinery beneath all of it.</p>",
+      "questions": [
+        {
+          "id": "voip",
+          "prompt": "Which measure matters most for a live voice call?",
+          "choices": [
+            {
+              "text": "Jitter and latency.",
+              "correct": true
+            },
+            {
+              "text": "Raw bandwidth only."
+            },
+            {
+              "text": "File size."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Packets must arrive on time and evenly spaced."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Voice needs little bandwidth."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not relevant."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

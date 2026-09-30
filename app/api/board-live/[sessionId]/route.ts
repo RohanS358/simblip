@@ -48,12 +48,19 @@ export async function GET(req: Request, { params }: Params) {
   })
 }
 
+const MAX_WS_MESSAGE_BYTES = 5 * 1024 * 1024
+const rawSize = (data: WebSocketData): number =>
+  typeof data === 'string' ? Buffer.byteLength(data) : (data as { byteLength: number }).byteLength
+
 async function handleMessage(
   sessionId: string,
   role: BoardLiveRole,
   socket: LocalSocket,
   data: WebSocketData
 ): Promise<void> {
+  // A single message can carry a whole page bundle, but nothing legitimate is
+  // this large, and it is parsed, persisted and fanned out to every socket.
+  if (rawSize(data) > MAX_WS_MESSAGE_BYTES) return
   let msg: BoardLiveClientMsg
   try {
     msg = JSON.parse(data.toString()) as BoardLiveClientMsg
@@ -61,7 +68,14 @@ async function handleMessage(
     return
   }
 
+  // SECURITY: any connected role used to be able to rewrite the presented
+  // board — a student following along could delete or replace objects for the
+  // whole class. Only the presenter's screens edit; followers are read-only.
+  const canEdit = role === 'teacher' || role === 'desktop' || role === 'board'
+  if ((msg.type === 'obj-patch' || msg.type === 'bundle') && !canEdit) return
+
   if (msg.type === 'obj-patch') {
+    if (typeof msg.objectId !== 'string' || msg.objectId.length === 0 || msg.objectId.length > 128) return
     // Any of teacher/board/student may edit board-kind canvas objects —
     // this is the whole point of the feature.
     //

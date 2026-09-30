@@ -1,0 +1,279 @@
+{
+  "title": "TCP and UDP",
+  "kicker": "ENCT 304 · Computer Networks · Chapter 5",
+  "subtitle": "IP delivers packets when it feels like it. TCP turns that into a reliable, ordered stream — and learns how fast it may go.",
+  "sections": [
+    {
+      "id": "ports",
+      "locator": "5.1",
+      "title": "Process-to-process delivery",
+      "eyebrow": "Transport",
+      "body": "<p>The network layer gets a packet to a <em>host</em>; the transport layer gets it to a <em>process</em>. A 16-bit <em class=\"term\">port number</em> identifies the process; the pair (IP, port) is a <em class=\"term\">socket</em>. The sender <em class=\"term\">multiplexes</em> many applications onto one network connection; the receiver <em class=\"term\">demultiplexes</em> by port. <em class=\"term\">UDP</em> adds only ports and a checksum: fast, connectionless, no guarantees (DNS, streaming, games). <em class=\"term\">TCP</em> adds connections, reliability, ordering, flow and congestion control (web, email, files).</p>",
+      "questions": [
+        {
+          "id": "udp",
+          "prompt": "Why would an application choose UDP?",
+          "choices": [
+            {
+              "text": "It wants low latency and no connection set-up, and can tolerate or handle loss itself.",
+              "correct": true
+            },
+            {
+              "text": "It needs guaranteed delivery."
+            },
+            {
+              "text": "It needs flow control."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "DNS queries and live video do not want to wait for retransmissions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is TCP."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "UDP has none."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "hs",
+      "locator": "5.2",
+      "title": "The three-way handshake",
+      "eyebrow": "Connections",
+      "body": "<p>Before data flows TCP agrees initial sequence numbers: the client sends SYN, the server replies SYN-ACK, the client ACKs. Teardown uses FIN and ACK in each direction (a four-step close), since each side closes its half independently. Press Simulate to watch the segments cross.</p>",
+      "questions": [
+        {
+          "id": "syn",
+          "prompt": "Why three messages rather than two?",
+          "choices": [
+            {
+              "text": "To encrypt the connection."
+            },
+            {
+              "text": "Because of the OSI model."
+            },
+            {
+              "text": "Both sides must learn the other’s initial sequence number and confirm it was received.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "TCP does not encrypt."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Two messages would leave the server unsure that the client got its SYN-ACK."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.2.1 — TCP connection life cycle",
+          "note": "Open, transfer, close.",
+          "script": "diagram(\"mode: sequence\\n[Client] as c\\n[Server] as s\\nc -> s : SYN, seq = x\\ns --> c : SYN-ACK, seq = y, ack = x+1\\nc -> s : ACK, ack = y+1\\nc -> s : data\\ns --> c : ACK\\nc -> s : FIN\\ns --> c : ACK + FIN\\nc -> s : ACK\");"
+        }
+      ]
+    },
+    {
+      "id": "reliable",
+      "locator": "5.3",
+      "title": "Reliability and flow control",
+      "eyebrow": "Sequence and window",
+      "body": "<p>TCP numbers every byte. The receiver's acknowledgement is cumulative (\"I have everything up to byte N\"). Loss is detected by a timeout or by three duplicate ACKs (fast retransmit). The receiver also advertises a <em class=\"term\">window</em>, the free space in its buffer, and the sender never has more than that outstanding: <em class=\"term\">flow control</em> stops a fast sender overrunning a slow receiver. It is the sliding window of the previous chapter, applied to a byte stream.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A receiver advertises a 4000-byte window; the sender has sent bytes 1000–2999 unacknowledged."
+        },
+        {
+          "toc": "Allowed",
+          "why": "It may send 4000 − 2000 = 2000 more bytes.",
+          "math": "W - \\text{in flight}=4000-2000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dup",
+          "prompt": "Three duplicate ACKs signal…",
+          "choices": [
+            {
+              "text": "A probably lost segment — retransmit without waiting for the timeout.",
+              "correct": true
+            },
+            {
+              "text": "The receiver is full."
+            },
+            {
+              "text": "The connection closed."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Later segments are arriving, so only one is missing."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a window of 0."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is FIN."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cc",
+      "locator": "5.4",
+      "title": "Congestion control",
+      "eyebrow": "Sharing the network",
+      "body": "<p>Flow control protects the receiver; <em class=\"term\">congestion control</em> protects the network. TCP keeps a congestion window <i>cwnd</i>. <em class=\"term\">Slow start</em>: cwnd doubles each RTT from 1 until it reaches <i>ssthresh</i>. <em class=\"term\">Congestion avoidance</em>: +1 segment per RTT. On three duplicate ACKs, Reno halves the threshold and continues from there (fast recovery); Tahoe restarts from 1. A timeout sends both back to 1. The saw-tooth is the signature of TCP.</p>",
+      "questions": [
+        {
+          "id": "ss",
+          "prompt": "During slow start, how does cwnd grow?",
+          "choices": [
+            {
+              "text": "It doubles every RTT (exponentially).",
+              "correct": true
+            },
+            {
+              "text": "By one segment per RTT."
+            },
+            {
+              "text": "It stays constant."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each ACK adds one segment, so a full window of ACKs doubles the window."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is congestion avoidance."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Then it would never probe the capacity."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 5.4.1 — TCP Reno",
+          "note": "Reno: growth, a loss at RTT 9, then halving.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"reno\",\"engine\":\"tcp\",\"variant\":\"reno\",\"rounds\":16,\"ssthresh\":8,\"dupacks\":\"9\",\"width\":600,\"height\":440});",
+          "expect": {
+            "reno": {
+              "cwnd": "1 2 4 8 9 10 11 12 13 6 7 8 9 10 11 12"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 5.4.2 — TCP Tahoe",
+          "note": "Tahoe restarts from 1 after the same loss.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"tahoe\",\"engine\":\"tcp\",\"variant\":\"tahoe\",\"rounds\":16,\"ssthresh\":8,\"dupacks\":\"9\",\"width\":600,\"height\":440});",
+          "expect": {
+            "tahoe": {
+              "cwnd": "1 2 4 8 9 10 11 12 13 1 2 4 6 7 8 9"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-cwnd",
+          "prompt": "<p>Reno with ssthresh 8 and a 3-dup-ACK loss at RTT 9: list cwnd for the first 16 RTTs (Tahoe too).</p>",
+          "answer": "Reno: <b>1 2 4 8 9 10 11 12 13 6 7 8 9 10 11 12</b>. Tahoe: <b>1 2 4 8 9 10 11 12 13 1 2 4 6 7 8 9</b>. Reno resumes at half the window; Tahoe falls back to slow start.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "Reno.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"tcp\",\"variant\":\"reno\",\"rounds\":16,\"ssthresh\":8,\"dupacks\":\"9\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "cwnd": "1 2 4 8 9 10 11 12 13 6 7 8 9 10 11 12"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "sockets",
+      "locator": "5.5",
+      "title": "Sockets",
+      "eyebrow": "Programming",
+      "body": "<p>A <em class=\"term\">socket</em> is the programmer’s handle on this machinery. A server calls <code>socket → bind → listen → accept</code> and then <code>recv/send</code>; a client calls <code>socket → connect</code> then <code>send/recv</code>. <code>accept</code> returns a new socket for each client while the listening socket keeps waiting.</p>",
+      "questions": [
+        {
+          "id": "accept",
+          "prompt": "What does accept() return?",
+          "choices": [
+            {
+              "text": "The client’s IP address only."
+            },
+            {
+              "text": "Nothing."
+            },
+            {
+              "text": "A new socket dedicated to the connecting client.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It returns a socket (address available separately)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It returns a descriptor."
+            },
+            {
+              "title": "Correct.",
+              "body": "The original listening socket remains open for more clients."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia5",
+          "caption": "Figure 5.5.1 — socket calls",
+          "note": "The call order on each side.",
+          "script": "diagram(\"mode: sequence\\n[Client] as c\\n[Server] as s\\ns -> s : socket, bind, listen\\nc -> c : socket\\nc -> s : connect, then handshake\\ns -> s : accept → new socket\\nc -> s : send(request)\\ns --> c : send(response)\\nc -> s : close\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "5.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Ports pick processes; TCP = reliable stream, UDP = datagrams.</li><li>Handshake: SYN, SYN-ACK, ACK.</li><li>Flow control = receiver’s window; congestion control = cwnd (slow start, AIMD).</li></ul>"
+    }
+  ]
+}

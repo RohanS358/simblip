@@ -1,0 +1,282 @@
+{
+  "title": "Decidability, complexity and the compiler link",
+  "kicker": "ENCT 203 · Theory of Computation · Chapters 5–6",
+  "subtitle": "Some questions no program can answer; others can be answered, but not quickly. And why every compiler is a pair of these machines.",
+  "sections": [
+    {
+      "id": "ct",
+      "locator": "5.1",
+      "title": "The Church–Turing thesis and universal machines",
+      "eyebrow": "What “computable” means",
+      "body": "<p>The <em class=\"term\">Church–Turing thesis</em>: anything computable by an algorithm is computable by a Turing machine. It cannot be proved (“algorithm” is informal) but every model ever proposed agrees. A <em class=\"term\">universal Turing machine</em> takes the encoding of any machine M and an input w on its tape and simulates M on w — the idea of the stored-program computer.</p>",
+      "questions": [
+        {
+          "id": "utm",
+          "prompt": "A universal Turing machine corresponds to…",
+          "choices": [
+            {
+              "text": "A single-purpose circuit."
+            },
+            {
+              "text": "A general-purpose stored-program computer.",
+              "correct": true
+            },
+            {
+              "text": "A finite automaton."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The opposite."
+            },
+            {
+              "title": "Correct.",
+              "body": "Programs are just data on the tape."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Far too weak."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — the universal machine",
+          "note": "One machine that runs all machines.",
+          "script": "diagram(\"direction: right\\n[Description of M] as m #blue\\n[Input w] as w #mint\\n[Universal machine U] as u #violet\\n(Result of M on w) as r\\nm -> u\\nw -> u\\nu -> r : simulate step by step\\n@0 m -> u : code\\n@1 w -> u : data\\n@2 u -> r : output\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "halt",
+      "locator": "5.2",
+      "title": "The halting problem",
+      "eyebrow": "The limit",
+      "body": "<p>Is there a program H(P, x) that always correctly says whether program P halts on input x? No. Suppose H existed and build D(P): run H(P, P); if H says “halts”, loop forever; otherwise halt. Now ask about D(D): if H(D, D) says it halts then D loops; if it says it loops then D halts. Either way H is wrong — a contradiction, by diagonalisation. So the halting problem is <em class=\"term\">undecidable</em>, and by reduction so are many others (does this program ever print “hello”? do two programs compute the same function?).</p>",
+      "questions": [
+        {
+          "id": "halt",
+          "prompt": "What does the halting problem show?",
+          "choices": [
+            {
+              "text": "No algorithm can decide, for every program and input, whether it halts.",
+              "correct": true
+            },
+            {
+              "text": "Programs cannot halt."
+            },
+            {
+              "text": "Only slow computers loop."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Some well-defined questions are beyond any computer."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Most do."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Looping is independent of speed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 5.2.1 — why no halting decider exists",
+          "note": "The self-referential trick behind the proof.",
+          "script": "diagram(\"direction: down\\n[Assume H(P, x) decides halting] as h #blue\\n[Build D(P): if H(P, P) says halts → loop; else → halt] as d #amber\\n<What does D(D) do?> as q #violet\\n[If it halts, H said “halts”, so D loops] as a #rose\\n[If it loops, H said “loops”, so D halts] as b #rose\\n(Contradiction: H cannot exist) as c\\nh -> d\\nd -> q\\nq -> a : halts?\\nq -> b : loops?\\na -> c\\nb -> c\");"
+        }
+      ]
+    },
+    {
+      "id": "classes",
+      "locator": "5.3",
+      "title": "Time complexity: P and NP",
+      "eyebrow": "How fast",
+      "body": "<p><em class=\"term\">P</em> is the set of problems solvable in polynomial time by a deterministic machine (sorting, shortest path). <em class=\"term\">NP</em> is the set whose solutions can be <em>checked</em> in polynomial time (equivalently solved in polynomial time by a nondeterministic machine): factoring, Hamiltonian cycle, SAT. Clearly P ⊆ NP; whether P = NP is the most famous open problem. A problem is <em class=\"term\">NP-complete</em> if it is in NP and every NP problem reduces to it in polynomial time: solve one fast and you solve them all.</p>",
+      "worked": [
+        {
+          "toc": "Verify",
+          "why": "Verifying a proposed Hamiltonian cycle in a graph of n vertices means checking each consecutive pair is an edge and every vertex appears once."
+        },
+        {
+          "toc": "Why NP",
+          "why": "That is O(n) — polynomial — so the problem is in NP. Finding one by trying all orders takes up to n! steps.",
+          "math": "O(n)\\ \\text{check}\\ \\text{vs}\\ n!\\ \\text{search}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "np",
+          "prompt": "What is special about NP-complete problems?",
+          "choices": [
+            {
+              "text": "They are unsolvable."
+            },
+            {
+              "text": "Every problem in NP reduces to them; a fast algorithm for one would give one for all.",
+              "correct": true
+            },
+            {
+              "text": "They are in P."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They are solvable, just apparently slow."
+            },
+            {
+              "title": "Correct.",
+              "body": "They are the hardest problems in NP."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unknown, and widely doubted."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lex",
+      "locator": "6.1",
+      "title": "The compiler link: lexical analysis = DFA",
+      "eyebrow": "Theory at work",
+      "body": "<p>A compiler’s first phase, the lexical analyser, turns characters into tokens (identifiers, numbers, keywords). Each token class is a regular expression; the scanner is a DFA built from them. Here a tiny DFA recognises identifiers: a letter then letters or digits.</p>",
+      "questions": [
+        {
+          "id": "lexq",
+          "prompt": "Which automaton underlies a lexical analyser?",
+          "choices": [
+            {
+              "text": "A pushdown automaton."
+            },
+            {
+              "text": "A Turing machine."
+            },
+            {
+              "text": "A DFA built from the token regular expressions.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for nested syntax."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Overkill."
+            },
+            {
+              "title": "Correct.",
+              "body": "Regular languages suffice for tokens."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 6.1.1 — identifier scanner",
+          "note": "l = letter, d = digit. Input “l d l”: identifier.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"id\",\"engine\":\"dfa\",\"spec\":\"start: s\\naccept: id\\ns,l -> id\\ns,d -> bad\\nid,l -> id\\nid,d -> id\\nbad,l -> bad\\nbad,d -> bad\",\"input\":\"lldl\",\"width\":600,\"height\":440});",
+          "expect": {
+            "id": {
+              "accepted": "yes"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "parse",
+      "locator": "6.2",
+      "title": "Syntax analysis = CFG and PDA",
+      "eyebrow": "Structure",
+      "body": "<p>The parser checks that the token stream fits the language’s context-free grammar and builds a parse tree. <em class=\"term\">Top-down</em> (recursive descent, LL) expands from the start symbol; <em class=\"term\">bottom-up</em> (shift–reduce, LR) reduces the input back to the start symbol using a stack — a PDA. Nested brackets and blocks need the stack, which is why a regular expression alone cannot parse a program.</p>",
+      "worked": [
+        {
+          "toc": "Shift–reduce",
+          "why": "Stack-based check of (a+a)*a: shift (, a, reduce a→F→T→E, shift +, a, reduce, reduce E+T→E, shift ), reduce (E)→F, and so on."
+        },
+        {
+          "toc": "Accept",
+          "why": "Finally reduce T*F → T → E: the whole input is the start symbol.",
+          "math": "E",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "llr",
+          "prompt": "Bottom-up parsing uses a stack to…",
+          "choices": [
+            {
+              "text": "Store the whole program."
+            },
+            {
+              "text": "Hold symbols waiting to be reduced by a grammar rule.",
+              "correct": true
+            },
+            {
+              "text": "Replace the lexer."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the purpose."
+            },
+            {
+              "title": "Correct.",
+              "body": "Shift pushes a token; reduce replaces a rule’s right-hand side by its variable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different phase."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 6.2.1 — parsing (a+a)*a",
+          "note": "The parse tree of an expression with brackets.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pt\",\"engine\":\"cfg\",\"grammar\":\"E -> E+T | T\\nT -> T*F | F\\nF -> (E) | a\",\"string\":\"(a+a)*a\",\"width\":600,\"height\":440});",
+          "expect": {
+            "pt": {
+              "derivation": "E => T => T*F => F*F => (E)*F => (E+T)*F => (T+T)*F => (F+T)*F => (a+T)*F => (a+F)*F => (a+a)*F => (a+a)*a"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Why is a parser built on a context-free grammar rather than a regular expression?</p>",
+          "answer": "Programs have arbitrarily nested constructs — brackets, blocks, function calls — and matching them needs unbounded memory (a stack). Regular languages cannot do that (the pumping lemma argument for aⁿbⁿ), context-free ones can."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.3",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Halting is undecidable; some problems are solvable but not efficiently (NP-complete).</li><li>Compilers: lexer = DFA, parser = PDA/CFG.</li></ul>"
+    }
+  ]
+}

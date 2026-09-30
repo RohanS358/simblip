@@ -1,0 +1,357 @@
+{
+  "title": "Memory management and virtual memory",
+  "kicker": "ENCT 254 · Operating System · Chapter 4 (memory)",
+  "subtitle": "Programs think they own a huge private address space. The OS and the MMU make that true with pages, page tables, and a policy for what to throw out.",
+  "sections": [
+    {
+      "id": "alloc",
+      "locator": "4.1",
+      "title": "Contiguous allocation and fragmentation",
+      "eyebrow": "The old way",
+      "body": "<p>The simplest scheme gives each process one contiguous block. The OS keeps a list of free holes and, for each request, chooses one: <em class=\"term\">first fit</em> takes the first hole big enough, <em class=\"term\">best fit</em> the smallest that fits, <em class=\"term\">worst fit</em> the largest. Whatever is left over is too small to use — <em class=\"term\">external fragmentation</em>. Compaction can squeeze holes together but costs a great deal of copying.</p>",
+      "questions": [
+        {
+          "id": "fit",
+          "prompt": "Free holes are 100, 500, 200, 300, 600 KB. Which policy can place all four requests 212, 417, 112, 426?",
+          "choices": [
+            {
+              "text": "Best fit — the others strand memory and leave 426 unplaced.",
+              "correct": true
+            },
+            {
+              "text": "First fit."
+            },
+            {
+              "text": "Worst fit."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "First fit and worst fit carve big holes into pieces that no longer fit 426; best fit keeps the large holes whole (result: 212→B4 417→B2 112→B3 426→B5)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It leaves 1 request unplaced: 426 KB has no hole left once 212 and 112 have split the 500 KB block."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It also fails on 426 KB (1 unplaced) because it keeps shaving the largest hole."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.1.1 — first fit",
+          "note": "First fit: 212→B2 417→B5 112→B2 426→wait.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ff\",\"engine\":\"memfit\",\"algo\":\"first\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ff": {
+              "placed": "212→B2 417→B5 112→B2 426→wait"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 4.1.2 — best fit",
+          "note": "Best fit: 212→B4 417→B2 112→B3 426→B5.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bf\",\"engine\":\"memfit\",\"algo\":\"best\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bf": {
+              "placed": "212→B4 417→B2 112→B3 426→B5"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 4.1.3 — worst fit",
+          "note": "Worst fit: 212→B5 417→B2 112→B5 426→wait.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"wf\",\"engine\":\"memfit\",\"algo\":\"worst\",\"width\":600,\"height\":440});",
+          "expect": {
+            "wf": {
+              "placed": "212→B5 417→B2 112→B5 426→wait"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "paging",
+      "locator": "4.2",
+      "title": "Paging",
+      "eyebrow": "The modern way",
+      "body": "<p><em class=\"term\">Paging</em> cuts the virtual address space into fixed-size <em class=\"term\">pages</em> and physical memory into same-size <em class=\"term\">frames</em>. Any page can go in any frame, so external fragmentation disappears. A per-process <em class=\"term\">page table</em> maps page number → frame number; a virtual address splits into a page number and an offset, and the offset passes through unchanged.</p><p>With 4 KB pages, the address 0x3A7C has page number 3 and offset 0xA7C; if page 3 lives in frame 9, the physical address is 9·4096 + 0xA7C. A small cache of recent translations, the <em class=\"term\">TLB</em>, keeps this fast.</p>",
+      "worked": [
+        {
+          "toc": "Split",
+          "why": "4 KB pages → 12 offset bits. Virtual address 0x3A7C: page number = 0x3A7C >> 12 = 3, offset = 0xA7C.",
+          "math": "\\text{page}=3,\\ \\text{offset}=\\mathtt{0xA7C}"
+        },
+        {
+          "toc": "Translate",
+          "why": "If page 3 is in frame 9, the physical address is frame × 4096 + offset = 36864 + 2684.",
+          "math": "9\\cdot4096 + 2684 = 39548",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "offset",
+          "prompt": "During translation, what happens to the offset bits?",
+          "choices": [
+            {
+              "text": "They are multiplied by the frame number."
+            },
+            {
+              "text": "They pass through unchanged — only the page number is replaced by a frame number.",
+              "correct": true
+            },
+            {
+              "text": "They are looked up in the page table."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Nothing is multiplied; the frame number is shifted into the high bits."
+            },
+            {
+              "title": "Correct.",
+              "body": "Pages and frames are the same size, so a byte keeps its position inside the page."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The page table is indexed by page number only."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 4.2.1 — address translation",
+          "note": "A TLB hit skips the page-table walk.",
+          "script": "diagram(\"direction: right\\n[CPU: virtual address page p, offset d] as cpu #blue\\n[TLB] as tlb #amber\\n[Page table] as pt #violet\\n[Physical memory: frame f, offset d] as ram #mint\\ncpu -> tlb : p\\ntlb -> ram : hit → f\\ntlb -> pt : miss\\npt -> ram : f\\n@0 cpu -> tlb : p\\n@1.2 tlb -> pt : miss\\n@2.4 pt -> ram : frame f\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "replace",
+      "locator": "4.3",
+      "title": "Page replacement",
+      "eyebrow": "When memory is full",
+      "body": "<p>Virtual memory keeps only some pages resident. A reference to a non-resident page is a <em class=\"term\">page fault</em>: the OS loads it from disk and, if no frame is free, must <em class=\"term\">evict</em> another. <em class=\"term\">FIFO</em> evicts the oldest resident page; <em class=\"term\">LRU</em> the least recently used; <em class=\"term\">LFU</em> the least frequently used; the unreachable <em class=\"term\">optimal</em> policy evicts the page needed furthest in the future and serves as the yardstick.</p><p>On the textbook reference string with 3 frames: FIFO = <b>15</b> faults, LRU = <b>12</b>, optimal = <b>9</b> of 20 references.</p>",
+      "questions": [
+        {
+          "id": "lru",
+          "prompt": "Why does LRU usually beat FIFO?",
+          "choices": [
+            {
+              "text": "LRU is cheaper to implement."
+            },
+            {
+              "text": "Programs show locality: a page used recently is likely to be used again soon, while an old page may still be hot.",
+              "correct": true
+            },
+            {
+              "text": "LRU never faults more than FIFO."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The opposite: exact LRU needs bookkeeping on every reference."
+            },
+            {
+              "title": "Correct.",
+              "body": "FIFO only knows age of loading; LRU tracks use, which is what predicts the future."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a theorem; it tends to win on real programs, not on every string."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 4.3.1 — FIFO",
+          "note": "FIFO: red = fault, green = hit.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fifo\",\"engine\":\"paging\",\"algo\":\"fifo\",\"frames\":3,\"refs\":\"7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "fifo": {
+              "faults": "15",
+              "hitRatio": "25"
+            }
+          }
+        },
+        {
+          "id": "lab6",
+          "caption": "Figure 4.3.2 — LRU",
+          "note": "LRU remembers recent use.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lru\",\"engine\":\"paging\",\"algo\":\"lru\",\"frames\":3,\"refs\":\"7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lru": {
+              "faults": "12",
+              "hitRatio": "40"
+            }
+          }
+        },
+        {
+          "id": "lab7",
+          "caption": "Figure 4.3.3 — optimal",
+          "note": "Optimal is the lower bound.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"opt\",\"engine\":\"paging\",\"algo\":\"opt\",\"frames\":3,\"refs\":\"7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "opt": {
+              "faults": "9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "belady",
+      "locator": "4.4",
+      "title": "Belady's anomaly and thrashing",
+      "eyebrow": "Surprises",
+      "body": "<p>More frames should mean fewer faults — but not for FIFO. On the string 1 2 3 4 1 2 5 1 2 3 4 5, three frames give <b>9</b> faults and four frames give <b>10</b>: <em class=\"term\">Belady's anomaly</em>. LRU and optimal are <em class=\"term\">stack algorithms</em> and cannot do this.</p><p><em class=\"term\">Thrashing</em> is the other failure: if the frames given to a process are fewer than its <em class=\"term\">working set</em>, it faults almost every reference and the CPU idles while the disk churns. The fixes are to give it enough frames, or to suspend some processes.</p>",
+      "questions": [
+        {
+          "id": "anomaly",
+          "prompt": "FIFO with 4 frames faults more than with 3 on the same string. What does this show?",
+          "choices": [
+            {
+              "text": "The simulator has a bug."
+            },
+            {
+              "text": "Four frames is too many for this string."
+            },
+            {
+              "text": "Adding memory does not always help FIFO — Belady's anomaly.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is a real, classic result reproduced exactly by the textbook string."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "More frames can never be “too many”; the policy is at fault."
+            },
+            {
+              "title": "Correct.",
+              "body": "FIFO's eviction order ignores use, so a larger memory can shift which pages are resident at the wrong moment (9 → 10 faults)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab8",
+          "caption": "Figure 4.4.1 — FIFO, 3 frames",
+          "note": "Three frames.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"b3\",\"engine\":\"paging\",\"algo\":\"fifo\",\"frames\":3,\"refs\":\"1 2 3 4 1 2 5 1 2 3 4 5\",\"width\":600,\"height\":440});",
+          "expect": {
+            "b3": {
+              "faults": "9"
+            }
+          }
+        },
+        {
+          "id": "lab9",
+          "caption": "Figure 4.4.2 — FIFO, 4 frames",
+          "note": "Four frames — more faults!",
+          "script": "var lab = create(\"steplab\", {\"name\":\"b4\",\"engine\":\"paging\",\"algo\":\"fifo\",\"frames\":4,\"refs\":\"1 2 3 4 1 2 5 1 2 3 4 5\",\"width\":600,\"height\":440});",
+          "expect": {
+            "b4": {
+              "faults": "10"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-lru",
+          "prompt": "<p>Reference string 7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1 with 3 frames: count faults for FIFO, LRU and optimal.</p>",
+          "answer": "FIFO <b>15</b>, LRU <b>12</b>, optimal <b>9</b>. Hit ratios 25%, 40%, 55%.",
+          "verify": {
+            "id": "lab10",
+            "caption": "answer",
+            "note": "LRU trace.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"paging\",\"algo\":\"lru\",\"frames\":3,\"refs\":\"7 0 1 2 0 3 0 4 2 3 0 3 2 1 2 0 1 7 0 1\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "faults": "12"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "seg",
+      "locator": "4.5",
+      "title": "Segmentation and allocating frames",
+      "eyebrow": "Another view",
+      "body": "<p><em class=\"term\">Segmentation</em> divides a program by meaning — code, data, stack — rather than by fixed size. An address is (segment, offset); a segment table holds each segment's base and limit, and an offset beyond the limit is a protection fault. Segments are visible to the programmer and variable-sized, so they bring back external fragmentation; real systems combine both ideas (paged segments).</p><p>Given a segment table, translate (2, 100): if segment 2 has base 4300 and limit 400, then 100 &lt; 400 is legal and the physical address is 4300 + 100 = 4400; offset 500 would trap.</p>",
+      "worked": [
+        {
+          "toc": "Limit check",
+          "why": "Check the offset against the limit.",
+          "math": "100 < 400"
+        },
+        {
+          "toc": "Physical address",
+          "why": "Add the base.",
+          "math": "4300 + 100 = 4400",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "seglimit",
+          "prompt": "Segment 2 has base 4300 and limit 400. What happens for (2, 500)?",
+          "choices": [
+            {
+              "text": "Physical address 4800."
+            },
+            {
+              "text": "It wraps around to offset 100."
+            },
+            {
+              "text": "A protection fault — the offset exceeds the limit.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Adding base and offset without checking the limit is the bug segmentation prevents."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "There is no wrap-around; out-of-range is an error."
+            },
+            {
+              "title": "Correct.",
+              "body": "The limit register exists precisely to stop a program reaching beyond its own segment."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Paging removes external fragmentation; the page table maps pages to frames, the offset is unchanged.</li><li>A page fault loads from disk; the replacement policy decides the victim.</li><li>Optimal ≤ LRU ≲ FIFO on real programs; FIFO can even get worse with more frames.</li><li>Thrashing = fewer frames than the working set.</li></ul>"
+    }
+  ]
+}

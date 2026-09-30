@@ -1,0 +1,850 @@
+NETWORK AND SYSTEMS PROGRAMMING
+ENCT 386
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : II
+Course Objectives:
+The objective of this course is to provide knowledge of networking and system-level
+programming concepts. It focuses on socket programming, process and thread
+management, and the use of system calls for efficient resource handling. Upon
+completion, students will be able to develop concurrent, scalable, and high-performance
+network applications suitable for real-world computing environments.
+1
+System Programming Fundamentals
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+3
+(7 hours)
+Thread models and lifecycle
+POSIX threads (Pthreads)
+Thread synchronization: Mutexes, condition variables
+Deadlocks, race conditions, and avoidance
+Multithreading versus multiprocessing (Performance considerations)
+Socket Programming and Network APIs
+4.1
+4.2
+4.3
+4.4
+4.5
+(7 hours)
+Process creation and control (Fork, exec, wait)
+Process states and scheduling concepts
+Signals and signal handling
+Inter-process communication: Pipes and FIFOs, message queues, shared
+memory, semaphores
+Threads and Concurrent Programming
+3.1
+3.2
+3.3
+3.4
+3.5
+4
+Overview of system programming and its role in networking
+User space versus kernel space
+System calls and standard libraries
+File descriptors and low-level I/O
+Linux/Unix system architecture overview
+Process Management and IPC
+2.1
+2.2
+2.3
+2.4
+(4 hours)
+Socket interface and API
+TCP socket programming (Client-server model)
+UDP socket programming
+Blocking versus non-blocking sockets
+I/O multiplexing (Select, poll basics)
+(10 hours)
+4.6
+5
+Advanced Network Programming
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+6
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+(5 hours)
+Advanced file I/O (Read/write optimization)
+Non-blocking I/O and asynchronous I/O concepts
+Memory-mapped files (Mmap)
+File locking and concurrency
+Performance tuning and profiling basics
+Network Application Development and Case Studies
+7.1
+7.2
+7.3
+7.4
+(7 hours)
+Concurrent server design: Iterative versus concurrent servers, multi-process
+and multi-threaded servers
+Event-driven programming: Select, poll, epoll
+High-performance server design principles
+Concepts of remote procedure call (RPC)
+Introduction to RESTful APIs and microservices
+Secure communication basics (SSL/TLS overview)
+System-Level I/O and Performance Optimization
+6.1
+6.2
+6.3
+6.4
+6.5
+7
+Error handling and debugging techniques
+(5 hours)
+Design of scalable client-server systems
+Development of network applications: Chat servers, file transfer systems
+Debugging and monitoring tools (Netstat, ss, tcpdump, wireshark)
+Case studies of real-world systems (Web servers, distributed apps)
+(30 hours)
+Implement file operations using low-level system calls (Open, read, write,
+close) and compare with standard I/O
+Demonstrate file descriptor manipulation using dup()/dup2() for I/O
+redirection
+Write a program using fork() and exec() to create and replace processes
+Implement IPC using pipes and shared memory, comparing their behavior
+Create multiple threads using POSIX threads (pthreads) and observe
+execution behavior
+Solve the producer-consumer problem using mutexes and condition variables
+Develop a TCP client-server application (Echo service)
+Implement a UDP communication program and compare with TCP behavior.
+Build a multi-client concurrent server using threads or processes
+Implement I/O multiplexing using select() or poll() for handling multiple clients
+Demonstrate memory-mapped file (mmap) usage and compare with standard
+file I/O
+Implement file locking mechanisms to handle concurrent file access
+Develop a multi-client chat application using sockets
+Capture and analyze traffic of your application using tools like
+Wireshark/tcpdump
+15.
+Design and implement a scalable network application (chat/file server)
+incorporating: Concurrency (threads/processes), socket programming, basic
+performance optimization
+Practical
+(15 hours)
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+System calls and file operations in Linux
+Process creation using fork/exec and process control
+IPC using pipes, shared memory, and message queues
+Signal handling programs
+Thread creation and synchronization using Pthreads
+TCP client-server socket programming
+UDP-based communication programs
+Multi-client concurrent server (thread/process-based)
+I/O multiplexing using select/poll
+Packet capture and analysis using Wireshark
+Mini-project: Design and implement a scalable network application
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+4
+2
+7
+3
+7
+4
+10
+5
+7
+6
+5
+7
+5
+Total
+45
+* There may be minor deviation in marks distribution.
+5
+9
+9
+14
+9
+7
+7
+60
+References
+1.
+Forouzan, B. A. (2017). Data communications and networking. McGraw-Hill
+Education.
+2.
+Kurose, J. F., Ross, K. W. (2021). Computer networking: A top-down
+approach. Pearson.
+3.
+Stevens, W. R. (2013). Advanced programming in the UNIX environment.
+Addison-Wesley.
+4.
+Stevens, W. R. (2003). UNIX network programming. Addison-Wesley.
+5.
+Kernighan, B. W., Pike, R. (1984). The UNIX programming environment
+(Latest Edition). Prentice Hall.
+Next Generation Networking with IPv6
+ENCT 387
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : II
+Course Objectives:
+The objective of this course is to develop a solid understanding of internet protocols with
+a focus on IPv6 and next-generation networking concepts. It aims to equip students with
+knowledge of IPv6 addressing, routing, security and transition mechanisms from IPv4 to
+IPv6. The course also emphasizes practical skills in configuring, analyzing and deploying
+IPv6-based networks and services. Ultimately, it prepares students to design and
+manage modern network infrastructures in real-world environments.
+1
+Fundamentals of Internet and Networking Protocols
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+2.2
+3
+Evolution of the Internet and networking paradigms
+OSI versus TCP/IP model
+IPv4 addressing overview
+IPv4 addressing review and limitations
+Need and importance of next generating IP addressing
+Next Generation Internet Protocol
+2.1
+(12 hours)
+Introduction to IPv6
+2.1.1 History and need for IPv6
+2.1.2 IPv6 header format
+2.1.3 Features of IPv6
+2.1.4 IPv6 addressing format and types
+2.1.5 Extension headers
+ICMPv6
+2.2.1 Features
+2.2.2 General message format
+2.2.3 ICMP error and informational message types
+2.2.4 Neighbor discovery
+2.2.5 Path MTU discovery
+Security and Quality of Service in IPv6
+3.1
+3.2
+3.3
+3.4
+(3 hours)
+Network threats and vulnerabilities in IPv6
+Security techniques
+IPSEC framework
+Basic firewall and filtering concepts
+(6 hours)
+3.5
+3.6
+3.7
+4
+Routing with IPv6
+4.1
+4.2
+4.3
+4.4
+4.5
+5
+7
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+(5 hours)
+IPv6 deployment challenges and risks
+Enterprise and ISP deployment strategies
+IPv6 addressing plan design
+IPv6 DNS (AAAA records)
+IPv6 enabled proxy, web and mail servers
+Advanced Networking Applications
+7.1
+7.2
+7.3
+7.4
+(6 hours)
+Tunneling: Automatic tunneling; Configured tunneling
+Dual stack approach
+Translation mechanisms
+Migration strategies for enterprises and ISPs
+Case studies of global IPv6 transition
+IPv6 Deployment and Network Design
+6.1
+6.2
+6.3
+6.4
+6.5
+(6 hours)
+Routing in the internet and CIDR
+Unicast and multicast routing concepts
+Unidirectional link routing
+Routing protocols: RIPng, OSPFv3 and BGP (Basic concepts for IPv6)
+Multicast routing (PIM-SM overview)
+IPv4/IPv6 Transition Mechanisms
+5.1
+5.2
+5.3
+5.4
+5.5
+6
+Zero trust networking
+QoS concept in IPv6
+QoS in multimedia and real-time applications
+(7 hours)
+Fundamentals of SDN
+Introduction to IBN and NDN
+IPv6 as the foundations of 5G network
+IPv6 integration SDN/IBN/NDN
+(30 hours)
+Compare OSI vs TCP/IP models through layered packet flow analysis
+Analyze limitations of IPv4 addressing and justify the need for IPv6 using
+numerical examples
+Construct and analyze an IPv6 packet, including header fields and extension
+headers
+Perform IPv6 addressing and subnetting exercises (Global, link-local,
+multicast)
+Implement and observe neighbor discovery protocol and ICMPv6 message
+types
+Demonstrate basic IPsec configuration concepts
+Analyze QoS mechanisms in IPv6, especially for real-time/multimedia traffic
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+Configure and test IPv6 unicast routing (OSPFv3 basics) in a simulated
+environment
+Comparison of IPv6 multicast routing (PIM-SM concept) with unicast routing
+Implement dual stack configuration in a lab setup
+Demonstrate tunneling mechanisms and analyze packet flow
+Design an IPv6 addressing plan for an enterprise network
+Configure and test IPv6 DNS (AAAA records) and basic web service
+Analyze the role of IPv6 in SDN/5G/NDN architectures through a case study
+Design and simulate a complete IPv6-enabled network, including: Addressing
+plan, routing (OSPFv3 or static), transition mechanism (Dual stack/tunneling),
+basic service deployment (DNS/Web)
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+(15 hours)
+Enabling and configuring IPv6 in Windows/Linux
+IPv6 header and packet analysis using Wireshark
+Neighbor Discovery and ICMPv6 analysis
+IPv6 addressing and subnetting practice
+Unicast routing using OSPFv3
+Multicast routing using PIM-SM
+IPv6 DNS, web, and proxy server configuration
+Case Study: Design and deploy an IPv6-based network
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapters
+Hours
+Marks distribution*
+2
+12
+16
+3
+6
+4
+6
+5
+6
+6
+5
+1 and 7
+10
+Total
+45
+* There may be minor deviation in marks distribution.
+8
+8
+8
+8
+12
+60
+References
+1.
+Davies, J. (2008). Understanding IPv6. Microsoft Press.
+2.
+Hagen, S. (2014). IPv6 essentials. O’Reilly Media.
+3.
+Thomas, S. A. (1996). IPng and the TCP/IP protocols. John Wiley & Sons.
+4.
+Hersent, O., Gurle, D., & Petit, J.-P. (2000). IP telephony: Deploying VoIP
+protocols. Addison-Wesley.
+ANALYSIS OF ALGORITHMS
+ENCT 388
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : II
+Course Objectives:
+The objective of this course is to provide students with a strong foundation in the analysis
+of algorithm efficiency and computational complexity. It aims to develop understanding
+of key algorithm design paradigms, including divide-and-conquer, greedy methods,
+dynamic programming, and backtracking, and covers fundamental concepts of NPcompleteness and approximation algorithms.
+1
+Introduction to Algorithm Analysis
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+3
+Algorithm and its properties, RAM model, time and space complexity,
+detailed analysis of algorithms, Concept of Aggregate Analysis
+Asymptotic notations (Big-O, Big-Ω and Big-Ө), their geometrical
+interpretations and examples
+Concept of best case, average case and worst case performance of an
+algorithm
+Modeling algorithms by recurrence relation
+Solving recurrence relation for evaluating computational complexity
+1.5.1 Recursion tree method
+1.5.2 Substitution method
+1.5.3 Using masters theorem
+Iterative and Numeric Algorithms
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+(8 hours)
+Algorithm for GCD and Fibonacci number
+Sequential search
+Review of bubble sort, selection sort, and insertion sort algorithms
+Number theoretic notations
+Euclid’s and Extended Euclid’s algorithms
+Solving modular linear equations using Chinese remainder theorem
+Fermat’s theorem
+Miller-Rabin randomized primility test and algorithm
+Divide and Conquer Algorithms
+3.1
+3.2
+(5 hours)
+Binary search, min max finding algorithm
+Analysis of sorting algorithms
+3.2.1 Merge sort
+(8 hours)
+3.3
+4
+Greedy Algorithms
+4.1
+4.2
+4.3
+4.4
+4.5
+5
+7
+7.8
+(4 hours)
+Basic concepts
+The N-Queen problem
+Sum of subsets
+Graph coloring
+Hamiltonian cycles
+0/1 knapsack problem using backtracking approach
+NP-Hard and NP-Complete Problems
+7.1
+7.2
+7.3
+7.4
+7.5
+7.6
+7.7
+(8 hours)
+Basic concepts
+All pair shortest path algorithm
+Travelling salesperson problem
+String editing
+0/1 knapsack problem using dynamic programming
+Matrix chain multiplication
+Flow shop scheduling
+Backtracking Techniques
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+(7 hours)
+Basic concepts
+Fractional knapsack problem
+Job sequencing with deadlines
+Analysis of minimum spanning trees related algorithms
+Analysis of single source shortest path algorithm
+Dynamic Programming
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+5.7
+6
+3.2.2 Heap sort
+3.2.3 Quick sort
+3.2.4 Randomized quick sort
+Order statistics
+3.3.1 Selection in expected linear time
+3.3.2 Selection in worst case linear time
+(5 hours)
+Basic concepts
+Cook’s theorem
+NP-Hard graph problems
+NP-Hard scheduling problems
+NP-Hard code generation problems
+Simplified NP-hard problems
+Approximation algorithms: ε- approximation, polynomial time approximation
+scheme, probabilistically good algorithms
+Vertex cover problem, subset sum problem
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+(30 hours)
+Algorithm analysis
+Iterative and numeric algorithms
+Divide and conquer algorithms
+Greedy algorithms
+Dynamic programming
+Backtracking techniques
+NP-Hard and NP-complete problems
+Practical
+(15 hours)
+1.
+Implementation and complexity analysis of iterative, numeric and recursive
+algorithms
+2.
+Implementation and complexity analysis of greedy algorithms
+3.
+Implementation and complexity analysis of algorithms involving divide and
+conquer strategy
+4.
+Implementation and complexity analysis of algorithms based on dynamic
+programming
+5.
+Implementation and complexity analysis of algorithms using backtracking
+concept
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+1
+5
+Marks distribution*
+2
+8
+3
+8
+4
+7
+5
+8
+6
+4
+7
+5
+Total
+45
+* There may be minor deviation in marks distribution.
+6
+10
+11
+9
+12
+5
+7
+60
+References
+1.
+Horowitz, E., Sahni, S., Rajasekaran, S. (2007). Fundamentals of computer
+algorithms. Universities Press.
+2.
+Cormen, T. H., Leiserson, C. E., Rivest, R. L., Stein, C. (2022). Introduction
+to algorithms. MIT Press.
+3.
+Kleinberg, J., Tardos, É. (2006). Algorithm design. Pearson.
+4.
+Skiena, S. S. (2020). The algorithm design manual. Springer.
+5.
+Dasgupta, S., Papadimitriou, C. H., Vazirani, U. V. (2006). Algorithms.
+McGraw-Hill Education.
+AUDIO PROCESSING
+ENCT 389
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : II
+Course Objectives:
+The objective of this course is to develop competency in analyzing and processing audio
+signals in time and frequency domains. It covers fundamentals of acoustics, digital audio
+representation, spectral analysis and audio effects, along with practical skills in feature
+extraction and Music Information Retrieval (MIR). Hands-on use of Digital Audio
+Workstations (DAWs), MIDI, and plugins enables application of audio signal processing
+techniques in multimedia, speech processing, music technology and emerging digital
+audio applications.
+1
+Fundamental of Sound and Audio Signal
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+3
+(7 hours)
+DFT and FFT: Derivation and computational complexity
+Windowing function in audio
+Short time Fourier transform: Frame size, hope size and overlap
+Spectrograms: Reading and interpreting time-frequency representation,
+Mel spectrogram: Reading and interpreting; Mel frequency representation
+Constant Q transform and its relevance to music analysis
+Frequency Domain and Non-Linear Effects
+4.1
+4.2
+4.3
+(8 hours)
+Discrete time audio signal, basic signal operations, system in time domain
+Convolution and impulse response
+Analog and digital filters in audio systems
+Temporal feature extraction
+Spectral Representation
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+4
+Physical acoustic: Wave propagation, frequency, amplitude, phase
+Psycho acoustic: Pitch, loudness, timbre, dynamics and intensity
+Fundamental of digital audio
+Audio file format: WAV, AIFF, FLAC, ALAC, MP3
+Practical audio quality: Sample rates (44.1khz, 48khz, 96khz) and bit depths
+Time Domain Audio Processing
+2.1
+2.2
+2.3
+2.4
+(7 hours)
+Sinusoidal model
+Deterministic plus residual model
+Deterministic plus stochastic model
+(10 hours)
+4.4
+4.5
+4.6
+5
+Music Information Retrieval
+5.1
+5.2
+5.3
+5.4
+5.5
+6
+6.2
+6.3
+6.4
+Tutorial
+1.
+2.
+3.
+4.
+5.
+(4 hours)
+Digital audio workstation (DAW)
+6.1.1 Role in audio production
+6.1.2 History and evolution of DAW
+DAW available in market, DAW interface, timeline and arrangement view
+MIDI: Basics, MIDI message structure, VSTi basics,
+Common plugin: Equalizer, compressor, reverb, delay
+Recent Trend
+7.1
+7.2
+7.3
+7.4
+7.5
+(6 hours)
+MIR overview: Types of music data, challenges, application
+Spectral centroid and roll off
+5.2.1 Basics of spectral centroid and spectral roll
+5.2.2 Comparison between centroid and roll off
+5.2.3 Application (Timbre analysis, music/ speech classification)
+Mel frequency cepstral coefficient (MFCC)
+5.3.1 Motivation for ceptral features
+5.3.2 Steps in MFCC
+5.3.3 Interpretation of coefficient
+5.3.4 Application (Speech recognition, music classification)
+Chroma
+5.4.1 Concept of pitch classes (12- tone system) mapping
+5.4.2 Chromagram representation,
+Onset and tempo and their applications
+Audio system and DAW Integration
+6.1
+7
+Basis of non-linear effects
+Dynamic range control: Envelop follow, compressor and limiting, expansion
+and gating, ADSR, modulation effect
+Time segment process: Time scratching and pitch shifting
+(3 hours)
+Machine learning in audio
+Audio foundation models for bioacoustic and healthcare
+Spatial audio
+Audio DSP ICs
+Generative AI in music
+(30 hours)
+Discuss lossless versus lossy compression in the context of audio
+Derive the convolution sum for a linear time-invariant (LTI) system and
+explain its physical significance in audio signal processing.
+Discuss different types of analog filter. Write an advantage of FIR and IIR
+filter in audio processing
+Case study discussion
+Explain the various steps involved in MFCC
+6.
+7.
+8.
+9.
+10.
+11.
+State the Nyquist theorem and find the Nyquist rate for a signal with maximum
+frequency 8 kHz.
+Explain the concept of a chromagram in music information retrieval
+Explain binaural rendering using head-related transfer functions (HRTFs) and
+identify one application domain for dedicated audio DSP hardware
+Music feature analyzer: Input (Audio file), output (Spectrogram, MFCC,
+tempo)
+Mini DAW project: Record and edit audio using DAW, apply multiple effects,
+mix a short track
+Music classifier: Genre basis classifier
+Practical
+(15 hours)
+1.
+Generate sinusoids; Downsample to observe aliasing
+2.
+Measure file size, SNR, and spectral differences between WAV, MP3
+(128k/320k), and FLAC
+3.
+Temporal features extraction
+4.
+Spectrogram and STFT
+5.
+Mel spectrogram and CQT
+6.
+MIR features: MFCC
+7.
+DAW: Implement basic features
+8.
+DAW integration and MIDI, VSTi implementation
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+7
+2
+8
+3
+7
+4
+10
+5
+6
+6
+4
+7
+3
+Total
+45
+* There may be minor deviation in marks distribution.
+9
+11
+9
+13
+8
+6
+4
+60
+References
+1.
+Christensen, M. G. (2019). Introduction to audio processing. Springer.
+2.
+Smith, J. O. (2011). Spectral audio signal processing. W3K Publishing.
+Zölzer, U. (Ed.). (2011). DAFX: Digital audio effects. Wiley.
+3.
+Müller, M. (2015). Fundamentals of music processing: Audio, analysis,
+algorithms, applications. Springer.
+4.
+Lyons, R. G. (2011). Understanding digital signal processing. Pearson
+Education.

@@ -1,0 +1,288 @@
+{
+  "title": "Requirements",
+  "kicker": "ENCT 352 · Software Engineering · Chapter 3",
+  "subtitle": "The cheapest bug to fix is the one caught before any code: get the right thing specified.",
+  "sections": [
+    {
+      "id": "kinds",
+      "locator": "3.1",
+      "title": "Functional and non-functional",
+      "eyebrow": "What vs how well",
+      "body": "<p><b>Functional</b> requirements say what the system does (“a user can reset a password by email”). <b>Non-functional</b> requirements constrain how: performance, security, usability, availability, portability. A good requirement is <em class=\"term\">testable</em>: “responds in under 2 s for 95 % of requests” not “fast”.</p>",
+      "questions": [
+        {
+          "id": "nf",
+          "prompt": "“The site must handle 1000 users at once” is…",
+          "choices": [
+            {
+              "text": "A non-functional (performance) requirement.",
+              "correct": true
+            },
+            {
+              "text": "Functional."
+            },
+            {
+              "text": "A design decision."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It constrains quality, not a feature."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No new behaviour is described."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It states a need, not a solution."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "elic",
+      "locator": "3.2",
+      "title": "Eliciting requirements",
+      "eyebrow": "Finding out",
+      "body": "<p>Techniques: interviews, questionnaires, observation, workshops, prototypes, studying existing documents. Stakeholders disagree; requirements must be negotiated and prioritised (e.g. MoSCoW: must, should, could, won’t).</p>",
+      "questions": [
+        {
+          "id": "moscow",
+          "prompt": "In MoSCoW, “won’t” means…",
+          "choices": [
+            {
+              "text": "Not in this release (agreed).",
+              "correct": true
+            },
+            {
+              "text": "Never, ever."
+            },
+            {
+              "text": "A rejected user."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It documents scope out."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only for now."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not people."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.2.1 — elicitation loop",
+          "note": "Elicit, draft, review, baseline.",
+          "script": "diagram(\"mode: sequence\\n[Analyst] as a\\n[Stakeholder] as s\\n[Requirements doc] as d\\na -> s : interview\\ns --> a : needs and pains\\na -> d : draft requirements\\na -> s : review\\ns --> a : corrections\\na -> d : baseline\\n@0 a -> s : interview\\n@1 s -> a : needs and pains\\n@2 a -> d : draft requirements\\n@3 a -> s : review\\n@4 s -> a : corrections\\n@5 a -> d : baseline\");"
+        }
+      ]
+    },
+    {
+      "id": "story",
+      "locator": "3.3",
+      "title": "Use cases and user stories",
+      "eyebrow": "Capturing behaviour",
+      "body": "<p>A <em class=\"term\">use case</em> describes an actor achieving a goal in steps, with alternate flows for failures. A <b>user story</b>: “As a <i>role</i> I want <i>goal</i> so that <i>benefit</i>”, with acceptance criteria. Stories are small and estimated in points.</p>",
+      "questions": [
+        {
+          "id": "us",
+          "prompt": "A good user story ends with…",
+          "choices": [
+            {
+              "text": "The database schema."
+            },
+            {
+              "text": "A deadline only."
+            },
+            {
+              "text": "The benefit (“so that…”).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Implementation detail."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not its purpose."
+            },
+            {
+              "title": "Correct.",
+              "body": "It explains the value."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 3.3.1 — use case",
+          "note": "A use case as a card.",
+          "script": "diagram(\"{Use case: Withdraw cash | actor: Customer ; goal: get money | pre: has card ; post: balance reduced}\");"
+        }
+      ]
+    },
+    {
+      "id": "srs",
+      "locator": "3.4",
+      "title": "The SRS",
+      "eyebrow": "The document",
+      "body": "<p>A Software Requirements Specification (IEEE 830/29148) contains: introduction (purpose, scope, definitions), overall description (users, constraints), specific requirements (functional, external interfaces, performance, design constraints), and appendices. It must be complete, consistent, unambiguous, verifiable and traceable.</p>",
+      "questions": [
+        {
+          "id": "srsq",
+          "prompt": "Which requirement is ambiguous?",
+          "choices": [
+            {
+              "text": "“Login completes within 2 s.”"
+            },
+            {
+              "text": "“Passwords hash with bcrypt.”"
+            },
+            {
+              "text": "“The system shall be user-friendly.”",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Measurable."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Verifiable."
+            },
+            {
+              "title": "Correct.",
+              "body": "Cannot be tested."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "valid",
+      "locator": "3.5",
+      "title": "Validation and change",
+      "eyebrow": "Keeping them right",
+      "body": "<p>Validate by reviews, prototypes and test-case writing. Requirements change; manage change with a recorded process: request → impact analysis → approval → update and trace. Traceability links each requirement to design, code and tests.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "A project has 120 requirements; 24 change after baseline."
+        },
+        {
+          "toc": "Volatility",
+          "why": "Volatility = 24/120.",
+          "math": "20\\%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "vol",
+          "prompt": "High requirement volatility suggests…",
+          "choices": [
+            {
+              "text": "Freeze everything."
+            },
+            {
+              "text": "Skip validation."
+            },
+            {
+              "text": "An iterative process and strict change control.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrealistic."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Makes it worse."
+            },
+            {
+              "title": "Correct.",
+              "body": "Plan for change."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-vol",
+          "prompt": "<p>200 requirements, 30 changed. Volatility?</p>",
+          "answer": "30/200 = <b>15 %</b>."
+        }
+      ]
+    },
+    {
+      "id": "fp",
+      "locator": "3.6",
+      "title": "Sizing from requirements: function points",
+      "eyebrow": "Measure before you build",
+      "body": "<p>Function points count user-visible functions: external inputs (EI), outputs (EO), inquiries (EQ), internal files (ILF), external interfaces (EIF), each weighted by complexity. Unadjusted FP = Σ count × weight; multiply by a value adjustment factor (0.65–1.35).</p>",
+      "worked": [
+        {
+          "toc": "Counts",
+          "why": "Average weights: EI 4, EO 5, EQ 4, ILF 10, EIF 7. Counts: EI 10, EO 6, EQ 5, ILF 4, EIF 2."
+        },
+        {
+          "toc": "Total",
+          "why": "UFP = 40 + 30 + 20 + 40 + 14.",
+          "math": "UFP=144",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fpq",
+          "prompt": "Function points are useful because they are…",
+          "choices": [
+            {
+              "text": "Measured after coding."
+            },
+            {
+              "text": "Independent of programming language.",
+              "correct": true
+            },
+            {
+              "text": "Always exact."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They can be counted from requirements."
+            },
+            {
+              "title": "Correct.",
+              "body": "They measure functionality, not lines."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Judgement is involved."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

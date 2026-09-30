@@ -1,0 +1,787 @@
+ADVANCED PYTHON PROGRAMMING FOR DATA SCIENCE
+ENCT 325
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to develop advanced proficiency in Python programming
+for data science applications. It focuses on efficient coding practices, sophisticated data
+manipulation, statistical analysis, and data visualization using modern Python libraries.
+Students will also learn fundamental data engineering and pipeline design concepts to
+automate and scale real-world data workflows.
+1
+Advanced Python Concepts and Best Practices
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+2
+3
+Review of Python essentials and coding conventions
+Advanced data structures: Collections, iterators, generators,
+decorators
+Functions and lambda expressions
+Object-Oriented Programming for data science applications
+Exception handling, debugging, and logging
+Working with modules and packages
+Data Sources and APIs
+2.1
+2.2
+2.3
+2.4
+2.5
+and
+(7 hours)
+Reading and writing structured/unstructured data (CSV, JSON, Excel, text)
+Database access with relational database and non-relational database
+Accessing and processing data from APIs (REST, SOAP)
+Web scraping using requests and BeautifulSoup
+Handling large datasets with chunking and lazy evaluation
+Advanced Data Wrangling and Transformation
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+(7 hours)
+(9 hours)
+Advanced Pandas operations: Merging, joining, reshaping, pivoting
+Handling missing, categorical, and time-series data
+Feature transformation, scaling, and encoding
+Memory optimization and efficient data processing
+Building a reusable data-cleaning pipeline
+Introduction to data pipeline components (Ingestion, transformation,
+storage)
+4
+Applied Statistics and Exploratory Analysis
+4.1
+4.2
+4.3
+4.4
+4.5
+5
+6
+Statistical measures: Correlation, covariance, skewness, kurtosis
+Probability review, sampling, and hypothesis testing
+Regression and trend analysis using stats models
+Exploratory data analysis (EDA) using descriptive and inferential methods
+Automation of EDA workflows using Python
+Data Visualization and Storytelling
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+(7 hours)
+Principles of effective visualization and dashboard design
+Visualization with Matplotlib: Line, bar, histogram, scatter, subplots
+Seaborn for statistical visualization: Box plot, pair plot, heat map
+Interactive visualization using Plotly
+Visualization driven insight generation
+Case study: End-to-end visualization and reporting project
+Data Engineering and Automation
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+6.7
+(7 hours)
+(8 hours)
+Overview of data engineering in applied data science
+Designing and implementing ETL pipelines
+Automating workflows with schedulers (CRON, schedule)
+Logging, monitoring, and error handling in pipelines
+Data storage and retrieval strategies for pipelines
+Automated report generation (Excel, HTML, PDF)
+Case study: End-to-end automated analytics pipeline
+(30 hours)
+Python refresher and best practices: Review of Python syntax, indentation,
+and PEP8 coding conventions through short exercises
+Iterators, generators, and decorators: Writing small programs using
+generators for data streaming and decorators for function modification
+Object-oriented programming (OOP): Designing simple class-based
+programs and demonstrating inheritance and encapsulation in python
+Data access and integration: Reading data from CSV, Excel, JSON, and
+APIs; Discussion on best practices for data ingestion
+Database and SQL interaction: practice using SQLite and SQLAlchemy to
+query and manipulate structured datasets
+Web scraping practice: Extracting tabular data using requests and
+BeautifulSoup; Handling exceptions and encoding issues
+Advanced Pandas operations: Hands-on merging, reshaping, pivoting, and
+group-by operations for complex data manipulation
+Data cleaning and transformation: Exercises on handling missing values,
+encoding categorical data, and normalization techniques
+Statistical computation and EDA: Performing descriptive analysis,
+correlation, and hypothesis testing using Python libraries
+10.
+11.
+12.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+Data visualization practice: Creating comparative plots using matpLotlib,
+Seaborn, and Plotly; Customizing themes and layouts
+Pipeline and automation concepts: Designing pseudocode and flow
+diagrams for ETL data pipelines and discussing error handling strategies
+Mini case study discussion: Guided review of a small end-to-end applied
+data pipeline from ingestion to visualization and reporting
+(15 hours)
+Setting up Python environment for applied data workflows and writing
+modular programs using OOP and functions
+Collecting data via APIs and web scraping
+Building advanced data cleaning and transformation pipelines using
+Pandas
+Conducting exploratory data analysis and statistical summaries
+Developing interactive visualizations using Plotly, matplotlib and Seaborn
+Automating ETL tasks and data refresh using Python schedulers
+Generating summary dashboards and automated analytical reports
+Mini Project: Build a complete applied data pipeline from ingestion to
+visualization and reporting on a real-world dataset
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+7
+9
+2
+7
+3
+9
+4
+7
+5
+7
+6
+8
+Total
+45
+* There may be minor deviation in marks distribution.
+9
+12
+10
+9
+11
+60
+References
+1.
+McKinney, W. (2022). Python for data analysis. O’Reilly Media.
+2.
+VanderPlas, J. (2016). Python data science handbook. O’Reilly Media.
+3.
+Beazley, D. (2021). Python cookbook. O’Reilly Media.
+4.
+Grus, J. (2022). Data science from scratch. O’Reilly Media.
+COMPILER DESIGN
+ENCT 326
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to develop a clear understanding of the structure,
+components, and design principles of a compiler. It focuses on the key phases of
+compilation, including lexical analysis, parsing, semantic analysis, and code generation.
+The course also introduces optimization techniques and error-handling strategies to
+enhance the efficiency and reliability of compilers.
+1
+Introduction
+1.1
+1.2
+1.3
+2
+3
+3.4
+3.5
+(8 hours)
+Role of syntax analysis
+Context-free grammars and parse trees
+Parsing techniques: Top-down (recursive descent, LL(1)) and bottomup (LR(1))
+Operator precedence
+Handling issues like left recursion and ambiguity
+Syntax-Directed Translation and Semantic Analysis
+4.1
+4.2
+4.3
+(9 hours)
+The role of the lexical analyzer
+Specification and recognition of tokens
+Input buffering
+Finite automata and their relevance to compiler construction
+Design of a lexical analyzer generator
+Error handling in lexical analysis
+Syntax Analysis (Parsing)
+3.1
+3.2
+3.3
+4
+Compiler and Interpreter
+Compiler structure: Analysis and synthesis model of compilation, different
+sub-phases within the analysis and synthesis phases
+Basic concepts like preprocessor, macros, symbol table, and error handler
+Lexical Analysis
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+(5 hours)
+(9 hours)
+Syntax-directed definitions (SDD) and syntax-directed translation (SDT)
+Synthesized and inherited attributes
+Syntax tree construction
+4.4
+4.5
+4.6
+4.7
+4.8
+5
+Code Generation
+5.1
+5.2
+5.3
+5.4
+5.5
+6
+Intermediate code generation
+Semantic analysis, including static and dynamic checks
+Type checking and type systems
+Symbol table construction, attributes, and data structures for symbol table
+Run–time storage management
+Factors affecting a code generator
+Basic blocks and flow graphs
+Optimization of basic blocks
+Register allocation and assignment
+Dynamic programming code-generation algorithm
+Code Optimization
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+Practical
+1.
+2.
+3.
+4.
+(7 hours)
+(7 hours)
+Loops in flow graphs, constant propagation, partial redundancy elimination
+Data-flow analysis and solving data-flow equations
+Storage organization and allocation strategies (Stack, heap)
+Need and criteria of code optimization and basic optimization techniques
+Basic block optimization
+Case studies of some compilers, like the c compiler, the C++ compiler
+(30 hours)
+Description of various phases and structures of a compiler.
+Understanding of regular expressions
+DFA exercises
+NFA, Thomson’s construction
+Bottom-up parsing
+Top down parsing
+Building LR(1) and LL(1) tables
+Creating graphical intermediate code generations
+Creating linear intermediate code generations
+Building hash tables
+Basic exercise on designing a code generator
+Peephole optimization
+Designing flow graphs
+Data flow analysis
+Solving data-flow equation
+(15 hours)
+Setting lexical analysis
+Introduction to Lex/Flex tools
+Implementing context-free grammars
+Designing a basic recursive descent parser, computing first and follow
+values, predictive parsing table construction and LL (1) grammar
+5.
+6.
+Syntax analysis with YACC/Bison
+Semantic analysis and intermediate code generation
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+5
+7
+2
+9
+3
+8
+4
+9
+5
+7
+6
+7
+Total
+45
+* There may be minor deviation in marks distribution.
+12
+11
+12
+9
+9
+60
+References
+1.
+Aho, A. V., Lam, M. S., Sethi, R., Ullman, J. D. (2006). Compilers:
+Principles, techniques, and tools. Pearson.
+2.
+Cooper, K. D., Torczon, L. (2011). Engineering a compiler. Morgan
+Kaufmann.
+3.
+Hopcroft, J. E., Motwani, R., Ullman, J. D. (2006). Introduction to automata
+theory, languages, and computation. Addison-Wesley.
+4.
+Muchnick, S. (1997). Advanced compiler design and implementation (Latest
+Publication). Morgan Kaufmann.
+5.
+Thain, D. (2020). Introduction to compilers and language design. Douglas
+Thain.
+JAVA PROGRAMMING
+ENCT 327
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to equip students with comprehensive knowledge and
+practical skills in Java programming, enabling them to design and develop robust,
+modern applications. Emphasis is placed on using the Spring Boot framework to build
+scalable, production-ready enterprise solutions.
+1
+Java Fundamentals
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+2
+2.2
+3
+Overview of Java ecosystem (JDK, JVM, JRE)
+Evolution of Java
+Modern development tools (Maven, Gradle, IntelliJ, VS Code)
+Review of core Java OOP, collections and exception handling
+Functional programming: Lambda, expressions and streams API
+Introduction to modern features like records and sealed classes
+Java I/O and Data Handling
+2.1
+3.2
+(6 hours)
+Streams and file handling
+2.1.1 Byte and character streams
+2.1.2 Reading/writing text files
+2.1.3 Object streams and serialization
+2.1.4 New I/O (NIO.2) file operations
+JSON and data Interchange
+2.2.1 Handling JSON data with libraries like Jackson or Gson
+2.2.2 JSON vs. XML in REST APIs
+Database and Web Communication
+3.1
+(7 hours)
+(10 hours)
+Java database connectivity (JDBC)
+3.1.1 JDBC architecture and drivers
+3.1.2 Connection, statement, and result set management
+3.1.3 Prepared statements for secure and efficient queries
+Network programming and rest
+3.2.1 Client-server model and basics of socket communication
+3.2.2 Consuming restful APIs using the HTTPClient from Java 11+
+3.2.3 Overview of microservices architecture
+4
+Spring Boot and Modern Web Development
+4.1
+4.2
+4.3
+4.4
+5
+Spring Boot fundamentals; Dependency injection and inversion of control;
+Creating RESTful APIs with Spring Boot
+Data Access with Spring
+4.2.1 Overview of ORM and JPA
+4.2.2 Building a repository layer with spring data JPA
+4.2.3 CRUD operations and transactional management
+API Development and Security
+4.3.1 REST API design principles
+4.3.2 Handling exceptions in spring boot
+4.3.3 Overview of spring security for authentication and authorization
+Deployment and Project Work
+4.4.1 Docker and containerization
+4.4.2 Packaging and deploying a Spring Boot application
+Concurrency and Performance
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+12.
+13.
+14.
+15.
+16.
+(16 hours)
+(6 hours)
+Overview of multithreading
+Thread lifecycle and synchronization
+Executor framework and thread pools
+Completable future and parallel streams
+Best practices for thread-safe programming
+Performance of multi-threaded program
+(30 hours)
+Practice Lambda expressions and Stream API operations
+Implement functional interfaces and method references
+Perform file I/O operations and object serialization
+Implement multithreading and synchronization mechanisms
+Develop a Java program for CRUD operations using JDBC
+Create and configure a Spring Boot project using Spring Initializer
+Implement dependency injection using constructor, setter, and field
+injection
+Develop restful CRUD APIs using Spring Boot and JPA
+Create custom database queries using derived methods and the @query
+annotation
+Implement centralized exception handling and API error responses
+Configure authentication and authorization using Spring Security
+Consume third-party rest APIs using WebClient or RestTemplate
+Configure environment-specific properties and external database
+connections
+Containerize and deploy a spring boot application using Docker
+Write and execute unit and integration tests using JUnit 5 and MockMvc
+Project work: Apply learned concepts by building a small, secure, full-stack
+REST service
+Practical
+1.
+2.
+3.
+4.
+5.
+(15 hours)
+Programs using Lambda expressions and Streams API
+Implementation of file I/O operations
+Development of a simple client-server application
+Implementation of a Spring Boot application with a data access layer
+Containerization of a Spring Boot application using Docker
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+7
+8
+2
+6
+3
+10
+4
+16
+5
+6
+Total
+45
+* There may be minor deviation in marks distribution.
+8
+14
+22
+8
+60
+References
+1.
+Bloch, J. (2017). Effective Java. Addison‑Wesley Professional.
+2.
+Schildt, H. (2024). Java: The Complete Reference. McGraw‑Hill Education.
+3.
+Goetz, B., Peierls, T., Bloch, J., Bowbeer, D., Holmes, J., Lea, D. (2006).
+Java Concurrency in Practice. Addison‑Wesley Professional.
+4.
+Walls, C. (2016). Spring Boot in Action. Manning Publications.
+QUANTUM COMPUTING
+ENCT 328
+Lecture
+Tutorial
+Practical
+:3
+:2
+:1
+Year : III
+Part : I
+Course Objectives:
+The objective of this course is to introduce the principles, mathematical foundations,
+and computational models of quantum computing. It emphasizes on algorithmic
+insights, and offer practical experience with quantum programming environments. By
+the end of the course, students will be able to represent and manipulate quantum
+states and gates, design and simulate basic quantum circuits, implement fundamental
+quantum algorithms and their speedup mechanisms, and explore applications of
+quantum machine learning (QML) techniques.
+1
+Fundamentals of Quantum Concepts
+1.1
+1.2
+1.3
+1.4
+2
+3
+(5 hours)
+Entangled states and Bell theorem
+EPR paradox
+Quantum teleportation and superdense coding
+Quantum key distribution protocols: BB84, E91
+Quantum Algorithms
+4.1
+4.2
+4.3
+4.4
+4.5
+(6 hours)
+Quantum gates (X, Y, Z, H, Phase, CNOT)
+Unitary operations and reversibility
+Multi-qubit systems and tensor products
+Circuit design and visualization
+Entanglement and Quantum Communication
+3.1
+3.2
+3.3
+3.4
+4
+Classical versus Quantum computation
+Qubits, superposition, measurement
+Postulates of quantum mechanics
+Dirac notation and Bloch sphere
+Quantum Gates and Circuits
+2.1
+2.2
+2.3
+2.4
+(6 hours)
+Quantum parallelism
+Deutsch and Deutsch–Jozsa algorithms
+Bernstein–Vazirani
+Grover’s algorithm
+Shor’s algorithm
+(10 hours)
+5
+Quantum Hardware and NISQ Era
+5.1
+5.2
+5.3
+5.4
+6
+7
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+11.
+(4 hours)
+Principles of quantum annealing
+Relationship with adiabatic quantum computation
+Optimization problem formulation (QUBO, Ising models)
+Quantum annealer architecture
+Quantum Machine Learning
+8.1
+8.2
+8.3
+8.4
+8.5
+(4 hours)
+Bit-flip and phase-flip errors
+Simple quantum error detection
+Shor’s 9-qubit code
+Surface code overview
+Quantum Annealing, Optimization Algorithms
+7.1
+7.2
+7.3
+7.4
+8
+Physical realization (Ion trap, superconducting, photonic)
+Noise, decoherence, and qubit metrics
+NISQ model and limitations
+Quantum circuit execution on IBM quantum simulators
+Quantum Error and Correction
+6.1
+6.2
+6.3
+6.4
+(6 hours)
+(4 hours)
+Introduction to QML and its importance
+Quantum data representation and feature encoding
+Variational Quantum Circuits (VQC)
+Simple quantum classifiers and QNN concepts
+Hybrid quantum-classical learning models
+(30 hours)
+Classical versus quantum computation; Qubit basics, superposition, and
+measurement
+State vectors, normalization and probability amplitudes
+Dirac notation and Bloch sphere representation with simple simulations
+Single-qubit gates (X, Y, Z, H, Phase); Matrix representation and simulation
+Multi-qubit systems and two-qubit gates such as CNOT; Tensor product
+exercises and simulation
+Entanglement and Bell states; Measurement correlation analysis
+Simulation of quantum key distribution protocols, including BB84
+Quantum algorithms I: Deutsch and Deutsch–Jozsa; Algorithm formulation
+and coding
+Quantum algorithms II: Bernstein–Vazirani and Grover search; Coding and
+simulation exercises
+Introduction to quantum hardware; Physical qubit types, noise, and
+decoherence; Basic modeling
+NISQ devices; Build and execute simple circuits on IBM Quantum or
+equivalent simulator and analyze results
+12.
+13.
+14.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+Quantum error modeling including bit-flip and phase-flip; Simple error
+detection and correction exercises
+Quantum annealing and optimization; Formulation of QUBO and Ising
+problems
+Quantum machine learning and variational circuits; Data encoding, simple
+VQC construction
+(15 hours)
+IBM qiskit / quantum composer labs
+Implement Grover’s or teleportation circuit
+Implement Shor’s algorithm
+Applications in combinatorial optimization (E.g., scheduling, routing,
+network optimization)
+Hands-on simulation using quantum annealers
+Mini-project demonstration
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+6
+8
+2
+6
+3
+5
+4
+10
+5
+6
+6
+4
+7
+4
+8
+4
+Total
+45
+* There may be minor deviation in marks distribution.
+8
+7
+12
+8
+6
+5
+6
+60
+References
+1.
+Nielsen, M. A., Chuang, I. L. (2002). Quantum computation and quantum
+information. Cambridge University Press.
+2.
+Bernhardt, C. (2019). Quantum computing for everyone. MIT Press.
+3.
+Schuld, M., Petruccione, F. (2021). Machine learning with quantum
+computers. Springer.
+4.
+Sahni, V. (2007). Quantum computing. Tata McGraw-Hill Publishing
+Company.
+5.
+Akama, S. (2014). Elements of quantum computing: History, theories and
+engineering applications. Springer International Publishing.
+6.
+Wichert, A. (2014). Principles of quantum artificial intelligence. World
+Scientific Publishing Co.

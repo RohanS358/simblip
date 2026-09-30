@@ -20,6 +20,7 @@ import { CashflowObject } from './cashflow'
 import { TruthTableObject } from './truth-table'
 import { CodeObject } from './code'
 import { DsaObject } from './dsa'
+import { StepLabObject } from './steplab'
 import { GridTableObject } from './grid-table'
 import { SliderObject } from './slider'
 import { ButtonObject } from './button'
@@ -54,6 +55,7 @@ export const OBJECT_RENDERERS: Record<GeometryKind, ComponentType<ObjectRenderer
   truthtable: TruthTableObject,
   code: CodeObject,
   dsa: DsaObject,
+  steplab: StepLabObject,
   picture: PictureObject,
   group: GroupObject,
 }

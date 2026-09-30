@@ -1,0 +1,285 @@
+{
+  "title": "Bézier curves and polygon surfaces",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 4",
+  "subtitle": "How fonts, paths and car bodies are drawn with a handful of control points.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "4.1",
+      "title": "Curves from control points",
+      "eyebrow": "The idea",
+      "body": "<p>Storing a smooth curve as thousands of tiny lines is wasteful and awkward to edit. A <em class=\"term\">parametric curve</em> is a point Q(t) = (x(t), y(t)) as t runs from 0 to 1, defined by a few <em class=\"term\">control points</em>. A <em class=\"term\">spline</em> joins cubic pieces smoothly. Designers drag control points; the curve follows.</p>",
+      "questions": [
+        {
+          "id": "cp",
+          "prompt": "What do control points do?",
+          "choices": [
+            {
+              "text": "They are the pixels of the curve."
+            },
+            {
+              "text": "They fix the curve’s colour."
+            },
+            {
+              "text": "They shape the curve — it is pulled toward them but need not pass through them (except the ends for Bézier).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The curve is computed from them."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Moving one changes the curve smoothly."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bez",
+      "locator": "4.2",
+      "title": "Bézier curves",
+      "eyebrow": "Cubic Bézier",
+      "body": "<p>A cubic <em class=\"term\">Bézier curve</em> has four control points P₀…P₃ and Q(t) = (1−t)³P₀ + 3t(1−t)²P₁ + 3t²(1−t)P₂ + t³P₃. It starts at P₀ tangent to P₀P₁ and ends at P₃ tangent to P₂P₃, and always lies inside the convex hull of its control points. The <em class=\"term\">de Casteljau</em> construction finds the point at t by repeated linear interpolation: join neighbouring control points, take the point a fraction t along each segment, and repeat until one point remains. At t = 0.5 for P = (0,0), (1,3), (4,3), (5,0) the point is <b>2.5,2.25</b>, which matches (P₀ + 3P₁ + 3P₂ + P₃)/8 = <b>2.5,2.25</b>.</p>",
+      "worked": [
+        {
+          "toc": "Weights",
+          "why": "Cubic, P = (0,0), (1,3), (4,3), (5,0), t = ½. At t = ½ the weights are (1, 3, 3, 1)/8."
+        },
+        {
+          "toc": "Point",
+          "why": "x = (0 + 3·1 + 3·4 + 5)/8 = 20/8 = 2.5; y = (0 + 9 + 9 + 0)/8 = 2.25.",
+          "math": "(2.5,\\ 2.25)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "hull",
+          "prompt": "A Bézier curve always lies within…",
+          "choices": [
+            {
+              "text": "The convex hull of its control points.",
+              "correct": true
+            },
+            {
+              "text": "A circle through P₀ and P₃."
+            },
+            {
+              "text": "The bounding box of P₀ and P₃ only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is a weighted average with non-negative weights summing to 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The hull of all four points."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.2.1 — de Casteljau",
+          "note": "Each frame shows the de Casteljau triangles for one t.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bz\",\"engine\":\"bezier\",\"points\":\"0,0;1,3;4,3;5,0\",\"t\":\"0.25 0.5 0.75\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bz": {
+              "mid": "2.5,2.25",
+              "formulaMid": "2.5,2.25"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-bz",
+          "prompt": "<p>Find the point at t = 0.5 for control points (0,0), (1,3), (4,3), (5,0).</p>",
+          "answer": "Weights 1/8, 3/8, 3/8, 1/8: <b>2.5,2.25</b>.",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "The construction at t = 0.5.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"bezier\",\"points\":\"0,0;1,3;4,3;5,0\",\"t\":\"0.5\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "mid": "2.5,2.25"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "spline",
+      "locator": "4.3",
+      "title": "Splines and continuity",
+      "eyebrow": "Joining pieces",
+      "body": "<p>Long curves are built from several low-degree pieces. <em class=\"term\">C⁰</em> continuity: the pieces meet. <em class=\"term\">C¹</em>: same tangent direction and speed at the join. <em class=\"term\">C²</em>: same curvature too. For two Bézier segments to join with C¹ the last two points of one and the first two of the next must be collinear and evenly spaced. B-splines and NURBS give local control and exact circles.</p>",
+      "questions": [
+        {
+          "id": "c1",
+          "prompt": "Two curve pieces meet at a point but with different tangents. The continuity is…",
+          "choices": [
+            {
+              "text": "C¹."
+            },
+            {
+              "text": "C²."
+            },
+            {
+              "text": "C⁰ only — a visible corner.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "C¹ requires equal tangents."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Even stronger."
+            },
+            {
+              "title": "Correct.",
+              "body": "They join, but not smoothly."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "surf",
+      "locator": "4.4",
+      "title": "Polygon surfaces",
+      "eyebrow": "Solid objects",
+      "body": "<p>A 3-D object is stored as a polygon mesh: a <em class=\"term\">vertex table</em> (coordinates), an <em class=\"term\">edge table</em> (vertex pairs) and a <em class=\"term\">polygon table</em> (edges of each face). Each face has a surface <em class=\"term\">normal</em> N = (V₂ − V₁) × (V₃ − V₁), needed for lighting and for deciding which side faces the viewer. Smooth surfaces use Bézier patches, revolution and sweeps.</p>",
+      "worked": [
+        {
+          "toc": "Edges",
+          "why": "Triangle V₁ = (0,0,0), V₂ = (1,0,0), V₃ = (0,1,0). Edges: (1,0,0) and (0,1,0)."
+        },
+        {
+          "toc": "Cross product",
+          "why": "Normal = (1,0,0) × (0,1,0).",
+          "math": "(0,0,1)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "norm",
+          "prompt": "Why does a polygon need a surface normal?",
+          "choices": [
+            {
+              "text": "To colour it."
+            },
+            {
+              "text": "For lighting calculations and to tell front from back faces.",
+              "correct": true
+            },
+            {
+              "text": "To store its area."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Colour comes from the material."
+            },
+            {
+              "title": "Correct.",
+              "body": "Shading depends on the angle between the normal and the light."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 4.4.1 — mesh data structure",
+          "note": "Three linked tables describe a mesh.",
+          "script": "diagram(\"direction: right\\n[Vertex table: V1 V2 V3 V4] as v #blue\\n[Edge table: E1 = V1V2 …] as e #mint\\n[Polygon table: F1 = E1 E2 E3] as p #amber\\nv -> e\\ne -> p\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.5",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Bézier: Q(t) from control points; de Casteljau by repeated interpolation.</li><li>Joins: C⁰, C¹, C²; meshes = vertex, edge, polygon tables.</li></ul>"
+    },
+    {
+      "id": "try",
+      "locator": "4.6",
+      "title": "Try it",
+      "eyebrow": "Practice",
+      "questions": [
+        {
+          "id": "deg",
+          "prompt": "Five control points define a Bézier curve of degree…",
+          "choices": [
+            {
+              "text": "5."
+            },
+            {
+              "text": "3."
+            },
+            {
+              "text": "4.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "One too many."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That takes four points."
+            },
+            {
+              "title": "Correct.",
+              "body": "Degree = number of points − 1."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 4.6.1 — five control points",
+          "note": "A degree-4 Bézier (five points) — one more level of the construction.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"q4\",\"engine\":\"bezier\",\"points\":\"0,0;2,4;5,4;7,0;9,3\",\"t\":\"0.5\",\"width\":600,\"height\":440});",
+          "expect": {
+            "q4": {
+              "mid": "4.6875,2.6875"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

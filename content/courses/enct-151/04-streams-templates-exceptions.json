@@ -1,0 +1,308 @@
+{
+  "title": "Streams, templates and exceptions",
+  "kicker": "ENCT 151 · Object Oriented Programming · Chapters 7–9",
+  "subtitle": "Generic code that works for any type, input/output as flowing streams, and errors that jump to where they can be handled.",
+  "sections": [
+    {
+      "id": "stream",
+      "locator": "7.1",
+      "title": "Streams",
+      "eyebrow": "Data as a flow",
+      "body": "<p>A stream is a sequence of characters flowing between a program and a device. <code>cin</code> (input), <code>cout</code> (output), <code>cerr</code> (errors). <code>&lt;&lt;</code> inserts, <code>&gt;&gt;</code> extracts, and both chain. The stream classes form a hierarchy: <code>ios</code> → <code>istream</code>/<code>ostream</code> → <code>ifstream</code>/<code>ofstream</code> (files) and <code>stringstream</code> (strings).</p>",
+      "questions": [
+        {
+          "id": "ifs",
+          "prompt": "ifstream is derived from…",
+          "choices": [
+            {
+              "text": "ostream."
+            },
+            {
+              "text": "cin."
+            },
+            {
+              "text": "istream.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for output."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "cin is an object, not a class."
+            },
+            {
+              "title": "Correct.",
+              "body": "A file is just another input stream."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 7.1.1 — stream classes",
+          "note": "File streams specialise the console streams.",
+          "script": "diagram(\"direction: down\\n{ios | state flags} as i\\n{istream | cin | operator>>} as is\\n{ostream | cout | operator<<} as os\\n{ifstream | file in} as ifs\\n{ofstream | file out} as ofs\\nis -> i\\nos -> i\\nifs -> is\\nofs -> os\");"
+        }
+      ]
+    },
+    {
+      "id": "fmt",
+      "locator": "7.2",
+      "title": "Formatting and file I/O",
+      "eyebrow": "Manipulators",
+      "body": "<p>Manipulators format output: <code>setw(6)</code> width, <code>setprecision(2)</code> with <code>fixed</code>, <code>endl</code> newline-and-flush. Files: <code>ofstream f(\"a.txt\"); f &lt;&lt; 42;</code> — the destructor closes it (RAII). Check <code>if (!f)</code> after opening.</p>",
+      "questions": [
+        {
+          "id": "chain",
+          "prompt": "Why can <code>cout &lt;&lt; a &lt;&lt; b</code> chain?",
+          "choices": [
+            {
+              "text": "Each << returns the stream.",
+              "correct": true
+            },
+            {
+              "text": "Because cout is global."
+            },
+            {
+              "text": "<< is special syntax."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "So the next << has a stream on its left."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is an ordinary overloaded operator."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 7.2.1 — Formatting and file I/O",
+          "note": "Insertion operators chain left to right.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int a = 12, b = 7;\\n  cout << a << \\\" + \\\" << b << \\\" = \\\" << a + b << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "12 + 7 = 19"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tmpl",
+      "locator": "8.1",
+      "title": "Function templates",
+      "eyebrow": "Generic code",
+      "body": "<p><code>template &lt;typename T&gt; T maxOf(T a, T b) { return a &gt; b ? a : b; }</code> is a recipe; when you call <code>maxOf(3, 9)</code> the compiler <b>instantiates</b> a version with T = int, and <code>maxOf(2.5, 1.5)</code> another with T = double. One source, many type-specific functions, all checked at compile time with no run-time cost. The type must support the operations used (here <code>&gt;</code>).</p>",
+      "questions": [
+        {
+          "id": "ti",
+          "prompt": "A template function is generated…",
+          "choices": [
+            {
+              "text": "At compile time, once per type used.",
+              "correct": true
+            },
+            {
+              "text": "At run time per call."
+            },
+            {
+              "text": "Once, for all types."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each instantiation is ordinary code."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Each type gets its own."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 8.1.1 — instantiation",
+          "note": "The template is only a recipe until used.",
+          "script": "diagram(\"mode: sequence\\n[Your code] as c\\n[Compiler] as k\\n[maxOf<int>] as i\\n[maxOf<double>] as d\\nc -> k : maxOf(3, 9)\\nk -> i : instantiate T = int\\nc -> k : maxOf(2.5, 1.5)\\nk -> d : instantiate T = double\\n@0 c -> k : maxOf(3, 9)\\n@1 k -> i : instantiate T = int\\n@2 c -> k : maxOf(2.5, 1.5)\\n@3 k -> d : instantiate T = double\");"
+        }
+      ]
+    },
+    {
+      "id": "ctmpl",
+      "locator": "8.2",
+      "title": "Class templates and the STL",
+      "eyebrow": "Containers",
+      "body": "<p><code>template &lt;class T&gt; class Stack { T data[100]; int top; … };</code> gives <code>Stack&lt;int&gt;</code>, <code>Stack&lt;string&gt;</code>. The Standard Template Library supplies containers (<code>vector</code>, <code>list</code>, <code>map</code>, <code>set</code>), iterators and algorithms (<code>sort</code>, <code>find</code>) all built from templates.</p>",
+      "worked": [
+        {
+          "toc": "Sort",
+          "why": "vector<int> v = {5, 2, 9}; sort(v.begin(), v.end());"
+        },
+        {
+          "toc": "Sorted",
+          "why": "Result order.",
+          "math": "2,\\ 5,\\ 9",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "stl",
+          "prompt": "The STL is built mainly from…",
+          "choices": [
+            {
+              "text": "Macros."
+            },
+            {
+              "text": "Templates.",
+              "correct": true
+            },
+            {
+              "text": "Virtual functions."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not primarily."
+            },
+            {
+              "title": "Correct.",
+              "body": "Generic containers and algorithms."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Mostly not."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-vec",
+          "prompt": "<p>Which container gives O(1) access by index: vector or list?</p>",
+          "answer": "<b>vector</b> (contiguous memory); a list needs O(n) traversal."
+        }
+      ]
+    },
+    {
+      "id": "exc",
+      "locator": "9.1",
+      "title": "Exceptions: throw, try, catch",
+      "eyebrow": "Errors that unwind",
+      "body": "<p>When a function cannot continue, it <code>throw</code>s an object. The runtime unwinds the call stack, destroying locals on the way, until it finds a matching <code>catch</code>. If none is found the program terminates. <code>try { risky(); } catch (const runtime_error&amp; e) { … }</code>. Use exceptions for exceptional conditions, not ordinary control flow.</p>",
+      "questions": [
+        {
+          "id": "unw",
+          "prompt": "While an exception propagates, local objects are…",
+          "choices": [
+            {
+              "text": "Leaked."
+            },
+            {
+              "text": "Copied."
+            },
+            {
+              "text": "Destroyed (destructors run).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not if RAII is used."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "That is why RAII makes exceptions safe."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 9.1.1 — stack unwinding",
+          "note": "Control leaps straight to the handler; f and g never resume.",
+          "script": "diagram(\"mode: sequence\\n[main try] as m\\n[f()] as f\\n[g()] as g\\nm -> f : call f\\nf -> g : call g\\ng -> g : throw runtime_error\\ng -> f : unwind (locals destroyed)\\nf -> m : unwind\\nm -> m : catch handles error\\n@0 m -> f : call f\\n@1 f -> g : call g\\n@2 g -> g : throw runtime_error\\n@3 g -> f : unwind (locals destroyed)\\n@4 f -> m : unwind\\n@5 m -> m : catch handles error\");"
+        }
+      ]
+    },
+    {
+      "id": "safe",
+      "locator": "9.2",
+      "title": "Exception safety",
+      "eyebrow": "Writing code that survives errors",
+      "body": "<p>Acquire resources in objects whose destructors release them (RAII, smart pointers) and exceptions cannot leak. Catch by <code>const&amp;</code>, order handlers from most specific to most general, <code>catch (...)</code> catches anything, and never throw from a destructor. Levels of guarantee: basic (no leak), strong (all-or-nothing), no-throw.</p>",
+      "worked": [
+        {
+          "toc": "Rule",
+          "why": "Order catch blocks: derived exception types before their base."
+        },
+        {
+          "toc": "Why",
+          "why": "catch (const base&) first would swallow every derived type, hiding the specific handlers.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ord",
+          "prompt": "Catch blocks should be ordered…",
+          "choices": [
+            {
+              "text": "Most general first."
+            },
+            {
+              "text": "Alphabetically."
+            },
+            {
+              "text": "Most specific first.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Shadows the rest."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Otherwise a base handler catches everything."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

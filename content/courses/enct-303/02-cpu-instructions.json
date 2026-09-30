@@ -1,0 +1,303 @@
+{
+  "title": "Registers, stacks and addressing modes",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 2",
+  "subtitle": "Instructions are bit patterns; the CPU’s registers, flags and addressing modes decide what they can reach.",
+  "sections": [
+    {
+      "id": "regs",
+      "locator": "2.1",
+      "title": "Registers and flags",
+      "eyebrow": "Inside the CPU",
+      "body": "<p>Registers are the processor’s fastest memory. There are general-purpose ones, a <em class=\"term\">program counter</em>, a <em class=\"term\">stack pointer</em>, and a <em class=\"term\">status register</em> of flags set by the ALU: <b>zero</b> (result was 0), <b>sign</b> (negative), <b>carry</b> (unsigned overflow out of the top bit), <b>parity</b>, <b>auxiliary carry</b>. Conditional jumps test these flags.</p>",
+      "questions": [
+        {
+          "id": "carry",
+          "prompt": "After 0FFH + 01H in an 8-bit register, which flags are set?",
+          "choices": [
+            {
+              "text": "Zero and carry.",
+              "correct": true
+            },
+            {
+              "text": "Only sign."
+            },
+            {
+              "text": "None — no overflow occurs."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The 8-bit result is 00H (zero), and a 1 was carried out of bit 7."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The result is 00H, which is not negative."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unsigned overflow is exactly what the carry flag reports."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.1.1 — flags after FFH + 1",
+          "note": "FFH + 1 = 00H with carry out: Z = 1, CY = 1.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"flags\",\"engine\":\"cpu8085\",\"program\":\"MVI A,0FFH\\nADI 01H\\nHLT\",\"memory\":\"\",\"watch\":\"\",\"width\":600,\"height\":440});",
+          "expect": {
+            "flags": {
+              "A": "00",
+              "Z": "1",
+              "CY": "1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "stack",
+      "locator": "2.2",
+      "title": "Stack organisation and reverse Polish notation",
+      "eyebrow": "LIFO",
+      "body": "<p>A <em class=\"term\">stack</em> grows in memory from the stack pointer: <b>push</b> writes then moves the pointer, <b>pop</b> moves back and reads. Calls push the return address; returns pop it. A stack machine evaluates <em class=\"term\">reverse Polish notation</em> directly: push operands, and each operator pops two and pushes the result. To evaluate (A+B)×C, write <code>A B + C ×</code> — no parentheses and no precedence rules needed.</p>",
+      "worked": [
+        {
+          "toc": "Expression",
+          "why": "Evaluate 3 4 + 2 × in RPN with a stack."
+        },
+        {
+          "toc": "Stack trace",
+          "why": "Push 3, push 4, then + pops both and pushes 7. Push 2; × pops 2 and 7, pushes 14.",
+          "math": "3\\ 4\\ +\\ \\to 7;\\quad 7\\ 2\\ \\times\\ \\to 14",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rpn",
+          "prompt": "The RPN form of A × (B + C) is…",
+          "choices": [
+            {
+              "text": "A B × C +"
+            },
+            {
+              "text": "A B C + ×",
+              "correct": true
+            },
+            {
+              "text": "× A + B C"
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is (A×B)+C."
+            },
+            {
+              "title": "Correct.",
+              "body": "Operands first, then operators in the order they are applied: B C + first, then multiply by A."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is prefix (Polish) notation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.2.1 — call and return",
+          "note": "CALL pushes the return address; RET pops it. A ends as 0EH (7 doubled).",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cr\",\"engine\":\"cpu8085\",\"program\":\"LXI SP,3000H\\nMVI A,7\\nCALL DBL\\nHLT\\nDBL: ADD A\\nRET\",\"memory\":\"\",\"watch\":\"\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cr": {
+              "A": "0E"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "formats",
+      "locator": "2.3",
+      "title": "Instruction formats",
+      "eyebrow": "Encoding",
+      "body": "<p>An instruction word holds an <em class=\"term\">opcode</em> and zero to three operand fields. <b>Three-address</b> instructions (ADD R1,R2,R3) are compact in program length; <b>two-address</b> overwrite one source; <b>one-address</b> use an implicit accumulator; <b>zero-address</b> use the stack. Fewer addresses make each instruction shorter but need more instructions.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Compute X = (A+B)×(C+D) on each machine type."
+        },
+        {
+          "toc": "Count",
+          "why": "Three-address: ADD R1,A,B; ADD R2,C,D; MUL X,R1,R2 → 3 instructions. One-address (accumulator): LOAD A; ADD B; STORE T; LOAD C; ADD D; MUL T; STORE X → 7.",
+          "math": "3 \\text{ vs } 7",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "zero",
+          "prompt": "Which format needs no operand fields for arithmetic instructions?",
+          "choices": [
+            {
+              "text": "One-address."
+            },
+            {
+              "text": "Three-address."
+            },
+            {
+              "text": "Zero-address (stack) — the operands are implicit on top of the stack.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It names one operand; the accumulator is the other."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Names everything."
+            },
+            {
+              "title": "Correct.",
+              "body": "Only push/pop name a memory address."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "modes",
+      "locator": "2.4",
+      "title": "Addressing modes",
+      "eyebrow": "Finding the operand",
+      "body": "<p>How does an instruction say where its data is? <em class=\"term\">Immediate</em>: the value is in the instruction (MVI A,05H). <em class=\"term\">Direct</em>: the instruction holds the address (LDA 2050H). <em class=\"term\">Register</em>: the operand is in a register (MOV A,B). <em class=\"term\">Register indirect</em>: a register holds the address (MOV A,M uses HL). <em class=\"term\">Indexed</em>/<em class=\"term\">base-relative</em>: address = register + offset, ideal for arrays. Each trades instruction length and speed for flexibility.</p>",
+      "questions": [
+        {
+          "id": "indirect",
+          "prompt": "Which mode makes stepping through an array easiest?",
+          "choices": [
+            {
+              "text": "Immediate."
+            },
+            {
+              "text": "Register indirect or indexed — increment the register to move to the next element.",
+              "correct": true
+            },
+            {
+              "text": "Direct."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The value is fixed in the instruction."
+            },
+            {
+              "title": "Correct.",
+              "body": "The instruction stays the same; only the register changes."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The address is fixed in the instruction."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.4.1 — four addressing modes",
+          "note": "Immediate, direct, register and register-indirect in one program.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"modes\",\"engine\":\"cpu8085\",\"program\":\"MVI A,05H\\nLDA 2050H\\nMOV B,A\\nLXI H,2051H\\nMOV C,M\\nHLT\",\"memory\":\"2050=0A;2051=0C\",\"watch\":\"2050,2051\",\"width\":600,\"height\":440});",
+          "expect": {
+            "modes": {
+              "A": "0A",
+              "B": "0A",
+              "C": "0C"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-loop",
+          "prompt": "<p>What is left in A after <code>MVI B,5 / MVI A,0 / LOOP: ADD B / DCR B / JNZ LOOP</code>?</p>",
+          "answer": "The loop adds 5+4+3+2+1 = <b>15</b> (= 0FH) and exits when B reaches zero (Z = 1).",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "The loop, run.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"cpu8085\",\"program\":\"MVI B,5\\nMVI A,0\\nLOOP: ADD B\\nDCR B\\nJNZ LOOP\\nHLT\",\"memory\":\"\",\"watch\":\"\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "A": "0F",
+                "Z": "1"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "interrupts",
+      "locator": "2.5",
+      "title": "Interrupts",
+      "eyebrow": "Breaking the flow",
+      "body": "<p>An <em class=\"term\">interrupt</em> diverts the CPU to an <em class=\"term\">interrupt service routine</em> (ISR) when a device needs attention, an error occurs, or a timer fires. Between instructions the CPU checks for one; if accepted it saves the program counter and flags, jumps to the ISR (found through a vector table), runs it, and returns to exactly where it left off.</p>",
+      "questions": [
+        {
+          "id": "when",
+          "prompt": "When is an interrupt normally accepted?",
+          "choices": [
+            {
+              "text": "Between instructions, never in the middle of one.",
+              "correct": true
+            },
+            {
+              "text": "Immediately, even mid-instruction."
+            },
+            {
+              "text": "Only at program end."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That keeps the machine state consistent so the program can resume cleanly."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Half-finished instructions would corrupt state."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Then interrupts would be useless."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia5",
+          "caption": "Figure 2.5.1 — interrupt handling",
+          "note": "The interrupted program never notices.",
+          "script": "diagram(\"mode: sequence\\n[Program] as p\\n[CPU] as c\\n[ISR] as i\\np -> c : executing instruction n\\nc -> c : interrupt pending? yes\\nc -> i : save PC + flags, jump to vector\\ni --> c : service device, return\\nc --> p : resume at instruction n+1\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Flags record ALU outcomes; jumps read them.</li><li>Stacks serve calls, returns and RPN evaluation.</li><li>Fewer address fields mean shorter instructions but more of them.</li><li>Addressing modes choose how an operand is found.</li></ul>"
+    }
+  ]
+}

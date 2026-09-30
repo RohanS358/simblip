@@ -1,0 +1,96 @@
+                      PROBABILITY AND STATISTICS
+                                       ENSH 304
+
+Lecture       :3                                                                 Year : III
+Tutorial      :1                                                                  Part : I
+Practical     :0
+
+Course Objectives:
+The objective of this course is to equip students with foundational knowledge in
+probability and statistics, focusing on core concepts essential for engineering
+applications. Students will develop essential skills in statistical data analysis, enabling
+them to apply various statistical techniques to address real-world engineering
+challenges. Additionally, the course emphasizes the interpretation and effective
+communication of statistical results, preparing students to make informed, data-driven
+decisions in their professional practice.
+
+1    Descriptive Statistics and Basic Probability                              (6 hours)
+      1.1   Introduction to statistics and its importance in engineering
+      1.2   Measure of central tendency and measure of variation
+      1.3   Graphical representation of data: Histograms, box plots and scatter plots
+      1.4   Basic probability concepts, additive law, multiplicative law
+      1.5   Conditional probability and Bayes’ theorem
+
+2    Probability Distributions and Sampling Distribution                       (14 hours)
+      2.1   Random variables: Discrete and continuous
+      2.2   Expectation and variance of discrete and continuous random variables
+      2.3   Discrete probability distributions: Binomial, Poisson, negative Binomial
+      2.4   Continuous probability distributions: Normal, Gamma, Chi-Square
+      2.5   Population and sample
+      2.6   Sampling distribution of mean and proportion
+      2.7   Central limit theorem
+
+3    Statistical Inference                                                     (14 hours)
+      3.1   Point estimations and properties of estimators
+      3.2   Confidence intervals for mean and proportions
+      3.3   Hypothesis testing, parametric and non-parametric tests, procedure of
+            hypothesis
+      3.4   Hypothesis testing of mean (Single mean, two means, paired t-test and
+            one-way)
+      3.5   Goodness of fit tests and independence of attributes (Chi-square and
+            Kolmogorov–Smirnov test)
+4    Correlation and Regression                                             (6 hours)
+      4.1   Correlation analysis and test of linear correlation
+      4.2   Simple regression analysis, the concept of explained, unexplained, and
+            total
+      4.3   Multiple regression analysis
+
+5    Statistical Quality Control                                            (5 hours)
+      5.1   Quality control and its importance in engineering
+      5.2   Control charts for variables (X-bar, R-chart, P-chat)
+      5.3   Six sigma concepts
+
+Tutorial                                                                    (15 hours)
+    1. Visualize data, compute central tendency, and variance in engineering proble
+         ms using computer software
+    2. Solve different engineering problems involving probability
+    3. Solve different engineering problems involving discrete probability distribution
+         and its interpretation
+    4. Solve different engineering problems involving continuous probability distributi
+         on and its interpretation
+    5. Analyze numerical engineering datasets, perform normality tests, confidence i
+         ntervals, significance tests of means, and ANOVA
+    6. Analyze categorical engineering datasets, perform crosstabulation, proportion
+          tests, Chi-Square tests, and draw conclusions using computer software
+    7. Calculate the correlation coefficient and perform correlation tests on engineeri
+         ng data
+    8. Fit and interpret simple/multiple regression models on engineering data using
+         computer software
+    9. Use control charts for process monitoring on sample engineering data.
+    10. Create control charts using computer software
+
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+          Chapter                        Hours                   Marks distribution*
+              1                              6                            10
+              2                             14                            15
+              3                             14                            20
+              4                              6                            10
+              5                              5                             5
+           Total                            45                            60
+  * There may be minor deviation in marks distribution.
+References
+    1.   Ronald, E.W., Raymond, H.M., Sharon, L.M. (2012). Probability & Statistics
+         for Engineers & Scientists (9th edition). Boston USA: Prentice Hall.
+    2.   Richard A.J. (2018). Probability and Statistics for Engineers (9th edition).
+         Edinburgh Gate: Pearson Education Limited
+    3.   Sheldon M.R. (2009). Introduction to Probability and Statistics for Engineers
+         and Scientists (4th edition). London: Elsevier Inc.
+    4.   Jay L.D. (2012). Probability and Statistics for Engineering and Sciences.
+         Boston: Thomson Brooks/Cole
+    5.   Brian S.E., Ibrsten H. (2010). A Handbook of Statistical Analyses Using R
+         (2nd edition). London: CRC Press Taylor & Francis Croup
+    6.   Andy F. (2018). Discovering Statistics Using IBM SPSS Statistics (5th
+         edition). London: SAGE Publications.
+

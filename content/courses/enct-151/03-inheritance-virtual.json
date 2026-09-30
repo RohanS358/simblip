@@ -1,0 +1,302 @@
+{
+  "title": "Inheritance and polymorphism",
+  "kicker": "ENCT 151 · Object Oriented Programming · Chapters 5–6",
+  "subtitle": "Reuse a class, specialise it, and let one call do the right thing for every kind of object.",
+  "sections": [
+    {
+      "id": "inh",
+      "locator": "5.1",
+      "title": "Inheritance",
+      "eyebrow": "is-a",
+      "body": "<p><code>class Dog : public Animal</code> makes Dog a specialisation of Animal: it <b>inherits</b> Animal’s members and may add or replace some. Use it for “is-a” relationships (a Dog is an Animal); use <b>composition</b> (a member object) for “has-a” (a Car has an Engine). Public inheritance is the usual form; private members of the base stay inaccessible to the derived class, <code>protected</code> ones are visible.</p>",
+      "questions": [
+        {
+          "id": "isa",
+          "prompt": "Which fits composition (has-a) rather than inheritance?",
+          "choices": [
+            {
+              "text": "Car and Engine.",
+              "correct": true
+            },
+            {
+              "text": "Dog and Animal."
+            },
+            {
+              "text": "Circle and Shape."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A car has an engine; it is not one."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is is-a."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is is-a."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — inheritance",
+          "note": "Arrows point from the specialised class to the general one.",
+          "script": "diagram(\"direction: down\\n{Animal | name | speak()} as a\\n{Dog | breed | fetch()} as d\\n{Cat | indoor | purr()} as c\\nd -> a : is-a\\nc -> a : is-a\");"
+        }
+      ]
+    },
+    {
+      "id": "order",
+      "locator": "5.2",
+      "title": "Constructor and destructor order",
+      "eyebrow": "Base first",
+      "body": "<p>Creating a derived object runs the <b>base</b> constructor first, then the derived one; destruction is the reverse (derived destructor first, then base). The base part must exist before the derived part can rely on it.</p>",
+      "questions": [
+        {
+          "id": "ord",
+          "prompt": "Destroying a Derived object calls destructors in the order…",
+          "choices": [
+            {
+              "text": "Base, then Derived."
+            },
+            {
+              "text": "Only Base."
+            },
+            {
+              "text": "Derived, then Base.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is construction order."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Both run."
+            },
+            {
+              "title": "Correct.",
+              "body": "Reverse of construction."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 5.2.1 — construction order",
+          "note": "Build from the foundation up, tear down in reverse.",
+          "script": "diagram(\"mode: sequence\\n[main] as m\\n[Base] as b\\n[Derived] as d\\nm -> d : create Derived\\nd -> b : Base() runs first\\nb --> d : base part ready\\nd -> d : Derived() body\\nm -> d : object destroyed\\nd -> d : ~Derived() first\\nd -> b : ~Base() last\\n@0 m -> d : create Derived\\n@1 d -> b : Base() runs first\\n@2 b -> d : base part ready\\n@3 d -> d : Derived() body\\n@4 m -> d : object destroyed\\n@5 d -> d : ~Derived() first\\n@6 d -> b : ~Base() last\");"
+        }
+      ]
+    },
+    {
+      "id": "over",
+      "locator": "5.3",
+      "title": "Overriding and hiding",
+      "eyebrow": "Specialising behaviour",
+      "body": "<p>A derived class can redefine a base method. Without <code>virtual</code> the version chosen depends on the <b>declared</b> (static) type of the pointer or reference; with <code>virtual</code> it depends on the <b>actual</b> object type. Multiple inheritance (several bases) is allowed but can cause the diamond problem; <code>virtual</code> base classes solve it.</p>",
+      "questions": [
+        {
+          "id": "hide",
+          "prompt": "Without virtual, <code>Animal* p = new Dog(); p-&gt;speak();</code> calls…",
+          "choices": [
+            {
+              "text": "Animal::speak (chosen by the pointer type).",
+              "correct": true
+            },
+            {
+              "text": "Dog::speak."
+            },
+            {
+              "text": "Neither."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Static binding."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That needs virtual."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "One is called."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "virt",
+      "locator": "6.1",
+      "title": "Virtual functions and dynamic dispatch",
+      "eyebrow": "Polymorphism",
+      "body": "<p>Declare the base method <code>virtual</code> and the call through a base pointer runs the override of the <i>actual</i> object. Internally each object with virtual functions carries a hidden pointer (vptr) to its class’s table (vtable) of function addresses; the call looks up the slot at run time.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "Three objects in an Animal* array: Dog, Cat, Cow, each overriding speak()."
+        },
+        {
+          "toc": "Payoff",
+          "why": "One loop calling p[i]->speak() produces three different outputs — no if/else on type.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "vt",
+          "prompt": "Dynamic dispatch chooses the function by…",
+          "choices": [
+            {
+              "text": "The declared pointer type."
+            },
+            {
+              "text": "The actual type of the object at run time.",
+              "correct": true
+            },
+            {
+              "text": "The return type."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is static binding."
+            },
+            {
+              "title": "Correct.",
+              "body": "Looked up through the vtable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Irrelevant."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 6.1.1 — virtual dispatch",
+          "note": "The vtable sends the call to Dog::speak; Animal::speak is never used.",
+          "script": "diagram(\"mode: sequence\\n[Animal* p] as p\\n[vptr → Dog vtable] as v\\n[Dog::speak] as d\\n[Animal::speak] as a\\np -> v : p->speak()\\nv -> d : look up slot 0\\nd --> p : \\\"Woof\\\"\\n@0 p -> v : p->speak()\\n@1 v -> d : look up slot 0\\n@2 d -> p : \\\"Woof\\\"\");"
+        }
+      ]
+    },
+    {
+      "id": "abs",
+      "locator": "6.2",
+      "title": "Abstract classes and virtual destructors",
+      "eyebrow": "Interfaces",
+      "body": "<p>A <b>pure virtual</b> function (<code>virtual double area() = 0;</code>) has no body and makes the class abstract — it cannot be instantiated and acts as an interface that derived classes must implement. Always give a polymorphic base a <b>virtual destructor</b>, or <code>delete</code> through a base pointer skips the derived destructor and leaks.</p>",
+      "worked": [
+        {
+          "toc": "Shapes",
+          "why": "Shapes: Circle r = 2 (π = 3.14), Rect 3 × 5."
+        },
+        {
+          "toc": "Total",
+          "why": "Areas via one loop over Shape*: 3.14·2² = 12.56 and 15; total 27.56.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pure",
+          "prompt": "A class with a pure virtual function…",
+          "choices": [
+            {
+              "text": "Must be a struct."
+            },
+            {
+              "text": "Cannot be instantiated.",
+              "correct": true
+            },
+            {
+              "text": "Has no data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is abstract."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not required."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 6.2.1 — abstract Shape",
+          "note": "Each concrete shape supplies its own area().",
+          "script": "diagram(\"direction: down\\n{Shape (abstract) | | area() = 0 ; virtual ~Shape()} as s\\n{Circle | r | area()} as c\\n{Rect | w ; h | area()} as r\\nc -> s\\nr -> s\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-vd",
+          "prompt": "<p>Why must the base class destructor be virtual when objects are deleted through base pointers?</p>",
+          "answer": "Otherwise only the base destructor runs, so the derived part is never cleaned up (leak/undefined behaviour)."
+        }
+      ]
+    },
+    {
+      "id": "rtti",
+      "locator": "6.3",
+      "title": "Late binding cost and design tips",
+      "eyebrow": "Practical advice",
+      "body": "<p>A virtual call costs one extra indirection and prevents inlining; it is negligible except in tight loops. Prefer small interfaces, favour composition over deep hierarchies, and mark overrides with <code>override</code> so the compiler catches signature mismatches.</p>",
+      "questions": [
+        {
+          "id": "ov",
+          "prompt": "The <code>override</code> keyword helps by…",
+          "choices": [
+            {
+              "text": "Speeding up the call."
+            },
+            {
+              "text": "Hiding the base."
+            },
+            {
+              "text": "Making the compiler check you really override a virtual function.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Catches typos in the signature."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

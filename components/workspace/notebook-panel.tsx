@@ -100,7 +100,7 @@ export function NotebookPanel() {
             type="button"
             title="New notebook"
             aria-label="New notebook"
-            className="mb-1 shrink-0 rounded-md p-1 text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
+            className="hit-24 mb-1 shrink-0 rounded-md text-muted-foreground transition-[color,background-color,transform] duration-200 ease-strong hover:bg-accent hover:text-foreground active:scale-90"
             onClick={() => {
               useWorkspaceStore.getState().addNotebook()
             }}

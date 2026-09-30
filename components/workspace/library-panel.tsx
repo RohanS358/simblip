@@ -503,7 +503,7 @@ export function LibraryPanel({
                   <button
                     type="button"
                     aria-label="Delete asset"
-                    className="ml-auto rounded p-1 text-muted-foreground opacity-0 transition-opacity hover:text-[var(--accent-rose)] group-hover:opacity-100"
+                    className="hit-24 ml-auto rounded text-muted-foreground opacity-0 transition-opacity hover:text-[var(--accent-rose)] focus-visible:opacity-100 group-hover:opacity-100"
                     onClick={() => void removeAsset(a.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5" />

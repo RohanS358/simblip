@@ -118,6 +118,7 @@
     "@types/react-dom": "^19",
     "@types/ws": "^8.18.1",
     "@xmldom/xmldom": "^0.9.12",
+    "axe-core": "^4.13.0",
     "fake-indexeddb": "^6.2.5",
     "postcss": "^8.5",
     "tailwindcss": "^4.1.9",

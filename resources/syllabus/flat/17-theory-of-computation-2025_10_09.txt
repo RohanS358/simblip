@@ -1,0 +1,171 @@
+THEORY OF COMPUTATION
+ENCT 203
+Lecture
+Tutorial
+Practical
+:3
+:1
+:0
+Year : II
+Part : I
+Course Objectives:
+The objective of this course is to introduce students to the foundational concepts of
+theory of automata, formal languages, computational models and computational
+complexity.
+1
+Introduction to Formal Language, Logic and Proof
+1.1
+1.2
+1.3
+1.4
+1.5
+2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+2.9
+3
+Brief review of set theory, function and relation
+Propositional logic, expressing statements in propositional logic, rules of
+inference and proofs in propositional logic, introduction to predicate logic
+Proofs, principle of mathematical induction, diagonalization principle,
+pigeonhole principle
+Alphabet and language
+Operations on languages: Union, concatenation, Kleene star
+Finite Automata and Regular Language
+2.1
+2.2
+3.2
+3.3
+3.4
+(10 hours)
+Introduction to finite automata, finite state machine
+Deterministic finite automata (DFA), representation of DFA, language of
+DFA, design of DFA
+Non deterministic finite automata (NFA), equivalence of DFA and NFA
+Finite automata with epsilon transition (ε - NFA), equivalence of NFA and ε
+–NFA, equivalence of DFA and ε – NFA
+Regular expressions and regular languages
+Equivalence of regular expression and finite automata
+Closure properties of regular languages
+Pumping lemma for regular languages
+Decision algorithm for regular language
+Context Free Grammar and Pushdown Automata
+3.1
+(7 hours)
+(10 hours)
+Introduction to context free grammar (CFG), component of CFG, context
+free language (CFL)
+Types of derivations, parse tree and its construction, ambiguity
+Simplification of CFG, normal forms, Chomsky normal form (CNF),
+Greibach normal form (GNF), Backus-Naur form (BNF)
+Closure properties of context free languages
+3.5
+3.6
+3.7
+3.8
+3.9
+4
+Turing Machine
+4.1
+4.2
+4.3
+4.4
+4.5
+5
+5.4
+5.5
+6.2
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+(5 hours)
+Church turing thesis
+Universal turing machine, encoding of turing machine
+Undecidable problem about turing machines, halting problems and its
+implications
+Computational complexity, time and space complexity of a turing machine
+Complexity classes class P, class NP, NP‐complete problems
+Automata Theory and Compiler
+6.1
+(10 hours)
+Introduction to turing machine (TM), representation of TM, move of a TM,
+instantaneous description for TM
+Computing with turing machine
+Variants of turing machine
+Unrestricted grammar, Chomsky hierarchy of grammar
+Recursive function theory
+Decidability and Computational Complexity
+5.1
+5.2
+5.3
+6
+Pumping Lemma for context free languages
+Decision algorithm for context free language
+Introduction to push down automata (PDA), representation of PDA,
+operations of PDA, move of a PDA, instantaneous description for PDA
+Language of PDA, equivalence of CFL and PDA, conversion of CFG to
+PDA
+Context sensitive grammar
+(3 hours)
+Basic concept of compiler, role of lexical analyzer, lexical analysis with
+deterministic finite automata
+Parser and context free grammar, top down parsing, bottom up parsing, IR
+parsing
+(15 hours)
+Set operations and proof using mathematical induction
+Proof using rules of inference in propositional logic
+Design of DFA, conversion of NFA to DFA, proof using pumping lemma for
+regular language
+Writing grammar for context free language, design of PDA, proof using
+pumping Lemma for context free language
+Design of turing machine for a language
+Problem related to compiler design
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks Distribution*
+1
+7
+9
+2
+10
+13
+3
+10
+13
+4
+10
+14
+5
+5
+6
+6
+3
+5
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+References
+1.
+Lewis, H. R., Papadimitriou, C. H. (1981). Elements of the Theory of
+Computation. United Kingdom: Prentice-Hall.
+2.
+Sipser, M. (2006). Introduction to the Theory of Computation. United
+Kingdom: Thomson Course Technology.
+3.
+Rosen, K. (2006). Discrete Mathematics and Its Applications. United
+Kingdom: McGraw-Hill Education.
+4.
+Aho, A. V. (2003). Compilers: Principles, Techniques and Tools (for
+VTU). India: Pearson.

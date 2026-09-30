@@ -1,0 +1,320 @@
+{
+  "title": "Confidence intervals and hypothesis tests",
+  "kicker": "ENSH 304 · Probability and Statistics · Chapter 3",
+  "subtitle": "From a sample to a statement about the population — with an honest measure of how wrong we might be.",
+  "sections": [
+    {
+      "id": "est",
+      "locator": "3.1",
+      "title": "Estimation",
+      "eyebrow": "Point estimates",
+      "body": "<p>A <em class=\"term\">statistic</em> computed from a sample estimates a population <em class=\"term\">parameter</em>: x̄ for μ, s² for σ² (÷(n − 1) makes it <em>unbiased</em>), p̂ for p. A good estimator is unbiased (right on average) and has small standard error σ/√n — more data tightens it.</p>",
+      "questions": [
+        {
+          "id": "unb",
+          "prompt": "Why divide by n − 1 in the sample variance?",
+          "choices": [
+            {
+              "text": "It makes the answer bigger for fun."
+            },
+            {
+              "text": "To avoid dividing by zero."
+            },
+            {
+              "text": "It makes s² unbiased for σ².",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "There is a precise reason."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the purpose."
+            },
+            {
+              "title": "Correct.",
+              "body": "x̄ is fitted from the same data, using up one degree of freedom."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "locator": "3.2",
+      "title": "Confidence interval for a mean",
+      "eyebrow": "A range, not a guess",
+      "body": "<p>With σ known (or n large): x̄ ± z·σ/√n, where z = 1.645, 1.96, 2.576 for 90 %, 95 %, 99 %. The 95 % means: if you repeated the whole sampling many times, about 95 % of the intervals built this way would contain μ. It is <b>not</b> a 95 % chance that μ lies in one given interval. Below, 100 simulated intervals at z = 1.96 caught the true mean <b>96%</b> of the time; at z = 2.576 <b>99%</b> (wider, half-width 5.152 vs 3.92).</p>",
+      "worked": [
+        {
+          "toc": "SE",
+          "why": "n = 25, x̄ = 52, σ = 10. Standard error = 10/5.",
+          "math": "SE=2"
+        },
+        {
+          "toc": "Interval",
+          "why": "95 % half-width = 1.96 × 2 = 3.92.",
+          "math": "52\\pm3.92",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ciw",
+          "prompt": "To halve the width of a confidence interval you need…",
+          "choices": [
+            {
+              "text": "Four times the sample size.",
+              "correct": true
+            },
+            {
+              "text": "Twice the sample size."
+            },
+            {
+              "text": "Half the confidence level."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Width ∝ 1/√n."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only 29 % narrower."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Changes z, not by half."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.2.1 — 95 % intervals",
+          "note": "Rose intervals miss the true mean (vertical line).",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ci95\",\"engine\":\"confint\",\"n\":25,\"sigma\":10,\"zcrit\":1.96,\"intervals\":100,\"width\":600,\"height\":440});",
+          "expect": {
+            "ci95": {
+              "coverage": "96",
+              "halfWidth": "3.92"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ci",
+          "prompt": "<p>n = 100, x̄ = 75, σ = 15. Give the 95 % CI for μ.</p>",
+          "answer": "SE = 1.5, half-width = 1.96 × 1.5 = 2.94 → <b>(72.06, 77.94)</b>."
+        }
+      ]
+    },
+    {
+      "id": "n",
+      "locator": "3.3",
+      "title": "Effect of n and confidence level",
+      "eyebrow": "Trade-offs",
+      "body": "<p>Width = 2zσ/√n. Raising confidence raises z (wider). Raising n shrinks it: half-width is <b>3.92</b> at n = 25 but <b>1.96</b> at n = 100. Precision, confidence and cost pull against each other; you choose two.</p>",
+      "questions": [
+        {
+          "id": "ntr",
+          "prompt": "Raising confidence from 95 % to 99 % with n fixed makes the interval…",
+          "choices": [
+            {
+              "text": "Narrower."
+            },
+            {
+              "text": "The same."
+            },
+            {
+              "text": "Wider.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "You are demanding more certainty."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "z changes."
+            },
+            {
+              "title": "Correct.",
+              "body": "z grows from 1.96 to 2.576."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.3.1 — n = 100",
+          "note": "Same confidence, four times the data.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cin\",\"engine\":\"confint\",\"n\":100,\"sigma\":10,\"zcrit\":1.96,\"intervals\":40,\"width\":600,\"height\":440});",
+          "expect": {
+            "cin": {
+              "halfWidth": "1.96"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ht",
+      "locator": "3.4",
+      "title": "Hypothesis testing: the logic",
+      "eyebrow": "Evidence against a claim",
+      "body": "<p>State a null hypothesis H₀ (“nothing special”, e.g. μ = μ₀) and an alternative H₁. Compute a test statistic, e.g. z = (x̄ − μ₀)/(σ/√n). If it falls in the rejection region (|z| &gt; 1.96 at α = 0.05, two-sided) — equivalently if the <em class=\"term\">p-value</em> &lt; α — reject H₀. Errors: Type I = rejecting a true H₀ (probability α); Type II = failing to reject a false H₀ (probability β; power = 1 − β).</p>",
+      "questions": [
+        {
+          "id": "t1",
+          "prompt": "A Type I error is…",
+          "choices": [
+            {
+              "text": "Keeping H₀ when it is false."
+            },
+            {
+              "text": "Rejecting H₀ when it is true.",
+              "correct": true
+            },
+            {
+              "text": "Using the wrong table."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is Type II."
+            },
+            {
+              "title": "Correct.",
+              "body": "Its probability is α."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a named error."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 3.4.1 — test procedure",
+          "note": "The decision procedure as a flow.",
+          "script": "diagram(\"Claim H0 -> Sample -> z = (x̄ - μ0)/SE\\nz = (x̄ - μ0)/SE -> |z| > z crit? : compare\\n|z| > z crit? -> Reject H0 : yes\\n|z| > z crit? -> Keep H0 : no\");"
+        }
+      ]
+    },
+    {
+      "id": "ztest",
+      "locator": "3.5",
+      "title": "Worked test of a mean",
+      "eyebrow": "Putting it together",
+      "body": "<p>A maker claims a bulb lasts 1000 h (σ = 80). A sample of 64 averages 980 h. Is the claim still believable at α = 0.05?</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "H₀: μ = 1000, H₁: μ ≠ 1000. SE = 80/√64.",
+          "math": "SE=10"
+        },
+        {
+          "toc": "z",
+          "why": "Test statistic.",
+          "math": "z=\\tfrac{980-1000}{10}=-2"
+        },
+        {
+          "toc": "Decide",
+          "why": "|z| = 2 exceeds 1.96, so reject H₀ (p ≈ 0.046).",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pv",
+          "prompt": "A p-value of 0.03 at α = 0.05 means…",
+          "choices": [
+            {
+              "text": "Reject H₀.",
+              "correct": true
+            },
+            {
+              "text": "H₀ is 3 % likely to be true."
+            },
+            {
+              "text": "Fail to reject."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Data this extreme would occur only 3 % of the time if H₀ were true."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "p-value is not P(H₀)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "p < α, so reject."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-z",
+          "prompt": "<p>H₀: μ = 50, σ = 6, n = 36, x̄ = 52. Two-sided test at 5 %.</p>",
+          "answer": "SE = 1, z = 2 → |z| &gt; 1.96, <b>reject H₀</b>."
+        }
+      ]
+    },
+    {
+      "id": "t",
+      "locator": "3.6",
+      "title": "Unknown σ: the t-test",
+      "eyebrow": "Small samples",
+      "body": "<p>When σ must be estimated by s, use t = (x̄ − μ₀)/(s/√n) with n − 1 degrees of freedom. The t distribution has heavier tails than the normal, so critical values are larger (2.262 at 9 d.f. vs 1.96) — the price of not knowing σ. As n grows, t → z. For two proportions or categorical counts the χ² test compares observed and expected counts: χ² = Σ(O − E)²/E.</p>",
+      "questions": [
+        {
+          "id": "tdf",
+          "prompt": "A t-test on 12 observations has how many degrees of freedom?",
+          "choices": [
+            {
+              "text": "12."
+            },
+            {
+              "text": "11.",
+              "correct": true
+            },
+            {
+              "text": "10."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "One is lost estimating the mean."
+            },
+            {
+              "title": "Correct.",
+              "body": "n − 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too many lost."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

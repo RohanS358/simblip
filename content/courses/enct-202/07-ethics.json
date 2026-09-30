@@ -1,0 +1,268 @@
+{
+  "title": "Responsible data science",
+  "kicker": "ENCT 202 · Foundation of Data Science · Chapter 7",
+  "subtitle": "A model that is accurate on average can still be unfair, invasive or impossible to explain.",
+  "sections": [
+    {
+      "id": "bias",
+      "locator": "7.1",
+      "title": "Bias in data and models",
+      "eyebrow": "Where unfairness comes from",
+      "body": "<p>Sources: <b>sampling bias</b> (some groups under-represented), <b>historical bias</b> (past decisions encoded in labels), <b>measurement bias</b> (proxies such as postcode for income), <b>feedback loops</b> (predictions change the data they are retrained on). A model trained on biased history reproduces it.</p>",
+      "questions": [
+        {
+          "id": "hb",
+          "prompt": "A hiring model trained on past hires favouring one group will…",
+          "choices": [
+            {
+              "text": "Remove the bias automatically."
+            },
+            {
+              "text": "Be neutral because it is maths."
+            },
+            {
+              "text": "Learn and repeat that pattern.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Models copy data."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Maths inherits data bias."
+            },
+            {
+              "title": "Correct.",
+              "body": "Historical bias enters through labels."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fair",
+      "locator": "7.2",
+      "title": "Measuring fairness",
+      "eyebrow": "Numbers for groups",
+      "body": "<p>Compare groups: selection rate, false-positive rate, recall. The “four-fifths rule” flags concern if one group’s selection rate is below 80 % of the highest. Different fairness definitions can conflict, so choose deliberately and explain it.</p>",
+      "worked": [
+        {
+          "toc": "Rates",
+          "why": "Group A approved 50 of 100; group B 30 of 100."
+        },
+        {
+          "toc": "Ratio",
+          "why": "Ratio B/A = 0.30/0.50.",
+          "math": "0.6<0.8",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ff",
+          "prompt": "Selection rates 50 % vs 30 % give a ratio of 0.6. Under the four-fifths rule this is…",
+          "choices": [
+            {
+              "text": "Acceptable."
+            },
+            {
+              "text": "A red flag.",
+              "correct": true
+            },
+            {
+              "text": "Proof of intent."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Above 0.8 would be."
+            },
+            {
+              "title": "Correct.",
+              "body": "Below 0.8."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is evidence to investigate, not proof."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-fr",
+          "prompt": "<p>Approvals: men 45/90, women 24/60. Compute the ratio and judge.</p>",
+          "answer": "Rates 0.50 and 0.40; ratio 0.8 — exactly at the threshold, warranting review."
+        }
+      ]
+    },
+    {
+      "id": "priv",
+      "locator": "7.3",
+      "title": "Privacy and consent",
+      "eyebrow": "People behind the rows",
+      "body": "<p>Collect only what you need; obtain consent; anonymise (removing names is often not enough: a birth date + postcode + gender can re-identify). Techniques: aggregation, k-anonymity, differential privacy (adding calibrated noise). Laws such as GDPR and Nepal’s Privacy Act set rights over personal data.</p>",
+      "questions": [
+        {
+          "id": "anon",
+          "prompt": "Removing names from a dataset makes it…",
+          "choices": [
+            {
+              "text": "Not necessarily anonymous.",
+              "correct": true
+            },
+            {
+              "text": "Fully anonymous."
+            },
+            {
+              "text": "Illegal."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Combinations of attributes can re-identify people."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Linkage attacks exist."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "xai",
+      "locator": "7.4",
+      "title": "Explainability",
+      "eyebrow": "Why did it decide that?",
+      "body": "<p>Linear and tree models are interpretable; deep networks are not. Tools: feature importance, partial-dependence, LIME/SHAP local explanations. High-stakes uses (loans, health) need reasons a person can contest.</p>",
+      "questions": [
+        {
+          "id": "xq",
+          "prompt": "A denied loan applicant asks why. The lender should be able to…",
+          "choices": [
+            {
+              "text": "Give the main factors behind the decision.",
+              "correct": true
+            },
+            {
+              "text": "Say “the algorithm decided”."
+            },
+            {
+              "text": "Hide the model."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Contestability requires reasons."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not acceptable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Undermines accountability."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "trend",
+      "locator": "7.5",
+      "title": "Recent trends",
+      "eyebrow": "Where the field is going",
+      "body": "<p>Large language and foundation models, AutoML, MLOps (monitoring, versioning, retraining), edge AI on devices, federated learning (train without centralising data), and synthetic data. Each brings new cost, bias and privacy questions.</p>",
+      "questions": [
+        {
+          "id": "drift",
+          "prompt": "Monitoring a deployed model mainly detects…",
+          "choices": [
+            {
+              "text": "Typos in code."
+            },
+            {
+              "text": "Data or performance drift.",
+              "correct": true
+            },
+            {
+              "text": "Hardware age."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the target."
+            },
+            {
+              "title": "Correct.",
+              "body": "The world changes after training."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 7.5.1 — MLOps loop",
+          "note": "MLOps closes the loop with monitoring.",
+          "script": "diagram(\"Collect -> Train\\nTrain -> Validate\\nValidate -> Deploy\\nDeploy -> Monitor : drift?\\nMonitor -> Retrain : data changed\\nRetrain -> Validate\");"
+        }
+      ]
+    },
+    {
+      "id": "code",
+      "locator": "7.6",
+      "title": "A practical checklist",
+      "eyebrow": "Before you ship",
+      "body": "<ul><li>Is the question worth answering, and by whom?</li><li>Is the data legal, consented and representative?</li><li>Were groups evaluated separately?</li><li>Can the result be explained and challenged?</li><li>Who monitors it afterwards?</li></ul>",
+      "questions": [
+        {
+          "id": "chk",
+          "prompt": "Before shipping a model, which check is essential?",
+          "choices": [
+            {
+              "text": "Only overall accuracy."
+            },
+            {
+              "text": "Its file size."
+            },
+            {
+              "text": "Performance across subgroups.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Hides disparities."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Irrelevant to harm."
+            },
+            {
+              "title": "Correct.",
+              "body": "Averages hide group failures."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

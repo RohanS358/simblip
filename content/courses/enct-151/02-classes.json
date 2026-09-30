@@ -1,0 +1,302 @@
+{
+  "title": "Classes, constructors and operator overloading",
+  "kicker": "ENCT 151 · Object Oriented Programming · Chapters 3–4",
+  "subtitle": "Put the data behind a wall and let the methods guard it.",
+  "sections": [
+    {
+      "id": "cls",
+      "locator": "3.1",
+      "title": "Defining a class",
+      "eyebrow": "Data + methods",
+      "body": "<p>Members are <code>private</code> by default in a <code>class</code> (public in a <code>struct</code>). Keep data private and offer public methods: the class can then enforce rules (balance never negative) that raw data cannot. Watch the guard in action — the negative deposit is ignored.</p>",
+      "questions": [
+        {
+          "id": "priv",
+          "prompt": "Why keep data members private?",
+          "choices": [
+            {
+              "text": "So the class controls every change and can protect its rules.",
+              "correct": true
+            },
+            {
+              "text": "To save memory."
+            },
+            {
+              "text": "Because C++ requires it."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Invariants cannot be broken from outside."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No effect."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only a convention."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 3.1.1 — Defining a class",
+          "note": "Encapsulation: the invalid deposit never changes the balance.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nclass Account {\\nprivate:\\n  int balance;\\npublic:\\n  Account(int b) { balance = b; }\\n  void deposit(int x) { if (x > 0) balance += x; }\\n  int get() { return balance; }\\n};\\nint main() {\\n  Account a(100);\\n  a.deposit(50);\\n  a.deposit(-20);\\n  cout << a.get() << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "150"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ctor",
+      "locator": "3.2",
+      "title": "Constructors and destructors",
+      "eyebrow": "Birth and death",
+      "body": "<p>A constructor has the class name, no return type, and runs when an object is created — use it (and the initialiser list) to put the object in a valid state. A destructor <code>~Name()</code> runs when it is destroyed: close files, free memory. A <b>copy constructor</b> builds a new object from an existing one; if the class owns a raw pointer, copy the pointed data (deep copy), not just the pointer.</p>",
+      "questions": [
+        {
+          "id": "dtor",
+          "prompt": "A destructor is called…",
+          "choices": [
+            {
+              "text": "Only by the programmer."
+            },
+            {
+              "text": "When the object is destroyed (scope end or delete).",
+              "correct": true
+            },
+            {
+              "text": "When the object is created."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Automatic for locals."
+            },
+            {
+              "title": "Correct.",
+              "body": "Automatically."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the constructor."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 3.2.1 — object lifetime",
+          "note": "RAII: acquire in the constructor, release in the destructor.",
+          "script": "diagram(\"mode: sequence\\n[main] as m\\n[Resource object] as r\\nm -> r : construct (acquire)\\nr -> r : use\\nm -> r : scope ends\\nr -> m : destructor runs (release)\\n@0 m -> r : construct (acquire)\\n@1 r -> r : use\\n@2 m -> r : scope ends\\n@3 r -> m : destructor runs (release)\");"
+        }
+      ]
+    },
+    {
+      "id": "this",
+      "locator": "3.3",
+      "title": "this, static and const",
+      "eyebrow": "Finer points",
+      "body": "<p><code>this</code> is a pointer to the current object. A <code>static</code> member belongs to the class, shared by all objects (an instance counter). A <code>const</code> method promises not to change the object, so it can be called on const objects.</p>",
+      "questions": [
+        {
+          "id": "st",
+          "prompt": "A static data member is…",
+          "choices": [
+            {
+              "text": "Copied per object."
+            },
+            {
+              "text": "Shared by all objects of the class.",
+              "correct": true
+            },
+            {
+              "text": "Constant."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is an ordinary member."
+            },
+            {
+              "title": "Correct.",
+              "body": "One copy in total."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not implied."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 3.3.1 — this, static and const",
+          "note": "this->x is the member; plain x is the parameter.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nclass P {\\npublic:\\n  int x;\\n  P(int x) { this->x = x; }\\n  P* self() { return this; }\\n};\\nint main() {\\n  P p(4);\\n  cout << p.self()->x << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ovl",
+      "locator": "4.1",
+      "title": "Operator overloading",
+      "eyebrow": "Natural syntax for new types",
+      "body": "<p>C++ lets a class define what <code>+ - == &lt;&lt; []</code> mean for it: <code>Vec operator+(const Vec&amp; o) const</code> makes <code>a + b</code> work on vectors. Rules: you cannot invent new operators or change precedence; <code>:: . .* ?:</code> cannot be overloaded; keep the meaning intuitive. The expression <code>a + b</code> is just sugar for <code>a.operator+(b)</code>.</p>",
+      "worked": [
+        {
+          "toc": "Rule",
+          "why": "Vec(1,2) + Vec(3,4), component-wise."
+        },
+        {
+          "toc": "Sum",
+          "why": "Result.",
+          "math": "(1+3,\\ 2+4)=(4,6)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ops",
+          "prompt": "Which operator cannot be overloaded?",
+          "choices": [
+            {
+              "text": "The scope operator ::",
+              "correct": true
+            },
+            {
+              "text": "+"
+            },
+            {
+              "text": "=="
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One of the few exceptions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Overloadable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Overloadable."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 4.1.1 — a + b",
+          "note": "The operator is an ordinary method call in disguise.",
+          "script": "diagram(\"mode: sequence\\n[Code: c = a + b] as s\\n[a : Vec(1,2)] as a\\n[b : Vec(3,4)] as b\\n[c : Vec] as c\\ns -> a : a.operator+(b)\\na -> b : read b.x, b.y\\na -> c : construct Vec(4,6)\\nc --> s : returned\\n@0 s -> a : a.operator+(b)\\n@1 a -> b : read b.x, b.y\\n@2 a -> c : construct Vec(4,6)\\n@3 c -> s : returned\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-vec",
+          "prompt": "<p>Complex(2,3) + Complex(1,−5) with operator+ adding parts. Result?</p>",
+          "answer": "<b>(3, −2)</b>."
+        }
+      ]
+    },
+    {
+      "id": "friend",
+      "locator": "4.2",
+      "title": "Friends and stream operators",
+      "eyebrow": "Outside but trusted",
+      "body": "<p>A <code>friend</code> function may touch private members. It is how <code>operator&lt;&lt;(ostream&amp;, const T&amp;)</code> is usually written — the left operand is the stream, not your class, so it cannot be a member. Return the stream to allow chaining: <code>cout &lt;&lt; a &lt;&lt; b</code>.</p>",
+      "questions": [
+        {
+          "id": "fr",
+          "prompt": "Why is <code>operator&lt;&lt;</code> for printing usually a non-member?",
+          "choices": [
+            {
+              "text": "Members cannot be public."
+            },
+            {
+              "text": "The left operand is the ostream, not your class.",
+              "correct": true
+            },
+            {
+              "text": "It is faster."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They can."
+            },
+            {
+              "title": "Correct.",
+              "body": "A member would need your object on the left."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the reason."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "conv",
+      "locator": "4.3",
+      "title": "Conversions",
+      "eyebrow": "Between types",
+      "body": "<p>A one-argument constructor is an implicit conversion (mark it <code>explicit</code> to stop surprises). A conversion operator <code>operator double()</code> converts out. Use them sparingly: hidden conversions make code harder to read.</p>",
+      "questions": [
+        {
+          "id": "ex",
+          "prompt": "The <code>explicit</code> keyword on a constructor…",
+          "choices": [
+            {
+              "text": "Forbids implicit conversions through it.",
+              "correct": true
+            },
+            {
+              "text": "Makes it faster."
+            },
+            {
+              "text": "Makes it private."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Avoids accidental conversions."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

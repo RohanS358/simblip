@@ -1,0 +1,321 @@
+{
+  "title": "Transactions, serializability and locking",
+  "kicker": "ENCT 301 · Database Management System · Chapter 7",
+  "subtitle": "Many users, one database: how to interleave their work so the result is as if they had taken turns.",
+  "sections": [
+    {
+      "id": "acid",
+      "locator": "7.1",
+      "title": "Transactions and ACID",
+      "eyebrow": "A unit of work",
+      "body": "<p>A <em class=\"term\">transaction</em> is a sequence of operations that must be treated as one: transfer Rs 500 from A to B = read A, subtract, write A, read B, add, write B. The ACID properties: <em class=\"term\">Atomicity</em> (all or nothing), <em class=\"term\">Consistency</em> (integrity rules hold before and after), <em class=\"term\">Isolation</em> (concurrent transactions do not see each other’s partial work), <em class=\"term\">Durability</em> (committed changes survive a crash).</p>",
+      "questions": [
+        {
+          "id": "atom",
+          "prompt": "Money is debited from A but the system crashes before crediting B. Which property ensures the debit is undone?",
+          "choices": [
+            {
+              "text": "Durability."
+            },
+            {
+              "text": "Isolation."
+            },
+            {
+              "text": "Atomicity.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is about surviving a crash after commit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is about concurrency."
+            },
+            {
+              "title": "Correct.",
+              "body": "All operations take effect or none do."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 7.1.1 — transaction states",
+          "note": "Every transaction ends as committed or aborted.",
+          "script": "diagram(\"direction: right\\n(Begin) as b\\n[Active] as a #blue\\n[Partially committed] as p #amber\\n[Committed] as c #mint\\n[Failed] as f #rose\\n[Aborted: rolled back] as x #rose\\nb -> a\\na -> p : last operation done\\np -> c : changes made durable\\na -> f : error\\np -> f : crash\\nf -> x : undo\\n@0 b -> a : start\\n@1 a -> p : finish\\n@2 p -> c : commit\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "anom",
+      "locator": "7.2",
+      "title": "Problems with interleaving",
+      "eyebrow": "What can go wrong",
+      "body": "<p>Without control, interleaved transactions cause: the <em class=\"term\">lost update</em> (two writes, one overwritten), the <em class=\"term\">dirty read</em> (reading another’s uncommitted value that is later rolled back), the <em class=\"term\">unrepeatable read</em> (two reads of one item differ) and the <em class=\"term\">phantom</em> (a repeated query finds new rows).</p>",
+      "questions": [
+        {
+          "id": "dirty",
+          "prompt": "A dirty read is…",
+          "choices": [
+            {
+              "text": "Reading a corrupted disk block."
+            },
+            {
+              "text": "Reading twice."
+            },
+            {
+              "text": "Reading data written by a transaction that has not yet committed.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Different problem."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the unrepeatable read."
+            },
+            {
+              "title": "Correct.",
+              "body": "If it rolls back, you acted on data that never existed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 7.2.1 — a lost update",
+          "note": "The second write overwrote the first.",
+          "script": "diagram(\"mode: sequence\\n[T1] as a\\n[Database item x] as x\\n[T2] as b\\na -> x : read x (x = 100)\\nb -> x : write x = 50\\na -> x : write x = 100 + 10\\nb -> b : T2’s update is lost\");"
+        }
+      ]
+    },
+    {
+      "id": "ser",
+      "locator": "7.3",
+      "title": "Conflict serializability",
+      "eyebrow": "The correctness test",
+      "body": "<p>A <em class=\"term\">serial</em> schedule runs transactions one after another. An interleaved schedule is <em class=\"term\">serializable</em> if it is equivalent to a serial one. Two operations <em class=\"term\">conflict</em> if they are from different transactions, touch the same item and at least one is a write. Draw a precedence graph (edge Ti → Tj if a conflicting operation of Ti comes before Tj’s): the schedule is conflict-serializable exactly when the graph has no cycle, and a topological order gives the equivalent serial order.</p><p>r1(x) w2(x) w1(x): serializable <b>no</b> (edges T1->T2 T2->T1); r1(x) w1(x) r2(x) w2(x): <b>yes</b> — equivalent serial order T1 T2.</p>",
+      "questions": [
+        {
+          "id": "cycle",
+          "prompt": "A cycle in the precedence graph means…",
+          "choices": [
+            {
+              "text": "The schedule is serial."
+            },
+            {
+              "text": "The schedule is not conflict-serializable.",
+              "correct": true
+            },
+            {
+              "text": "A deadlock has occurred."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A serial schedule has no interleaving."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each transaction must precede the other — impossible in any serial order."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different concept (waits-for graph)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 7.3.1 — not serializable",
+          "note": "T1→T2 and T2→T1: a cycle.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bad\",\"engine\":\"serializability\",\"schedule\":\"r1(x) w2(x) w1(x)\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bad": {
+              "serializable": "no",
+              "edges": "T1->T2 T2->T1"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 7.3.2 — serializable",
+          "note": "Acyclic: equivalent to T1 then T2.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ok\",\"engine\":\"serializability\",\"schedule\":\"r1(x) w1(x) r2(x) w2(x)\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ok": {
+              "serializable": "yes",
+              "order": "T1 T2"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ser",
+          "prompt": "<p>Is the schedule r1(x) w2(x) w1(x) conflict-serializable?</p>",
+          "answer": "No. r1(x) before w2(x) gives T1→T2; w2(x) before w1(x) gives T2→T1 — a cycle. Checker: serializable = <b>no</b>.",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "The graph.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"serializability\",\"schedule\":\"r1(x) w2(x) w1(x)\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "serializable": "no"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "lock",
+      "locator": "7.4",
+      "title": "Locking and two-phase locking",
+      "eyebrow": "Enforcing it",
+      "body": "<p>Transactions take <em class=\"term\">shared</em> (S, for reading) and <em class=\"term\">exclusive</em> (X, for writing) locks; S is compatible with S, X with nothing. <em class=\"term\">Two-phase locking</em> (2PL) guarantees serializability: a growing phase (only acquire locks) then a shrinking phase (only release). Strict 2PL holds exclusive locks to commit, which also prevents dirty reads and cascading aborts. Multiple granularity locks (database, table, page, row) with intention locks let a transaction lock coarsely or finely.</p>",
+      "questions": [
+        {
+          "id": "twopl",
+          "prompt": "Two-phase locking means…",
+          "choices": [
+            {
+              "text": "No lock is acquired after the first lock is released.",
+              "correct": true
+            },
+            {
+              "text": "Every lock is held twice."
+            },
+            {
+              "text": "Only two transactions at a time."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "That single rule ensures serializability."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia6",
+          "caption": "Figure 7.4.1 — exclusive lock blocks a reader",
+          "note": "T2 waits until T1 releases x.",
+          "script": "diagram(\"mode: sequence\\n[T1] as a\\n[Lock manager] as l\\n[T2] as b\\na -> l : lock-X(x)\\nl --> a : granted\\nb -> l : lock-S(x)\\nl --> b : wait (x is locked)\\na -> l : unlock(x) at commit\\nl --> b : granted\");"
+        }
+      ]
+    },
+    {
+      "id": "dead",
+      "locator": "7.5",
+      "title": "Deadlock",
+      "eyebrow": "Waiting in a circle",
+      "body": "<p>T1 holds x and wants y; T2 holds y and wants x: deadlock. Detect it with a <em class=\"term\">wait-for graph</em> (a cycle means deadlock) and abort a victim. Prevention: impose a lock order, or use timestamps — <em>wait–die</em> (older waits, younger dies) and <em>wound–wait</em> (older wounds younger).</p>",
+      "worked": [
+        {
+          "toc": "Wait–die",
+          "why": "T1 (timestamp 5) requests a lock held by T2 (timestamp 9). Wait–die: older may wait for younger.",
+          "math": "5<9"
+        },
+        {
+          "toc": "Rule",
+          "why": "Reverse: T2 (9) requests a lock held by T1 (5): the younger requester dies (aborts) and restarts with its old timestamp.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "waitfor",
+          "prompt": "A cycle in the wait-for graph indicates…",
+          "choices": [
+            {
+              "text": "Serializability."
+            },
+            {
+              "text": "Commit."
+            },
+            {
+              "text": "Deadlock.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the precedence graph."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each transaction waits for another in the cycle."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "iso",
+      "locator": "7.6",
+      "title": "Isolation levels",
+      "eyebrow": "Trading safety for speed",
+      "body": "<p>SQL defines four levels: READ UNCOMMITTED (dirty reads possible), READ COMMITTED (no dirty reads), REPEATABLE READ (no unrepeatable reads), SERIALIZABLE (no phantoms either). Stronger isolation means more waiting.</p>",
+      "questions": [
+        {
+          "id": "rc",
+          "prompt": "Which level prevents dirty reads but allows unrepeatable reads?",
+          "choices": [
+            {
+              "text": "SERIALIZABLE."
+            },
+            {
+              "text": "READ COMMITTED.",
+              "correct": true
+            },
+            {
+              "text": "READ UNCOMMITTED."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That prevents both."
+            },
+            {
+              "title": "Correct.",
+              "body": "You see only committed data, but it can change between your reads."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Allows dirty reads."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

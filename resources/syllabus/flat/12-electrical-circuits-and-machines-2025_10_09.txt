@@ -1,0 +1,291 @@
+ELECTRICAL CIRCUITS AND MACHINES
+ENEE 154
+Lecture
+Tutorial
+Practical
+:4
+:1
+: 3/2
+Year : I
+Part : II
+Course Objectives:
+To develop a comprehensive understanding of electric circuit theory and analysis
+techniques, alongside the principles and operation of electric machines including
+transformers, DC and AC machines.
+1
+Transients in Electric Circuit
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+2
+Characteristics of various network elements
+Nodal analysis with dependent and independent sources
+Mesh analysis with dependent and independent sources
+Application of matrix method in network analysis
+Procedure of evaluating initial conditions
+Initial values of derivatives
+Initial condition in the case of R-L-C network
+Transient Analysis R-L-C Circuit by Classical Method
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+(7 hours)
+(10 hours)
+Introduction
+First order differential equation with constant coefficient
+Higher order homogenous and non-homogenous differential equation with
+constant coefficient
+Particular integral by method of undetermined coefficient
+Response of R-L and R-C circuits with DC excitation
+2.5.1 DC excitation
+2.5.2 Exponential excitation
+2.5.3 Sinusoidal excitation
+Response of Series R-L-C circuits with
+2.6.1 DC excitation
+2.6.2 Exponential excitation
+2.6.3 Sinusoidal excitation
+Response of Parallel R-L-C circuits with
+2.7.1 DC excitation
+2.7.2 Exponential excitation
+3
+Transient Analysis Using Laplace Transform
+(7 hours)
+3.1
+3.2
+Introduction
+Response of R-L and R-C circuits with
+3.2.1 DC excitation
+3.2.2 Exponential excitation
+3.2.3 Sinusoidal excitation
+3.3 Response of series R-L-C circuits with
+3.3.1 DC excitation
+3.3.2 Exponential excitation
+3.3.3 Sinusoidal excitation
+3.4 Response of parallel R-L-C circuits with
+3.4.1 DC excitation
+3.4.2 Exponential excitation
+4
+Network Transfer Function and Frequency Response
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+4.7
+5
+(8 hours)
+Concept of complex frequency
+Transfer functions of two port networks
+Poles and zeros of networks
+Magnitude and phase response
+Bode diagrams
+Band width, high-q and low-q circuits
+Basic concept of filters: High-pass, low-pass, band-stop and band-pass
+filters
+Two-Port Parameters of Network
+(8 hours)
+5.1
+5.2
+Definitions of two-port networks
+Parameters of two-port networks
+5.2.1 Open circuit impedance parameters
+5.2.2 Short circuit admittance parameters
+5.2.3 Transmission line parameters
+5.2.4 Inverse transmission line parameters
+5.2.5 Hybrid parameters
+5.2.6 Inverse hybrid parameters
+5.3 Relationship and transformation between sets of parameters
+5.4 Interconnection of two port networks
+5.5 Condition for reciprocity and symmetry
+6
+Magnetic Circuit and Induction
+6.1
+6.2
+6.3
+6.4
+Magnetic circuit and its types
+B-H relationship and hysteresis with DC excitation
+Hysteresis with AC excitation
+Hysteresis loss and Eddy current loss
+(3 hours)
+6.5
+6.6
+7
+Transformers
+7.1
+7.2
+7.3
+7.4
+7.5
+7.6
+8
+9.2
+9.3
+9.4
+9.5
+9.6
+9.7
+(5 hours)
+Constructional details of DC machine
+Operating principle and EMF equation of DC generator
+Operating principle and torque equation of DC motor
+Types of DC machine
+Back EMF and its role in DC motor
+Performance characteristics of DC motor
+Starting of DC motor using 3-point starter
+Speed control of DC motor (Armature control, field control)
+Losses and efficiency
+AC Motor
+9.1
+(6 hours)
+Construction, operating principle and EMF equation of single-phase
+transformer
+No load and load operation of transformer
+Equivalent circuit diagram of transformer
+Transformer testing (Open circuit and short circuit)
+Voltage regulation, losses, efficiency and condition for maximum efficiency
+Auto transformer, Isolation transformer
+DC Machine
+8.1
+8.2
+8.3
+8.4
+8.5
+8.6
+8.7
+8.8
+8.9
+9
+Faraday’s law of electromagnetic induction, statically and dynamically
+induced EMF
+Force on current carrying conductor
+(6 hours)
+Construction, production of rotating magnetic field and operating principle
+of three-phase induction motor
+Torque equation of three-phase induction motor at standstill and running
+condition
+Torque slip characteristics, condition for maximum torque and effect of rotor
+resistance on torque slip characteristics
+Single-phase induction motor
+Double field revolving theory
+Starting of single-phase induction motor (Capacitor start and run, shaded
+pole)
+Introduction to permanent magnet brushless DC motor, hysteresis motor,
+stepper motor, servo motor, universal motor
+Tutorial
+(15 hours)
+The tutorial sessions will focus on chapter-specific exercises aimed at enhancing
+understanding and application in electrical circuits and machines.
+Practical
+(22.5 hours)
+1.
+Transient response in first order system passive circuit
+
+2.
+3.
+4.
+5.
+6.
+Measure step and impulse response RL and RC circuit using
+oscilloscope
+
+Relate time response to analytical transfer function calculation
+Transient response in second order system passive circuit
+
+Measure step and impulse response RLC series and parallel circuit
+using oscilloscope
+
+Relate time response to analytical transfer function and pole-zero
+configuration
+Two port network
+
+To calculate and verify 'ABCD' parameters of two-port network
+
+To determine equivalent parameters of parallel connection of two-port
+network
+Two winding transformers
+
+Measure amplitude and phase response and plot Bode diagram for
+RLC circuits
+
+To perform open circuit (OC) and short circuit (SC) test to determine
+DC motor
+
+speed control of DC Shunt motor by (a) armature control method (b)
+field control method
+
+To observe the effect of increasing load on DC shunt motor's speed,
+armature current and field current
+Single phase AC motors
+
+To study the effect of a capacitor on the starting and running of a singlephase induction motor
+
+Reversing the direction of rotation of a single-phase capacitor start
+induction motor
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+1
+2
+3
+4
+5
+6
+7
+8
+9
+Hours
+7
+10
+7
+8
+8
+3
+6
+5
+6
+Total
+60
+* There may be minor deviation in marks distribution.
+Mark distribution*
+7
+10
+7
+8
+8
+3
+6
+5
+6
+60
+References
+1.
+Van Valkenburg, M. E. (2019). Network analysis. Pearson Education.
+2.
+Hayt, W.H., Kemmerly, J.E., Phillips, J.D., Durbin, S.M. (2019). Engineering
+circuit analysis. McGraw-Hill Education.
+3.
+Ciletti, M.D. (1995). Introduction to circuit analysis and design (Latest
+Edition). Oxford University Press.
+4.
+Soni, K.M. (2013). Circuits and systems. S. K. Kataria & Sons.
+5.
+Nagrath, F.I.J., Kothari, D.P. (2017). Electric machines. McGraw Hill
+Education.
+6.
+Fitzgerald, A.E., Kingsley, C. (2017). Electric machinery. McGraw Hill
+Education.
+7.
+Sahdev, S.K. (2018). Electrical machines. Cambridge University Press.
+8.
+Hussain, A. (2016). Electrical machines. Dhanpat Rai & Co.

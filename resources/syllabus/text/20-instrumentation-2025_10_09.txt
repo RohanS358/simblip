@@ -1,0 +1,156 @@
+                             INSTRUMENTATION
+                                      ENEX 252
+
+Lecture       :4                                                               Year : II
+Tutorial      :1                                                               Part : II
+Practical     : 3/2
+
+Course Objectives:
+The objective of this course is to provide comprehensive understanding on methods
+and instrument for a wide range of measurement problems used in instrumentation
+system. It also covers application of transducers in the microprocessor, microcontroller
+and their interfacing to design instrumentation system.
+
+1    Introduction                                                           (2 hours)
+      1.1   Analog and digital instrument: Definition, block diagram, characteristics
+      1.2   Microprocessor-based systems: Open vs closed loop, benefits, features
+            and applications in instrumentation design
+      1.3   Microcomputer on instrumentation design
+
+2    Theory of Measurement                                                  (6 hours)
+      2.1   Static performance parameters: Accuracy, precision, sensitivity, resolution
+            and linearity
+      2.2   Dynamic performance parameters: Response time, frequency response
+            and bandwidth
+      2.3   Error in measurement
+      2.4   Statistical analysis of error in measurement
+      2.5   Measurement of resistance (Low, medium and high)
+      2.6   DC / AC bridge (Wheatstone bridge, Maxwell’s bridge, Schering bridge)
+
+3    Transducer                                                             (8 hours)
+      3.1   Transducer, workflow of a transducer in typical system, transducer
+            classification
+      3.2   Sensor and its working principle (Resistive, capacitive and piezoelectric),
+            generation of sensor, classification of sensor (Analog sensor, digital
+            sensor)
+      3.3   Types of sensors (Electrical sensor, chemical sensor, biological sensor,
+            acoustic sensor, optical sensor and other motion sensor), characteristic of
+            sensors
+      3.4   Actuator, classification of actuators (Hydraulic, pneumatic, electric and
+            mechanical), characteristic of actuator
+4   Interfacing of Instrumentation System                                 (14 hours)
+    4.1   Microprocessor and microcontroller and their selection criteria, and
+          applications
+    4.2   The PPI 8255 and interfacing of peripherals (LED, 7 segment, dip switch, 8-
+          bit ADC, 8/10-bit DAC using mode 0 and mode1) with 8085 microprocessor
+    4.3   Microcontrollers (Atmega328, STM32): Architecture, pin configuration, and
+          their application
+    4.4   Sensor/Actuator interfacing with Atmega328P (Arduino): Analog and digital
+          sensors, implementation of communication protocols, interrupt based
+          interfacing
+
+5   Connectivity Technology in Instrumentation System                     (6 hours)
+    5.1   Wired and wireless communication system
+    5.2   Wired connectivity: UART, I2C, SPI, CAN
+    5.3   Wireless sensor network and its technology
+    5.4   RF modem, Bluetooth, WI-FI, NFC, ZIGBEE and LORA
+    5.5   Thermal management: Heat dissipation technique, heat sink
+    5.6   Data acquisition system (Data loggers, data archiving and storage), cloud
+          based data acquisition system
+
+6   Circuit Design                                                        (4 hours)
+    6.1   Converting requirement into design, reliability and fault tolerance
+    6.2   High-speed design: Bandwidth, decoupling, crosstalk, impedance matching
+    6.3   PCB design: Component placement, trace routing, signal integrity, and
+          ground loops
+    6.4   Noise and noise coupling mechanism, noise prevention, filtering, ferrite
+          beads, decoupling capacitors, and ESD & its prevention
+
+7   Software for Instrumentation Application                              (6 hours)
+    7.1   Overview of software engineering
+    7.2   Types of software
+    7.3   Software development life cycle (SDLC), software process models
+          (Waterfall model, prototype model, incremental model, agile model)
+    7.4   Software reliability vs hardware reliability
+    7.5   Software bugs, software testing, different levels of testing
+
+8   Electrical Equipment                                                  (6 hours)
+    8.1   Voltmeter and ammeter: Types and working principle
+    8.2   Energy meter: Types and working principle
+    8.3   Frequency meter: Types and working principle
+    8.4   Wattmeter: Types and working principle
+9     Latest Trends                                                           (3 hours)
+      9.1   Internet of things (IoT): Simple architecture, characteristics, advantages
+      9.2   Smart sensors
+      9.3   Important of cloud computing in instrumentation system
+      9.4   Instrumentation in industry 4.0/5.0
+
+10    Application of Modern Instrumentation System                            (5 hours)
+      10.1 Instrumentation for power station including all electrical and non-electrical
+           parameters
+      10.2 Instrumentation for wire and cable manufacturing and bottling plant
+      10.3 Instrumentations for a beverage manufacturing and bottling plant
+      10.4 Instrumentations required for a biomedical application such as a medical
+           clinic or hospital
+      10.5 Instrumentation system design using a processor (Microprocessor,
+           microcontroller or others)
+
+
+Tutorial                                                               (15 hours)
+    1.      Understanding the fundamentals of Op-amps is essential since they are
+            central to analog instrumentation.
+     2.     Learn how to filter, amplify, and modify analog signals for signal
+            conditioning
+     3.     How ADCs and DACs work and how to select the right one for your
+            application
+     4.     Interfacing of ADC on any application of your interest
+     5.     Application for the protocol UART, I2C, SPI in Adriano
+     6.     Design a simple temperature sensing system using a thermistor or
+            thermocouple, op-amp, and analog display.
+     7.     Explain the generation of PWM signals in ATmega328P for controlling
+            things like motor speed or LED brightness.
+
+Practical                                                                  (22.5 hours)
+    1.    Measurement and accuracy testing: Analog and digital meters
+    2.    Use of LabVIEW, Proteus, MATLAB or others for modeling instrumentation
+          systems
+    3.    Use of resistive, capacitive & inductive transducers / sensors / actuators
+    4.    Review of assembly programming and simple I/O interfacing with 8085 and
+          8255
+    5.    Interfacing of LEDs, seven segment display and motors
+    6.    Interfacing of ADC and DAC
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+
+
+        Chapter                   Hours                    Marks distribution*
+          1                          2                              4
+          2                        6                                 5
+          3                        8                                 6
+          4                       14                                12
+          5                        6                                 6
+          6                        4                                 4
+          7                        6                                 6
+          8                        6                                 6
+          9                        3                                 5
+         10                        5                                 6
+        Total                     60                                60
+        * There may be minor deviation in marks distribution.
+
+References
+    1.   Hall, D. V., (1999). Microprocessor and Interfacing, Programming and
+         Hardware. Tata McGraw Hill
+    2.   Goankar, R. S., (2000). Microprocessor Architecture, Programming and
+         Application with 8085. Prentice Hall
+    3.   Fowler, K. R., (1996). Electronic Instrument Design: Architecting for the Life
+         Cycle. Oxford University Press, Inc.
+    4.   Sawhney, A. K., (1998). A Course in Electronic Measurement and
+         Instrumentation. Dhanpat Rai and Sons.
+    5.   Gupta, J. B., (2008). A Course in Electrical and Electronics Measurement
+         and Instrumentation, Kataria and Sons.
+    6.   DE Silva C. W., Sensors and Actuators: Control System Instrumentation.
+         CRC Press Taylor and French Group Boca Raton London New York.
+    7.   Misra, S., Roy, C. and Mukherjee, A., (2020). Introduction to Industrial
+         Internet of Things and Industry 4.0. CRC Press.
+

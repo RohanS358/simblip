@@ -61,7 +61,30 @@ const MAX_ZOOM = 3
  *  above that is a second title nobody asked for. The remove button hides it
  *  (docHeaderHidden) rather than destroying anything — the subtitle and date
  *  survive, and bringing it back restores them. */
-function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: string }) {
+function DocFirstPageHeader({
+  docPageId,
+  name,
+  onHeight,
+}: {
+  docPageId: string
+  name: string
+  /** The block's rendered height in page px, or 0 once it is gone. The body
+   *  starts BELOW it (see DocFlow's headerOffset). */
+  onHeight?: (h: number) => void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  useLayoutEffect(() => {
+    const el = rootRef.current
+    if (!el || !onHeight) return
+    const report = () => onHeight(el.offsetHeight)
+    report()
+    const ro = new ResizeObserver(report)
+    ro.observe(el)
+    return () => {
+      ro.disconnect()
+      onHeight(0)
+    }
+  }, [onHeight])
   const meta = useWorkspaceStore((s) => findPageMeta(s.nodes, docPageId))
   const renamePage = useWorkspaceStore((s) => s.renamePage)
   const subtitle = meta?.docSubtitle ?? ''
@@ -69,7 +92,7 @@ function DocFirstPageHeader({ docPageId, name }: { docPageId: string; name: stri
   const stop = (e: React.KeyboardEvent) => e.stopPropagation()
 
   return (
-    <div className="group/header pointer-events-auto absolute inset-x-0 top-0 z-[5] border-b border-black/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-neutral-900 sm:px-10 sm:py-5">
+    <div ref={rootRef} className="group/header pointer-events-auto absolute inset-x-0 top-0 z-[5] border-b border-black/10 bg-white px-6 py-3 dark:border-white/10 dark:bg-neutral-900 sm:px-10 sm:py-5">
       {/* Same affordance as a sheet's own delete button: hidden until the
           header is hovered, so it never competes with the title for attention. */}
       <button
@@ -125,6 +148,7 @@ function Sheet({
   docPageId,
   docName,
   headerHidden,
+  onHeaderHeight,
   onVisible,
   onFocus,
   onRemove,
@@ -157,6 +181,7 @@ function Sheet({
   docName: string
   /** The doc's title block is switched off (PageNode.docHeaderHidden). */
   headerHidden: boolean
+  onHeaderHeight?: (h: number) => void
   onVisible: (i: number, v: boolean) => void
   onFocus: () => void
   onRemove: () => void
@@ -320,7 +345,9 @@ function Sheet({
                 coordinate system than the content it's supposed to cap,
                 which is what made it double/mis-align under html2canvas's
                 PDF-export capture. */}
-            {index === 0 && !headerHidden && <DocFirstPageHeader docPageId={docPageId} name={docName} />}
+            {index === 0 && !headerHidden && (
+              <DocFirstPageHeader docPageId={docPageId} name={docName} onHeight={onHeaderHeight} />
+            )}
             {!(repeatingSkipFirst && index === 0) && repeatingHeaderText && (
               <div className="pointer-events-none absolute inset-x-0 top-0 z-[4] px-6 pt-2 text-center text-ui-2xs text-neutral-400 dark:text-neutral-500 sm:px-10">
                 {repeatingHeaderText}
@@ -347,7 +374,7 @@ function Sheet({
         <button
           type="button"
           aria-label={`Delete page ${index + 1}`}
-          className="absolute right-1.5 top-1.5 z-10 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] group-hover:opacity-100"
+          className="absolute right-1.5 top-1.5 z-10 rounded-lg p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-accent hover:text-[var(--accent-rose)] focus-visible:opacity-100 group-hover:opacity-100"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={onRemove}
         >
@@ -392,6 +419,8 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
   const [exportingDocx, setExportingDocx] = useState(false)
   const [sorterOpen, setSorterOpen] = useState(false)
   const [zoom, setZoom] = useState(1)
+  // Height of the first-page title block; the flowing body starts below it.
+  const [headerH, setHeaderH] = useState(0)
   // Transient zoom readout — same language as the board's zoom pill.
   const zoomHud = useTransientHud(zoom)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -873,7 +902,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
     <div className="relative h-full w-full">
       <div
         ref={scrollRef}
-        className="h-full w-full overflow-auto bg-muted/40"
+        className="h-full w-full overflow-auto bg-muted/40 [scrollbar-gutter:stable]"
         // Without this, a two-finger pinch here races the browser's own
         // native page-zoom on mobile/tablet (nothing in the viewport meta
         // disables it) instead of reaching usePinchZoom below — the native
@@ -910,6 +939,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 docPageId={pageId}
                 docName={meta?.name ?? 'Untitled'}
                 headerHidden={meta?.docHeaderHidden === true}
+                onHeaderHeight={setHeaderH}
                 onVisible={onVisible}
                 onFocus={() => setActiveSheet(sheetId)}
                 onRemove={() => removeSheet(sheetId)}
@@ -934,6 +964,7 @@ export function DocView({ pageId, bare }: { pageId: string; bare?: boolean }) {
                 sheetIds={sheets}
                 margins={meta?.docMargins ?? DOC_MARGINS}
                 padding={meta?.docPadding}
+                headerOffset={meta?.docHeaderHidden === true ? 0 : headerH}
                 lineHeight={meta?.docLineHeight}
                 textAlign={meta?.docTextAlign}
                 editable={!bare}

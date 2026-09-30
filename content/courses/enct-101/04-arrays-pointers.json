@@ -1,0 +1,314 @@
+{
+  "title": "Arrays, memory and pointers",
+  "kicker": "ENCT 101 · Computer Programming · Chapter 6",
+  "subtitle": "Memory is a long row of numbered boxes. An array is a run of them; a pointer is a box that holds a box’s number.",
+  "sections": [
+    {
+      "id": "arr",
+      "locator": "6.1",
+      "title": "Arrays",
+      "eyebrow": "Many values, one name",
+      "body": "<p><code>int a[5] = {10, 20, 30, 40, 50};</code> reserves 5 consecutive ints. Indexes run 0 to 4; <code>a[5]</code> is out of bounds and C does <b>not</b> check — it silently reads or corrupts neighbouring memory. Initialise, then process with a loop.</p>",
+      "questions": [
+        {
+          "id": "idx",
+          "prompt": "The last valid index of <code>int a[8]</code> is…",
+          "choices": [
+            {
+              "text": "8."
+            },
+            {
+              "text": "9."
+            },
+            {
+              "text": "7.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Out of bounds."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Out of bounds."
+            },
+            {
+              "title": "Correct.",
+              "body": "Indexes start at 0."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 6.1.1 — Arrays",
+          "note": "Watch i walk along the array.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int a[4] = {10, 20, 30, 40};\\n  int sum = 0;\\n  for (int i = 0; i < 4; i++) sum += a[i];\\n  cout << sum << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "100"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "addr",
+      "locator": "6.2",
+      "title": "Addresses: memory picture",
+      "eyebrow": "Where things live",
+      "body": "<p>Each byte has an address. <code>&amp;x</code> is the address of x. An int array of 4 elements occupies 16 bytes; element i lives at base + 4·i. So the name <code>a</code> itself acts as the address of <code>a[0]</code>.</p>",
+      "worked": [
+        {
+          "toc": "Formula",
+          "why": "Base address 1000, 4-byte ints. Address of a[3]:"
+        },
+        {
+          "toc": "Address",
+          "why": "base + 3 × 4.",
+          "math": "1000+12=1012",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ad",
+          "prompt": "Base 2000, int = 4 bytes. Address of a[5] is…",
+          "choices": [
+            {
+              "text": "2020.",
+              "correct": true
+            },
+            {
+              "text": "2005."
+            },
+            {
+              "text": "2024."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "2000 + 5·4."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Forgot the element size."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a[6]."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.2.1 — array in memory",
+          "note": "Four-byte ints sit 4 addresses apart.",
+          "script": "diagram(\"direction: right\\n[a[0]=10 @1000] as a\\n[a[1]=20 @1004] as b\\n[a[2]=30 @1008] as c\\n[a[3]=40 @1012] as d\\na -> b\\nb -> c\\nc -> d\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ad",
+          "prompt": "<p>A <code>double</code> array (8 bytes each) starts at 5000. Address of element 6?</p>",
+          "answer": "5000 + 6·8 = <b>5048</b>."
+        }
+      ]
+    },
+    {
+      "id": "ptr",
+      "locator": "6.3",
+      "title": "Pointers",
+      "eyebrow": "A variable that holds an address",
+      "body": "<p><code>int *p = &amp;x;</code> — p stores x’s address; <code>*p</code> (dereference) means “the thing p points to”. <code>*p = 9</code> changes x. A pointer must be initialised before use; a NULL pointer points nowhere. Pointer arithmetic scales by the element size: <code>p + 1</code> moves to the next int.</p>",
+      "questions": [
+        {
+          "id": "dr",
+          "prompt": "After <code>int x = 4; int *p = &amp;x; *p = 7;</code> x is…",
+          "choices": [
+            {
+              "text": "4."
+            },
+            {
+              "text": "The address of x."
+            },
+            {
+              "text": "7.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unchanged only if p were a copy."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is p."
+            },
+            {
+              "title": "Correct.",
+              "body": "Writing through the pointer changes x."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 6.3.1 — Pointers",
+          "note": "p + 2 lands on the third element.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int a[4] = {10, 20, 30, 40};\\n  int *p = a;\\n  p = p + 2;\\n  cout << *p << \\\" \\\" << a[1] << \\\" \\\" << *(a + 3) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "30 20 40"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "byref",
+      "locator": "6.4",
+      "title": "Pointers and function arguments",
+      "eyebrow": "Why they matter",
+      "body": "<p>C passes arguments <b>by value</b> — a function gets copies. To let a function change the caller’s variable, pass its address: <code>swap(&amp;x, &amp;y)</code> with <code>void swap(int *a, int *b)</code>. Arrays are passed as the address of their first element, so a function can modify them.</p>",
+      "questions": [
+        {
+          "id": "sw",
+          "prompt": "Why can't <code>void swap(int a, int b)</code> swap the caller’s variables?",
+          "choices": [
+            {
+              "text": "It is too short."
+            },
+            {
+              "text": "It receives copies.",
+              "correct": true
+            },
+            {
+              "text": "It needs a return."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Length is irrelevant."
+            },
+            {
+              "title": "Correct.",
+              "body": "C is pass-by-value."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Returning one value would not swap both."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 6.4.1 — swap by pointer",
+          "note": "swap works on the caller’s variables through their addresses.",
+          "script": "diagram(\"mode: sequence\\n[main: x=1, y=2] as m\\n[swap(int *a, int *b)] as s\\nm -> s : pass &x, &y\\ns -> s : t = *a; *a = *b; *b = t\\ns -> m : return\\nm -> m : x=2, y=1\\n@0 m -> s : pass &x, &y\\n@1 s -> s : t = *a; *a = *b; *b = t\\n@2 s -> m : return\\n@3 m -> m : x=2, y=1\");"
+        }
+      ]
+    },
+    {
+      "id": "str",
+      "locator": "6.5",
+      "title": "Strings",
+      "eyebrow": "Arrays of char",
+      "body": "<p>A C string is a char array ending with the null character <code>'\\0'</code>: \"hi\" occupies 3 bytes (h, i, \\0). <code>strlen</code> counts up to, not including, the null. Forgetting room for the terminator is a classic overflow.</p>",
+      "worked": [
+        {
+          "toc": "Count",
+          "why": "How many bytes does char s[] = \"hello\"; take?"
+        },
+        {
+          "toc": "Size",
+          "why": "5 letters + 1 null.",
+          "math": "6",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "nul",
+          "prompt": "The string “code” needs an array of at least…",
+          "choices": [
+            {
+              "text": "5 chars.",
+              "correct": true
+            },
+            {
+              "text": "4 chars."
+            },
+            {
+              "text": "3 chars."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Four letters plus the null."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No room for \\0."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too small."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dyn",
+      "locator": "6.6",
+      "title": "Dynamic memory",
+      "eyebrow": "Memory on demand",
+      "body": "<p><code>malloc(n)</code> asks the heap for n bytes and returns a pointer; <code>free(p)</code> gives it back. Forgetting to free leaks memory; using memory after freeing (dangling pointer) or freeing twice is undefined. Pair every malloc with one free.</p>",
+      "questions": [
+        {
+          "id": "leak",
+          "prompt": "A memory leak happens when you…",
+          "choices": [
+            {
+              "text": "Allocate memory and never free it.",
+              "correct": true
+            },
+            {
+              "text": "Free twice."
+            },
+            {
+              "text": "Use a local variable."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The heap slowly fills."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a double free."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Locals are automatic."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

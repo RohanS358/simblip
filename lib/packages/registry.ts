@@ -119,6 +119,17 @@ export const COMPONENT_PACKAGES: ComponentPackage[] = [
     isPurchased: true,
     featuredComponentIds: ['dsa'],
   },
+  {
+    id: 'package:computing',
+    domain: 'computing',
+    name: 'Computer Systems Lab',
+    subject: 'Computing',
+    description: 'Step Lab: schedulers, page replacement, caches, CPUs, TCP, automata, graphics and AI algorithms — each drawn one step at a time.',
+    iconName: 'MonitorPlay',
+    price: 'Included',
+    isPurchased: true,
+    featuredComponentIds: ['step-lab'],
+  },
 ]
 
 export function getPackageByDomain(domain: string): ComponentPackage | undefined {

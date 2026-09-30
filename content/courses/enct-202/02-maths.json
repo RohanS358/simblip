@@ -1,0 +1,337 @@
+{
+  "title": "Gradient descent, distributions and sampling",
+  "kicker": "ENCT 202 · Foundation of Data Science · Chapter 2",
+  "subtitle": "The four mathematical ideas behind almost every model: optimise by following the slope, describe uncertainty with distributions, and trust averages.",
+  "sections": [
+    {
+      "id": "vec",
+      "locator": "2.1",
+      "title": "Vectors, matrices, dot products",
+      "eyebrow": "Data as arrays",
+      "body": "<p>A row of a table is a vector; the table is a matrix X (rows = examples, columns = features). The dot product w·x = Σwᵢxᵢ is a weighted sum — the heart of linear models and neurons. Matrix product Xw scores every row at once. Distance ‖a − b‖ measures similarity.</p>",
+      "worked": [
+        {
+          "toc": "Vectors",
+          "why": "w = (2, −1), x = (3, 4)."
+        },
+        {
+          "toc": "Dot",
+          "why": "Dot product.",
+          "math": "w\\cdot x=2\\cdot3+(-1)\\cdot4=2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dotq",
+          "prompt": "(1, 2, 3)·(4, 5, 6) =",
+          "choices": [
+            {
+              "text": "32.",
+              "correct": true
+            },
+            {
+              "text": "15."
+            },
+            {
+              "text": "(4, 10, 18)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "4 + 10 + 18."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a sum of both vectors."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the elementwise product."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "deriv",
+      "locator": "2.2",
+      "title": "Derivatives and the gradient",
+      "eyebrow": "Slope as direction",
+      "body": "<p>f′(x) is the slope; it points uphill. For several variables the gradient ∇f collects partial derivatives and points in the steepest-ascent direction. To minimise a loss, walk the opposite way. At a minimum the gradient is zero.</p>",
+      "questions": [
+        {
+          "id": "grad",
+          "prompt": "To reduce a loss, move…",
+          "choices": [
+            {
+              "text": "Along the gradient."
+            },
+            {
+              "text": "Against the gradient.",
+              "correct": true
+            },
+            {
+              "text": "Perpendicular to it."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That increases the loss."
+            },
+            {
+              "title": "Correct.",
+              "body": "The gradient points uphill."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Loss barely changes."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gd",
+      "locator": "2.3",
+      "title": "Gradient descent",
+      "eyebrow": "Downhill in small steps",
+      "body": "<p>Repeat x ← x − η f′(x), with learning rate η. For f = x² − 4x + 5 (minimum at x = 2) and η = 0.2 from x = −1, after 15 steps x = <b>1.99859</b>. With η = 1.1 the steps overshoot more than they correct and it oscillates. Too small is slow; too large is unstable.</p>",
+      "worked": [
+        {
+          "toc": "Slope",
+          "why": "f′(x) = 2x − 4. At x = −1, f′ = −6."
+        },
+        {
+          "toc": "Update",
+          "why": "Step: x₁ = −1 − 0.2·(−6).",
+          "math": "x_1=0.2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "lr",
+          "prompt": "Loss grows each step. First fix?",
+          "choices": [
+            {
+              "text": "Raise the learning rate."
+            },
+            {
+              "text": "Lower the learning rate.",
+              "correct": true
+            },
+            {
+              "text": "Add more data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Worse."
+            },
+            {
+              "title": "Correct.",
+              "body": "Steps are overshooting."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the cause."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.3.1 — η = 0.2",
+          "note": "The ball rolls to x = 2.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"gd1\",\"engine\":\"gd\",\"f\":\"x^2 - 4*x + 5\",\"lr\":0.2,\"x0\":-1,\"steps\":15,\"width\":600,\"height\":440});",
+          "expect": {
+            "gd1": {
+              "x": "1.99859",
+              "diverged": "no"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 2.3.2 — η = 1.1",
+          "note": "Each step overshoots further.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"gd2\",\"engine\":\"gd\",\"f\":\"x^2 - 4*x + 5\",\"lr\":1.1,\"x0\":-1,\"steps\":15,\"width\":600,\"height\":440});",
+          "expect": {
+            "gd2": {
+              "diverged": "no"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-gd",
+          "prompt": "<p>f(x) = x², η = 0.25, x₀ = 4. Find x₂.</p>",
+          "answer": "f′ = 2x. x₁ = 4 − 0.25·8 = 2; x₂ = 2 − 0.25·4 = <b>1</b>."
+        }
+      ]
+    },
+    {
+      "id": "dist",
+      "locator": "2.4",
+      "title": "Distributions",
+      "eyebrow": "Describing uncertainty",
+      "body": "<p>A distribution assigns probabilities to outcomes. Binomial counts successes in n trials; Poisson counts events per interval; the normal N(μ, σ²) models measurement noise. About 95 % of a normal lies within ±1.96σ: here P = <b>0.95</b>. Standardise z = (x − μ)/σ to compare different scales.</p>",
+      "questions": [
+        {
+          "id": "zsc",
+          "prompt": "Exam 70 with class mean 60 and σ = 5 has z =",
+          "choices": [
+            {
+              "text": "10."
+            },
+            {
+              "text": "2.",
+              "correct": true
+            },
+            {
+              "text": "0.5."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Forgot σ."
+            },
+            {
+              "title": "Correct.",
+              "body": "(70 − 60)/5."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Inverted."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.4.1 — normal",
+          "note": "Shaded area = probability.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nd\",\"engine\":\"dist\",\"kind\":\"normal\",\"mu\":0,\"sigma\":1,\"from\":-1.96,\"to\":1.96,\"width\":600,\"height\":440});",
+          "expect": {
+            "nd": {
+              "prob": "0.95"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "clt",
+      "locator": "2.5",
+      "title": "Sampling and the central limit theorem",
+      "eyebrow": "Why averages are trusted",
+      "body": "<p>Means of samples of size n are roughly normal with standard error σ/√n, whatever the population. Simulated means of 30 from a skewed exponential population have sd <b>0.184</b> versus theory <b>0.183</b>.</p>",
+      "questions": [
+        {
+          "id": "cltq",
+          "prompt": "CLT says sample means become…",
+          "choices": [
+            {
+              "text": "Exactly the population shape."
+            },
+            {
+              "text": "Always zero."
+            },
+            {
+              "text": "Approximately normal.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They change shape."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Nonsense."
+            },
+            {
+              "title": "Correct.",
+              "body": "For large n, any population."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 2.5.1 — CLT",
+          "note": "Skewed population, bell-shaped means.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"clt\",\"engine\":\"clt\",\"population\":\"exponential\",\"n\":30,\"width\":600,\"height\":440});",
+          "expect": {
+            "clt": {
+              "sdOfMeans": "0.184",
+              "theorySd": "0.183"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "locator": "2.6",
+      "title": "Confidence intervals",
+      "eyebrow": "Quantified doubt",
+      "body": "<p>x̄ ± 1.96σ/√n is a 95 % interval. In 40 simulated studies <b>97.5%</b> of intervals caught the true mean, with half-width 3.92.</p>",
+      "questions": [
+        {
+          "id": "ciq",
+          "prompt": "A 95 % CI means…",
+          "choices": [
+            {
+              "text": "The method captures the true mean in about 95 % of repeated samples.",
+              "correct": true
+            },
+            {
+              "text": "There is a 95 % chance μ is in this one interval."
+            },
+            {
+              "text": "95 % of data lies inside."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is about the procedure."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "μ is fixed; the interval varies."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a prediction interval."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 2.6.1 — intervals",
+          "note": "Rose intervals missed.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ci\",\"engine\":\"confint\",\"n\":25,\"sigma\":10,\"zcrit\":1.96,\"intervals\":40,\"width\":600,\"height\":440});",
+          "expect": {
+            "ci": {
+              "coverage": "97.5"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,310 @@
+{
+  "title": "Animation, AR/VR and real-time graphics",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapters 7–8",
+  "subtitle": "Motion is many pictures in a row — and the tricks that make a computer produce them fast enough.",
+  "sections": [
+    {
+      "id": "anim",
+      "locator": "7.1",
+      "title": "How animation works",
+      "eyebrow": "Persistence of vision",
+      "body": "<p>Showing at least ~24 still images per second fools the eye into seeing motion; games aim for 60. <em class=\"term\">Raster animation</em> copies pixel blocks and cycles colour tables; <em class=\"term\">key-frame</em> systems define important poses and let the computer generate the <em class=\"term\">in-betweens</em>. Animation functions: object definition, path specification, key frames, in-betweening, a scene description.</p>",
+      "worked": [
+        {
+          "toc": "Frames",
+          "why": "A 10-second clip at 24 frames/s.",
+          "math": "10\\times24"
+        },
+        {
+          "toc": "In-betweens",
+          "why": "With key frames every 12 frames an animator poses 20 and the computer generates the other 220.",
+          "math": "240-20=220",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "kf",
+          "prompt": "In key-frame animation the computer generates…",
+          "choices": [
+            {
+              "text": "The in-between frames.",
+              "correct": true
+            },
+            {
+              "text": "The key poses."
+            },
+            {
+              "text": "The camera."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The animator supplies only key poses."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The animator draws those."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "interp",
+      "locator": "7.2",
+      "title": "Interpolating motion",
+      "eyebrow": "In-betweening",
+      "body": "<p>Linear interpolation moves at constant speed and looks mechanical; real motion eases in and out. A spline through the key positions gives smooth paths; a Bézier speed curve controls the timing (“ease-in-out”). Below, one control point shapes a path.</p>",
+      "questions": [
+        {
+          "id": "ease",
+          "prompt": "Ease-in-out motion…",
+          "choices": [
+            {
+              "text": "Moves at constant speed."
+            },
+            {
+              "text": "Starts slowly, speeds up, then slows to a stop.",
+              "correct": true
+            },
+            {
+              "text": "Jumps between frames."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is linear."
+            },
+            {
+              "title": "Correct.",
+              "body": "It looks natural because real objects accelerate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 7.2.1 — an animation path",
+          "note": "The path an object follows between two key positions.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"path\",\"engine\":\"bezier\",\"points\":\"0,0;1,4;5,4;6,0\",\"t\":\"0.2 0.4 0.6 0.8\",\"width\":600,\"height\":440});",
+          "expect": {
+            "path": {
+              "mid": "3,3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "motion",
+      "locator": "7.3",
+      "title": "Motion specification",
+      "eyebrow": "Telling objects how to move",
+      "body": "<p><em class=\"term\">Direct specification</em>: give positions or velocities explicitly. <em class=\"term\">Goal-directed</em>: say where the object should end up and let the system work out the motion. <em class=\"term\">Kinematics</em> describes motion without forces (forward kinematics: joint angles → hand position; inverse kinematics: hand position → joint angles). <em class=\"term\">Dynamics</em> uses forces and mass — a ball bouncing, cloth draping: exactly what this notebook’s physics engine does.</p>",
+      "questions": [
+        {
+          "id": "ik",
+          "prompt": "Inverse kinematics finds…",
+          "choices": [
+            {
+              "text": "The joint angles that put the hand at a desired position.",
+              "correct": true
+            },
+            {
+              "text": "The hand position from angles."
+            },
+            {
+              "text": "The forces on a joint."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Forward kinematics goes the other way."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is forward."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is dynamics."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 7.3.1 — kinematics",
+          "note": "Forward kinematics is easy; the inverse may have several solutions.",
+          "script": "diagram(\"direction: right\\n[Joint angles θ1, θ2] as a #blue\\n[Forward kinematics] as f #violet\\n[Hand position x, y] as h #mint\\na -> f\\nf -> h\\nh --> a : inverse kinematics\");"
+        }
+      ]
+    },
+    {
+      "id": "viz",
+      "locator": "8.1",
+      "title": "Interactive visualisation and distributed rendering",
+      "eyebrow": "Scale",
+      "body": "<p>Interactive visualisation lets users rotate, slice and query data in real time. Very large scenes are rendered across many machines (distributed/cloud rendering): split the image into tiles or the animation into frames, render in parallel, and assemble the result. Film studios use render farms; cloud gaming streams rendered video to thin clients.</p>",
+      "questions": [
+        {
+          "id": "farm",
+          "prompt": "Why are animation frames ideal for a render farm?",
+          "choices": [
+            {
+              "text": "Each frame can be rendered independently, so work splits cleanly.",
+              "correct": true
+            },
+            {
+              "text": "They must be rendered in order."
+            },
+            {
+              "text": "They are tiny."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Near-linear speed-up."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Frames are independent."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They are large."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A film frame takes 2 hours to render on one machine. How long do 1 000 frames take on a 100-machine farm?</p>",
+          "answer": "Total work 1000 × 2 h = 2000 machine-hours; on 100 machines (perfect split) <b>20 hours</b>."
+        }
+      ]
+    },
+    {
+      "id": "arvr",
+      "locator": "8.2",
+      "title": "AR, VR and mixed reality",
+      "eyebrow": "Immersion",
+      "body": "<p><em class=\"term\">VR</em> replaces the world with a rendered one (head-mounted display plus head tracking; needs low latency, under about 20 ms from motion to photon, or users feel sick). <em class=\"term\">AR</em> overlays graphics on the real view (phone camera, glasses). <em class=\"term\">MR</em> anchors virtual objects in real space so they interact with it. All three run the same pipeline twice (one image per eye) at 90 Hz or more, plus tracking and registration.</p>",
+      "questions": [
+        {
+          "id": "lat",
+          "prompt": "Why must VR have very low latency?",
+          "choices": [
+            {
+              "text": "To save power."
+            },
+            {
+              "text": "Delay between head motion and the image causes discomfort and nausea.",
+              "correct": true
+            },
+            {
+              "text": "To use fewer polygons."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Correct.",
+              "body": "The brain expects the world to move with the head."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 8.2.1 — the VR loop",
+          "note": "The latency of this loop must stay tiny.",
+          "script": "diagram(\"direction: right\\n[Head / camera tracking] as t #blue\\n[Scene update] as s #violet\\n[Render: left and right eye] as r #mint\\n[Display] as d #amber\\nt -> s\\ns -> r\\nr -> d\\nd --> t : next head pose\\n@0 t -> s : pose\\n@1 s -> r : scene\\n@2 r -> d : two images\\n@3 d -> t : new pose\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "games",
+      "locator": "8.3",
+      "title": "Game development and real-time graphics",
+      "eyebrow": "Engines",
+      "body": "<p>A game engine (Unity, Unreal) runs a loop: read input, update the world (physics, AI), render, repeat — within one frame time. Real-time tricks: level of detail, culling, baked lighting, instancing, shaders programmed on the GPU. Applications of AR/VR/gaming: training, design review, therapy, education, entertainment.</p>",
+      "worked": [
+        {
+          "toc": "Budget",
+          "why": "A target of 60 fps; physics takes 4 ms, AI 3 ms, rendering 8 ms.",
+          "math": "4+3+8"
+        },
+        {
+          "toc": "Verdict",
+          "why": "Total 15 ms &lt; 16.7 ms: the frame fits, with 1.7 ms to spare.",
+          "math": "15<16.7",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "loop",
+          "prompt": "The heart of a game engine is…",
+          "choices": [
+            {
+              "text": "A single render call."
+            },
+            {
+              "text": "A database."
+            },
+            {
+              "text": "A loop: input → update → render, once per frame.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Much more."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the core."
+            },
+            {
+              "title": "Correct.",
+              "body": "Everything must finish within the frame time."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "8.4",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Animation = key frames + in-betweens; ease with splines.</li><li>VR needs low latency; engines loop input-update-render.</li></ul>"
+    }
+  ]
+}

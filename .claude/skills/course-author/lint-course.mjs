@@ -86,6 +86,8 @@ writeFileSync(solveEntry, `
 export { executeSimScript } from '@/lib/scene/simscript'
 export { useDocStore } from '@/lib/store/document'
 export { buildCircuit, stepCircuit } from '@/lib/circuit/engine'
+export { runEngine } from '@/lib/steplab/registry'
+export { runCpp } from '@/lib/dsa/interpreter'
 `)
 const solveBundle = join(dir, 'solve.mjs')
 let solver = null
@@ -111,16 +113,44 @@ function readInstruments(script) {
   solver.useDocStore.getState().ensurePage(pageId)
   solver.executeSimScript(pageId, script, { x: 0, y: 0 })
   const objects = solver.useDocStore.getState().pages[pageId].objects
-  const circuit = solver.buildCircuit(Object.values(objects))
-  if (!circuit) return null
-  const dt = 1 / 120
-  for (let t = 0; t < 1; t += dt) solver.stepCircuit(circuit, dt, t, objects)
-  const out = new Map()
-  for (const [id, r] of circuit.frame.readings) {
-    const o = objects[id]
-    if (o?.name && r.text !== undefined) out.set(o.name, r.text)
+
+  // Step Lab cards: run each one's engine. A figure whose engine reports an
+  // error renders as the error message, which is exactly the failure a reader
+  // cannot report — so it fails the lesson here. The engine's named results
+  // (`summary`) are what `expect` can pin, like a meter reading.
+  const labs = new Map()
+  const labErrors = []
+  for (const o of Object.values(objects)) {
+    // A DSA Lab card interprets its C++ in the browser; a program the
+    // interpreter rejects would show an error where the figure should be, so
+    // run it here. `expect` can pin its printed output: { "prog": { "output": "6" } }.
+    if (o.geometry.kind === 'dsa') {
+      const src = o.parameters.source?.kind === 'string' ? o.parameters.source.value : ''
+      const r = solver.runCpp(src, '')
+      if (r.error) labErrors.push(`${o.name}: line ${r.error.line}: ${r.error.message}`)
+      else labs.set(o.name, { output: r.output.replace(/\s+$/g, ''), steps: String(r.steps.length), comparisons: String(r.counters.comparisons), swaps: String(r.counters.swaps), calls: String(r.counters.calls) })
+      continue
+    }
+    if (o.geometry.kind !== 'steplab') continue
+    const params = {}
+    for (const [k, v] of Object.entries(o.parameters)) if (v.kind === 'string') params[k] = v.value
+    const r = solver.runEngine(params)
+    if (!r.ok) labErrors.push(`${o.name}: ${r.error}`)
+    else labs.set(o.name, r.trace.summary)
   }
-  return out
+
+  const circuit = solver.buildCircuit(Object.values(objects))
+  let readings = null
+  if (circuit) {
+    const dt = 1 / 120
+    for (let t = 0; t < 1; t += dt) solver.stepCircuit(circuit, dt, t, objects)
+    readings = new Map()
+    for (const [id, r] of circuit.frame.readings) {
+      const o = objects[id]
+      if (o?.name && r.text !== undefined) readings.set(o.name, r.text)
+    }
+  }
+  return { readings, labs, labErrors }
 }
 
 /** Build and (where there is a circuit) solve one figure.
@@ -134,7 +164,9 @@ function readInstruments(script) {
 function checkFigureRuns(where, f) {
   if (!solver) return null
   try {
-    return { readings: readInstruments(f.script) }
+    const r = readInstruments(f.script)
+    for (const m of r.labErrors) problem(where, `a Step Lab card cannot run — ${m}`)
+    return r
   } catch (e) {
     problem(where, `the script throws when run: ${e.message}`)
     return null
@@ -149,12 +181,26 @@ function checkExpect(where, f, run) {
   if (!f.expect) return
   if (!solver) { problem(where, '`expect` cannot be checked — the headless solver did not build'); return }
   if (!run) return // it already failed to build; one report is enough
-  const readings = run.readings
-  if (!readings) {
-    problem(where, '`expect` is set but the figure builds no circuit — only circuit figures have instrument readings')
-    return
-  }
+  const { readings, labs } = run
   for (const [name, want] of Object.entries(f.expect)) {
+    // A Step Lab card is pinned by its engine's named results:
+    //   "expect": { "sched": { "avgWT": "5.67", "order": "P1 P2 P3" } }
+    if (want && typeof want === 'object') {
+      const summary = labs.get(name)
+      if (!summary) {
+        problem(where, `expect names the Step Lab "${name}", but no Step Lab card in this figure has that name — give it \`name: "${name}"\` — cards here: ${[...labs.keys()].join(', ') || '(none)'}`)
+        continue
+      }
+      for (const [k, v] of Object.entries(want)) {
+        if (!(k in summary)) problem(where, `expect "${name}.${k}" — this engine reports: ${Object.keys(summary).join(', ')}`)
+        else if (summary[k] !== String(v)) problem(where, `expect "${name}.${k}" = ${v}, but the engine reports ${summary[k]} — fix the figure or fix the number the prose quotes`)
+      }
+      continue
+    }
+    if (!readings) {
+      problem(where, `expect "${name}" names an instrument, but the figure builds no circuit — only circuit figures have meter readings`)
+      continue
+    }
     const got = readings.get(name)
     if (got === undefined) {
       const known = [...readings.keys()]

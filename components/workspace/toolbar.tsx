@@ -320,10 +320,12 @@ export function Toolbar({
   if (selActions.length > 0) lastActionsRef.current = selActions
   const segActions = selActions.length > 0 ? selActions : lastActionsRef.current
   const isMobile = useIsMobile()
-  // Touch + narrow = phone. A tablet is touch but wide, so it keeps the full
-  // dock; only the width-starved layout gets folded into the More flyout.
+  // Narrow = fold the dock into the More flyout, whatever the input. Keyed on
+  // touch as well it left a desktop window dragged below ~600px with a dock
+  // wider than the window (tools clipped off the right edge). A tablet is wide,
+  // so it keeps the full dock.
   const isNarrow = useIsNarrow()
-  const condensed = isMobile && isNarrow
+  const condensed = isNarrow
 
   const [showPen, setShowPen] = useState(false)
   const [showShapes, setShowShapes] = useState(false)
@@ -338,7 +340,7 @@ export function Toolbar({
   const vertical = dockSide === 'left' || dockSide === 'right'
 
   // Draggable positioning state
-  const isDraggable = dockPrefsState.positionMode === 'draggable' && !isMobile
+  const isDraggable = dockPrefsState.positionMode === 'draggable' && !isMobile && !condensed
   const dragRef = useRef<{ startX: number; startY: number; posX: number; posY: number } | null>(null)
 
   const defaultX = typeof window !== 'undefined' ? Math.max(20, (window.innerWidth - 600) / 2) : 200

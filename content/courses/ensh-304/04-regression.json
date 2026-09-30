@@ -1,0 +1,275 @@
+{
+  "title": "Correlation and least-squares regression",
+  "kicker": "ENSH 304 · Probability and Statistics · Chapter 4",
+  "subtitle": "Do two quantities move together, and can one predict the other? Fit the line that makes the smallest total squared miss.",
+  "sections": [
+    {
+      "id": "scatter",
+      "locator": "4.1",
+      "title": "Scatter plots and correlation",
+      "eyebrow": "Do they move together?",
+      "body": "<p>Plot pairs (x, y). The <em class=\"term\">correlation coefficient</em> r = Sxy/√(Sxx·Syy) lies in [−1, 1]: +1 perfect rising line, −1 perfect falling, 0 no <em>linear</em> relation. For the default data r = <b>0.9</b>; a falling line gives <b>-1</b>. Correlation is not causation, and r ignores curved patterns.</p>",
+      "questions": [
+        {
+          "id": "corr",
+          "prompt": "r = −0.95 means…",
+          "choices": [
+            {
+              "text": "y falls by 95 %."
+            },
+            {
+              "text": "A strong falling linear relationship.",
+              "correct": true
+            },
+            {
+              "text": "x causes y to fall."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "r is not a percentage change."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sign gives direction, size gives strength."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Correlation is not causation."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ls",
+      "locator": "4.2",
+      "title": "The least-squares line",
+      "eyebrow": "Smallest total squared miss",
+      "body": "<p>Fit ŷ = a + bx by minimising Σ(yᵢ − ŷᵢ)². Solution: b = Sxy/Sxx and a = ȳ − b·x̄, so the line always passes through (x̄, ȳ). Here slope <b>0.9</b> and intercept <b>1.3</b>. The residuals are the vertical gaps; squaring them punishes big misses.</p>",
+      "worked": [
+        {
+          "toc": "Sums",
+          "why": "Data (1,2) (2,3) (3,5) (4,4) (5,6): x̄ = 3, ȳ = 4. Sxy = 9, Sxx = 10."
+        },
+        {
+          "toc": "Fit",
+          "why": "Slope = 9/10, intercept = 4 − 0.9·3.",
+          "math": "b=0.9,\\ a=1.3",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "thru",
+          "prompt": "The least-squares line always passes through…",
+          "choices": [
+            {
+              "text": "The origin."
+            },
+            {
+              "text": "The first data point."
+            },
+            {
+              "text": "(x̄, ȳ).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only if a = 0."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It fits the cloud, not one point."
+            },
+            {
+              "title": "Correct.",
+              "body": "Follows from a = ȳ − b·x̄."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 4.2.1 — least squares",
+          "note": "The line pivots on the mean point; gaps are the residuals.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"reg\",\"engine\":\"regression\",\"width\":600,\"height\":440});",
+          "expect": {
+            "reg": {
+              "slope": "0.9",
+              "intercept": "1.3",
+              "r2": "0.81"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-reg",
+          "prompt": "<p>Predict y at x = 6 using the fitted line.</p>",
+          "answer": "ŷ = 1.3 + 0.9·6 = <b>6.7</b> (x = 6 is just outside the data — mild extrapolation)."
+        }
+      ]
+    },
+    {
+      "id": "r2",
+      "locator": "4.3",
+      "title": "How good is the fit? R²",
+      "eyebrow": "Variance explained",
+      "body": "<p>R² = 1 − SSres/SStot is the fraction of the variation in y explained by x; for simple regression R² = r². This fit has R² = <b>0.81</b> — 81 % explained. A high R² does not prove the model is right: always look at the residual plot for curves or fan shapes.</p>",
+      "questions": [
+        {
+          "id": "rsq",
+          "prompt": "r = 0.9 gives R² =",
+          "choices": [
+            {
+              "text": "0.9."
+            },
+            {
+              "text": "0.81.",
+              "correct": true
+            },
+            {
+              "text": "0.45."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is r."
+            },
+            {
+              "title": "Correct.",
+              "body": "r squared."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Halving is not the rule."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pit",
+      "locator": "4.4",
+      "title": "Pitfalls",
+      "eyebrow": "Where regression lies",
+      "body": "<ul><li><b>Extrapolation</b> beyond the data range is unreliable.</li><li><b>Outliers</b> with large leverage can tilt the line.</li><li><b>Non-linear</b> patterns: transform (log y) or use a curve.</li><li><b>Confounders</b>: ice-cream sales and drownings correlate because of summer.</li></ul>",
+      "questions": [
+        {
+          "id": "conf",
+          "prompt": "Shark attacks and ice-cream sales correlate. Best explanation?",
+          "choices": [
+            {
+              "text": "A lurking variable: hot weather.",
+              "correct": true
+            },
+            {
+              "text": "Ice cream attracts sharks."
+            },
+            {
+              "text": "It is a coincidence only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Confounding, not causation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Causal claim without evidence."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "There is a real common cause."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mult",
+      "locator": "4.5",
+      "title": "More than one predictor",
+      "eyebrow": "Looking ahead",
+      "body": "<p>Multiple regression fits ŷ = b₀ + b₁x₁ + b₂x₂ + … by the same least-squares idea (solve the normal equations XᵀXb = Xᵀy — the Gaussian elimination of Numerical Methods). Gradient descent finds the same minimum iteratively, which is how machine-learning models are trained.</p>",
+      "questions": [
+        {
+          "id": "ne",
+          "prompt": "Solving the normal equations is a…",
+          "choices": [
+            {
+              "text": "Differential equation."
+            },
+            {
+              "text": "Random search."
+            },
+            {
+              "text": "Linear system.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No derivatives in time."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is exact algebra."
+            },
+            {
+              "title": "Correct.",
+              "body": "XᵀXb = Xᵀy."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rank",
+      "locator": "4.6",
+      "title": "Rank correlation",
+      "eyebrow": "When data is ordinal",
+      "body": "<p>Spearman’s ρ applies the correlation formula to the <em>ranks</em>: ρ = 1 − 6Σd²/(n(n² − 1)), d = rank difference. It detects any monotone relationship and resists outliers. Two judges ranking five entries with Σd² = 4 give ρ = 1 − 24/120 = <b>0.8</b>.</p>",
+      "questions": [
+        {
+          "id": "sp",
+          "prompt": "Σd² = 0 gives Spearman ρ =",
+          "choices": [
+            {
+              "text": "1.",
+              "correct": true
+            },
+            {
+              "text": "0."
+            },
+            {
+              "text": "−1."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Identical rankings."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would be unrelated."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is reversed order."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

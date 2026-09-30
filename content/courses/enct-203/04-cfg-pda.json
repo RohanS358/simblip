@@ -1,0 +1,290 @@
+{
+  "title": "Grammars, parse trees and pushdown automata",
+  "kicker": "ENCT 203 · Theory of Computation · Chapter 3",
+  "subtitle": "Add one stack to a finite automaton and it can count and match brackets — exactly the power of a grammar.",
+  "sections": [
+    {
+      "id": "cfg",
+      "locator": "3.1",
+      "title": "Context-free grammars",
+      "eyebrow": "Rewriting rules",
+      "body": "<p>A <em class=\"term\">context-free grammar</em> has variables (S, E…), terminals (a, b, +…), productions A → α, and a start variable. A string is in the language if the start variable can be rewritten into it. The grammar <code>S → aSb | ab</code> generates aⁿbⁿ — the language no finite automaton can recognise. Deriving aaabbb: <b>S => aSb => aaSbb => aaabbb</b>.</p>",
+      "questions": [
+        {
+          "id": "gen",
+          "prompt": "Which language does S → aSb | ab generate?",
+          "choices": [
+            {
+              "text": "aⁿbⁿ for n ≥ 1.",
+              "correct": true
+            },
+            {
+              "text": "a*b*."
+            },
+            {
+              "text": "(ab)*."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each use of aSb adds one a on the left and one b on the right."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unequal counts are not generated."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Those are not nested."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.1.1 — deriving aaabbb",
+          "note": "Each step rewrites the leftmost variable; the last frame adds the parse tree.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"g1\",\"engine\":\"cfg\",\"grammar\":\"S -> aSb | ab\",\"string\":\"aaabbb\",\"width\":600,\"height\":440});",
+          "expect": {
+            "g1": {
+              "steps": "3",
+              "derivation": "S => aSb => aaSbb => aaabbb"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "tree",
+      "locator": "3.2",
+      "title": "Parse trees and ambiguity",
+      "eyebrow": "Structure",
+      "body": "<p>A <em class=\"term\">parse tree</em> shows which productions built a string. A grammar is <em class=\"term\">ambiguous</em> if some string has two different parse trees — a real problem for compilers, because the tree is the meaning. The classic fix is to encode precedence in layers of variables: E → E+T | T, T → T*F | F, F → (E) | a. Then a+a*a has exactly one tree, with * binding tighter than +.</p>",
+      "questions": [
+        {
+          "id": "amb",
+          "prompt": "A grammar is ambiguous when…",
+          "choices": [
+            {
+              "text": "It has no start symbol."
+            },
+            {
+              "text": "It generates no strings."
+            },
+            {
+              "text": "Some string has more than one parse tree.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the definition."
+            },
+            {
+              "title": "Correct.",
+              "body": "Different trees can mean different values."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.2.1 — unambiguous expression grammar",
+          "note": "The tree shows the multiplication grouped under the addition.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"g2\",\"engine\":\"cfg\",\"grammar\":\"E -> E+T | T\\nT -> T*F | F\\nF -> (E) | a\",\"string\":\"a+a*a\",\"width\":600,\"height\":440});",
+          "expect": {
+            "g2": {
+              "derivation": "E => E+T => T+T => F+T => a+T => a+T*F => a+F*F => a+a*F => a+a*a"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nf",
+      "locator": "3.3",
+      "title": "Simplification and normal forms",
+      "eyebrow": "Clean-up",
+      "body": "<p>Before analysis, remove useless variables, ε-productions and unit productions (A → B). <em class=\"term\">Chomsky normal form</em> allows only A → BC and A → a; <em class=\"term\">Greibach normal form</em> only A → aα. Any CFL (without ε) has grammars in both forms. BNF is the notation compilers use for language syntax.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Convert S → aSb | ab to Chomsky normal form."
+        },
+        {
+          "toc": "CNF",
+          "why": "Introduce A → a, B → b and split: S → AC | AB, C → SB.",
+          "math": "S\\to AC\\mid AB,\\ C\\to SB,\\ A\\to a,\\ B\\to b",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cnf",
+          "prompt": "A production allowed in Chomsky normal form is…",
+          "choices": [
+            {
+              "text": "A → BC (two variables) or A → a (one terminal).",
+              "correct": true
+            },
+            {
+              "text": "A → aBc."
+            },
+            {
+              "text": "A → ε (in general)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Nothing else."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Mixed and too long."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Removed before CNF."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pda",
+      "locator": "3.4",
+      "title": "Pushdown automata",
+      "eyebrow": "A stack for memory",
+      "body": "<p>A <em class=\"term\">PDA</em> is an NFA with a stack. A move depends on the state, the input symbol (or ε) and the top of the stack, and changes the state and replaces the top with a string. To recognise aⁿbⁿ: push an A for every a, pop one for every b, accept if the stack returns to its bottom marker Z. Watch the stack on the right.</p>",
+      "questions": [
+        {
+          "id": "stack",
+          "prompt": "What lets a PDA check aⁿbⁿ but not a DFA?",
+          "choices": [
+            {
+              "text": "More states."
+            },
+            {
+              "text": "The stack stores an unbounded count of a’s.",
+              "correct": true
+            },
+            {
+              "text": "A second tape."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Finite states cannot count without bound."
+            },
+            {
+              "title": "Correct.",
+              "body": "Its memory grows with the input."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That would be a Turing machine."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 3.4.1 — aaabbb is accepted",
+          "note": "Top of the stack is the highlighted cell.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"p1\",\"engine\":\"pda\",\"input\":\"aaabbb\",\"width\":600,\"height\":440});",
+          "expect": {
+            "p1": {
+              "accepted": "yes"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 3.4.2 — aabbb is rejected",
+          "note": "One b too many: the stack runs dry.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"p2\",\"engine\":\"pda\",\"input\":\"aabbb\",\"width\":600,\"height\":440});",
+          "expect": {
+            "p2": {
+              "accepted": "no"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pda",
+          "prompt": "<p>Does the PDA in the figure accept aabbb?</p>",
+          "answer": "No. After aa, two A’s are pushed; the first two b’s pop them; the third b finds only Z on the stack, so no move is possible: <b>rejected</b>.",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "Trace it.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"pda\",\"input\":\"aabbb\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "accepted": "no"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "eq",
+      "locator": "3.5",
+      "title": "CFG ⇔ PDA, closure and limits",
+      "eyebrow": "Equivalence",
+      "body": "<p>Context-free languages are exactly those accepted by PDAs: a grammar becomes a PDA that guesses derivations on its stack, and a PDA becomes a grammar whose variables stand for “go from state p to q popping this symbol”. CFLs are closed under union, concatenation and star, but <em>not</em> under intersection or complement. The pumping lemma for CFLs (pump two places at once) shows aⁿbⁿcⁿ is not context-free. Context-sensitive grammars (α → β with |α| ≤ |β|) sit one level above.</p>",
+      "questions": [
+        {
+          "id": "abc",
+          "prompt": "Is aⁿbⁿcⁿ context-free?",
+          "choices": [
+            {
+              "text": "Yes, S → aSbSc."
+            },
+            {
+              "text": "No — one stack can match two counts but not three.",
+              "correct": true
+            },
+            {
+              "text": "Yes, it is regular."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That generates a different language."
+            },
+            {
+              "title": "Correct.",
+              "body": "The CFL pumping lemma proves it."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not even that."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>CFG generates, PDA recognises: same class.</li><li>Ambiguity lives in the grammar; layering operators removes it.</li><li>CNF: A → BC | a.</li></ul>"
+    }
+  ]
+}

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { castFor, encodeValue, ident, pgConfigured, q } from '@/lib/server/pg'
 import { bearerClaims, type Claims } from '@/lib/server/auth'
 import { publish } from '@/lib/server/board-live-bus'
+import { authorize, checkPatch, checkRow, forceRow, hasReadScope, readScope, scopeSql, type Method } from '@/lib/server/pg-policy'
 import {
   cacheGet,
   cacheInvalidate,
@@ -208,7 +209,12 @@ for (const table of CACHEABLE_TABLES) {
 const PLATFORM_INSTITUTION = 'inst-platform'
 
 /** where-clause from ?col=eq.v / ?col=is.null filters + enforced scoping. */
-function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
+function buildWhere(
+  ctx: Ctx,
+  url: URL,
+  /** Per-role row narrowing from lib/server/pg-policy.ts. */
+  extra?: (params: unknown[]) => string | null
+): { clause: string; params: unknown[] } {
   const parts: string[] = []
   const params: unknown[] = []
 
@@ -278,6 +284,8 @@ function buildWhere(ctx: Ctx, url: URL): { clause: string; params: unknown[] } {
       params.push(claims.sub)
       parts.push(`${spec.owner} = $${params.length}`)
     }
+    const narrowed = extra?.(params)
+    if (narrowed) parts.push(narrowed)
   }
   return { clause: parts.length ? ` where ${parts.join(' and ')}` : '', params }
 }
@@ -402,6 +410,16 @@ async function afterWrite(ctx: Ctx, touchedIds: string[] = []): Promise<void> {
   }
 }
 
+/** Role authorization for a write. The operator bypasses it; anonymous
+ *  callers only reach tables that opted into anonymous access. */
+function authorizeWrite(ctx: Ctx, method: Method) {
+  if (!ctx.claims || isOperator(ctx.claims)) return { ok: true as const, rule: null }
+  return authorize(ctx.table, method, ctx.claims.role)
+}
+
+const forbidden = (v: { status: number; error: string }) =>
+  NextResponse.json({ error: v.error }, { status: v.status })
+
 type Params = { params: Promise<{ table: string }> }
 
 export async function GET(req: Request, { params }: Params) {
@@ -420,8 +438,16 @@ export async function GET(req: Request, { params }: Params) {
     // operator's OWN institution, where an ordinary member of that
     // institution issuing the identical query string would read it back as
     // a HIT. Their requests are rare; excluding them costs nothing.
+    //
+    // SECURITY: tables with a per-role read filter (pg-policy READ_SCOPES) are
+    // also never cached: their tenant-shared cache entry would hand a
+    // teacher's full list to a student asking with the same query string.
     const cacheable =
-      redisConfigured && CACHEABLE_TABLES.has(ctx.table) && ctx.claims && !isOperator(ctx.claims)
+      redisConfigured &&
+      CACHEABLE_TABLES.has(ctx.table) &&
+      ctx.claims &&
+      !isOperator(ctx.claims) &&
+      !hasReadScope(ctx.table, ctx.claims.role)
     // Debug-only visibility into hit/miss — harmless in prod (just an extra
     // response header) but cheap to drop entirely later if unwanted.
     const cacheHeader = (v: 'HIT' | 'MISS' | 'SKIP') => ({ 'Content-Type': 'application/json', 'X-Cache': v })
@@ -439,7 +465,10 @@ export async function GET(req: Request, { params }: Params) {
             .map((c) => ident(c.trim()))
             .filter((c) => c !== 'password_hash')
             .join(', ')
-    const { clause, params: p } = buildWhere(ctx, url)
+    const claimsForRead = ctx.claims
+    const { clause, params: p } = buildWhere(ctx, url, (pp) =>
+      claimsForRead ? readScope(ctx.table, claimsForRead, pp) : null
+    )
     // SCALING: `limit`/`offset`/`order` were parsed out of the filter loop but
     // never applied, so every list request was an unbounded sequential scan —
     // fine at demo size, an outage at real size. They are honoured now, and an
@@ -496,11 +525,14 @@ export async function POST(req: Request, { params }: Params) {
   const ctx = await resolve(req, (await params).table, 'POST')
   if (ctx instanceof NextResponse) return ctx
   try {
+    const verdict = authorizeWrite(ctx, 'POST')
+    if (!verdict.ok) return forbidden(verdict)
     const body = (await req.json()) as Record<string, unknown> | Record<string, unknown>[]
     const rows = Array.isArray(body) ? body : [body]
     const { table, spec, claims } = ctx
     for (const row of rows) {
       delete row.password_hash
+      let forcedCols: string[] = []
       // Join tables never accept a client-supplied institution_id.
       if (JOIN_TABLE_SCOPE[table]) delete row.institution_id
       if (claims && !isOperator(claims)) {
@@ -508,6 +540,9 @@ export async function POST(req: Request, { params }: Params) {
         // Join tables are isolated via parent-room / parent-asset checks.
         if (TENANT_COLUMN.has(table)) row.institution_id = claims.inst ?? row.institution_id ?? PLATFORM_INSTITUTION
         if (spec.owner && claims.role !== 'board') row[spec.owner] = claims.sub
+        const badRow = checkRow(verdict.rule, row)
+        if (badRow) return NextResponse.json({ error: badRow }, { status: 403 })
+        forcedCols = forceRow(verdict.rule, row, claims.sub)
         if (JOIN_TABLE_SCOPE[table]) await assertJoinParentInTenant(table, row, claims)
       } else if (TENANT_COLUMN.has(table) && !row.institution_id) {
         row.institution_id = PLATFORM_INSTITUTION
@@ -529,6 +564,12 @@ export async function POST(req: Request, { params }: Params) {
       // the update is skipped — the row stays exactly as it was.
       const guards: string[] = []
       if (claims && !isOperator(claims)) {
+        // Columns the policy pins to the caller (teacher_id, sender_id…): the
+        // upsert may only touch an existing row that already carries the same
+        // value, so a known id can't be used to take over someone else's row.
+        for (const col of forcedCols) {
+          guards.push(`simblip_${ident(table)}.${ident(col)} = excluded.${ident(col)}`)
+        }
         if (TENANT_COLUMN.has(table)) guards.push(`simblip_${ident(table)}.institution_id = excluded.institution_id`)
         if (spec.owner && claims.role !== 'board')
           guards.push(`simblip_${ident(table)}.${ident(spec.owner)} = excluded.${ident(spec.owner)}`)
@@ -557,10 +598,19 @@ export async function PATCH(req: Request, { params }: Params) {
   const ctx = await resolve(req, (await params).table, 'PATCH')
   if (ctx instanceof NextResponse) return ctx
   try {
+    const verdict = authorizeWrite(ctx, 'PATCH')
+    if (!verdict.ok) return forbidden(verdict)
     const patch = (await req.json()) as Record<string, unknown>
     delete patch.password_hash
+    if (ctx.claims && !isOperator(ctx.claims)) {
+      const bad = checkPatch(verdict.rule, patch, ctx.claims.role)
+      if (bad) return NextResponse.json({ error: bad }, { status: 403 })
+    }
     const url = new URL(req.url)
-    const { clause, params: wp } = buildWhere(ctx, url)
+    const patchClaims = ctx.claims
+    const { clause, params: wp } = buildWhere(ctx, url, (pp) =>
+      patchClaims ? scopeSql(verdict.rule, patchClaims, pp) : null
+    )
     if (!clause) return NextResponse.json({ error: 'Refusing unfiltered update' }, { status: 400 })
     const cols = Object.keys(patch).map(ident)
     if (cols.length === 0) return NextResponse.json({ ok: true })
@@ -598,8 +648,13 @@ export async function DELETE(req: Request, { params }: Params) {
   const ctx = await resolve(req, (await params).table, 'DELETE')
   if (ctx instanceof NextResponse) return ctx
   try {
+    const verdict = authorizeWrite(ctx, 'DELETE')
+    if (!verdict.ok) return forbidden(verdict)
     const url = new URL(req.url)
-    const { clause, params: p } = buildWhere(ctx, url)
+    const delClaims = ctx.claims
+    const { clause, params: p } = buildWhere(ctx, url, (pp) =>
+      delClaims ? scopeSql(verdict.rule, delClaims, pp) : null
+    )
     if (!clause) return NextResponse.json({ error: 'Refusing unfiltered delete' }, { status: 400 })
     await q(`delete from simblip_${ident(ctx.table)}${clause}`, p)
     await afterWrite(ctx, [eqId(url) ?? ''])

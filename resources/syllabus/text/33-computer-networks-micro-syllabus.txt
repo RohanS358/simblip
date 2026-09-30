@@ -1,0 +1,350 @@
+                                                                                (Micro Syllabus of Computer Networks)
+                                              Computer Networks
+                                                         ENCT 304
+
+Year/Part: III/I
+
+ Teaching Schedule                                           Examination Scheme
+                                             Theory                                      Practical
+                                                         Final                                       Final              Total
+L    T      P    Total      Assessment                                    Assessment
+                              Marks          Duration (Hrs)      Marks      Marks       Duration (Hrs)         Marks
+3    1      3      7             40                  3             60           50             -                   -    150
+
+Depth Codes
+
+ E-Explanation                   C-Circuit                       D-Definition                DM-Demonstration
+ DV-Derivation                   DW-Drawing                      P-Proof                     I-Illustration
+ NUM-Numerical                   PRG-Programming                 S-State                     ACT-Activity-based
+                                                                                             Learning
+ MP- Mini Project                EXP-Experiment                  REV-Review / Recap          PS- Problem Solving
+ QA- Question Answer             Q-Quiz                          ST- Surprise Test           MT-Mid Term Test
+
+Unit              Topic/Subtopic             Depth               Description of Depth                         Actual Week
+                                             Code                                                              plan
+                                                                                                             L T P
+ 1       Introduction
+         1.1 Computer network,           D, E             Introduction to computer network and its           0.5
+         importance and applications                      importance. Applications of computer
+                                                          networks.
+         1.2 Types of computer           E                Types of networks                                  0.5
+         networks                                            ● PAN, LAN, CAN, MAN, WAN
+                                                             ● Wired and wireless networks
+         1.3 Network topologies          D, E             Network topologies: Mesh, Star, Bus, Ring          0.5 0.25
+                                                          and Hybrid topology with their features
+                                                          and applications. Physical and Logical
+                                                          topology.
+         1.4 Client/server and P2P       D, E             Client/server and P2P network with                 0.5
+         networks                                         features and applications.
+         1.5 Protocols and standards,    D, E             Protocols and standards, Need of protocols, 0.25
+         need of standardization                          Need of standardization
+         1.6 Layered network             E                Layered network architecture, Need of       2    1
+         architecture, OSI and TCP/IP                     layered model, OSI reference model, and
+         reference models                                 different layers of OSI model with
+                                                          functions of each layer. TCP/IP model, its
+                                                          different layers with functions and
+                                                          protocols at each layer. Comparison of OSI
+                                                          and TCP/IP model with similarities and
+                                                          differences.
+         1.7 Addressing at different     E                Addressing and need of addressing at       0.25 0.25
+         layers                                           different layers of network architecture.
+         1.8 Networking devices:         E                Different networking devices:                      0.5
+         Repeater, hub, bridge,                              ● Repeater and hub
+         switch, router, gateway                             ● Bridge and switch
+                                                             ● Router and gateway
+                                                          With their basic functions and working
+                                                          layer.
+         Evaluation                      QA, Q
+                                                                        (Micro Syllabus of Computer Networks)
+
+Unit            Topic/Subtopic             Depth         Description of Depth                    Actual Week
+                                           Code                                                   plan
+                                                                                                L T P
+2      Physical Layer
+
+       2.1 Network monitoring:         D, E        Physical layer and functions of physical 0.5
+       Bandwidth, throughput,                      layer.
+       delay, round-trip-time                      Definition and significance of network
+                                                   performance       monitoring     parameters:
+                                                   Bandwidth, throughput, delay, round-trip-
+                                                   time.
+       2.2 Multiplexing - FDM,         D, E        Multiplexing, importance of multiplexing 1
+       TDM, WDM                                    in communication, different types of
+                                                   multiplexing: FDM, TDM, WDM with their
+                                                   features.
+       2.3 Switching - circuit         D, E        Switching, importance of switching in 1
+       switching, packet switching,                communication
+       datagram and virtual circuit                Different types of switching:
+       switching                                     Circuit switching and packet switching
+                                                     Datagram and virtual circuit switching
+                                                   Features, merits and demerits of each
+       2.4 Transmission media -        E           Transmission media and its role in           1.5 0.5
+       Guided (twisted pair,                       communication.
+       coaxial, optical fiber) and                 Types of media:
+       unguided media (radio                         Guided: Twisted pair (UTP & STP),
+       waves, microwaves,                               Coaxial, and Optical fiber (single
+       infrared)                                        mode, multimode - step index, graded
+                                                        index)
+                                                     Unguided media (radio waves,
+                                                        microwaves-terrestrial and satellite,
+                                                        infrared)
+                                                   Features, merits and demerits of each.
+       2.5 Ethernet cable standards    E           Ethernet cable standards for twisted pair    0.5 0.5
+       (twisted pair and optical                   and optical fiber with bandwidth and other
+       fiber)                                      typical features.
+       2.6 Data encoding:              E           Data encoding techniques: Manchester,        0.5 0.5
+       Manchester, NRZ-I, MLT3,                    NRZ-I, MLT3, 4B/5B and their typical
+       4B/5B                                       uses in Ethernet and Fast-Ethernet with
+                                                   reasons.
+       Evaluation                      QA, Q
+
+
+
+
+Unit            Topic/Subtopic             Depth         Description of Depth                    Actual Week
+                                           Code                                                   plan
+                                                                                                L T P
+3      Data Link Layer
+       3.1 Data link layer functions   E           Data link layer and functions of data link 0.75
+       - Framing, error control,                   layer: Framing, Hop-to-hop delivery,
+       flow control, access                        Addressing, Error control, Flow control,
+       control                                     Access control.
+       3.2 Error control codes:        E, NUM      Error control codes: Parity, checksum, CRC 0.5 1
+       Parity, checksum, CRC                       with their features.
+       3.3 Data link protocols: PPP,   E           Data link protocols: PPP and HDLC with      0.5
+       HDLC                                        frame format.
+                                                                          (Micro Syllabus of Computer Networks)
+Unit            Topic/Subtopic              Depth         Description of Depth                     Actual Week
+                                            Code                                                    plan
+                                                                                                 L T P
+       3.4 Logical link control         D, E        Sublayers of data link layer, Functions of  0.25
+       (LLC) and media access                       LLC and MAC.
+       control (MAC) sublayers
+       3.5 Random access                E           Why channelization techniques are not-         1.5 0.5
+       protocols: ALOHA, CSMA,                      suitable for computer networks? Dynamic
+       CSMA/CD, CSMA/CA                             channel allocation. Random access
+                                                    protocols. Overview of ALOHA protocol.
+                                                    Features and working of CSMA,
+                                                    CSMA/CD and CSMA/CA protocols.
+       3.6 Token based protocols:       E           Problems with random access protocols          0.5
+       Token bus, token ring, FDDI                  and the features of token based protocols.
+                                                    Basic working, Overview of token based
+                                                    protocols: Token bus, token ring, FDDI
+       3.7 Ethernet (IEEE 802.3)        E           Ethernet and IEEE 802.3, Access                1.5 0.5
+       and its evolution, bridged                   technique in Ethernet, Frame format of
+       and switched Ethernet                        Ethernet and function of each field,
+                                                    Evolution of Ethernet from 10 Mbps to
+                                                    several Gbps. Switched Ethernet, Full-
+                                                    duplex Ethernet, Ethernet extension using
+                                                    repeater/hub and bridge/switch.
+       3.8 WLAN (Wi-Fi) and             E           WLAN and IEEE 802.11, Evolution of             1.5 0.5
+       IEEE 802.11                                  WLAN, WLAN standards, Access
+                                                    technique in WLAN, Frame format of
+                                                    WLAN and function of each field, NAV,
+                                                    RTS & CTS, Hidden station and exposed
+                                                    station problems.
+       3.9 VLAN and its                 E           VLAN and its importance, extension of          0.5
+       importance                                   VLAN across multiple switches, Inter-
+                                                    VLAN communication
+       3.10 Virtual circuit             E           Features of virtual circuit switching, basic   0.5
+       switching: ATM, MPLS                         working of protocols: ATM, MPLS
+       Evaluation                       QA, Q
+
+
+
+
+Unit            Topic/Subtopic              Depth          Description of Depth                      Actual Week
+                                            Code                                                      plan
+                                                                                                    L T P
+4      Network Layer
+       4.1 Network layer functions      E           Network layer, function of network layer,      0.5
+       and services                                 services provided by network layer.
+       4.2 Connection oriented and      D, E        Connection oriented and connectionless         0.25
+       connectionless network                       services from network layer.
+       services
+       4.3 Logical addressing and       E           Logical addressing (IP addressing), need of 0.25
+       its importance                               logical addressing and its importance.
+       4.4 IPv4 addressing and          E, NUM      IPv4 addressing, Classes of IPv4             2 3
+       classes, private and public IP               addresses, Private and Public IP address.
+       address, sub-netting                         Subnetting and need of subnetting.
+       and super-netting, VLSM,                     Subnetting with FLSM and VLSM
+       CIDR                                         Supernettting and CIDR.
+       4.5 Unicast, multicast and       D, E        Unicast, Multicast and Broadcast addresses 0.25
+       broadcast addresses                          and their uses.
+                                                                             (Micro Syllabus of Computer Networks)
+Unit            Topic/Subtopic               Depth          Description of Depth                     Actual Week
+                                             Code                                                     plan
+                                                                                                    L T P
+       4.6 Routing and types of          D, E        Autonomous system, types and AS-number 1.25 0.5
+       routing: Static and dynamic,                  Routing, Need of routing, Principal of
+       unicast and multicast,                        optimality in routing, Parameters of
+       interior and exterior, distance               routing algorithms. Flooding.
+       vector and link state                         Types of routing: Static and dynamic,
+                                                     unicast and multicast, interior and exterior,
+                                                     distance vector and link state.
+                                                     Distance vector routing - features and
+                                                     issues
+                                                     Link state routing - features and issues
+       4.7 Routing protocols: RIP,       E           Dynamic routing protocols and their need       2 0.5
+       OSPF, EIGRP, BGP                              RIP, its features and working, RIPv2
+                                                     OSPF, its features and working, multi-area
+                                                     OSPF, ABR. EIGRP and its features. Path
+                                                     vector outing, BGP and its basic features
+       4.8 Network address               D, E        Network address translation (NAT) and its      1 0.5
+       translation (NAT)                             importance. Static and dynamic NAT,
+                                                     NAPT and its need. SNAT and DNAT
+                                                     with their applications.
+       4.9 IPv6 addressing, need         E           IPv6 addressing, need of IPv6, features of    0.5 0.5
+       and features of IPv6                          IPv6. IPv6 address format. IPv6 address
+                                                     types: Unicast, Multicast and Anycast
+       4.10 Protocols: IPv4, ARP,        E           Packet format and function of each field of    2 0.5
+       ICMP, IPv6, ICMPv6                            header of protocols: IPv4 and ARP
+                                                     Need of ICMP, packet format of ICMP.
+                                                     Debugging tools using ICMP.
+                                                     Packet format and function of each field of
+                                                     IPv6 header, Concept of IPv6 extension
+                                                     headers. ICMPv6 with packet format and
+                                                     uses, MLD and NDP.
+       4.11 Transition from IPv4 to      E           Transition from IPv4 to IPv6 and different     1
+       IPv6 and strategies                           strategies for transition: Dual stack,
+                                                     Tunneling, Header translation
+       4.12 Traffic shaping and          E           Network congestion and its impact.             1
+       congestion control                            Different mechanisms for congestion
+       mechanisms                                    control. Traffic shaping algorithms.
+       Evaluation                        QA, Q
+
+
+
+Unit            Topic/Subtopic               Depth         Description of Depth                     Actual Week
+                                             Code                                                    plan
+                                                                                                   L T P
+5      Transport Layer
+       5.1 Transport layer functions     E           Transport layer and its functions. Services   0.5
+       and services                                  provided by the transport layer.
+                                                                         (Micro Syllabus of Computer Networks)
+Unit            Topic/Subtopic             Depth          Description of Depth                   Actual Week
+                                           Code                                                    plan
+                                                                                                L T P
+       5.2 Elements of transport       E           Elements of transport layer protocols:      0.5
+       layer protocols: process-to-                ● End process-to-process
+       process communication,                          communication
+       addressing, multiplexing and                ● Addressing
+       de-multiplexing,                            ● Multiplexing and de-multiplexing
+       segmentation and                            ● Segmentation and reassembly
+       reassembly, error control,                  ● Error control
+       flow control                                ● Flow control
+                                                   ● Connectionless and connection
+                                                       oriented services
+       5.3 Transport protocols: TCP    E           Protocol format and function of each field  2.5 1
+       and UDP                                     of header of transport layer protocols: TCP
+                                                   and UDP
+       5.4 TCP services: connection    E           TCP services                                 1 1
+       setup and release, reliable,                Connection setup, Data-transfer and
+       stream oriented,                            Connection release.
+       flow-control, error-control                 Reliable, stream oriented service with
+                                                   flow-control and error-control.
+                                                   TCP sliding window.
+       5.5 Introduction to socket      E           Introduction to socket and the basic        0.5
+       and socket programming                      concept of socket programming.
+       Evaluation                      QA, Q
+
+
+
+Unit            Topic/Subtopic             Depth         Description of Depth                  Actual Week
+                                           Code                                                 plan
+                                                                                              L T P
+6       Upper Layers and Network
+        Design
+       6.1 Functions and services of   E           Functions and services of session,         0.5
+       session, presentation and                   presentation and application layers
+       application layers
+        6.2 Introduction to upper      E           Introduction to upper layer protocols:     1.5 0.5
+        layer protocols: DHCP,                     DHCP, HTTP, HTTPS, FTP, SMTP,
+        HTTP, HTTPS, FTP, SMTP,                    POP and IMAP with their basic functions.
+        POP, IMAP
+        6.3 DNS, its function and      E           DNS and its importance. DNS hierarchies,   1.5 0.5
+        DNS queries                                DNS queries: Recursive and Iterative
+        6.4 Network management         E           Overview of network management tools       0.5
+        tools and protocols (SNMP)                 and protocols (SNMP) with their
+                                                   applications.
+       6.5 Basics of web, e-mail,      E           Basic idea of web, e-mail, DNS and proxy   0.5 0.5
+       DNS and proxy server                        server configurations
+       configurations
+       6.6 VoIP, FoIP and IP           E           Overview of VoIP, FoIP and IP              0.5
+       interconnection                             interconnection
+       6.7 Network design and          E           Basic network design and configuration     1 0.5
+       configuration guidelines                    guidelines
+       Evaluation                      QA, Q
+                                                                        (Micro Syllabus of Computer Networks)
+ Unit            Topic/Subtopic             Depth         Description of Depth                  Actual Week
+                                            Code                                                 plan
+                                                                                               L T P
+ 7      Advanced Topics
+        7.1 Introduction to software-   E           Introduction to software-defined          1.5
+        defined networking (SDN),                   networking (SDN), basic architecture,
+        basic architecture,                         importance and applications.
+        importance and applications
+        7.2 Network security and its    E           Introduction to network security and its   1
+        importance                                  importance, Introduction to Symmetric and
+                                                    Asymmetric encryption techniques
+        7.3 Overview of content         E           Overview of content delivery networks     0.75
+        delivery networks (CDNs),                   (CDNs), named data networking
+        named data networking                       (NDN), intent based networking (IBN).
+        (NDN), intent based
+        networking (IBN)
+        7.4 Quantum network,            E           Introduction to quantum network          0.75
+        network virtualization and                  Overview of network virtualization
+        recent trends in networking                 Recent trends in networking.
+        Evaluation                      QA, Q
+
+
+
+References:
+1. Forouzan, B. A. (2012). Data communications and networking. McGraw‐Hill.
+2. Kurose, J. F., Ross, K. W. (2017). Computer networking: A top‐down approach. Pearson.
+3. Tanenbaum, A.S., Feamster, N. (2021). Computer networks. Pearson.
+4. Stevens, W.R., Fall, K.R. (2011). TCP/IP illustrated: The protocols. Addison‐Wesley.
+5. RFCs and online resources for protocol specifications.
+                                                                        (Micro Syllabus of Computer Networks)
+                                     Final Exam - Model Question
+                                         Computer Networks
+                                                ENCT 304
+Year/Part: III/I
+ QN    Question                                                                               Marks     Unit
+
+  1.   Why layered models are used in network architecture? Explain the functions of          [2+4]
+                                                                                                          1
+       each layer of TCP/IP model with example protocols at each layer.
+  2.   What are the importance of switching and multiplexing? Explain different               [3+3]
+                                                                                                          2
+       techniques of multiplexing with typical applications of each.
+  3.   What is collision? What are the problems due to collision? How the possibilities       [1+1+4]
+                                                                                                          3
+       of collision be reduced in IEEE 802.3 and IEEE 802.11 protocols?
+  4.   What is a virtual LAN? Why is it called as virtual? Explain how the frames can         [1+1+4]
+       be delivered from on computer to another computer connected in different                           3
+       switches but within the same VLAN.
+  5.   Suppose your company has obtained the IP addresses of 175.25.64.0/23 from your         [6]
+       ISP. You have to divide this address for different departments A, B, C, D, E and
+       F having 60, 70, 40, 10, 80 and 20 numbers of hosts respectively. In addition to
+       this there are three networks G, H and I for point-to-point connection between                     4
+       routers. Allocate the IP address range for each of the sub-networks with their
+       network address, broadcast address and subnet mask. Also list out the remaining
+       range of IP addresses (if any).
+  6.   Why is co-existence of IPv4 and IPv6 necessary? Explain the different strategies       [2+4]
+                                                                                                          4
+       for transition from IPv4 to IPv6.
+  7.   What are the services provided by the transport layer? Explain connection              [2+4]
+                                                                                                          5
+       establish and connection release of TCP for data transfer with suitable diagrams.
+  8.   What is the importance of DNS? How can a DNS request from a client computer            [2+4]
+                                                                                                          6
+       be resolved from authoritative server? Explain with suitable diagrams.
+ 9.    What is SDN? Explain its architecture with necessary diagrams.                         [2+4]       7
+ 10.   Write short notes on: (any two)                                                        [23]
+       a) OSPF                                                                                          4&
+       b) ICMP                                                                                           6
+       c) SNMP
+
+                   Note: Number of questions and distribution of marks are indicative only.
+

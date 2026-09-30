@@ -1,0 +1,294 @@
+OBJECT ORIENTED PROGRAMMING
+ENCT 151
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : I
+Part : II
+Course Objectives:
+To provide students with foundation in understanding and applying principles of object
+oriented programming. Emphasis will be given on developing object oriented
+programming skills using C ++.
+1
+Introduction to Object Oriented Programming
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+2
+History of programming languages
+Need of object oriented programming(OOP)
+Object oriented programming versus procedure oriented programming
+Concepts of object oriented programming
+Popular object oriented languages
+Advantages of OOP
+Disadvantages of OOP
+Basics of C++ Programming
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+2.9
+2.10
+2.11
+2.12
+2.13
+2.14
+(3 hours)
+C++ Program structure
+Character set and tokens
+Variable declaration and expression
+Data types
+Type conversion and casting
+User defined constant const
+Reference variables
+Conditions and looping
+Namespace scope
+Functions
+2.10.1 Function overloading
+2.10.2 Inline function
+2.10.3 Default arguments
+2.10.4 Pass by reference and return by reference
+Array, pointer and string
+Structure and unions
+Enumeration
+Dynamic memory allocation
+(5 hours)
+3
+Objects and Classes
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+3.7
+3.8
+3.9
+3.10
+3.11
+3.12
+3.13
+3.14
+3.15
+3.16
+3.17
+4
+5
+C++ classes
+Objects and the member access
+Relation of object, class and memory
+Defining member function
+Defining outer function inline
+Objects as member
+Constructors and destructors
+Object as function arguments
+Returning objects from functions
+Array of objects
+Pointer to objects
+Dynamic memory allocation for objects
+Dynamic constructors
+Pointer
+Static data member and static member function
+Constant member functions and constant objects
+Friend functions and friend classes
+Operator Overloading
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+4.7
+4.8
+(5 hours)
+Overloadable and non- overloadable operators
+Syntax of operator overloading
+Operator overloading using member operator functions
+Operator overloading using non member functions
+Unary operator overloading
+Binary operator overloading
+Type conversion between objects
+Explicit constructors
+Inheritance
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+5.7
+5.8
+5.9
+5.10
+(7 hours)
+Base class and derived class
+protected access specifier
+Derived class declaration
+Is_a relation and Has_a relation
+Public, protected and private inheritance
+Member overriding
+Forms of inheritance
+Constructors in derived class
+Destructor in derived class
+Need of virtual base class
+(5 hours)
+6
+Virtual Functions
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+6.7
+6.8
+7
+8
+(6 hours)
+Function template
+Overloading function template
+Class template
+Derived class template
+Introduction to standard template library
+8.5.1 Components of STL
+8.5.2 Container
+8.5.3 Iterators
+8.5.4 Algorithms
+Exception Handling
+9.1
+9.2
+9.3
+9.4
+9.5
+(6 hours)
+Input/output stream class hierarchy
+Testing stream errors
+Unformatted input/output and formatted input/output
+Stream operator overloading
+File input/output with streams
+File stream class hierarchy
+ASCII and binary files
+Read/Write from file
+Sequential access to file
+Random access to file
+File access pointers and their manipulators
+Testing errors during file operations
+File input/output with member functions
+Templates
+8.1
+8.2
+8.3
+8.4
+8.5
+9
+What is virtual function
+Need of virtual function
+Pointer to derived class
+Array of pointers to base class
+Pure virtual functions and abstract class
+Virtual destructors
+Reinterpret cast operator
+Run-time type information
+Stream Computation
+7.1
+7.2
+7.3
+7.4
+7.5
+7.6
+7.7
+7.8
+7.9
+7.10
+7.11
+7.12
+7.13
+(4 hours)
+Basics of exception handling
+Advantage over conventional error handling
+Exception handling mechanism
+Multiple handlers
+Catching all exceptions
+(4 hours)
+9.6
+9.7
+9.8
+9.9
+9.10
+9.11
+Rethrowing exception
+Exception with arguments
+Exceptions specification for function
+Exceptions in constructors and destructors
+Handling uncaught exceptions
+Handling unexpected exception
+Tutorial
+(15 hours)
+After completing each chapter some problems are solved and students are asked to
+solve programming problems with the teacher’s assistance.
+Assignment
+Appropriate assignment problems are given to students after the completion of each
+chapter.
+Practical
+(45 hours)
+There will be nine laboratory exercises encompassing the entire course content. At the
+end of the course, students are required to submit a programming project
+demonstrating the application of object-oriented programming concepts.
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as possible as indicated in the table below:
+Chapter
+Hours
+Marks Distribution*
+1
+3
+4
+2
+5
+7
+3
+7
+9
+4
+5
+7
+5
+5
+7
+6
+4
+5
+7
+6
+8
+8
+6
+8
+9
+4
+5
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+References
+1.
+Schildt, H. (2015). C++: The Complete Reference. McGraw-Hill Education.
+2.
+Baral, D.S., Baral, D. (2010). Secrets of Object Oriented Programming in
+C++. Bhundipuran Prakasan.
+3.
+Lafore, R. (2002). Object Oriented Programming in C++. Sams Publishing.
+4.
+Deitel, H.M., Deitel, P.J. (2007). C++ How to Program. Prentice Hall.

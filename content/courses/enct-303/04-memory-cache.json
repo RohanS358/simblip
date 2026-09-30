@@ -1,0 +1,286 @@
+{
+  "title": "Memory hierarchy and caches",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 4",
+  "subtitle": "Fast memory is small, big memory is slow — a cache makes the big slow one look fast by remembering what you just used.",
+  "sections": [
+    {
+      "id": "hier",
+      "locator": "4.1",
+      "title": "The hierarchy",
+      "eyebrow": "Speed vs size",
+      "body": "<p>No memory is fast, large and cheap at once, so computers stack them: registers (sub-ns, bytes), cache (ns, KB–MB), main memory (≈100 ns, GB), disk/SSD (µs–ms, TB). It works because of <em class=\"term\">locality</em>: <em class=\"term\">temporal</em> (what you used you will use again) and <em class=\"term\">spatial</em> (what is near what you used will be used). The hierarchy moves data in blocks so neighbours come along.</p>",
+      "questions": [
+        {
+          "id": "spatial",
+          "prompt": "Looping over an array element by element is fast on a cache mainly because of…",
+          "choices": [
+            {
+              "text": "Temporal locality of each element."
+            },
+            {
+              "text": "Spatial locality — one block fetch brings in the next few elements too.",
+              "correct": true
+            },
+            {
+              "text": "The CPU clock."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Each element is used once in the pass."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each miss loads a whole block, so the following accesses hit."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.1.1 — memory hierarchy",
+          "note": "Each level is a cache for the one below.",
+          "script": "diagram(\"direction: down\\n[Registers: ~0.3 ns, bytes] as a #rose\\n[L1/L2/L3 cache: 1–20 ns, KB–MB] as b #amber\\n[Main memory (DRAM): ~100 ns, GB] as c #mint\\n[SSD / disk: 0.1–10 ms, TB] as d #blue\\na -> b : miss\\nb -> c : miss\\nc -> d : page fault\");"
+        }
+      ]
+    },
+    {
+      "id": "mapping",
+      "locator": "4.2",
+      "title": "Mapping: where may a block go?",
+      "eyebrow": "Design",
+      "body": "<p>A block of memory can be placed in: exactly one line (<em class=\"term\">direct-mapped</em>: cheap, but blocks that map to the same line keep evicting each other — <em class=\"term\">conflict misses</em>); any line (<em class=\"term\">fully associative</em>: flexible, expensive to search); or any line within one set (<em class=\"term\">set-associative</em>, e.g. 2-way: the usual compromise). An address splits into <b>tag | index | offset</b>; the index picks the set, the tag is compared with each line in it, the offset picks the byte.</p><p>Same 5 addresses <code>0 8 0 6 8</code> into a 4-line cache: direct-mapped gets <b>5</b> misses, 2-way <b>4</b>, fully associative <b>3</b>.</p>",
+      "worked": [
+        {
+          "toc": "Offset",
+          "why": "A 32-bit address, 4 KB direct-mapped cache with 16-byte blocks. Offset bits = log₂16 = 4.",
+          "math": "4"
+        },
+        {
+          "toc": "Tag",
+          "why": "Lines = 4096/16 = 256 → index bits = 8. Tag = 32 − 8 − 4 = 20 bits.",
+          "math": "\\text{tag}=32-8-4=20",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "conflict",
+          "prompt": "Why does the direct-mapped cache miss on the second reference to address 0?",
+          "choices": [
+            {
+              "text": "The cache is too small for any data."
+            },
+            {
+              "text": "Address 8 mapped to the same line and evicted it (a conflict miss).",
+              "correct": true
+            },
+            {
+              "text": "Address 0 was never loaded."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It has four lines and only three distinct blocks."
+            },
+            {
+              "title": "Correct.",
+              "body": "With one allowed place, two hot blocks that share an index thrash."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It was loaded by the first reference."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.2.1 — direct-mapped",
+          "note": "Addresses 0 and 8 both map to line 0 and keep evicting each other.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dm\",\"engine\":\"cache\",\"lines\":4,\"block\":1,\"addrs\":\"0 8 0 6 8\",\"mapping\":\"direct\",\"width\":600,\"height\":440});",
+          "expect": {
+            "dm": {
+              "misses": "5"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 4.2.2 — 2-way set associative",
+          "note": "2-way: 0 and 8 can coexist in the set.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sa\",\"engine\":\"cache\",\"lines\":4,\"block\":1,\"addrs\":\"0 8 0 6 8\",\"mapping\":\"set\",\"ways\":2,\"width\":600,\"height\":440});",
+          "expect": {
+            "sa": {
+              "misses": "4"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 4.2.3 — fully associative",
+          "note": "Fully associative: only compulsory misses.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fa\",\"engine\":\"cache\",\"lines\":4,\"block\":1,\"addrs\":\"0 8 0 6 8\",\"mapping\":\"full\",\"width\":600,\"height\":440});",
+          "expect": {
+            "fa": {
+              "misses": "3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "policy",
+      "locator": "4.3",
+      "title": "Replacement and write policies",
+      "eyebrow": "Decisions",
+      "body": "<p>When a set is full, replacement picks a victim: <em class=\"term\">LRU</em> (least recently used), <em class=\"term\">FIFO</em>, or random. On a write: <em class=\"term\">write-through</em> updates memory every time (simple, slow; often with a write buffer); <em class=\"term\">write-back</em> marks the line dirty and writes memory only on eviction (fast; complicated). On a write miss: <em class=\"term\">write-allocate</em> loads the block first, <em class=\"term\">no-write-allocate</em> writes straight to memory.</p>",
+      "questions": [
+        {
+          "id": "wb",
+          "prompt": "What does a write-back cache save compared with write-through?",
+          "choices": [
+            {
+              "text": "It saves the tag bits."
+            },
+            {
+              "text": "It never needs memory."
+            },
+            {
+              "text": "Memory traffic: repeated writes to one line cost one write at eviction.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Write-back adds a dirty bit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Memory is updated on eviction."
+            },
+            {
+              "title": "Correct.",
+              "body": "The dirty bit remembers that memory is stale."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "amat",
+      "locator": "4.4",
+      "title": "Average memory access time",
+      "eyebrow": "The payoff",
+      "body": "<p>AMAT = hit time + miss rate × miss penalty. With a 1-cycle hit, 100-cycle penalty and the fully associative run above (40% hits) AMAT is <b>61</b> cycles — a cache with a 90% hit rate would give 1 + 0.1 × 100 = <b>11</b>. Multi-level caches nest the formula: the L1 miss penalty is the L2 access time.</p>",
+      "questions": [
+        {
+          "id": "amat",
+          "prompt": "Hit time 2 ns, miss rate 5%, miss penalty 80 ns. AMAT?",
+          "choices": [
+            {
+              "text": "6 ns.",
+              "correct": true
+            },
+            {
+              "text": "2 ns."
+            },
+            {
+              "text": "4 ns."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "2 + 0.05 × 80 = 6."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That ignores misses."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Forgets the hit time."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 4.4.1 — AMAT of the fully associative run",
+          "note": "The AMAT appears in the results.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"am\",\"engine\":\"cache\",\"lines\":4,\"block\":1,\"addrs\":\"0 8 0 6 8\",\"mapping\":\"full\",\"hitTime\":1,\"missPenalty\":100,\"width\":600,\"height\":440});",
+          "expect": {
+            "am": {
+              "hitRate": "40",
+              "amat": "61"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-tag",
+          "prompt": "<p>Direct-mapped, 64 KB cache, 32-byte blocks, 32-bit addresses. Give the tag, index and offset widths.</p>",
+          "answer": "Offset = 5 bits (32 B). Lines = 64K/32 = 2048 → index = 11. Tag = 32 − 11 − 5 = <b>16 bits</b>."
+        }
+      ]
+    },
+    {
+      "id": "ext",
+      "locator": "4.5",
+      "title": "Semiconductor and external memory",
+      "eyebrow": "Technologies",
+      "body": "<p>SRAM (flip-flops) is fast and used for caches; DRAM (a capacitor plus transistor, refreshed constantly) is denser and used for main memory, in DDR DIMM/SODIMM modules. ROM/flash hold firmware. Externally: magnetic disk, SSD, optical and tape; RAID levels 1–5 add redundancy (see the OS course for a worked RAID 5 parity example).</p>",
+      "questions": [
+        {
+          "id": "dram",
+          "prompt": "Why does DRAM need refreshing?",
+          "choices": [
+            {
+              "text": "It is volatile by design."
+            },
+            {
+              "text": "The charge on each capacitor leaks away.",
+              "correct": true
+            },
+            {
+              "text": "SRAM cells are slower."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "True, but refresh is about leakage."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each row is periodically read and rewritten."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They are faster and need no refresh."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Locality makes a small fast memory effective.</li><li>Direct, set-associative and fully associative trade cost against conflict misses.</li><li>AMAT = hit + miss rate × penalty.</li></ul>"
+    }
+  ]
+}

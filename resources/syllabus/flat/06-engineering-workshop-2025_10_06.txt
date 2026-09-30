@@ -1,0 +1,128 @@
+ENGINEERING WORKSHOP
+ENME 106
+Lecture
+Tutorial
+Practical
+:1
+:0
+:3
+Year : I
+Part : I
+Course Objectives:
+After completing this course, the students will be able to practice workshop safety rules
+effectively with different hand tools and machine tools for producing metal and sheet
+metal components. Acquire knowledge and practice on casting, forging, welding,
+soldering, brazing and riveting.
+1
+Safety Measures in the Workshop
+1.1
+1.2
+2
+2.2
+2.3
+3
+(1 hour)
+Classification of threads
+Thread cutting tools for hand threading
+Threading taps: Types, uses and care
+Threading dies: Types, uses and care
+Thread cutting by hand: Cutting internal and external thread
+Sheet Metal
+4.1
+4.2
+(4 hours)
+Fitting Tools: Types, uses of holding tools, sticking tools, cutting tools
+(Files, chisels, hacksaw), scrapping tools (Scrappers), drilling tools (Drill
+bits), measuring, marking and testing tools (Steel rule, calipers, divider,
+surface plate, scriber, surface gauge, punches, angle plate, try square,
+combination sets, vernier caliper, micrometer, bevel protractor,
+miscellaneous tools (Wrenches, screw drivers and pliers)
+Benchwork and fitting operation
+Filling operations, chipping operations and sawing operation
+Thread Cutting
+3.1
+3.2
+3.3
+3.4
+3.5
+4
+Causes of accident
+Types of safety: General safety, personal safety, machine and equipment
+safety, job safety
+Bench Work and Fittings
+2.1
+(1 hour)
+(2 hours)
+Introduction, sheet metal tools, sheet metal operation
+Rivet types, types of rivet joints, riveting tools and their uses, riveting
+procedure
+5
+Machine Tools
+5.1
+5.2
+6
+7
+7.2
+8.2
+(2.5 hours)
+Arc welding: Introduction, arc welding equipment and accessories,
+influencing factor in arc welding, methods of striking an arc (Tap, scratch),
+electrodes, types of joint, welding positions, TIG, MIG welding
+Gas welding: Oxyacetylene gas welding, oxyacetylene gas welding
+accessories, filler rods, fluxes, types of flames and uses
+Brazing and Soldering
+8.1
+(1.5 hours)
+Introduction, forging tools, forging operations
+Introduction, pattern making foundry tools, core making, sand casting
+process
+Welding
+7.1
+8
+Lathes: Working principle, types of lathes, main parts of lathe, lathe
+operations (Facing, centre drilling, turning, knurling, boring, chamfering,
+thread cutting, counter sinking, counter boring)
+Drilling Machine: Types of drilling machine, types of drill bits, drilling
+operations (Drilling, counter boring, reaming, tapping)
+Forging and Casting
+6.1
+6.2
+(2 hours)
+(1 hour)
+Introduction, brazing equipment and materials, brazing process, surface
+clearing, join design, support parts, brazing operations (Heating, filler metal
+applications, flux application, clearing after brazing)
+Introduction, flux, soft solder and soldering process
+Practical
+(45 hours)
+1. Fitting Practice: Demonstration, usage of different types of hand tools and
+measuring instruments
+2. Perform filing, sawing, drilling and tapping operations on given mild steel strip
+3. Machining practice: Perform lathe operations
+4. Welding Practice: Perform arc welding and oxyacetylene gas welding
+operations
+5. Sheet metal practice: Perform sheet metal operations
+6. Soldering and brazing
+7. Electrical installations
+Reference
+1.
+Khurmi, R.S., Gupta, J.K. (2008). A Textbook of Workshop Technology. S.
+Chand Publishing.
+2.
+Raghuwanshi, B.S. (1990). A Course in Workshop Technology, Volume II
+(machine tools). New Delhi: Dhanpat Rai & Company.
+3.
+4.
+5.
+6.
+7.
+Choudhary, S.K.H., Choudhary, A.K.H. (2005). Elements of Workshop
+Technology Vol. I and II: Manufacturing Processes. Media promoter &
+publishers.
+Khurmi, R. S., Gupta, J. K. (2008). A Textbook of Workshop Technology. S.
+Chand Publishing.
+Rajput, R.K. (2007). A textbook of manufacturing technology: Manufacturing
+processes. Firewall Media.
+Rao, K.V. (2002). Manufacturing Science and Technology-Manufacturing
+Processess and Machine Tools. New Age International.
+Heinrich, G. (2006). All About Machine Tools. New Age International.

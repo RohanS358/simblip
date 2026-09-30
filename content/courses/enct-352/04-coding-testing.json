@@ -1,0 +1,315 @@
+{
+  "title": "Coding and testing",
+  "kicker": "ENCT 352 · Software Engineering · Chapter 6",
+  "subtitle": "Testing cannot prove a program correct — but well-chosen tests find most of the bugs, cheaply.",
+  "sections": [
+    {
+      "id": "std",
+      "locator": "6.1",
+      "title": "Coding practice",
+      "eyebrow": "Write for the next reader",
+      "body": "<p>Follow a coding standard: meaningful names, small functions, comments that say <i>why</i>, consistent layout, no duplicated logic. Code review catches defects and spreads knowledge. Refactoring improves structure without changing behaviour — safely, only with tests.</p>",
+      "questions": [
+        {
+          "id": "ref",
+          "prompt": "Refactoring changes…",
+          "choices": [
+            {
+              "text": "Structure, not behaviour.",
+              "correct": true
+            },
+            {
+              "text": "Behaviour, not structure."
+            },
+            {
+              "text": "Only comments."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Tests should still pass."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a feature change."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Too narrow."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "levels",
+      "locator": "6.2",
+      "title": "Levels of testing",
+      "eyebrow": "Small to large",
+      "body": "<p><b>Unit</b> tests check one function; <b>integration</b> tests check modules together; <b>system</b> tests check the whole against requirements; <b>acceptance</b> tests are run by the customer. The test pyramid says: many fast unit tests, fewer integration tests, very few slow end-to-end tests.</p>",
+      "questions": [
+        {
+          "id": "pyr",
+          "prompt": "Which tests should be most numerous?",
+          "choices": [
+            {
+              "text": "Unit tests.",
+              "correct": true
+            },
+            {
+              "text": "End-to-end tests."
+            },
+            {
+              "text": "Manual tests."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Fast and cheap."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Slow and brittle."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Costly to repeat."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 6.2.1 — test pyramid",
+          "note": "The wider the layer, the more tests.",
+          "script": "diagram(\"direction: down\\n[Few: end-to-end / acceptance] as e\\n[Some: integration] as i\\n[Many: unit] as u\\ne -> i\\ni -> u\");"
+        }
+      ]
+    },
+    {
+      "id": "bb",
+      "locator": "6.3",
+      "title": "Black-box techniques",
+      "eyebrow": "Test from the spec",
+      "body": "<p><b>Equivalence partitioning</b>: split inputs into classes that should behave alike and test one of each. <b>Boundary value analysis</b>: bugs cluster at edges, so test min, min+1, max−1, max and just outside. A field accepting ages 18–60 has partitions &lt;18, 18–60, &gt;60 and boundaries 17, 18, 19, 59, 60, 61.</p>",
+      "worked": [
+        {
+          "toc": "Ends",
+          "why": "Valid range 18–60. Boundary tests (two-value form): below, on, above each end."
+        },
+        {
+          "toc": "Values",
+          "why": "Test values: 17, 18, 60, 61.",
+          "math": "4\\ \\text{tests}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bva",
+          "prompt": "For inputs 1–100, which set is a boundary test?",
+          "choices": [
+            {
+              "text": "25, 50, 75."
+            },
+            {
+              "text": "1000, 2000."
+            },
+            {
+              "text": "0, 1, 100, 101.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Mid-range only."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not near the edges."
+            },
+            {
+              "title": "Correct.",
+              "body": "Just outside and on both edges."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-bva",
+          "prompt": "<p>A quantity field accepts 1–10. List boundary values.</p>",
+          "answer": "<b>0, 1, 2, 9, 10, 11</b> (three-value form) — 0 and 11 are invalid."
+        }
+      ]
+    },
+    {
+      "id": "wb",
+      "locator": "6.4",
+      "title": "White-box and cyclomatic complexity",
+      "eyebrow": "Test from the code",
+      "body": "<p>Coverage measures how much code the tests execute: statement, branch, path. Cyclomatic complexity V(G) = E − N + 2 (or decisions + 1) counts independent paths — the minimum number of test cases for basis-path coverage. V(G) above about 10 marks code that should be split.</p>",
+      "worked": [
+        {
+          "toc": "Decisions",
+          "why": "Two if-statements: decisions = 2."
+        },
+        {
+          "toc": "V(G)",
+          "why": "Independent paths = 2 + 1.",
+          "math": "V(G)=3",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cc",
+          "prompt": "A function has one loop and two ifs. V(G) =",
+          "choices": [
+            {
+              "text": "3."
+            },
+            {
+              "text": "4.",
+              "correct": true
+            },
+            {
+              "text": "2."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Forgot the +1."
+            },
+            {
+              "title": "Correct.",
+              "body": "Decisions (3) + 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Counted only ifs."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.4.1 — control-flow graph",
+          "note": "Two decisions, so V(G) = 3.",
+          "script": "diagram(\"direction: down\\n[Start] as s\\n[if a > 0] as d1\\n[if b > 0] as d2\\n[End] as e\\ns -> d1\\nd1 -> d2 : yes\\nd1 -> e : no\\nd2 -> e\");"
+        }
+      ]
+    },
+    {
+      "id": "tdd",
+      "locator": "6.5",
+      "title": "Test-driven development",
+      "eyebrow": "Red, green, refactor",
+      "body": "<p>Write a failing test (red), write just enough code to pass (green), then clean up (refactor), and repeat. The tests document behaviour and let you change code fearlessly.</p>",
+      "questions": [
+        {
+          "id": "tddq",
+          "prompt": "In TDD the first step is…",
+          "choices": [
+            {
+              "text": "Write the code."
+            },
+            {
+              "text": "Write a test that fails.",
+              "correct": true
+            },
+            {
+              "text": "Refactor."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Code comes after."
+            },
+            {
+              "title": "Correct.",
+              "body": "It proves the test can fail."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Last step."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 6.5.1 — TDD cycle",
+          "note": "A tight loop of minutes.",
+          "script": "diagram(\"direction: right\\n[Write failing test] as r\\n[Make it pass] as g\\n[Refactor] as f\\nr -> g : red\\ng -> f : green\\nf -> r : next behaviour\\n@0 r -> g\\n@1 g -> f\\n@2 f -> r\\nloop 3\");"
+        }
+      ]
+    },
+    {
+      "id": "dbg",
+      "locator": "6.6",
+      "title": "Debugging and reliability",
+      "eyebrow": "After it fails",
+      "body": "<p>Reproduce, isolate (bisect the input or the history), find the cause, fix, add a regression test. Reliability is measured by MTBF; availability = MTBF/(MTBF + MTTR).</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "MTBF = 500 h, MTTR = 5 h."
+        },
+        {
+          "toc": "A",
+          "why": "Availability = 500/505.",
+          "math": "A=0.990",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "avail",
+          "prompt": "Halving repair time (MTTR) mainly improves…",
+          "choices": [
+            {
+              "text": "MTBF."
+            },
+            {
+              "text": "Availability.",
+              "correct": true
+            },
+            {
+              "text": "Code coverage."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Failures occur as often."
+            },
+            {
+              "title": "Correct.",
+              "body": "Less downtime per failure."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-av",
+          "prompt": "<p>MTBF 900 h, MTTR 10 h. Availability?</p>",
+          "answer": "900/910 = <b>98.9 %</b>."
+        }
+      ]
+    }
+  ]
+}

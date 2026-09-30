@@ -1,0 +1,305 @@
+{
+  "title": "Perceptrons and backpropagation",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 5",
+  "subtitle": "One neuron draws a line. Stack layers and the network can draw any boundary — if you can train it.",
+  "sections": [
+    {
+      "id": "neuron",
+      "locator": "5.1",
+      "title": "The artificial neuron",
+      "eyebrow": "Building block",
+      "body": "<p>A neuron computes a weighted sum of its inputs plus a bias, z = Σ wᵢxᵢ + b, then applies an <em class=\"term\">activation function</em>: step (perceptron), sigmoid 1/(1+e⁻ᶻ), tanh, or ReLU max(0, z). Without a non-linearity, any stack of layers collapses into one linear map.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Inputs (1, 0), weights (0.5, −0.3), bias 0.1."
+        },
+        {
+          "toc": "Output",
+          "why": "z = 0.5·1 + (−0.3)·0 + 0.1 = 0.6; sigmoid(0.6) = 1/(1 + e⁻⁰·⁶).",
+          "math": "\\sigma(0.6)\\approx0.646",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "nonlin",
+          "prompt": "Why do we need a non-linear activation?",
+          "choices": [
+            {
+              "text": "To make numbers smaller."
+            },
+            {
+              "text": "To avoid bias terms."
+            },
+            {
+              "text": "Stacked linear layers are equivalent to a single linear layer.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Non-linearity is what gives depth its power."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "perc",
+      "locator": "5.2",
+      "title": "What one neuron can and cannot do",
+      "eyebrow": "Linear separability",
+      "body": "<p>A perceptron’s decision boundary is a straight line (hyperplane). It learns AND (converged: <b>yes</b>) but cannot learn XOR — Minsky and Papert’s 1969 observation which stalled the field. The cure is a hidden layer.</p>",
+      "questions": [
+        {
+          "id": "xor",
+          "prompt": "Why can a single perceptron not compute XOR?",
+          "choices": [
+            {
+              "text": "It has too few inputs."
+            },
+            {
+              "text": "No straight line separates {(0,1),(1,0)} from {(0,0),(1,1)}.",
+              "correct": true
+            },
+            {
+              "text": "XOR is undefined."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Two inputs are enough for AND."
+            },
+            {
+              "title": "Correct.",
+              "body": "A hidden layer combines two lines."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is well defined."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 5.2.1 — AND",
+          "note": "AND is linearly separable.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"and\",\"engine\":\"perceptron\",\"data\":\"0,0,0;0,1,0;1,0,0;1,1,1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "and": {
+              "converged": "yes"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 5.2.2 — XOR",
+          "note": "XOR is not.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"xor\",\"engine\":\"perceptron\",\"data\":\"0,0,0;0,1,1;1,0,1;1,1,0\",\"epochs\":20,\"width\":600,\"height\":440});",
+          "expect": {
+            "xor": {
+              "converged": "no"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mlp",
+      "locator": "5.3",
+      "title": "Multilayer networks and backpropagation",
+      "eyebrow": "Training",
+      "body": "<p>A <em class=\"term\">multilayer perceptron</em> has hidden layers between input and output. <em class=\"term\">Backpropagation</em> trains it: (1) forward pass computes the output; (2) the loss measures the error; (3) the chain rule sends the error gradient backwards, layer by layer, giving ∂L/∂w for every weight; (4) gradient descent updates w ← w − η ∂L/∂w. Run the 2-3-1 network on XOR: the loss falls to <b>0.0004</b> and all four outputs are right (<b>yes</b>).</p>",
+      "worked": [
+        {
+          "toc": "Output delta",
+          "why": "Output unit: y = σ(z), loss E = ½(y − t)². Its error signal is δ = (y − t)·y(1 − y).",
+          "math": "\\delta_o=(y-t)\\,y(1-y)"
+        },
+        {
+          "toc": "Hidden delta",
+          "why": "For a hidden unit h the signal is passed back through the weight: δ_h = δ_o · w · h(1 − h).",
+          "math": "\\delta_h=\\delta_o\\,w\\,h(1-h)"
+        },
+        {
+          "toc": "Update",
+          "why": "Each weight moves against its gradient: Δw = −η δ · (input to that weight).",
+          "math": "\\Delta w=-\\eta\\,\\delta\\,x",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bp",
+          "prompt": "Backpropagation computes…",
+          "choices": [
+            {
+              "text": "The forward output only."
+            },
+            {
+              "text": "The gradient of the loss with respect to every weight, using the chain rule backwards.",
+              "correct": true
+            },
+            {
+              "text": "The best learning rate."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the forward pass."
+            },
+            {
+              "title": "Correct.",
+              "body": "The update then follows by gradient descent."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not part of it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 5.3.1 — learning XOR",
+          "note": "Line thickness is |weight|; watch the loss curve fall.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mlp\",\"engine\":\"mlp\",\"width\":600,\"height\":440});",
+          "expect": {
+            "mlp": {
+              "loss": "0.0004",
+              "solved": "yes"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-mlp",
+          "prompt": "<p>After training, do all four XOR inputs give outputs on the correct side of 0.5?</p>",
+          "answer": "Yes: the trained network reports solved = <b>yes</b> with loss 0.0004."
+        }
+      ]
+    },
+    {
+      "id": "deep",
+      "locator": "5.4",
+      "title": "Deep learning and architectures",
+      "eyebrow": "Going further",
+      "body": "<p><em class=\"term\">Deep learning</em> uses many layers that learn features automatically. Convolutional networks share small filters across an image (translation-invariant features); recurrent networks carry a hidden state through a sequence; transformers replace recurrence with attention. Universal approximation: one hidden layer of enough units can approximate any continuous function — depth makes it efficient. Generative networks (GANs, diffusion models, language models) create new data.</p>",
+      "questions": [
+        {
+          "id": "cnn",
+          "prompt": "Why do convolutional layers suit images?",
+          "choices": [
+            {
+              "text": "They ignore pixel neighbourhoods."
+            },
+            {
+              "text": "They need no training."
+            },
+            {
+              "text": "They reuse the same small filter everywhere, detecting a feature wherever it appears.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They exploit them."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Filters are learned."
+            },
+            {
+              "title": "Correct.",
+              "body": "Few parameters, translation invariance."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 5.4.1 — a CNN pipeline",
+          "note": "A convolutional classifier in four stages.",
+          "script": "diagram(\"direction: right\\n[Input image] as i #blue\\n[Convolution + ReLU] as c #mint\\n[Pooling] as p #amber\\n[Fully connected] as f #violet\\n(Class scores) as o\\ni -> c : filters\\nc -> p : downsample\\np -> f : flatten\\nf -> o\\n@0 i -> c : pixels\\n@1 c -> p : feature maps\\n@2 p -> f : summary\\n@3 f -> o : scores\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "5.5",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Neuron = weighted sum + activation; a single neuron separates linearly only.</li><li>Hidden layers + backpropagation solve XOR and far more.</li></ul>"
+    },
+    {
+      "id": "ex",
+      "locator": "5.6",
+      "title": "Try it",
+      "eyebrow": "Practice",
+      "body": "<p>In the card below set <em>units</em> to 2 and then 1 and see what happens to the loss: how many hidden units does XOR need?</p>",
+      "questions": [
+        {
+          "id": "h1",
+          "prompt": "A network with ONE hidden unit and a sigmoid output on XOR…",
+          "choices": [
+            {
+              "text": "Always solves it."
+            },
+            {
+              "text": "Cannot reach zero error: a single hidden unit gives only one new feature.",
+              "correct": true
+            },
+            {
+              "text": "Is identical to a perceptron."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It cannot."
+            },
+            {
+              "title": "Correct.",
+              "body": "XOR needs at least two hidden units."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Nearly, for this problem."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 5.6.1 — two hidden units",
+          "note": "Two hidden units can solve XOR — but some random starts get stuck in a local minimum (try seed 3).",
+          "script": "var lab = create(\"steplab\", {\"name\":\"h2\",\"engine\":\"mlp\",\"units\":2,\"epochs\":4000,\"width\":600,\"height\":440});",
+          "expect": {
+            "h2": {
+              "loss": "0.0004"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,305 @@
+{
+  "title": "2-D and 3-D transformations and projection",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 3",
+  "subtitle": "Moving, turning and scaling are just matrices. Combine them by multiplying — and watch the order.",
+  "sections": [
+    {
+      "id": "basic",
+      "locator": "3.1",
+      "title": "The basic 2-D transformations",
+      "eyebrow": "Five moves",
+      "body": "<p>Translate (x + tx, y + ty); scale (sx·x, sy·y); rotate by θ about the origin (x cos θ − y sin θ, x sin θ + y cos θ); reflect (negate a coordinate); shear (x + shx·y). Each is a matrix, except translation in ordinary 2×2 form — which is why graphics uses homogeneous coordinates.</p>",
+      "worked": [
+        {
+          "toc": "Matrix",
+          "why": "Rotate the point (1, 0) by 90° about the origin.",
+          "math": "\\begin{pmatrix}\\cos90&-\\sin90\\\\\\sin90&\\cos90\\end{pmatrix}\\begin{pmatrix}1\\\\0\\end{pmatrix}"
+        },
+        {
+          "toc": "Result",
+          "why": "cos 90° = 0 and sin 90° = 1.",
+          "math": "(0,1)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rot",
+          "prompt": "Rotating (1, 0) by 90° counter-clockwise about the origin gives…",
+          "choices": [
+            {
+              "text": "(0, 1).",
+              "correct": true
+            },
+            {
+              "text": "(0, −1)."
+            },
+            {
+              "text": "(−1, 0)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The point moves up the y-axis."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is clockwise."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is 180°."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "homog",
+      "locator": "3.2",
+      "title": "Homogeneous coordinates and composition",
+      "eyebrow": "One matrix for everything",
+      "body": "<p>Write a point as (x, y, 1) and every transformation — including translation — becomes a 3×3 matrix. A sequence of transformations is then the product of their matrices, applied right to left: M = Mₙ⋯M₂M₁ applies M₁ first. Matrix multiplication is not commutative, so order matters: translate (2,3) then rotate 90° sends (1,0) to <b>(-3,3)</b>, but rotate then translate sends it to <b>(2,4)</b>.</p>",
+      "questions": [
+        {
+          "id": "order",
+          "prompt": "Translate (2,3) then rotate 90° versus rotate 90° then translate (2,3): same result?",
+          "choices": [
+            {
+              "text": "Yes, always."
+            },
+            {
+              "text": "No — matrix multiplication is not commutative.",
+              "correct": true
+            },
+            {
+              "text": "Only for scaling."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only special pairs commute."
+            },
+            {
+              "title": "Correct.",
+              "body": "They give (-3,3) and (2,4) for the point (1,0)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Uniform scaling commutes with rotation, not translation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 3.2.1 — composing three transformations",
+          "note": "The matrix on the right is the running product.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"tf\",\"engine\":\"transform2d\",\"shape\":\"1,1;4,1;2,3\",\"ops\":\"translate 2 3; rotate 90 about 1 1; scale 0.5\",\"width\":600,\"height\":440});",
+          "expect": {
+            "tf": {
+              "vertices": "(-1,1.5) (-1,3) (-2,2)"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ord",
+          "prompt": "<p>Apply translate(2,3) then rotate(90°) to the point (1,0).</p>",
+          "answer": "(1,0) → (3,3) → <b>(-3,3)</b>. Reversed order gives (2,4).",
+          "verify": {
+            "id": "lab2",
+            "caption": "answer",
+            "note": "Step through.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"transform2d\",\"shape\":\"1,0\",\"ops\":\"translate 2 3; rotate 90\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "vertices": "(-3,3)"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "pivot",
+      "locator": "3.3",
+      "title": "Rotation about an arbitrary point",
+      "eyebrow": "A composite",
+      "body": "<p>To rotate about a pivot (px, py): translate the pivot to the origin, rotate, translate back: T(px,py)·R(θ)·T(−px,−py). Rotating (2,1) by 90° about (1,1) gives <b>(1,2)</b>. Scaling about a fixed point uses the same sandwich.</p>",
+      "worked": [
+        {
+          "toc": "Shift",
+          "why": "Translate so the pivot (1,1) is the origin: (2,1) → (1,0)."
+        },
+        {
+          "toc": "Rotate and return",
+          "why": "Rotate 90°: (1,0) → (0,1). Translate back: (0,1) + (1,1).",
+          "math": "(1,2)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sand",
+          "prompt": "To rotate about a point other than the origin you…",
+          "choices": [
+            {
+              "text": "Translate it to the origin, rotate, translate back.",
+              "correct": true
+            },
+            {
+              "text": "Just rotate."
+            },
+            {
+              "text": "Scale first."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "T·R·T⁻¹."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That rotates about the origin."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not needed."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 3.3.1 — rotate about (1,1)",
+          "note": "The sandwich is applied for you.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"piv\",\"engine\":\"transform2d\",\"shape\":\"2,1\",\"ops\":\"rotate 90 about 1 1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "piv": {
+              "vertices": "(1,2)"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "proj",
+      "locator": "3.4",
+      "title": "Parallel and perspective projection",
+      "eyebrow": "From 3-D to 2-D",
+      "body": "<p>In <em class=\"term\">parallel projection</em> lines of projection are parallel: drop z (orthographic) — sizes are preserved, so it is used in engineering drawing. In <em class=\"term\">perspective projection</em> they converge at the eye: x′ = x·d/(d − z), so nearer things look bigger. A cube vertex at z = −1 with eye distance d = 4 is scaled by 4/5: (−1,−1) becomes <b>-0.8,-0.8</b>.</p>",
+      "questions": [
+        {
+          "id": "persp",
+          "prompt": "In perspective projection distant objects appear…",
+          "choices": [
+            {
+              "text": "Smaller, because coordinates are divided by depth.",
+              "correct": true
+            },
+            {
+              "text": "Larger."
+            },
+            {
+              "text": "The same size."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Parallel lines converge toward a vanishing point."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is nearer objects."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is parallel projection."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 3.4.1 — a cube, two projections",
+          "note": "Step: model, rotated, parallel, perspective, side by side.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pj\",\"engine\":\"project3d\",\"rx\":25,\"ry\":35,\"distance\":4,\"width\":600,\"height\":440});",
+          "expect": {
+            "pj": {
+              "v0parallel": "-1.581,-0.484",
+              "v0perspective": "-1.401,-0.429"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "t3d",
+      "locator": "3.5",
+      "title": "3-D transformations",
+      "eyebrow": "One dimension more",
+      "body": "<p>Use 4×4 homogeneous matrices. Translation and scaling extend directly; rotation is about an axis: Rz(θ) rotates x–y, Rx(θ) y–z, Ry(θ) z–x. Composite 3-D transformations are again products; rotations about different axes do not commute.</p>",
+      "worked": [
+        {
+          "toc": "Rz",
+          "why": "Rotate (1,0,0) by 90° about the z-axis.",
+          "math": "(\\cos\\theta,\\sin\\theta,0)"
+        },
+        {
+          "toc": "Result",
+          "why": "The point moves to (0,1,0).",
+          "math": "(0,1,0)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "axes",
+          "prompt": "Do 3-D rotations about different axes commute?",
+          "choices": [
+            {
+              "text": "Yes, always."
+            },
+            {
+              "text": "Only about z."
+            },
+            {
+              "text": "No — the order matters.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is false in 3-D."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Same-axis rotations commute; different axes do not."
+            },
+            {
+              "title": "Correct.",
+              "body": "Rotate a book 90° about two axes in both orders and compare."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Homogeneous matrices turn every transformation into a product.</li><li>M = Mₙ⋯M₁; order matters; pivot rotation = T·R·T⁻¹.</li><li>Parallel keeps size; perspective divides by depth.</li></ul>"
+    }
+  ]
+}

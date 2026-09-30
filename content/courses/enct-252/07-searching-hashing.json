@@ -1,0 +1,313 @@
+{
+  "title": "Searching and hashing",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 8",
+  "subtitle": "From scanning every item to jumping straight to it — and what to do when two keys want the same slot.",
+  "sections": [
+    {
+      "id": "seq",
+      "locator": "8.1",
+      "title": "Sequential and binary search",
+      "eyebrow": "Looking",
+      "body": "<p><em class=\"term\">Sequential search</em> checks items one by one: O(n), works on anything. <em class=\"term\">Binary search</em> needs sorted data: compare with the middle item, discard half, repeat — O(log n). One million sorted items need at most 20 probes.</p>",
+      "worked": [
+        {
+          "toc": "Formula",
+          "why": "Worst case probes for n items is ⌊log₂ n⌋ + 1."
+        },
+        {
+          "toc": "Million items",
+          "why": "For n = 1 000 000.",
+          "math": "\\lfloor\\log_2 10^6\\rfloor+1=20",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bs",
+          "prompt": "Binary search requires…",
+          "choices": [
+            {
+              "text": "Unique keys only."
+            },
+            {
+              "text": "The data to be sorted.",
+              "correct": true
+            },
+            {
+              "text": "A linked list."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Duplicates are allowed."
+            },
+            {
+              "title": "Correct.",
+              "body": "Discarding half is only valid if order tells you which half."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It needs random access."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 8.1.1 — Sequential and binary search",
+          "note": "Probes 12, then 23, then 16: three steps for seven items.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <vector>\\nusing namespace std;\\nint main() {\\n  vector<int> a = {2, 5, 8, 12, 16, 23, 38};\\n  int target = 16, lo = 0, hi = a.size() - 1, found = -1;\\n  while (lo <= hi) {\\n    int mid = (lo + hi) / 2;\\n    cout << a[mid] << \\\" \\\";\\n    if (a[mid] == target) { found = mid; break; }\\n    if (a[mid] < target) lo = mid + 1; else hi = mid - 1;\\n  }\\n  cout << \\\"index \\\" << found << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "12 23 16 index 4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hash",
+      "locator": "8.2",
+      "title": "Hash tables",
+      "eyebrow": "Direct addressing by computation",
+      "body": "<p>A <em class=\"term\">hash function</em> turns a key into an array index, e.g. <code>h(k) = k mod m</code>. Lookup, insert and delete are O(1) on average. The table has <i>m</i> slots; the <em class=\"term\">load factor</em> α = n/m measures how full it is. A good hash spreads keys evenly; using a prime m helps.</p>",
+      "questions": [
+        {
+          "id": "load",
+          "prompt": "What is the load factor?",
+          "choices": [
+            {
+              "text": "n / m — stored items divided by table slots.",
+              "correct": true
+            },
+            {
+              "text": "m / n."
+            },
+            {
+              "text": "The size of the hash function."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "As α rises, collisions become more likely."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Inverted."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "coll",
+      "locator": "8.3",
+      "title": "Collisions: chaining and open addressing",
+      "eyebrow": "Two keys, one slot",
+      "body": "<p>Two keys with the same hash <em class=\"term\">collide</em>. <em class=\"term\">Chaining</em>: each slot holds a list; colliding keys join it. <em class=\"term\">Open addressing</em>: probe other slots in a fixed sequence until a free one is found — <em class=\"term\">linear</em> (h, h+1, h+2…), <em class=\"term\">quadratic</em> (h, h+1², h+2²…, avoids long runs), <em class=\"term\">double hashing</em> (step from a second hash). Insert 50 700 76 85 92 73 101 into 7 slots with linear probing: table <b>700 50 85 92 73 101 76</b>.</p>",
+      "questions": [
+        {
+          "id": "clust",
+          "prompt": "What problem does linear probing suffer from?",
+          "choices": [
+            {
+              "text": "It cannot handle collisions."
+            },
+            {
+              "text": "Primary clustering: long runs of filled slots grow, making probes longer.",
+              "correct": true
+            },
+            {
+              "text": "It needs a list per slot."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is its purpose."
+            },
+            {
+              "title": "Correct.",
+              "body": "Keys landing in a run all extend it."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is chaining."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 8.3.1 — linear probing",
+          "note": "Red slots were probed and found occupied.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lp\",\"engine\":\"hashing\",\"method\":\"linear\",\"size\":7,\"keys\":\"50 700 76 85 92 73 101\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lp": {
+              "table": "700 50 85 92 73 101 76",
+              "probes": "13"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 8.3.2 — chaining",
+          "note": "Chaining keeps colliding keys in a list.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"chn\",\"engine\":\"hashing\",\"method\":\"chaining\",\"size\":5,\"keys\":\"5 10 3 8\",\"width\":600,\"height\":440});",
+          "expect": {
+            "chn": {
+              "table": "5|10 - - 3|8 -"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 8.3.3 — quadratic probing",
+          "note": "Quadratic probing: 700 50 85 73 101 92 76.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"qp\",\"engine\":\"hashing\",\"method\":\"quadratic\",\"size\":7,\"keys\":\"50 700 76 85 92 73 101\",\"width\":600,\"height\":440});",
+          "expect": {
+            "qp": {
+              "table": "700 50 85 73 101 92 76"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-hash",
+          "prompt": "<p>Insert 50, 700, 76, 85, 92, 73, 101 into a table of size 7 with h(k) = k mod 7 and linear probing. Show the table.</p>",
+          "answer": "Slots 0…6 hold <b>700 50 85 92 73 101 76</b> (probes: 13).",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "Step through.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"hashing\",\"method\":\"linear\",\"size\":7,\"keys\":\"50 700 76 85 92 73 101\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "table": "700 50 85 92 73 101 76"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "locator": "8.4",
+      "title": "Cost of hashing",
+      "eyebrow": "Expectations",
+      "body": "<p>With chaining the expected cost of an unsuccessful search is 1 + α probes. For open addressing with linear probing it is about ½(1 + 1/(1−α)²): it explodes as α → 1, so keep α below about 0.7 and resize (rehash into a bigger table) when it is exceeded.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Table with α = 0.5 and chaining."
+        },
+        {
+          "toc": "Chaining",
+          "why": "Expected unsuccessful probes.",
+          "math": "1+\\alpha=1.5",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "resize",
+          "prompt": "Why resize a hash table when it gets too full?",
+          "choices": [
+            {
+              "text": "Probe sequences and chains lengthen sharply, destroying O(1) behaviour.",
+              "correct": true
+            },
+            {
+              "text": "To change the hash function."
+            },
+            {
+              "text": "To sort the keys."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Doubling and rehashing restores a low load factor."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not necessary."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Hashing does not sort."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "use",
+      "locator": "8.5",
+      "title": "Where hashing is used",
+      "eyebrow": "Applications",
+      "body": "<p>Dictionaries and sets (C++ <code>unordered_map</code>), symbol tables in compilers, caches, database hash indexes, password storage (with a cryptographic hash) and file deduplication. Hash tables do not keep keys in order and have no fast range queries — a balanced tree or B-tree is better there.</p>",
+      "questions": [
+        {
+          "id": "order",
+          "prompt": "Which query is hash tables’ weak spot?",
+          "choices": [
+            {
+              "text": "Exact-match lookup."
+            },
+            {
+              "text": "Range queries and sorted traversal.",
+              "correct": true
+            },
+            {
+              "text": "Insertion."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is their strength."
+            },
+            {
+              "title": "Correct.",
+              "body": "Hashing scatters neighbouring keys."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Average O(1)."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp6",
+          "caption": "Figure 8.5.1 — Where hashing is used",
+          "note": "Counting words is the classic hash-table job.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <unordered_map>\\n#include <string>\\nusing namespace std;\\nint main() {\\n  string w[6] = {\\\"red\\\", \\\"blue\\\", \\\"red\\\", \\\"green\\\", \\\"blue\\\", \\\"red\\\"};\\n  unordered_map<string, int> freq;\\n  for (int i = 0; i < 6; i++) freq[w[i]]++;\\n  cout << freq[\\\"red\\\"] << \\\" \\\" << freq[\\\"blue\\\"] << \\\" \\\" << freq[\\\"green\\\"] << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "3 2 1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "8.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Sequential O(n); binary O(log n) on sorted data; hashing O(1) average.</li><li>Collisions: chaining or probing; keep load factor low.</li></ul>"
+    }
+  ]
+}

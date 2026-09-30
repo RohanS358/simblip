@@ -1,0 +1,273 @@
+{
+  "title": "Languages, logic and proof",
+  "kicker": "ENCT 203 · Theory of Computation · Chapter 1",
+  "subtitle": "The vocabulary everything else is built on: strings, languages, and how to be sure a claim is true.",
+  "sections": [
+    {
+      "id": "alpha",
+      "locator": "1.1",
+      "title": "Alphabets, strings and languages",
+      "eyebrow": "Vocabulary",
+      "body": "<p>An <em class=\"term\">alphabet</em> Σ is a finite set of symbols, e.g. {0, 1}. A <em class=\"term\">string</em> is a finite sequence of them; ε is the empty string and Σ* the set of all strings. A <em class=\"term\">language</em> is any subset of Σ* — for example “all binary strings ending in 01”. The whole subject asks: <em>how complicated a machine is needed to recognise a given language?</em></p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Over Σ = {0, 1} how many strings have length exactly 3?"
+        },
+        {
+          "toc": "Count",
+          "why": "Two choices for each of three positions.",
+          "math": "2^3 = 8",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "eps",
+          "prompt": "What is the length of the empty string ε?",
+          "choices": [
+            {
+              "text": "1."
+            },
+            {
+              "text": "Undefined."
+            },
+            {
+              "text": "0.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It has no symbol at all."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is perfectly well defined."
+            },
+            {
+              "title": "Correct.",
+              "body": "It contains no symbols."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ops",
+      "locator": "1.2",
+      "title": "Operations on languages",
+      "eyebrow": "Building new ones",
+      "body": "<p>From languages L and M: <em class=\"term\">union</em> L ∪ M, <em class=\"term\">concatenation</em> LM (a string of L followed by one of M) and the <em class=\"term\">Kleene star</em> L* (zero or more strings of L joined). If L = {a, b} then L* contains ε, a, b, aa, ab, … — every string over {a, b}.</p>",
+      "questions": [
+        {
+          "id": "star",
+          "prompt": "Does L* always contain ε?",
+          "choices": [
+            {
+              "text": "Only if ε ∈ L."
+            },
+            {
+              "text": "Never."
+            },
+            {
+              "text": "Yes — zero repetitions give the empty string.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Star allows zero copies."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It always does."
+            },
+            {
+              "title": "Correct.",
+              "body": "Even if L itself does not contain ε."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — language operations",
+          "note": "Three ways to combine languages.",
+          "script": "diagram(\"direction: right\\n[L = {a}] as l #blue\\n[M = {b}] as m #mint\\n[L ∪ M = {a, b}] as u #amber\\n[LM = {ab}] as c #violet\\n[L* = {ε, a, aa, aaa, …}] as s #rose\\nl -> u\\nm -> u\\nl -> c\\nm -> c\\nl -> s\");"
+        }
+      ]
+    },
+    {
+      "id": "logic",
+      "locator": "1.3",
+      "title": "Propositional logic and inference",
+      "eyebrow": "Reasoning",
+      "body": "<p>Statements combine with ¬ (not), ∧ (and), ∨ (or), → (implies), ↔ (iff). Key rules: <em>modus ponens</em> (from P and P → Q, conclude Q), <em>modus tollens</em> (from ¬Q and P → Q, conclude ¬P). De Morgan: ¬(P ∧ Q) = ¬P ∨ ¬Q. Predicate logic adds ∀ (for all) and ∃ (there exists).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Premises: “if it rains the match is cancelled” (R → C) and “the match was not cancelled” (¬C)."
+        },
+        {
+          "toc": "Conclusion",
+          "why": "Modus tollens gives ¬R.",
+          "math": "R\\to C,\\ \\neg C\\ \\vdash\\ \\neg R",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "mp",
+          "prompt": "From P → Q and Q, what can you conclude about P?",
+          "choices": [
+            {
+              "text": "Nothing — that is the fallacy of affirming the consequent.",
+              "correct": true
+            },
+            {
+              "text": "P is true."
+            },
+            {
+              "text": "P is false."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Q may have other causes."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Affirming the consequent."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Also unjustified."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proof",
+      "locator": "1.4",
+      "title": "Proof techniques",
+      "eyebrow": "Being sure",
+      "body": "<p>Direct proof; <em class=\"term\">contradiction</em> (assume the opposite and derive an absurdity — e.g. √2 is irrational); <em class=\"term\">induction</em> (prove a base case and that n ⇒ n+1); the <em class=\"term\">pigeonhole principle</em> (n+1 pigeons in n holes: some hole has two — the engine behind the pumping lemma); <em class=\"term\">diagonalisation</em> (build an object that differs from the i-th item in the i-th place — proves the reals are uncountable and the halting problem undecidable).</p>",
+      "worked": [
+        {
+          "toc": "Claim",
+          "why": "Prove 1 + 2 + … + n = n(n+1)/2 by induction."
+        },
+        {
+          "toc": "Induction",
+          "why": "Base n = 1: 1 = 1·2/2 ✓. Step: assume it for n; adding n+1 gives n(n+1)/2 + (n+1) = (n+1)(n+2)/2, the formula for n+1.",
+          "math": "\\tfrac{n(n+1)}2+(n+1)=\\tfrac{(n+1)(n+2)}2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pig",
+          "prompt": "Among 13 people, at least two share a birth month because of…",
+          "choices": [
+            {
+              "text": "The pigeonhole principle.",
+              "correct": true
+            },
+            {
+              "text": "Induction."
+            },
+            {
+              "text": "Contradiction only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "13 people, 12 months."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The principle is the point."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>How many strings of length ≤ 2 are there over {a, b}?</p>",
+          "answer": "1 (ε) + 2 + 4 = <b>7</b>."
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Let L = {ab}. List the first four strings of L*.</p>",
+          "answer": "ε, ab, abab, ababab."
+        }
+      ]
+    },
+    {
+      "id": "hier",
+      "locator": "1.5",
+      "title": "The road ahead: the Chomsky hierarchy",
+      "eyebrow": "Map",
+      "body": "<p>Four classes of language, each needing a stronger machine: regular (finite automaton) ⊂ context-free (pushdown automaton) ⊂ context-sensitive (linear-bounded automaton) ⊂ recursively enumerable (Turing machine). The rest of the course climbs this ladder.</p>",
+      "questions": [
+        {
+          "id": "ladder",
+          "prompt": "Which machine recognises exactly the context-free languages?",
+          "choices": [
+            {
+              "text": "A finite automaton."
+            },
+            {
+              "text": "A pushdown automaton.",
+              "correct": true
+            },
+            {
+              "text": "A Turing machine."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Regular only."
+            },
+            {
+              "title": "Correct.",
+              "body": "A finite control plus one stack."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Far more."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.5.1 — the Chomsky hierarchy",
+          "note": "Each class needs strictly more memory than the one inside it.",
+          "script": "diagram(\"direction: right\\n[Regular ↔ finite automaton] as a #mint\\n[Context-free ↔ pushdown automaton] as b #blue\\n[Context-sensitive ↔ linear-bounded automaton] as c #amber\\n[Recursively enumerable ↔ Turing machine] as d #rose\\na -> b : add a stack\\nb -> c : bounded tape\\nc -> d : unbounded tape\\n@0 a -> b : more memory\\n@1.2 b -> c : more memory\\n@2.4 c -> d : more memory\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>A language is a set of strings over an alphabet; ∪, concatenation and * build new ones.</li><li>Proofs: direct, contradiction, induction, pigeonhole, diagonalisation.</li></ul>"
+    }
+  ]
+}

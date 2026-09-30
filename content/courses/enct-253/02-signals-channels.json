@@ -1,0 +1,351 @@
+{
+  "title": "Signals, bandwidth and channel capacity",
+  "kicker": "ENCT 253 · Data Communication · Chapter 2",
+  "subtitle": "Any signal is a sum of sine waves. How many you need is its bandwidth — and bandwidth plus noise sets the speed limit.",
+  "sections": [
+    {
+      "id": "sine",
+      "locator": "2.1",
+      "title": "Sine waves and the frequency domain",
+      "eyebrow": "Building blocks",
+      "body": "<p>A periodic signal has a <em class=\"term\">period</em> <i>T</i> and <em class=\"term\">frequency</em> <i>f</i> = 1/<i>T</i>. A sine wave A sin(2πft + φ) is described by amplitude, frequency and phase. The <em class=\"term\">time domain</em> shows amplitude against time; the <em class=\"term\">frequency domain</em> shows how much of each frequency is present.</p>",
+      "worked": [
+        {
+          "toc": "Period",
+          "why": "A signal repeats every 20 ms.",
+          "math": "T=20\\ \\text{ms}"
+        },
+        {
+          "toc": "Frequency",
+          "why": "Its frequency.",
+          "math": "f=\\frac1T=50\\ \\text{Hz}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "freq",
+          "prompt": "A sine wave has period 4 ms. Its frequency?",
+          "choices": [
+            {
+              "text": "4 Hz."
+            },
+            {
+              "text": "25 Hz."
+            },
+            {
+              "text": "250 Hz.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would be period 0.25 s."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Wrong reciprocal."
+            },
+            {
+              "title": "Correct.",
+              "body": "1 / 0.004 s."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "fourier",
+      "locator": "2.2",
+      "title": "Fourier series",
+      "eyebrow": "Sum of sines",
+      "body": "<p>Fourier showed that any periodic signal is a sum of sine waves at multiples (harmonics) of its fundamental frequency. A square wave is sin x + ⅓ sin 3x + ⅕ sin 5x + … (odd harmonics only). Add more harmonics and the edges get sharper — but a ripple at each jump never disappears (the Gibbs phenomenon). The RMS error falls from <b>0.315</b> with 3 harmonics to <b>0.1</b> with 49.</p>",
+      "questions": [
+        {
+          "id": "odd",
+          "prompt": "A square wave contains which harmonics?",
+          "choices": [
+            {
+              "text": "Only odd ones (1, 3, 5, …).",
+              "correct": true
+            },
+            {
+              "text": "All harmonics equally."
+            },
+            {
+              "text": "Only the fundamental."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Its symmetry cancels the even ones."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Amplitudes fall as 1/n."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Then it would be a sine."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.2.1 — building a square wave",
+          "note": "Step through: more harmonics, sharper edges.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fs\",\"engine\":\"fourier\",\"shape\":\"square\",\"harmonics\":9,\"width\":600,\"height\":440});",
+          "expect": {
+            "fs": {
+              "rmsError": "0.202"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bw",
+      "locator": "2.3",
+      "title": "Bandwidth",
+      "eyebrow": "The width of the spectrum",
+      "body": "<p>The <em class=\"term\">bandwidth</em> of a signal is the range of frequencies it occupies. A channel passes only a band; sharp-edged signals need many harmonics, so a narrow channel rounds them off. To send a square wave reasonably you need at least the 3rd–5th harmonic: for a 1 kHz square wave, about 5 kHz.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Send a 2 kHz square wave through a channel that passes 0–8 kHz. Which harmonics get through?"
+        },
+        {
+          "toc": "Answer",
+          "why": "Odd harmonics up to 8 kHz: 2, 6 kHz (3rd). 10 kHz (5th) is cut off.",
+          "math": "2\\ \\text{kHz},\\ 6\\ \\text{kHz}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bwq",
+          "prompt": "Why does a narrow-bandwidth channel round off a square wave?",
+          "choices": [
+            {
+              "text": "It adds noise."
+            },
+            {
+              "text": "It removes the high harmonics that make the edges sharp.",
+              "correct": true
+            },
+            {
+              "text": "It shifts the frequency."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The effect is filtering."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sharp edges are made of high frequencies."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No shift occurs."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nyq",
+      "locator": "2.4",
+      "title": "Nyquist and Shannon capacity",
+      "eyebrow": "Speed limits",
+      "body": "<p><em class=\"term\">Nyquist</em> (noiseless): max bit rate = 2B log₂ M for bandwidth B and M signal levels. <em class=\"term\">Shannon</em> (noisy): capacity C = B log₂(1 + SNR), with SNR as a ratio (dB = 10 log₁₀ ratio). Nyquist says more levels give more bits; Shannon says noise puts a ceiling on how many levels you can tell apart, however clever the coding.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A 3 kHz telephone channel, SNR 30 dB."
+        },
+        {
+          "toc": "Convert",
+          "why": "30 dB is a ratio of 10³ = 1000.",
+          "math": "\\text{SNR}=10^{30/10}=1000"
+        },
+        {
+          "toc": "Capacity",
+          "why": "Shannon capacity.",
+          "math": "C=3000\\log_2(1001)\\approx 29\\ 900\\ \\text{b/s}",
+          "hero": true
+        },
+        {
+          "toc": "Levels",
+          "why": "Levels needed under Nyquist to reach that (2B log₂M = 6000 log₂M): log₂ M ≈ 4.98 → M ≈ 32."
+        }
+      ],
+      "questions": [
+        {
+          "id": "shannon",
+          "prompt": "Doubling the bandwidth while the SNR stays fixed…",
+          "choices": [
+            {
+              "text": "Does nothing."
+            },
+            {
+              "text": "Squares it."
+            },
+            {
+              "text": "Doubles the Shannon capacity.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "B multiplies the log term."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Linear in B."
+            },
+            {
+              "title": "Correct.",
+              "body": "C is proportional to B."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-sh",
+          "prompt": "<p>A channel has 4 kHz bandwidth and SNR of 15 (ratio). Find the Shannon capacity.</p>",
+          "answer": "C = 4000 log₂(1 + 15) = 4000 × 4 = <b>16 000 b/s</b>."
+        },
+        {
+          "id": "p-ny",
+          "prompt": "<p>A noiseless 6 kHz channel carries 8-level signals. Maximum data rate?</p>",
+          "answer": "2 × 6000 × log₂8 = <b>36 000 b/s</b>."
+        }
+      ]
+    },
+    {
+      "id": "sample",
+      "locator": "2.5",
+      "title": "Sampling: the Nyquist rate",
+      "eyebrow": "Analog to digital",
+      "body": "<p>To digitise an analog signal, sample it at least twice per cycle of its highest frequency (fs ≥ 2 fmax), otherwise higher frequencies masquerade as lower ones — <em class=\"term\">aliasing</em>. A 1 Hz tone sampled at 8 Hz is comfortable (Nyquist ok: <b>yes</b>); a 5 Hz tone at 8 Hz is not (<b>no</b>). Each sample is then quantised to one of 2ⁿ levels: rate = fs·n (here 24 b/s) and SNR ≈ 6.02n + 1.76 dB (<b>19.82</b> dB for 3 bits).</p>",
+      "questions": [
+        {
+          "id": "alias",
+          "prompt": "Sampling a 5 kHz tone at 8 kHz causes…",
+          "choices": [
+            {
+              "text": "No problem."
+            },
+            {
+              "text": "Aliasing — it appears as a 3 kHz tone.",
+              "correct": true
+            },
+            {
+              "text": "Extra quantisation noise only."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Below Nyquist it is a problem."
+            },
+            {
+              "title": "Correct.",
+              "body": "fs is below the Nyquist rate 2 × 5 = 10 kHz."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The damage is to the frequency itself."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.5.1 — sampling and quantising",
+          "note": "Blue dots are samples; green are the quantised values.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pcm\",\"engine\":\"pcm\",\"fm\":1,\"fs\":8,\"bits\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "pcm": {
+              "bitRate": "24",
+              "snrDb": "19.82",
+              "nyquistOk": "yes"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 2.5.2 — aliasing",
+          "note": "Under-sampled: the tone is misread as a slower one.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"alias\",\"engine\":\"pcm\",\"fm\":5,\"fs\":8,\"bits\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "alias": {
+              "nyquistOk": "no"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "perf",
+      "locator": "2.6",
+      "title": "Impairments",
+      "eyebrow": "What goes wrong",
+      "body": "<p>Three impairments: <em class=\"term\">attenuation</em> (signal weakens with distance, measured in dB), <em class=\"term\">distortion</em> (different frequencies travel at different speeds, smearing the pulses), and <em class=\"term\">noise</em> (thermal, crosstalk, impulse). Decibels add: a 3 dB loss halves the power; 10 dB is a factor 10.</p>",
+      "worked": [
+        {
+          "toc": "Loss",
+          "why": "A cable loses 2 dB/km over 15 km.",
+          "math": "2\\times15=30\\ \\text{dB}"
+        },
+        {
+          "toc": "Ratio",
+          "why": "Power ratio = 10^(−30/10) = 0.001: one thousandth arrives, so amplifiers are needed.",
+          "math": "10^{-3}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "db",
+          "prompt": "A −3 dB change in power means…",
+          "choices": [
+            {
+              "text": "A third."
+            },
+            {
+              "text": "About half the power.",
+              "correct": true
+            },
+            {
+              "text": "Double."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is about −4.8 dB."
+            },
+            {
+              "title": "Correct.",
+              "body": "10^(−0.3) ≈ 0.5."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is +3 dB."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

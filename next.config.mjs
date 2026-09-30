@@ -16,7 +16,7 @@ const nextConfig = {
     NEXT_PUBLIC_CLOUD: process.env.NEXT_PUBLIC_CLOUD ?? (process.env.DATABASE_URL ? '1' : '0'),
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     unoptimized: true,

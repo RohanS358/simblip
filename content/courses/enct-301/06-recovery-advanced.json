@@ -1,0 +1,283 @@
+{
+  "title": "Recovery, distributed databases and NoSQL",
+  "kicker": "ENCT 301 · Database Management System · Chapters 8–9",
+  "subtitle": "What to do when the power fails mid-transaction — and what changes when data lives on many machines.",
+  "sections": [
+    {
+      "id": "fail",
+      "locator": "8.1",
+      "title": "Failures",
+      "eyebrow": "What can break",
+      "body": "<p>Transaction failure (a logical error, or deadlock-abort), system crash (memory lost, disk intact) and disk failure (data lost). Recovery must restore atomicity and durability: undo the partial work of uncommitted transactions and redo committed work that had not reached disk.</p>",
+      "questions": [
+        {
+          "id": "crash",
+          "prompt": "After a crash, committed changes that were only in memory must be…",
+          "choices": [
+            {
+              "text": "Discarded."
+            },
+            {
+              "text": "Ignored."
+            },
+            {
+              "text": "Redone from the log.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would violate durability."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They would be lost."
+            },
+            {
+              "title": "Correct.",
+              "body": "The log on stable storage records them."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "log",
+      "locator": "8.2",
+      "title": "Log-based recovery",
+      "eyebrow": "Write-ahead logging",
+      "body": "<p>The <em class=\"term\">log</em> records every change as <code>&lt;T, item, old value, new value&gt;</code> plus <code>&lt;T start&gt;</code>, <code>&lt;T commit&gt;</code>. The <em class=\"term\">write-ahead rule</em>: the log record reaches stable storage <em>before</em> the changed data page. After a crash: <b>redo</b> every transaction with a commit record; <b>undo</b> every transaction that started but did not commit, using old values. A <em class=\"term\">checkpoint</em> limits how far back the log must be scanned.</p>",
+      "worked": [
+        {
+          "toc": "Log",
+          "why": "Log after a crash: <T1 start>, <T1, A, 50, 70>, <T1 commit>, <T2 start>, <T2, B, 10, 99>. No T2 commit."
+        },
+        {
+          "toc": "Recovery",
+          "why": "T1 committed → redo: A = 70. T2 did not commit → undo: B = 10.",
+          "math": "A=70,\\ B=10",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "wal",
+          "prompt": "Write-ahead logging means…",
+          "choices": [
+            {
+              "text": "Data is written before the log."
+            },
+            {
+              "text": "The log record is on stable storage before the data it describes.",
+              "correct": true
+            },
+            {
+              "text": "Logs are never written."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The opposite."
+            },
+            {
+              "title": "Correct.",
+              "body": "Otherwise recovery could not undo the change."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They are essential."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 8.2.1 — write-ahead logging",
+          "note": "The log goes first; the page can wait.",
+          "script": "diagram(\"mode: sequence\\n[Transaction] as t\\n[Log on disk] as l\\n[Data page in buffer] as d\\nt -> l : <T1, A, 1000, 950>\\nt -> d : write A = 950 (in memory)\\nt -> l : <T1 commit>\\nl --> t : commit acknowledged\\nd -> d : page flushed to disk later\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Why must the log record be written before the data page?</p>",
+          "answer": "If the page reached disk first and the system crashed, the database would contain a change with no record of its old value, making it impossible to undo for an uncommitted transaction."
+        }
+      ]
+    },
+    {
+      "id": "shadow",
+      "locator": "8.3",
+      "title": "Shadow paging and remote backup",
+      "eyebrow": "Alternatives",
+      "body": "<p><em class=\"term\">Shadow paging</em> keeps two page tables: the current one (modified) and the shadow (untouched). Commit atomically switches the pointer to the current table; a crash simply keeps the old one, so no log is needed — but copying pages fragments storage. For disasters, <em class=\"term\">remote backup</em> ships the log to a standby site for high availability.</p>",
+      "questions": [
+        {
+          "id": "shadow",
+          "prompt": "What makes shadow paging atomic?",
+          "choices": [
+            {
+              "text": "A single atomic switch of the page-table pointer at commit.",
+              "correct": true
+            },
+            {
+              "text": "Writing the log twice."
+            },
+            {
+              "text": "Locking pages."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Before it the old state is fully intact."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is logging."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oo",
+      "locator": "9.1",
+      "title": "Object-oriented and distributed databases",
+      "eyebrow": "Beyond tables",
+      "body": "<p>Object databases store objects with identity, inheritance and methods directly. A <em class=\"term\">distributed database</em> spreads data over sites: <em class=\"term\">fragmentation</em> splits a table by rows or columns, <em class=\"term\">replication</em> keeps copies for speed and availability. Transactions across sites use <em class=\"term\">two-phase commit</em>: the coordinator asks all participants to prepare (vote), and only if every one says yes does it tell them to commit.</p>",
+      "questions": [
+        {
+          "id": "2pc",
+          "prompt": "In two-phase commit, when does the coordinator decide to commit?",
+          "choices": [
+            {
+              "text": "When a majority vote yes."
+            },
+            {
+              "text": "Only when every participant voted YES.",
+              "correct": true
+            },
+            {
+              "text": "Immediately."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unanimity is required."
+            },
+            {
+              "title": "Correct.",
+              "body": "One NO (or timeout) means global abort."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It must collect votes first."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 9.1.1 — two-phase commit",
+          "note": "Phase 1: vote. Phase 2: decide.",
+          "script": "diagram(\"mode: sequence\\n[Coordinator] as c\\n[Site 1] as a\\n[Site 2] as b\\nc -> a : PREPARE\\nc -> b : PREPARE\\na --> c : VOTE YES\\nb --> c : VOTE YES\\nc -> a : COMMIT\\nc -> b : COMMIT\\na --> c : ACK\\nb --> c : ACK\");"
+        }
+      ]
+    },
+    {
+      "id": "dw",
+      "locator": "9.2",
+      "title": "Data warehousing and OLAP",
+      "eyebrow": "Analysis",
+      "body": "<p>OLTP systems handle many small transactions; a <em class=\"term\">data warehouse</em> collects historical data from many sources (via ETL: extract, transform, load) for analysis. <em class=\"term\">OLAP</em> views data as a cube of dimensions (time, product, region) and measures (sales), with operations like roll-up, drill-down, slice and dice.</p>",
+      "questions": [
+        {
+          "id": "olap",
+          "prompt": "Roll-up in OLAP means…",
+          "choices": [
+            {
+              "text": "Aggregating to a coarser level, e.g. from months to years.",
+              "correct": true
+            },
+            {
+              "text": "Adding a new column."
+            },
+            {
+              "text": "Deleting data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Drill-down is the reverse."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the meaning."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nosql",
+      "locator": "9.3",
+      "title": "NoSQL and big data",
+      "eyebrow": "Scale",
+      "body": "<p>NoSQL systems trade some relational guarantees for scale and flexibility: key–value stores (Redis), document stores (MongoDB), column-family stores (Cassandra), graph databases (Neo4j). They favour horizontal scaling and flexible schemas. The CAP theorem says a distributed store cannot have Consistency, Availability and Partition tolerance all at once; many choose eventual consistency. Big data: volume, velocity, variety.</p>",
+      "questions": [
+        {
+          "id": "cap",
+          "prompt": "CAP theorem: during a network partition a distributed system must choose between…",
+          "choices": [
+            {
+              "text": "Consistency and availability.",
+              "correct": true
+            },
+            {
+              "text": "Speed and price."
+            },
+            {
+              "text": "Reads and writes."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "You cannot give up partition tolerance in practice."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not CAP."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not CAP."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p2",
+          "prompt": "<p>When would you choose a document store over a relational database?</p>",
+          "answer": "When records are naturally nested and their shape varies (product catalogues, user profiles), schemas change often, and horizontal scaling matters more than multi-table joins and strict transactions."
+        }
+      ]
+    }
+  ]
+}

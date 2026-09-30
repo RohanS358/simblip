@@ -1,0 +1,325 @@
+{
+  "title": "Operators, precedence and formatted I/O",
+  "kicker": "ENCT 101 · Computer Programming · Chapters 3–4",
+  "subtitle": "Expressions are evaluated in a fixed order. Know it, and you can predict any line of arithmetic.",
+  "sections": [
+    {
+      "id": "arith",
+      "locator": "3.1",
+      "title": "Arithmetic operators",
+      "eyebrow": "+ − * / %",
+      "body": "<p><code>+ - * /</code> and the remainder <code>%</code>. With two integers, <code>/</code> is <b>integer division</b> (truncates): 7/2 is 3, not 3.5; <code>%</code> gives the leftover: 7 % 3 is 1. To get 3.5 make one operand a double (7/2.0).</p>",
+      "questions": [
+        {
+          "id": "div",
+          "prompt": "9 / 4 in C (both int) is…",
+          "choices": [
+            {
+              "text": "2.",
+              "correct": true
+            },
+            {
+              "text": "2.25."
+            },
+            {
+              "text": "3."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The fraction is discarded."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Needs a double."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Rounding is not done."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 3.1.1 — Arithmetic operators",
+          "note": "Integer division truncates toward zero.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  cout << 7 / 2 << \\\" \\\" << 7 % 3 << \\\" \\\" << -7 / 2 << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "3 1 -3"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "prec",
+      "locator": "3.2",
+      "title": "Precedence and associativity",
+      "eyebrow": "Who goes first",
+      "body": "<p>From high to low: parentheses, unary (<code>! - ++ --</code>), <code>* / %</code>, <code>+ -</code>, relational (<code>&lt; &gt; &lt;= &gt;=</code>), equality (<code>== !=</code>), <code>&amp;&amp;</code>, <code>||</code>, assignment. Equal precedence goes left to right (assignment right to left). When unsure, add parentheses.</p>",
+      "worked": [
+        {
+          "toc": "Plan",
+          "why": "Evaluate 2 + 3 * 4 − 6 / 2."
+        },
+        {
+          "toc": "Reduce",
+          "why": "Multiplication and division first: 12 and 3.",
+          "math": "2+12-3"
+        },
+        {
+          "toc": "Result",
+          "why": "Then left to right.",
+          "math": "=11",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pr",
+          "prompt": "5 + 2 * 3 − 4 =",
+          "choices": [
+            {
+              "text": "17."
+            },
+            {
+              "text": "13."
+            },
+            {
+              "text": "7.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Did + before *."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Left to right without precedence."
+            },
+            {
+              "title": "Correct.",
+              "body": "5 + 6 − 4."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 3.2.1 — Precedence and associativity",
+          "note": "* before +; parentheses override.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int a = 5, b = 3;\\n  cout << a + b * 2 << \\\" \\\" << (a + b) * 2 << \\\" \\\" << (a > b && b < 4) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "11 16 1"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pr",
+          "prompt": "<p>Evaluate 10 − 4 / 2 * 3 + 1.</p>",
+          "answer": "4/2 = 2; 2·3 = 6; 10 − 6 + 1 = <b>5</b>."
+        }
+      ]
+    },
+    {
+      "id": "incr",
+      "locator": "3.3",
+      "title": "Increment, compound assignment, conversion",
+      "eyebrow": "Shortcuts and casts",
+      "body": "<p><code>x += 5</code> means <code>x = x + 5</code>. <code>i++</code> uses i then adds 1; <code>++i</code> adds 1 then uses it. In mixed expressions the smaller type is promoted (int → double). A cast forces it: <code>(double)a / b</code>.</p>",
+      "questions": [
+        {
+          "id": "inc",
+          "prompt": "int i = 2; int j = i++ + 3; leaves j =",
+          "choices": [
+            {
+              "text": "5.",
+              "correct": true
+            },
+            {
+              "text": "6."
+            },
+            {
+              "text": "3."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "i++ yields 2, then i becomes 3."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Would need ++i."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Ignores i."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 3.3.1 — Increment, compound assignment, conversion",
+          "note": "Post-increment yields the old value; pre-increment the new one.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int i = 5;\\n  int a = i++;\\n  int b = ++i;\\n  cout << a << \\\" \\\" << b << \\\" \\\" << i << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "5 7 7"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "logic",
+      "locator": "3.4",
+      "title": "Relational, logical and bitwise",
+      "eyebrow": "True and false",
+      "body": "<p>In C, 0 is false and any non-zero is true; comparisons yield 0 or 1. <code>&amp;&amp;</code> and <code>||</code> short-circuit: in <code>a != 0 &amp;&amp; x/a &gt; 1</code> the division is never attempted when a is 0. Bitwise: <code>&amp; | ^ ~ &lt;&lt; &gt;&gt;</code> work on bits: <code>x &lt;&lt; 1</code> doubles an integer.</p>",
+      "worked": [
+        {
+          "toc": "Align",
+          "why": "12 = 1100₂, 10 = 1010₂. AND bit by bit.",
+          "math": "1100\\ \\&\\ 1010"
+        },
+        {
+          "toc": "AND",
+          "why": "Result 1000₂.",
+          "math": "=8",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sc",
+          "prompt": "Why is <code>p != NULL &amp;&amp; *p &gt; 0</code> safe?",
+          "choices": [
+            {
+              "text": "C checks pointers automatically."
+            },
+            {
+              "text": "It is not safe."
+            },
+            {
+              "text": "&amp;&amp; short-circuits, so *p is skipped when p is NULL.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It does not."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is the standard idiom."
+            },
+            {
+              "title": "Correct.",
+              "body": "Right side is evaluated only if the left is true."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "io",
+      "locator": "4.1",
+      "title": "printf and scanf",
+      "eyebrow": "Talking to the user",
+      "body": "<p><code>printf(\"fmt\", args)</code> writes formatted output; conversion specifiers: <code>%d</code> int, <code>%f</code> double/float, <code>%c</code> char, <code>%s</code> string, <code>%x</code> hex; <code>%5.2f</code> means width 5, 2 decimals. <code>scanf(\"%d\", &amp;n)</code> reads input — note the <b>&amp;</b>: scanf needs the variable’s <i>address</i> so it can store into it. <code>getchar/putchar</code> handle single characters.</p>",
+      "questions": [
+        {
+          "id": "amp",
+          "prompt": "Why does scanf need <code>&amp;n</code>?",
+          "choices": [
+            {
+              "text": "To print n."
+            },
+            {
+              "text": "It must know where in memory to store the value.",
+              "correct": true
+            },
+            {
+              "text": "It is optional."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is printf."
+            },
+            {
+              "title": "Correct.",
+              "body": "C passes by value, so the address is passed."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Omitting it is a bug."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 4.1.1 — scanf then printf",
+          "note": "Input flows into memory; output flows from it.",
+          "script": "diagram(\"mode: sequence\\n[Keyboard] as k\\n[scanf] as s\\n[Variable n] as n\\n[printf] as p\\n[Screen] as c\\nk -> s : 42\\ns -> n : store at &n\\nn -> p : read n\\np -> c : \\\"n = 42\\\"\\n@0 k -> s : 42\\n@1 s -> n : store at &n\\n@2 n -> p : read n\\n@3 p -> c : \\\"n = 42\\\"\");"
+        }
+      ]
+    },
+    {
+      "id": "fmt",
+      "locator": "4.2",
+      "title": "Format specifiers at a glance",
+      "eyebrow": "Reference",
+      "body": "<table><thead><tr><th>Spec</th><th>Meaning</th><th>printf(…) gives</th></tr></thead><tbody><tr><td>%d</td><td>int</td><td>42 → 42</td></tr><tr><td>%5d</td><td>width 5</td><td>42 → ···42</td></tr><tr><td>%.2f</td><td>2 decimals</td><td>3.14159 → 3.14</td></tr><tr><td>%c</td><td>char</td><td>65 → A</td></tr><tr><td>%s</td><td>string</td><td>\"hi\" → hi</td></tr></tbody></table>",
+      "questions": [
+        {
+          "id": "f2",
+          "prompt": "Which prints 3.14 from 3.14159?",
+          "choices": [
+            {
+              "text": "%.2f",
+              "correct": true
+            },
+            {
+              "text": "%2d"
+            },
+            {
+              "text": "%c"
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Two digits after the point."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Integer format."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Character."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

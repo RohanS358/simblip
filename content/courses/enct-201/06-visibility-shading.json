@@ -1,0 +1,278 @@
+{
+  "title": "Hidden surfaces, lighting and shading",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapters 5–6",
+  "subtitle": "Decide which surface is in front, then decide how bright it looks.",
+  "sections": [
+    {
+      "id": "hsr",
+      "locator": "5.1",
+      "title": "Visible-surface determination",
+      "eyebrow": "What is in front?",
+      "body": "<p>When objects overlap, only the nearest surface along each line of sight may be drawn. <em class=\"term\">Object-space</em> methods compare polygons geometrically (painter’s algorithm); <em class=\"term\">image-space</em> methods decide per pixel. <em class=\"term\">Back-face detection</em> discards polygons facing away: a face is hidden if its normal N and the view vector V satisfy N·V &gt; 0 (roughly half the faces of a closed solid).</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A face has normal N = (0, 0, −1); the viewer looks along V = (0, 0, −1) (into the screen)."
+        },
+        {
+          "toc": "Test",
+          "why": "N·V = 1 > 0 means the face points away from the viewer: back-facing, cull it.",
+          "math": "N\\cdot V=(0)(0)+(0)(0)+(-1)(-1)=1>0",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bf",
+          "prompt": "Back-face culling removes…",
+          "choices": [
+            {
+              "text": "Polygons facing away from the viewer.",
+              "correct": true
+            },
+            {
+              "text": "The farthest objects."
+            },
+            {
+              "text": "Polygons outside the window."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "About half of a closed object’s faces."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That needs depth sorting."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is clipping."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "z",
+      "locator": "5.2",
+      "title": "The Z-buffer",
+      "eyebrow": "Image space",
+      "body": "<p>The <em class=\"term\">Z-buffer</em> keeps, for every pixel, the depth of the nearest surface drawn so far. Start with depth = ∞. For each polygon and each pixel it covers, compute the depth z; if z is smaller (nearer) than the stored value, write the colour and the new depth. Polygons can arrive in any order — no sorting, simple in hardware, cost O(pixels × overlapping surfaces) and one depth value per pixel. The A-buffer adds transparency; scan-line methods handle one row at a time.</p>",
+      "questions": [
+        {
+          "id": "zq",
+          "prompt": "A Z-buffer stores, per pixel…",
+          "choices": [
+            {
+              "text": "The colour only."
+            },
+            {
+              "text": "The polygon normal."
+            },
+            {
+              "text": "The depth of the nearest surface drawn so far.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the frame buffer."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "A new fragment is kept only if it is nearer."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.2.1 — Z-buffer algorithm",
+          "note": "The test-and-write loop of the Z-buffer.",
+          "script": "diagram(\"direction: down\\n(Start: depth buffer = infinity) as s\\n[Take the next polygon, next pixel] as a #blue\\n<z nearer than stored depth?> as c #amber\\n[Write colour, store z] as w #mint\\n[Keep the old pixel] as k #grey\\ns -> a\\na -> c\\nc -> w : yes\\nc -> k : no\\nw -> a\\nk -> a\");"
+        }
+      ]
+    },
+    {
+      "id": "light",
+      "locator": "6.1",
+      "title": "Illumination models",
+      "eyebrow": "Brightness",
+      "body": "<p>The Phong model sums three terms: <em class=\"term\">ambient</em> I = kₐ (light from everywhere), <em class=\"term\">diffuse</em> kd·cos θ (Lambert: proportional to the angle between the normal and the light — matte surfaces) and <em class=\"term\">specular</em> ks·cosⁿ α (a highlight where the reflection points at the eye; larger n = tighter, shinier). With ka = 0.1, kd = 0.5, ks = 0.4, n = 10, a surface lit head-on has I = <b>1</b>; at 60° it drops to <b>0.35</b>.</p>",
+      "worked": [
+        {
+          "toc": "Intensity",
+          "why": "Lit head-on (θ = 0): ambient + diffuse + specular = 0.1 + 0.5·1 + 0.4·1.",
+          "math": "0.1+0.5+0.4=1.0",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "spec",
+          "prompt": "Increasing the shininess exponent n makes the specular highlight…",
+          "choices": [
+            {
+              "text": "Larger and softer."
+            },
+            {
+              "text": "Brighter everywhere."
+            },
+            {
+              "text": "Smaller and sharper.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a smaller n."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It narrows, not brightens."
+            },
+            {
+              "title": "Correct.",
+              "body": "cosⁿ falls faster away from the mirror direction."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 6.1.1 — Phong components",
+          "note": "Three frames add the three terms one at a time.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"phong\",\"engine\":\"phong\",\"ka\":0.1,\"kd\":0.5,\"ks\":0.4,\"shininess\":10,\"width\":600,\"height\":440});",
+          "expect": {
+            "phong": {
+              "totalAt0": "1",
+              "totalAt60": "0.35"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "shade",
+      "locator": "6.2",
+      "title": "Shading methods",
+      "eyebrow": "Per polygon or per pixel",
+      "body": "<p>Computing the illumination model at every pixel is expensive, so surfaces are shaded by interpolation. <em class=\"term\">Constant (flat)</em> shading: one intensity per polygon — faceted look. <em class=\"term\">Gouraud</em>: compute intensity at the vertices and interpolate across the polygon — smooth, but can miss highlights that fall inside a polygon. <em class=\"term\">Phong shading</em>: interpolate the <em>normals</em> and apply the illumination model per pixel — accurate highlights, more expensive.</p>",
+      "questions": [
+        {
+          "id": "gour",
+          "prompt": "Gouraud shading interpolates…",
+          "choices": [
+            {
+              "text": "Normals."
+            },
+            {
+              "text": "Depth values."
+            },
+            {
+              "text": "Vertex intensities across the polygon.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is Phong shading."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the Z-buffer."
+            },
+            {
+              "title": "Correct.",
+              "body": "Phong shading interpolates the normals instead."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 6.2.1 — shading models",
+          "note": "Cost and quality both rise left to right.",
+          "script": "diagram(\"direction: right\\n[Flat: one colour per face] as f #grey\\n[Gouraud: interpolate colours] as g #blue\\n[Phong: interpolate normals] as p #mint\\nf -> g : smoother\\ng -> p : better highlights, more cost\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-shade",
+          "prompt": "<p>Why can Gouraud shading miss a specular highlight that lies in the middle of a large polygon?</p>",
+          "answer": "It evaluates lighting only at the vertices; if the bright spot is between them the interpolated colour never reaches it. Phong shading evaluates lighting per pixel so the highlight appears."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.3",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Back-face: N·V &gt; 0 → cull. Z-buffer: keep the nearest fragment per pixel.</li><li>Phong model = ambient + diffuse + specular; flat &lt; Gouraud &lt; Phong shading.</li></ul>"
+    },
+    {
+      "id": "try",
+      "locator": "6.4",
+      "title": "Try it",
+      "eyebrow": "Practice",
+      "questions": [
+        {
+          "id": "n80",
+          "prompt": "At 60° from the normal, the specular term of a very shiny surface is…",
+          "choices": [
+            {
+              "text": "Its maximum."
+            },
+            {
+              "text": "Negative."
+            },
+            {
+              "text": "Essentially zero — the highlight is confined to a narrow angle.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The maximum is at the mirror angle."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Clamped at zero."
+            },
+            {
+              "title": "Correct.",
+              "body": "cos^80 of a large angle is tiny."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 6.4.1 — shininess 80",
+          "note": "Shininess 80: a much narrower highlight.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"p80\",\"engine\":\"phong\",\"ka\":0.1,\"kd\":0.5,\"ks\":0.4,\"shininess\":80,\"width\":600,\"height\":440});",
+          "expect": {
+            "p80": {
+              "totalAt60": "0.35"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

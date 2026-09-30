@@ -25,6 +25,7 @@ import { pushSample, notify, clearBuffer } from './bus'
 import { connectorPath } from '@/lib/render/connector-path'
 import { buildCircuit, stepCircuit, type Circuit } from '@/lib/circuit/engine'
 import { pushEvent, clearEvents } from './event-log'
+import { syncFlow, resetFlow } from './flow'
 
 Matter.Common.setDecomp(decomp)
 
@@ -1272,6 +1273,11 @@ function moveEndpointDots(el: HTMLElement, ax: number, ay: number, bx: number, b
 }
 
 // Circuit results → DOM, outside React (flow dashes, readouts, pins, glow).
+/** Diagram animation (lib/physics/flow.ts): a pure function of the run clock, written into the DOM. */
+function syncFlowDom(w: World) {
+  syncFlow(elements, useDocStore.getState().pages[w.pageId]?.objects ?? {}, w.t)
+}
+
 function syncCircuitDom(w: World) {
   const c = w.circuit
   if (!c) return
@@ -1522,6 +1528,7 @@ function frame(now: number) {
     }
     syncTracers(w, scope, (elapsed / 1000) * ts)
     syncCircuitDom(w)
+    syncFlowDom(w)
     sample(w)
     if (now - timeUpdateAt > 150) {
       timeUpdateAt = now
@@ -1579,6 +1586,7 @@ export function stepFrame() {
   syncDom(world)
   syncTracers(world, scope, (2 * STEP) / 1000)
   syncCircuitDom(world)
+  syncFlowDom(world)
   sample(world)
   useRuntimeStore.getState().setTime(world.t)
 }
@@ -1595,6 +1603,7 @@ export function stepBack() {
   syncDom(world)
   syncTracers(world, scope, STEP / 1000)
   syncCircuitDom(world)
+  syncFlowDom(world)
   useRuntimeStore.getState().setTime(world.t)
 }
 
@@ -1623,6 +1632,7 @@ export function stop() {
   history = []
   removeTracerOverlay()
   for (const el of elements.values()) {
+    resetFlow(el)
     el.style.transform = ''
     const tint = el.querySelector<SVGElement>('[data-heat]')
     if (tint) tint.style.opacity = '0'

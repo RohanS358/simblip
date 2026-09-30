@@ -1,0 +1,326 @@
+{
+  "title": "Query processing, indexes and hashing",
+  "kicker": "ENCT 301 · Database Management System · Chapters 5–6",
+  "subtitle": "The same query can be answered a thousand ways; the optimiser picks one. Indexes are why it can be fast.",
+  "sections": [
+    {
+      "id": "steps",
+      "locator": "5.1",
+      "title": "From SQL to an answer",
+      "eyebrow": "Pipeline",
+      "body": "<p>A query is parsed, checked and translated into relational algebra; the optimiser rewrites it into cheaper equivalents and picks an execution plan using statistics; the evaluator runs the plan. Key rewrites: push selections down before joins (fewer rows to join), push projections down, choose the join order and the join algorithm.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "R has 10 000 rows, S has 10 000 rows; a selection keeps 1% of R. Join on a key."
+        },
+        {
+          "toc": "Why push σ down",
+          "why": "Selecting first: 100 rows of R joined with S. Joining first: 10⁴×10⁴ pairs compared before filtering.",
+          "math": "100\\ \\text{rows vs}\\ 10^8\\ \\text{pairs}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "push",
+          "prompt": "Why push selections below joins?",
+          "choices": [
+            {
+              "text": "It changes the answer."
+            },
+            {
+              "text": "Joins need sorted data."
+            },
+            {
+              "text": "They shrink the inputs, so the join handles far fewer rows.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Equivalent plans give the same answer."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Correct.",
+              "body": "The result is the same but cheaper."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — query processing",
+          "note": "The optimiser sits between the algebra and the plan.",
+          "script": "diagram(\"direction: right\\n[SQL text] as s #blue\\n[Parser + checker] as p #violet\\n[Relational algebra tree] as a #mint\\n[Optimiser: cost estimate] as o #amber\\n[Execution plan] as e #rose\\n(Result rows) as r\\ns -> p\\np -> a\\na -> o : equivalent trees\\no -> e : cheapest\\ne -> r\\n@0 s -> p : query\\n@1 p -> a : tree\\n@2 a -> o : alternatives\\n@3 o -> e : plan\\n@4 e -> r : rows\\nloop 6\");"
+        }
+      ]
+    },
+    {
+      "id": "ind",
+      "locator": "6.1",
+      "title": "Indexes",
+      "eyebrow": "Finding without scanning",
+      "body": "<p>Without an index a lookup scans every block. An <em class=\"term\">index</em> is a separate structure mapping a key to record locations. <em class=\"term\">Dense</em> indexes have an entry per record; <em class=\"term\">sparse</em> ones one per block. A <em class=\"term\">clustered</em> (primary) index orders the file itself; a <em class=\"term\">secondary</em> index is on a non-ordering attribute. Indexes speed reads and slow writes (each insert updates them) and cost space.</p>",
+      "worked": [
+        {
+          "toc": "Scan",
+          "why": "A file has 1 000 000 records, 100 per block: 10 000 blocks. Sequential scan reads 10 000 blocks on average 5 000."
+        },
+        {
+          "toc": "Indexed",
+          "why": "A sparse index with one entry per block has 10 000 entries; binary search over them needs about log₂10 000 ≈ 14 reads, plus 1 data block.",
+          "math": "\\lceil\\log_2 10000\\rceil+1=15",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "idx",
+          "prompt": "The price of an index is…",
+          "choices": [
+            {
+              "text": "Slower reads."
+            },
+            {
+              "text": "Lost data."
+            },
+            {
+              "text": "Extra space and slower inserts/updates.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It speeds reads."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not at all."
+            },
+            {
+              "title": "Correct.",
+              "body": "Every change must also update the index."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bplus",
+      "locator": "6.2",
+      "title": "B+ trees",
+      "eyebrow": "The standard index",
+      "body": "<p>Databases index with a <em class=\"term\">B+ tree</em>: a wide, shallow balanced tree whose internal nodes hold only separator keys and whose leaves hold all the keys, linked in order for fast range queries. Inserting 1…7 into an order-3 tree: a B-tree ends with root key <b>4</b> and height <b>3</b>, but the B+ tree keeps every key in its leaves (<b>1 2 3 4 5 6 7</b>). With hundreds of keys per node, three or four levels index billions of rows.</p>",
+      "questions": [
+        {
+          "id": "range",
+          "prompt": "Why are B+ tree leaves linked together?",
+          "choices": [
+            {
+              "text": "To save memory."
+            },
+            {
+              "text": "So a range query can scan forward through consecutive leaves without returning to the root.",
+              "correct": true
+            },
+            {
+              "text": "To allow duplicates."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Extra pointers use memory."
+            },
+            {
+              "title": "Correct.",
+              "body": "Finding the first key costs one descent; the rest is sequential."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 6.2.1 — B+ tree insertion",
+          "note": "Green arrows chain the leaves for range scans.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bp\",\"engine\":\"btree\",\"variant\":\"bplus\",\"order\":3,\"keys\":\"1 2 3 4 5 6 7\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bp": {
+              "leafKeys": "1 2 3 4 5 6 7",
+              "height": "3"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 6.2.2 — B-tree for comparison",
+          "note": "A B-tree stores keys in internal nodes too.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bt\",\"engine\":\"btree\",\"variant\":\"btree\",\"order\":3,\"keys\":\"1 2 3 4 5 6 7\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bt": {
+              "rootKeys": "4",
+              "height": "3"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-h",
+          "prompt": "<p>A B+ tree node holds up to 99 keys (100 pointers). Roughly how many records can a tree of height 3 (root, one internal level, leaves) index?</p>",
+          "answer": "≈ 100 × 100 × 99 ≈ <b>10⁶</b> keys. One more level multiplies by about 100."
+        }
+      ]
+    },
+    {
+      "id": "hash",
+      "locator": "6.3",
+      "title": "Hashing",
+      "eyebrow": "Direct access",
+      "body": "<p><em class=\"term\">Static hashing</em> maps a key through h(k) to a bucket (a block or chain); equality lookups cost about one block access, but range queries are impossible, and a fixed number of buckets degrades as the file grows. <em class=\"term\">Dynamic (extendible) hashing</em> adds buckets on demand by using more bits of the hash. Hash tables chain colliding keys (keys 5, 10, 3, 8 into 5 buckets: <b>5|10 - - 3|8 -</b>).</p>",
+      "questions": [
+        {
+          "id": "hq",
+          "prompt": "When is a hash index better than a B+ tree?",
+          "choices": [
+            {
+              "text": "For range scans."
+            },
+            {
+              "text": "For sorted output."
+            },
+            {
+              "text": "For exact-match lookups only.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the B+ tree."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Hashing gives no order."
+            },
+            {
+              "title": "Correct.",
+              "body": "Hashing scatters neighbouring keys, so it cannot do ranges."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 6.3.1 — bucket chaining",
+          "note": "Colliding keys share a bucket.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"hc\",\"engine\":\"hashing\",\"method\":\"chaining\",\"size\":5,\"keys\":\"5 10 3 8\",\"width\":600,\"height\":440});",
+          "expect": {
+            "hc": {
+              "table": "5|10 - - 3|8 -"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "store",
+      "locator": "6.4",
+      "title": "Disks and record organisation",
+      "eyebrow": "Underneath",
+      "body": "<p>Data is stored in fixed-size blocks on disk; reading a block costs milliseconds while CPU work is nanoseconds, so DBMS cost is counted in block accesses. Records are organised as a heap (unordered), sequential (sorted), or hashed. Variable-length records use slotted pages. Buffer management keeps hot blocks in memory.</p>",
+      "questions": [
+        {
+          "id": "blocks",
+          "prompt": "DBMS cost models count mainly…",
+          "choices": [
+            {
+              "text": "CPU instructions."
+            },
+            {
+              "text": "Disk block accesses.",
+              "correct": true
+            },
+            {
+              "text": "Lines of SQL."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Negligible in comparison."
+            },
+            {
+              "title": "Correct.",
+              "body": "They dominate the CPU time."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Irrelevant."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mat",
+      "locator": "5.2",
+      "title": "Materialised views and tuning",
+      "eyebrow": "Performance",
+      "body": "<p>A <em class=\"term\">materialised view</em> stores a query’s result so repeated queries are instant, at the cost of keeping it fresh. Tuning: add the right indexes, denormalise hot joins, rewrite slow queries, use EXPLAIN to see the plan.</p>",
+      "questions": [
+        {
+          "id": "mv",
+          "prompt": "A materialised view differs from an ordinary view because it…",
+          "choices": [
+            {
+              "text": "Stores its result physically.",
+              "correct": true
+            },
+            {
+              "text": "Is always up to date."
+            },
+            {
+              "text": "Cannot be queried."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "An ordinary view re-runs its query each time."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It can be stale."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It can."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Give one benefit and one cost of a materialised view.</p>",
+          "answer": "Benefit: complex aggregates are pre-computed, so reads are fast. Cost: extra storage and the work of refreshing it when the base tables change."
+        }
+      ]
+    }
+  ]
+}

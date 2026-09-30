@@ -1,0 +1,34 @@
+{
+  "id": "ence-356",
+  "code": "ENCE 356",
+  "title": "Engineering Economics",
+  "subject": "economics",
+  "semester": 6,
+  "program": "computer",
+  "description": "Markets, costs, the time value of money, present/annual worth, IRR, replacement, risk and depreciation — worked on live cash-flow diagrams.",
+  "order": [
+    "01-intro-market",
+    "02-cost-depreciation",
+    "03-time-value-methods",
+    "04-replacement-risk"
+  ],
+  "published": true,
+  "lessons": {
+    "01-intro-market": {
+      "path": "1, 2, 9 Introduction, Market Economics and National Income",
+      "title": "Decisions, markets and the circular flow"
+    },
+    "02-cost-depreciation": {
+      "path": "3, 8 Cost, Depreciation and Taxes",
+      "title": "Costs, break-even and depreciation"
+    },
+    "03-time-value-methods": {
+      "path": "4–5 Time Value of Money and Methods of Economic Analysis",
+      "title": "Time value of money and choosing projects"
+    },
+    "04-replacement-risk": {
+      "path": "6–7 Replacement and Risk Analysis",
+      "title": "Replacement analysis and risk"
+    }
+  }
+}

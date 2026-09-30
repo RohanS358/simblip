@@ -1,0 +1,319 @@
+{
+  "title": "Decisions and loops",
+  "kicker": "ENCT 101 · Computer Programming · Chapter 5",
+  "subtitle": "Sequence, selection, repetition: every program ever written is built from these three.",
+  "sections": [
+    {
+      "id": "if",
+      "locator": "5.1",
+      "title": "if, else if, else",
+      "eyebrow": "Choosing a path",
+      "body": "<p><code>if (cond) { … } else if (cond2) { … } else { … }</code>. Only the first true branch runs. Beware <code>=</code> (assign) versus <code>==</code> (compare) inside a condition, and the “dangling else” — an else belongs to the nearest if, so use braces.</p>",
+      "questions": [
+        {
+          "id": "eq",
+          "prompt": "<code>if (x = 5)</code> does…",
+          "choices": [
+            {
+              "text": "Compares x with 5."
+            },
+            {
+              "text": "Is a syntax error."
+            },
+            {
+              "text": "Assigns 5 to x and is always true.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is ==."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It compiles."
+            },
+            {
+              "title": "Correct.",
+              "body": "A classic bug: == was meant."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — grade ladder",
+          "note": "Conditions are tried in order.",
+          "script": "diagram(\"direction: down\\n[Read marks] as r\\n<Marks 80 or more?> as a\\n<Marks 60 or more?> as b\\n[Print Distinction] as d\\n[Print Pass] as p\\n[Print Fail] as f\\nr -> a\\na -> d : yes\\na -> b : no\\nb -> p : yes\\nb -> f : no\\n@0 r -> a\\n@1 a -> b : no\\n@2 b -> p : yes\");"
+        }
+      ]
+    },
+    {
+      "id": "sw",
+      "locator": "5.2",
+      "title": "switch",
+      "eyebrow": "Many-way choice",
+      "body": "<p><code>switch (n) { case 1: …; break; case 2: …; break; default: … }</code> jumps to the matching case. Without <code>break</code> control falls through to the next case — sometimes useful, often a bug. The selector must be an integer or char.</p>",
+      "questions": [
+        {
+          "id": "brk",
+          "prompt": "Forgetting <code>break</code> in a case causes…",
+          "choices": [
+            {
+              "text": "A compile error."
+            },
+            {
+              "text": "The switch to stop."
+            },
+            {
+              "text": "Fall-through into the next case.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is legal."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The opposite."
+            },
+            {
+              "title": "Correct.",
+              "body": "Execution continues downward."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 5.2.1 — switch",
+          "note": "Jumps straight to case 3.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int d = 3;\\n  switch (d) {\\n    case 1: cout << \\\"Mon\\\" << endl; break;\\n    case 3: cout << \\\"Wed\\\" << endl; break;\\n    default: cout << \\\"?\\\" << endl;\\n  }\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "Wed"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "for",
+      "locator": "5.3",
+      "title": "for loop",
+      "eyebrow": "Counting",
+      "body": "<p><code>for (init; condition; update) body</code>: init once, test before each pass, update after each pass. Use it when the number of repetitions is known. The sum of even numbers 1–10 below is 2 + 4 + 6 + 8 + 10.</p>",
+      "worked": [
+        {
+          "toc": "Count",
+          "why": "Iterations of for (i = 0; i < n; i++) when n = 10."
+        },
+        {
+          "toc": "Passes",
+          "why": "i takes 0,1,…,9: ten passes.",
+          "math": "10",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "off",
+          "prompt": "How many times does <code>for (i = 1; i &lt;= 5; i++)</code> run its body?",
+          "choices": [
+            {
+              "text": "4."
+            },
+            {
+              "text": "5.",
+              "correct": true
+            },
+            {
+              "text": "6."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Off by one."
+            },
+            {
+              "title": "Correct.",
+              "body": "1, 2, 3, 4, 5."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Off by one the other way."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 5.3.1 — for loop",
+          "note": "Step through: watch sum grow only on even i.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int sum = 0;\\n  for (int i = 1; i <= 10; i++) {\\n    if (i % 2 == 0) sum += i;\\n  }\\n  cout << sum << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "30"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-sum",
+          "prompt": "<p>What does the program above print if the condition is changed to <code>i % 3 == 0</code>?</p>",
+          "answer": "3 + 6 + 9 = <b>18</b>."
+        }
+      ]
+    },
+    {
+      "id": "while",
+      "locator": "5.4",
+      "title": "while and do–while",
+      "eyebrow": "Repeat until",
+      "body": "<p><code>while (cond)</code> tests first, so may run zero times; <code>do { … } while (cond);</code> runs at least once. Use <code>while</code> when the count is unknown. <code>break</code> leaves a loop; <code>continue</code> skips to the next pass.</p>",
+      "questions": [
+        {
+          "id": "dw",
+          "prompt": "A do–while body runs at least…",
+          "choices": [
+            {
+              "text": "Twice."
+            },
+            {
+              "text": "Once.",
+              "correct": true
+            },
+            {
+              "text": "Zero times."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "The test is at the bottom."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is while."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp4",
+          "caption": "Figure 5.4.1 — while and do–while",
+          "note": "5! = 120; the do–while counts down.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int n = 5, f = 1;\\n  while (n > 1) {\\n    f *= n;\\n    n--;\\n  }\\n  cout << f << endl;\\n  int k = 3;\\n  do { cout << k << \\\" \\\"; k--; } while (k > 0);\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "120\n3 2 1"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "nest",
+      "locator": "5.5",
+      "title": "Nested loops and patterns",
+      "eyebrow": "Loops inside loops",
+      "body": "<p>An outer loop of m passes containing an inner loop of n passes runs the inner body m × n times — the basis of tables, matrices and patterns (and of O(n²) cost). Triangle of stars: row i prints i stars.</p>",
+      "worked": [
+        {
+          "toc": "Rows",
+          "why": "Outer 4 passes, inner up to row number: 1 + 2 + 3 + 4."
+        },
+        {
+          "toc": "Total",
+          "why": "Total inner passes.",
+          "math": "\\tfrac{4\\cdot5}{2}=10",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "nl",
+          "prompt": "Outer loop 6 passes, inner 7 passes. Inner body runs…",
+          "choices": [
+            {
+              "text": "42 times.",
+              "correct": true
+            },
+            {
+              "text": "13 times."
+            },
+            {
+              "text": "7 times."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "6 × 7."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That adds."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only one outer pass."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "rec",
+      "locator": "5.6",
+      "title": "Choosing the right loop",
+      "eyebrow": "Summary",
+      "body": "<table><thead><tr><th>Need</th><th>Use</th></tr></thead><tbody><tr><td>Known count</td><td>for</td></tr><tr><td>Repeat until a condition, maybe zero times</td><td>while</td></tr><tr><td>Run once, then repeat while</td><td>do–while</td></tr><tr><td>Choose among constants</td><td>switch</td></tr></tbody></table>",
+      "questions": [
+        {
+          "id": "ch",
+          "prompt": "Menu shown at least once, repeated until the user quits:",
+          "choices": [
+            {
+              "text": "do–while.",
+              "correct": true
+            },
+            {
+              "text": "for."
+            },
+            {
+              "text": "switch."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Test after the body."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Count unknown."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a loop."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

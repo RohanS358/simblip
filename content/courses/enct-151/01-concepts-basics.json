@@ -1,0 +1,302 @@
+{
+  "title": "Objects, classes and the C++ basics",
+  "kicker": "ENCT 151 · Object Oriented Programming · Chapters 1–2",
+  "subtitle": "Model the problem as things that have data and can do things, then let those things talk to each other.",
+  "sections": [
+    {
+      "id": "idea",
+      "locator": "1.1",
+      "title": "Objects and classes",
+      "eyebrow": "The core idea",
+      "body": "<p>An <em class=\"term\">object</em> bundles <b>state</b> (data members) with <b>behaviour</b> (member functions). A <em class=\"term\">class</em> is the blueprint; objects are instances made from it. Programs run by objects sending each other messages (calling methods).</p>",
+      "questions": [
+        {
+          "id": "obj",
+          "prompt": "The relationship between a class and an object is like…",
+          "choices": [
+            {
+              "text": "House and blueprint."
+            },
+            {
+              "text": "Blueprint and house.",
+              "correct": true
+            },
+            {
+              "text": "Two identical houses."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Reversed."
+            },
+            {
+              "title": "Correct.",
+              "body": "One blueprint, many houses."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a blueprint relation."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.1.1 — class and instances",
+          "note": "One class, many independent objects.",
+          "script": "diagram(\"direction: right\\n{Account | balance : int | deposit(x) ; withdraw(x) ; get()} as a\\n{a1 : Account | balance = 150} as o1\\n{a2 : Account | balance = 40} as o2\\na -> o1 : instance\\na -> o2 : instance\");"
+        }
+      ]
+    },
+    {
+      "id": "pillars",
+      "locator": "1.2",
+      "title": "The four pillars",
+      "eyebrow": "What OOP gives you",
+      "body": "<table><thead><tr><th>Pillar</th><th>Meaning</th></tr></thead><tbody><tr><td>Encapsulation</td><td>hide data; expose a small interface</td></tr><tr><td>Abstraction</td><td>show what, hide how</td></tr><tr><td>Inheritance</td><td>a new class reuses and extends another</td></tr><tr><td>Polymorphism</td><td>one call, different behaviour by object type</td></tr></tbody></table>",
+      "questions": [
+        {
+          "id": "pill",
+          "prompt": "Making a data member private is an example of…",
+          "choices": [
+            {
+              "text": "Polymorphism."
+            },
+            {
+              "text": "Inheritance."
+            },
+            {
+              "text": "Encapsulation.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is about dispatch."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is reuse."
+            },
+            {
+              "title": "Correct.",
+              "body": "Access only through the public interface."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "refs",
+      "locator": "2.1",
+      "title": "References and pass-by-reference",
+      "eyebrow": "An alias",
+      "body": "<p>A reference is another name for an existing variable: <code>int &amp;r = x;</code>. As a parameter it lets a function modify the caller’s variable without pointer syntax, and avoids copying large objects (use <code>const T&amp;</code> to forbid changes).</p>",
+      "questions": [
+        {
+          "id": "ref",
+          "prompt": "Passing by reference differs from by value because…",
+          "choices": [
+            {
+              "text": "The function works on the original variable.",
+              "correct": true
+            },
+            {
+              "text": "It is slower."
+            },
+            {
+              "text": "It needs pointers."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "No copy is made."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Usually faster."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No pointer syntax."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 2.1.1 — References and pass-by-reference",
+          "note": "inc changes the caller’s n.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nvoid inc(int &x) { x++; }\\nint main() {\\n  int n = 5;\\n  inc(n);\\n  inc(n);\\n  cout << n << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "7"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ovl",
+      "locator": "2.2",
+      "title": "Overloading and default arguments",
+      "eyebrow": "Same name, different parameters",
+      "body": "<p>Functions with the same name but different parameter lists are <b>overloads</b>; the compiler picks by the argument types and count. Return type alone cannot distinguish them. Default arguments (<code>int add(int a, int b = 10)</code>) let a caller omit trailing arguments. (The DSA Lab’s interpreter is a teaching subset and does not resolve overloads or defaults faithfully, so these are explained here rather than run.)</p>",
+      "questions": [
+        {
+          "id": "ov",
+          "prompt": "Can two functions differ only by return type?",
+          "choices": [
+            {
+              "text": "Yes, always."
+            },
+            {
+              "text": "Only for void."
+            },
+            {
+              "text": "No.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Ambiguous."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No such rule."
+            },
+            {
+              "title": "Correct.",
+              "body": "The compiler cannot choose from the call alone."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 2.2.1 — overload resolution",
+          "note": "Resolved at compile time from the argument list.",
+          "script": "diagram(\"mode: sequence\\n[Caller] as c\\n[Compiler] as k\\n[area(int s)] as a\\n[area(int w, int h)] as b\\nc -> k : area(4)\\nk -> a : one int argument\\nc -> k : area(3, 5)\\nk -> b : two int arguments\\n@0 c -> k : area(4)\\n@1 k -> a : one int argument\\n@2 c -> k : area(3, 5)\\n@3 k -> b : two int arguments\");"
+        }
+      ]
+    },
+    {
+      "id": "mem",
+      "locator": "2.3",
+      "title": "Dynamic memory: new and delete",
+      "eyebrow": "Heap objects",
+      "body": "<p><code>new</code> creates an object on the heap and returns its address; <code>delete</code> destroys it. Pair them: every <code>new</code> needs one <code>delete</code> (<code>new[]</code> with <code>delete[]</code>) or memory leaks. Prefer smart pointers (<code>unique_ptr</code>) in modern C++.</p>",
+      "worked": [
+        {
+          "toc": "Size",
+          "why": "new int[100] allocates 100 ints of 4 bytes."
+        },
+        {
+          "toc": "Bytes",
+          "why": "Bytes requested.",
+          "math": "100\\times4=400",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "del",
+          "prompt": "Memory allocated with <code>new int[5]</code> is released by…",
+          "choices": [
+            {
+              "text": "delete p;"
+            },
+            {
+              "text": "delete[] p;",
+              "correct": true
+            },
+            {
+              "text": "free(p);"
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Undefined for arrays."
+            },
+            {
+              "title": "Correct.",
+              "body": "Array form pairs with array form."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Mixes allocators."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp4",
+          "caption": "Figure 2.3.1 — Dynamic memory: new and delete",
+          "note": "Heap cell created, changed, released.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int *p = new int(7);\\n  *p = *p + 3;\\n  cout << *p << endl;\\n  delete p;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "10"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-new",
+          "prompt": "<p>How many bytes does <code>new double[25]</code> request (8-byte doubles)?</p>",
+          "answer": "25 × 8 = <b>200 bytes</b>."
+        }
+      ]
+    },
+    {
+      "id": "cppc",
+      "locator": "2.4",
+      "title": "C++ over C",
+      "eyebrow": "What changed",
+      "body": "<p>C++ adds classes, references, overloading, templates, exceptions, the STL containers (<code>vector</code>, <code>map</code>, <code>string</code>), and stream I/O (<code>cin</code>, <code>cout</code>). Namespaces (<code>std::</code>) prevent name clashes.</p>",
+      "questions": [
+        {
+          "id": "ns",
+          "prompt": "Namespaces exist to…",
+          "choices": [
+            {
+              "text": "Speed up code."
+            },
+            {
+              "text": "Avoid name collisions.",
+              "correct": true
+            },
+            {
+              "text": "Hide data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Two libraries can both define “sort”."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is private."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

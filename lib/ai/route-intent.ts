@@ -146,6 +146,15 @@ const SIMULATE_RE = new RegExp(
     'cash ?flow|\\bnpv\\b|\\birr\\b|\\bmarr\\b|present worth|future worth|annual worth',
     'payback period|salvage|annuit|depreciat|benefit.{0,5}cost|capital recovery',
     'engineering econom|rate of return|time value of money|compound interest',
+    // computer-science topics -> the Step Lab runs and draws the algorithm.
+    'schedul|round robin|\\bfcfs\\b|\\bsjf\\b|page replacement|paging|thrashing|deadlock|banker|disk scheduling|\\bcache\\b|pipeline|hazard',
+    '8085|8086|microprocessor|assembly|booth|ieee ?754|floating point|two.s complement|karnaugh|k-?map|quine',
+    '\\btcp\\b|congestion|sliding window|go-back|selective repeat|subnet|\\bvlsm\\b|\\bcidr\\b|routing|distance vector|link state|\\bcrc\\b|hamming|line cod|manchester|modulation|\\bpcm\\b|fourier',
+    '\\bdfa\\b|\\bnfa\\b|automat|turing|pushdown|context.free|grammar|parse tree|huffman|\\bavl\\b|b-?tree|hashing|topological|spanning tree|prim\\b|kruskal',
+    'a\\*|minimax|alpha.?beta|perceptron|k-?means|neural network|backprop|genetic algorithm|fuzzy|gradient descent|bayes|regression',
+    'bresenham|\\bdda\\b|clipping|b[eé]zier|rasteri|projection|phong|shading|normal form|functional dependenc|serializab|relational algebra',
+    'monte carlo|queue simulation|m/m/1|markov|random number|bisection|newton.raphson|simpson|runge|euler method|central limit|confidence interval',
+    'block diagram|sequence diagram|\\buml\\b|feedback loop|transfer function|\\bpid\\b|state machine|flowchart',
     // explicit asks
     'simulate|simulation|animate|plot|graph|draw|build|show me',
   ].join('|'),

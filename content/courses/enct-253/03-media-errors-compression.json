@@ -1,0 +1,279 @@
+{
+  "title": "Media, error control and compression",
+  "kicker": "ENCT 253 · Data Communication · Chapter 3",
+  "subtitle": "The wires and waves that carry bits, and the arithmetic that notices, fixes and shrinks them.",
+  "sections": [
+    {
+      "id": "guided",
+      "locator": "3.1",
+      "title": "Guided media",
+      "eyebrow": "Cables",
+      "body": "<p><em class=\"term\">Twisted pair</em> (UTP/STP): two insulated wires twisted to cancel interference — cheap, the LAN workhorse (Cat 5e/6, up to 100 m). <em class=\"term\">Coaxial</em>: a centre conductor inside a shield — higher bandwidth, cable TV. <em class=\"term\">Optical fibre</em>: light in a glass core by total internal reflection — enormous bandwidth, low loss, immune to electrical noise; single-mode for long haul, multimode for short runs.</p>",
+      "questions": [
+        {
+          "id": "fib",
+          "prompt": "Why is optical fibre immune to electromagnetic interference?",
+          "choices": [
+            {
+              "text": "It carries light, not electric current.",
+              "correct": true
+            },
+            {
+              "text": "It is shielded by metal."
+            },
+            {
+              "text": "It is shorter."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "There is no electrical signal to pick up noise."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is glass."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Fibre runs kilometres."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.1.1 — guided media",
+          "note": "Bandwidth and distance rise left to right; so does cost.",
+          "script": "diagram(\"direction: right\\n[Twisted pair: cheap, 100 m, LAN] as a #blue\\n[Coaxial: shielded, cable TV] as b #mint\\n[Fibre: light, km, huge bandwidth] as c #amber\\na -> b : more bandwidth\\nb -> c : much more\");"
+        }
+      ]
+    },
+    {
+      "id": "unguided",
+      "locator": "3.2",
+      "title": "Wireless media",
+      "eyebrow": "Through the air",
+      "body": "<p>Radio waves (omnidirectional, pass walls), microwaves (line-of-sight, dish to dish, satellites), infrared (short range, blocked by walls). Propagation modes: <em class=\"term\">ground wave</em> (low frequencies follow the earth), <em class=\"term\">sky wave</em> (HF reflects off the ionosphere — long distance), <em class=\"term\">line of sight</em> (VHF and above, limited by the horizon). Higher frequencies carry more data but travel less far.</p>",
+      "questions": [
+        {
+          "id": "los",
+          "prompt": "Which propagation mode do microwaves and satellite links use?",
+          "choices": [
+            {
+              "text": "Ground wave."
+            },
+            {
+              "text": "Sky wave."
+            },
+            {
+              "text": "Line of sight.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is for low frequencies."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "HF only."
+            },
+            {
+              "title": "Correct.",
+              "body": "Their beams do not bend around the earth."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "errors",
+      "locator": "3.3",
+      "title": "Error detection: parity, checksum, CRC",
+      "eyebrow": "Noticing",
+      "body": "<p>Noise flips bits. A single <em class=\"term\">parity</em> bit detects any odd number of errors. A <em class=\"term\">checksum</em> sums the data words and sends the complement. The <em class=\"term\">CRC</em> divides by a generator polynomial with XOR and sends the remainder: for data 1101011011 and generator 10011 the CRC is <b>1110</b>.</p>",
+      "questions": [
+        {
+          "id": "par",
+          "prompt": "A single even-parity bit cannot detect…",
+          "choices": [
+            {
+              "text": "An even number of flipped bits.",
+              "correct": true
+            },
+            {
+              "text": "A single flipped bit."
+            },
+            {
+              "text": "Any error at all."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Two flips leave the parity unchanged."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That it does detect."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It detects odd numbers of errors."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.3.1 — CRC",
+          "note": "Long division with XOR.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"crc\",\"engine\":\"crc\",\"data\":\"1101011011\",\"generator\":\"10011\",\"width\":600,\"height\":440});",
+          "expect": {
+            "crc": {
+              "crc": "1110",
+              "codeword": "11010110111110"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ham",
+      "locator": "3.4",
+      "title": "Error correction: Hamming code",
+      "eyebrow": "Fixing",
+      "body": "<p>Extra parity bits at positions 1, 2, 4, 8… let the receiver locate a single error: the failed checks, read as binary, name the position. 1011 encodes as <b>0110011</b>; flip bit 5 and the syndrome is <b>5</b>. The minimum Hamming distance d of a code decides its power: it detects d−1 errors and corrects ⌊(d−1)/2⌋.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A code has minimum distance 5.",
+          "math": "d=5"
+        },
+        {
+          "toc": "Power",
+          "why": "It detects d − 1 = 4 errors and corrects ⌊4/2⌋ = 2.",
+          "math": "\\lfloor (5-1)/2\\rfloor=2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dist",
+          "prompt": "A code with minimum distance 3 can…",
+          "choices": [
+            {
+              "text": "Correct 3 errors."
+            },
+            {
+              "text": "Detect 3 errors only."
+            },
+            {
+              "text": "Correct 1 error or detect 2.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only ⌊(d−1)/2⌋."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It detects d−1 = 2."
+            },
+            {
+              "title": "Correct.",
+              "body": "d = 3 gives ⌊2/2⌋ = 1 correctable and 2 detectable."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 3.4.1 — Hamming(7,4)",
+          "note": "Encode, corrupt, correct.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ham\",\"engine\":\"hamming\",\"data\":\"1011\",\"error\":5,\"width\":600,\"height\":440});",
+          "expect": {
+            "ham": {
+              "codeword": "0110011",
+              "syndrome": "5"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "comp",
+      "locator": "3.5",
+      "title": "Data compression",
+      "eyebrow": "Shrinking",
+      "body": "<p><em class=\"term\">Lossless</em> compression removes redundancy and reproduces the data exactly (ZIP, PNG): run-length coding, Huffman and Lempel–Ziv. <em class=\"term\">Lossy</em> compression discards what perception will not miss (JPEG, MP3): much higher ratios. Huffman gives frequent symbols short codes: aaaabbc needs <b>10</b> bits instead of 56.</p>",
+      "questions": [
+        {
+          "id": "lossy",
+          "prompt": "Which format is lossy?",
+          "choices": [
+            {
+              "text": "PNG."
+            },
+            {
+              "text": "JPEG (and MP3).",
+              "correct": true
+            },
+            {
+              "text": "ZIP."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Lossless."
+            },
+            {
+              "title": "Correct.",
+              "body": "They discard detail that eyes and ears barely notice."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Lossless."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 3.5.1 — Huffman coding",
+          "note": "The merge order builds the tree.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"hf\",\"engine\":\"huffman\",\"text\":\"aaaabbc\",\"width\":600,\"height\":440});",
+          "expect": {
+            "hf": {
+              "totalBits": "10",
+              "codes": "a=1 b=01 c=00"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-rl",
+          "prompt": "<p>Run-length encode AAAABBBCCD.</p>",
+          "answer": "<b>4A3B2C1D</b> — 10 characters become 8; it only helps when runs are long."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Twisted pair → coax → fibre: more bandwidth, more cost.</li><li>CRC detects; Hamming corrects one error; distance d detects d−1, corrects ⌊(d−1)/2⌋.</li><li>Lossless keeps every bit; lossy trades fidelity for size.</li></ul>"
+    }
+  ]
+}

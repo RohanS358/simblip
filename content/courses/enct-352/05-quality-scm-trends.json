@@ -1,0 +1,287 @@
+{
+  "title": "Quality, version control and delivery",
+  "kicker": "ENCT 352 · Software Engineering · Chapters 7–9",
+  "subtitle": "Keeping software good after the first release: quality assurance, version control, and pipelines that ship safely.",
+  "sections": [
+    {
+      "id": "qa",
+      "locator": "7.1",
+      "title": "Quality assurance",
+      "eyebrow": "Building quality in",
+      "body": "<p>Quality assurance (QA) prevents defects through process (standards, reviews, audits); quality control (QC) detects them (testing). Standards: ISO 9001, CMMI levels, ISO/IEC 25010 attributes. Reviews — inspections and walkthroughs — find defects earlier than tests.</p>",
+      "questions": [
+        {
+          "id": "qaq",
+          "prompt": "Code review is an example of…",
+          "choices": [
+            {
+              "text": "Quality assurance/defect detection before testing.",
+              "correct": true
+            },
+            {
+              "text": "Deployment."
+            },
+            {
+              "text": "Requirements elicitation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Finds defects early."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not delivery."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different phase."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "cost",
+      "locator": "7.2",
+      "title": "The cost of late bugs",
+      "eyebrow": "Why early matters",
+      "body": "<p>A defect costs roughly 1 unit to fix at requirements, ~10 in design/coding, ~100 after release. Hence reviews, static analysis and unit tests are worth their effort.</p>",
+      "worked": [
+        {
+          "toc": "Ratio",
+          "why": "A bug costing 1 h if found in requirements costs ~10× more in coding and ~100× after release."
+        },
+        {
+          "toc": "Growth",
+          "why": "So 1 h → 10 h → 100 h.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "late",
+          "prompt": "Why are late-found defects costly?",
+          "choices": [
+            {
+              "text": "More work depends on the wrong decision.",
+              "correct": true
+            },
+            {
+              "text": "Testers are paid more."
+            },
+            {
+              "text": "Code gets slower."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Rework grows with dependants."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-def",
+          "prompt": "<p>A project finds 60 defects in review and 20 in testing; 10 escape. Defect removal efficiency?</p>",
+          "answer": "DRE = (60 + 20)/(60 + 20 + 10) = <b>88.9 %</b>."
+        }
+      ]
+    },
+    {
+      "id": "maint",
+      "locator": "7.3",
+      "title": "Maintenance",
+      "eyebrow": "After release",
+      "body": "<p>Four kinds: <b>corrective</b> (fix bugs), <b>adaptive</b> (new environment), <b>perfective</b> (new features/performance), <b>preventive</b> (refactor). Perfective is usually the largest share. Legacy systems are re-engineered or replaced when cost exceeds value.</p>",
+      "questions": [
+        {
+          "id": "mt",
+          "prompt": "Porting software to a new OS is…",
+          "choices": [
+            {
+              "text": "Corrective."
+            },
+            {
+              "text": "Adaptive maintenance.",
+              "correct": true
+            },
+            {
+              "text": "Preventive."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Nothing was broken."
+            },
+            {
+              "title": "Correct.",
+              "body": "The environment changed."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not refactoring."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scm",
+      "locator": "8.1",
+      "title": "Version control and branching",
+      "eyebrow": "Managing change",
+      "body": "<p>Configuration management tracks every version of every item. With Git: commit small changes, branch for features, merge via review. A common flow: <code>main</code> stays releasable; a feature branch is merged by pull request after tests pass.</p>",
+      "questions": [
+        {
+          "id": "mrg",
+          "prompt": "Why merge by pull request?",
+          "choices": [
+            {
+              "text": "Review and automated checks before main changes.",
+              "correct": true
+            },
+            {
+              "text": "Git requires it."
+            },
+            {
+              "text": "To delete history."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Protects the releasable branch."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is a convention."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the purpose."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 8.1.1 — pull-request flow",
+          "note": "main only ever receives reviewed work.",
+          "script": "diagram(\"mode: sequence\\n[Developer] as d\\n[Feature branch] as f\\n[Reviewer] as r\\n[main] as m\\nd -> f : commit\\nd -> r : pull request\\nr --> d : comments\\nd -> f : fix commit\\nr -> m : approve and merge\\n@0 d -> f : commit\\n@1 d -> r : pull request\\n@2 r -> d : comments\\n@3 d -> f : fix commit\\n@4 r -> m : approve and merge\");"
+        }
+      ]
+    },
+    {
+      "id": "ci",
+      "locator": "9.1",
+      "title": "Continuous integration and delivery",
+      "eyebrow": "Ship safely and often",
+      "body": "<p><b>CI</b>: every push is built and tested automatically. <b>Continuous delivery</b>: every passing build is deployable at a click; <b>continuous deployment</b> releases automatically. Small, frequent releases are easier to test and to roll back.</p>",
+      "questions": [
+        {
+          "id": "cid",
+          "prompt": "In a CI pipeline a failing unit test should…",
+          "choices": [
+            {
+              "text": "Be ignored until Friday."
+            },
+            {
+              "text": "Skip to deployment."
+            },
+            {
+              "text": "Stop the pipeline and notify the author.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Defeats the purpose."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Dangerous."
+            },
+            {
+              "title": "Correct.",
+              "body": "Broken builds never reach production."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 9.1.1 — CI/CD pipeline",
+          "note": "A failing stage stops the token; nothing after it runs.",
+          "script": "diagram(\"direction: right\\n[Commit] as c\\n[Build] as b\\n[Unit tests] as u\\n[Integration tests] as i\\n[Deploy staging] as s\\n[Deploy production] as p\\nc -> b\\nb -> u\\nu -> i\\ni -> s\\ns -> p\\n@0 c -> b\\n@1 b -> u\\n@2 u -> i\\n@3 i -> s\\n@4 s -> p\\nloop 2\");"
+        }
+      ]
+    },
+    {
+      "id": "devops",
+      "locator": "9.2",
+      "title": "DevOps and recent trends",
+      "eyebrow": "Looking ahead",
+      "body": "<p>DevOps joins development and operations: infrastructure as code, containers, monitoring, fast feedback. Other trends: microservices, cloud-native, AI-assisted coding (review its output like a junior’s), DevSecOps (security in the pipeline), low-code platforms.</p>",
+      "worked": [
+        {
+          "toc": "Before/after",
+          "why": "Deploy frequency rises from 1 per month to 1 per day."
+        },
+        {
+          "toc": "Effect",
+          "why": "That is about 30× more releases, each far smaller and easier to roll back.",
+          "math": "30\\times",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dvo",
+          "prompt": "Infrastructure as code means…",
+          "choices": [
+            {
+              "text": "Servers are described in versioned files and created by tools.",
+              "correct": true
+            },
+            {
+              "text": "Writing code on servers by hand."
+            },
+            {
+              "text": "Only using cloud."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Reproducible environments."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the same thing."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

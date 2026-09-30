@@ -1,0 +1,300 @@
+{
+  "title": "Latches and flip-flops",
+  "kicker": "ENEX 152 · Digital Logic · Sequential Logic Circuits",
+  "subtitle": "Combinational logic has no memory. Feed an output back to an input and you get a circuit that remembers.",
+  "sections": [
+    {
+      "id": "seq",
+      "locator": "3.1",
+      "title": "Memory from feedback",
+      "eyebrow": "Sequential vs combinational",
+      "body": "<p>A combinational output depends only on the present inputs. A <em class=\"term\">sequential</em> circuit’s output also depends on its <i>state</i> — what happened before — stored in latches or flip-flops. The simplest memory is two cross-coupled NOR (or NAND) gates: each output feeds the other’s input, so the pair holds whichever state it was last pushed into.</p>",
+      "questions": [
+        {
+          "id": "mem",
+          "prompt": "What distinguishes a sequential circuit?",
+          "choices": [
+            {
+              "text": "It uses more gates."
+            },
+            {
+              "text": "It has no clock."
+            },
+            {
+              "text": "Its output depends on stored state, not only current inputs.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the definition."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Many have one."
+            },
+            {
+              "title": "Correct.",
+              "body": "It has memory."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sr",
+      "locator": "3.2",
+      "title": "The SR latch",
+      "eyebrow": "Set and Reset",
+      "body": "<p>Inputs S (set) and R (reset): S = 1 forces Q = 1; R = 1 forces Q = 0; S = R = 0 <b>holds</b> the previous Q; S = R = 1 is forbidden (both outputs collapse, and releasing both at once is unpredictable). Toggle S and R below and watch Q remember.</p>",
+      "worked": [
+        {
+          "toc": "Set",
+          "why": "Start with Q = 0. Set S = 1, R = 0 → Q = 1. Return S to 0."
+        },
+        {
+          "toc": "Hold",
+          "why": "With S = R = 0 the latch holds Q = 1: memory.",
+          "math": "Q=1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sr11",
+          "prompt": "Which SR input combination is forbidden?",
+          "choices": [
+            {
+              "text": "S = 0 and R = 0."
+            },
+            {
+              "text": "S = 1 and R = 1.",
+              "correct": true
+            },
+            {
+              "text": "S = 1 and R = 0."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the hold state."
+            },
+            {
+              "title": "Correct.",
+              "body": "Both outputs are forced the same way."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is set."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 3.2.1 — SR latch",
+          "note": "Pulse S to 1 then back to 0: Q stays 1.",
+          "script": "var s = create(\"input\", { value: 0, name: \"S\" });\nvar r = create(\"input\", { value: 0, name: \"R\" });\nvar l = create(\"sr-latch\", { name: \"SR\" });\nvar q = create(\"output\", { name: \"Q\" });\nconnect(s.out, l.s, \"wire\");\nconnect(r.out, l.r, \"wire\");\nconnect(l.q, q.in, \"wire\");\nvar s_s = create(\"slider\", { min: 0, max: 1, step: 1, value: 0, label: \"S\", targetObjectId: s, targetParamName: \"value\" });\nvar s_r = create(\"slider\", { min: 0, max: 1, step: 1, value: 0, label: \"R\", targetObjectId: r, targetParamName: \"value\" });"
+        }
+      ]
+    },
+    {
+      "id": "d",
+      "locator": "3.3",
+      "title": "Gated latch and the D flip-flop",
+      "eyebrow": "Clocked storage",
+      "body": "<p>A <b>D latch</b> is transparent while the enable is high — its output follows D. A <b>D flip-flop</b> is edge-triggered: it samples D only at the clock’s rising edge and holds it until the next. Edge triggering makes whole systems predictable: every flip-flop changes at the same instant.</p>",
+      "questions": [
+        {
+          "id": "edge",
+          "prompt": "A D flip-flop updates Q…",
+          "choices": [
+            {
+              "text": "Whenever D changes."
+            },
+            {
+              "text": "Only at the active clock edge.",
+              "correct": true
+            },
+            {
+              "text": "Only when reset."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a latch."
+            },
+            {
+              "title": "Correct.",
+              "body": "Between edges D is ignored."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr2",
+          "caption": "Figure 3.3.1 — D flip-flop",
+          "note": "Change D between clock edges: Q only follows on a rising edge.",
+          "script": "var d = create(\"input\", { value: 1, name: \"D\" });\nvar c = create(\"clock\", { f: 1, name: \"CLK\" });\nvar ff = create(\"d-ff\", { name: \"D-FF\" });\nvar q = create(\"output\", { name: \"Q\" });\nconnect(d.out, ff.d, \"wire\");\nconnect(c.out, ff.clk, \"wire\");\nconnect(ff.q, q.in, \"wire\");\nvar s_d = create(\"slider\", { min: 0, max: 1, step: 1, value: 1, label: \"D\", targetObjectId: d, targetParamName: \"value\" });"
+        }
+      ]
+    },
+    {
+      "id": "jkt",
+      "locator": "3.4",
+      "title": "JK and T flip-flops",
+      "eyebrow": "More behaviours",
+      "body": "<table><thead><tr><th>J K</th><th>Next Q</th></tr></thead><tbody><tr><td>0 0</td><td>Q (hold)</td></tr><tr><td>0 1</td><td>0 (reset)</td></tr><tr><td>1 0</td><td>1 (set)</td></tr><tr><td>1 1</td><td>Q′ (toggle)</td></tr></tbody></table><p>The JK fixes the forbidden state by making 1,1 toggle. Tie J and K together and you get a T flip-flop: T = 1 toggles every clock, which <b>halves the frequency</b>.</p>",
+      "worked": [
+        {
+          "toc": "Input",
+          "why": "A T flip-flop with T = 1 is clocked at 8 MHz."
+        },
+        {
+          "toc": "Output",
+          "why": "Q toggles once per clock, so one full Q cycle takes two clocks.",
+          "math": "f_Q=\\tfrac{8}{2}=4\\ \\text{MHz}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "tog",
+          "prompt": "J = K = 1 makes a JK flip-flop…",
+          "choices": [
+            {
+              "text": "Hold."
+            },
+            {
+              "text": "Toggle on each clock.",
+              "correct": true
+            },
+            {
+              "text": "Reset."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is 0 0."
+            },
+            {
+              "title": "Correct.",
+              "body": "Next Q = Q′."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is 0 1."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-t",
+          "prompt": "<p>Three T flip-flops (T = 1) are cascaded, each clocked by the previous output, starting from a 24 MHz clock. Frequency at the last output?</p>",
+          "answer": "24 → 12 → 6 → <b>3 MHz</b> (÷8)."
+        }
+      ]
+    },
+    {
+      "id": "time",
+      "locator": "3.5",
+      "title": "Setup and hold time",
+      "eyebrow": "Timing",
+      "body": "<p>D must be stable for a <b>setup time</b> before the clock edge and a <b>hold time</b> after it, or the flip-flop may go metastable (neither 0 nor 1 for a while). The clock period must cover clock-to-Q delay + logic delay + setup time.</p>",
+      "worked": [
+        {
+          "toc": "Delays",
+          "why": "t_cq = 2 ns, logic = 8 ns, setup = 1 ns."
+        },
+        {
+          "toc": "Period",
+          "why": "Minimum period = 11 ns, so f_max ≈ 91 MHz.",
+          "math": "T_{min}=11\\ \\text{ns}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "su",
+          "prompt": "Violating setup time can cause…",
+          "choices": [
+            {
+              "text": "Extra power only."
+            },
+            {
+              "text": "Nothing."
+            },
+            {
+              "text": "Metastability / a wrong stored value.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Function fails first."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is a real failure mode."
+            },
+            {
+              "title": "Correct.",
+              "body": "D changed too close to the edge."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "tbl",
+      "locator": "3.6",
+      "title": "Characteristic tables and excitation",
+      "eyebrow": "Design tools",
+      "body": "<p>The <b>characteristic equation</b> gives the next state: D: Q⁺ = D; T: Q⁺ = T⊕Q; JK: Q⁺ = JQ′ + K′Q. The <b>excitation table</b> runs the other way: given the wanted transition Q → Q⁺, what inputs are needed? For JK, 0→1 needs J = 1 (K = X); 1→0 needs K = 1 (J = X). Used when designing counters and state machines.</p>",
+      "questions": [
+        {
+          "id": "ex",
+          "prompt": "A JK flip-flop must go 0 → 1. Which inputs work?",
+          "choices": [
+            {
+              "text": "J = 1, K = don’t-care.",
+              "correct": true
+            },
+            {
+              "text": "J = 0, K = 1."
+            },
+            {
+              "text": "J = 0, K = 0."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Set or toggle both give 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That resets."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That holds 0."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

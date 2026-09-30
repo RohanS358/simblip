@@ -37,7 +37,7 @@ import type { GeometryKind, PageDoc } from '@/lib/scene/types'
 export const ADDABLE_GEOMETRY: GeometryKind[] = [
   'note', 'text', 'formula', 'graph', 'chart', 'table', 'gridtable',
   'surface3d', 'cashflow', 'truthtable', 'slider', 'button', 'trigger',
-  'code', 'dsa', 'rect', 'circle', 'line', 'polygon',
+  'code', 'dsa', 'steplab', 'rect', 'circle', 'line', 'polygon',
 ]
 
 const vec = z.object({ x: z.number(), y: z.number() })

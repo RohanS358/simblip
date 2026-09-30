@@ -81,6 +81,7 @@ export function DocFlow({
   sheetIds,
   margins = DOC_MARGINS,
   padding,
+  headerOffset = 0,
   lineHeight,
   textAlign,
   editable = true,
@@ -98,6 +99,10 @@ export function DocFlow({
   /** Inner padding between the margin box and the text column
    *  (PageNode.docPadding). Absent = 0. */
   padding?: DocMargins
+  /** Height of the title block sitting over the top of the first sheet. The
+   *  body starts below it, with the page's normal top margin counted from the
+   *  block's bottom edge, not from the top of the sheet. 0 = no title block. */
+  headerOffset?: number
   /** Default line-height for the whole body (PageNode.docLineHeight); a
    *  paragraph's own lineHeight attribute still overrides this. */
   lineHeight?: number
@@ -231,6 +236,7 @@ export function DocFlow({
       content: initial as unknown as Record<string, unknown>,
       editable,
       immediatelyRender: false,
+      editorProps: { attributes: { role: 'textbox', 'aria-label': 'Document text', 'aria-multiline': 'true' } },
       onUpdate: ({ editor: ed }) => {
         const flow = serializeDoc(ed.getJSON() as unknown as PmDoc)
         emittedRef.current = flow
@@ -285,15 +291,32 @@ export function DocFlow({
     editor.view.dispatch(editor.state.tr)
   }, [editor, frame])
 
+  // The title block is an overlay, so the body has to be pushed clear of it.
+  // Padding on the editor's own DOM (not a margin on the wrapper) makes the
+  // pagination measurement treat it as a leading block of that height: the
+  // first sheet simply holds that much less, and every later break stays
+  // correct. Inline style, so the PDF capture's clone carries it too.
+  useEffect(() => {
+    if (!editor) return
+    editor.view.dom.style.paddingTop = headerOffset > 0 ? `${headerOffset}px` : ''
+    editor.view.dispatch(editor.state.tr)
+  }, [editor, headerOffset])
+
   // Publish to the same handle the inspector's text controls already use, so
   // bold/size/colour/alignment work on the body with no new wiring — but only
   // while the body actually holds focus, or it would steal the panel from a
   // selected text object on the canvas.
+  //
+  // It stays registered after the body blurs. Clicking the Properties rail or
+  // a panel control moves focus out of the editor, and clearing on blur made
+  // the text controls vanish the moment you reached for them (the selection is
+  // still there, Tiptap keeps it). It is released on unmount, or replaced when
+  // a canvas text box registers; the panel is only shown when no canvas object
+  // is selected, so it can't shadow one.
   useEffect(() => {
-    if (!focused || !editor) return
-    registerEditor(editorKey, editor as Editor)
-    return () => clearEditor(editorKey)
-  }, [focused, editor, editorKey, registerEditor, clearEditor])
+    if (focused && editor) registerEditor(editorKey, editor as Editor)
+  }, [focused, editor, editorKey, registerEditor])
+  useEffect(() => () => clearEditor(editorKey), [editorKey, clearEditor])
 
   // Images in the body carry `opfs:<fileId>` in data-src, which no browser
   // can fetch — resolve each one to a blob URL once it appears. See DocImage

@@ -1,0 +1,273 @@
+DIGITAL LOGIC
+ENEX 152
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : I
+Part : II
+Course Objectives:
+This course mainly focuses on study, analyze basic principle, design and applications
+of digital circuitries in various fields. It also shows an important branch of the electronics
+that revolutionizes the modern digital world.
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+1.8
+1.9
+2
+3
+Digital versus analog signals
+Logic level diagram
+Digital integrated circuits (ICs)
+Clock triggering systems
+Digital system applications
+Digital codes and conversions
+1.6.1 Decimal, binary, octal and hexadecimal codes
+1.6.2 BCD code
+1.6.3 Excess-3 code
+1.6.4 Gray code
+1.6.5 Examples of code conversions
+Alphanumeric codes: ASCII code and EBCDIC code
+1’s complement and 2’s complement
+Signed number representation
+Logic Gates
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+(3 hours)
+Basic gates and their equivalents
+Universal gates and their equivalents
+Exclusive gates and their equivalents
+Positive and negative logic
+De’Morgan’s laws
+Applications of logic gates
+Boolean Algebra and K-Maps
+3.1
+3.2
+3.3
+3.4
+(5 hours)
+Boolean algebra and its laws
+Simplifications of Boolean expressions
+Minterms and maxterms
+Sum-of-product and product-of-sum methods
+(4 hours)
+3.5
+3.6
+3.7
+3.8
+3.9
+4
+Combinational Logic Circuits
+4.1
+4.2
+4.3
+4.4
+4.5
+4.6
+4.7
+4.8
+4.9
+4.10
+4.11
+4.12
+4.13
+5
+7
+(7 hours)
+Register fundamentals, register types
+SISO, SIPO, PISO and PIPO registers
+Data transfer timing diagrams
+Asynchronous counters
+Up, down and mod-n asynchronous counters
+Synchronous counters
+Up, down and mod-n synchronous counters
+Register and counter applications
+Sequential Machine Designs
+7.1
+(5 hours)
+Latches and flip-flops: SR, D, T and JK
+Excitation tables, characteristic equations
+Master-slave flip-flops
+Flip-flop timing diagrams
+Flip-flops as the state machines
+Flip-flop conversions
+Flip-flop applications
+Registers and Counters
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+6.7
+6.8
+(8 hours)
+Design procedures
+Half-adder and full-adder
+Half-subtractor and full-subtractor
+Ripple carry adders and fast adders
+Multiplexers design
+Demultiplexers design
+Basic encoders
+Priority encoders
+Encoder designs
+Decoder designs
+BCD-to-decimal decoder
+Seven-segment decoder
+Magnitude comparators
+Sequential Logic Circuits
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+5.7
+6
+Truth tables and Karnaugh map
+Four variables K-maps.
+Cell, pairs, quads and octets
+Rolling, envelop effects and redundant groups
+Don’t care conditions
+Machine design procedures
+(8 hours)
+7.2
+7.3
+7.4
+7.5
+7.6
+7.7
+7.8
+7.9
+8
+Primitive state diagrams
+Transition/flow tables
+Redundant states
+Pure binary assignment tables
+Excitation maps
+Realization of the models
+Circuit diagram of synchronous machine
+One-bit and two-bit input sequence detectors
+Digital Integrated Circuits
+8.1
+8.2
+8.3
+8.4
+8.5
+8.6
+8.7
+(5 hours)
+BJT and MOSFET switching circuits
+TTL parameters
+TTL circuits: NAND, NOT, NOR
+CMOS parameters
+CMOS logic circuits: NAND, NOR, NOT
+Three-state TTL devices
+Digital devices applications
+8.7.1 Multiplexing displays
+8.7.2 Frequency counters
+8.7.3 Time measurements
+Tutorial
+(15 hours)
+1. Different code conversion examples
+2. Sign numbers addition and subtraction
+3. Realization of positive and negative logic gates
+4. Application of Boolean algebra and K-map for various logic designs
+5. Multiplexer tree concepts
+6. Realization of adder/subtractor using multiplexers
+7. Demultiplexer tree concepts
+8. Realization of adder/subtractor using demultiplexers
+9. 16 - to – 4 line encoder design
+10. Octal and decimal priority encoder designs
+11. 4– to – 16 line decoder design
+12. BCD-to-decimal decoder design
+13. Any segment of 7-segment decoder design
+14. Concept of designing n-bit magnitude comparator
+15. Flip-flop conversion from one flip-flop to another type
+16. Shift register timing diagram practice
+17. Ripple counter design concept
+18. Decade synchronous counter design
+19. Up and down counter in a single circuit
+20. 3-bit and 4-bit binary sequence detector synchronous machine design
+Practical
+1. Basic gates, universal gates and exclusive gates
+(45 hours)
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+10.
+De' Morgan’s law and its familiarization with NAND and NOR Gates
+Encoders and decoders
+Multiplexers and demultiplexers
+Binary addition and subtraction
+Latches, RS, and T flip-flops.
+D and JK flip-flop and master-slave flip-flop
+Shift registers
+Circuit realizations on ripple counters
+Circuit realizations on synchronous counters
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+5
+7
+2
+3
+4
+3
+4
+5
+4
+8
+10
+5
+5
+7
+6
+7
+10
+7
+8
+10
+8
+5
+7
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+References
+1.
+Floyd, T. L. (2015). Digital fundamentals. Pearson Education.
+2.
+Mano, M. M. (1995). Digital design (Latest Edition). Prentice Hall.
+3.
+Leach, D.P., Malvino, A.P., Saha, G. (2012). Digital principles and
+applications. Tata McGraw-Hill Education.
+4.
+Fletcher, W.I. (1980). An engineering approach to digital design (Latest
+Edition). Prentice-Hall.
+5.
+Gothmann, W.H. (1982). Digital electronics: An introduction to theory and
+practice (Latest Edition). Prentice-Hall.

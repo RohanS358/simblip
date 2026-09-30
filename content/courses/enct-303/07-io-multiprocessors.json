@@ -1,0 +1,268 @@
+{
+  "title": "I/O methods and multiprocessors",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapters 7–8",
+  "subtitle": "Three ways to talk to a device, and how many processors are connected and kept in agreement.",
+  "sections": [
+    {
+      "id": "prog",
+      "locator": "7.1",
+      "title": "Programmed I/O",
+      "eyebrow": "The CPU waits",
+      "body": "<p>With <em class=\"term\">programmed I/O</em> the CPU issues a command and then <em>polls</em> the device’s status register until it is ready, then moves the data itself. It is simple but wastes the CPU: a keyboard polled at full speed spends virtually all its time looking at nothing.</p>",
+      "questions": [
+        {
+          "id": "poll",
+          "prompt": "Main drawback of programmed I/O?",
+          "choices": [
+            {
+              "text": "It needs DMA hardware."
+            },
+            {
+              "text": "It cannot transfer data."
+            },
+            {
+              "text": "The CPU busy-waits and does no useful work.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is DMA."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It can, slowly."
+            },
+            {
+              "title": "Correct.",
+              "body": "Polling occupies the processor for the whole device delay."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 7.1.1 — programmed I/O",
+          "note": "The repeated polls are wasted cycles.",
+          "script": "diagram(\"mode: sequence\\n[CPU] as c\\n[I/O module] as m\\nc -> m : command (read)\\nm --> c : status: busy\\nc -> m : poll status\\nm --> c : status: busy\\nc -> m : poll status\\nm --> c : status: ready + data\");"
+        }
+      ]
+    },
+    {
+      "id": "int",
+      "locator": "7.2",
+      "title": "Interrupt-driven I/O",
+      "eyebrow": "Do other work",
+      "body": "<p>The CPU starts the operation and goes on running other instructions. When the device is ready it raises an interrupt; the CPU finishes its current instruction, saves state, runs a service routine that moves the word, and returns. Efficiency is much better, but every word still costs an interrupt — too expensive for disks.</p>",
+      "questions": [
+        {
+          "id": "intadv",
+          "prompt": "Advantage over programmed I/O?",
+          "choices": [
+            {
+              "text": "The CPU is free during the device’s delay.",
+              "correct": true
+            },
+            {
+              "text": "No overhead at all."
+            },
+            {
+              "text": "Faster devices."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is only interrupted when the device is ready."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Each interrupt has a cost."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The device is the same."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 7.2.1 — interrupt-driven I/O",
+          "note": "No polling.",
+          "script": "diagram(\"mode: sequence\\n[CPU] as c\\n[I/O module] as m\\nc -> m : command (read)\\nc -> c : run other instructions\\nm --> c : interrupt: data ready\\nc -> m : read data word\\nc -> c : resume program\");"
+        }
+      ]
+    },
+    {
+      "id": "dma",
+      "locator": "7.3",
+      "title": "Direct memory access",
+      "eyebrow": "Move blocks without the CPU",
+      "body": "<p>A <em class=\"term\">DMA controller</em> is given the memory address, the count and the direction, then transfers the whole block between device and memory by itself, stealing bus cycles (\"cycle stealing\") from the CPU, and interrupts once at the end. One interrupt per block instead of one per word.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Transfer a 4 KB block from a device that gives one 4-byte word per transfer."
+        },
+        {
+          "toc": "Interrupt count",
+          "why": "Interrupt-driven: one interrupt per word. DMA: one interrupt per block.",
+          "math": "\\frac{4096}{4}=1024\\ \\text{interrupts vs }1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dmaint",
+          "prompt": "How many interrupts does a DMA block transfer cause?",
+          "choices": [
+            {
+              "text": "One, at completion.",
+              "correct": true
+            },
+            {
+              "text": "One per word."
+            },
+            {
+              "text": "None."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The controller handles every word itself."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is interrupt-driven I/O."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "There is a completion interrupt."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 7.3.1 — a DMA transfer",
+          "note": "The CPU only starts and finishes the transfer.",
+          "script": "diagram(\"mode: sequence\\n[CPU] as c\\n[DMA controller] as d\\n[Memory] as m\\n[Disk] as k\\nc -> d : address, count, direction\\nd -> k : request block\\nk --> d : data words\\nd -> m : write words (cycle stealing)\\nd --> c : one interrupt at the end\");"
+        }
+      ]
+    },
+    {
+      "id": "chan",
+      "locator": "7.4",
+      "title": "Channels and interfaces",
+      "eyebrow": "Bigger systems",
+      "body": "<p>An <em class=\"term\">I/O channel</em> is a small processor that runs its own I/O program, freeing the CPU further (mainframes); a front-end processor does the same for communications. External interfaces are point-to-point (USB, SATA) or multipoint buses (SCSI): serial links are replacing wide parallel ones because they scale in speed.</p>",
+      "questions": [
+        {
+          "id": "chan",
+          "prompt": "An I/O channel differs from a DMA controller because…",
+          "choices": [
+            {
+              "text": "It executes its own I/O instructions rather than just moving one block.",
+              "correct": true
+            },
+            {
+              "text": "It has no memory access."
+            },
+            {
+              "text": "It is slower."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is a specialised processor."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It accesses memory."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the defining difference."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mp",
+      "locator": "8.1",
+      "title": "Multiprocessors and interconnection",
+      "eyebrow": "Many CPUs",
+      "body": "<p>A tightly-coupled <em class=\"term\">multiprocessor</em> shares memory. Processors are joined by a time-shared <b>common bus</b> (cheap, one at a time), <b>multiport memory</b>, a <b>crossbar switch</b> (any processor to any memory, n² crosspoints), a <b>multistage network</b> (log₂ n stages of small switches) or a <b>hypercube</b> (n = 2ᵈ nodes, each with d neighbours). Arbitration decides who wins a contested resource.</p>",
+      "worked": [
+        {
+          "toc": "Cost",
+          "why": "Crossbar for 8 processors and 8 memories needs 8 × 8 crosspoints. An omega network needs (n/2) log₂ n 2×2 switches.",
+          "math": "64\\ \\text{vs}\\ 4\\cdot3=12",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cube",
+          "prompt": "How many neighbours does each node of a 4-dimensional hypercube have?",
+          "choices": [
+            {
+              "text": "16."
+            },
+            {
+              "text": "2."
+            },
+            {
+              "text": "4.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the number of nodes."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would be a ring."
+            },
+            {
+              "title": "Correct.",
+              "body": "In a d-dimensional hypercube every node links to d others, one per bit that can flip."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 8.1.1 — a common bus",
+          "note": "Cheap, but only one transfer at a time.",
+          "script": "diagram(\"direction: right\\ngroup \\\"Common bus\\\" { a1, a2, abus }\\n[P1] as a1 #blue\\n[P2] as a2 #blue\\n[Shared bus] as abus #amber\\n[Memory] as m #mint\\na1 -> abus\\na2 -> abus\\nabus -> m\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A multi-stage omega network connects 16 processors to 16 memories using 2×2 switches. How many stages and how many switches?</p>",
+          "answer": "Stages = log₂16 = <b>4</b>; each stage has 16/2 = 8 switches → <b>32</b> switches (versus 256 crosspoints for a crossbar)."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "8.2",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Polling wastes CPU; interrupts free it; DMA moves whole blocks with one interrupt.</li><li>Interconnect choice trades cost against simultaneous transfers.</li></ul>"
+    }
+  ]
+}

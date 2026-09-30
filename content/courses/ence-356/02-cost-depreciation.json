@@ -1,0 +1,389 @@
+{
+  "title": "Costs, break-even and depreciation",
+  "kicker": "ENCE 356 · Engineering Economics · Chapters 3 and 8",
+  "subtitle": "Which costs change with the decision, where revenue overtakes cost, and how an asset’s value is spread over its life.",
+  "sections": [
+    {
+      "id": "kinds",
+      "locator": "3.1",
+      "title": "Kinds of cost",
+      "eyebrow": "Sorting costs",
+      "body": "<p><b>Fixed</b> costs do not change with output (rent, insurance); <b>variable</b> costs do (materials, energy). <b>Direct</b> costs trace to a product, <b>indirect</b> (overhead) do not. A <em class=\"term\">sunk cost</em> is already spent and irrecoverable — it must be <i>ignored</i> in a forward-looking decision. <b>Marginal cost</b> is the cost of one more unit.</p>",
+      "questions": [
+        {
+          "id": "sunk",
+          "prompt": "You paid Rs 50,000 for a machine that is now worth Rs 20,000 if sold. The Rs 50,000 is…",
+          "choices": [
+            {
+              "text": "A sunk cost — ignore it; compare the future options.",
+              "correct": true
+            },
+            {
+              "text": "The value to use in the decision."
+            },
+            {
+              "text": "A marginal cost."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The past cannot be recovered."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Use the Rs 20,000 forgone sale."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not new spending."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "total",
+      "locator": "3.2",
+      "title": "Total, average and marginal cost",
+      "eyebrow": "Cost curves",
+      "body": "<p>Total cost TC = FC + VC. Average cost AC = TC/Q falls while marginal cost MC is below it and rises when MC is above it — so MC cuts AC at its minimum (the efficient scale). With FC = 120,000 and variable cost Rs 30 per unit, AC at 4,000 units is 30 + 120,000/4,000 = 60.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "FC = 120,000, unit variable cost = 30, output 6,000."
+        },
+        {
+          "toc": "Average",
+          "why": "TC = 120,000 + 30 × 6000 = 300,000; AC = 300,000/6000.",
+          "math": "AC=50",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ac",
+          "prompt": "Average cost keeps falling as output rises because…",
+          "choices": [
+            {
+              "text": "Variable cost per unit falls to zero."
+            },
+            {
+              "text": "Marginal cost is zero."
+            },
+            {
+              "text": "Fixed cost is spread over more units.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is constant here."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is positive."
+            },
+            {
+              "title": "Correct.",
+              "body": "Until marginal cost exceeds average cost."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 3.2.1 — cost by volume",
+          "note": "Average cost falls because the fixed cost is spread over more units.",
+          "script": "var t = create(\"table\", { headers: \"Units;Total cost;Average cost\", data: [[1000,150000,150],[2000,180000,90],[4000,240000,60],[6000,300000,50],[8000,360000,45]], summary: \"None\" });"
+        }
+      ]
+    },
+    {
+      "id": "bep",
+      "locator": "3.3",
+      "title": "Break-even analysis",
+      "eyebrow": "Where profit starts",
+      "body": "<p>Revenue = price × quantity; break-even is where revenue equals total cost: Q* = FC/(p − v), the fixed cost divided by the <i>contribution margin</i> per unit. Selling price Rs 50, variable cost Rs 30, FC Rs 120,000: Q* = 120,000/20 = <b>6,000</b> units. Above it profit is (p − v)(Q − Q*).</p>",
+      "worked": [
+        {
+          "toc": "Margin",
+          "why": "Contribution margin per unit.",
+          "math": "50-30=20"
+        },
+        {
+          "toc": "Q*",
+          "why": "Break-even quantity.",
+          "math": "\\tfrac{120{,}000}{20}=6000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bev",
+          "prompt": "Reducing fixed costs makes the break-even quantity…",
+          "choices": [
+            {
+              "text": "Smaller.",
+              "correct": true
+            },
+            {
+              "text": "Larger."
+            },
+            {
+              "text": "Unchanged."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Q* = FC/(p − v)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Opposite."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "FC is in the numerator."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr2",
+          "caption": "Figure 3.3.1 — break-even table",
+          "note": "Profit crosses zero at 6,000 units.",
+          "script": "var t = create(\"table\", { headers: \"Units;Revenue;Total cost;Profit\", data: [[2000,100000,180000,-80000],[4000,200000,240000,-40000],[6000,300000,300000,0],[8000,400000,360000,40000],[10000,500000,420000,80000]], summary: \"None\" });"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-bep",
+          "prompt": "<p>FC = Rs 90,000, price Rs 45, variable cost Rs 25. Break-even units, and profit at 6,000 units?</p>",
+          "answer": "Q* = 90,000/20 = <b>4,500</b>; profit = 20 × (6000 − 4500) = <b>Rs 30,000</b>."
+        }
+      ]
+    },
+    {
+      "id": "dep",
+      "locator": "8.1",
+      "title": "Depreciation: why and what",
+      "eyebrow": "Spreading the cost",
+      "body": "<p>An asset loses value with use and time. <em class=\"term\">Depreciation</em> allocates its cost over its life as an expense (it is not a cash outflow — the cash went out when it was bought). <b>Book value</b> = cost − accumulated depreciation; it never drops below <b>salvage value</b>. Depreciation matters for money because it is tax-deductible.</p>",
+      "questions": [
+        {
+          "id": "bv",
+          "prompt": "Book value at the end of the asset’s life equals…",
+          "choices": [
+            {
+              "text": "Zero."
+            },
+            {
+              "text": "Its salvage value.",
+              "correct": true
+            },
+            {
+              "text": "Original cost."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only if salvage is zero."
+            },
+            {
+              "title": "Correct.",
+              "body": "Depreciation stops there."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is year 0."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sl",
+      "locator": "8.2",
+      "title": "Straight-line method",
+      "eyebrow": "Equal every year",
+      "body": "<p>D = (P − S)/N each year. For P = Rs 100,000, S = Rs 10,000, N = 5: D = <b>18,000</b> per year, book value falling by the same step.</p>",
+      "worked": [
+        {
+          "toc": "Annual",
+          "why": "(P − S)/N.",
+          "math": "\\tfrac{100{,}000-10{,}000}{5}=18{,}000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "slq",
+          "prompt": "Straight-line depreciation charges…",
+          "choices": [
+            {
+              "text": "More in early years."
+            },
+            {
+              "text": "The same amount each year.",
+              "correct": true
+            },
+            {
+              "text": "Nothing until sold."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is declining balance."
+            },
+            {
+              "title": "Correct.",
+              "body": "(cost − salvage)/life."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr3",
+          "caption": "Figure 8.2.1 — straight line",
+          "note": "The same charge each year.",
+          "script": "var t = create(\"table\", { headers: \"Year;Depreciation;Book value\", data: [[1,18000,82000],[2,18000,64000],[3,18000,46000],[4,18000,28000],[5,18000,10000]], summary: \"None\" });"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-sl",
+          "prompt": "<p>A Rs 240,000 machine has a 6-year life and Rs 30,000 salvage. Annual straight-line depreciation and book value after year 4?</p>",
+          "answer": "D = 210,000/6 = <b>35,000</b>; BV₄ = 240,000 − 4 × 35,000 = <b>100,000</b>."
+        }
+      ]
+    },
+    {
+      "id": "ddb",
+      "locator": "8.3",
+      "title": "Declining-balance and MACRS",
+      "eyebrow": "Front-loaded",
+      "body": "<p>Double declining balance takes a fixed fraction 2/N of the <i>remaining</i> book value each year (ignoring salvage until the end, never going below it): bigger deductions early. Same asset: year 1 40,000, year 2 24,000, year 3 14,400, year 4 8,640, year 5 2,960. MACRS (used for tax in the USA) assigns standard percentage tables per asset class.</p>",
+      "worked": [
+        {
+          "toc": "Rate",
+          "why": "Rate = 2/N = 2/5 = 40 %. Year 1 on Rs 100,000."
+        },
+        {
+          "toc": "Schedule",
+          "why": "Depreciation then = 40,000; book value 60,000. Year 2 = 40 % of 60,000 = 24,000.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "dd",
+          "prompt": "Why do firms like accelerated depreciation?",
+          "choices": [
+            {
+              "text": "Bigger early tax deductions, so tax is deferred.",
+              "correct": true
+            },
+            {
+              "text": "It raises the asset’s value."
+            },
+            {
+              "text": "It avoids paying tax forever."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Money now is worth more than later."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It lowers book value."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only deferral."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr4",
+          "caption": "Figure 8.3.1 — double declining balance",
+          "note": "Early years are depreciated faster.",
+          "script": "var t = create(\"table\", { headers: \"Year;Depreciation;Book value\", data: [[1,40000,60000],[2,24000,36000],[3,14400,21600],[4,8640,12960],[5,2960,10000]], summary: \"None\" });"
+        }
+      ]
+    },
+    {
+      "id": "tax",
+      "locator": "8.4",
+      "title": "Income taxes in decisions",
+      "eyebrow": "After-tax thinking",
+      "body": "<p>Taxable income = revenue − operating cost − depreciation. Tax = rate × taxable income. After-tax cash flow = (revenue − cost) − tax. Depreciation lowers tax, creating a <b>tax shield</b> of rate × D each year.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "Revenue 80,000, cash costs 30,000, depreciation 18,000, tax rate 30 %."
+        },
+        {
+          "toc": "Cash",
+          "why": "Taxable = 32,000; tax = 9,600; after-tax cash flow = 50,000 − 9,600.",
+          "math": "40{,}400",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ts",
+          "prompt": "The tax shield from depreciation equals…",
+          "choices": [
+            {
+              "text": "Depreciation itself."
+            },
+            {
+              "text": "Tax rate × depreciation.",
+              "correct": true
+            },
+            {
+              "text": "Salvage value."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the deduction."
+            },
+            {
+              "title": "Correct.",
+              "body": "The tax it saves."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-tax",
+          "prompt": "<p>Depreciation is Rs 25,000 a year and the tax rate 35 %. Annual tax shield?</p>",
+          "answer": "0.35 × 25,000 = <b>Rs 8,750</b>."
+        }
+      ]
+    }
+  ]
+}

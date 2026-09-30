@@ -48,12 +48,22 @@ export function isBlockedAddress(ip: string): boolean {
     )
   }
   if (net.isIPv6(ip)) {
+    const groups = expandIPv6(ip)
+    if (!groups) return true
+    const v4 = (hi: number, lo: number) => `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`
+    // IPv4-mapped (::ffff:a.b.c.d), IPv4-compatible (::a.b.c.d), NAT64
+    // (64:ff9b::/96) and 6to4 (2002::/16) all smuggle an IPv4 address. The URL
+    // parser rewrites the dotted form into hex (::ffff:7f00:1), so judge the
+    // embedded address rather than pattern-matching the text.
+    const zeros5 = groups.slice(0, 5).every((g) => g === 0)
+    if (zeros5 && (groups[5] === 0xffff || groups[5] === 0)) return isBlockedAddress(v4(groups[6], groups[7]))
+    if (groups[0] === 0x64 && groups[1] === 0xff9b && groups.slice(2, 6).every((g) => g === 0))
+      return isBlockedAddress(v4(groups[6], groups[7]))
+    if (groups[0] === 0x2002) return isBlockedAddress(v4(groups[1], groups[2]))
     const v = ip.toLowerCase()
-    const mapped = /^::ffff:(\d+\.\d+\.\d+\.\d+)$/.exec(v)
-    if (mapped) return isBlockedAddress(mapped[1])
     return (
-      v === '::' ||
-      v === '::1' ||
+      groups.every((g) => g === 0) || // ::
+      (groups.slice(0, 7).every((g) => g === 0) && groups[7] === 1) || // ::1
       v.startsWith('fc') ||
       v.startsWith('fd') ||
       v.startsWith('fe8') ||
@@ -66,7 +76,26 @@ export function isBlockedAddress(ip: string): boolean {
   return true
 }
 
-function safeLookup(
+/** Eight 16-bit groups of an IPv6 literal, or null if it doesn't parse. */
+function expandIPv6(ip: string): number[] | null {
+  let s = ip.toLowerCase().replace(/^\[|\]$/g, '').split('%')[0]
+  const dotted = /(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(s)
+  if (dotted) {
+    const [a, b, c, d] = dotted.slice(1).map(Number)
+    s = s.slice(0, dotted.index) + ((a << 8) | b).toString(16) + ':' + ((c << 8) | d).toString(16)
+  }
+  const halves = s.split('::')
+  if (halves.length > 2) return null
+  const head = halves[0] ? halves[0].split(':') : []
+  const tail = halves.length === 2 && halves[1] ? halves[1].split(':') : []
+  const fill = 8 - head.length - tail.length
+  if (halves.length === 1 ? head.length !== 8 : fill < 1) return null
+  const all = [...head, ...(halves.length === 2 ? Array(fill).fill('0') : []), ...tail]
+  const nums = all.map((g) => parseInt(g, 16))
+  return nums.length === 8 && nums.every((n) => Number.isInteger(n) && n >= 0 && n <= 0xffff) ? nums : null
+}
+
+export function safeLookup(
   hostname: string,
   options: object,
   cb: (err: NodeJS.ErrnoException | null, address: string | { address: string; family: number }[], family?: number) => void

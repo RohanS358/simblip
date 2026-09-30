@@ -1,0 +1,36 @@
+import { lesson } from '../kit.mjs'
+export default ({ lab, dia, q, pr, step, sec, term, run }) => {
+  const Q = { head: 53, queue: '98 183 37 122 14 124 65 67' }
+  const r = Object.fromEntries(['fcfs', 'sstf', 'look', 'clook'].map((a) => [a, run('disk', { algo: a, sweep: 'up', ...Q })]))
+  const scanDown = run('disk', { algo: 'scan', sweep: 'down', ...Q })
+  return lesson({
+    title: 'I/O software and disk scheduling',
+    kicker: 'ENCT 254 · Operating System · Chapter 4 (I/O)',
+    subtitle: 'Devices are slow and strange. The OS hides that with layers — and orders disk requests to keep the head from wandering.',
+    sections: [
+      sec('layers', '4.6', 'The I/O software stack', { eyebrow: 'Layers', body: `<p>Device-independent code (naming, buffering, protection) sits above a <b>driver</b> that knows one device's registers, which talks to the controller and raises an <b>interrupt</b> when a transfer ends. Three ways to move data: ${term('programmed I/O')} (the CPU polls), ${term('interrupt-driven')} (the CPU does other work and is interrupted), and ${term('DMA')} (a controller copies the whole block to memory and interrupts once).</p>`,
+        figs: [dia(`mode: sequence
+[Process] as p
+[Driver] as d
+[Controller + DMA] as c
+p -> d : read(block 42)
+d -> c : start transfer
+c -> c : copy disk → memory
+c --> d : interrupt (done)
+d --> p : data ready`, 'With DMA the CPU is free during the copy.', { caption: 'a DMA read' })],
+        qs: [q('dma', 'What is the advantage of DMA over interrupt-driven I/O for a large block?', ['One interrupt for the whole block instead of one per byte/word.', 'The controller moves the data itself, so the CPU is interrupted once at the end.'], [['DMA makes the disk faster.', 'The disk is as slow as before; the CPU just does not babysit it.'], ['DMA needs no driver.', 'A driver still sets up the transfer.']])] }),
+      sec('disk', '4.7', 'How a disk spends its time', { eyebrow: 'Mechanics', body: `<p>A magnetic disk access is ${term('seek time')} (move the arm to the cylinder) + ${term('rotational latency')} (wait for the sector to come under the head) + ${term('transfer time')}. Seek dominates, so schedulers reorder requests to shorten head travel. SSDs have no arm, so these algorithms matter for spinning disks.</p>`,
+        worked: [step('A 7200 rpm disk turns once every 60/7200 s = 8.33 ms. On average the wanted sector is half a turn away.', '\\text{latency}=\\tfrac12\\cdot 8.33\\ \\text{ms}\\approx 4.17\\ \\text{ms}', { hero: true, toc: 'Average rotational latency' })],
+        qs: [q('seek', 'Which component of disk access do scheduling algorithms try to reduce?', ['Seek time.', 'Arm movement is the largest term, and it depends on the order requests are served.'], [['Transfer time.', 'Fixed by the recording density and spin speed.'], ['Rotational latency.', 'Partly reducible by other tricks, but arm scheduling targets seeks.']])] }),
+      sec('sched', '4.8', 'FCFS, SSTF, SCAN, LOOK', { eyebrow: 'Policies', body: `<p>Head at 53, requests 98 183 37 122 14 124 65 67 on a 200-cylinder disk. ${term('FCFS')} serves in arrival order: <b>${r.fcfs.total}</b> cylinders. ${term('SSTF')} always picks the nearest request: <b>${r.sstf.total}</b>, but can starve far requests. ${term('SCAN')} (elevator) sweeps to one end then reverses; ${term('LOOK')} reverses at the last request: going up first costs <b>${r.look.total}</b>. The circular versions (${term('C-SCAN')}, ${term('C-LOOK')}) jump back and serve in one direction only — C-LOOK <b>${r.clook.total}</b> — for more uniform waiting.</p>`,
+        figs: [lab('disk', { algo: 'fcfs', sweep: 'up', ...Q }, 'FCFS zig-zags.', ['total'], { caption: 'FCFS', name: 'fcfs' }), lab('disk', { algo: 'sstf', sweep: 'up', ...Q }, 'SSTF hugs nearby requests.', ['total'], { caption: 'SSTF', name: 'sstf' }), lab('disk', { algo: 'look', sweep: 'up', ...Q }, 'LOOK sweeps up then down.', ['total'], { caption: 'LOOK', name: 'look' })],
+        qs: [q('starve', 'Which policy can starve a request?', ['SSTF — a steady stream of nearby requests keeps the far one waiting.', 'Shortest seek greedily serves neighbours; SCAN-style sweeps bound the wait to one pass.'], [['SCAN.', 'It visits every cylinder on each sweep, so nothing waits more than about two sweeps.'], ['FCFS.', 'FCFS is fair in order, merely slow.']])],
+        probs: [pr('p-total', '<p>Head at 53, queue 98 183 37 122 14 124 65 67. Total head movement for SSTF and for FCFS?</p>', `SSTF: 53→65→67→37→14→98→122→124→183 = <b>${r.sstf.total}</b>. FCFS: <b>${r.fcfs.total}</b>. SCAN going down first (to 0) then up = <b>${scanDown.total}</b>.`, { verify: lab('disk', { algo: 'sstf', sweep: 'up', ...Q }, 'SSTF path.', ['total'], { caption: 'answer', name: 'a' }) })] }),
+      sec('raid', '4.9', 'RAID in one page', { eyebrow: 'Redundancy', body: `<p>${term('RAID 0')} stripes data across disks (speed, no safety). ${term('RAID 1')} mirrors (survives one failure, half the capacity). ${term('RAID 5')} stripes with distributed parity: the parity block is the XOR of the data blocks, so any one lost block is recoverable; usable capacity is (n−1)/n.</p>`,
+        worked: [step('Three data blocks 1011, 0110, 1100. Parity is the bitwise XOR.', '1011 \\oplus 0110 \\oplus 1100 = 0001', { toc: 'Parity' }), step('If the second disk dies, XOR the others with the parity: 1011 ⊕ 1100 ⊕ 0001 = 0110 — recovered.', '0110', { hero: true, toc: 'Recover' })],
+        qs: [q('r5', 'Usable capacity of RAID 5 with five 1 TB disks?', ['4 TB.', 'One disk’s worth of space holds parity: (5−1)/5 × 5 TB.'], [['5 TB.', 'That is RAID 0.'], ['2.5 TB.', 'That is RAID 1 (mirroring halves capacity).']])] }),
+      sec('stable', '4.9b', 'Stable storage', { eyebrow: 'Surviving crashes', body: `<p>A single disk write can be interrupted by a crash, leaving a half-written block. ${term('Stable storage')} makes a write all-or-nothing by keeping two copies: write copy A and verify it, then write copy B and verify it. After a crash, recovery compares the pair — if they differ and one has a bad checksum, copy the good one over it; if both are good but different, copy A to B. At most one copy is ever damaged, so a good value always survives.</p>`, qs: [q('stab', 'Why are two copies written one after the other rather than together?', ['So a crash can damage at most one of them.', 'Sequential writes guarantee that one copy is always intact and verified.'], [['It is faster.', 'It is slower; safety is the point.'], ['Disks cannot write two blocks at once.', 'Independent disks can; the ordering is deliberate.']])] }),
+      sec('ssd', '4.10', 'SSD and NVMe', { eyebrow: 'Flash', body: `<p>Flash has no moving parts, so random access is fast; but it is erased in large blocks and wears out, so a controller spreads writes (wear levelling). NVMe attaches flash over PCIe with deep parallel queues, removing the SATA bottleneck. Cost per bit: HDD cheapest, SSD middle, RAM dearest.</p>`, qs: [q('ssd', 'Why do elevator algorithms matter little on an SSD?', ['There is no arm to move, so request order barely changes latency.', 'Seek time was the thing being optimised.'], [['SSDs cannot queue requests.', 'NVMe queues deeply.'], ['SSDs have no controller.', 'They have a sophisticated one.']])] }),
+    ],
+  })
+}

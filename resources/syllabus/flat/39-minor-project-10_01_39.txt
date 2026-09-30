@@ -1,0 +1,96 @@
+MINOR PROJECT
+ENCT 354
+Credit :1
+Year: III
+Part: II
+Course Objectives:
+The objective of this course is to enable students to carry out a small-scale engineering
+research- or product-based project in the field of computer engineering, thereby
+developing practical skills and hands-on experience in system design, implementation,
+and testing
+General Procedures
+Under the supervision of an assigned supervisor, students shall be organized into groups
+of 3–4 members. Each group shall select a project topic related to computer engineering,
+with emphasis on areas such as artificial intelligence and machine learning, image
+processing and computer vision, networks and cybersecurity, audio and natural language
+processing, electronic devices and embedded systems, big data technologies, Internet
+of Things (IoT), and web and mobile application development. Where appropriate,
+students may conduct field visits or collect real-world datasets for system design,
+implementation, and analysis. Each group shall systematically complete the project
+through stages including topic selection, planning, development, testing, documentation,
+and final presentation. Continuous guidance, monitoring, and feedback shall be provided
+by the supervisor throughout the duration of the course to ensure effective project
+development and attainment of learning outcomes.
+1
+Project Selection and Planning
+1.1
+1.2
+1.3
+2
+Literature Review and Proposal
+2.1
+2.2
+2.3
+3
+Selection of minor project based on theory/practical subject studied or as per
+the research or industry needs
+Problem identification and scope definition
+Approval of project by the department
+Basic literature review and background study, study of existing systems in
+case of product based project
+Preparation of brief project proposal including objective and methodology
+Selection of software tools, technologies, and resources (Programming
+languages, frameworks, databases)
+Design, Development and Project Management
+3.1
+Design and development (Software/hardware/hybrid system)
+3.2
+3.3
+3.4
+4
+Application of programming skills, algorithms and engineering tools
+Integration of concepts from different subjects (Computer programming,
+object oriented programming, software engineering, artificial intelligence,
+compiler design, big data technology, database management system,
+computer organization and architecture, computer network, electronic
+devices)
+Applications of project management skills such as work division, time
+management, leadership
+Implementation and Testing
+4.1
+4.2
+4.3
+Implementation and deployment of the project
+Testing and validation of the developed system (Unit testing, integration
+testing, and user testing)
+Performance evaluation and improvement
+Timeline of the defense
+i.
+Proposal submission and defense: A group of students shall submit the
+proposal in the prescribed format to the concerned department within two
+weeks after the commencement of the sixth semester
+ii.
+Mid-term defense: The mid-term defense of the minor project shall be
+conducted one month prior to the final defense
+iii.
+Final defense: The final defense shall be conducted two weeks prior to the
+board examination
+Evaluation
+The final evaluation of the minor project shall be based on assessments from the
+supervisor, the proposal defense, mid-term defense, final defense, and the internal
+examiner. The respective weightage and total marks are presented in the following table:
+Supervisor
+25
+Internal
+Total
+Proposal
+Defense
+Mid-Term
+Final
+Examiner
+Marks
+5
+5
+5
+10
+50

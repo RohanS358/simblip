@@ -1,0 +1,254 @@
+{
+  "title": "Display devices and the graphics pipeline",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 1",
+  "subtitle": "How a description of a scene becomes a grid of coloured dots.",
+  "sections": [
+    {
+      "id": "display",
+      "locator": "1.1",
+      "title": "Raster and random-scan displays",
+      "eyebrow": "Hardware",
+      "body": "<p>A <em class=\"term\">raster-scan</em> display refreshes a grid of pixels row by row, 60+ times a second, from a <em class=\"term\">frame buffer</em> in memory; its memory need is resolution × bits per pixel. A <em class=\"term\">random-scan</em> (vector) display draws lines directly and only what is needed — sharp lines, poor fills. Flat panels (LCD, LED, OLED) are raster devices.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A 1920 × 1080 display with 24 bits (3 bytes) per pixel.",
+          "math": "1920\\times1080\\times3"
+        },
+        {
+          "toc": "Memory",
+          "why": "Frame-buffer size.",
+          "math": "\\approx 6.2\\ \\text{MB}",
+          "hero": true
+        },
+        {
+          "toc": "Bandwidth",
+          "why": "At 60 Hz the buffer is read 60 times a second: bandwidth ≈ 373 MB/s.",
+          "math": "6.2\\times60"
+        }
+      ],
+      "questions": [
+        {
+          "id": "fb",
+          "prompt": "The frame buffer stores…",
+          "choices": [
+            {
+              "text": "The colour of every pixel on the screen.",
+              "correct": true
+            },
+            {
+              "text": "The program code."
+            },
+            {
+              "text": "Only the lines to draw."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The display hardware scans it continuously."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the display list of a random-scan device."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "pipe",
+      "locator": "1.2",
+      "title": "The graphics pipeline",
+      "eyebrow": "From model to pixels",
+      "body": "<p>Every renderer applies the same stages: a <em class=\"term\">model</em> (vertices and faces) is transformed into world space, then into the camera’s view, <em class=\"term\">clipped</em> against the view volume, <em class=\"term\">projected</em> to 2-D, mapped to the viewport, and finally <em class=\"term\">rasterised</em> — converted to pixels, where visibility and shading are resolved. OpenGL, DirectX, WebGL and game engines are implementations of it.</p>",
+      "questions": [
+        {
+          "id": "order",
+          "prompt": "Rasterisation happens…",
+          "choices": [
+            {
+              "text": "First, on the model."
+            },
+            {
+              "text": "At the end of the pipeline, turning projected primitives into pixels.",
+              "correct": true
+            },
+            {
+              "text": "Before clipping."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Models are vertex data."
+            },
+            {
+              "title": "Correct.",
+              "body": "Earlier stages work on vertices, not pixels."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Clipping precedes it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — the graphics pipeline",
+          "note": "Press Simulate: one triangle travels the whole pipeline.",
+          "script": "diagram(\"direction: right\\n[Model: vertices, faces] as m #blue\\n[Model → world transform] as w #violet\\n[View transform] as v #violet\\n[Clipping] as c #amber\\n[Projection] as p #mint\\n[Viewport + rasterise] as r #rose\\n(Pixels) as px\\nm -> w\\nw -> v\\nv -> c\\nc -> p\\np -> r\\nr -> px\\n@0 m -> w : triangle\\n@1 w -> v : in the world\\n@2 v -> c : from the camera\\n@3 c -> p : visible part\\n@4 p -> r : 2-D\\n@5 r -> px : pixels\\nloop 7\");"
+        }
+      ]
+    },
+    {
+      "id": "soft",
+      "locator": "1.3",
+      "title": "Graphics software and standards",
+      "eyebrow": "Tools",
+      "body": "<p>Low-level graphics APIs: OpenGL (and its web form <em class=\"term\">WebGL</em>), DirectX, Vulkan, Metal. PHIGS and GKS were early standards. On top sit engines and tools: Unity, Unreal, Blender and Maya for modelling and animation. Coordinates are usually Cartesian; graphics functions cover output primitives, attributes, transformations and input.</p>",
+      "questions": [
+        {
+          "id": "webgl",
+          "prompt": "WebGL is…",
+          "choices": [
+            {
+              "text": "A modelling tool."
+            },
+            {
+              "text": "A display device."
+            },
+            {
+              "text": "A JavaScript API for GPU-accelerated 2-D/3-D graphics in the browser.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is Blender/Maya."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is based on OpenGL ES."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "locator": "1.4",
+      "title": "Applications",
+      "eyebrow": "Where it is used",
+      "body": "<p>Computer-aided design, medical imaging (CT/MRI volumes), scientific visualisation, games and film, user interfaces, simulation and training, virtual and augmented reality, and data visualisation. The same pipeline underlies all of them; what differs is the model and the speed requirement.</p>",
+      "questions": [
+        {
+          "id": "fps",
+          "prompt": "At 60 frames per second each frame has about…",
+          "choices": [
+            {
+              "text": "16.7 ms.",
+              "correct": true
+            },
+            {
+              "text": "60 ms."
+            },
+            {
+              "text": "1 ms."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "1000 ms / 60."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would be about 17 fps."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That would be 1000 fps."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Why must a game renderer finish a frame in under about 16 ms?</p>",
+          "answer": "To keep 60 frames per second: 1 s / 60 ≈ 16.7 ms per frame for everything — transformation, clipping and shading of millions of triangles — which is why the work is done by parallel GPU hardware."
+        }
+      ]
+    },
+    {
+      "id": "viewing",
+      "locator": "1.5",
+      "title": "2-D and 3-D viewing pipelines",
+      "eyebrow": "Windows and viewports",
+      "body": "<p>In 2-D, a rectangular <em class=\"term\">window</em> in world coordinates selects what to show; the <em class=\"term\">viewport</em> is where it appears on screen; the window-to-viewport mapping scales and translates. In 3-D, a camera (position, direction, up) defines the view; a view volume (a box for parallel, a frustum for perspective) is clipped and projected onto a view plane.</p>",
+      "worked": [
+        {
+          "toc": "Question",
+          "why": "Window x from 0 to 100 mapped to a viewport x from 200 to 600. Where does x = 25 land?"
+        },
+        {
+          "toc": "Mapping",
+          "why": "Scale 400/100 = 4, then shift: 200 + 4 × 25.",
+          "math": "x_v=200+4(25)=300",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "vp",
+          "prompt": "The window-to-viewport transformation consists of…",
+          "choices": [
+            {
+              "text": "A scaling and a translation.",
+              "correct": true
+            },
+            {
+              "text": "A rotation only."
+            },
+            {
+              "text": "A projection."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It maps one rectangle onto another."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the 3-D step."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Frame buffer = width × height × bytes per pixel.</li><li>Pipeline: model → world → view → clip → project → viewport → raster.</li></ul>"
+    }
+  ]
+}

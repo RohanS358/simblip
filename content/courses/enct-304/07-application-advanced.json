@@ -1,0 +1,292 @@
+{
+  "title": "DNS, DHCP, HTTP, email and software-defined networking",
+  "kicker": "ENCT 304 · Computer Networks · Chapters 6–7",
+  "subtitle": "The protocols you actually see: what happens between typing a name and seeing a page, and how modern networks are managed.",
+  "sections": [
+    {
+      "id": "dhcp",
+      "locator": "6.1",
+      "title": "DHCP: getting an address",
+      "eyebrow": "Joining a network",
+      "body": "<p>A new host has no IP. <em class=\"term\">DHCP</em> lends one in four messages, known as DORA: Discover (broadcast), Offer, Request, Acknowledge. The lease also carries the subnet mask, default gateway and DNS server, and expires unless renewed.</p>",
+      "questions": [
+        {
+          "id": "dora",
+          "prompt": "Why is DISCOVER a broadcast?",
+          "choices": [
+            {
+              "text": "The host has no address and does not know the server’s address.",
+              "correct": true
+            },
+            {
+              "text": "For security."
+            },
+            {
+              "text": "To save bandwidth."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Everyone on the link hears it; the server answers."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Broadcast is not secure."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It uses more."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 6.1.1 — DORA",
+          "note": "Discover, Offer, Request, Acknowledge.",
+          "script": "diagram(\"mode: sequence\\n[New host] as h\\n[DHCP server] as d\\nh -> d : DISCOVER (broadcast)\\nd --> h : OFFER (192.168.1.50)\\nh -> d : REQUEST (I’ll take it)\\nd --> h : ACK (lease 8 h, gateway, DNS)\");"
+        }
+      ]
+    },
+    {
+      "id": "dns",
+      "locator": "6.2",
+      "title": "DNS: names to addresses",
+      "eyebrow": "The phone book",
+      "body": "<p><em class=\"term\">DNS</em> is a distributed hierarchy: root servers know the top-level domains (.com, .np), TLD servers know the domains, and the domain’s authoritative server knows the host. Your machine asks a <em class=\"term\">recursive resolver</em>, which does the walking and caches the answer for its TTL.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A record has TTL 300 s. The resolver answered at t = 0."
+        },
+        {
+          "toc": "Cache",
+          "why": "A query at t = 120 s is answered from the cache; one at t = 400 s triggers a new lookup.",
+          "math": "120<300,\\ 400>300",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "cache",
+          "prompt": "What does a DNS TTL control?",
+          "choices": [
+            {
+              "text": "How long a cached answer may be reused.",
+              "correct": true
+            },
+            {
+              "text": "How many hops the query may take."
+            },
+            {
+              "text": "The size of the reply."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "After it expires the resolver must ask again."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the IP TTL."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 6.2.1 — a recursive DNS lookup",
+          "note": "A cold lookup walks the hierarchy; later ones hit the cache.",
+          "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[Resolver] as r\\n[Root] as root\\n[.com server] as tld\\n[Authoritative] as a\\nb -> r : www.example.com?\\nr -> root : who knows .com?\\nroot --> r : ask the .com server\\nr -> tld : who knows example.com?\\ntld --> r : ask ns.example.com\\nr -> a : www.example.com?\\na --> r : 93.184.216.34\\nr --> b : 93.184.216.34\");"
+        }
+      ]
+    },
+    {
+      "id": "http",
+      "locator": "6.3",
+      "title": "HTTP and the web",
+      "eyebrow": "Fetching a page",
+      "body": "<p>Typing a URL sets off a chain: DNS finds the IP, TCP connects (TLS for HTTPS), the browser sends <code>GET /page HTTP/1.1</code> and the server replies with a status line, headers and the body. Methods: GET (read), POST (send), PUT, DELETE. Status families: 2xx success, 3xx redirect, 4xx client error (404), 5xx server error (500). HTTP is stateless; cookies and tokens carry a session.</p>",
+      "questions": [
+        {
+          "id": "stateless",
+          "prompt": "HTTP is called stateless because…",
+          "choices": [
+            {
+              "text": "It cannot carry data."
+            },
+            {
+              "text": "It never uses TCP."
+            },
+            {
+              "text": "Each request is independent: the server keeps no memory of earlier ones by itself.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It carries plenty."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "HTTP/1.1 and 2 use TCP."
+            },
+            {
+              "title": "Correct.",
+              "body": "Cookies or tokens are added to recognise a user."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 6.3.1 — a page load",
+          "note": "The whole trip for one page.",
+          "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[DNS] as d\\n[Web server] as s\\nb -> d : example.com?\\nd --> b : 93.184.216.34\\nb -> s : TCP handshake (+ TLS)\\nb -> s : GET /index.html\\ns --> b : 200 OK + HTML\\nb -> s : GET /style.css\\ns --> b : 200 OK + CSS\");"
+        }
+      ]
+    },
+    {
+      "id": "mail",
+      "locator": "6.4",
+      "title": "Email: SMTP, POP3, IMAP",
+      "eyebrow": "Mail",
+      "body": "<p><em class=\"term\">SMTP</em> <em>pushes</em> mail from your client to your server and between servers. To <em>read</em> it, <em class=\"term\">POP3</em> downloads messages (usually deleting them from the server) while <em class=\"term\">IMAP</em> keeps them on the server and syncs folders across devices. Other services: FTP moves files; SNMP manages devices; VoIP carries voice over IP.</p>",
+      "questions": [
+        {
+          "id": "imap",
+          "prompt": "Which protocol keeps mail on the server so several devices stay in sync?",
+          "choices": [
+            {
+              "text": "SMTP."
+            },
+            {
+              "text": "IMAP.",
+              "correct": true
+            },
+            {
+              "text": "FTP."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It sends mail."
+            },
+            {
+              "title": "Correct.",
+              "body": "POP3 typically downloads and removes."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It transfers files."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sdn",
+      "locator": "7.1",
+      "title": "Software-defined networking",
+      "eyebrow": "Programmable networks",
+      "body": "<p>In a traditional router the control plane (route calculation) and data plane (forwarding) live together in each box. <em class=\"term\">SDN</em> separates them: a central <em class=\"term\">controller</em> computes behaviour and programs simple forwarding devices through an API (OpenFlow). Benefits: a global view, automation, rapid change. Related ideas: network virtualisation, content delivery networks (CDNs cache content near users), named-data and intent-based networking.</p>",
+      "questions": [
+        {
+          "id": "sdn",
+          "prompt": "What does SDN separate?",
+          "choices": [
+            {
+              "text": "TCP from UDP."
+            },
+            {
+              "text": "Hardware from software licensing only."
+            },
+            {
+              "text": "The control plane from the data plane.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The idea is architectural."
+            },
+            {
+              "title": "Correct.",
+              "body": "Logic moves to a controller; devices only forward."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia4",
+          "caption": "Figure 7.1.1 — the SDN architecture",
+          "note": "One brain, many simple forwarders.",
+          "script": "diagram(\"direction: right\\ngroup \\\"Control plane\\\" { app, ctl }\\ngroup \\\"Data plane\\\" { s1, s2 }\\n[Network applications] as app #blue\\n[SDN controller] as ctl #violet\\n[Switch 1] as s1 #mint\\n[Switch 2] as s2 #mint\\napp -> ctl : northbound API\\nctl -> s1 : OpenFlow rules\\nctl -> s2 : OpenFlow rules\\n@0 app -> ctl : policy\\n@1.2 ctl -> s1 : flow rule\\n@1.2 ctl -> s2 : flow rule\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "sec",
+      "locator": "7.2",
+      "title": "Network security in brief",
+      "eyebrow": "Protecting traffic",
+      "body": "<p>Goals: confidentiality, integrity, authentication, availability. Tools: TLS encrypts a connection; firewalls filter by address, port or application; VPNs tunnel private traffic over the Internet; intrusion detection watches for attacks. The next-generation areas (quantum networks, network virtualisation) build on the same layered ideas.</p>",
+      "questions": [
+        {
+          "id": "tls",
+          "prompt": "What does TLS provide?",
+          "choices": [
+            {
+              "text": "Faster transfers."
+            },
+            {
+              "text": "An encrypted, authenticated channel over TCP.",
+              "correct": true
+            },
+            {
+              "text": "IP routing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It adds a little overhead."
+            },
+            {
+              "title": "Correct.",
+              "body": "It protects against eavesdropping and tampering."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not its role."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>List the order of events when you open https://example.com for the first time.</p>",
+          "answer": "DHCP already gave your address; DNS resolves the name; TCP three-way handshake; TLS handshake agrees keys; HTTP GET; server responds 200 OK with the page; the browser fetches the page’s other resources."
+        }
+      ]
+    }
+  ]
+}

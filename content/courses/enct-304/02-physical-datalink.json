@@ -1,0 +1,304 @@
+{
+  "title": "Encoding, framing and error control",
+  "kicker": "ENCT 304 · Computer Networks · Chapters 2–3",
+  "subtitle": "Turning bits into voltages, marking where frames start and end, and noticing — or fixing — the bit that got flipped.",
+  "sections": [
+    {
+      "id": "encoding",
+      "locator": "2.1",
+      "title": "Line coding",
+      "eyebrow": "Bits to signals",
+      "body": "<p>A wire carries voltages, so bits must be mapped to levels. <em class=\"term\">NRZ-L</em> holds a level for the whole bit; <em class=\"term\">NRZ-I</em> flips level for a 1. Both lose the clock on long runs of identical bits. <em class=\"term\">Manchester</em> puts a transition in the middle of every bit (low→high for 1, high→low for 0), so the receiver recovers the clock at the cost of double the signal rate — the code of classic 10 Mb/s Ethernet. <em class=\"term\">Bipolar AMI</em> sends 0 as no pulse and alternates + and − for 1s.</p>",
+      "questions": [
+        {
+          "id": "clk",
+          "prompt": "Why does Manchester coding help the receiver?",
+          "choices": [
+            {
+              "text": "Every bit contains a mid-bit transition, so the clock can be recovered even from 000000.",
+              "correct": true
+            },
+            {
+              "text": "It halves the bandwidth."
+            },
+            {
+              "text": "It uses three voltage levels."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "NRZ gives no edge during a long run of identical bits."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It doubles the signalling rate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is AMI."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.1.1 — NRZ-L, Manchester and AMI",
+          "note": "Step through: each code turns the same bits into a different waveform.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lc\",\"engine\":\"linecode\",\"bits\":\"01001100011\",\"codes\":\"nrzl manchester ami\",\"width\":600,\"height\":440});",
+          "expect": {
+            "lc": {
+              "ami": "0+00-+000-+"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "framing",
+      "locator": "3.1",
+      "title": "Framing and byte stuffing",
+      "eyebrow": "Finding the edges",
+      "body": "<p>The data link layer must tell the receiver where a frame starts and ends. A flag byte (HDLC uses 01111110) does it; to stop data that happens to contain the flag confusing the receiver, the sender inserts extra bits — <em class=\"term\">bit stuffing</em>: after five consecutive 1s in the data, insert a 0, which the receiver removes.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "Data: 0111111011 (contains six 1s in a row)."
+        },
+        {
+          "toc": "Stuffed",
+          "why": "After the first five 1s insert a 0 so the flag pattern 01111110 cannot appear inside the data.",
+          "math": "01111\\underline{0}1\\,1011\\ \\to\\ 0111110\\,11011",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "stuff",
+          "prompt": "After how many consecutive 1s does HDLC insert a 0?",
+          "choices": [
+            {
+              "text": "Six."
+            },
+            {
+              "text": "Five.",
+              "correct": true
+            },
+            {
+              "text": "Eight."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Too late — the flag would already appear."
+            },
+            {
+              "title": "Correct.",
+              "body": "The flag has six 1s, so five in a row must be broken up."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is a byte count, not the rule."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "crc",
+      "locator": "3.2",
+      "title": "Error detection: parity, checksum, CRC",
+      "eyebrow": "Noticing errors",
+      "body": "<p>A single <em class=\"term\">parity</em> bit catches any odd number of flipped bits but no even number. The <em class=\"term\">checksum</em> adds the words and sends the complement. The <em class=\"term\">CRC</em> treats the message as a polynomial and sends the remainder of dividing by an agreed generator G(x): the receiver divides the whole frame and accepts only a zero remainder. It catches all single-bit errors, all bursts up to the generator’s degree, and almost everything else. Dividing 1101011011 by 10011 gives the CRC <b>1110</b>; the frame sent is <b>11010110111110</b>.</p>",
+      "questions": [
+        {
+          "id": "rem",
+          "prompt": "A CRC receiver divides the received frame by G(x). What does a non-zero remainder mean?",
+          "choices": [
+            {
+              "text": "The frame arrived correctly."
+            },
+            {
+              "text": "The frame was corrupted in transit.",
+              "correct": true
+            },
+            {
+              "text": "The generator was wrong."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would give zero."
+            },
+            {
+              "title": "Correct.",
+              "body": "A valid codeword is exactly divisible by the generator."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Both sides agreed on it in advance."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 3.2.1 — computing a CRC",
+          "note": "Long division with XOR — no carries.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"crc\",\"engine\":\"crc\",\"data\":\"1101011011\",\"generator\":\"10011\",\"width\":600,\"height\":440});",
+          "expect": {
+            "crc": {
+              "crc": "1110",
+              "codeword": "11010110111110"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 3.2.2 — a corrupted frame",
+          "note": "Flip bit 3 in transit: the receiver’s remainder is not zero.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bad\",\"engine\":\"crc\",\"data\":\"1101011011\",\"generator\":\"10011\",\"flip\":3,\"width\":600,\"height\":440});",
+          "expect": {
+            "bad": {
+              "detected": "yes",
+              "receiverRemainder": "1110"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-crc",
+          "prompt": "<p>Compute the CRC for data 1101011011 with generator 10011.</p>",
+          "answer": "Append four zeros (degree of G) and divide with XOR; the remainder is <b>1110</b>. The transmitted codeword is <b>11010110111110</b>.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "The division.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"crc\",\"data\":\"1101011011\",\"generator\":\"10011\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "crc": "1110"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hamming",
+      "locator": "3.3",
+      "title": "Error correction: Hamming code",
+      "eyebrow": "Fixing errors",
+      "body": "<p>Detection needs a retransmission; <em class=\"term\">Hamming codes</em> let the receiver correct a single-bit error itself. Parity bits sit at positions 1, 2, 4, 8…; parity bit <i>p</i> covers every position whose binary index contains <i>p</i>. After an error the failing parity checks, read as a binary number, give the position of the bad bit — the <em class=\"term\">syndrome</em>. Data 1011 encodes to <b>0110011</b>; corrupt bit 5 and the syndrome reads <b>5</b>.</p>",
+      "worked": [
+        {
+          "toc": "How many parity bits",
+          "why": "4 data bits need r parity bits with 2ʳ ≥ 4 + r + 1.",
+          "math": "2^3 = 8 \\ge 4+3+1"
+        },
+        {
+          "toc": "Code length",
+          "why": "So Hamming(7,4): 7 bits sent for 4 data bits.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "syn",
+          "prompt": "The Hamming syndrome of a received word is 101 in binary. Which bit is wrong?",
+          "choices": [
+            {
+              "text": "Bit 3."
+            },
+            {
+              "text": "None."
+            },
+            {
+              "text": "Bit 5.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Syndrome 011."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Syndrome 000 means no error."
+            },
+            {
+              "title": "Correct.",
+              "body": "The syndrome is the position of the error."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 3.3.1 — Hamming(7,4)",
+          "note": "Encode, corrupt a bit, locate it, fix it.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ham\",\"engine\":\"hamming\",\"data\":\"1011\",\"error\":5,\"width\":600,\"height\":440});",
+          "expect": {
+            "ham": {
+              "codeword": "0110011",
+              "syndrome": "5"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "protocols",
+      "locator": "3.4",
+      "title": "PPP, HDLC and Ethernet",
+      "eyebrow": "Real link protocols",
+      "body": "<p><em class=\"term\">HDLC</em> and <em class=\"term\">PPP</em> frame point-to-point links with flags, an address/control field, a payload and a CRC. <em class=\"term\">Ethernet</em> (IEEE 802.3) frames carry destination and source MAC (6 bytes each), a type, 46–1500 bytes of data and a 4-byte CRC. The data link layer is split into LLC (flow and error control, protocol multiplexing) and MAC (who may transmit, and addressing).</p>",
+      "questions": [
+        {
+          "id": "mtu",
+          "prompt": "Maximum Ethernet payload?",
+          "choices": [
+            {
+              "text": "64 bytes."
+            },
+            {
+              "text": "1500 bytes.",
+              "correct": true
+            },
+            {
+              "text": "9000 bytes."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the minimum frame size."
+            },
+            {
+              "title": "Correct.",
+              "body": "That is the MTU; the minimum is 46 bytes."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Jumbo frames are an extension."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.5",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Line coding maps bits to signals; Manchester embeds the clock.</li><li>Framing needs flags and bit stuffing.</li><li>CRC detects, Hamming corrects single errors.</li></ul>"
+    }
+  ]
+}

@@ -1,0 +1,236 @@
+MICROPROCESSORS
+ENEX 201
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : II
+Part : I
+Course Objectives:
+The objective of this course is to familiarize students with assembly language
+programming, hardware and applications of microprocessors. The course provides
+students with a comprehensive understanding of microprocessor architecture,
+programming, and interfacing techniques, with a focus on the Intel 8085 and 8086
+microprocessors. Students will gain theoretical and practical knowledge of
+microprocessor-based systems, covering essential topics such as computer
+organization, instruction sets, memory and I/O interfacing, interrupt mechanisms, and
+advanced architectural concepts.
+1
+Introduction
+1.1
+1.2
+1.3
+1.4
+1.5
+1.6
+1.7
+2
+Intel 8085 Microprocessor
+2.1
+2.2
+2.3
+2.4
+2.5
+2.6
+2.7
+2.8
+2.9
+(4 hours)
+Introduction to microprocessors
+History of microprocessors
+Basic block diagram of a digital computer
+Microcomputer and microcontroller
+Bus organization of computer system
+Stored program concept (Von Neumann’s architecture)
+Processing cycle of a stored program computer
+Features of 8085
+Internal architecture of 8085
+Pin configurations of 8085
+Instruction format and data format
+Addressing modes of 8085
+Instruction set of 8085
+Various programs in 8085
+2.7.1 Simple programs with arithmetic and logical operations
+2.7.2 Conditions and loops
+2.7.3 Array and table processing
+2.7.4 Decimal - BCD conversion
+2.7.5 Multiplication and division
+Instruction cycle, machine cycle and T-cycle
+Timing diagrams of bus operations
+(12 hours)
+3
+Intel 8086 Microprocessor
+(14 hours)
+3.1
+3.2
+Features of 8086
+Internal architecture of 8086
+3.2.1 BIU and components
+3.2.2 EU and components
+3.2.3 EU and BIU operations
+3.3 Segment and offset address
+3.4 Pin configurations of 8086
+3.5 Addressing modes of 8086
+3.6 Assembly language programming
+3.7 High level versus low level programming
+3.8 Assembly language syntax
+3.8.1 Comments
+3.8.2 Reserved words
+3.8.3 Identifiers
+3.8.4 Statements
+3.8.5 Directives
+3.8.6 Operators
+3.8.7 Instructions
+3.9 EXE and COM programs
+3.10 Assembling, linking and execution
+3.11 One pass and two pass assemblers
+3.12 Interrupt services: INT 21H and INT 10H
+3.13 Various programs in 8086
+3.13.1 Simple programs for arithmetic, logical, string and input/output
+3.13.2 Conditions and loops
+3.13.3 Array and string processing
+3.13.4 ASCII and decimal numbers operation
+3.13.5 Displaying numbers in decimal, binary and hexadecimal formats
+4
+Microprocessor System
+4.1
+4.2
+4.3
+(7 hours)
+Memory classifications and hierarchy
+Interfacing I/O devices and memory with 8085
+4.2.1 Address decoding
+4.2.2 Unique and non-unique address decoding
+4.2.3 I/O mapped I/O and memory mapped I/O
+4.2.4 I/O address decoding with NAND and block decoders
+4.2.5 Memory address decoding
+Parallel Interface
+4.3.1 Modes: Simple, wait, single handshaking and double handshaking
+4.3.2 Introduction to programmable peripheral interface (PPI)
+4.4
+5
+Interrupt Operations
+5.1
+5.2
+5.3
+5.4
+5.5
+5.6
+5.7
+5.8
+5.9
+6
+Serial Interface
+4.4.1 Synchronous and asynchronous transmission
+4.4.2 Serial interface standards: RS232, USB
+4.4.3 Introduction to USART
+Interrupt and its importance
+Polling vs interrupt
+Types of interrupts
+Interrupts in 8085 and interrupt instructions
+Interrupt service routine
+Interrupt processing in 8085
+Using programmable interrupt controllers (PIC)
+Interrupt in 8086 and interrupt vector table
+Interrupt processing in 8086
+Advanced Topics
+6.1
+6.2
+6.3
+6.4
+6.5
+6.6
+(5 hours)
+(3 hours)
+Harvard architecture
+Accumulator based and register based architecture
+Hardwired and microprogrammed control unit
+RISC and CISC
+Introduction to multiprocessing/multitasking
+Digital signal processor
+Tutorial
+(15 hours)
+1.
+Assembly language programming with 8085
+2.
+Assembly language programming with 8086
+3.
+Input/output and memory address decoding
+Problems are solved, and students are assisted by the teacher to solve additional
+programming problems during tutorial classes.
+Assignment
+Appropriate assignment problems should be given to students after the completion of
+each chapter.
+Practical
+1.
+2.
+3.
+4.
+5.
+6.
+(45 hours)
+Familiarization to programming kit and program entry/execution in kit
+8085 assembly language programming with data transfer instructions
+8085 assembly language programming with arithmetic instructions
+8085 assembly language programming with logical instructions
+8085 assembly language programming with branching and stack
+instructions
+Miscellaneous and practical programming with 8085 such as
+multiplication/division
+7.
+8.
+9.
+10.
+11.
+12.
+Familiarization with DEBUG and entry/executing programs
+8086 assembly language programming with simple programs and
+assemble link and execute programs
+8086 assembly language programming for input and output using INT 21H
+service
+8086 assembly language programming for display using INT 10H service
+8086 assembly language programs for various conditions and I/O
+operations
+Lab test
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks distribution*
+1
+4
+6
+2
+12
+15
+3
+14
+18
+4
+7
+12
+5
+5
+6
+6
+3
+3
+Total
+45
+60
+* There may be minor deviation in marks distribution.
+References
+1.
+Gaonkar, R. S. (2002). Microprocessor Architecture, Programming and
+Applications with the 8085. United Kingdom: Prentice Hall.
+2.
+Abel, P. (2000). IBM PC Assembly Language and Programming (5th
+edition). United Kingdom: Prentice Hall.
+3.
+Hall, D. V. (1999). Microprocessors and Interfacing: Programming and
+Hardware (2nd Edition). Tata McGraw Hill.
+4.
+Stalling, W. (2009). Computer Organization and Architecture. Prentice Hall.

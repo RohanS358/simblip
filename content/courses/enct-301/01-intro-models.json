@@ -1,0 +1,284 @@
+{
+  "title": "Databases, abstraction and the ER model",
+  "kicker": "ENCT 301 · Database Management System · Chapters 1–2",
+  "subtitle": "Why files were not enough, how a database hides storage details, and how to draw the world before building tables.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "1.1",
+      "title": "Why a DBMS",
+      "eyebrow": "The problem with files",
+      "body": "<p>Storing data in separate files per application leads to <em class=\"term\">redundancy</em>, <em class=\"term\">inconsistency</em> (two copies disagree), no sharing or concurrent safety, and code tied to file formats. A <em class=\"term\">DBMS</em> keeps data in one place and provides a query language, integrity rules, concurrent access, security and recovery after failure. Applications: banking, airline reservation, universities, web sites.</p>",
+      "questions": [
+        {
+          "id": "dbms",
+          "prompt": "Which problem of file-based storage does a DBMS mainly solve?",
+          "choices": [
+            {
+              "text": "Redundant, inconsistent data scattered over application-specific files.",
+              "correct": true
+            },
+            {
+              "text": "Slow CPUs."
+            },
+            {
+              "text": "Small screens."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One shared, controlled copy replaces many."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abs",
+      "locator": "1.2",
+      "title": "Three levels of abstraction",
+      "eyebrow": "Hiding complexity",
+      "body": "<p>The <em class=\"term\">physical</em> level describes how records are stored (files, indexes); the <em class=\"term\">logical</em> level describes what data exists and their relationships (tables); the <em class=\"term\">view</em> level shows each user only the part they need. <em class=\"term\">Physical data independence</em>: change the storage layout without changing the logical schema. <em class=\"term\">Logical data independence</em>: change the schema without rewriting every view or application. A <em class=\"term\">schema</em> is the design; an <em class=\"term\">instance</em> is the data at this moment.</p>",
+      "questions": [
+        {
+          "id": "indep",
+          "prompt": "Adding an index without changing any query is an example of…",
+          "choices": [
+            {
+              "text": "Logical data independence."
+            },
+            {
+              "text": "Physical data independence.",
+              "correct": true
+            },
+            {
+              "text": "Normalisation."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The logical schema is unchanged."
+            },
+            {
+              "title": "Correct.",
+              "body": "Only the physical level changed."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different topic."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — three-level architecture",
+          "note": "Each level hides the one below.",
+          "script": "diagram(\"direction: down\\n[View level: what each user sees] as v #blue\\n[Logical level: tables and relationships] as l #mint\\n[Physical level: files, indexes, blocks] as p #amber\\nv -> l : mapped by the DBMS\\nl -> p : mapped by the DBMS\");"
+        }
+      ]
+    },
+    {
+      "id": "er",
+      "locator": "2.1",
+      "title": "The entity–relationship model",
+      "eyebrow": "Drawing the world",
+      "body": "<p>An <em class=\"term\">entity</em> is a distinguishable thing (Student, Course); an entity set is a collection of them. <em class=\"term\">Attributes</em> describe entities; a <em class=\"term\">key</em> attribute uniquely identifies one (studentID); composite, multivalued and derived attributes exist. A <em class=\"term\">relationship</em> associates entities (Student <em>enrols in</em> Course) with a <em class=\"term\">cardinality</em>: one-to-one, one-to-many or many-to-many. A <em class=\"term\">weak entity</em> has no key of its own and depends on an owner (Dependent of Employee).</p>",
+      "questions": [
+        {
+          "id": "mn",
+          "prompt": "Students enrol in many courses; each course has many students. This relationship is…",
+          "choices": [
+            {
+              "text": "One-to-many."
+            },
+            {
+              "text": "Many-to-many.",
+              "correct": true
+            },
+            {
+              "text": "One-to-one."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only one side has many."
+            },
+            {
+              "title": "Correct.",
+              "body": "Both sides can have many partners."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Each side has exactly one."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 2.1.1 — Student – Enrolment – Course",
+          "note": "A many-to-many relationship becomes a third box with two one-to-many links.",
+          "script": "diagram(\"direction: right\\n{Student | + id : key ; + name} as s\\n{Course | + code : key ; + title} as c\\n{Enrolment | + grade} as e\\ns -> e : 1 .. many\\ne -> c : many .. 1\");"
+        }
+      ]
+    },
+    {
+      "id": "gen",
+      "locator": "2.2",
+      "title": "Specialisation, generalisation, aggregation",
+      "eyebrow": "Extended ER",
+      "body": "<p><em class=\"term\">Specialisation</em> splits an entity set into subclasses (Employee → Teacher, Clerk) which inherit attributes; <em class=\"term\">generalisation</em> is the same idea seen bottom-up. <em class=\"term\">Aggregation</em> treats a relationship as an entity so it can take part in another relationship. Constraints: disjoint vs overlapping, total vs partial participation.</p>",
+      "questions": [
+        {
+          "id": "isa",
+          "prompt": "Student “is a” Person. Student inherits…",
+          "choices": [
+            {
+              "text": "Person’s attributes (id, name).",
+              "correct": true
+            },
+            {
+              "text": "Nothing."
+            },
+            {
+              "text": "Only the key."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The subclass adds its own (roll)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is what inheritance means."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "All attributes."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 2.2.1 — specialisation",
+          "note": "Subclasses inherit from the superclass.",
+          "script": "diagram(\"direction: down\\n{Person | + id ; + name} as p\\n{Student | + roll} as s\\n{Teacher | + salary} as t\\ns -> p : is a\\nt -> p : is a\");"
+        }
+      ]
+    },
+    {
+      "id": "map",
+      "locator": "2.3",
+      "title": "From ER to tables",
+      "eyebrow": "Mapping rules",
+      "body": "<p>Each strong entity becomes a table (key = primary key). A one-to-many relationship puts the “one” side’s key into the “many” table as a <em class=\"term\">foreign key</em>. A many-to-many relationship becomes its own table whose primary key is the pair of foreign keys, plus the relationship’s attributes. A weak entity’s table includes the owner’s key in its key.</p>",
+      "worked": [
+        {
+          "toc": "ER",
+          "why": "Student(id, name), Course(code, title) with a many-to-many “enrols with grade”."
+        },
+        {
+          "toc": "Relational schema",
+          "why": "Tables: Student(id, name), Course(code, title), Enrolment(id → Student, code → Course, grade), primary key (id, code).",
+          "math": "\\text{Enrolment}(\\underline{id},\\underline{code},grade)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "fk",
+          "prompt": "In a one-to-many relationship the foreign key goes in the table on the…",
+          "choices": [
+            {
+              "text": "“Many” side.",
+              "correct": true
+            },
+            {
+              "text": "“One” side."
+            },
+            {
+              "text": "Neither; use a new table always."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each employee row stores which department it belongs to."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That would need a list in one cell."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only for many-to-many."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A Department has many Employees; each Employee works in exactly one Department. Give the tables.</p>",
+          "answer": "Department(deptNo, name); Employee(empNo, name, <b>deptNo</b> FK → Department). The foreign key sits on the “many” side."
+        }
+      ]
+    },
+    {
+      "id": "keys",
+      "locator": "2.4",
+      "title": "Keys",
+      "eyebrow": "Identifying rows",
+      "body": "<p>A <em class=\"term\">superkey</em> is any set of attributes that identifies a row; a <em class=\"term\">candidate key</em> is a minimal superkey; the <em class=\"term\">primary key</em> is the candidate chosen; a <em class=\"term\">foreign key</em> references another table’s key. Entity integrity: a primary key is never null. Referential integrity: a foreign key matches an existing key or is null.</p>",
+      "questions": [
+        {
+          "id": "cand",
+          "prompt": "A candidate key is…",
+          "choices": [
+            {
+              "text": "Any unique column."
+            },
+            {
+              "text": "A foreign key."
+            },
+            {
+              "text": "A minimal set of attributes that uniquely identifies rows.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Must also be minimal."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That references another table."
+            },
+            {
+              "title": "Correct.",
+              "body": "No attribute can be removed."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

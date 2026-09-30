@@ -1,0 +1,158 @@
+        COMPUTER ORGANIZATION AND ARCHITECTURE
+                                       ENCT 303
+
+Lecture       :3                                                                Year : III
+Tutorial      :1                                                                 Part : I
+Practical     : 3/2
+
+Course Objectives:
+The objective of this course is to provide the organization and architectural concept of
+computer system including processor architecture, computer arithmetic, memory
+system, I/O organization, multiprocessor and multicore.
+
+1    Introduction                                                              (5 hours)
+      1.1   Organization and architecture
+      1.2   Structure of a computer, single processor, multi-core computer
+      1.3   Performance assessment
+            1.3.1 Clock speed and instruction per second
+            1.3.2 Instruction execution rate: CPI, MIPS rate, MFLOPS rate, arithmetic
+                   mean, harmonic mean, speed metric, geometric mean, rate metric,
+                   Amdahl’s law, speed up
+      1.4   Computer function
+            1.4.1 Instruction fetch and execute
+            1.4.2 Instruction cycle state diagram
+      1.5   Computer component, interconnection structure, bus interconnection, PCI
+      1.6   RISC architecture, overlapped register windows, Berkeley RISC
+
+2    Central Processing Unit (CPU)                                           (7 hours)
+      2.1   Processor bus organization
+      2.2   Processor register organization: Control word, examples of microoperations
+      2.3   Stack organization: Register stack, memory stack, reverse polish notation,
+            evaluation of arithmetic expressions
+      2.4   Instruction formats: CPU organization, zero and more address instruction
+            formats
+      2.5   Addressing modes: Types, examples, strengths and weaknesses
+      2.6   Instruction set
+            2.6.1 Data transfer instruction
+            2.6.2 Data manipulation instruction: Arithmetic, logical and shift operations
+            2.6.3 Program control instruction
+      2.7   Status bit conditions
+      2.8   Interrupt: Definition, types, processing and ISR
+3   Control Unit                                                         (5 hours)
+    3.1   Hardwired control unit
+    3.2   Microprogrammed control unit
+    3.3   Microinstructions, control memory organization, Wilkes control
+    3.4   Microinstruction    sequencing:   Design     considerations,   sequencing
+          techniques, address generation, microinstruction encoding
+    3.5   Application of microprogramming
+    3.6   Microinstruction execution
+
+4   Memory System                                                        (7 hours)
+    4.1   Characteristics of memory system
+    4.2   Memory classification and hierarchy
+    4.3   Semiconductor memory and its types, read only memory, read/write
+          memory
+    4.4   Ram modules and interfaces: DDR, DIMM and SODIMM
+    4.5   Cache memory
+          4.5.1 Cache principles
+          4.5.2 Elements of cache design: Cache size, mapping function,
+                 replacement algorithms, write policy, block size, single and multi-
+                 level caches and unified versus split cache
+    4.6   External memory
+          4.6.1 Magnetic disk
+          4.6.2 RAID: Level 1 to 5
+          4.6.3 Optical memory
+          4.6.4 Magnetic tape
+          4.6.5 SSD
+
+5   Computer Arithmetic                                                  (8 hours)
+    5.1   ALU (Arithmetic and logic unit)
+    5.2   Integer representation: Sign-magnitude representation, two’s complement
+          representation, converting between different bit lengths, fixed-point
+          representation
+    5.3   Integer arithmetic
+          5.3.1 Addition and subtraction algorithm
+          5.3.2 Multiplication algorithm
+          5.3.3 Division algorithm
+    5.4   Floating-point arithmetic
+          5.4.1 Floating-point representation: Principles, IEEE standard for binary
+                 floating-point arithmetic algorithm
+          5.4.2 Addition and subtraction algorithm
+          5.4.3 Multiplication algorithm
+          5.4.4 Division algorithm
+6    Pipelining and Vector Processing                                    (4 hours)
+     6.1   Pipelining and its importance
+     6.2   Instruction and arithmetic pipelining
+     6.3   Pipelining hazards: Data, structural and control hazards
+     6.4   RISC pipeline
+     6.5   Parallel processing
+     6.6   Vector processing
+           6.6.1 Vector operations
+           6.6.2 Matrix multiplication
+           6.6.3 Memory interleaving
+           6.6.4 Superscalar processors
+           6.6.5 Supercomputers
+     6.7   Array processors: Attached array processor and SIMD array processor
+
+7    Input/Output                                                        (5 hours)
+     7.1   External devices
+     7.2   I/O modules: Module function, module structure
+     7.3   Programmed I/O, I/O commands, I/O instructions, flowchart
+     7.4   Interrupt driven I/O, interrupt processing and flowchart
+     7.5   Direct memory access (DMA): Drawbacks of programmed and interrupt-
+           driven I/O, DMA function, typical DMA block diagram and possible DMA
+           configuration
+     7.6   I/O channels and processors: The evolution of the I/O function,
+           characteristics of I/O channels
+     7.7   The external interface: Types of interfaces, point-to point and multiple
+           configurations, small computer system interface (SCSI)
+
+8    Multiprocessor System                                               (4 hours)
+     8.1   Multiprocessor computers and their characteristics
+     8.2   Multi-core computers and their architecture
+     8.3   Interconnection structure: Time-shared common bus, multiport memory,
+           crossbar switch, multistage switching network and hypercube system
+     8.4   Interprocessor arbitration
+     8.5   Interprocessor communication and synchronization
+
+Tutorial                                                                (15 hours)
+     1.    Numerical examples on performance assessment
+     2.    Design of arithmetic circuit, logic circuit and ALU
+     3.    Coding examples covering different instruction formats
+     4.    Microprogramming examples in CU
+     5.    Cache memory mapping: Hit and miss ratio
+     6.    Numerical examples for various arithmetic algorithms
+     7.    Memory and I/O interfacing
+Practical                                                           (22.5 hours)
+There will be about 6 lab exercises based on various arithmetic algorithm, cache
+memory and vector processing using any high-level language, MATLAB or other
+simulator.
+      1.   Addition and subtraction algorithm
+      2.   Multiplication algorithm
+      3.   Division algorithm
+      4.   Cache mapping techniques
+      5.   ALU implementation
+      6.   Vector processing implementation
+
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+         Chapter                   Hours                    Marks distribution*
+           1                          5                               6
+         2                          7                               10
+         3                          5                                6
+         4                          7                               10
+         5                          8                               10
+         6                          4                                6
+         7                          5                                6
+         8                          4                                6
+        Total                      45                               60
+* There may be minor deviation in marks distribution.
+
+References
+    1.   Stallings, W. (2018). Computer organization and architecture. Prentice Hall
+         of India.
+    2.   Mano, M. M. (2008). Computer system architecture. Pearson Education.
+    3.   Hennessy, J. L., Patterson, D. A. (2000). Computer architecture: A
+         quantitative approach. Harcourt Asia.
+

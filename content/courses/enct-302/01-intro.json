@@ -1,0 +1,276 @@
+{
+  "title": "How the web works",
+  "kicker": "ENCT 302 · Web Application Programming · Chapter 1",
+  "subtitle": "Type a URL, press Enter — and a dozen systems cooperate in under a second. Follow one request all the way.",
+  "sections": [
+    {
+      "id": "url",
+      "locator": "1.1",
+      "title": "URLs and clients/servers",
+      "eyebrow": "The vocabulary",
+      "body": "<p>The web is a client–server system: a <b>browser</b> (client) requests resources from a <b>web server</b>. A <em class=\"term\">URL</em> such as <code>https://example.com:443/docs?page=2#top</code> has scheme (protocol), host, port, path, query string and fragment. The fragment never leaves the browser.</p>",
+      "questions": [
+        {
+          "id": "frag",
+          "prompt": "In https://a.com/x?y=1#z, the part “z” is…",
+          "choices": [
+            {
+              "text": "A fragment used only by the browser.",
+              "correct": true
+            },
+            {
+              "text": "The query string."
+            },
+            {
+              "text": "The host."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is not sent to the server."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is y=1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The host is a.com."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dns",
+      "locator": "1.2",
+      "title": "DNS: names to addresses",
+      "eyebrow": "Finding the server",
+      "body": "<p>Computers route by IP address, so the browser first asks DNS to resolve the host name. The answer is cached at several levels (browser, OS, resolver) for its TTL, so repeat visits skip the lookup.</p>",
+      "questions": [
+        {
+          "id": "ttl",
+          "prompt": "DNS TTL controls…",
+          "choices": [
+            {
+              "text": "The page load time."
+            },
+            {
+              "text": "The number of servers."
+            },
+            {
+              "text": "How long an answer may be cached.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Time to live."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — DNS lookup",
+          "note": "The resolver does the legwork and caches the answer.",
+          "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[Resolver] as r\\n[Root / TLD / authoritative] as a\\nb -> r : example.com ?\\nr -> a : ask authoritative\\na --> r : 93.184.216.34\\nr --> b : 93.184.216.34\\n@0 b -> r : example.com ?\\n@1 r -> a : ask authoritative\\n@2 a -> r : 93.184.216.34\\n@3 r -> b : 93.184.216.34\");"
+        }
+      ]
+    },
+    {
+      "id": "http",
+      "locator": "1.3",
+      "title": "HTTP request and response",
+      "eyebrow": "The conversation",
+      "body": "<p>HTTP is a text protocol: the client sends a <b>request</b> (method, path, headers, optional body); the server answers with a <b>response</b> (status code, headers, body). Methods: GET (read), POST (create), PUT/PATCH (update), DELETE. Status families: 2xx success, 3xx redirect, 4xx client error, 5xx server error. HTTP is <em class=\"term\">stateless</em>: each request stands alone; cookies and tokens carry identity.</p>",
+      "questions": [
+        {
+          "id": "stat",
+          "prompt": "Status 404 means…",
+          "choices": [
+            {
+              "text": "The server crashed."
+            },
+            {
+              "text": "The resource was not found (client error).",
+              "correct": true
+            },
+            {
+              "text": "Redirect."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is 5xx."
+            },
+            {
+              "title": "Correct.",
+              "body": "4xx = client side."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is 3xx."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 1.3.1 — loading a page",
+          "note": "One page view is many round trips.",
+          "script": "diagram(\"mode: sequence\\n[Browser] as b\\n[DNS] as d\\n[Server] as s\\nb -> d : resolve example.com\\nd --> b : IP address\\nb -> s : TCP + TLS handshake\\ns --> b : secure channel\\nb -> s : GET /index.html\\ns --> b : 200 OK + HTML\\nb -> s : GET /style.css\\ns --> b : 200 OK + CSS\\n@0 b -> d : resolve example.com\\n@1 d -> b : IP address\\n@2 b -> s : TCP + TLS handshake\\n@3 s -> b : secure channel\\n@4 b -> s : GET /index.html\\n@5 s -> b : 200 OK + HTML\\n@6 b -> s : GET /style.css\\n@7 s -> b : 200 OK + CSS\");"
+        }
+      ]
+    },
+    {
+      "id": "latency",
+      "locator": "1.4",
+      "title": "Why latency matters",
+      "eyebrow": "Numbers",
+      "body": "<p>Each round trip costs the network RTT. A page needing DNS (1 RTT), TCP (1), TLS (1–2), then the request (1) needs about 4–5 RTTs before the first byte. HTTP/2 multiplexes requests on one connection; HTTP/3 uses QUIC to cut handshakes.</p>",
+      "worked": [
+        {
+          "toc": "RTTs",
+          "why": "RTT = 50 ms. Steps: DNS, TCP, TLS, request = 4 round trips."
+        },
+        {
+          "toc": "TTFB",
+          "why": "Time to first byte ≥ 4 × 50 ms.",
+          "math": "200\\ \\text{ms}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rtt",
+          "prompt": "The best way to cut page-load time on a high-RTT link is…",
+          "choices": [
+            {
+              "text": "A bigger monitor."
+            },
+            {
+              "text": "More CSS."
+            },
+            {
+              "text": "Fewer round trips (cache, reuse connections, bundle).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Irrelevant."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Adds requests."
+            },
+            {
+              "title": "Correct.",
+              "body": "Latency multiplies with trips."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-rtt",
+          "prompt": "<p>RTT is 80 ms. A fresh page needs DNS, TCP, TLS (2 RTT) and the GET. Minimum time to first byte?</p>",
+          "answer": "5 round trips × 80 = <b>400 ms</b>."
+        }
+      ]
+    },
+    {
+      "id": "html",
+      "locator": "1.5",
+      "title": "HTML, CSS and JavaScript",
+      "eyebrow": "The three layers",
+      "body": "<p><b>HTML</b> is structure (headings, links, forms); <b>CSS</b> is presentation (layout, colour); <b>JavaScript</b> is behaviour. The browser parses HTML into the DOM tree, CSS into a style tree, combines them to lay out and paint. Keep the three separate so each can change alone.</p>",
+      "questions": [
+        {
+          "id": "lay",
+          "prompt": "Which layer changes a button’s colour?",
+          "choices": [
+            {
+              "text": "CSS.",
+              "correct": true
+            },
+            {
+              "text": "HTML."
+            },
+            {
+              "text": "DNS."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Presentation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Structure."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Network naming."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "static",
+      "locator": "1.6",
+      "title": "Static, dynamic and SPA",
+      "eyebrow": "Kinds of sites",
+      "body": "<p><b>Static</b> sites serve the same files to all; <b>dynamic</b> sites build pages per request on the server; <b>single-page apps (SPAs)</b> load one page and update it with JavaScript, fetching JSON. SPAs feel fast after first load but cost a heavy first load and need care for SEO.</p>",
+      "questions": [
+        {
+          "id": "spa",
+          "prompt": "A SPA typically fetches…",
+          "choices": [
+            {
+              "text": "A full HTML page for every click."
+            },
+            {
+              "text": "JSON data, then updates the page in the browser.",
+              "correct": true
+            },
+            {
+              "text": "Nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a multi-page app."
+            },
+            {
+              "title": "Correct.",
+              "body": "It avoids full page reloads."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It needs data."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

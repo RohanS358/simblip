@@ -1,0 +1,379 @@
+{
+  "title": "Decisions, markets and the circular flow",
+  "kicker": "ENCE 356 · Engineering Economics · Chapters 1, 2 and 9",
+  "subtitle": "Engineers choose between alternatives with limited money. Economics supplies the language: scarcity, demand, supply and the flow of income.",
+  "sections": [
+    {
+      "id": "scarcity",
+      "locator": "1.1",
+      "title": "Scarcity and the economic decision",
+      "eyebrow": "Why economics",
+      "body": "<p>Resources (money, time, materials) are limited while wants are not: that is <em class=\"term\">scarcity</em>. Every choice has an <em class=\"term\">opportunity cost</em> — the value of the best alternative given up. Engineering economics compares the <i>monetary</i> consequences of technical alternatives so that the option giving the most benefit per unit of resource is chosen.</p>",
+      "worked": [
+        {
+          "toc": "Options",
+          "why": "You can spend Rs 100,000 on machine A (return Rs 12,000/yr) or machine B (return Rs 15,000/yr)."
+        },
+        {
+          "toc": "Cost",
+          "why": "Choosing A gives up B’s extra return. Opportunity cost of A per year:",
+          "math": "Rs\\ 15{,}000",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "oc",
+          "prompt": "Opportunity cost is…",
+          "choices": [
+            {
+              "text": "The purchase price."
+            },
+            {
+              "text": "The value of the best alternative forgone.",
+              "correct": true
+            },
+            {
+              "text": "Always zero for free items."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is a cash cost."
+            },
+            {
+              "title": "Correct.",
+              "body": "What you give up by choosing."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Time still has alternatives."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "proc",
+      "locator": "1.2",
+      "title": "The decision process",
+      "eyebrow": "A method, not a hunch",
+      "body": "<p>A rational engineering decision follows steps: define the problem, list alternatives (including “do nothing”), estimate cash flows, choose a criterion (present worth, IRR …), compare, consider non-monetary factors, decide, and review the result afterwards.</p>",
+      "questions": [
+        {
+          "id": "dn",
+          "prompt": "Which alternative must always be considered?",
+          "choices": [
+            {
+              "text": "The cheapest machine."
+            },
+            {
+              "text": "Doing nothing.",
+              "correct": true
+            },
+            {
+              "text": "The newest technology."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not always feasible."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is the baseline for comparison."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No such rule."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — decision process",
+          "note": "The last arrow closes the loop.",
+          "script": "diagram(\"direction: down\\n(Define the problem) as a\\n[List alternatives incl. do nothing] as b\\n[Estimate cash flows] as c\\n[Choose a criterion and compare] as d\\n<Non-monetary factors change the answer?> as e\\n[Decide] as f\\n[Monitor and learn] as g\\na -> b\\nb -> c\\nc -> d\\nd -> e\\ne -> f : no\\ne -> d : yes, revisit\\nf -> g\\ng -> a : next problem\");"
+        }
+      ]
+    },
+    {
+      "id": "demand",
+      "locator": "2.1",
+      "title": "Demand and supply",
+      "eyebrow": "Markets",
+      "body": "<p>The <b>law of demand</b>: as price rises, quantity demanded falls. The <b>law of supply</b>: as price rises, quantity supplied rises. Where the curves cross is the <b>equilibrium</b>: price and quantity at which the market clears. If the price is above equilibrium there is a surplus and sellers cut prices; below it, a shortage and prices rise.</p>",
+      "worked": [
+        {
+          "toc": "Equate",
+          "why": "Demand Qd = 110 − 2P; supply Qs = 2P − 10. Set them equal.",
+          "math": "110-2P=2P-10"
+        },
+        {
+          "toc": "Solve",
+          "why": "4P = 120, so P = 30 and Q = 50.",
+          "math": "P^*=30,\\ Q^*=50",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "eq",
+          "prompt": "At a price above equilibrium there is…",
+          "choices": [
+            {
+              "text": "A shortage."
+            },
+            {
+              "text": "Equilibrium."
+            },
+            {
+              "text": "A surplus: supply exceeds demand.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is below equilibrium."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only at the crossing."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sellers must lower price."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr2",
+          "caption": "Figure 2.1.1 — a market schedule",
+          "note": "Demand falls and supply rises as price rises; they meet at Rs 30.",
+          "script": "var t = create(\"table\", { headers: \"Price (Rs);Demand;Supply;Situation\", data: [[10,90,10,\"shortage of 80\"],[20,70,30,\"shortage of 40\"],[30,50,50,\"equilibrium\"],[40,30,70,\"surplus of 40\"],[50,10,90,\"surplus of 80\"]], summary: \"None\" });"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-eq",
+          "prompt": "<p>Qd = 200 − 4P and Qs = 6P − 40. Find the equilibrium price and quantity.</p>",
+          "answer": "200 − 4P = 6P − 40 → P = <b>24</b>, Q = 200 − 96 = <b>104</b>."
+        }
+      ]
+    },
+    {
+      "id": "elastic",
+      "locator": "2.2",
+      "title": "Elasticity",
+      "eyebrow": "How sensitive?",
+      "body": "<p>Price elasticity of demand E = (%ΔQ)/(%ΔP). |E| &gt; 1: <b>elastic</b> (quantity reacts strongly — luxuries, substitutes available); |E| &lt; 1: <b>inelastic</b> (necessities). A firm facing elastic demand raises revenue by cutting price; with inelastic demand, by raising it.</p>",
+      "worked": [
+        {
+          "toc": "Changes",
+          "why": "Price rises from 20 to 22 (+10 %); quantity falls from 100 to 85 (−15 %)."
+        },
+        {
+          "toc": "E",
+          "why": "E = −15/10 = −1.5, so |E| > 1: elastic.",
+          "math": "E=-1.5",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "el",
+          "prompt": "|E| = 0.4 means demand is…",
+          "choices": [
+            {
+              "text": "Inelastic.",
+              "correct": true
+            },
+            {
+              "text": "Elastic."
+            },
+            {
+              "text": "Unit elastic."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Quantity barely reacts to price."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That needs |E| > 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is |E| = 1."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "mkt",
+      "locator": "2.3",
+      "title": "Market structures",
+      "eyebrow": "Competition",
+      "body": "<table><thead><tr><th>Structure</th><th>Sellers</th><th>Price power</th></tr></thead><tbody><tr><td>Perfect competition</td><td>many, identical product</td><td>none (price taker)</td></tr><tr><td>Monopolistic competition</td><td>many, differentiated</td><td>some</td></tr><tr><td>Oligopoly</td><td>few</td><td>strong, interdependent</td></tr><tr><td>Monopoly</td><td>one</td><td>maximum</td></tr></tbody></table>",
+      "questions": [
+        {
+          "id": "olig",
+          "prompt": "A market with a handful of large firms watching each other is an…",
+          "choices": [
+            {
+              "text": "Perfect competition."
+            },
+            {
+              "text": "Monopoly."
+            },
+            {
+              "text": "Oligopoly.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Many sellers."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "One seller."
+            },
+            {
+              "title": "Correct.",
+              "body": "Few sellers, interdependent."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "gdp",
+      "locator": "9.1",
+      "title": "National income and the circular flow",
+      "eyebrow": "Measuring the whole economy",
+      "body": "<p>Households supply labour and buy goods; firms hire labour and sell goods; money flows round. <b>GDP</b> = the market value of final goods and services produced in a country in a year; three equal ways to measure it: production (value added), income (wages + profit + rent + interest) and expenditure: GDP = C + I + G + (X − M).</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "C = 600, I = 200, G = 150, exports 120, imports 90 (all in billions)."
+        },
+        {
+          "toc": "Sum",
+          "why": "GDP = 600 + 200 + 150 + (120 − 90).",
+          "math": "GDP=980",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "gdp",
+          "prompt": "Which is NOT a part of expenditure GDP?",
+          "choices": [
+            {
+              "text": "Consumption."
+            },
+            {
+              "text": "Imports added on top.",
+              "correct": true
+            },
+            {
+              "text": "Government purchases."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Included."
+            },
+            {
+              "title": "Correct.",
+              "body": "Imports are subtracted (net exports)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Included."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 9.1.1 — circular flow",
+          "note": "One person’s spending is another’s income.",
+          "script": "diagram(\"mode: sequence\\n[Households] as h\\n[Firms] as f\\n[Government] as g\\nh -> f : spending on goods (C)\\nf -> h : wages, rent, profit\\nh -> g : taxes\\ng -> f : purchases (G)\\nf -> f : investment (I)\\n@0 h -> f : spending on goods (C)\\n@1 f -> h : wages, rent, profit\\n@2 h -> g : taxes\\n@3 g -> f : purchases (G)\\n@4 f -> f : investment (I)\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-gdp",
+          "prompt": "<p>C = 800, I = 250, G = 200, X = 150, M = 200. Find GDP.</p>",
+          "answer": "800 + 250 + 200 + (150 − 200) = <b>1200</b>."
+        }
+      ]
+    },
+    {
+      "id": "infl",
+      "locator": "9.2",
+      "title": "Inflation, growth and real values",
+      "eyebrow": "Adjusting for prices",
+      "body": "<p>Inflation is a general rise in prices. Real GDP divides nominal GDP by a price index to remove it. A nominal interest rate i relates to the real rate r and inflation f by (1 + i) = (1 + r)(1 + f). Ignoring inflation makes future money look bigger than it is.</p>",
+      "worked": [
+        {
+          "toc": "Data",
+          "why": "Nominal interest 12 %, inflation 5 %."
+        },
+        {
+          "toc": "Real",
+          "why": "Real rate = 1.12/1.05 − 1.",
+          "math": "r=6.67\\%",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rr",
+          "prompt": "Nominal 10 %, inflation 4 %: the real rate is about…",
+          "choices": [
+            {
+              "text": "14 %."
+            },
+            {
+              "text": "5.8 %.",
+              "correct": true
+            },
+            {
+              "text": "6.0 % exactly."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Adding instead of dividing."
+            },
+            {
+              "title": "Correct.",
+              "body": "1.10/1.04 − 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Close but not exact."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

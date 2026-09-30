@@ -1,0 +1,274 @@
+{
+  "title": "Markov chains",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 5",
+  "subtitle": "Tomorrow depends only on today. That single assumption predicts weather, web rankings and queue lengths.",
+  "sections": [
+    {
+      "id": "def",
+      "locator": "5.1",
+      "title": "The Markov property",
+      "eyebrow": "Memorylessness",
+      "body": "<p>A <em class=\"term\">Markov chain</em> moves between states; the probability of the next state depends <em>only on the current state</em>, not on how it got there. The chain is described by a transition matrix P where P<sub>ij</sub> is the probability of going from i to j and each row sums to 1. Example: Sunny → Sunny 0.9, Sunny → Rainy 0.1, Rainy → Sunny 0.5, Rainy → Rainy 0.5.</p>",
+      "questions": [
+        {
+          "id": "rows",
+          "prompt": "Why must each row of a transition matrix sum to 1?",
+          "choices": [
+            {
+              "text": "Each column must sum to 1."
+            },
+            {
+              "text": "From any state the chain must go somewhere.",
+              "correct": true
+            },
+            {
+              "text": "They can sum to anything."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only rows, in general."
+            },
+            {
+              "title": "Correct.",
+              "body": "The row is a probability distribution over next states."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Probabilities total 1."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 5.1.1 — a two-state weather chain",
+          "note": "Sunny stays sunny with probability 0.9; rainy stays rainy with 0.5.",
+          "script": "diagram(\"direction: right\\n((Sunny)) as s\\n((Rainy)) as r\\ns -> r : 0.1\\nr -> s : 0.5\");"
+        }
+      ]
+    },
+    {
+      "id": "evolve",
+      "locator": "5.2",
+      "title": "Evolving the distribution",
+      "eyebrow": "Step by step",
+      "body": "<p>If π₀ is the starting distribution (a row vector), then π₁ = π₀P, π₂ = π₁P, … The probabilities of each state after n steps are the entries of πₙ. Starting sunny: π₀ = (1, 0); π₁ = (0.9, 0.1); π₂ = (0.86, 0.14).</p>",
+      "worked": [
+        {
+          "toc": "Step 1",
+          "why": "π₁ = π₀P with π₀ = (1, 0).",
+          "math": "(1,0)\\begin{pmatrix}0.9&0.1\\\\0.5&0.5\\end{pmatrix}=(0.9,0.1)"
+        },
+        {
+          "toc": "Step 2",
+          "why": "π₂ = π₁P.",
+          "math": "(0.9\\cdot0.9+0.1\\cdot0.5,\\ 0.9\\cdot0.1+0.1\\cdot0.5)=(0.86,0.14)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "p2",
+          "prompt": "Sunny today. Probability of sun the day after tomorrow?",
+          "choices": [
+            {
+              "text": "0.9."
+            },
+            {
+              "text": "0.86.",
+              "correct": true
+            },
+            {
+              "text": "0.81."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is tomorrow."
+            },
+            {
+              "title": "Correct.",
+              "body": "0.9·0.9 + 0.1·0.5."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Misses the rainy path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "steady",
+      "locator": "5.3",
+      "title": "Steady state",
+      "eyebrow": "Where it settles",
+      "body": "<p>For most chains the distribution converges to a <em class=\"term\">steady state</em> π satisfying π = πP, regardless of the start. Solve π(1−0.9) = 0.5π₂ ⇒ 0.1π₁ = 0.5π₂ ⇒ π₁ = 5π₂, and π₁ + π₂ = 1, so π = (5/6, 1/6) = (<b>0.8333</b>, <b>0.1667</b>): in the long run it is sunny 83% of days. The simulation shows convergence from a sunny start.</p>",
+      "questions": [
+        {
+          "id": "conv",
+          "prompt": "Does the long-run distribution depend on the starting state (for this chain)?",
+          "choices": [
+            {
+              "text": "Yes, completely."
+            },
+            {
+              "text": "No — it converges to the same steady state.",
+              "correct": true
+            },
+            {
+              "text": "Only for the first step."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That holds for non-ergodic chains."
+            },
+            {
+              "title": "Correct.",
+              "body": "The chain forgets where it began."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It has no memory anyway."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 5.3.1 — convergence to steady state",
+          "note": "Bars and lines converge to the steady state.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"mk\",\"engine\":\"markov\",\"width\":600,\"height\":440});",
+          "expect": {
+            "mk": {
+              "steady_Sunny": "0.8333",
+              "steady_Rainy": "0.1667"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ss",
+          "prompt": "<p>Find the steady state of the matrix [[0.9, 0.1], [0.5, 0.5]].</p>",
+          "answer": "Solve π = πP with π₁ + π₂ = 1: π = (5/6, 1/6) = (<b>0.8333</b>, <b>0.1667</b>).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "Numerical evolution.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"markov\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "steady_Sunny": "0.8333"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "types",
+      "locator": "5.4",
+      "title": "Kinds of state",
+      "eyebrow": "Structure",
+      "body": "<p>A state is <em class=\"term\">absorbing</em> if once entered it is never left (P<sub>ii</sub> = 1) — a game’s “ruined” state. A chain is <em class=\"term\">irreducible</em> if every state can reach every other; <em class=\"term\">periodic</em> if returns happen only at multiples of some period. Irreducible, aperiodic chains are <em class=\"term\">ergodic</em>: they have a unique steady state.</p>",
+      "questions": [
+        {
+          "id": "abs",
+          "prompt": "An absorbing state is one where…",
+          "choices": [
+            {
+              "text": "The chain moves every step."
+            },
+            {
+              "text": "Probabilities are equal."
+            },
+            {
+              "text": "Once entered the chain stays forever (P_ii = 1).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is not absorbing."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Gambler’s ruin ends there."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "locator": "5.5",
+      "title": "Applications",
+      "eyebrow": "Uses",
+      "body": "<p>Weather and text generation, PageRank (a random surfer on the web graph has a steady state that ranks pages), queues (the number in an M/M/1 queue is a birth–death chain), reliability (working/failed states), genetics, finance and speech recognition (hidden Markov models).</p>",
+      "worked": [
+        {
+          "toc": "Chain",
+          "why": "A machine is Up or Down. Up → Down 0.1, Down → Up 0.6."
+        },
+        {
+          "toc": "Availability",
+          "why": "Steady state: 0.1π_Up = 0.6π_Down ⇒ π_Up = 6π_Down, so π_Up = 6/7.",
+          "math": "\\pi_{Up}=\\tfrac67\\approx0.857",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "pr",
+          "prompt": "PageRank models web surfing as…",
+          "choices": [
+            {
+              "text": "A queue."
+            },
+            {
+              "text": "A sorting algorithm."
+            },
+            {
+              "text": "A Markov chain whose steady state ranks pages.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the model."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Important pages are visited more in the long run."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "5.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Next state depends on the current state only; π ← πP.</li><li>Ergodic chains have a unique steady state π = πP.</li></ul>"
+    }
+  ]
+}

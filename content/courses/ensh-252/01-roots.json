@@ -1,0 +1,357 @@
+{
+  "title": "Finding roots: bisection, false position, Newton, secant",
+  "kicker": "ENSH 252 · Numerical Methods · Chapter 1",
+  "subtitle": "Most equations cannot be solved with algebra. Numerical methods creep up on the answer instead — and they differ enormously in how fast.",
+  "sections": [
+    {
+      "id": "why",
+      "locator": "1.1",
+      "title": "The problem and the errors",
+      "eyebrow": "Setting up",
+      "body": "<p>Solve f(x) = 0 when no formula exists (x³ − x − 2 = 0, cos x = x). Start by <em class=\"term\">locating</em> a root: if f is continuous and f(a), f(b) have opposite signs, a root lies between (intermediate value theorem). Then refine by iteration. Two errors matter: the <em class=\"term\">truncation error</em> of the method and the <em class=\"term\">round-off error</em> of the machine; accuracy is often stated as the tolerance at which iteration stops.</p>",
+      "worked": [
+        {
+          "toc": "Signs",
+          "why": "f(x) = x³ − x − 2. Test f(1) and f(2).",
+          "math": "f(1)=-2,\\quad f(2)=4"
+        },
+        {
+          "toc": "Bracket",
+          "why": "Opposite signs, so a root lies in [1, 2].",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ivt",
+          "prompt": "f(1) = −2 and f(2) = 4 for continuous f. What follows?",
+          "choices": [
+            {
+              "text": "There is no root."
+            },
+            {
+              "text": "There is a root in [1, 2].",
+              "correct": true
+            },
+            {
+              "text": "The root is at 1.5."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Sign change guarantees one."
+            },
+            {
+              "title": "Correct.",
+              "body": "The function must cross zero."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only that it lies between."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "bis",
+      "locator": "1.2",
+      "title": "Bisection",
+      "eyebrow": "Halve the bracket",
+      "body": "<p>Take the midpoint c; keep the half whose ends still have opposite signs. Each step halves the interval: after n steps the error is ≤ (b − a)/2ⁿ. Guaranteed to converge, but slowly (one binary digit per step). For x³ − x − 2 on [1, 2] it reaches <b>1.5214</b> in <b>21</b> iterations to tolerance 10⁻⁶.</p>",
+      "worked": [
+        {
+          "toc": "Condition",
+          "why": "Iterations needed to get within 10⁻⁶ from an interval of length 1.",
+          "math": "\\frac{1}{2^n}<10^{-6}"
+        },
+        {
+          "toc": "Count",
+          "why": "n > log₂(10⁶) ≈ 19.9, so 20 iterations.",
+          "math": "n=20",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "bisq",
+          "prompt": "The error bound of bisection after n steps is…",
+          "choices": [
+            {
+              "text": "(b − a)/2ⁿ.",
+              "correct": true
+            },
+            {
+              "text": "(b − a)/n."
+            },
+            {
+              "text": "Zero after one step."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The interval halves each step."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only linear decay."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It needs many."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 1.2.1 — bisection",
+          "note": "Violet lines mark the shrinking bracket.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bis\",\"engine\":\"rootfind\",\"method\":\"bisection\",\"f\":\"x^3 - x - 2\",\"a\":1,\"b\":2,\"width\":600,\"height\":440});",
+          "expect": {
+            "bis": {
+              "root": "1.5214",
+              "iterations": "15"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "falsi",
+      "locator": "1.3",
+      "title": "False position (regula falsi)",
+      "eyebrow": "Use the function values",
+      "body": "<p>Instead of the midpoint, draw the chord between (a, f(a)) and (b, f(b)) and take where it crosses the axis: c = (a·f(b) − b·f(a)) / (f(b) − f(a)). Keep the sub-interval with the sign change, as in bisection. It uses the size of f, so it is usually faster (<b>13</b> iterations here), though one end can stay stuck for a convex function.</p>",
+      "questions": [
+        {
+          "id": "falq",
+          "prompt": "False position differs from bisection in that it…",
+          "choices": [
+            {
+              "text": "Does not need a sign change."
+            },
+            {
+              "text": "Picks the point where the secant line crosses zero rather than the midpoint.",
+              "correct": true
+            },
+            {
+              "text": "Uses derivatives."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It does."
+            },
+            {
+              "title": "Correct.",
+              "body": "It uses function values to place the estimate."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is Newton."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.3.1 — false position",
+          "note": "Each point is where the chord meets the axis.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fal\",\"engine\":\"rootfind\",\"method\":\"falsi\",\"f\":\"x^3 - x - 2\",\"a\":1,\"b\":2,\"width\":600,\"height\":440});",
+          "expect": {
+            "fal": {
+              "root": "1.5214",
+              "iterations": "9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "newton",
+      "locator": "1.4",
+      "title": "Newton–Raphson",
+      "eyebrow": "Follow the tangent",
+      "body": "<p>From a guess xₙ, draw the tangent to f and let it hit the axis: x<sub>n+1</sub> = xₙ − f(xₙ)/f′(xₙ). Near a simple root convergence is quadratic — the number of correct digits roughly doubles each step. It needs f′, a good start, and fails where f′ ≈ 0. Finding √2 from x₀ = 1 via f = x² − 2 takes <b>5</b> iterations to 10⁻⁹; x³ − x − 2 from 1.5 takes <b>3</b>.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "f(x) = x² − 2, f′(x) = 2x, x₀ = 1."
+        },
+        {
+          "toc": "Step 1",
+          "why": "x₁ = 1 − (1 − 2)/2 = 1.5.",
+          "math": "x_1=1.5"
+        },
+        {
+          "toc": "Step 2",
+          "why": "x₂ = 1.5 − (2.25 − 2)/3 = 1.41667.",
+          "math": "x_2=1.41667",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "quad",
+          "prompt": "Quadratic convergence of Newton’s method means…",
+          "choices": [
+            {
+              "text": "The error halves each step."
+            },
+            {
+              "text": "It needs two starting values."
+            },
+            {
+              "text": "The error is roughly squared each step (digits double).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is bisection."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is secant."
+            },
+            {
+              "title": "Correct.",
+              "body": "Very fast near the root."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 1.4.1 — Newton for √2",
+          "note": "Residuals collapse: 10⁻¹, 10⁻³, 10⁻⁷…",
+          "script": "var lab = create(\"steplab\", {\"name\":\"newt\",\"engine\":\"rootfind\",\"method\":\"newton\",\"f\":\"x^2-2\",\"x0\":1,\"tol\":1e-9,\"width\":600,\"height\":440});",
+          "expect": {
+            "newt": {
+              "root": "1.4142",
+              "iterations": "5"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-newt",
+          "prompt": "<p>Use Newton’s method on f(x) = x² − 2 from x₀ = 1 for two steps.</p>",
+          "answer": "x₁ = 1.5, x₂ = <b>1.41667</b> (√2 = 1.41421). The third step gives 1.414216.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "The iterates.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"rootfind\",\"method\":\"newton\",\"f\":\"x^2-2\",\"x0\":1,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "root": "1.4142"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "secant",
+      "locator": "1.5",
+      "title": "Secant method",
+      "eyebrow": "Newton without the derivative",
+      "body": "<p>Replace f′ by the slope through the last two points: x<sub>n+1</sub> = xₙ − f(xₙ)(xₙ − x<sub>n−1</sub>)/(f(xₙ) − f(x<sub>n−1</sub>)). No derivative needed and no bracket; order of convergence ≈ 1.618. Here <b>7</b> iterations. Compare the four methods below on the same equation: root ≈ <b>1.5214</b>.</p>",
+      "questions": [
+        {
+          "id": "secq",
+          "prompt": "The secant method needs…",
+          "choices": [
+            {
+              "text": "Two starting values but no derivative.",
+              "correct": true
+            },
+            {
+              "text": "The derivative."
+            },
+            {
+              "text": "A bracket."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The slope is estimated from the last two iterates."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is Newton."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is bisection/false position."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 1.5.1 — secant",
+          "note": "Two starting guesses, no bracket needed.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sec\",\"engine\":\"rootfind\",\"method\":\"secant\",\"f\":\"x^3 - x - 2\",\"a\":1,\"b\":2,\"width\":600,\"height\":440});",
+          "expect": {
+            "sec": {
+              "root": "1.5214",
+              "iterations": "6"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cmp",
+      "locator": "1.6",
+      "title": "Choosing a method",
+      "eyebrow": "Summary",
+      "body": "<table><thead><tr><th>Method</th><th>Needs</th><th>Order</th><th>Guaranteed?</th></tr></thead><tbody><tr><td>Bisection</td><td>bracket</td><td>1 (linear, ½)</td><td>yes</td></tr><tr><td>False position</td><td>bracket</td><td>≥ 1</td><td>yes</td></tr><tr><td>Newton</td><td>f, f′, good guess</td><td>2</td><td>no</td></tr><tr><td>Secant</td><td>two guesses</td><td>1.618</td><td>no</td></tr></tbody></table><p>Practical recipe: bracket with bisection until close, then finish with Newton.</p>",
+      "questions": [
+        {
+          "id": "pick",
+          "prompt": "Which method is certain to converge if you have a bracket?",
+          "choices": [
+            {
+              "text": "Newton."
+            },
+            {
+              "text": "Bisection.",
+              "correct": true
+            },
+            {
+              "text": "Secant."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It can diverge."
+            },
+            {
+              "title": "Correct.",
+              "body": "Newton and secant can diverge or jump away."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It can diverge."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

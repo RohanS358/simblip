@@ -1,0 +1,13 @@
+export default {
+  id: 'enct-253', code: 'ENCT 253', title: 'Data Communication', subject: 'computing', semester: 4, program: 'computer',
+  description: 'Signals, channels, media, errors, encoding, modulation, multiplexing and cellular systems — waveforms drawn and stepped.',
+  order: ['01-introduction', '02-signals-channels', '03-media-errors-compression', '04-encoding-modulation', '05-multiplexing-switching', '06-cellular'],
+  lessons: {
+    '01-introduction': { path: '1 Introduction', title: 'The communication model' },
+    '02-signals-channels': { path: '2 Data Communication Fundamentals', title: 'Signals, bandwidth and channel capacity' },
+    '03-media-errors-compression': { path: '3 Transmission Media and Data Compression', title: 'Media, error control and compression' },
+    '04-encoding-modulation': { path: '4 Signal Encoding Technique', title: 'Encoding, sampling and modulation' },
+    '05-multiplexing-switching': { path: '5 Multiplexing and Switching', title: 'Multiplexing, spread spectrum and switching' },
+    '06-cellular': { path: '6 Cellular Wireless Communications', title: 'Cellular systems and 5G' },
+  },
+}

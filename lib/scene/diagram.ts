@@ -25,7 +25,7 @@
 // layered, mostly-acyclic diagrams that engineering notes actually contain,
 // and says so plainly when handed something else.
 
-export type DiagramShape = 'box' | 'round' | 'diamond' | 'circle'
+export type DiagramShape = 'box' | 'round' | 'diamond' | 'circle' | 'store' | 'class'
 export type DiagramSide = 'top' | 'right' | 'bottom' | 'left'
 export type EdgeStyle = 'arrow' | 'dashed' | 'plain'
 export type Direction = 'down' | 'right'
@@ -50,17 +50,36 @@ export interface DiagramGroup {
   members: string[]
 }
 
+/** One token travelling along one arrow: `@1.5+0.8 client -> server : SYN`. */
+export interface DiagramAnim {
+  at: number
+  dur: number
+  from: string
+  to: string
+  label?: string
+}
+
 export interface DiagramAst {
   direction: Direction
+  /** `flow` is the layered graph; `sequence` puts participants in columns and
+   *  messages down the page in the order they are written. */
+  mode: 'flow' | 'sequence'
   nodes: DiagramNode[]
   edges: DiagramEdge[]
   groups: DiagramGroup[]
+  /** Token timeline. In a sequence diagram with none written, the messages
+   *  play one after another. */
+  anims: DiagramAnim[]
+  /** Seconds after which the animation restarts; 0 plays once. */
+  loop: number
   /** Authoring mistakes, in source order. A diagram with errors still
    *  produces the nodes it understood, so a preview shows what survived. */
   errors: string[]
 }
 
 export interface PlacedNode extends DiagramNode {
+  /** Time windows [from, to] (seconds) during which a token is at this node. */
+  lit?: [number, number][]
   x: number
   y: number
   w: number
@@ -81,6 +100,19 @@ export interface PlacedEdge extends DiagramEdge {
   bT: number
   /** Where an edge label sits, if it has one. */
   labelAt?: { x: number; y: number }
+  /** Sequence diagrams anchor messages to a participant's lifeline, not its header box. */
+  onLifeline?: boolean
+  /** Tokens that travel along this arrow, with their times. */
+  tokens?: { at: number; dur: number; label?: string }[]
+}
+
+/** A participant's vertical line in a sequence diagram. */
+export interface PlacedLifeline {
+  id: string
+  x: number
+  y: number
+  w: number
+  h: number
 }
 
 export interface PlacedGroup {
@@ -93,9 +125,14 @@ export interface PlacedGroup {
 
 export interface DiagramLayout {
   direction: Direction
+  mode: 'flow' | 'sequence'
   nodes: PlacedNode[]
   edges: PlacedEdge[]
   groups: PlacedGroup[]
+  lifelines: PlacedLifeline[]
+  /** Restart period of the animation (0 = once) and its total length. */
+  loop: number
+  duration: number
   width: number
   height: number
   errors: string[]
@@ -151,6 +188,12 @@ function sizeOf(shape: DiagramShape, lines: string[]): { w: number; h: number } 
   const longest = Math.max(...lines.map((l) => l.length), 1)
   let w = Math.min(MAX_W, Math.max(MIN_W, Math.round(longest * CHAR_W + PAD_X * 2)))
   let h = Math.max(MIN_H, lines.length * LINE_H + PAD_Y * 2)
+  if (shape === 'class') {
+    // A UML class box: name, then attributes, then operations, left-aligned;
+    // wider than a plain box because member signatures run long.
+    w = Math.min(320, Math.max(150, Math.round(longest * CHAR_W + PAD_X * 2)))
+    h = Math.max(MIN_H, lines.length * (LINE_H - 8) + PAD_Y * 2)
+  }
   if (shape === 'diamond') {
     // A diamond is only as wide as its box at the waist and narrows to
     // nothing at the points, so a label that fits a rectangle of the same
@@ -201,6 +244,8 @@ function sidePoint(n: PlacedNode, side: DiagramSide): { x: number; y: number } {
 
 const SHAPE_OPEN: [RegExp, DiagramShape][] = [
   [/^\(\((.+)\)\)$/, 'circle'],
+  [/^\[\|(.+)\|\]$/, 'store'],
+  [/^\{(.+)\}$/, 'class'],
   [/^\[(.+)\]$/, 'box'],
   [/^\((.+)\)$/, 'round'],
   [/^<(.+)>$/, 'diamond'],
@@ -218,14 +263,24 @@ function splitEdgeLabel(rhs: string): { target: string; label?: string } {
   let depth = 0
   for (let i = 0; i < rhs.length; i++) {
     const ch = rhs[i]
-    if (ch === '[' || ch === '(' || ch === '<') depth++
-    else if (ch === ']' || ch === ')' || ch === '>') depth = Math.max(0, depth - 1)
+    if (ch === '[' || ch === '(' || ch === '<' || ch === '{') depth++
+    else if (ch === ']' || ch === ')' || ch === '>' || ch === '}') depth = Math.max(0, depth - 1)
     else if (ch === ':' && depth === 0) {
       const label = rhs.slice(i + 1).trim()
       return { target: rhs.slice(0, i).trim(), ...(label ? { label } : {}) }
     }
   }
   return { target: rhs.trim() }
+}
+
+/** `Order | + id : int ; + total : money | + pay()` → a name line, then the
+ *  members, one per line. The compartment rules are drawn as a blank line
+ *  because the label is rendered as markdown text inside a shape. */
+function classLabel(raw: string): string {
+  const parts = raw.split('|').map((s) => s.trim())
+  const name = `**${parts[0]}**`
+  const groups = parts.slice(1).map((g) => g.split(';').map((m) => m.trim()).filter(Boolean).join('\n'))
+  return [name, ...groups.filter(Boolean)].join('\n')
 }
 
 export function slug(label: string): string {
@@ -251,7 +306,7 @@ export function slug(label: string): string {
  * and demanding declarations first would make it longer than the picture.
  */
 export function parseDiagram(source: string): DiagramAst {
-  const ast: DiagramAst = { direction: 'down', nodes: [], edges: [], groups: [], errors: [] }
+  const ast: DiagramAst = { direction: 'down', mode: 'flow', nodes: [], edges: [], groups: [], anims: [], loop: 0, errors: [] }
   const byId = new Map<string, DiagramNode>()
   /** Label (lowercased) → id, so an edge can name a node by what it says. */
   const byLabel = new Map<string, string>()
@@ -261,12 +316,16 @@ export function parseDiagram(source: string): DiagramAst {
     const existing = byId.get(nid)
     if (existing) {
       // A later declaration refines a node an edge created implicitly.
+      if (shape === 'class') label = classLabel(label)
       existing.label = label
       existing.shape = shape
       if (accent) existing.accent = accent
       byLabel.set(label.toLowerCase(), nid)
       return existing
     }
+    // A class box is written {Name | + attr : type | + method()}; each
+    // compartment's members are separated by ; and become lines.
+    if (shape === 'class') label = classLabel(label)
     const node: DiagramNode = { id: nid, label, shape, ...(accent ? { accent } : {}) }
     byId.set(nid, node)
     byLabel.set(label.toLowerCase(), nid)
@@ -327,6 +386,29 @@ export function parseDiagram(source: string): DiagramAst {
       return
     }
 
+    // mode: flow | sequence
+    const mode = /^mode\s*[:=]\s*(\w+)/i.exec(line)
+    if (mode) {
+      const m = mode[1].toLowerCase()
+      if (m === 'sequence' || m === 'flow') ast.mode = m
+      else ast.errors.push(`line ${lineNo}: mode "${mode[1]}" is not one of flow, sequence`)
+      return
+    }
+
+    // loop 6   — restart the animation every 6 seconds
+    const lp = /^loop\s*[:=]?\s*([\d.]+)\s*s?$/i.exec(line)
+    if (lp) { ast.loop = Number(lp[1]); return }
+
+    // @1.5 a -> b : label     @1.5+0.6 a -> b
+    const an = /^@\s*([\d.]+)(?:\s*\+\s*([\d.]+))?\s*s?\s+(.+?)\s*->\s*(.+)$/.exec(line)
+    if (an) {
+      const { target, label } = splitEdgeLabel(an[4])
+      const from = refer(an[3], lineNo)
+      const to = refer(target, lineNo)
+      if (from && to) ast.anims.push({ at: Number(an[1]), dur: an[2] ? Number(an[2]) : 0.8, from, to, ...(label ? { label } : {}) })
+      return
+    }
+
     // group "Name" { a, b, c }
     const grp = /^group\s+(?:"([^"]+)"|'([^']+)'|([^{]+?))\s*\{([^}]*)\}$/i.exec(line)
     if (grp) {
@@ -347,7 +429,7 @@ export function parseDiagram(source: string): DiagramAst {
       const from = refer(edge[1], lineNo)
       const to = refer(target, lineNo)
       if (!from || !to) return
-      if (from === to) {
+      if (from === to && ast.mode !== 'sequence') {
         ast.errors.push(`line ${lineNo}: "${edge[1].trim()}" points at itself; a self-loop is not drawable here`)
         return
       }
@@ -430,6 +512,7 @@ function rankNodes(nodes: DiagramNode[], edges: DiagramEdge[]): { rank: Map<stri
 }
 
 export function layoutDiagram(ast: DiagramAst): DiagramLayout {
+  if (ast.mode === 'sequence') return layoutSequence(ast)
   const { direction } = ast
   const { rank, back } = rankNodes(ast.nodes, ast.edges)
 
@@ -667,14 +750,147 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
 
   // Lanes sit outside the nodes, so the drawing is bigger than they are.
   const laneRoom = lanes > 0 ? 40 + lanes * 30 + 30 : 0
+  const anim = attachAnimation(ast, placed, edges)
   return {
     direction,
+    mode: 'flow',
     nodes: placed,
     edges,
     groups,
+    lifelines: [],
+    loop: anim.loop,
+    duration: anim.duration,
     width: direction === 'down' ? width + laneRoom : width,
     height: direction === 'right' ? height + laneRoom : height,
-    errors: ast.errors,
+    errors: [...ast.errors, ...anim.errors],
+  }
+}
+
+// ── Animation ───────────────────────────────────────────────────────────────
+//
+// An animation here is a TIMELINE, not a keyframe: a list of "a token leaves x
+// at t and reaches y at t+d". That is deliberately all it is. Position is then
+// a pure function of the runtime clock (lib/physics/flow.ts), which is what
+// lets it freeze when the run is paused, scrub with the transport, and cost
+// nothing when nobody is playing — the same rule every other animated thing on
+// the canvas (a wave's phase, a circuit's current) already follows.
+
+/** Attach each timeline entry to the arrow it travels along, and work out
+ *  when every node is "holding" a token so it can be lit. */
+function attachAnimation(ast: DiagramAst, nodes: PlacedNode[], edges: PlacedEdge[]): { loop: number; duration: number; errors: string[] } {
+  const errors: string[] = []
+  let anims = ast.anims
+  // A sequence diagram plays its messages in the order they are written.
+  const auto = anims.length === 0 && ast.mode === 'sequence'
+  if (auto) anims = edges.map((e, i) => ({ at: i * 1.1, dur: 0.9, from: e.from, to: e.to, ...(e.label ? { label: e.label } : {}) }))
+  const used = new Map<string, number>()
+  anims.forEach((a, k) => {
+    const cands = edges.map((e, i) => ({ e, i })).filter(({ e }) => e.from === a.from && e.to === a.to)
+    if (cands.length === 0) {
+      errors.push(`animation @${a.at}: there is no arrow ${a.from} -> ${a.to} to send it along`)
+      return
+    }
+    const key = `${a.from}>${a.to}`
+    const n = used.get(key) ?? 0
+    used.set(key, n + 1)
+    const target = auto ? edges[k] : (cands[Math.min(n, cands.length - 1)].e)
+    ;(target.tokens ??= []).push({ at: a.at, dur: a.dur, ...(a.label ?? target.label ? { label: a.label ?? target.label } : {}) })
+  })
+  const duration = anims.reduce((m, a) => Math.max(m, a.at + a.dur), 0)
+  // A node is lit from the moment a token arrives until it next sends one.
+  const HOLD = 1.0
+  const sends = (id: string) => anims.filter((a) => a.from === id).map((a) => a.at).sort((x, y) => x - y)
+  for (const n of nodes) {
+    const windows: [number, number][] = []
+    const arrivals = anims.filter((a) => a.to === n.id).map((a) => a.at + a.dur)
+    const out = sends(n.id)
+    for (const t of arrivals) {
+      const next = out.find((s) => s >= t - 1e-9)
+      windows.push([t, next !== undefined ? Math.max(next, t + 0.15) : t + HOLD])
+    }
+    // A source (sends before it ever receives) glows while it sends.
+    const firstIn = arrivals.length ? Math.min(...arrivals) : Infinity
+    for (const s of out) if (s < firstIn) windows.push([s, s + 0.25])
+    if (windows.length) n.lit = windows
+  }
+  return { loop: ast.loop > 0 ? ast.loop : auto ? Math.ceil(duration + 1) : 0, duration, errors }
+}
+
+// ── Sequence diagrams ───────────────────────────────────────────────────────
+//
+// Participants across the top, a lifeline under each, and one horizontal row
+// per message in the order the messages were WRITTEN — time runs down the page.
+// Nothing here searches for a layout: the order the author wrote is the order
+// on the page, which is what a sequence diagram means.
+
+const SEQ_ROW = 50
+const SEQ_LIFE_W = 6
+
+export function layoutSequence(ast: DiagramAst): DiagramLayout {
+  const placed: PlacedNode[] = ast.nodes.map((n) => {
+    const lines = wrapLabel(n.label, WRAP_AT)
+    const { w, h } = sizeOf(n.shape, lines)
+    return { ...n, lines, w, h, x: 0, y: 0 }
+  })
+  const col = new Map(placed.map((n, i) => [n.id, i]))
+  const headH = Math.max(...placed.map((n) => n.h), MIN_H)
+
+  // Column spacing: wide enough for the header boxes and for every message label
+  // that has to fit between two columns.
+  const gaps = placed.slice(1).map((n, i) => Math.max(150, (placed[i].w + n.w) / 2 + 24))
+  ast.edges.forEach((e) => {
+    const a = col.get(e.from)!, b = col.get(e.to)!
+    if (a === b || !e.label) return
+    const lo = Math.min(a, b), hi = Math.max(a, b)
+    const need = e.label.length * CHAR_W + 34
+    const have = gaps.slice(lo, hi).reduce((s, g) => s + g, 0)
+    if (need > have) for (let k = lo; k < hi; k++) gaps[k] += (need - have) / (hi - lo)
+  })
+  const cx: number[] = []
+  placed.forEach((n, i) => { cx.push(i === 0 ? n.w / 2 : cx[i - 1] + gaps[i - 1]) })
+  placed.forEach((n, i) => { n.x = cx[i] - n.w / 2; n.y = (headH - n.h) / 2 })
+
+  const rows = ast.edges.length
+  const top = headH + 8
+  const lifeH = 40 + rows * SEQ_ROW
+  const lifelines: PlacedLifeline[] = placed.map((n, i) => ({ id: n.id, x: cx[i] - SEQ_LIFE_W / 2, y: top, w: SEQ_LIFE_W, h: lifeH }))
+
+  // Boundary parameter on a lifeline rectangle: clockwise from its top-left.
+  const lifeT = (side: 'left' | 'right', dy: number) => {
+    const per = 2 * (SEQ_LIFE_W + lifeH)
+    return side === 'right' ? (SEQ_LIFE_W + dy) / per : (2 * SEQ_LIFE_W + lifeH + (lifeH - dy)) / per
+  }
+  const edges: PlacedEdge[] = ast.edges.map((e, i) => {
+    const a = col.get(e.from)!, b = col.get(e.to)!
+    const y = top + 30 + i * SEQ_ROW
+    const dy = y - top
+    if (a === b) {
+      const x = cx[a] + SEQ_LIFE_W / 2
+      return {
+        ...e, a: { x, y }, b: { x, y: y + 20 },
+        bends: [{ x: x + 40, y }, { x: x + 40, y: y + 20 }],
+        aT: lifeT('right', dy), bT: lifeT('right', dy + 20),
+        onLifeline: true,
+        ...(e.label ? { labelAt: { x: x + 92, y: y + 10 } } : {}),
+      }
+    }
+    const fwd = b > a
+    const x1 = cx[a] + (fwd ? SEQ_LIFE_W / 2 : -SEQ_LIFE_W / 2)
+    const x2 = cx[b] + (fwd ? -SEQ_LIFE_W / 2 : SEQ_LIFE_W / 2)
+    return {
+      ...e, a: { x: x1, y }, b: { x: x2, y }, bends: [],
+      aT: lifeT(fwd ? 'right' : 'left', dy), bT: lifeT(fwd ? 'left' : 'right', dy),
+      onLifeline: true,
+      ...(e.label ? { labelAt: { x: (x1 + x2) / 2, y } } : {}),
+    }
+  })
+  const anim = attachAnimation(ast, placed, edges)
+  const width = Math.max(...placed.map((n) => n.x + n.w), cx[cx.length - 1] + 90)
+  return {
+    direction: 'right', mode: 'sequence', nodes: placed, edges, groups: [], lifelines,
+    loop: anim.loop, duration: anim.duration,
+    width, height: top + lifeH,
+    errors: [...ast.errors, ...anim.errors],
   }
 }
 
@@ -704,12 +920,14 @@ export function styleFor(node: DiagramNode): NodeStyle {
       : node.shape === 'diamond' ? 'var(--accent-amber)'
       : node.shape === 'round' ? 'var(--accent-mint)'
       : node.shape === 'circle' ? 'var(--accent-violet)'
+      : node.shape === 'store' ? 'var(--accent-amber)'
+      : node.shape === 'class' ? 'var(--accent-mint)'
       : 'var(--accent-blue)'
   return {
     fill: `color-mix(in oklch, ${token} 12%, var(--card))`,
     stroke: token,
     // A stadium is a rectangle with its ends fully rounded; the renderer
     // clamps an over-large radius to half the height, so one number does it.
-    radius: node.shape === 'round' ? 999 : node.shape === 'box' ? 12 : 0,
+    radius: node.shape === 'round' ? 999 : node.shape === 'box' ? 12 : node.shape === 'class' ? 6 : 0,
   }
 }

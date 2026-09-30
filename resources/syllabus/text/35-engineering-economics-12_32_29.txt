@@ -1,0 +1,127 @@
+                        ENGINEERING ECONOMICS
+                                       ENCE 356
+
+Lecture       :3                                                               Year : III
+Tutorial      :1                                                                Part : II
+Practical     :0
+
+Course Objectives:
+The objective of this course is to provide concept of economic principles and the
+economic environment at the project, firm, societal, and national levels, enabling them
+to analyze cause-and-effect relationships. The course aims to equip students with the
+ability to apply economic theories and tools for project selection, equipment
+replacement, property valuation, and price variation. By the end of the course, students
+will be able to evaluate alternatives and make informed, economically sound decisions
+in engineering and business contexts.
+
+1    Introduction                                                           (2 hours)
+      1.1   Micro, macro and engineering economics (History, fundamental principle
+            and application)
+      1.2   Terminology related to engineering economics
+      1.3   Economic decision and role of engineers in decision making
+      1.4   Cash flow and cash flow diagram
+
+2    Market Economics                                                       (3 hours)
+      2.1   Market, demand, supply and relationship
+      2.2   Elasticity, application of elasticity and government policies
+      2.3   Externality and market inefficiency
+      2.4   Market failure and firm behavior
+
+3    Cost                                                                   (8 hours)
+      3.1   Cost classification
+            3.1.1 Total, average, fixed, variable, and marginal costs
+            3.1.2 Direct, indirect, and standard costs
+            3.1.3 Cash versus book cost, manufacturing and non-manufacturing cost
+            3.1.4 Sunk cost, opportunity cost, element of cost, life-cycle cost
+      3.2   Cost estimation and control
+
+4    Time Value of Money                                                    (6 hours)
+      4.1   Money (Type, functions and time value of money)
+      4.2   Simple and compound interests (Nominal, effective and continuous
+            compounding)
+    4.3   Economic equivalence
+    4.4   Cash flow types (Single, uniform, linear gradient, geometric gradient and
+          irregular)
+
+5   Methods of Economic Analysis                                           (12 hours)
+    5.1   Capital budgeting
+    5.2   Minimum attractive rate of return (MARR)
+    5.3   Economic analysis of single and multiple projects
+          5.3.1 Payback period (Simple and discounted)
+          5.3.2 Equivalent worth (Net present, annual, future and capitalized)
+          5.3.3 Rate of return (Internal and external)
+          5.3.4 Public Sector economic analysis (Benefit cost analysis)
+          5.3.5 Financial and economic analysis
+    5.4   Weighted average cost of capital (WACC)
+    5.5   Repeatability assumption and co-Terminated assumptions
+    5.6   Multiple investment project alternatives (Dependent, independent and
+          contingent)
+
+6   Replacement Analysis                                                   (5 hours)
+    6.1   Replacement strategies (Asset life and selection of challengers over
+          defenders)
+    6.2   Economic service life of an asset
+    6.3   Replacement strategy for asset (Project with finite and infinite planning
+          horizon)
+
+7   Risk Analysis                                                          (5 hours)
+    7.1   Origin of risk in projects
+    7.2   Risk analysis of projects (Sensitivity, breakeven and scenario analyses)
+    7.3   Decision tree
+
+8   Depreciation and Taxes                                                 (5 hours)
+    8.1   Concept and terminology
+    8.2   Depreciation calculation (Straight line, declining balance, sinking fund, sum
+          of the year digit and modified accelerated cost recovery methods)
+    8.3   Tax and corporate income tax
+    8.4   Economic analysis (After-tax cash flow)
+
+9   Measurement of Nation Income                                           (5 hours)
+    9.1   Gross domestic product (Components, real and nominal gross domestic
+          product)
+    9.2   Unemployment (Measurement, job search, minimum wage law)
+      9.3     Inflation
+              9.3.1 Causes, effects and measurement of inflation
+              9.3.2 Constant and current cash flow
+              9.3.3 Equivalence calculation under inflation
+              9.3.4 Inflation controlling measures
+      9.4     Real and nominal exchange rates, fiscal budget and monetary policy
+      9.5     Financial statement
+
+Tutorial                                                                        (15 hours)
+    1.        Cash flow diagram construction, apply and analyze it for different projects
+    2.        Problems related to market equilibrium, elasticity, and government policies
+    3.        Exercises on calculating interests, and analyze cash flows with economic
+              equivalence
+    4.        Application of capital budgeting techniques for given cash flows
+    5.        Selection of best replacement strategies and also, apply risk analysis for
+              real case
+    6.        Computation of after-Tax cash flow for economic analysis
+    7.        Calculation and analysis of gross domestic product, performing equivalence
+              calculations under different inflation scenarios, analyze real and nominal
+              exchange rates
+    8.        Calculation of price variation and price escalation
+    9.        Summarize the fiscal budget
+
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+           Chapter                   Hours                    Mark distribution*
+             1                        2                                3
+             2                        3                                5
+             3                        2                                3
+             4                        6                                8
+             5                       12                               16
+             6                        5                                6
+             7                        5                                6
+             8                        5                                8
+             9                        5                                5
+           Total                     45                               60
+           * There may be minor deviation in marks distribution.
+
+References
+    1.   Mankiw, N. G. (2017). Principles of economics (8th ed.). Cengage Learning.
+    2.   Park C.S. (2016). Contemporary Engineering Economics: Prentice Hall, lnc.
+    3.   McConnell, C. R., Brue, S. L., Flynn, S. M. (2020). Economics: Principles,
+         problems, and policies (22nd ed.). McGraw-Hill Education.
+

@@ -1,0 +1,329 @@
+{
+  "title": "Sorting algorithms",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 7",
+  "subtitle": "Eight ways to put numbers in order — and why “how many comparisons” is the question.",
+  "sections": [
+    {
+      "id": "props",
+      "locator": "7.1",
+      "title": "What to ask of a sort",
+      "eyebrow": "Vocabulary",
+      "body": "<p>Sorting puts records in order by a key. Properties: <em class=\"term\">internal</em> (fits in memory) versus <em class=\"term\">external</em> (merges from disk); <em class=\"term\">stable</em> (equal keys keep their relative order — important when sorting by one column after another); <em class=\"term\">in place</em> (O(1) extra memory); <em class=\"term\">adaptive</em> (faster on nearly-sorted input). Compare with the same seven numbers 5 1 4 2 8 9 3 in the figures below.</p>",
+      "questions": [
+        {
+          "id": "stable",
+          "prompt": "A stable sort…",
+          "choices": [
+            {
+              "text": "Never changes the input."
+            },
+            {
+              "text": "Keeps equal keys in their original relative order.",
+              "correct": true
+            },
+            {
+              "text": "Always runs in O(n log n)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It returns sorted output."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sort names by city, then by surname: a stable second pass keeps city order within equal surnames."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Stability is unrelated to speed."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "simple",
+      "locator": "7.2",
+      "title": "Bubble, selection, insertion",
+      "eyebrow": "The O(n²) family",
+      "body": "<p><em class=\"term\">Bubble sort</em> repeatedly swaps adjacent out-of-order pairs; the largest value “bubbles” to the end each pass (<b>20</b> comparisons, <b>8</b> swaps here). <em class=\"term\">Selection sort</em> finds the minimum of the unsorted part and swaps it into place: always n(n−1)/2 comparisons (<b>21</b>) but at most n−1 swaps. <em class=\"term\">Insertion sort</em> grows a sorted prefix, inserting each new item by shifting larger ones right: great on nearly sorted data (best case O(n)).</p>",
+      "questions": [
+        {
+          "id": "nearly",
+          "prompt": "Which simple sort is best on an almost-sorted array?",
+          "choices": [
+            {
+              "text": "Selection sort."
+            },
+            {
+              "text": "Bubble sort without early exit."
+            },
+            {
+              "text": "Insertion sort — few shifts are needed.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Always quadratic comparisons."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Still does all passes."
+            },
+            {
+              "title": "Correct.",
+              "body": "Its best case is linear."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 7.2.1 — bubble",
+          "note": "Bubble sort.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bu\",\"engine\":\"sorting\",\"algo\":\"bubble\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bu": {
+              "comparisons": "20",
+              "moves": "8"
+            }
+          }
+        },
+        {
+          "id": "lab2",
+          "caption": "Figure 7.2.2 — selection",
+          "note": "Selection sort.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"se\",\"engine\":\"sorting\",\"algo\":\"selection\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "se": {
+              "comparisons": "21",
+              "moves": "6"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 7.2.3 — insertion",
+          "note": "Insertion sort.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"in\",\"engine\":\"sorting\",\"algo\":\"insertion\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "in": {
+              "comparisons": "13",
+              "moves": "8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "dc",
+      "locator": "7.3",
+      "title": "Quick sort and merge sort",
+      "eyebrow": "Divide and conquer",
+      "body": "<p><em class=\"term\">Merge sort</em> splits the array in half, sorts each half recursively and merges: always O(n log n), stable, but needs O(n) extra space (<b>12</b> comparisons here). <em class=\"term\">Quick sort</em> picks a pivot, partitions smaller-left/larger-right, and recurses: O(n log n) on average, in place, but O(n²) in the worst case (already sorted input with a bad pivot rule) (<b>13</b> comparisons).</p>",
+      "worked": [
+        {
+          "toc": "Levels",
+          "why": "Why O(n log n)? Halving gives log₂n levels and each level does O(n) merging work."
+        },
+        {
+          "toc": "Comparison",
+          "why": "For n = 1024 that is about 10 levels × 1024 ≈ 10 240 operations, versus 1 048 576 for n².",
+          "math": "1024\\log_2 1024\\approx 10^4\\ \\text{vs}\\ 10^6",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "qworst",
+          "prompt": "When does quick sort degrade to O(n²)?",
+          "choices": [
+            {
+              "text": "When partitions are badly unbalanced, e.g. always picking the smallest or largest element as pivot.",
+              "correct": true
+            },
+            {
+              "text": "On random input."
+            },
+            {
+              "text": "On tiny arrays."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One side gets n−1 elements every time."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Random input is its average case."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Size alone does not cause it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 7.3.1 — quick sort",
+          "note": "The pivot settles at its final place each round.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"qs\",\"engine\":\"sorting\",\"algo\":\"quick\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "qs": {
+              "comparisons": "13",
+              "sorted": "1 2 3 4 5 8 9"
+            }
+          }
+        },
+        {
+          "id": "lab5",
+          "caption": "Figure 7.3.2 — merge sort",
+          "note": "Merging two sorted halves.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ms\",\"engine\":\"sorting\",\"algo\":\"merge\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ms": {
+              "comparisons": "12",
+              "sorted": "1 2 3 4 5 8 9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "heapshell",
+      "locator": "7.4",
+      "title": "Heap sort and Shell sort",
+      "eyebrow": "Other tricks",
+      "body": "<p><em class=\"term\">Heap sort</em> builds a max-heap then repeatedly swaps the root (largest) to the end and sifts down: O(n log n) worst case, in place, not stable (<b>19</b> comparisons here). <em class=\"term\">Shell sort</em> runs insertion sort on elements far apart first (gap sequence n/2, n/4, …, 1) so elements move long distances early: no simple tight bound but far better than plain insertion in practice.</p>",
+      "questions": [
+        {
+          "id": "heapz",
+          "prompt": "Heap sort’s main advantage over merge sort?",
+          "choices": [
+            {
+              "text": "It sorts in place with guaranteed O(n log n).",
+              "correct": true
+            },
+            {
+              "text": "It is stable."
+            },
+            {
+              "text": "It is faster on sorted input."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Merge sort needs O(n) extra space."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Heap sort is not stable."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not specially."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab6",
+          "caption": "Figure 7.4.1 — heap sort",
+          "note": "Heap sort.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"hs\",\"engine\":\"sorting\",\"algo\":\"heap\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "hs": {
+              "comparisons": "19"
+            }
+          }
+        },
+        {
+          "id": "lab7",
+          "caption": "Figure 7.4.2 — shell sort",
+          "note": "Shell sort.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sh\",\"engine\":\"sorting\",\"algo\":\"shell\",\"values\":\"5 1 4 2 8 9 3\",\"width\":600,\"height\":440});",
+          "expect": {
+            "sh": {
+              "comparisons": "14"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "radix",
+      "locator": "7.5",
+      "title": "Radix sort: no comparisons",
+      "eyebrow": "Beating n log n",
+      "body": "<p>Any sort that <em>compares</em> keys needs Ω(n log n) comparisons in the worst case. <em class=\"term\">Radix sort</em> avoids comparing: it distributes numbers into ten buckets by the least significant digit, collects them in order (stably), then repeats for the next digit. With <i>d</i> digits it costs O(d·n). 170 45 75 90 802 24 2 66 becomes <b>2 24 45 66 75 90 170 802</b>.</p>",
+      "questions": [
+        {
+          "id": "rx",
+          "prompt": "Why must each radix pass be stable?",
+          "choices": [
+            {
+              "text": "To use less memory."
+            },
+            {
+              "text": "So the order from earlier (less significant) digits survives within each later bucket.",
+              "correct": true
+            },
+            {
+              "text": "Because buckets are small."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Otherwise earlier work would be undone."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab8",
+          "caption": "Figure 7.5.1 — LSD radix sort",
+          "note": "One stable pass per digit.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"rx\",\"engine\":\"sorting\",\"algo\":\"radix\",\"values\":\"170 45 75 90 802 24 2 66\",\"width\":600,\"height\":440});",
+          "expect": {
+            "rx": {
+              "sorted": "2 24 45 66 75 90 170 802"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-cmp",
+          "prompt": "<p>Sort 5 1 4 2 8 9 3 with each algorithm and compare the comparison counts.</p>",
+          "answer": "Bubble 20, selection 21, insertion 13, shell 14, quick 13, merge 12, heap 19. The quadratic sorts do visibly more work, and the gap widens quickly with n."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "7.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<table><thead><tr><th>Sort</th><th>Best</th><th>Worst</th><th>Stable</th><th>In place</th></tr></thead><tbody><tr><td>Bubble</td><td>n</td><td>n²</td><td>yes</td><td>yes</td></tr><tr><td>Insertion</td><td>n</td><td>n²</td><td>yes</td><td>yes</td></tr><tr><td>Selection</td><td>n²</td><td>n²</td><td>no</td><td>yes</td></tr><tr><td>Merge</td><td>n log n</td><td>n log n</td><td>yes</td><td>no</td></tr><tr><td>Quick</td><td>n log n</td><td>n²</td><td>no</td><td>yes</td></tr><tr><td>Heap</td><td>n log n</td><td>n log n</td><td>no</td><td>yes</td></tr></tbody></table>"
+    }
+  ]
+}

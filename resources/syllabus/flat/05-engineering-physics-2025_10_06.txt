@@ -1,0 +1,266 @@
+ENGINEERING PHYSICS
+ENSH 102
+Lecture
+Tutorial
+Practical
+:4
+:1
+:2
+Year : I
+Part : I
+Course Objectives:
+To provide students a concept and sound knowledge of physics with the emphasis in
+present day applications to apply them in relevant fields. The background of physics
+corresponding to proficiency certificate level is assumed.
+1
+Oscillation
+1.1
+1.2
+2
+Physical pendulum
+1.1.1 Bar pendulum
+1.1.2 Interchangeability of point of suspension and point of oscillation
+1.1.3 Minimum time period in case of physical pendulum
+1.1.4 Torsion pendulum
+Damped and forced oscillation
+1.2.1 Damped harmonic oscillator
+1.2.2 Difference between free and damped oscillator
+1.2.3 Energy in damped oscillation
+1.2.4 Relaxation time
+1.2.5 Forced oscillation and resonance
+1.2.6 Sharpness of resonance
+1.2.7 Quality factor
+Acoustics
+2.1
+2.2
+(6 hours)
+(3 hours)
+Introduction
+2.1.1 Threshold of hearing and loudness
+2.1.2 Reverberation and reverberation time
+2.1.3 Absorption coefficient
+2.1.4 Sabine's law
+2.1.5 Conditions for good acoustics
+Ultrasound
+2.2.1 Production (Piezoelectric) of ultrasound and its applications
+2.2.2 Test of structure and materials
+2.2.3 Medical uses
+3
+Heat and Thermodynamics
+3.1
+3.2
+3.3
+3.4
+4
+Quantity of heat
+3.1.1 Calorific value of foods and fuels
+3.1.2 Bomb calorimeter
+3.1.3 Specific heat of solid: Dulong-Petit law, Einstein’s law
+Nature of heat
+3.2.1 Degree of freedom
+3.2.2 Maxwell’s law of equipartition of energy
+3.2.3 Atomicity of gases
+3.2.4 Vander-Waal’s equation of real gases
+3.2.5 Critical constants
+Thermodynamics
+3.3.1 Laws of thermodynamics
+3.3.2 Clapeyron latent heat equation
+3.3.3 Entropy and Third law of thermodynamics
+3.3.4 Negative energy
+3.3.5 Maxwell’s thermodynamic relations
+3.3.6 Gibb’s free energy and phase transitions
+Heat and mass transfer
+3.4.1 Fourier’s law of thermal conductivity
+3.4.2 Use of thermal conductivity in building sciences
+3.4.3 Thermal resistance
+3.4.4 Types of convection
+3.4.5 Law of diffusion
+3.4.6 Relation between Stefan’s law and Newton’s law of Cooling
+3.4.7 Pyrheliometer and Pyrometer
+Optics
+4.1
+4.2
+4.3
+(8 hours)
+(17 hours)
+Geometrical optics
+4.1.1 Lens separation
+4.1.2 Chromatism in lens combination
+Interference
+4.2.1 Interference in thin films (Reflected and transmitted light)
+4.2.2 Fringes produced by a wedge-shaped thin film
+4.2.3 Newton's rings (Both reflected and transmitted case)
+4.2.4 Determination of wavelength of light and refractive index of liquid by
+using Newton’s rings.
+Diffraction
+4.3.1 Introduction: Fresnel and Fraunhoffer’s diffraction
+4.3.2 Fraunhoffer’s diffraction at single slit
+4.3.3 Intensity distribution in the diffraction pattern due to a single slit
+4.3.4 Multiple slits, diffraction grating
+4.3.5 X-ray diffraction, X-rays in material testing
+4.4
+4.5
+4.6
+5
+Polarization
+4.4.1 Introduction: double refraction, Nichol prism (Construction and uses)
+4.4.2 Retardation plate (Quarter and half wave plates), plane, elliptical
+and circular polarized light (Theoretical and mathematical
+explanation)
+4.4.3 Optical activity, specific rotation
+Laser
+4.5.1 Introduction: Laser and ordinary light, properties of laser
+4.5.2 Induced absorption, spontaneous and stimulated emission, active
+medium, population inversion, metastable state
+4.5.3 Pumping (Types: Optical, electrical, chemical and thermal)
+4.5.4 He-Ne laser, semiconductor laser
+4.5.5 Uses of laser
+Fiber optics
+4.6.1 Introduction: Propagation of light wave
+4.6.2 Types of optical fiber: Step index and graded index
+4.6.3 Fiber transmission- Single and multimode, self-focusing, acceptance
+angle and numerical aperture
+4.6.4 Applications
+Electrostatics
+5.1
+5.2
+5.3
+(8 hours)
+Electric field
+5.1.1 Electric field due to an electric dipole (Along axial line and
+equatorial line)
+5.1.2 Electric dipole in an external electric field
+5.1.3 Electric field due to linear electric quadrupole (Along axial line)
+5.1.4 Electric field: A ring of charge, circular ring and disc of charge
+Electric potential
+5.2.1 Potential due to electric dipole
+5.2.2 Potential due to linear quadrupole
+5.2.3 potential due to continuous charge distribution, potential due to ring
+of charge and disc of charge
+Capacitors
+5.3.1 Cylindrical capacitor
+5.3.2 Charging and discharging of capacitor
+5.3.3 Capacitor with dielectrics: dielectrics and Gauss law
+5.3.4 High intensity electrostatic fields: Uses and hazards (Xerography,
+inkjet, precipitation)
+6
+Electromagnetism
+6.1
+6.2
+7
+7.2
+8
+Electromagnetic induction
+6.1.1 Faraday’s laws
+6.1.2 Induction and energy transformation
+6.1.3 Induced electric field
+6.1.4 Self-induction and mutual induction
+6.1.5 LR circuit
+6.1.6 Energy stored in a magnetic field and energy density
+6.1.7 Induced magnetic field: Modified Ampere’s law and displacement
+current
+Eddy current
+6.2.1 Introduction
+6.2.2 Applications: Induction cooker, electric guitar, metal detector and
+Eddy current breaking
+6.2.3 Cyclotron and Synchrotron
+Electromagnetic Waves
+7.1
+(6 hours)
+Maxwell’s equations
+7.1.1 Differential and integral forms
+7.1.2 Conversion of Maxwell’s equations from integral form to differential
+form and differential form to integral form
+7.1.3 Maxwell’s equations in different media
+Applications
+7.2.1 Wave equations: Non conducting and conducting medium and free
+space
+7.2.2 Plane solution of wave equations, amplitude of electromagnetic
+waves, speed of electromagnetic waves, ratio of electric and
+magnetic fields
+7.2.3 Continuity equation
+7.2.4 Energy transfer and Poynting vector, radiation pressure
+Photon and Matter Waves
+8.1
+(6 hours)
+(6 hours)
+Quantum physics
+8.1.1 Inadequacy of classical mechanics and rise of quantum mechanics,
+quantization of energy
+8.1.2 Group velocity and phase velocity, electrons and matter waves
+8.1.3 de-Broglie wavelength, its applications
+8.1.4 Heisenberg uncertainty principle and its applications
+8.1.5 Wave functions and its significance
+8.2
+Schrodinger wave equation
+8.2.1 Time dependent and independent equation
+8.2.2 Probability distribution
+8.2.3 One dimensional infinite potential well, particle in a box
+8.2.4 Barrier tunneling (Reflection and transmission coefficient)
+Tutorial
+(15 hours)
+Students will practice numerical problems covering all units and sub-units to strengthen
+conceptual understanding and problem-solving skills.
+Practical
+(30 hours)
+1.
+To determine the acceleration due to gravity and radius of gyration of
+the given metal bar using bar pendulum
+2.
+To determine the modulus of elasticity of the given material and
+moment of inertia of the circular disc about the wire as an axis passing
+through its center and perpendicular to its plane by using torsional
+pendulum
+3.
+To determine the coefficient of thermal conductivity of a bad conductor by
+Lee’s method
+4.
+To determine the mechanical equivalent of heat by given method
+5.
+To determine the wavelength of the sodium light using Newton’s rings
+6.
+To determine the wavelength of sodium light using wedge-shaped method
+7.
+To determine the wavelength of LASER light using diffraction grating
+and hence determine the particle size of lycopodium powder
+8.
+To determine the focal length of two lenses when they are separated by
+some finite distance
+9.
+To determine the chromatic aberration of a convex lens between red and
+blue colors
+10.
+To determine the capacitance of the given capacitor by the method of
+charging and discharging through resistor
+11.
+To plot the graph between frequency and current in LCR series circuit
+and hence determine the quality factor of the circuit
+12.
+To study the growth and decay of current in LR circuit then determine the
+self-inductance of the given inductor
+13.
+To determine the dielectric constant of the given material
+Reference
+1.
+Halliday, D., Resnick, R., Walker, J. (2021). Fundamentals of physics. John
+Wiley & Sons.
+2.
+Pokharel, B., Bhattarai, B.K., Paudel, M.D. (2023). Fundamentals of
+engineering physics. Benchmark Education Support.
+3.
+Brij Lal, Subrahmanyam, N. (2012). A text book of optics. S. Chand
+Publishing.
+4.
+Vasudeva, A.S. (2010). Modern engineering physics. S. Chand Publishing.
+5.
+6.
+7.
+8.
+Caur, R.K., Gupta, S.L. (2012). Engineering physics. Dhanpat Rai
+Publications.
+Brij Lal, Subrahmanyam, N. (2011). Waves and oscillations. Vikas
+Publishing House Pvt. Ltd.
+Brij Lal, Subrahmanyam, N. (2012). Heat, thermodynamics and statistical
+physics. S. Chand Publishing.
+Avadhanulu, M.N., Kshirsagar, P.G., Murthy, T.V.S.A. (2018). A textbook of
+engineering physics. S. Chand Publishing.

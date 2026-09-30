@@ -1,15 +1,29 @@
 import { NextResponse } from 'next/server'
 import net from 'node:net'
 import { Client } from 'pg'
+import { bearerClaims } from '@/lib/server/auth'
+import { q } from '@/lib/server/pg'
 
 // One-off diagnostic: raw TCP connect timing to DATABASE_URL's host:port,
 // PLUS an actual pg client login attempt — measured from inside a real
 // deployed function. Raw TCP tells us if the network path is open; the pg
 // login tells us Postgres's own rejection reason (pg_hba.conf entry
 // missing, SSL required, auth failure, etc.) instead of a generic timeout.
-// Delete this route once the board-live latency issue is resolved; it has
-// no auth and shouldn't linger in production.
-export async function GET() {
+// SECURITY: this used to be unauthenticated, handing anyone the database host,
+// port and Postgres's raw login error. It now requires an active platform
+// operator (re-read from the database, like every other operator route).
+export async function GET(req: Request) {
+  const claims = bearerClaims(req)
+  if (!claims) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const [caller] = process.env.DATABASE_URL
+    ? await q<{ role: string; active: boolean }>(
+        'select role, active from simblip_profiles where id = $1',
+        [claims.sub]
+      ).catch(() => [])
+    : []
+  if (!caller?.active || caller.role !== 'super_admin') {
+    return NextResponse.json({ error: 'Platform admin access required' }, { status: 403 })
+  }
   const url = process.env.DATABASE_URL
   if (!url) {
     return NextResponse.json({ error: 'DATABASE_URL not set' }, { status: 500 })

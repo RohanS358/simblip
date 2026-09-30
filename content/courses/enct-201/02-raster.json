@@ -1,0 +1,312 @@
+{
+  "title": "Drawing lines, circles and filling regions",
+  "kicker": "ENCT 201 · Computer Graphics and Visualization · Chapter 2 (output primitives)",
+  "subtitle": "A screen has only whole pixels. These are the classic ways to choose which ones to light.",
+  "sections": [
+    {
+      "id": "dda",
+      "locator": "2.1",
+      "title": "The DDA line algorithm",
+      "eyebrow": "Incremental",
+      "body": "<p>The <em class=\"term\">DDA</em> (digital differential analyser) steps along the longer axis one pixel at a time and adds the slope to the other coordinate, rounding each point: steps = max(|Δx|, |Δy|), x increment = Δx/steps, y increment = Δy/steps. It uses floating point and rounding in the loop. From (0,0) to (4,2) it lights <b>0,0 1,1 2,1 3,2 4,2</b>.</p>",
+      "worked": [
+        {
+          "toc": "Steps",
+          "why": "Line from (0,0) to (4,2): Δx = 4, Δy = 2, so steps = 4.",
+          "math": "\\text{steps}=\\max(4,2)=4"
+        },
+        {
+          "toc": "Points",
+          "why": "Increments: x += 1, y += 0.5. Points: (0,0), (1,0.5→1), (2,1), (3,1.5→2), (4,2).",
+          "math": "(0,0),(1,1),(2,1),(3,2),(4,2)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ddaq",
+          "prompt": "Why does DDA step along the longer axis?",
+          "choices": [
+            {
+              "text": "So the other coordinate changes by at most 1 per step and no gaps appear.",
+              "correct": true
+            },
+            {
+              "text": "Because it is faster."
+            },
+            {
+              "text": "To avoid rounding."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each step moves one pixel in the major direction."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It still rounds."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 2.1.1 — DDA from (2,2) to (13,8)",
+          "note": "Each frame rounds one point to a pixel.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"dda\",\"engine\":\"raster\",\"algo\":\"dda\",\"x1\":2,\"y1\":2,\"x2\":13,\"y2\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "dda": {
+              "pixels": "2,2 3,3 4,3 5,4 6,4 7,5 8,5 9,6 10,6 11,7 12,7 13,8"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bres",
+      "locator": "2.2",
+      "title": "Bresenham’s line algorithm",
+      "eyebrow": "Integers only",
+      "body": "<p><em class=\"term\">Bresenham</em> keeps an integer <em class=\"term\">decision (error) term</em> saying whether the ideal line is closer to the pixel straight ahead or the one diagonally above. No multiplication or rounding: only additions and sign tests, hence its use in hardware. From (0,0) to (5,2): <b>0,0 1,0 2,1 3,1 4,2 5,2</b>.</p>",
+      "questions": [
+        {
+          "id": "bresq",
+          "prompt": "The main advantage of Bresenham over DDA is…",
+          "choices": [
+            {
+              "text": "It draws curves."
+            },
+            {
+              "text": "It is less accurate."
+            },
+            {
+              "text": "It uses only integer arithmetic.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It draws lines."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is exact in choosing pixels."
+            },
+            {
+              "title": "Correct.",
+              "body": "No floating-point additions or rounding."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.2.1 — Bresenham from (2,2) to (13,8)",
+          "note": "The error term decides each step.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"br\",\"engine\":\"raster\",\"algo\":\"bresenham\",\"x1\":2,\"y1\":2,\"x2\":13,\"y2\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "br": {
+              "pixels": "2,2 3,3 4,3 5,4 6,4 7,5 8,5 9,6 10,6 11,7 12,7 13,8"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-br",
+          "prompt": "<p>Which pixels does Bresenham light for (0,0) → (5,2)?</p>",
+          "answer": "<b>0,0 1,0 2,1 3,1 4,2 5,2</b>.",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "Watch the decision term.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"raster\",\"algo\":\"bresenham\",\"x1\":0,\"y1\":0,\"x2\":5,\"y2\":2,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "pixels": "0,0 1,0 2,1 3,1 4,2 5,2"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "circle",
+      "locator": "2.3",
+      "title": "The mid-point circle algorithm",
+      "eyebrow": "Eight-way symmetry",
+      "body": "<p>A circle is symmetric about both axes and the diagonals, so compute one octant (x from 0 to y) and reflect each point 8 ways. The <em class=\"term\">mid-point</em> method tests whether the midpoint between the two candidate pixels is inside the circle using a decision parameter p: start p₀ = 1 − r; if p &lt; 0 keep y and p += 2x + 1, else y−− and p += 2(x − y) + 1. For r = 5 the first octant is <b>0,5 1,5 2,5 3,4</b>.</p>",
+      "worked": [
+        {
+          "toc": "Start",
+          "why": "Radius 5: p₀ = 1 − 5 = −4.",
+          "math": "p_0=1-r=-4"
+        },
+        {
+          "toc": "First octant",
+          "why": "Start (0,5). p < 0 → x=1, y=5, p = −4 + 2(1) + 1 = −1. Again p<0 → x=2, p = −1 + 5 = 4. Now p ≥ 0 → y=4 at x=3.",
+          "math": "(0,5),(1,5),(2,5),(3,4)",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "sym",
+          "prompt": "Why compute only one octant of a circle?",
+          "choices": [
+            {
+              "text": "Circles are lines."
+            },
+            {
+              "text": "Symmetry gives the other seven octants by reflecting coordinates.",
+              "correct": true
+            },
+            {
+              "text": "It is more accurate."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "(x,y) → (±x,±y) and (±y,±x)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It saves work, not accuracy."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 2.3.1 — mid-point circle, r = 6",
+          "note": "Each frame plots eight points.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cir\",\"engine\":\"raster\",\"algo\":\"circle\",\"r\":6,\"cx\":8,\"cy\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "cir": {
+              "octant": "0,6 1,6 2,6 3,5 4,4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "fill",
+      "locator": "2.4",
+      "title": "Filling: scan-line, boundary and flood fill",
+      "eyebrow": "Colouring regions",
+      "body": "<p><em class=\"term\">Scan-line fill</em> intersects each row with the polygon edges and fills between pairs of crossings (odd–even rule). <em class=\"term\">Boundary fill</em> starts inside and spreads until it meets a boundary colour; <em class=\"term\">flood fill</em> spreads through all pixels of the old colour. Both can use 4-connected neighbours (up, down, left, right) or 8-connected (plus diagonals); 8-connected fill can leak through a diagonal gap in a boundary drawn with 4-connected lines. The default pentagon fills <b>61</b> pixels.</p>",
+      "questions": [
+        {
+          "id": "conn",
+          "prompt": "Which fill can leak through a diagonal gap in the boundary?",
+          "choices": [
+            {
+              "text": "4-connected fill."
+            },
+            {
+              "text": "Scan-line fill."
+            },
+            {
+              "text": "8-connected fill.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It cannot cross a diagonal."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Uses edge intersections."
+            },
+            {
+              "title": "Correct.",
+              "body": "It also moves diagonally, through the gap."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 2.4.1 — 4-connected flood fill",
+          "note": "The fill spreads from the seed to the boundary.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ff\",\"engine\":\"raster\",\"algo\":\"floodfill\",\"connect\":4,\"width\":600,\"height\":440});",
+          "expect": {
+            "ff": {
+              "filled": "61"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "attr",
+      "locator": "2.5",
+      "title": "Aliasing and antialiasing",
+      "eyebrow": "Jaggies",
+      "body": "<p>Because pixels are discrete, slanted lines look stepped (<em class=\"term\">aliasing</em>). <em class=\"term\">Antialiasing</em> reduces it: supersample (compute at higher resolution and average), or shade edge pixels in proportion to how much of the pixel the line covers. The cost is more computation.</p>",
+      "questions": [
+        {
+          "id": "alias",
+          "prompt": "Antialiasing by supersampling…",
+          "choices": [
+            {
+              "text": "Removes pixels."
+            },
+            {
+              "text": "Renders at a higher resolution and averages down.",
+              "correct": true
+            },
+            {
+              "text": "Makes the display larger."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "Edge pixels get intermediate shades."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>A line has slope 0.3. Does Bresenham step mostly in x or in y?</p>",
+          "answer": "|slope| < 1, so x is the major axis: x advances every step and y increases by 1 about 3 times in 10 steps."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>DDA: float increments; Bresenham: integers; circle: one octant + symmetry.</li><li>Fill by scan line, boundary or flood (4 vs 8 connectivity).</li></ul>"
+    }
+  ]
+}

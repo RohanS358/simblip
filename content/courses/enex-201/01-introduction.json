@@ -1,0 +1,250 @@
+{
+  "title": "The stored-program computer and its buses",
+  "kicker": "ENEX 201 · Microprocessors · Chapter 1",
+  "subtitle": "A processor, a memory and a few wires — and the one idea that made it programmable: instructions are data.",
+  "sections": [
+    {
+      "id": "mp",
+      "locator": "1.1",
+      "title": "Microprocessor, microcomputer, microcontroller",
+      "eyebrow": "Terms",
+      "body": "<p>A <em class=\"term\">microprocessor</em> is a CPU on one chip (ALU, registers, control). A <em class=\"term\">microcomputer</em> adds memory and I/O chips around it. A <em class=\"term\">microcontroller</em> puts CPU, memory, timers and I/O on a single chip — the heart of appliances and embedded devices. History in one line: 4004 (4-bit, 1971) → 8080/8085 (8-bit) → 8086 (16-bit) → 386 (32-bit) → 64-bit multicore.</p>",
+      "questions": [
+        {
+          "id": "mc",
+          "prompt": "What distinguishes a microcontroller from a microprocessor?",
+          "choices": [
+            {
+              "text": "It is faster."
+            },
+            {
+              "text": "It has no CPU."
+            },
+            {
+              "text": "It integrates memory and I/O on the chip, for self-contained embedded use.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Usually slower."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It contains one."
+            },
+            {
+              "title": "Correct.",
+              "body": "A microprocessor needs external memory and peripherals."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "von",
+      "locator": "1.2",
+      "title": "Von Neumann architecture",
+      "eyebrow": "The idea",
+      "body": "<p>Program and data share one memory, one address space, one bus (von Neumann). The CPU fetches an instruction, then fetches its operands, all over the same bus — the “von Neumann bottleneck”. The <em class=\"term\">Harvard</em> architecture keeps separate memories and buses for code and data, so both can be fetched at once (microcontrollers, DSPs, caches).</p>",
+      "questions": [
+        {
+          "id": "harv",
+          "prompt": "Harvard architecture differs from von Neumann in having…",
+          "choices": [
+            {
+              "text": "One memory for both."
+            },
+            {
+              "text": "No memory."
+            },
+            {
+              "text": "Separate memories and buses for instructions and data.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is von Neumann."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Nonsense."
+            },
+            {
+              "title": "Correct.",
+              "body": "Both can be accessed simultaneously."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 1.2.1 — the von Neumann machine",
+          "note": "Instructions and operands compete for the same bus.",
+          "script": "diagram(\"direction: right\\n[CPU: control + ALU + registers] as cpu #blue\\n[Memory: program + data] as mem #mint\\n[I/O devices] as io #amber\\ncpu -> mem : address bus\\nmem -> cpu : data bus (instructions and data)\\ncpu -> io : control bus\\n@0 cpu -> mem : address\\n@1.2 mem -> cpu : instruction\\n@2.4 cpu -> mem : address\\n@3.6 mem -> cpu : operand\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "bus",
+      "locator": "1.3",
+      "title": "The three buses",
+      "eyebrow": "Wires",
+      "body": "<p>The <em class=\"term\">address bus</em> (one-way, CPU → memory) selects a location; its width fixes the address space: n lines address 2ⁿ locations (the 8085’s 16 lines: 64 KB). The <em class=\"term\">data bus</em> (two-way) carries the value, its width the word size (8 bits). The <em class=\"term\">control bus</em> carries signals such as RD, WR, ALE and IO/M̅.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "A processor has 20 address lines and an 8-bit data bus."
+        },
+        {
+          "toc": "Address space",
+          "why": "Addressable memory = 2²⁰ bytes.",
+          "math": "2^{20}=1\\ \\text{MB}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "addr",
+          "prompt": "Why is the address bus unidirectional?",
+          "choices": [
+            {
+              "text": "Because it is narrow."
+            },
+            {
+              "text": "Only the CPU (or DMA) chooses which location is accessed.",
+              "correct": true
+            },
+            {
+              "text": "To save power."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Width is unrelated."
+            },
+            {
+              "title": "Correct.",
+              "body": "Memory never drives an address."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the reason."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>How many address lines are needed to address 4 MB?</p>",
+          "answer": "4 MB = 2²² bytes → <b>22</b> address lines."
+        }
+      ]
+    },
+    {
+      "id": "cycle",
+      "locator": "1.4",
+      "title": "Processing cycle",
+      "eyebrow": "Fetch – decode – execute",
+      "body": "<p>The CPU repeatedly: puts the program counter on the address bus and reads the opcode (fetch), decodes it, reads any operands, executes it, updates the PC. Step the 8085 below and watch the program counter move and the registers change.</p>",
+      "questions": [
+        {
+          "id": "pc",
+          "prompt": "What does the program counter hold?",
+          "choices": [
+            {
+              "text": "The current instruction."
+            },
+            {
+              "text": "The stack top."
+            },
+            {
+              "text": "The address of the next instruction to fetch.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the instruction register."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the stack pointer."
+            },
+            {
+              "title": "Correct.",
+              "body": "It advances after each fetch and is overwritten by jumps."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.4.1 — an 8085 fetch-execute loop",
+          "note": "The highlighted line is the instruction about to run.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"cpu\",\"engine\":\"cpu8085\",\"width\":600,\"height\":440});",
+          "expect": {
+            "cpu": {
+              "A": "3C",
+              "tstates": "48"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "mem",
+      "locator": "1.5",
+      "title": "Memory classes",
+      "eyebrow": "Storage",
+      "body": "<p>ROM holds the program permanently (boot code); RAM holds data that changes (static SRAM: fast, flip-flops; dynamic DRAM: denser, needs refresh). Flash/EEPROM are electrically rewritable. The system combines them in one address space: for instance ROM at 0000–1FFF, RAM at 2000–3FFF.</p>",
+      "questions": [
+        {
+          "id": "ram",
+          "prompt": "Why is ROM placed at the start of the address space in many 8085 systems?",
+          "choices": [
+            {
+              "text": "The processor begins execution at address 0000H after reset, so boot code must be there.",
+              "correct": true
+            },
+            {
+              "text": "ROM is faster."
+            },
+            {
+              "text": "RAM cannot be addressed at 0."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "RAM contents are undefined at power-up."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not usually."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It can."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "1.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Stored program: code and data in the same memory.</li><li>Address lines fix memory size (2ⁿ); data lines fix word size.</li></ul>"
+    }
+  ]
+}

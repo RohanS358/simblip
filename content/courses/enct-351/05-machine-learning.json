@@ -1,0 +1,319 @@
+{
+  "title": "Learning from data",
+  "kicker": "ENCT 351 · Artificial Intelligence · Chapter 4",
+  "subtitle": "Instead of writing rules, show examples and let an optimiser find the rule.",
+  "sections": [
+    {
+      "id": "kinds",
+      "locator": "4.1",
+      "title": "Kinds of learning",
+      "eyebrow": "The landscape",
+      "body": "<p><em class=\"term\">Supervised</em> learning has labelled examples (input → correct output): classification (discrete labels) and regression (numbers). <em class=\"term\">Unsupervised</em> learning finds structure without labels: clustering, dimensionality reduction. <em class=\"term\">Reinforcement</em> learning learns from rewards by trial and error. <em class=\"term\">Semi-supervised</em> uses a few labels plus many unlabelled examples. The four pillars of the field: data, model, loss and optimiser.</p>",
+      "questions": [
+        {
+          "id": "clus",
+          "prompt": "Clustering customers into segments with no predefined labels is…",
+          "choices": [
+            {
+              "text": "Supervised learning."
+            },
+            {
+              "text": "Reinforcement learning."
+            },
+            {
+              "text": "Unsupervised learning.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs labels."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That needs rewards."
+            },
+            {
+              "title": "Correct.",
+              "body": "There is no target to predict."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.1.1 — the learning loop",
+          "note": "Every learning algorithm is this loop.",
+          "script": "diagram(\"direction: right\\n[Data: examples] as d #blue\\n[Model: parameters] as m #violet\\n[Loss: how wrong] as l #rose\\n[Optimiser: adjust] as o #mint\\nd -> m : predict\\nm -> l : compare\\nl -> o : gradient\\no -> m : update\\n@0 d -> m : x\\n@1 m -> l : y-hat\\n@2 l -> o : error\\n@3 o -> m : new weights\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "gd",
+      "locator": "4.2",
+      "title": "Gradient descent",
+      "eyebrow": "The optimiser",
+      "body": "<p>To minimise a loss f(x), repeatedly step opposite the slope: x ← x − η f′(x), with learning rate η. Too small is slow; too large overshoots and can diverge. On f(x) = x² − 4x + 5 with η = 0.2 it converges to x = <b>2</b>; with f(x) = x² and η = 1.1 each step multiplies x by −1.2 and it diverges (<b>yes</b>).</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "f(x) = x² − 4x + 5, f′(x) = 2x − 4. Start x = −1, η = 0.2."
+        },
+        {
+          "toc": "First step",
+          "why": "Step 1: slope −6, so x ← −1 − 0.2(−6) = 0.2.",
+          "math": "x_1=-1-0.2(-6)=0.2",
+          "hero": true
+        },
+        {
+          "toc": "Minimum",
+          "why": "Continuing converges to the minimum where f′ = 0, x = 2.",
+          "math": "x^*=2"
+        }
+      ],
+      "questions": [
+        {
+          "id": "lr",
+          "prompt": "A learning rate that is too large causes…",
+          "choices": [
+            {
+              "text": "Slower convergence only."
+            },
+            {
+              "text": "Overshooting and possibly divergence.",
+              "correct": true
+            },
+            {
+              "text": "Convergence to a wrong minimum always."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is too small."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each step jumps past the minimum by more than before."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It may not converge at all."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.2.1 — converging",
+          "note": "Steps shrink as the slope flattens.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ok\",\"engine\":\"gd\",\"f\":\"x^2 - 4*x + 5\",\"lr\":0.2,\"steps\":15,\"width\":600,\"height\":440});",
+          "expect": {
+            "ok": {
+              "x": "1.99859"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 4.2.2 — diverging",
+          "note": "η is too large: each step overshoots further.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bad\",\"engine\":\"gd\",\"f\":\"x^2\",\"lr\":1.1,\"x0\":1,\"steps\":12,\"xmin\":-6,\"xmax\":6,\"width\":600,\"height\":440});",
+          "expect": {
+            "bad": {
+              "diverged": "no"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "reg",
+      "locator": "4.3",
+      "title": "Linear regression",
+      "eyebrow": "Fitting a line",
+      "body": "<p>Fit ŷ = b₀ + b₁x by minimising the sum of squared residuals. The closed form: b₁ = Sxy/Sxx and b₀ = ȳ − b₁x̄. For the five sample points: slope <b>0.9</b>, intercept <b>1.3</b>, R² = <b>0.81</b> (the fraction of variance explained). The same idea extends to many features and, with a sigmoid, to logistic regression for classification.</p>",
+      "questions": [
+        {
+          "id": "r2",
+          "prompt": "R² = 0.81 means…",
+          "choices": [
+            {
+              "text": "81% of the variation in y is explained by the model.",
+              "correct": true
+            },
+            {
+              "text": "81% of predictions are exact."
+            },
+            {
+              "text": "The slope is 0.81."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The remaining 19% is unexplained."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not that."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Different number."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 4.3.1 — least squares",
+          "note": "Red segments are the residuals the fit minimises.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"reg\",\"engine\":\"regression\",\"width\":600,\"height\":440});",
+          "expect": {
+            "reg": {
+              "slope": "0.9",
+              "intercept": "1.3",
+              "r2": "0.81"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "cluster",
+      "locator": "4.4",
+      "title": "Clustering: k-means",
+      "eyebrow": "Unsupervised",
+      "body": "<p>k-means alternates: assign every point to its nearest centroid; move each centroid to the mean of its points; repeat until nothing changes. It minimises the within-cluster sum of squares but depends on the start and on k. On the sample points the centroids settle at <b>(1.25,1.5) (3.9,5.1)</b>.</p>",
+      "questions": [
+        {
+          "id": "kmeans",
+          "prompt": "What does k-means do in the update step?",
+          "choices": [
+            {
+              "text": "Picks new random centroids."
+            },
+            {
+              "text": "Removes outliers."
+            },
+            {
+              "text": "Moves each centroid to the mean of its assigned points.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only at initialisation."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not part of the algorithm."
+            },
+            {
+              "title": "Correct.",
+              "body": "Assignment and update alternate."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab5",
+          "caption": "Figure 4.4.1 — k-means",
+          "note": "Squares are centroids; colours show clusters.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"km\",\"engine\":\"kmeans\",\"width\":600,\"height\":440});",
+          "expect": {
+            "km": {
+              "centroids": "(1.25,1.5) (3.9,5.1)",
+              "sse": "8.525"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "perc",
+      "locator": "4.5",
+      "title": "The perceptron and overfitting",
+      "eyebrow": "Classification and generalisation",
+      "body": "<p>A <em class=\"term\">perceptron</em> classifies by the sign of w·x + b and corrects itself on mistakes: w ← w + η(t − y)x. It converges on linearly separable data (AND: converged <b>yes</b> in 6 epochs) and never on data like XOR. Models can <em class=\"term\">overfit</em> — memorise noise in the training data — so performance is measured on held-out data, hyper-parameters are tuned on a validation set, and cross-validation rotates the split. Underfitting means the model is too simple to capture the pattern.</p>",
+      "questions": [
+        {
+          "id": "over",
+          "prompt": "A model with near-zero training error but high test error is…",
+          "choices": [
+            {
+              "text": "Underfitting."
+            },
+            {
+              "text": "Overfitting.",
+              "correct": true
+            },
+            {
+              "text": "Perfect."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That has high error on both."
+            },
+            {
+              "title": "Correct.",
+              "body": "It memorised the training set."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Generalisation is what counts."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab6",
+          "caption": "Figure 4.5.1 — learning AND",
+          "note": "The amber line moves after each mistake.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"pc\",\"engine\":\"perceptron\",\"data\":\"0,0,0;0,1,0;1,0,0;1,1,1\",\"width\":600,\"height\":440});",
+          "expect": {
+            "pc": {
+              "converged": "yes",
+              "epochs": "6"
+            }
+          }
+        },
+        {
+          "id": "lab7",
+          "caption": "Figure 4.5.2 — XOR never converges",
+          "note": "XOR: no straight line separates the classes.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"xor\",\"engine\":\"perceptron\",\"data\":\"0,0,0;0,1,1;1,0,1;1,1,0\",\"epochs\":20,\"width\":600,\"height\":440});",
+          "expect": {
+            "xor": {
+              "converged": "no"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-eval",
+          "prompt": "<p>A classifier on 100 test cases gives TP = 40, FP = 10, FN = 5, TN = 45. Compute accuracy, precision and recall.</p>",
+          "answer": "Accuracy = (40 + 45)/100 = <b>0.85</b>; precision = 40/(40 + 10) = <b>0.80</b>; recall = 40/(40 + 5) ≈ <b>0.89</b>; F-score ≈ 0.84."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Learning = data + model + loss + optimiser.</li><li>Gradient descent: x ← x − η f′(x); watch η.</li><li>Evaluate on unseen data; precision/recall beyond accuracy.</li></ul>"
+    }
+  ]
+}

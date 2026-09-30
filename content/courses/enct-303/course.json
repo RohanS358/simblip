@@ -1,0 +1,49 @@
+{
+  "id": "enct-303",
+  "code": "ENCT 303",
+  "title": "Computer Organization and Architecture",
+  "subject": "computing",
+  "semester": 5,
+  "program": "computer",
+  "description": "Performance, the CPU and its instruction cycle, control, caches, arithmetic, pipelines and I/O — each mechanism stepped in the Step Lab.",
+  "order": [
+    "01-performance",
+    "02-cpu-instructions",
+    "03-control-unit",
+    "04-memory-cache",
+    "05-arithmetic",
+    "06-pipelining",
+    "07-io-multiprocessors"
+  ],
+  "published": true,
+  "lessons": {
+    "01-performance": {
+      "path": "1 Introduction",
+      "title": "Performance and the instruction cycle"
+    },
+    "02-cpu-instructions": {
+      "path": "2 Central Processing Unit",
+      "title": "Registers, stacks and addressing modes"
+    },
+    "03-control-unit": {
+      "path": "3 Control Unit",
+      "title": "Hardwired and microprogrammed control"
+    },
+    "04-memory-cache": {
+      "path": "4 Memory System",
+      "title": "Memory hierarchy and caches"
+    },
+    "05-arithmetic": {
+      "path": "5 Computer Arithmetic",
+      "title": "Integer and floating-point arithmetic"
+    },
+    "06-pipelining": {
+      "path": "6 Pipelining and Vector Processing",
+      "title": "Pipelines and hazards"
+    },
+    "07-io-multiprocessors": {
+      "path": "7–8 Input/Output and Multiprocessors",
+      "title": "I/O methods and multiprocessors"
+    }
+  }
+}

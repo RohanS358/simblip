@@ -1,0 +1,323 @@
+{
+  "title": "I/O software and disk scheduling",
+  "kicker": "ENCT 254 · Operating System · Chapter 4 (I/O)",
+  "subtitle": "Devices are slow and strange. The OS hides that with layers — and orders disk requests to keep the head from wandering.",
+  "sections": [
+    {
+      "id": "layers",
+      "locator": "4.6",
+      "title": "The I/O software stack",
+      "eyebrow": "Layers",
+      "body": "<p>Device-independent code (naming, buffering, protection) sits above a <b>driver</b> that knows one device's registers, which talks to the controller and raises an <b>interrupt</b> when a transfer ends. Three ways to move data: <em class=\"term\">programmed I/O</em> (the CPU polls), <em class=\"term\">interrupt-driven</em> (the CPU does other work and is interrupted), and <em class=\"term\">DMA</em> (a controller copies the whole block to memory and interrupts once).</p>",
+      "questions": [
+        {
+          "id": "dma",
+          "prompt": "What is the advantage of DMA over interrupt-driven I/O for a large block?",
+          "choices": [
+            {
+              "text": "DMA makes the disk faster."
+            },
+            {
+              "text": "One interrupt for the whole block instead of one per byte/word.",
+              "correct": true
+            },
+            {
+              "text": "DMA needs no driver."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The disk is as slow as before; the CPU just does not babysit it."
+            },
+            {
+              "title": "Correct.",
+              "body": "The controller moves the data itself, so the CPU is interrupted once at the end."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "A driver still sets up the transfer."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.6.1 — a DMA read",
+          "note": "With DMA the CPU is free during the copy.",
+          "script": "diagram(\"mode: sequence\\n[Process] as p\\n[Driver] as d\\n[Controller + DMA] as c\\np -> d : read(block 42)\\nd -> c : start transfer\\nc -> c : copy disk → memory\\nc --> d : interrupt (done)\\nd --> p : data ready\");"
+        }
+      ]
+    },
+    {
+      "id": "disk",
+      "locator": "4.7",
+      "title": "How a disk spends its time",
+      "eyebrow": "Mechanics",
+      "body": "<p>A magnetic disk access is <em class=\"term\">seek time</em> (move the arm to the cylinder) + <em class=\"term\">rotational latency</em> (wait for the sector to come under the head) + <em class=\"term\">transfer time</em>. Seek dominates, so schedulers reorder requests to shorten head travel. SSDs have no arm, so these algorithms matter for spinning disks.</p>",
+      "worked": [
+        {
+          "toc": "Average rotational latency",
+          "why": "A 7200 rpm disk turns once every 60/7200 s = 8.33 ms. On average the wanted sector is half a turn away.",
+          "math": "\\text{latency}=\\tfrac12\\cdot 8.33\\ \\text{ms}\\approx 4.17\\ \\text{ms}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "seek",
+          "prompt": "Which component of disk access do scheduling algorithms try to reduce?",
+          "choices": [
+            {
+              "text": "Transfer time."
+            },
+            {
+              "text": "Rotational latency."
+            },
+            {
+              "text": "Seek time.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Fixed by the recording density and spin speed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Partly reducible by other tricks, but arm scheduling targets seeks."
+            },
+            {
+              "title": "Correct.",
+              "body": "Arm movement is the largest term, and it depends on the order requests are served."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sched",
+      "locator": "4.8",
+      "title": "FCFS, SSTF, SCAN, LOOK",
+      "eyebrow": "Policies",
+      "body": "<p>Head at 53, requests 98 183 37 122 14 124 65 67 on a 200-cylinder disk. <em class=\"term\">FCFS</em> serves in arrival order: <b>640</b> cylinders. <em class=\"term\">SSTF</em> always picks the nearest request: <b>236</b>, but can starve far requests. <em class=\"term\">SCAN</em> (elevator) sweeps to one end then reverses; <em class=\"term\">LOOK</em> reverses at the last request: going up first costs <b>299</b>. The circular versions (<em class=\"term\">C-SCAN</em>, <em class=\"term\">C-LOOK</em>) jump back and serve in one direction only — C-LOOK <b>322</b> — for more uniform waiting.</p>",
+      "questions": [
+        {
+          "id": "starve",
+          "prompt": "Which policy can starve a request?",
+          "choices": [
+            {
+              "text": "SSTF — a steady stream of nearby requests keeps the far one waiting.",
+              "correct": true
+            },
+            {
+              "text": "SCAN."
+            },
+            {
+              "text": "FCFS."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Shortest seek greedily serves neighbours; SCAN-style sweeps bound the wait to one pass."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It visits every cylinder on each sweep, so nothing waits more than about two sweeps."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "FCFS is fair in order, merely slow."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.8.1 — FCFS",
+          "note": "FCFS zig-zags.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"fcfs\",\"engine\":\"disk\",\"algo\":\"fcfs\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
+          "expect": {
+            "fcfs": {
+              "total": "640"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 4.8.2 — SSTF",
+          "note": "SSTF hugs nearby requests.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"sstf\",\"engine\":\"disk\",\"algo\":\"sstf\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
+          "expect": {
+            "sstf": {
+              "total": "236"
+            }
+          }
+        },
+        {
+          "id": "lab4",
+          "caption": "Figure 4.8.3 — LOOK",
+          "note": "LOOK sweeps up then down.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"look\",\"engine\":\"disk\",\"algo\":\"look\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
+          "expect": {
+            "look": {
+              "total": "299"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-total",
+          "prompt": "<p>Head at 53, queue 98 183 37 122 14 124 65 67. Total head movement for SSTF and for FCFS?</p>",
+          "answer": "SSTF: 53→65→67→37→14→98→122→124→183 = <b>236</b>. FCFS: <b>640</b>. SCAN going down first (to 0) then up = <b>236</b>.",
+          "verify": {
+            "id": "lab5",
+            "caption": "answer",
+            "note": "SSTF path.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"a\",\"engine\":\"disk\",\"algo\":\"sstf\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
+            "expect": {
+              "a": {
+                "total": "236"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "raid",
+      "locator": "4.9",
+      "title": "RAID in one page",
+      "eyebrow": "Redundancy",
+      "body": "<p><em class=\"term\">RAID 0</em> stripes data across disks (speed, no safety). <em class=\"term\">RAID 1</em> mirrors (survives one failure, half the capacity). <em class=\"term\">RAID 5</em> stripes with distributed parity: the parity block is the XOR of the data blocks, so any one lost block is recoverable; usable capacity is (n−1)/n.</p>",
+      "worked": [
+        {
+          "toc": "Parity",
+          "why": "Three data blocks 1011, 0110, 1100. Parity is the bitwise XOR.",
+          "math": "1011 \\oplus 0110 \\oplus 1100 = 0001"
+        },
+        {
+          "toc": "Recover",
+          "why": "If the second disk dies, XOR the others with the parity: 1011 ⊕ 1100 ⊕ 0001 = 0110 — recovered.",
+          "math": "0110",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "r5",
+          "prompt": "Usable capacity of RAID 5 with five 1 TB disks?",
+          "choices": [
+            {
+              "text": "4 TB.",
+              "correct": true
+            },
+            {
+              "text": "5 TB."
+            },
+            {
+              "text": "2.5 TB."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One disk’s worth of space holds parity: (5−1)/5 × 5 TB."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is RAID 0."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is RAID 1 (mirroring halves capacity)."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stable",
+      "locator": "4.9b",
+      "title": "Stable storage",
+      "eyebrow": "Surviving crashes",
+      "body": "<p>A single disk write can be interrupted by a crash, leaving a half-written block. <em class=\"term\">Stable storage</em> makes a write all-or-nothing by keeping two copies: write copy A and verify it, then write copy B and verify it. After a crash, recovery compares the pair — if they differ and one has a bad checksum, copy the good one over it; if both are good but different, copy A to B. At most one copy is ever damaged, so a good value always survives.</p>",
+      "questions": [
+        {
+          "id": "stab",
+          "prompt": "Why are two copies written one after the other rather than together?",
+          "choices": [
+            {
+              "text": "It is faster."
+            },
+            {
+              "text": "So a crash can damage at most one of them.",
+              "correct": true
+            },
+            {
+              "text": "Disks cannot write two blocks at once."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is slower; safety is the point."
+            },
+            {
+              "title": "Correct.",
+              "body": "Sequential writes guarantee that one copy is always intact and verified."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Independent disks can; the ordering is deliberate."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ssd",
+      "locator": "4.10",
+      "title": "SSD and NVMe",
+      "eyebrow": "Flash",
+      "body": "<p>Flash has no moving parts, so random access is fast; but it is erased in large blocks and wears out, so a controller spreads writes (wear levelling). NVMe attaches flash over PCIe with deep parallel queues, removing the SATA bottleneck. Cost per bit: HDD cheapest, SSD middle, RAM dearest.</p>",
+      "questions": [
+        {
+          "id": "ssd",
+          "prompt": "Why do elevator algorithms matter little on an SSD?",
+          "choices": [
+            {
+              "text": "SSDs cannot queue requests."
+            },
+            {
+              "text": "There is no arm to move, so request order barely changes latency.",
+              "correct": true
+            },
+            {
+              "text": "SSDs have no controller."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "NVMe queues deeply."
+            },
+            {
+              "title": "Correct.",
+              "body": "Seek time was the thing being optimised."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They have a sophisticated one."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "id": "enct-304",
+  "code": "ENCT 304",
+  "title": "Computer Networks",
+  "subject": "computing",
+  "semester": 5,
+  "program": "computer",
+  "description": "Layers, link protocols, addressing, routing and TCP — handshakes animated, protocols stepped, addresses computed.",
+  "order": [
+    "01-layers",
+    "02-physical-datalink",
+    "03-arq-mac",
+    "04-ip-addressing",
+    "05-routing",
+    "06-transport-tcp",
+    "07-application-advanced"
+  ],
+  "published": true,
+  "lessons": {
+    "01-layers": {
+      "path": "1 Introduction",
+      "title": "Layers, encapsulation and devices"
+    },
+    "02-physical-datalink": {
+      "path": "2–3 Physical and Data Link Layer",
+      "title": "Encoding, framing and error control"
+    },
+    "03-arq-mac": {
+      "path": "3 Data Link Layer",
+      "title": "Flow control and shared media"
+    },
+    "04-ip-addressing": {
+      "path": "4 Network Layer",
+      "title": "IPv4 addressing and subnetting"
+    },
+    "05-routing": {
+      "path": "4 Network Layer",
+      "title": "Routing algorithms and protocols"
+    },
+    "06-transport-tcp": {
+      "path": "5 Transport Layer",
+      "title": "TCP and UDP"
+    },
+    "07-application-advanced": {
+      "path": "6–7 Upper Layers and Advanced Topics",
+      "title": "DNS, DHCP, HTTP, email and SDN"
+    }
+  }
+}

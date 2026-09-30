@@ -1,0 +1,296 @@
+{
+  "title": "Pipelines and hazards",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 6",
+  "subtitle": "Overlap the stages of consecutive instructions like an assembly line — then deal with the times one instruction needs another’s result.",
+  "sections": [
+    {
+      "id": "idea",
+      "locator": "6.1",
+      "title": "The assembly-line idea",
+      "eyebrow": "Throughput",
+      "body": "<p>An instruction needs fetch (IF), decode (ID), execute (EX), memory (MEM) and write-back (WB). Done one at a time, four instructions take 20 cycles. <em class=\"term\">Pipelining</em> starts the next instruction as soon as the first leaves IF, so a new instruction completes every cycle once the pipe is full. Latency of one instruction is unchanged; <em>throughput</em> improves by up to the number of stages.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "k = 5 stages, n = 100 instructions, no stalls."
+        },
+        {
+          "toc": "Cycles",
+          "why": "First result after k cycles, then one per cycle: k + (n − 1) cycles. Unpipelined: n·k.",
+          "math": "T = 5+99 = 104\\quad \\text{vs}\\quad 500"
+        },
+        {
+          "toc": "Speed-up",
+          "why": "Speed-up.",
+          "math": "S=\\frac{500}{104}\\approx 4.8",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "latency",
+          "prompt": "Does pipelining make a single instruction finish sooner?",
+          "choices": [
+            {
+              "text": "Yes, by the number of stages."
+            },
+            {
+              "text": "Yes, because the clock is faster."
+            },
+            {
+              "text": "No — it raises throughput, not the latency of one instruction.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the throughput gain for a stream."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Stage time may even grow slightly."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each instruction still passes through every stage."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 6.1.1 — a full pipeline",
+          "note": "Four independent instructions finish in 8 cycles, not 20.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"p\",\"engine\":\"pipeline\",\"prog\":\"add r1, r2, r3\\nadd r4, r5, r6\\nadd r7, r8, r9\\nadd r10, r11, r12\",\"width\":600,\"height\":440});",
+          "expect": {
+            "p": {
+              "cycles": "8",
+              "stalls": "0"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "hazards",
+      "locator": "6.2",
+      "title": "Hazards",
+      "eyebrow": "What goes wrong",
+      "body": "<p>A <em class=\"term\">hazard</em> stops the next instruction from proceeding. <b>Structural</b>: two instructions need the same hardware (one memory port for instruction and data). <b>Data</b>: an instruction needs a result not yet written (<code>lw r1…</code> then <code>add r3,r1,…</code>). <b>Control</b>: a branch changes the next fetch address before it is known. The cure is to <em class=\"term\">stall</em> (insert bubbles), <em class=\"term\">forward</em> results early, or predict.</p>",
+      "questions": [
+        {
+          "id": "loaduse",
+          "prompt": "Even with forwarding, why does a load followed by an instruction using it still stall one cycle?",
+          "choices": [
+            {
+              "text": "Loads are slow for no reason."
+            },
+            {
+              "text": "Forwarding only works for stores."
+            },
+            {
+              "text": "The loaded value only exists after MEM, but the next instruction needs it at the start of EX.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "There is a precise timing reason."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It works for ALU results."
+            },
+            {
+              "title": "Correct.",
+              "body": "Forwarding can move a result from the end of one stage to the start of another, but not backwards in time."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 6.2.1 — no forwarding",
+          "note": "Without forwarding the dependent instructions wait: 6 stall cycles, 14 cycles in all.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nf\",\"engine\":\"pipeline\",\"prog\":\"lw r1, 0(r2)\\nadd r3, r1, r4\\nsub r5, r3, r6\\nsw r5, 4(r2)\",\"forwarding\":\"off\",\"width\":600,\"height\":440});",
+          "expect": {
+            "nf": {
+              "stalls": "6",
+              "cycles": "14"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 6.2.2 — forwarding on",
+          "note": "With forwarding only the load-use gap costs a cycle: 1 stall, 9 cycles.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"f\",\"engine\":\"pipeline\",\"prog\":\"lw r1, 0(r2)\\nadd r3, r1, r4\\nsub r5, r3, r6\\nsw r5, 4(r2)\",\"forwarding\":\"on\",\"width\":600,\"height\":440});",
+          "expect": {
+            "f": {
+              "stalls": "1",
+              "cycles": "9"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "forward",
+      "locator": "6.3",
+      "title": "Forwarding and stalling in numbers",
+      "eyebrow": "Counting",
+      "body": "<p>Dependent ALU instructions back-to-back, no forwarding: the consumer must wait until the producer has written the register file, costing 2 bubbles. With forwarding: 0. A load followed by its consumer: 1 bubble even with forwarding. Toggle the two cards above and count the clock numbers to check.</p>",
+      "questions": [
+        {
+          "id": "bubbles",
+          "prompt": "Two dependent ALU instructions back-to-back with NO forwarding (register file written in first half of WB, read in second half of ID). How many bubbles?",
+          "choices": [
+            {
+              "text": "None."
+            },
+            {
+              "text": "Five."
+            },
+            {
+              "text": "Two.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs forwarding."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the whole pipeline length, not the gap."
+            },
+            {
+              "title": "Correct.",
+              "body": "The consumer cannot read until the producer reaches WB, two stages later than it would naturally be."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-cpi",
+          "prompt": "<p>The program above (lw, add, sub, sw) on this pipeline. What is the CPI with and without forwarding?</p>",
+          "answer": "Without forwarding 14 cycles for 4 instructions → CPI = <b>3.5</b>. With forwarding 9 cycles → CPI = <b>2.25</b>. Ideal CPI would approach 1 for a long program.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "With forwarding.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"pipeline\",\"prog\":\"lw r1, 0(r2)\\nadd r3, r1, r4\\nsub r5, r3, r6\\nsw r5, 4(r2)\",\"forwarding\":\"on\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "cpi": "2.25"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "branch",
+      "locator": "6.4",
+      "title": "Branches and the RISC pipeline",
+      "eyebrow": "Control hazards",
+      "body": "<p>Until a branch is resolved the fetch unit does not know which instruction is next. Options: stall until resolved; <em class=\"term\">predict not taken</em> and flush if wrong; <em class=\"term\">branch delay slot</em> (execute the following instruction regardless); or dynamic prediction with a history table, which is right over 90% of the time on real programs. A wrong guess flushes the instructions fetched since the branch, costing their cycles.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "20% of instructions are branches, 30% of them mispredicted, each mispredict costs 2 cycles."
+        },
+        {
+          "toc": "CPI",
+          "why": "Extra CPI = 0.2 × 0.3 × 2.",
+          "math": "\\text{CPI}=1+0.12=1.12",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "flush",
+          "prompt": "What happens to instructions fetched after a mispredicted branch?",
+          "choices": [
+            {
+              "text": "They complete normally."
+            },
+            {
+              "text": "They are flushed (turned into bubbles).",
+              "correct": true
+            },
+            {
+              "text": "They are executed twice."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They would corrupt the program."
+            },
+            {
+              "title": "Correct.",
+              "body": "They were on the wrong path and must not change state."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "No."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "vector",
+      "locator": "6.5",
+      "title": "Parallel and vector processing",
+      "eyebrow": "Beyond one pipe",
+      "body": "<p><em class=\"term\">SIMD</em> / vector machines apply one instruction to many data items at once (adding two vectors of 8 numbers in one step); <em class=\"term\">superscalar</em> CPUs issue several instructions per cycle; <em class=\"term\">memory interleaving</em> spreads consecutive addresses over several banks so a vector can be fetched one element per bank per cycle. Matrix multiplication is the classic beneficiary: each row-column dot product is independent.</p>",
+      "questions": [
+        {
+          "id": "simd",
+          "prompt": "SIMD stands for…",
+          "choices": [
+            {
+              "text": "Single Instruction, Multiple Devices."
+            },
+            {
+              "text": "Single Instruction, Multiple Data.",
+              "correct": true
+            },
+            {
+              "text": "Serial Instruction, Multiple Data."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the term."
+            },
+            {
+              "title": "Correct.",
+              "body": "One control unit, many data paths."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not the term."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "6.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Pipelining raises throughput, not latency.</li><li>Hazards: structural, data, control; fixes: stall, forward, predict.</li><li>CPI = 1 + stall cycles per instruction.</li></ul>"
+    }
+  ]
+}

@@ -1,0 +1,357 @@
+{
+  "title": "Integer and floating-point arithmetic",
+  "kicker": "ENCT 303 · Computer Organization and Architecture · Chapter 5",
+  "subtitle": "How a fixed number of bits represents negatives and fractions, and how the ALU adds, multiplies and divides them.",
+  "sections": [
+    {
+      "id": "signed",
+      "locator": "5.1",
+      "title": "Signed integers",
+      "eyebrow": "Negative numbers",
+      "body": "<p><em class=\"term\">Sign–magnitude</em> spends one bit on the sign (two zeros, awkward adders). <em class=\"term\">1's complement</em> inverts all bits (still two zeros). <em class=\"term\">2's complement</em> is universal: invert and add 1. There is one zero, addition works the same for signed and unsigned numbers, and an <em>n</em>-bit word covers −2ⁿ⁻¹ … 2ⁿ⁻¹−1. To widen a number, copy the sign bit leftwards (sign extension).</p>",
+      "worked": [
+        {
+          "toc": "Positive",
+          "why": "Represent −5 in 8 bits. Start with +5.",
+          "math": "00000101"
+        },
+        {
+          "toc": "Negate",
+          "why": "Invert every bit, then add 1.",
+          "math": "11111010 + 1 = 11111011",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "range",
+          "prompt": "Range of an 8-bit two’s-complement integer?",
+          "choices": [
+            {
+              "text": "−127 … +127."
+            },
+            {
+              "text": "−128 … +127.",
+              "correct": true
+            },
+            {
+              "text": "0 … 255."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is sign–magnitude (with two zeros)."
+            },
+            {
+              "title": "Correct.",
+              "body": "One more negative than positive value, because zero uses a non-negative pattern."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is unsigned."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 5.1.1 — encodings of −5",
+          "note": "−5 in 8 bits: sign-magnitude, 1's and 2's complement side by side (2's = 11111011).",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nc\",\"engine\":\"numconv\",\"n\":-5,\"bits\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "nc": {
+              "ones": "11111010",
+              "twos": "11111011"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "addsub",
+      "locator": "5.2",
+      "title": "Addition, subtraction and overflow",
+      "eyebrow": "The adder",
+      "body": "<p>Subtraction is addition of the two’s complement: A − B = A + (¬B) + 1, so one adder does both. <b>Overflow</b> occurs when the true result does not fit: adding two positives gives a negative (or two negatives a positive). Hardware detects it as “carry into the sign bit ≠ carry out of the sign bit”. The carry flag is for unsigned overflow; the overflow flag is for signed.</p>",
+      "worked": [
+        {
+          "toc": "Sum",
+          "why": "Add 100 + 50 in 8-bit two’s complement.",
+          "math": "01100100 + 00110010 = 10010110"
+        },
+        {
+          "toc": "Overflow",
+          "why": "Two positives gave a negative pattern (−106): signed overflow.",
+          "math": "\\text{overflow}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ovf",
+          "prompt": "When can adding a positive and a negative number overflow?",
+          "choices": [
+            {
+              "text": "Whenever the carry flag is set."
+            },
+            {
+              "text": "When the result is zero."
+            },
+            {
+              "text": "Never — the result lies between the two operands.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Carry is an unsigned notion."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Zero is always representable."
+            },
+            {
+              "title": "Correct.",
+              "body": "Overflow needs operands of the same sign."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "booth",
+      "locator": "5.3",
+      "title": "Multiplication: shift-and-add and Booth",
+      "eyebrow": "Multiplying",
+      "body": "<p>Schoolbook binary multiplication adds a shifted copy of the multiplicand for each 1 in the multiplier. <em class=\"term\">Booth's algorithm</em> multiplies signed numbers directly and skips runs of 1s: it inspects pairs of multiplier bits (Q₀, Q₋₁) — 10 subtracts M, 01 adds M, 00/11 do nothing — then shifts arithmetically right. Watch 7 × (−3) with 4 bits: the answer -21 appears as 11101011.</p>",
+      "questions": [
+        {
+          "id": "boothpair",
+          "prompt": "In Booth’s algorithm, the bit pair Q₀Q₋₁ = 10 means…",
+          "choices": [
+            {
+              "text": "Add the multiplicand."
+            },
+            {
+              "text": "Subtract the multiplicand (a run of 1s begins).",
+              "correct": true
+            },
+            {
+              "text": "Do nothing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is 01 (end of a run)."
+            },
+            {
+              "title": "Correct.",
+              "body": "10 marks the start of a block of ones, handled by one subtraction instead of many additions."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is 00 or 11."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 5.3.1 — 7 × (−3)",
+          "note": "Booth’s algorithm, step by step.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"booth\",\"engine\":\"booth\",\"bits\":4,\"m\":7,\"q\":-3,\"width\":600,\"height\":440});",
+          "expect": {
+            "booth": {
+              "product": "-21",
+              "binary": "11101011"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-booth",
+          "prompt": "<p>Use Booth’s algorithm for 7 × (−3) with 4-bit operands.</p>",
+          "answer": "Result <b>-21</b> = 11101011 in 8 bits (two's complement of 21 is 11101011).",
+          "verify": {
+            "id": "lab3",
+            "caption": "answer",
+            "note": "The table.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"booth\",\"bits\":4,\"m\":7,\"q\":-3,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "product": "-21"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "div",
+      "locator": "5.4",
+      "title": "Division",
+      "eyebrow": "Dividing",
+      "body": "<p>Restoring division mirrors long division: shift the remainder left bringing down the next dividend bit, subtract the divisor, and if the result is negative restore (add back) and record a 0, otherwise record a 1. Non-restoring division avoids the restore step by adding instead of subtracting in the next cycle. Either takes one step per quotient bit.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Divide 7 (0111) by 2 (0010), 4 bits."
+        },
+        {
+          "toc": "Result",
+          "why": "Quotient bits by repeated subtract/restore: 0011 with remainder 1.",
+          "math": "7 = 3\\times2+1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "restore",
+          "prompt": "In restoring division, when is the divisor added back?",
+          "choices": [
+            {
+              "text": "When the quotient is complete."
+            },
+            {
+              "text": "Always."
+            },
+            {
+              "text": "When the subtraction gave a negative remainder.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "No."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only after a failed subtraction."
+            },
+            {
+              "title": "Correct.",
+              "body": "The quotient bit is 0 and the remainder is restored."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "float",
+      "locator": "5.5",
+      "title": "Floating point: IEEE 754",
+      "eyebrow": "Fractions",
+      "body": "<p>A floating-point number is ±1.f × 2ᵉ stored as <b>sign | biased exponent | fraction</b>. Single precision uses 1 + 8 + 23 bits with bias 127; double uses 1 + 11 + 52 with bias 1023. The leading 1 is implicit. Step through 5.75: it is 101.11₂ = 1.0111 × 2², the exponent stored is 2 + 127 = 129, and the hex word is <b>40B80000</b>.</p>",
+      "questions": [
+        {
+          "id": "bias",
+          "prompt": "Why is the exponent stored with a bias?",
+          "choices": [
+            {
+              "text": "To save a sign bit for the mantissa."
+            },
+            {
+              "text": "To make it twice as precise."
+            },
+            {
+              "text": "So it is always non-negative and floating-point numbers compare like integers.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The sign has its own bit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Precision comes from the fraction."
+            },
+            {
+              "title": "Correct.",
+              "body": "The bias 127 turns exponents −126…127 into 1…254."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 5.5.1 — 5.75 in binary32",
+          "note": "5.75 → 0x40B80000",
+          "script": "var lab = create(\"steplab\", {\"name\":\"f1\",\"engine\":\"ieee754\",\"value\":5.75,\"width\":600,\"height\":440});",
+          "expect": {
+            "f1": {
+              "hex": "40B80000",
+              "biased": "129"
+            }
+          }
+        },
+        {
+          "id": "lab5",
+          "caption": "Figure 5.5.2 — −0.15625",
+          "note": "−0.15625 → 0xBE200000",
+          "script": "var lab = create(\"steplab\", {\"name\":\"f2\",\"engine\":\"ieee754\",\"value\":-0.15625,\"width\":600,\"height\":440});",
+          "expect": {
+            "f2": {
+              "hex": "BE200000"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ieee",
+          "prompt": "<p>Encode −0.15625 in IEEE 754 single precision.</p>",
+          "answer": "−0.15625 = −1.25 × 2⁻³. Sign 1, exponent −3 + 127 = 124, fraction .01₂. Word = <b>0xBE200000</b>."
+        }
+      ]
+    },
+    {
+      "id": "fparith",
+      "locator": "5.6",
+      "title": "Floating-point arithmetic",
+      "eyebrow": "Operations",
+      "body": "<p>To <b>add</b>: align the exponents by shifting the smaller number right, add the significands, normalise, round. To <b>multiply</b>: add exponents (subtract one bias), multiply significands, normalise. Division subtracts exponents. Because results are rounded, floating-point addition is not associative, and subtracting nearly equal numbers loses digits (cancellation).</p>",
+      "questions": [
+        {
+          "id": "align",
+          "prompt": "The first step of floating-point addition is…",
+          "choices": [
+            {
+              "text": "Multiply the significands."
+            },
+            {
+              "text": "Round the result."
+            },
+            {
+              "text": "Align the exponents by shifting the smaller operand’s significand right.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is multiplication."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Rounding is the last step."
+            },
+            {
+              "title": "Correct.",
+              "body": "Only numbers with equal exponents can have their significands added."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

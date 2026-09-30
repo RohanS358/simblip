@@ -1,0 +1,150 @@
+                   DATABASE MANAGEMENT SYSTEM
+                                      ENCT 301
+
+Lecture       :3                                                              Year : III
+Tutorial      :1                                                               Part : I
+Practical     :3
+
+Course Objectives:
+The objective of this course is to provide a comprehensive understanding of the
+principles and practices involved in the design and implementation of database
+systems. It enables students to develop data models, and perform data modification,
+processing, and management efficiently. The course also introduces advanced
+concepts such as object-oriented databases, data warehousing, data processing, and
+big data management.
+
+1    Introduction                                                            (3 hours)
+     1.1    Application and evolution of database
+     1.2    Data abstraction (Physical, logical, and view level) and data independence
+     1.3    Schema and instances
+
+2    Data Models                                                            (7 hours)
+     2.1    Introduction to data models (Entity-relationship, relational, object model,
+            hierarchical, network, graph data models)
+     2.2    E-R model
+            2.2.1 Entities and entity sets
+            2.2.2 Attributes and keys
+            2.2.3 Strong and weak entity sets
+            2.2.4 Relationship and relationship sets (Mapping cardinalities)
+            2.2.5 Specialization, generalization and aggregation
+     2.3    Relational model
+            2.3.1 Concept of relational model, key constraints
+            2.3.2 Converting ER model into relational model
+
+3    Relational Query Languages                                             (7 hours)
+     3.1    Relational algebra
+     3.2    Concept of DDL, DML and DCL
+     3.3    Overview of the SQL query language-DDL and DML queries
+     3.4    Set operations
+     3.5    Aggregate functions – GROUP BY – HAVING
+    3.6 Joins and types of joins
+    3.7 Nested sub queries
+    3.8 Database modification (Insert, update, delete)
+    3.9 Views
+    3.10 Triggers and stored procedures
+    3.11 Privilege and roles management – GRANT and REVOKE statements
+
+4   Database Constraints and Normalization                            (6 hours)
+    4.1   Integrity constraints and domain constraints
+    4.2   Assertions
+    4.3   Functional dependencies
+    4.4   Different normal forms (1NF, 2NF, 3NF, BCNF)
+
+5   Query Processing and Optimization                                 (4 hours)
+    5.1   Query processing, optimization and evaluation
+    5.2   Transformation of relational expressions
+    5.3   Techniques of implementing query optimization - Cost based optimization
+          and heuristic optimization
+    5.4   Query evaluation -Materialization and pipelining
+    5.5   Denormalization for performance
+    5.6   Materialized view
+    5.7   Performance tuning
+
+6   File Structure and Hashing                                         (5 hours)
+    6.1   Disks and storage
+    6.2   Records organizations
+    6.3   Ordered indices
+    6.4   B+ tree index
+    6.5   Hashing concepts - Static and dynamic hashing
+
+7   Transaction Processing and Concurrency Control                    (5 hours)
+    7.1   Transaction and transaction model - State diagram
+    7.2   Acid properties
+    7.3   Concurrent execution of transactions
+    7.4   Serializability (Conflict and view serializability)
+    7.5   Lock based protocols
+    7.6   Deadlock handling and prevention
+    7.7   Multiple granularity
+
+8   Crash Recovery                                                    (4 hours)
+    8.1   Failure classification
+    8.2   Recovery and atomicity
+     8.3    Log-based recovery
+     8.4    Shadow paging
+     8.5    High availability using remote backup systems
+
+9    Advanced Database Concepts                                              (4 hours)
+     9.1    Concept of object-oriented databases
+     9.2    Distributed database model
+     9.3    Concept of data warehousing and online analytical processing
+     9.4    Basic concepts of NoSQL and big data
+
+Tutorial                                                                    (15 hours)
+     1.     Designing ER model for sample cases
+     2.     Converting an ER diagram to a relational schema
+     3.     Practice with simple relational algebra queries
+     4.     Insert, update and delete with relational algebra queries using assignment
+            operator
+     5.     Executing DDL commands to create a database, define primary and foreign
+            key constraints
+     6.     Simple queries with SELECT and filtering
+     7.     Complex queries with joins and sub-queries
+     8.     Aggregating data with GROUP BY and HAVING
+     9.     Database manipulation with INSERT, UPDATE and DELETE queries
+     10.    Creating and using views
+     11.    Creating users, roles and using GRANT and REVOKE statements
+     12.    Triggers and stored procedures
+     13.    Identifying functional dependencies and normal forms
+     14.    Decomposing a table into BCNF and 3NF
+     15.    Introduction to NoSQL databases with MongoDB
+
+Practical                                                                     (45 hours)
+      1.    Database server installation and configuration
+      2.    DB client installation and connection to DB server. Introduction and practice
+            with SELECT command with the existing DB
+     3.     Further practice with DML queries – Select, insert, update and delete
+     4.     Advanced queries with joins and subqueries
+     5.     Aggregation and grou8ping
+     6.     Practice with DDL commands – Create/alter/drop table, integrity constraints
+            and views
+     7.     Triggers and stored procedures
+     8.     Query processing, optimization, performance tuning and database
+            administration
+     9.     Group project work
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+
+        Chapter                   Hours                    Marks distribution*
+         1                          3                              3
+         2                          7                                9
+         3                          7                                9
+         4                          6                                9
+         5                          4                                6
+         6                          5                                8
+         7                          5                                8
+         8                          4                                4
+         9                          4                                4
+        Total                      45                               60
+* There may be minor deviation in marks distribution.
+
+References
+    1.   Silberschatz, A., Korth, H.F., Sudarshan, S. (2019). Database system
+         concepts. McGraw-Hill.
+    2.   Elmasri, R., Navathe, S.B. (2021). Fundamentals of database systems.
+         Pearson.
+    3.   Ramakrishnan, R., Gehrke, J. (2002). Database management systems.
+         McGraw-Hill.
+    4.    Connolly, T.M., Begg, C.E. (2021). Database systems: A practical
+         approach to design, implementation, and management. Pearson.
+

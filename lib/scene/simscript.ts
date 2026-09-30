@@ -1,7 +1,7 @@
 import { useDocStore } from '@/lib/store/document'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
 import { uid, type Behavior, type SceneObject, type GeometryKind, type BehaviorType, num, str } from './types'
-import { behaviorSpec } from '@/lib/behaviors/registry'
+import { behaviorSpec, createBehavior } from '@/lib/behaviors/registry'
 import { createGeometry, nextZ } from './factory'
 import { channelsFor } from './channels'
 import { planPlacement, unionRect, type Bounds } from './auto-layout'
@@ -929,6 +929,8 @@ export function executeSimScript(
         // `lines` is the layout's size estimate, nothing more.
         text: n.label,
         name: n.label,
+        // A UML class box lists members: they read left-aligned.
+        ...(n.shape === 'class' ? { align: 'left' } : {}),
       }
       const handle =
         n.shape === 'circle' ? create('circle', props)
@@ -936,10 +938,33 @@ export function executeSimScript(
         : create('rect', props)
       handles[n.id] = handle
       ids[n.id] = handle.id
+      // A node that a token passes through glows while it holds it. The timing
+      // is DATA on the object; the runtime clock reads it (lib/physics/flow.ts).
+      if (n.lit) {
+        const obj = store().pages[pageId]?.objects[handle.id]
+        if (obj) store().updateObject(pageId, handle.id, {
+          behaviors: [...obj.behaviors, createBehavior('flow')],
+          metadata: { ...obj.metadata, flowLit: n.lit, flowLoop: layout.loop },
+        }, { history: false })
+      }
       // The layout IS the placement. create() only treats a non-zero x/y as
       // explicit, so the node that legitimately sits at the origin would
       // otherwise look unplaced to every later pass.
       explicitPos.add(handle.id)
+    }
+
+    // Sequence diagrams: one thin dashed lifeline per participant. Messages
+    // anchor to THESE (not to the header box), so dragging a participant's
+    // lifeline keeps its arrows on it.
+    const lifeIds: Record<string, string> = {}
+    for (const l of layout.lifelines) {
+      const life = create('rect', {
+        x: ox + l.x - origin.x, y: oy + l.y - origin.y, width: l.w, height: l.h,
+        fill: 'color-mix(in oklch, var(--muted-foreground) 30%, var(--card))',
+        stroke: 'var(--border)', strokeWidth: 1, radius: 3, name: `${l.id} lifeline`,
+      })
+      explicitPos.add(life.id)
+      lifeIds[l.id] = life.id
     }
 
     for (const e of layout.edges) {
@@ -959,7 +984,7 @@ export function executeSimScript(
         },
         rotation: 0,
         z: nextZ(),
-        behaviors: [],
+        behaviors: e.tokens?.length ? [createBehavior('flow')] : [],
         parameters: {},
         metadata: {
           render: 'connector',
@@ -967,15 +992,19 @@ export function executeSimScript(
           startCap: 'none',
           endCap: e.style === 'plain' ? 'none' : 'arrow',
           dash: e.style === 'dashed' ? 1 : undefined,
-          startAnchor: { kind: 'boundary', objectId: ids[e.from], t: e.aT },
-          endAnchor: { kind: 'boundary', objectId: ids[e.to], t: e.bT },
+          startAnchor: { kind: 'boundary', objectId: e.onLifeline ? lifeIds[e.from] : ids[e.from], t: e.aT },
+          endAnchor: { kind: 'boundary', objectId: e.onLifeline ? lifeIds[e.to] : ids[e.to], t: e.bT },
+          // Tokens that travel along this arrow: DATA, read by the runtime clock.
+          ...(e.tokens?.length ? { flow: e.tokens, flowLoop: layout.loop } : {}),
         },
       }, { history: false })
       created.push(id)
       explicitPos.add(id)
 
       if (e.label && e.labelAt) {
-        const w = Math.max(44, e.label.length * 8 + 14)
+        // Wide enough that the shape's own text padding never wraps a short label
+        // ("ACK" broke into "AC/K" at 44px).
+        const w = Math.max(60, e.label.length * 9 + 38)
         const tag = create('rect', {
           // Beside the line rather than on it: an orthogonal route has a long
           // middle segment, and a label centred on it would be struck through.
@@ -1065,7 +1094,7 @@ export function executeSimScript(
 
     // Tier 2 — orthogonal routing, over the FINAL positions (explicitly placed
     // parts included: they are obstacles even though layout never moved them).
-    const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable'])
+    const excludeKinds = new Set(['line', 'table', 'graph', 'note', 'cashflow', 'truthtable', 'steplab'])
     const bodies = Object.values(store().pages[pageId]?.objects ?? {})
       .filter(o => !excludeKinds.has(o.geometry.kind))
     // TRUE body rectangles. The search grid is padded below so routes keep a
@@ -1204,7 +1233,7 @@ export function executeSimScript(
   // creation order, so a script that writes two formulas gets two readable
   // formulas instead of one illegible overlap. Only cards move: a body or a
   // connector's position is physics, not layout.
-  const CARD_KINDS = new Set(['formula', 'text', 'note', 'graph', 'chart', 'table', 'gridtable', 'surface3d', 'code', 'cashflow', 'truthtable'])
+  const CARD_KINDS = new Set(['formula', 'text', 'note', 'graph', 'chart', 'table', 'gridtable', 'surface3d', 'code', 'cashflow', 'truthtable', 'steplab'])
   const movable = created.filter((id) => {
     const o = store().pages[pageId]?.objects?.[id]
     return !!o && !explicitPos.has(id) && CARD_KINDS.has(o.geometry.kind)

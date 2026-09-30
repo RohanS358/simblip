@@ -1,0 +1,261 @@
+ENGINEERING CHEMISTRY
+ENSH 153
+Lecture
+Tutorial
+Practical
+:3
+:1
+:3
+Year : I
+Part : II
+Course Objectives:
+To develop the basic concepts of physical chemistry, inorganic chemistry, analytical
+chemistry, environmental chemistry, green and sustainable chemistry, nano chemistry,
+polymer chemistry and organic chemistry relevant to the different disciplines of
+engineering.
+1
+Electrochemistry and Buffer
+1.1
+1.2
+1.3
+1.4
+2
+Electrochemistry
+1.1.1 Introduction
+1.1.2 EMF of galvanic cell, Nernst equation
+1.1.3 Polarization and overpotential
+1.1.4 Butler-Volmer equation and Tafel plots
+Electrode processes and mechanisms (Qualitative only)
+1.2.1 Charge transfer processes at electrodes
+1.2.2 Mass transfer and diffusion in electrochemical systems
+Industrial and applied electrochemistry
+1.3.1 Batteries: Lead acid and lithium ion
+1.3.2 Solar-photovoltaic cell (With typical examples), fuel cell
+1.3.3 Corrosion
+Buffer, buffer range, buffer capacity and buffer solution (HendersonHasselbalch equation) and its applications
+Catalyst and Catalysis
+2.1
+2.2
+2.3
+2.4
+(8 hours)
+Definition and types
+Design and criteria
+2.2.1 Structure-activity relationships
+2.2.2 Selection criteria of catalyst
+Photocatalysis and electrocatalysis
+Catalysis for energy and environmental applications
+2.4.1 Catalytic conversion of fossil fuels
+2.4.2 Renewable energy catalysts
+2.4.3 Catalyst for pollution control
+(4 hours)
+3
+Analytical Techniques and their Applications
+3.1
+3.2
+3.3
+3.4
+3.5
+3.6
+4
+4.2
+4.3
+5
+5.3
+5.4
+6.3
+7
+(3 hours)
+Introduction and types of nano materials (0-, 1-, 2-, and 3- dimensional)
+Nanoparticles, nanofibers, nanowires, carbon nanotubes, graphene,
+mxene, quantum dots, and their uses
+Preparation of nanomaterials
+Engineering Materials
+7.1
+(7 hours)
+Green chemistry: Introduction and principles
+Water chemistry
+5.2.1 Importance of water quality standards
+5.2.2 Degree of hardness, scale formation in boiler and softening of hard
+water
+5.2.3 Water pollution with reference to turbidity, COD, BOD, heavy
+metals, radioactive substances, and plastic
+5.2.4 Industrial wastewater and its treatment
+Air pollution: Particulate matter, SOx, NOx, GHGs, VOCs, their impacts and
+remedies
+Waste management
+5.4.1 Segregation and management of solid waste
+5.4.2 Management of biodegradable waste into energy
+5.4.3 E-waste and its management
+Nanoscience and Nanotechnology
+6.1
+6.2
+(6 hours)
+Complexes
+4.1.1 Introduction and Werner’s theory
+4.1.2 Geometry of complex by VBT and its applications
+4.1.3 Crystal field theory: Principle and applications
+Rare earth elements: Introduction and applications
+Metallic alloys and applications
+Sustainable Chemistry
+5.1
+5.2
+6
+Chromatography
+Mass spectroscopy
+X-ray diffraction (XRD)
+UV-visible spectroscopy
+Infrared-spectroscopy (IR)
+Nuclear magnetic resonance spectroscopy (NMR)
+Metal Complexes, Rare Earth Elements and Metal alloys
+4.1
+(6 hours)
+(7 hours)
+Polymers
+7.1.1 Natural and synthetic, organic and inorganic, conducting and nonconducting
+7.2
+8
+7.1.2 Types of polymerizations: Addition and condensation polymerization
+7.1.3 Preparation and applications of epoxy resin, polyurethane, Kevlar,
+polycarbonate, polymethyl methacrylate, polyacrylonitrile, silicones;
+Phosphorus based polymer, Sulphur based polymer
+7.1.4 Conducting polymers: Synthesis and application
+7.1.5 Composite: Fiber reinforced polymer
+7.1.6 Natural polymers: Cellulose, chitin, chitosan, collagen
+Cement: Hydration and setting chemistry of cement
+Explosives, Lubricants and Paints
+8.1
+8.2
+8.3
+Tutorial
+1.
+2.
+3.
+4.
+5.
+6.
+7.
+8.
+9.
+Practical
+10.
+11.
+12.
+13.
+(4 hours)
+Explosives
+8.1.1 Types of explosives: Primary, low and high explosives
+8.1.2 Preparation and applications of TNT, TNG, Nitrocellulose and plastic
+explosives
+Lubricants: Introduction, function and classification
+Paints
+8.3.1 Introduction, requisites, types and applications
+8.3.2 Environmental and health impact
+(15 hours)
+Introduction to cells, electroplating, EMF, electric double layer, problems
+related to buffer and Nernst equations
+Types of catalyst and types of catalysis
+Electromagnetic radiation, electromagnetic spectrum, electromagnetic
+wave, principles of spectroscopy, types of molecular spectra
+Complexes, ligands, postulates, compounds with coordination number 4
+and 6, splitting of octahedral and tetrahedral complexes and rare earth
+elements
+Application of green chemistry and industrial waste management
+Application of nanomaterials in pollution minimization
+Introduction and stabilization of free radicle, carbocation and carbanion.
+Exothermic reaction of cement and its applications
+Introduction of and applications of explosives, lubricants and paints
+(45 hours)
+Determination of total, temporary and permanent hardness of water
+sample using complexometric titration
+Determination of the alkalinity of water sample A and B by double indicator
+titration
+Estimation of the amount of residual chlorine in water by iodometric
+titration
+Preparation of the standard buffer solution (Acidic or basic) and measure
+the approximate pH of given unknown solution by using Universal Indicator
+14.
+15.
+16.
+17.
+18.
+19.
+20.
+21.
+Comparison of the cleansing power of two sample of detergents by
+determining the reduction they cause in surface tension of water
+Construction of Daniell cell and study of the variation of cell potential with
+concentration
+Separation of the pigments through the process of paper / thin layer
+chromatography
+Determination of total iron in ground water using spectrophotometer
+technique
+Determination of amount of copper and iron in a given mixture solution by
+K2Cr2O7 titration
+Preparation of cross – linked polymer by condensation polymerization
+method
+Standardize potassium permanganate solution and use it to estimate the
+amount of Iron and determine the percentage purity in the sample of
+ferrous salt solution
+Preparation of Ni-DMG complex and estimation of the amount of nickel
+Final Exam
+The questions will cover all the chapters in the syllabus. The evaluation scheme will be
+as indicated in the table below:
+Chapter
+Hours
+Marks Distribution*
+1
+8
+2
+4
+3
+6
+4
+6
+5
+7
+6
+3
+7
+7
+8
+4
+Total
+45
+*There may be minor deviation in mark distribution
+10
+5
+5
+10
+10
+5
+10
+5
+60
+References
+1.
+Maron, S. H., Prutton, C. F. (1965). Principles of Physical Chemistry (Latest
+Edition). Macmillan.
+2.
+Lee, J.D. (2007). Concise Inorganic Chemistry. John Wiley & Sons.
+3.
+Madan, R.D., Prakash, S. (1994). Inorganic Chemistry (Latest Edition). S.
+Chand & Company Ltd.
+4.
+Bahl, S., Tuli, G.D., Bahl, A. (2009). Essentials of Physical Chemistry. S.
+Chand & Co. Ltd.
+5.
+Bhagi, A. K., Morrison, G. R. T., Boyd, R. N. (2008). Organic Chemistry.
+Prentice-Hall of India.
+6.
+Morrison, R. T., Boyd, R. N. (2008). Organic Chemistry. Prentice-Hall of
+India.
+7.
+8.
+9.
+Vogel. (2008). Vogel’s Textbook of Quantitative Chemical Analysis. Pearson
+Education.
+Murthy, B. S., Shankar, P., Baldev, R., Rath, B. B., Murday, J. (2012).
+Textbook of nanoscience and nanotechnology. Universities Press.
+Chatwal, G.R. (2023). Textbook of Environmental Chemistry. Himalaya
+Publishing House.

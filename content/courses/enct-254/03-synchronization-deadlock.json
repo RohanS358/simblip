@@ -1,0 +1,303 @@
+{
+  "title": "Synchronisation and deadlock",
+  "kicker": "ENCT 254 · Operating System · Chapter 3",
+  "subtitle": "Two processes sharing one variable can corrupt it without either being wrong. Locks fix that — and create a new way to get stuck.",
+  "sections": [
+    {
+      "id": "race",
+      "locator": "3.1",
+      "title": "The race condition",
+      "eyebrow": "The problem",
+      "body": "<p>Suppose two processes both run <code>counter++</code>. That single line is really three machine steps: load the counter, add one, store it back. If the scheduler switches between the load and the store, both processes read the <em>same</em> old value and one increment is lost. The result depends on the exact interleaving — a <em class=\"term\">race condition</em>.</p><p>The stretch of code that touches shared data is the <em class=\"term\">critical section</em>. A correct solution needs <em class=\"term\">mutual exclusion</em> (one process inside at a time), <em class=\"term\">progress</em> (someone gets in if nobody is) and <em class=\"term\">bounded waiting</em> (nobody waits forever).</p>",
+      "questions": [
+        {
+          "id": "lost",
+          "prompt": "Two processes each execute counter++ once, starting from 5. Which final values are possible without synchronisation?",
+          "choices": [
+            {
+              "text": "Always 7, because each process adds 1."
+            },
+            {
+              "text": "6 or 7 — it depends on the interleaving.",
+              "correct": true
+            },
+            {
+              "text": "Only 6, because the scheduler always switches at the worst moment."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Adding 1 twice is 7 only if the two updates cannot overlap. Without a lock they can, and then one of them is silently lost."
+            },
+            {
+              "title": "Correct.",
+              "body": "If one process finishes its load-add-store before the other starts, the result is 7. If both load before either stores, both write 6. The program is not wrong in either run; it is non-deterministic, which is what makes races so hard to debug."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The bad interleaving is possible, not guaranteed. A test may pass a million times and still fail in production."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 3.1.1 — a lost update",
+          "note": "Two increments, final value 6 instead of 7: the second store overwrote the first.",
+          "script": "diagram(\"mode: sequence\\n[Process A] as a\\n[counter in memory] as m\\n[Process B] as b\\na -> m : load (reads 5)\\nb -> m : load (reads 5)\\na -> a : add 1 → 6\\nb -> b : add 1 → 6\\na -> m : store 6\\nb -> m : store 6\\nloop 6\");"
+        }
+      ]
+    },
+    {
+      "id": "locks",
+      "locator": "3.2",
+      "title": "Mutex, semaphore, monitor",
+      "eyebrow": "The tools",
+      "body": "<p>A <em class=\"term\">mutex</em> is a lock with one owner: acquire before the critical section, release after. A <em class=\"term\">semaphore</em> is an integer with two atomic operations — <b>wait (P)</b> decrements and blocks if the result would be negative, <b>signal (V)</b> increments and wakes a waiter. Initialised to 1 it is a mutex; initialised to <i>n</i> it lets <i>n</i> processes in (a pool of identical resources). A <em class=\"term\">monitor</em> packages the data, the operations and the lock together so a caller cannot forget to lock.</p><p>Three classic exercises use them. <b>Producer–consumer</b>: a bounded buffer with semaphores <i>empty</i> = N, <i>full</i> = 0 and a mutex. <b>Readers–writers</b>: many readers or one writer. <b>Dining philosophers</b>: five forks on a table — if everyone grabs the left fork first, all wait forever.</p>",
+      "questions": [
+        {
+          "id": "semzero",
+          "prompt": "A semaphore is initialised to 0 and a process executes wait() on it. What happens?",
+          "choices": [
+            {
+              "text": "It blocks until some other process calls signal().",
+              "correct": true
+            },
+            {
+              "text": "It continues immediately and the value becomes −1."
+            },
+            {
+              "text": "It raises an error, because a semaphore must start at 1."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "With value 0 there is nothing to take, so wait cannot decrement and the process sleeps on the semaphore’s queue. Initialising to 0 is how one process waits for an event another will announce."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "A negative value is only bookkeeping for the number of sleepers; the calling process is still put to sleep."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Any non-negative start is legal: 1 for a mutex, 0 for signalling, n for a resource pool."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia2",
+          "caption": "Figure 3.2.1 — bounded buffer",
+          "note": "Two counting semaphores track free and used slots; the mutex protects the buffer itself.",
+          "script": "diagram(\"direction: right\\n[Producer] as p #mint\\n[Buffer of N slots] as b #blue\\n[Consumer] as c #violet\\np -> b : wait(empty), wait(mutex), put, signal(mutex), signal(full)\\nb -> c : wait(full), wait(mutex), get, signal(mutex), signal(empty)\\n@0 p -> b : item\\n@1.4 b -> c : item\\nloop 3.5\");"
+        }
+      ]
+    },
+    {
+      "id": "deadlock",
+      "locator": "3.3",
+      "title": "Deadlock and its four conditions",
+      "eyebrow": "The catch",
+      "body": "<p>A <em class=\"term\">deadlock</em> is a set of processes each waiting for something only another member of the set can release. It needs <b>all four</b> of these at once: <b>mutual exclusion</b> (resources are not shareable), <b>hold and wait</b> (keep what you have while asking for more), <b>no pre-emption</b> (resources cannot be taken away) and <b>circular wait</b> (a cycle of who-waits-for-whom). Break any one and deadlock is impossible — that is <em class=\"term\">prevention</em>. <em class=\"term\">Avoidance</em> allows all four but refuses any request that could lead to a stuck state; <em class=\"term\">detection and recovery</em> lets it happen and then kills or rolls back a victim; <em class=\"term\">ignoring</em> it (the ostrich approach) is what most general-purpose systems actually do.</p>",
+      "questions": [
+        {
+          "id": "four",
+          "prompt": "Which single condition does “lock the resources in a fixed global order” break?",
+          "choices": [
+            {
+              "text": "Hold and wait."
+            },
+            {
+              "text": "Circular wait.",
+              "correct": true
+            },
+            {
+              "text": "Mutual exclusion."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Processes still hold some resources while asking for others; only the order of asking is constrained."
+            },
+            {
+              "title": "Correct.",
+              "body": "If every process acquires resources in increasing order, a cycle would need some process to ask for a lower-numbered resource while holding a higher one — which the rule forbids. The other three conditions still hold."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The resources are still exclusive. Breaking mutual exclusion needs shareable resources, which a printer or a lock is not."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 3.3.1 — resource-allocation cycle",
+          "note": "A cycle P1 → R2 → P2 → R1 → P1: circular wait. Neither can proceed.",
+          "script": "diagram(\"direction: right\\n[P1 holds R1] as p1 #blue\\n[P2 holds R2] as p2 #violet\\n[R1] as r1 #amber\\n[R2] as r2 #amber\\np1 -> r2 : wants\\np2 -> r1 : wants\\nr1 --> p1 : held by\\nr2 --> p2 : held by\\n@0 p1 -> r2 : request\\n@1.2 p2 -> r1 : request\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "banker",
+      "locator": "3.4",
+      "title": "The banker's algorithm",
+      "eyebrow": "Avoidance",
+      "body": "<p>The banker treats each process's maximum claim like a credit line. A state is <em class=\"term\">safe</em> if there is <em>some order</em> in which every process can be given its remaining need and finish. The algorithm keeps a vector <b>Work</b> (initially Available) and repeatedly looks for a process whose <b>Need = Max − Allocation</b> fits inside Work; it runs that process to completion and adds its allocation back. If all processes can be retired, the state is safe and the order found is a <em class=\"term\">safe sequence</em>. An unsafe state is <em>not</em> a deadlock — it is a state from which deadlock can no longer be ruled out.</p><p>Run the classic example: 5 processes, 3 resource types, Available = (3 3 2).</p>",
+      "worked": [
+        {
+          "toc": "P1 fits",
+          "why": "Need = Max − Allocation. For P1: Max (3 2 2) − Allocation (2 0 0) = (1 2 2). With Work = Available = (3 3 2), (1 2 2) ≤ (3 3 2), so P1 can finish.",
+          "math": "Need_1 = (3,2,2)-(2,0,0) = (1,2,2) \\le (3,3,2)"
+        },
+        {
+          "toc": "After P1",
+          "why": "P1 finishes and returns its allocation: Work = (3 3 2) + (2 0 0) = (5 3 2). Now P3 (Need (0 1 1)) fits.",
+          "math": "Work = (5,3,2)"
+        },
+        {
+          "toc": "Safe sequence",
+          "why": "Continuing this way retires the remaining processes one by one: the card gives P1 P3 P0 P2 P4. Every process could be finished, so the state is safe.",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "unsafe",
+          "prompt": "A state is unsafe. What does that tell you?",
+          "choices": [
+            {
+              "text": "The system is already deadlocked."
+            },
+            {
+              "text": "At least one process has exceeded its maximum claim."
+            },
+            {
+              "text": "Deadlock is now possible — the banker refuses to enter it.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A deadlocked state is unsafe, but an unsafe state need not be deadlocked yet."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Exceeding the claim is an error the algorithm rejects outright; unsafe is about feasibility of finishing, not about cheating."
+            },
+            {
+              "title": "Correct.",
+              "body": "Unsafe means no order is guaranteed to let everyone finish; whether deadlock actually occurs depends on what the processes do next. Avoidance is conservative: it denies requests that lead to unsafe states even though some would have turned out fine."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab4",
+          "caption": "Figure 3.4.1 — banker's algorithm",
+          "note": "The algorithm retires processes in the order P1 P3 P0 P2 P4; any safe sequence proves the state safe.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"bank\",\"engine\":\"banker\",\"width\":600,\"height\":440});",
+          "expect": {
+            "bank": {
+              "safe": "yes",
+              "sequence": "P1 P3 P0 P2 P4"
+            }
+          }
+        },
+        {
+          "id": "lab5",
+          "caption": "Figure 3.4.2 — a request",
+          "note": "P1 asks for (1 0 2). The banker pretends to grant it and re-runs the safety check.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"req\",\"engine\":\"banker\",\"request\":\"P1:1 0 2\",\"width\":600,\"height\":440});",
+          "expect": {
+            "req": {
+              "safe": "yes",
+              "sequence": "P1 P3 P0 P2 P4"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "locator": "3.5",
+      "title": "Numericals",
+      "eyebrow": "Practice",
+      "problems": [
+        {
+          "id": "p-safe",
+          "prompt": "<p>Five processes and three resource types with Available = (3 3 2); Max and Allocation as in Figure 3.4.1. Is the system in a safe state? Give a safe sequence.</p>",
+          "answer": "Yes. The algorithm repeatedly picks the lowest-numbered unfinished process whose Need fits in Work. It finds <b>P1 P3 P0 P2 P4</b>. Other orders such as P1, P3, P4, P0, P2 are also safe — a safe state may have many safe sequences.",
+          "verify": {
+            "id": "lab6",
+            "caption": "answer",
+            "note": "The same algorithm.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"banker\",\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "sequence": "P1 P3 P0 P2 P4"
+              }
+            }
+          }
+        },
+        {
+          "id": "p-cond",
+          "prompt": "<p>Name the four Coffman conditions and say which one a spooling printer queue removes.</p>",
+          "answer": "Mutual exclusion, hold and wait, no pre-emption, circular wait. Spooling removes <b>mutual exclusion</b> (for the printer): processes write to a queue on disk instead of holding the device, so they never wait on each other for it."
+        },
+        {
+          "id": "p-phil",
+          "prompt": "<p>Five philosophers each pick up their left fork first. Why can the table deadlock, and give one fix.</p>",
+          "answer": "If all five pick up their left fork simultaneously, each holds one fork and waits for the right one held by a neighbour: circular wait. Fixes: allow at most four to sit at once, pick up both forks atomically (or neither), or number the forks and always take the lower one first."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "3.6",
+      "title": "What to remember",
+      "eyebrow": "Summary",
+      "body": "<ul><li>A race condition is a bug in the <em>interleaving</em>, not in any one process; a critical section guarded by a lock removes it.</li><li>Mutex = semaphore with value 1; semaphore 0 = signalling; semaphore n = pool.</li><li>Deadlock needs all four conditions; breaking one prevents it.</li><li>Safe ⇒ no deadlock guaranteed; unsafe ⇒ deadlock possible. The banker only ever grants requests that keep the state safe.</li></ul>",
+      "questions": [
+        {
+          "id": "recap",
+          "prompt": "Which statement about unsafe states is true?",
+          "choices": [
+            {
+              "text": "Unsafe and deadlocked mean the same thing."
+            },
+            {
+              "text": "A safe state can still deadlock if a process is unlucky."
+            },
+            {
+              "text": "Every deadlocked state is unsafe, but not every unsafe state is deadlocked.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Unsafe is a prediction about what might happen; deadlocked is a fact about what has."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "By definition a safe sequence exists, and following it finishes everyone."
+            },
+            {
+              "title": "Correct.",
+              "body": "Safe ⊂ not-deadlocked: no safe state leads to deadlock, but an unsafe state merely lacks the guarantee."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

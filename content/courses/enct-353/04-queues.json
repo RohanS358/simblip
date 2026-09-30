@@ -1,0 +1,294 @@
+{
+  "title": "Queueing systems",
+  "kicker": "ENCT 353 · Simulation and Modeling · Chapter 4",
+  "subtitle": "Waiting is what most systems are made of. A few formulas tell you when the line explodes.",
+  "sections": [
+    {
+      "id": "elems",
+      "locator": "4.1",
+      "title": "Elements of a queue",
+      "eyebrow": "Anatomy",
+      "body": "<p>A queueing system has an <em class=\"term\">arrival</em> process (calling population, inter-arrival times), a <em class=\"term\">queue</em> (capacity, discipline — FIFO, LIFO, priority) and one or more <em class=\"term\">servers</em> (service-time distribution). <em class=\"term\">Kendall’s notation</em> A/B/c/K/N/D describes it: M/M/1 = Markovian (Poisson) arrivals, Markovian (exponential) service, one server. Applications: banks, call centres, routers, CPUs, traffic.</p>",
+      "questions": [
+        {
+          "id": "kend",
+          "prompt": "In M/M/1 the second “M” stands for…",
+          "choices": [
+            {
+              "text": "Multiple servers."
+            },
+            {
+              "text": "Maximum capacity."
+            },
+            {
+              "text": "Exponential (Markovian) service times.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the third symbol."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is K."
+            },
+            {
+              "title": "Correct.",
+              "body": "The first M is Poisson arrivals."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 4.1.1 — a single-server queue",
+          "note": "The anatomy of an M/M/1 queue.",
+          "script": "diagram(\"direction: right\\n(Arrivals, rate λ) as a\\n[Queue: FIFO, waiting customers] as q #amber\\n[Server, rate μ] as s #mint\\n(Departures) as d\\na -> q\\nq -> s\\ns -> d\\n@0 a -> q : customer\\n@1 q -> s : starts service\\n@2 s -> d : leaves\\nloop 4\");"
+        }
+      ]
+    },
+    {
+      "id": "mm1",
+      "locator": "4.2",
+      "title": "M/M/1 in theory",
+      "eyebrow": "The formulas",
+      "body": "<p>With arrival rate λ and service rate μ the <em class=\"term\">utilisation</em> is ρ = λ/μ, which must stay below 1. Then L (mean number in system) = ρ/(1−ρ), W (mean time in system) = 1/(μ−λ), Lq = ρ²/(1−ρ), Wq = ρ/(μ−λ), and Little’s law L = λW holds for any stable queue. At ρ = 0.5: L = 1. At ρ = 0.9: L = 9 — waiting explodes as utilisation approaches 100%.</p>",
+      "worked": [
+        {
+          "toc": "Utilisation",
+          "why": "λ = 0.8 customers/min, μ = 1 customer/min.",
+          "math": "\\rho=0.8"
+        },
+        {
+          "toc": "L",
+          "why": "Mean number in system.",
+          "math": "L=\\frac{\\rho}{1-\\rho}=4"
+        },
+        {
+          "toc": "W",
+          "why": "Mean time in system, and Little’s law check L = λW.",
+          "math": "W=\\frac{1}{1-0.8}=5\\ \\text{min},\\ \\lambda W=4",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rho",
+          "prompt": "What happens to an M/M/1 queue as ρ → 1?",
+          "choices": [
+            {
+              "text": "The mean queue length and waiting time grow without bound.",
+              "correct": true
+            },
+            {
+              "text": "Nothing; utilisation is irrelevant."
+            },
+            {
+              "text": "The queue empties."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "L = ρ/(1 − ρ) → ∞."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is everything."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It grows."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sim",
+      "locator": "4.3",
+      "title": "Simulating it",
+      "eyebrow": "Does the simulation agree?",
+      "body": "<p>Generate exponential inter-arrival and service times, run the event loop, and measure. With λ = 0.5, μ = 1 (ρ = 0.5) over 4000 customers the simulated utilisation is <b>0.512</b> and average number in system <b>1.012</b> against theory ρ = 0.5, L = 1. At ρ = 0.9 the theory says L = 9 and the simulation gives about <b>11.148</b> — with much more noise.</p>",
+      "questions": [
+        {
+          "id": "noise",
+          "prompt": "Why is the ρ = 0.9 simulation noisier than ρ = 0.5?",
+          "choices": [
+            {
+              "text": "Long busy periods make the queue correlated over time, so averages converge slowly.",
+              "correct": true
+            },
+            {
+              "text": "The random generator is worse."
+            },
+            {
+              "text": "The formula is wrong."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "More runs or longer runs are needed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Same generator."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Theory is fine; estimating it is harder."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 4.3.1 — ρ = 0.5",
+          "note": "Steps show the queue length over time; ticks are arrivals and departures.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"lo\",\"engine\":\"mm1\",\"lambda\":0.5,\"mu\":1,\"customers\":300,\"width\":600,\"height\":440});",
+          "expect": {
+            "lo": {
+              "utilisation": "0.483",
+              "avgInSystem": "0.917",
+              "theoryL": "1"
+            }
+          }
+        },
+        {
+          "id": "lab3",
+          "caption": "Figure 4.3.2 — ρ = 0.9",
+          "note": "Near saturation the queue wanders to large values.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"hi\",\"engine\":\"mm1\",\"lambda\":0.9,\"mu\":1,\"customers\":300,\"width\":600,\"height\":440});",
+          "expect": {
+            "hi": {
+              "utilisation": "0.84",
+              "avgInSystem": "5.447",
+              "theoryL": "9"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-q",
+          "prompt": "<p>λ = 0.5, μ = 1: give the theoretical utilisation, L and mean wait in queue, and compare with the simulation.</p>",
+          "answer": "ρ = 0.5, L = 1, Wq = ρ/(μ−λ) = 1. Simulated: utilisation <b>0.512</b>, L ≈ <b>1.012</b>.",
+          "verify": {
+            "id": "lab4",
+            "caption": "answer",
+            "note": "Long run.",
+            "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"mm1\",\"lambda\":0.5,\"mu\":1,\"customers\":4000,\"seed\":9,\"width\":600,\"height\":440});",
+            "expect": {
+              "ans": {
+                "utilisation": "0.512",
+                "avgInSystem": "1.012"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "net",
+      "locator": "4.4",
+      "title": "Networks of queues",
+      "eyebrow": "Many servers",
+      "body": "<p>Real systems chain queues: a customer visits several stations. In a tandem of M/M/1 queues, each behaves (Jackson's theorem) as an independent M/M/1 with the same arrival rate but its own μ, and the total time is the sum. More servers (M/M/c) share the load: the same λ with two half-speed servers behaves differently from one full-speed server.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "Two M/M/1 stations in series, λ = 2/min, μ₁ = 4, μ₂ = 3."
+        },
+        {
+          "toc": "Total time",
+          "why": "W₁ = 1/(4−2) = 0.5 min, W₂ = 1/(3−2) = 1 min.",
+          "math": "W=0.5+1=1.5\\ \\text{min}",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "tandem",
+          "prompt": "In a tandem of two queues the total time in the system is…",
+          "choices": [
+            {
+              "text": "The larger of the two."
+            },
+            {
+              "text": "The average."
+            },
+            {
+              "text": "The sum of the times at each station.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Both are experienced."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is a sum."
+            },
+            {
+              "title": "Correct.",
+              "body": "Time adds along the path."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "app",
+      "locator": "4.5",
+      "title": "Applications",
+      "eyebrow": "Uses",
+      "body": "<p>Sizing a call-centre (how many agents keep waiting under 30 s), router buffers, CPU scheduling, hospital beds, checkout lanes. The simulator shows the danger zone: keep utilisation below about 70–80% if waiting matters.</p>",
+      "questions": [
+        {
+          "id": "size",
+          "prompt": "Why do real systems avoid 100% utilisation?",
+          "choices": [
+            {
+              "text": "Queues and delays grow without bound as ρ approaches 1.",
+              "correct": true
+            },
+            {
+              "text": "It is impossible to reach."
+            },
+            {
+              "text": "It wastes power."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Some idle capacity buys short waits."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "You can approach it."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The issue is delay."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.6",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>ρ = λ/μ &lt; 1; L = ρ/(1−ρ); W = 1/(μ−λ); L = λW.</li><li>Simulation agrees with theory, with noise growing near ρ = 1.</li></ul>"
+    }
+  ]
+}

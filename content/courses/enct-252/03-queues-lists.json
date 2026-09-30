@@ -1,0 +1,278 @@
+{
+  "title": "Queues and linked lists",
+  "kicker": "ENCT 252 · Data Structure and Algorithms · Chapters 3–4",
+  "subtitle": "First in, first out; and a chain of nodes that grows one link at a time.",
+  "sections": [
+    {
+      "id": "queue",
+      "locator": "3.1",
+      "title": "The queue ADT",
+      "eyebrow": "FIFO",
+      "body": "<p>A <em class=\"term\">queue</em> adds at the <em class=\"term\">rear</em> (enqueue) and removes from the <em class=\"term\">front</em> (dequeue): first in, first out. Think of a print queue. A plain array queue wastes space as the front creeps forward; a <em class=\"term\">circular queue</em> wraps the indices with modulo, so the array is fully reused. A <em class=\"term\">deque</em> allows both ends; a <em class=\"term\">priority queue</em> removes the highest-priority item first (implemented by a heap).</p>",
+      "questions": [
+        {
+          "id": "fifo",
+          "prompt": "Enqueue 1, 2, 3 then dequeue once. What is at the front?",
+          "choices": [
+            {
+              "text": "1."
+            },
+            {
+              "text": "2.",
+              "correct": true
+            },
+            {
+              "text": "3."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It was removed."
+            },
+            {
+              "title": "Correct.",
+              "body": "1 left first."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is the rear."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp1",
+          "caption": "Figure 3.1.1 — The queue ADT",
+          "note": "The same four numbers as the stack — now in arrival order.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <queue>\\nusing namespace std;\\nint main() {\\n  queue<int> q;\\n  for (int i = 1; i <= 4; i++) q.push(i * 10);\\n  while (!q.empty()) {\\n    cout << q.front() << \\\" \\\";\\n    q.pop();\\n  }\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "10 20 30 40"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "circ",
+      "locator": "3.2",
+      "title": "Circular queue arithmetic",
+      "eyebrow": "Wrap around",
+      "body": "<p>With array size <i>N</i>, advance an index by <code>i = (i + 1) % N</code>. The queue is empty when front == rear and (keeping one slot unused) full when (rear + 1) % N == front. Otherwise empty and full look identical.</p>",
+      "worked": [
+        {
+          "toc": "Given",
+          "why": "N = 5, front = 3, rear = 4. Enqueue one item."
+        },
+        {
+          "toc": "Wrap",
+          "why": "rear becomes (4 + 1) mod 5 = 0 — it wrapped.",
+          "math": "(4+1)\\bmod 5=0",
+          "hero": true
+        },
+        {
+          "toc": "Full?",
+          "why": "Full check: (rear+1) mod N = 1 ≠ front 3, so there is still room."
+        }
+      ],
+      "questions": [
+        {
+          "id": "full",
+          "prompt": "Why do circular queues usually leave one slot unused?",
+          "choices": [
+            {
+              "text": "To speed up enqueue."
+            },
+            {
+              "text": "To tell a full queue apart from an empty one (front == rear in both cases otherwise).",
+              "correct": true
+            },
+            {
+              "text": "Because arrays start at 0."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Not the reason."
+            },
+            {
+              "title": "Correct.",
+              "body": "The sacrificed slot makes the two conditions different."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "list",
+      "locator": "4.1",
+      "title": "The linked list",
+      "eyebrow": "Nodes and pointers",
+      "body": "<p>A <em class=\"term\">linked list</em> stores each item in a node with a <code>next</code> pointer; you hold only the <em class=\"term\">head</em>. Insert at the head is O(1); insert after a known node is O(1); search is O(n); there is no index access. Nodes are allocated individually, so the list grows without a fixed size. <em class=\"term\">Doubly linked</em> nodes add a <code>prev</code> pointer (traverse both ways; deletion given the node is O(1)); <em class=\"term\">circular</em> lists link the last node back to the first.</p>",
+      "questions": [
+        {
+          "id": "ins",
+          "prompt": "Cost of inserting at the head of a singly linked list?",
+          "choices": [
+            {
+              "text": "O(n)."
+            },
+            {
+              "text": "O(1).",
+              "correct": true
+            },
+            {
+              "text": "O(log n)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is inserting at the tail without a tail pointer."
+            },
+            {
+              "title": "Correct.",
+              "body": "Create a node, point it at the old head, move the head — no shifting."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not a tree."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 4.1.1 — The linked list",
+          "note": "Inserting at the head reverses the order; watch the pointer arrows.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Node {\\n  int val;\\n  Node* next;\\n};\\nint main() {\\n  Node* head = nullptr;\\n  for (int i = 1; i <= 3; i++) {\\n    Node* n = new Node();\\n    n->val = i * 10;\\n    n->next = head;\\n    head = n;\\n  }\\n  for (Node* p = head; p != nullptr; p = p->next) cout << p->val << \\\" \\\";\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "30 20 10"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "ops",
+      "locator": "4.2",
+      "title": "Insert, delete and reverse",
+      "eyebrow": "Pointer surgery",
+      "body": "<p>To delete the node after <code>p</code>: <code>q = p->next; p->next = q->next; delete q;</code>. To reverse: keep <code>prev</code>, <code>cur</code>, <code>next</code>; for each node save next, point cur->next at prev, then advance all three. Always handle the empty list and the single-node case.</p>",
+      "questions": [
+        {
+          "id": "del",
+          "prompt": "To delete the node after p you must…",
+          "choices": [
+            {
+              "text": "Only free it."
+            },
+            {
+              "text": "Re-link p->next past it (and free it).",
+              "correct": true
+            },
+            {
+              "text": "Move the head."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "p would keep pointing at freed memory."
+            },
+            {
+              "title": "Correct.",
+              "body": "Otherwise the chain is broken or memory leaks."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Unrelated."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia3",
+          "caption": "Figure 4.2.1 — walking a list",
+          "note": "Traversal follows next until null.",
+          "script": "diagram(\"direction: right\\n[head] as h #blue\\n[10] as a #mint\\n[20] as b #mint\\n[30] as c #mint\\n(null) as n\\nh -> a\\na -> b\\nb -> c\\nc -> n\\n@0 h -> a : p\\n@1 a -> b : p\\n@2 b -> c : p\\n@3 c -> n : stop\\nloop 5\");"
+        }
+      ]
+    },
+    {
+      "id": "apps",
+      "locator": "4.3",
+      "title": "Applications: stack, queue and polynomials",
+      "eyebrow": "Uses",
+      "body": "<p>A list makes a stack (push/pop at the head) and a queue (insert at tail, remove at head, with a tail pointer) without a size limit. A polynomial is stored as a list of (coefficient, exponent) nodes in decreasing exponent; adding two polynomials walks both lists like merging sorted lists.</p>",
+      "worked": [
+        {
+          "toc": "Task",
+          "why": "Add 3x² + 2x + 1 and x² + 5."
+        },
+        {
+          "toc": "Result",
+          "why": "Merge by exponent: x² terms add; x term alone; constants add.",
+          "math": "4x^2 + 2x + 6",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "poly",
+          "prompt": "Why is a linked list good for sparse polynomials like x¹⁰⁰ + 1?",
+          "choices": [
+            {
+              "text": "Only non-zero terms are stored.",
+              "correct": true
+            },
+            {
+              "text": "Lists are faster for arithmetic."
+            },
+            {
+              "text": "Lists cannot store exponents."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "An array would need 101 slots."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Not inherently."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They can."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Array vs linked list: which is better for frequent random access by index? For frequent insertion in the middle?</p>",
+          "answer": "Random access: <b>array</b> (O(1) vs O(n)). Insertion in the middle once you hold the position: <b>linked list</b> (O(1) vs O(n) shifting)."
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "4.4",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Queue = FIFO; circular arrays reuse space.</li><li>Linked list: O(1) insertion at a known place, O(n) search.</li></ul>"
+    }
+  ]
+}

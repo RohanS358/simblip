@@ -11,6 +11,18 @@
 // Every sample is linted (lib/ai/simscript-lint.ts) before it is emitted, so
 // the dataset can never teach the model syntax the runtime would reject.
 
+import { ENGINES } from '@/lib/steplab/registry'
+
+/** The Step Lab section of the prompt, DERIVED from the engine registry — the
+ *  engine list can never drift from what the widget can run. Only ids and the
+ *  first few parameter names are listed: every engine runs on its defaults,
+ *  and retrieved examples show the rest. */
+export function stepLabCard(): string {
+  const groups = new Map<string, string[]>()
+  for (const e of ENGINES) groups.set(e.group, [...(groups.get(e.group) ?? []), `${e.id}(${e.params.slice(0, 3).map((p) => p.name).join(',')})`])
+  return [...groups].map(([g, ids]) => `- ${g}: ${ids.join(' ')}`).join('\n')
+}
+
 // ── Kind catalog ─────────────────────────────────────────────────────────────
 // One row per create() kind. `a`/`b` are the anchor names the wiring samples
 // use. Keep in sync with lib/scene/simscript.ts and the reference doc.
@@ -143,6 +155,7 @@ export const KIND_CATALOG: KindInfo[] = [
   { kind: 'truthtable', domain: 'widget', label: 'truth table', scenarioOnly: true },
   { kind: 'cashflow', domain: 'widget', label: 'cash-flow diagram' },
   { kind: 'dsa', domain: 'widget', label: 'DSA Lab (C++ visualizer)', scenarioOnly: true },
+  { kind: 'steplab', domain: 'widget', label: 'Step Lab (algorithm stepper: scheduler, cache, TCP, automata…)', scenarioOnly: true },
   { kind: 'system', domain: 'widget', label: 'system boundary', scenarioOnly: true },
   { kind: 'code', domain: 'widget', label: 'SimScript IDE' },
   { kind: 'gridtable', domain: 'widget', label: 'grid table', scenarioOnly: true },
@@ -164,7 +177,7 @@ export const KNOWN_KINDS = new Set<string>([
   // aliases accepted by create()
   'lens', 'lightsource', 'glassblock', 'mirror', 'screen', 'wavesource', 'waveboundary', 'transmissionline',
   'quantumwell', 'tunnelbarrier', 'heatblock', 'torsionpendulum', 'truth-table', 'dsa-lab',
-  'dsalab', 'ide', 'simscript',
+  'dsalab', 'ide', 'simscript', 'step-lab', 'lab', 'stepper',
   'grid-table', 'graph3d', 'surface-3d', '3d', 'image', 'img',
 ])
 
@@ -216,7 +229,7 @@ KINDS (create) — params in ()
 - mechanics: mass(mass) block(mass) beam wheel ground spring rope rod damper hinge motor(speed) charge(q,vx,vy) efield(Ex,Ey) bfield(Bz) dielectric(epsr,sigma,mur) heat-block torsion-pendulum reference-point — rigidBody props: mass,friction,restitution,vx,vy,omega,showTrail
 - optics: light-source thin-lens(f) optical-mirror optical-screen slit
 - waves/quantum: wave-source wave-boundary transmission-line quantum-well tunnel-barrier
-- widgets: note(text,color) text(text) formula(latex) table(headers,data,summary) truthtable(inputs,outputs) cashflow dsa(source: C++ code) system(domain) code(source)
+- widgets: note(text,color) text(text) formula(latex) table(headers,data,summary) truthtable(inputs,outputs) cashflow dsa(source: C++ code) steplab(engine,…) system(domain) code(source)
 
 BLOCK DIAGRAMS — diagram("…")
 - A flowchart, a classification, a signal chain or any boxes-and-arrows picture is diagram(), never hand-placed rects. One string, \\n between lines; the layout is computed, so never give coordinates.
@@ -224,7 +237,17 @@ BLOCK DIAGRAMS — diagram("…")
 - Edges: a -> b, a -> b : label, a --> b dashed, a -- b plain. An edge may declare its target inline: q -> [Result] as r.
 - direction: down (default) or right. group "Name" { a, b } draws a labelled container.
 - Example: diagram("direction: down\\n(Start) as s\\n<Ohmic?> as q\\n[Use V=IR] as ok\\n[Use the operating point] as np\\ns -> q\\nq -> ok : yes\\nq -> np : no");
+- Sequence diagrams (protocol handshakes, request/response, transactions): start with mode: sequence, declare participants, then write messages in time order — c -> s : SYN, s --> c : SYN-ACK (dashed = reply), s -> s : verify (a self message). Time runs down the page.
+- UML class boxes and DFD stores: {Order | + id : int ; + total : money | + pay()} as o   and   [|Orders DB|] as db.
+- ANIMATION: add @seconds lines that send a token along an existing arrow — @0 src -> enc : bits, @1.5+0.6 enc -> ch : symbols (+0.6 is the duration). loop 6 repeats every 6 s. A sequence diagram with no @ lines plays its messages in order. Play runs it; boxes glow while a token is inside them.
 - It is for STRUCTURE. A circuit that can be simulated is built from real components instead — a diagram of a circuit is a picture of one.
+
+STEP LAB — create("steplab", { engine: "sched", algo: "rr", quantum: 3, procs: "P1,0,7;P2,1,4" })
+- A computer-science topic that is an ALGORITHM RUNNING ON STATE (scheduling, page replacement, caches, an 8085 CPU, TCP, routing, automata, sorting/trees/graphs, search, learning, graphics, queues, numerical methods, block-diagram control loops) is a Step Lab. It draws the state one step at a time with a caption for each step; the reader steps or plays it.
+- engine picks the topic; every other prop is an argument for that engine (numbers, or strings like "P1,0,7;P2,1,4"). Every engine runs on its defaults, so create("steplab", { engine: "cache" }) already works — pass props only to change the scenario the question describes.
+- Engines by subject (first parameters shown):
+${stepLabCard()}
+- Never create it without an engine. It replaces hand-drawn Gantt charts, cache tables, state diagrams and trees: do NOT rebuild those from rect() and text().
 
 DSA LAB — create("dsa", { source: "…C++…" })
 - ANY data-structures or algorithms request (sorting, searching, traversal, recursion, linked lists, trees, graphs) is a DSA Lab, NOT a note and NOT a mechanics scene. The lab runs the C++ and animates every step.
@@ -631,6 +654,102 @@ connect(src.negative, tr.p2);
 connect(tr.s1, load.a);
 connect(tr.s2, load.b);
 graph.plot(load.V);`),
+
+  // ── Step Lab: computer-science algorithms drawn one step at a time ──
+  S('Show round-robin CPU scheduling with a quantum of 3 for four processes.', `
+var lab = create("steplab", { engine: "sched", algo: "rr", quantum: 3, procs: "P1,0,7;P2,1,4;P3,2,9;P4,3,5" });`),
+
+  S('Compare FIFO and LRU page replacement with 3 frames on the same reference string.', `
+var fifo = create("steplab", { x: 0, y: 0, engine: "paging", algo: "fifo", frames: 3, refs: "7 0 1 2 0 3 0 4 2 3 0 3 2" });
+var lru = create("steplab", { x: 660, y: 0, engine: "paging", algo: "lru", frames: 3, refs: "7 0 1 2 0 3 0 4 2 3 0 3 2" });`),
+
+  S('Which disk scheduling algorithm moves the head the least? Start at cylinder 53.', `
+var a = create("steplab", { x: 0, y: 0, engine: "disk", algo: "fcfs", head: 53, queue: "98 183 37 122 14 124 65 67" });
+var b = create("steplab", { x: 660, y: 0, engine: "disk", algo: "sstf", head: 53, queue: "98 183 37 122 14 124 65 67" });`),
+
+  S('Simulate a 2-way set-associative cache with 4 lines and show hits and misses.', `
+var lab = create("steplab", { engine: "cache", mapping: "set", ways: 2, lines: 4, block: 1, addrs: "0 8 0 6 8 4 0" });`),
+
+  S('Step through an 8085 program that adds the two bytes stored at 2050H and 2051H.', `
+var cpu = create("steplab", { engine: "cpu8085", program: "LXI H,2050H\\nMOV A,M\\nINX H\\nADD M\\nINX H\\nMOV M,A\\nHLT", memory: "2050=25,17", watch: "2050,2051,2052" });`),
+
+  S('Show a 5-stage pipeline with a load-use hazard, with and without forwarding.', `
+var a = create("steplab", { x: 0, y: 0, engine: "pipeline", forwarding: "off", prog: "lw r1, 0(r2)\\nadd r3, r1, r4\\nsub r5, r3, r6" });
+var b = create("steplab", { x: 660, y: 0, engine: "pipeline", forwarding: "on", prog: "lw r1, 0(r2)\\nadd r3, r1, r4\\nsub r5, r3, r6" });`),
+
+  S('Simplify a four-variable Boolean function with a Karnaugh map.', `
+var lab = create("steplab", { engine: "kmap", vars: 4, minterms: "0 1 2 5 6 7 8 9 10 14" });`),
+
+  S('Show how TCP slow start and congestion avoidance grow the window, with a loss at RTT 12.', `
+var lab = create("steplab", { engine: "tcp", variant: "reno", rounds: 24, ssthresh: 16, dupacks: "12" });`),
+
+  S('Compute the network, broadcast and usable hosts for 192.168.10.77/26.', `
+var lab = create("steplab", { engine: "subnet", address: "192.168.10.77/26" });`),
+
+  S('Find the shortest paths from node u using Dijkstra on a small network.', `
+var lab = create("steplab", { engine: "routing", algo: "dijkstra", source: "u", graph: "u-v:2;u-x:1;u-w:5;v-x:2;v-w:3;x-w:3;x-y:1;w-y:1;w-z:5;y-z:2" });`),
+
+  S('Compare Go-Back-N and Selective Repeat when frame 2 is lost.', `
+var g = create("steplab", { x: 0, y: 0, engine: "arq", protocol: "gbn", frames: 8, window: 4, prop: 2, lose: "2" });
+var s = create("steplab", { x: 640, y: 0, engine: "arq", protocol: "sr", frames: 8, window: 4, prop: 2, lose: "2" });`),
+
+  S('Show how a DFA accepts binary strings ending in 01, running on 1101.', `
+var lab = create("steplab", { engine: "dfa", spec: "start: q0\\naccept: q2\\nq0,0 -> q1\\nq0,1 -> q0\\nq1,0 -> q1\\nq1,1 -> q2\\nq2,0 -> q1\\nq2,1 -> q0", input: "1101" });`),
+
+  S('Run a Turing machine that increments a binary number.', `
+var lab = create("steplab", { engine: "tm", input: "1011" });`),
+
+  S('Insert 10, 20, 30, 40, 50, 25 into an AVL tree and show the rotations.', `
+var lab = create("steplab", { engine: "bst", mode: "avl", ops: "10;20;30;40;50;25" });`),
+
+  S('Animate quick sort on the numbers 5 1 4 2 8 9 3.', `
+var lab = create("steplab", { engine: "sorting", algo: "quick", values: "5 1 4 2 8 9 3" });`),
+
+  S('Show Huffman coding for the text "aaaabbc".', `
+var lab = create("steplab", { engine: "huffman", text: "aaaabbc" });`),
+
+  S('Show Prim and Kruskal finding a minimum spanning tree side by side.', `
+var p = create("steplab", { x: 0, y: 0, engine: "graphalgo", algo: "prim", start: "A" });
+var k = create("steplab", { x: 660, y: 0, engine: "graphalgo", algo: "kruskal" });`),
+
+  S('Run A* search on a small maze and show which cells it explores.', `
+var lab = create("steplab", { engine: "search", algo: "astar" });`),
+
+  S('Demonstrate minimax with alpha-beta pruning on an 8-leaf game tree.', `
+var lab = create("steplab", { engine: "minimax", branching: 2, depth: 3, leaves: "3 5 6 9 1 2 0 -1", pruning: "on" });`),
+
+  S('Show k-means clustering with two clusters on a few points.', `
+var lab = create("steplab", { engine: "kmeans", k: 2, points: "1,1;1.5,2;3,4;5,7;3.5,5;4.5,5;3.5,4.5" });`),
+
+  S('Draw a line from (2,2) to (13,8) with Bresenham on a pixel grid.', `
+var lab = create("steplab", { engine: "raster", algo: "bresenham", x1: 2, y1: 2, x2: 13, y2: 8 });`),
+
+  S('Show Cohen-Sutherland line clipping against a window.', `
+var lab = create("steplab", { engine: "clip", algo: "cohen", window: "20 20 80 70", line: "5 10 95 80" });`),
+
+  S('Show the candidate keys and highest normal form of R(A,B,C,D,E) with A->B, B->C, CD->E.', `
+var lab = create("steplab", { engine: "fd", attrs: "ABCDE", fds: "A->B;B->C;CD->E", closureOf: "A" });`),
+
+  S('Is the schedule r1(x) w2(x) w1(x) conflict-serializable?', `
+var lab = create("steplab", { engine: "serializability", schedule: "r1(x) w2(x) w1(x)" });`),
+
+  S('Simulate an M/M/1 queue with arrival rate 0.8 and service rate 1.', `
+var lab = create("steplab", { engine: "mm1", lambda: 0.8, mu: 1, customers: 300 });`),
+
+  S('Find a root of x^3 - x - 2 with the bisection method.', `
+var lab = create("steplab", { engine: "rootfind", method: "bisection", f: "x^3 - x - 2", a: 1, b: 2 });`),
+
+  S('Simulate a unity-feedback control loop with a PI controller around a first-order plant.', `
+var lab = create("steplab", { engine: "blocks", blocks: "r: step(1)\\ne: sum(+-)\\nc: pid(2, 1, 0)\\np: tf(1 ; 1 1)\\ny: scope\\nr -> e -> c -> p -> y\\np -> e", time: 20 });`),
+
+  S('Draw the TCP three-way handshake as an animated sequence diagram.', `
+diagram("mode: sequence\\n[Client] as c\\n[Server] as s\\nc -> s : SYN\\ns --> c : SYN-ACK\\nc -> s : ACK");`),
+
+  S('Animate a packet travelling from a sender through a router to a receiver.', `
+diagram("direction: right\\n(Sender) as a\\n[Router] as r\\n(Receiver) as b\\na -> r\\nr -> b\\n@0 a -> r : packet\\n@1.2 r -> b : packet\\nloop 4");`),
+
+  S('Draw a UML class diagram for Customer and Order with an Orders table.', `
+diagram("direction: right\\n{Customer | + name : string | + register()} as c\\n{Order | + id : int ; + total : money | + pay() ; + cancel()} as o\\n[|Orders DB|] as db\\nc -> o : places\\no -> db : saved in");`),
 ]
 
 // ── Auto-generated per-kind samples ──────────────────────────────────────────

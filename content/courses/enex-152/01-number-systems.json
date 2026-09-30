@@ -1,0 +1,346 @@
+{
+  "title": "Number systems, codes and complements",
+  "kicker": "ENEX 152 · Digital Logic · Introduction",
+  "subtitle": "Hardware has two states, so every number, letter and sign is a pattern of 0s and 1s. Learn the patterns.",
+  "sections": [
+    {
+      "id": "digital",
+      "locator": "1.1",
+      "title": "Why binary",
+      "eyebrow": "Two states",
+      "body": "<p>An analog signal varies continuously and picks up noise; a <em class=\"term\">digital</em> signal is interpreted as only two levels (low = 0, high = 1) with a wide margin between them, so small noise is ignored and copies are exact. A <em class=\"term\">bit</em> is one binary digit; 8 bits make a byte. n bits give 2ⁿ patterns.</p>",
+      "worked": [
+        {
+          "toc": "Setup",
+          "why": "How many different values can 10 bits represent?"
+        },
+        {
+          "toc": "Count",
+          "why": "Each bit doubles the count.",
+          "math": "2^{10}=1024",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "n",
+          "prompt": "6 bits can represent how many distinct patterns?",
+          "choices": [
+            {
+              "text": "64.",
+              "correct": true
+            },
+            {
+              "text": "36."
+            },
+            {
+              "text": "12."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "2⁶."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "6² is not the rule."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is 6 × 2."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-bits",
+          "prompt": "<p>What is the minimum number of bits needed to label 100 different items?</p>",
+          "answer": "2⁶ = 64 &lt; 100 ≤ 128 = 2⁷, so <b>7 bits</b>."
+        }
+      ]
+    },
+    {
+      "id": "conv",
+      "locator": "1.2",
+      "title": "Converting between bases",
+      "eyebrow": "Positional notation",
+      "body": "<p>In base r each place has weight rᵏ. To convert <b>to</b> binary, divide by 2 repeatedly and read remainders upward; <b>from</b> binary, add the weights of the 1s. Octal and hex group bits in 3s and 4s, so conversion is just regrouping. For decimal 25: binary <b>11001</b>, octal <b>31</b>, hex <b>19</b>.</p>",
+      "worked": [
+        {
+          "toc": "Divide",
+          "why": "25 ÷ 2 = 12 r 1; 12 ÷ 2 = 6 r 0; 6 ÷ 2 = 3 r 0; 3 ÷ 2 = 1 r 1; 1 ÷ 2 = 0 r 1."
+        },
+        {
+          "toc": "Read up",
+          "why": "Read the remainders upward.",
+          "math": "25_{10}=11001_2",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "hex",
+          "prompt": "Binary 1011 0110 in hex is…",
+          "choices": [
+            {
+              "text": "96."
+            },
+            {
+              "text": "66."
+            },
+            {
+              "text": "B6.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Misread the nibbles."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Wrong first nibble."
+            },
+            {
+              "title": "Correct.",
+              "body": "1011 = B, 0110 = 6."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab1",
+          "caption": "Figure 1.2.1 — 25 in other bases",
+          "note": "The same number in every code.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"nc\",\"engine\":\"numconv\",\"n\":25,\"width\":600,\"height\":440});",
+          "expect": {
+            "nc": {
+              "binary": "11001",
+              "octal": "31",
+              "hex": "19"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "bcd",
+      "locator": "1.3",
+      "title": "BCD, excess-3 and Gray",
+      "eyebrow": "Codes for decimal digits",
+      "body": "<p><b>BCD</b> writes each decimal digit in 4 bits: 25 → <b>0010 0101</b>. <b>Excess-3</b> adds 3 to each digit (<b>0101 1000</b>), which is self-complementing. <b>Gray</b> code changes only one bit between neighbouring values (<b>10101</b> for 25) — ideal for position encoders because no glitch between steps can show a wrong value.</p>",
+      "questions": [
+        {
+          "id": "gr",
+          "prompt": "Gray code is useful for shaft encoders because…",
+          "choices": [
+            {
+              "text": "It is shorter than binary."
+            },
+            {
+              "text": "It is decimal."
+            },
+            {
+              "text": "Only one bit changes per step.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Same length."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No."
+            },
+            {
+              "title": "Correct.",
+              "body": "No false intermediate readings."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "neg",
+      "locator": "1.4",
+      "title": "Signed numbers",
+      "eyebrow": "Negative values",
+      "body": "<p>Three schemes: <b>sign–magnitude</b> (top bit is the sign), <b>1’s complement</b> (invert all bits), <b>2’s complement</b> (invert, then add 1). 2’s complement wins: one zero, and addition just works. For −25 in 8 bits: sign–magnitude <b>10011001</b>, 1’s <b>11100110</b>, 2’s <b>11100111</b>. A 4-bit word covers −8 … +7.</p>",
+      "worked": [
+        {
+          "toc": "Invert",
+          "why": "+25 = 00011001. Invert every bit.",
+          "math": "11100110"
+        },
+        {
+          "toc": "Add 1",
+          "why": "Add 1.",
+          "math": "11100111=-25",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "tc",
+          "prompt": "The 4-bit 2’s complement of +6 is…",
+          "choices": [
+            {
+              "text": "1010.",
+              "correct": true
+            },
+            {
+              "text": "1001."
+            },
+            {
+              "text": "1110."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "0110 inverted is 1001, plus 1 is 1010."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the 1’s complement."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is sign–magnitude."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 1.4.1 — −25 in 8 bits",
+          "note": "Compare the three negative encodings.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"neg\",\"engine\":\"numconv\",\"n\":-25,\"bits\":8,\"width\":600,\"height\":440});",
+          "expect": {
+            "neg": {
+              "twos": "11100111",
+              "ones": "11100110",
+              "signMag": "10011001"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-tc",
+          "prompt": "<p>Write −13 in 8-bit 2’s complement.</p>",
+          "answer": "13 = 00001101 → invert 11110010 → +1 = <b>11110011</b>."
+        }
+      ]
+    },
+    {
+      "id": "add",
+      "locator": "1.5",
+      "title": "Adding and overflow",
+      "eyebrow": "Fixed word length",
+      "body": "<p>In 2’s complement, add as usual and discard the carry out. <b>Overflow</b> occurs when two numbers of the same sign give a result of the opposite sign (equivalently the carry into and out of the sign bit differ). In 4 bits, 5 + 4 = 9 does not fit in −8…+7: 0101 + 0100 = 1001, which reads as −7.</p>",
+      "worked": [
+        {
+          "toc": "Add",
+          "why": "0101 (+5) + 0100 (+4)."
+        },
+        {
+          "toc": "Detect",
+          "why": "Result 1001 is negative although both inputs were positive: overflow.",
+          "math": "1001=-7",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "ov",
+          "prompt": "Adding two positive 2’s complement numbers gives a negative result. That means…",
+          "choices": [
+            {
+              "text": "A correct answer."
+            },
+            {
+              "text": "A carry error only."
+            },
+            {
+              "text": "Overflow.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Signs cannot flip legitimately."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is overflow."
+            },
+            {
+              "title": "Correct.",
+              "body": "The true sum did not fit."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ascii",
+      "locator": "1.6",
+      "title": "Characters and parity",
+      "eyebrow": "Text and checking",
+      "body": "<p>ASCII assigns 7-bit codes to characters: ‘A’ = 65 = 1000001₂, ‘a’ = 97. Unicode extends this to all scripts (UTF-8). A <b>parity bit</b> makes the count of 1s even (or odd) so a single flipped bit is detected — though not corrected.</p>",
+      "worked": [
+        {
+          "toc": "Count",
+          "why": "Even parity for ‘A’ = 1000001 (two 1s)."
+        },
+        {
+          "toc": "Parity",
+          "why": "Already even, so the parity bit is 0.",
+          "math": "01000001",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "par",
+          "prompt": "A single parity bit can…",
+          "choices": [
+            {
+              "text": "Detect any one-bit error.",
+              "correct": true
+            },
+            {
+              "text": "Correct any one-bit error."
+            },
+            {
+              "text": "Detect all two-bit errors."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "But cannot say which bit."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Needs Hamming codes."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Two flips cancel out."
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

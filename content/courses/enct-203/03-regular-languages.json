@@ -1,0 +1,278 @@
+{
+  "title": "Regular expressions and the pumping lemma",
+  "kicker": "ENCT 203 · Theory of Computation · Chapter 2 (regular languages)",
+  "subtitle": "A notation for exactly the languages finite automata recognise — and a test for what they cannot.",
+  "sections": [
+    {
+      "id": "re",
+      "locator": "2.7",
+      "title": "Regular expressions",
+      "eyebrow": "Notation",
+      "body": "<p>Regular expressions describe languages with three operators: union <code>a|b</code> (or +), concatenation <code>ab</code>, star <code>a*</code>. Examples over {0,1}: <code>(0|1)*01</code> = ends in 01; <code>1*(01*01*)*</code>… = even number of 0s. A language is regular exactly when a regular expression, a DFA, or an NFA describes it (Kleene’s theorem).</p>",
+      "questions": [
+        {
+          "id": "ends",
+          "prompt": "Which expression describes binary strings ending in 01?",
+          "choices": [
+            {
+              "text": "01(0|1)*"
+            },
+            {
+              "text": "(0|1)*01",
+              "correct": true
+            },
+            {
+              "text": "(01)*"
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That starts with 01."
+            },
+            {
+              "title": "Correct.",
+              "body": "Anything, then 0, then 1."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only repeated 01."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "dia1",
+          "caption": "Figure 2.7.1 — Kleene’s theorem",
+          "note": "The three descriptions are interchangeable.",
+          "script": "diagram(\"direction: right\\n[Regular expression] as re #blue\\n[ε-NFA] as nfa #mint\\n[DFA] as dfa #amber\\nre -> nfa : Thompson construction\\nnfa -> dfa : subset construction\\ndfa -> re : state elimination\");"
+        }
+      ]
+    },
+    {
+      "id": "conv",
+      "locator": "2.8",
+      "title": "From expression to automaton",
+      "eyebrow": "Constructions",
+      "body": "<p>Build the ε-NFA piece by piece (Thompson): a single symbol is two states joined by that symbol; union adds a new start with ε-arrows to both machines; concatenation links the first’s accept to the second’s start by ε; star adds ε-loops and a bypass. The pieces are machines you can run — the one below is the result for <code>a*b</code>.</p>",
+      "worked": [
+        {
+          "toc": "Run",
+          "why": "Does a*b accept aaab? Follow the loops on a, then b to the accepting state."
+        },
+        {
+          "toc": "Accepted",
+          "why": "Yes: a a a loop in s, b moves to f and the input ends there.",
+          "math": "s \\xrightarrow{aaa} s \\xrightarrow{b} f",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "star",
+          "prompt": "Which strings does a*b accept?",
+          "choices": [
+            {
+              "text": "Only ab."
+            },
+            {
+              "text": "Any string of a’s and b’s."
+            },
+            {
+              "text": "b, ab, aab, aaab … (any number of a’s, then one b).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Star allows more."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Must end with exactly one b."
+            },
+            {
+              "title": "Correct.",
+              "body": "The star allows zero or more a’s."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab2",
+          "caption": "Figure 2.8.1 — a*b",
+          "note": "a*b accepts any number of a’s then one b.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"ab\",\"engine\":\"nfa\",\"spec\":\"start: s\\naccept: f\\ns,a -> s\\ns,b -> f\",\"input\":\"aaab\",\"width\":600,\"height\":440});",
+          "expect": {
+            "ab": {
+              "accepted": "yes"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "closure",
+      "locator": "2.9",
+      "title": "Closure properties",
+      "eyebrow": "What regular languages survive",
+      "body": "<p>Regular languages are closed under union, concatenation, star, complement (swap accepting and non-accepting states of a DFA), intersection (product construction) and reversal. Closure gives proofs by construction: if L is regular then so is “strings in L that are not of even length”.</p>",
+      "questions": [
+        {
+          "id": "comp",
+          "prompt": "How do you build a DFA for the complement of a regular language?",
+          "choices": [
+            {
+              "text": "Swap accepting and non-accepting states (in a complete DFA).",
+              "correct": true
+            },
+            {
+              "text": "Reverse all arrows."
+            },
+            {
+              "text": "Delete the start state."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Every string now ends where it used to reject."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That reverses the language."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Not meaningful."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Write a regular expression for binary strings containing the substring 11.</p>",
+          "answer": "<b>(0|1)*11(0|1)*</b> — anything, then 11, then anything."
+        }
+      ]
+    },
+    {
+      "id": "pump",
+      "locator": "2.10",
+      "title": "The pumping lemma",
+      "eyebrow": "Proving a language is NOT regular",
+      "body": "<p>If L is regular there is a length <i>p</i> such that any string s ∈ L with |s| ≥ p can be split s = xyz with |xy| ≤ p, |y| ≥ 1, and xyⁱz ∈ L for every i ≥ 0. Why: a DFA with p states reading p symbols must repeat a state (pigeonhole), so the loop between can be repeated or removed. To prove L is <em>not</em> regular, pick a string that cannot be pumped.</p>",
+      "worked": [
+        {
+          "toc": "Assume",
+          "why": "Claim: L = {aⁿbⁿ} is not regular. Suppose it were, with pumping length p; take s = aᵖbᵖ."
+        },
+        {
+          "toc": "Contradiction",
+          "why": "Since |xy| ≤ p, y consists only of a’s. Pumping up (i = 2) gives more a’s than b’s.",
+          "math": "xy^2z = a^{p+|y|}b^p\\notin L",
+          "hero": true
+        },
+        {
+          "toc": "Conclusion",
+          "why": "So L is not regular — it needs to count, which a finite memory cannot."
+        }
+      ],
+      "questions": [
+        {
+          "id": "anbn",
+          "prompt": "Why can no finite automaton recognise aⁿbⁿ?",
+          "choices": [
+            {
+              "text": "The alphabet is too large."
+            },
+            {
+              "text": "The language is finite."
+            },
+            {
+              "text": "It would need to remember an unbounded count of a’s.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The alphabet is tiny."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It is infinite."
+            },
+            {
+              "title": "Correct.",
+              "body": "Only a fixed number of states, so some count is forgotten."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decide",
+      "locator": "2.11",
+      "title": "Decision algorithms",
+      "eyebrow": "Questions with answers",
+      "body": "<p>For regular languages most questions are decidable by algorithm: is L empty (is an accepting state reachable?), finite, equal to another language (minimise both DFAs; compare), does a string belong (just run it).</p>",
+      "questions": [
+        {
+          "id": "empty",
+          "prompt": "How do you test whether a DFA’s language is empty?",
+          "choices": [
+            {
+              "text": "Run every string."
+            },
+            {
+              "text": "Count the states."
+            },
+            {
+              "text": "Check whether any accepting state is reachable from the start.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "There are infinitely many."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Number of states does not decide it."
+            },
+            {
+              "title": "Correct.",
+              "body": "Graph search."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "lab3",
+          "caption": "Figure 2.11.1 — emptiness check",
+          "note": "State c is unreachable, so this machine accepts nothing: the language is empty.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"emp\",\"engine\":\"dfa\",\"spec\":\"start: a\\naccept: c\\na,0 -> b\\na,1 -> a\\nb,0 -> b\\nb,1 -> b\\nc,0 -> c\\nc,1 -> c\",\"input\":\"0\",\"width\":600,\"height\":440});",
+          "expect": {
+            "emp": {
+              "accepted": "no"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "summary",
+      "locator": "2.12",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Regular expression ⇔ NFA ⇔ DFA.</li><li>Closed under union, concatenation, star, complement, intersection.</li><li>Pumping lemma shows non-regularity (aⁿbⁿ).</li></ul>"
+    }
+  ]
+}

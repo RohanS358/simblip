@@ -120,6 +120,7 @@ const KIND_FILL: Record<GeometryKind, string> = {
   code: 'fill-foreground/10 stroke-foreground/30',
   table: 'fill-[var(--accent-blue)]/15 stroke-[var(--accent-blue)]',
   dsa: 'fill-[var(--accent-violet)]/15 stroke-[var(--accent-violet)]',
+  steplab: 'fill-[var(--accent-mint)]/15 stroke-[var(--accent-mint)]',
   gridtable: 'fill-[var(--accent-blue)]/10 stroke-[var(--accent-blue)]/50',
   slider: 'fill-[var(--accent-blue)]/20 stroke-[var(--accent-blue)]',
   button: 'fill-[var(--accent-mint)]/20 stroke-[var(--accent-mint)]',

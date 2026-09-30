@@ -67,7 +67,6 @@ interface SyncState {
   /** Server-reported usage from the last push (never computed client-side). */
   usage: { used: number; limit: number } | null
   /** Conflicts resolved by keeping both copies, this session. */
-  conflictsKept: number
   paused: boolean
 }
 
@@ -79,7 +78,6 @@ export const useSyncStore = create<SyncState>(() => ({
   lastSyncedAt: null,
   pending: 0,
   usage: null,
-  conflictsKept: 0,
   paused: typeof window !== 'undefined' && localStorage.getItem(PAUSE_KEY) === '1',
 }))
 
@@ -309,17 +307,6 @@ export async function syncNow(): Promise<void> {
   kick?.()
 }
 
-/** Owner page (tree node) of a content id — itself, or the page whose
- *  satellite canvas (sheet, slide, PDF notes/ink) it is. */
-function ownerPageOf(nodes: Record<string, Node>, contentId: string): PageNode | null {
-  const direct = nodes[contentId]
-  if (direct?.kind === 'page') return direct
-  for (const n of Object.values(nodes)) {
-    if (n.kind === 'page' && contentIdsOf(n).includes(contentId)) return n
-  }
-  return null
-}
-
 /** Nothing on it worth a copy: no objects and no body text. Forking a blank
  *  page against a real one only litters the tree with "(other device's
  *  version)" duplicates — the real one just wins. */
@@ -328,22 +315,23 @@ const isBlankContent = (c: unknown): boolean => {
   return !p || (Object.keys(p.objects ?? {}).length === 0 && !(p.flow ?? '').includes('"text"'))
 }
 
-/** Keep BOTH versions of a page edited on two devices: the local edit stays
- *  where it is; the other device's version becomes a new page next to it. */
-function keepConflictCopy(contentId: string, remoteContent: unknown): void {
-  const ws = useWorkspaceStore.getState()
-  const owner = ownerPageOf(ws.nodes, contentId)
-  const parentId = owner?.parentId ?? Object.values(ws.nodes).find((n) => n.kind === 'folder' && !n.parentId)?.id
-  if (!parentId) return
-  const label = owner?.name ?? 'Page'
-  const sheetNote = owner && owner.id !== contentId ? ' sheet' : ''
-  const copyId = ws.addPageIn(parentId, `${label}${sheetNote} (other device's version)`, 'board', false)
-  archive.writePage(copyId, remoteContent as never)
-  ledger.dirty = [...new Set([...ledger.dirty, copyId])]
-  useSyncStore.setState((s) => ({ conflictsKept: s.conflictsKept + 1 }))
-  toast.message('Edited on two devices — both versions kept', {
-    description: `The other device's version of “${label}” is saved as a separate page.`,
-  })
+/** Both devices edited the same page: the incoming (server) version wins and
+ *  overwrites the local one in place — no "(other device's version)" copies.
+ *  Returns the ledger print so the caller can mark the page as in sync. */
+function adoptIncoming(contentId: string, content: unknown, rev: number): void {
+  archive.writePage(contentId, content as never)
+  if (useDocStore.getState().pages[contentId]) {
+    applyingRemote = true
+    try {
+      useDocStore.setState((st) => ({ pages: { ...st.pages, [contentId]: content as never } }))
+      useDocStore.getState().ensurePage(contentId)
+    } finally {
+      applyingRemote = false
+    }
+  }
+  ledger.revs[contentId] = rev
+  ledger.prints[contentId] = pagePrint(content, useDocStore.getState().viewports[contentId] ?? null)
+  ledger.dirty = ledger.dirty.filter((id) => id !== contentId)
 }
 
 /** Adopt a tree: merged three-way against the last agreed copy, then split
@@ -581,10 +569,9 @@ export function startSync() {
           }
         }
         for (const c of res.conflicts) {
-          // Keep both: the other device's version becomes its own page, then
-          // this device's edit is written on top of the server's rev.
-          if (!isBlankContent(c.content)) keepConflictCopy(c.id, c.content)
-          ledger.revs[c.id] = c.rev
+          // Incoming wins, unless it is an empty shell over real local work.
+          if (isBlankContent(c.content)) ledger.revs[c.id] = c.rev
+          else adoptIncoming(c.id, c.content, c.rev)
         }
         // Tree result
         if (res.workspace && 'conflict' in res.workspace) {
@@ -657,11 +644,14 @@ export function startSync() {
           !isBlankContent(local) &&
           (dirty.has(row.id) || (firstSync && ledger.prints[row.id] === undefined))
         if (unpushedLocal) {
-          // Both sides moved: keep ours in place, theirs as a copy, and push
-          // ours on top of their rev.
-          if (!isBlankContent(row.content)) keepConflictCopy(row.id, row.content)
-          ledger.revs[row.id] = row.rev
-          dirty.add(row.id)
+          // Both sides moved: incoming wins, unless it is an empty shell.
+          if (isBlankContent(row.content)) {
+            ledger.revs[row.id] = row.rev
+            dirty.add(row.id)
+          } else {
+            adoptIncoming(row.id, row.content, row.rev)
+            dirty.delete(row.id)
+          }
           continue
         }
         archive.writePage(row.id, row.content as never)
