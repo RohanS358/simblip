@@ -70,6 +70,7 @@ import {
 import { cn } from '@/lib/utils'
 import { useIsNarrow } from '@/hooks/use-mobile'
 import { HOLIDAYS, HOLIDAY_DAYS } from '@/lib/calendar/holidays'
+import { useSubscribedEvents } from '@/lib/calendar/subscriptions'
 import {
   createNotePage,
   LinkedPages,
@@ -1316,7 +1317,8 @@ export function CalendarFull() {
 function CalendarScreen() {
   const motion = useSpring()
   const stored = useNotesGallery((s) => s.events)
-  const events = useMemo(() => [...stored, ...HOLIDAYS], [stored])
+  const subscribed = useSubscribedEvents()
+  const events = useMemo(() => [...stored, ...HOLIDAYS, ...subscribed], [stored, subscribed])
   const system = useNotesGallery((s) => s.calendarSystem)
   const view = useNotesGallery((s) => s.calendarView)
   const setSystem = useNotesGallery((s) => s.setCalendarSystem)

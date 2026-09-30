@@ -42,6 +42,7 @@ import {
 } from '@/lib/calendar/dates.mjs'
 import { expand } from '@/lib/calendar/events.mjs'
 import { HOLIDAYS } from '@/lib/calendar/holidays'
+import { useSubscribedEvents } from '@/lib/calendar/subscriptions'
 import { useSpring } from '@/lib/motion'
 import { startSeamDrag } from '@/lib/seam-drag'
 import { readFile } from '@/lib/storage/opfs'
@@ -303,7 +304,8 @@ const WEEKDAYS = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
 
 function GalleryCalendar() {
   const stored = useNotesGallery((s) => s.events)
-  const events = useMemo(() => [...stored, ...HOLIDAYS], [stored])
+  const subscribed = useSubscribedEvents()
+  const events = useMemo(() => [...stored, ...HOLIDAYS, ...subscribed], [stored, subscribed])
   const addEvent = useNotesGallery((s) => s.addEvent)
   const removeEvent = useNotesGallery((s) => s.removeEvent)
   const system = useNotesGallery((s) => s.calendarSystem)

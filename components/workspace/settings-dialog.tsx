@@ -47,10 +47,12 @@ import {
   ShieldCheck,
   BookOpen,
   ExternalLink,
+  CalendarDays,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
+import { CalendarLinks } from './calendar-links'
 import { PrivacySettings } from './privacy-settings'
 import { StoragePanel } from './storage-panel'
 import { CloudStorageSection } from './cloud-storage'
@@ -1055,6 +1057,7 @@ function SyncPreferencesPanel() {
 
 type TabId =
   | 'general'
+  | 'calendar'
   | 'appearance'
   | 'interface'
   | 'dock'
@@ -1085,6 +1088,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'dock', label: 'Dock', detail: 'Toolbar position', icon: Layout, category: 'options' },
   { id: 'editor', label: 'Editor', detail: 'Grid, pages', icon: Edit3, category: 'options' },
   { id: 'files', label: 'Files and links', detail: 'Backup, device sync', icon: Files, category: 'options' },
+  { id: 'calendar', label: 'Calendar', detail: 'Link Google, Outlook…', icon: CalendarDays, category: 'options' },
   { id: 'hotkeys', label: 'Hotkeys', detail: 'Keyboard shortcuts', icon: Keyboard, category: 'options' },
   { id: 'gestures', label: 'Gestures', detail: 'Pinch, hold & drag feel', icon: Hand, category: 'options' },
   { id: 'math', label: 'Math', detail: 'Angle unit, notation', icon: Calculator, category: 'options' },
@@ -1462,6 +1466,14 @@ export function SettingsDialog({
                 </SettingCard>
                 <SettingCard title="Backup & Device Sync">
                   <BackupSettings />
+                </SettingCard>
+              </div>
+            )}
+
+            {activeTab === 'calendar' && (
+              <div className="space-y-4">
+                <SettingCard title="Linked Calendars">
+                  <CalendarLinks />
                 </SettingCard>
               </div>
             )}

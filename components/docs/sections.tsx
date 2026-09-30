@@ -15,6 +15,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   Atom,
   BookOpen,
+  CalendarDays,
   BrainCircuit,
   Boxes,
   Files,
@@ -440,6 +441,40 @@ export const SECTIONS: DocSection[] = [
         ),
       },
       {
+        id: 'tab-menu',
+        title: 'Tab menu and split screen',
+        keywords: 'tab strip right click context menu close others close all split screen panes copy name',
+        body: (
+          <>
+            <P>
+              Right-click any tab in the strip for a menu:
+            </P>
+            <Defs
+              items={[
+                ['Close', <>Closes this tab.</>],
+                ['Close Others', <>Keeps only this tab. Disabled when it is the only one open.</>],
+                ['Close Tabs to the Right', <>Closes every tab after this one. Disabled on the last tab.</>],
+                ['Close All', <>Closes every open tab.</>],
+                [
+                  'Open in Split Screen',
+                  <>
+                    Puts this page in its own pane beside the others so two pages sit side by side.
+                    There is a maximum number of panes; the item is disabled once you reach it. On a
+                    tab that is already in a split it becomes <UI>Close Split</UI>, which removes
+                    that pane.
+                  </>,
+                ],
+                ['Copy Tab Name', <>Copies the page’s name to the clipboard.</>],
+              ]}
+            />
+            <P>
+              The split-screen button’s space is reserved in each tab, so hovering a tab never shifts
+              its close button under your cursor.
+            </P>
+          </>
+        ),
+      },
+      {
         id: 'canvas-nav',
         title: 'Moving around the canvas',
         keywords: 'pan zoom scroll navigate viewport fit reset zoom minimap gestures',
@@ -719,6 +754,47 @@ export const SECTIONS: DocSection[] = [
         ),
       },
       {
+        id: 'doc-layout',
+        title: 'Document layout, pagination and .docx',
+        keywords: 'document doc docx word page size orientation portrait landscape margins padding line height header footer page numbers title block superscript subscript border table pagination flow',
+        body: (
+          <>
+            <P>
+              A document page is laid out like a word processor: text flows onto real pages and
+              breaks between them, including inside lists and tables. Importing a .docx keeps its
+              tables and paginates the result; exporting writes a .docx back out (and a PDF).
+            </P>
+            <P>
+              With a document open, the <UI>Properties</UI> panel carries a{' '}
+              <UI>Document layout</UI> group:
+            </P>
+            <Defs
+              items={[
+                ['Title block', <>Show or hide the document’s title block.</>],
+                ['Orientation', <>Portrait or landscape. Switching swaps the page’s width and height.</>],
+                ['Margins & Padding', <>Word-style presets in a dropdown, each with a small preview of the result, instead of raw numbers.</>],
+                ['Line height', <>Preset spacing for the body text.</>],
+                ['Alignment', <>The default paragraph alignment for the document.</>],
+              ]}
+            />
+            <P>And a <UI>Header &amp; footer</UI> group:</P>
+            <Defs
+              items={[
+                ['Header text', <>Repeats at the top of every page.</>],
+                ['Footer text', <>Repeats at the bottom of every page.</>],
+                ['Page numbers', <>A switch that numbers every page.</>],
+              ]}
+            />
+            <P>
+              Text formatting includes superscript and subscript marks, plus borders on paragraphs
+              and images, and formatting for tables and images in the body. The page size at the
+              start comes from the page-size presets in the <UI>New page</UI> dialog, which also has
+              a portrait/landscape choice.
+            </P>
+          </>
+        ),
+      },
+      {
         id: 'uploads-files',
         title: 'Files and uploads',
         keywords: 'upload file attach drag drop opfs storage picture asset library reuse',
@@ -912,6 +988,30 @@ export const SECTIONS: DocSection[] = [
               It is deliberately not a rail section. Every rail panel is about the page you have
               open; this one belongs to <em>you</em> and follows you across every page and notebook.
             </P>
+            <P>
+              The expand button on its calendar opens the full-screen calendar — see{' '}
+              <UI>Calendar</UI> in this manual.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'layers',
+        title: 'Layers',
+        keywords: 'layers stack order z group ungroup hide lock reorder drag panel properties',
+        body: (
+          <>
+            <P>
+              The <UI>Layers</UI> list, in the Properties panel, shows every object on the page with
+              the one drawn <em>on top</em> as the first row — it reads the way the page looks.
+            </P>
+            <Bullets
+              items={[
+                <>Drag a row to restack it. It uses pointer dragging, so it works with a finger or stylus on a tablet.</>,
+                <>Each row has a thumbnail, and controls to hide or lock the object.</>,
+                <>Group and ungroup from the list; a group nests its members one level deeper and can be collapsed.</>,
+              ]}
+            />
           </>
         ),
       },
@@ -1055,6 +1155,79 @@ export const SECTIONS: DocSection[] = [
               Ink drawn on a PDF, an image or a web page lives on a real transparent canvas locked to
               that page — same pen, same undo, same settings as a board. There is no second drawing
               system to learn.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'auto-pen',
+        title: 'Auto pen and auto Select',
+        keywords: 'auto pen style highlighter pointer laser ink automatic switch select note stylus mouse',
+        body: (
+          <>
+            <P>
+              <UI>Settings → Pen feel</UI> has two separate switches so you never have to keep
+              swapping pens or tools.
+            </P>
+            <Defs
+              items={[
+                [
+                  'Auto pen style',
+                  <>
+                    Chooses the style for the stroke you are about to draw, in this order: while a
+                    simulation is running or paused → the{' '}
+                    <UI>pointer</UI>, whose ink fades like a laser; starting on a run of text in a
+                    document → the <UI>highlighter</UI>; otherwise a stylus (anything with pressure)
+                    → <UI>ink</UI> and a mouse → <UI>pen</UI>.
+                  </>,
+                ],
+                [
+                  'Highlighter chaining',
+                  <>
+                    Strokes that follow each other within about six seconds keep the highlighter, so
+                    it doesn’t flip to ink in the gap between two words.
+                  </>,
+                ],
+                [
+                  'Your choice wins',
+                  <>
+                    If you pick a style yourself, auto pen stays out of the way for 30 seconds.
+                  </>,
+                ],
+                [
+                  'Auto switch to Select',
+                  <>
+                    After you place or doodle on a note, starting a pen stroke outside that note
+                    switches to the Select tool (a 20-second window), so you can move on without
+                    hunting for the tool.
+                  </>,
+                ],
+              ]}
+            />
+            <P>
+              The pen also works over a running simulation, and the eraser cursor shows whenever the
+              stylus’s eraser end or barrel button is held.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'selecting',
+        title: 'Selecting, lasso and transforming',
+        keywords: 'select lasso freeform marquee rotate rotated selection box handles stretch resize group ink handwriting doodle note deselect',
+        body: (
+          <>
+            <Bullets
+              items={[
+                <><UI>Freeform lasso</UI> — with the Select tool, drag around what you want; the path you draw is the selection, not a rectangle. On a document the lasso starts from blank paper, so the Select tool can tell paper from text.</>,
+                <><UI>Tap empty canvas</UI> — always deselects, on boards, documents and PDFs.</>,
+                <><UI>Tight, rotated box</UI> — the selection box fits what you picked and turns with it. Corner handles resize; side handles stretch along one axis.</>,
+                <><UI>Groups and ink</UI> — resizing a group scales handwriting properly, is rotation-aware, and doesn’t drift the group’s centre.</>,
+                <><UI>Doodles on a note</UI> — ink drawn on a note is grouped with it, so it travels and transforms together with the note.</>,
+              ]}
+            />
+            <P>
+              Ink gestures on documents and PDFs behave the same as on a whiteboard.
             </P>
           </>
         ),
@@ -1859,6 +2032,12 @@ export const SECTIONS: DocSection[] = [
               Anything the assistant produces is plain SimScript you can paste here, read and change.
               It is the same path to the canvas either way.
             </P>
+            <P>
+              <C>diagram(&quot;…&quot;)</C> writes a block diagram as text: a small PlantUML-like
+              description is ranked, ordered and routed for you, and comes out as real labelled
+              shapes with anchored connectors you can drag apart. Connections stay attached
+              whenever either end moves, and a control that drives nothing is rejected.
+            </P>
           </>
         ),
       },
@@ -2076,6 +2255,37 @@ export const SECTIONS: DocSection[] = [
         ),
       },
       {
+        id: 'course-mode',
+        title: 'Course Mode',
+        keywords: 'course lessons interactive figures mcq syllabus semester granted reader ENEX contents ask',
+        body: (
+          <>
+            <P>
+              Course Mode is prebuilt, interactive lessons a student reads end to end: textbook-style
+              notes with live simulations, sliders, tables, charts and block diagrams sitting in the
+              prose rather than beside it. Its purpose is to remove the teacher’s prep burden, not
+              the teacher.
+            </P>
+            <Defs
+              items={[
+                ['Finding lessons', <>The <UI>Courses</UI> rail section lists the lessons you have been granted, grouped by semester and opened as a tree that follows the syllabus (semester, course, unit).</>],
+                ['Reading', <>A lesson opens as a page of its own. Its outline appears in the same Contents panel PDFs use.</>],
+                ['Running a figure', <>Each figure that has something to step carries its own <UI>Simulate</UI>, <UI>Pause</UI> and <UI>Reset</UI>. Figures run one at a time — starting one resets whichever was running. Tables, charts and diagrams show no buttons.</>],
+                ['Questions', <>Multiple-choice questions remember which option you picked, per question.</>],
+                ['Ask about this', <>Select text in a lesson and send it to the assistant as context.</>],
+              ]}
+            />
+            <Callout tone="note" title="Who publishes and grants">
+              <p>
+                Lessons are authored offline and published to the server; an admin grants them to
+                people from the admin <UI>Courses</UI> tab. Students only read — there is no “new
+                course” button. The platform admin can also edit a published lesson in place.
+              </p>
+            </Callout>
+          </>
+        ),
+      },
+      {
         id: 'admin',
         title: 'Admin console',
         keywords: 'admin console manage institution users rooms provisioning branding accounts',
@@ -2086,6 +2296,160 @@ export const SECTIONS: DocSection[] = [
               board accounts, library approvals and institution settings such as name, logo and
               accent colour.
             </P>
+          </>
+        ),
+      },
+    ],
+  },
+  {
+    id: 'calendar',
+    title: 'Calendar',
+    icon: CalendarDays,
+    blurb: 'The full-screen AD and BS calendar, your events, the work you made each day, holidays, and linking your mail calendars.',
+    articles: [
+      {
+        id: 'calendar-overview',
+        title: 'The full-screen calendar',
+        keywords: 'calendar month week AD BS bikram sambat gregorian nepali swap agenda today keyboard',
+        body: (
+          <>
+            <P>
+              The calendar opens full-screen from the expand button on the Note gallery’s month grid
+              (<Kbd>Ctrl</Kbd>+<Kbd>N</Kbd>). It has a month view and a week view.
+            </P>
+            <P>
+              Every day carries two dates at once: Gregorian (<UI>AD</UI>) and Bikram Sambat (
+              <UI>BS</UI>, always in Devanagari numerals so the two never read as the same
+              calendar). One <em>leads</em> — the big number, the month grid, the title — and the
+              other sits in the day’s corner. Swapping which leads never changes your events, which
+              are stored by AD day and only <em>displayed</em> in BS.
+            </P>
+            <Grid
+              head={['Key', 'Does']}
+              rows={[
+                [<Kbd key="t">T</Kbd>, 'Jump to today'],
+                [<span key="a"><Kbd>←</Kbd> <Kbd>→</Kbd></span>, 'Previous / next month (or week in week view)'],
+                [<Kbd key="m">M</Kbd>, 'Month view'],
+                [<Kbd key="w">W</Kbd>, 'Week view'],
+                [<Kbd key="n">N</Kbd>, 'New event on the selected day'],
+                [<Kbd key="s">S</Kbd>, 'Swap which calendar leads (AD ⇄ BS)'],
+                [<Kbd key="e">Esc</Kbd>, 'Close the event editor, then the day panel, then the calendar'],
+              ]}
+            />
+            <P>
+              The sidebar shows <UI>Today</UI> and <UI>Upcoming</UI> agendas and the mini month. While
+              the calendar is open it owns the keyboard, so these keys don’t reach the canvas beneath.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'calendar-events',
+        title: 'Events',
+        keywords: 'event create drag resize move repeat recurring colour color link page note location all-day timed multi-day',
+        body: (
+          <>
+            <Bullets
+              items={[
+                <><UI>Create</UI> — click a day, or drag across empty days or hours; or press <Kbd>N</Kbd>.</>,
+                <><UI>Move</UI> by dragging an event; <UI>resize</UI> by dragging its edge.</>,
+                <>Events can be all-day, timed (start and end time) or multi-day.</>,
+              ]}
+            />
+            <P>The editor holds:</P>
+            <Defs
+              items={[
+                ['Title, location, notes', <>Plain text.</>],
+                ['Colour', <>One of the five note colours, or a custom colour from the shared hex picker; custom colours are remembered.</>],
+                ['Repeat', <>Daily, Weekly, Monthly (AD date), Yearly (AD date), Monthly (BS date) or Yearly (BS date) — so a Nepali birthday can repeat on its BS date.</>],
+                ['Links', <>Attach pages and files from your workspace to the event.</>],
+                ['New note page for this event', <>Writes a document for the event’s slot into a <UI>Calendar Notes</UI> notebook and links it.</>],
+              ]}
+            />
+            <P>
+              Your events are account data: they sync between your devices and are merged from both
+              when two devices add or delete events.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'calendar-records',
+        title: 'Work records and day notes',
+        keywords: 'records work made created day panel pins sticky todo note badge history',
+        body: (
+          <>
+            <P>
+              The calendar also remembers what you <em>made</em>. Every page and file is filed under
+              the day and minute it was created, along with gallery sticky notes and to-dos.
+            </P>
+            <Bullets
+              items={[
+                <>A badge on each day counts its records.</>,
+                <>In week view, records appear as pins at the minute they were made.</>,
+                <>Open a day (<UI>Open this day</UI>) for a panel listing its events and records, where you can also write a note for that day and time.</>,
+                <>A page written for a calendar slot is filed under that slot, not the moment you typed it.</>,
+                <>Content older than the creation stamp has no record.</>,
+              ]}
+            />
+          </>
+        ),
+      },
+      {
+        id: 'calendar-holidays',
+        title: 'Public holidays',
+        keywords: 'holidays nepal public read-only rose',
+        body: (
+          <>
+            <P>
+              Nepal’s public holidays for 2026–2027 are a built-in, read-only layer shown in rose for
+              everyone, with the day numbers tinted. In BS-leading mode Saturdays are tinted as well.
+              They can’t be edited or deleted and are not stored in your account.
+            </P>
+          </>
+        ),
+      },
+      {
+        id: 'calendar-links',
+        title: 'Linking your mail calendars',
+        keywords: 'link google calendar outlook apple yahoo proton gmail ical ics webcal secret address subscribe mail subscription read-only',
+        body: (
+          <>
+            <P>
+              Follow the calendar attached to your Gmail, Outlook, Apple or other mail account.
+              Its events appear in the calendar next to your own, in the colour you pick,{' '}
+              <UI>read-only</UI>. Go to <UI>Settings → Calendar → Linked Calendars</UI>.
+            </P>
+            <Steps
+              items={[
+                <>Get your calendar’s private iCal address (see below).</>,
+                <>In <UI>Linked Calendars</UI> enter a name, paste the address, pick a colour and press <UI>Add calendar</UI>. The link is checked first, so a wrong one shows an error instead of being saved.</>,
+                <>The events appear right away and refresh on their own about every 30 minutes. Use the row’s refresh button to pull now, or the bin to remove it.</>,
+              ]}
+            />
+            <Defs
+              items={[
+                ['Google', <>Calendar → Settings → your calendar → <UI>Secret address in iCal format</UI>.</>],
+                ['Outlook', <>Settings → Calendar → Shared calendars → Publish a calendar → copy the <UI>ICS</UI> link.</>],
+                ['Apple', <>Share the calendar publicly and copy its <C>webcal://</C> link.</>],
+              ]}
+            />
+            <Callout tone="warn" title="The link is a password">
+              <p>
+                Anyone holding the address can read that calendar. It is shown masked (host only),
+                syncs with your account, and is sent only to SIMBLIP’s own server, which fetches it
+                for you because browsers can’t read another site’s calendar file directly.
+              </p>
+            </Callout>
+            <P>What to expect:</P>
+            <Bullets
+              items={[
+                <>Signed-in only. Only http(s)/webcal links on the standard ports; links to private or internal addresses are refused, and a calendar over 5 MB, or a server slower than 10 seconds, fails with a message.</>,
+                <>Timed, all-day and multi-day events, time zones, locations and descriptions are read; cancelled events are skipped.</>,
+                <>Simple repeats stay repeating. Richer ones (every 2 weeks, ends after N times, several weekdays, exceptions) are expanded into individual events up to two years ahead and 500 per series. Rules that can’t be worked out, such as “second Tuesday”, keep only the first occurrence.</>,
+                <>Events are not stored — they’re fetched fresh each session. You can’t edit them here; change them in your mail calendar and refresh.</>,
+              ]}
+            />
           </>
         ),
       },
@@ -2168,6 +2532,7 @@ export const SECTIONS: DocSection[] = [
                     with a delete-capable tree, and full local backup and restore.
                   </>,
                 ],
+                ['Calendar', <>Link Google, Outlook, Apple or Yahoo calendars by their private iCal address. See <UI>Linking your mail calendars</UI>.</>],
                 ['Hotkeys', <>Every keyboard shortcut, rebindable. See <UI>Keyboard shortcuts</UI>.</>],
                 [
                   'Gestures',
@@ -2250,26 +2615,45 @@ export const SECTIONS: DocSection[] = [
       {
         id: 'sync',
         title: 'Sync and multiple devices',
-        keywords: 'sync cloud devices realtime presence conflict offline pwa install',
+        keywords: 'sync cloud devices automatic conflict offline pwa install content files keep on this device',
         body: (
           <>
-            <Callout tone="warn" title="Page sync is opt-in, and off by default">
+            <Callout tone="tip" title="Sync is automatic, and content-only by default">
               <p>
-                A page’s entry in the tree always syncs — that is how another device knows the page
-                exists. Its <em>content</em> — objects, sheets, notes, annotations, and the bytes of
-                every image it references — only syncs once you switch sync on for that page
-                (right-click the page → the sync toggle). Until you do, another device sees the page
-                listed but empty, and nothing personal has left the machine.
+                Signed in, your notebook tree, every page’s <em>content</em> (objects, document text,
+                slides, annotations) and account data (calendar, to-dos, sticky notes) sync on their
+                own. Large source files — an uploaded PDF, PPTX or image — stay on the device that
+                has them until you ask, because they use your cloud storage.
               </p>
             </Callout>
+            <P>Right-click a page or folder (or use the sync control in its menu) and choose:</P>
+            <Defs
+              items={[
+                ['Sync content', <>The default. Text, ink and objects appear everywhere; large files stay here.</>],
+                ['Sync with files', <>Also backs up the page’s attached files. Files dropped on later are covered automatically.</>],
+                ['Keep on this device', <>Removes the cloud copy. The page still appears in the tree on other devices, but is hidden there.</>],
+              ]}
+            />
+            <P>
+              A page inherits from the nearest folder that sets a mode, then from your global
+              category preferences (<UI>Settings → Files and links → What Syncs</UI>), then defaults
+              to content sync. Individual files also have their own toggle.
+            </P>
             <Bullets
               items={[
-                <>The header indicator shows whether your work has reached the cloud.</>,
                 <>
-                  Sync preferences in <UI>Settings → Files and links</UI> let you choose which
-                  categories of content travel at all.
+                  Offline is safe: changes are saved on the device immediately, queued, and pushed
+                  when you reconnect — even after closing the tab. Only changed pages are sent.
                 </>,
-                <>Individual uploaded files have their own sync toggle, independent of the page.</>,
+                <>
+                  Two devices editing the same page never overwrite each other silently: your edit
+                  is kept and the other device’s version is saved as a clearly named copy. The tree
+                  and the calendar merge from both devices instead.
+                </>,
+                <>
+                  Other devices pick up changes on sign-in, on focus, on reconnect and about every
+                  minute while the app is visible.
+                </>,
                 <>Device-to-device sync moves a workspace directly between two of your machines.</>,
                 <>
                   SIMBLIP installs as an app on desktop and mobile, with offline support — add it to
@@ -2277,6 +2661,47 @@ export const SECTIONS: DocSection[] = [
                 </>,
               ]}
             />
+            <P>The header indicator tells you where things stand:</P>
+            <Defs
+              items={[
+                ['Syncing…', <>A push or pull is in progress.</>],
+                ['Offline — saved on this device', <>Changes are queued; the count of waiting changes is shown.</>],
+                ['Sync problem — retrying', <>It retries with growing delays; nothing is lost.</>],
+                ['Cloud storage full', <>Pushing stops and says so; changes stay on this device. See <UI>Cloud storage and its limit</UI>.</>],
+                ['Not syncing / Local mode', <>You are signed out, or this installation is local-only.</>],
+              ]}
+            />
+          </>
+        ),
+      },
+      {
+        id: 'cloud-quota',
+        title: 'Cloud storage and its limit',
+        keywords: 'cloud storage quota 150 MB full limit clear cloud storage delete largest pages backed-up files usage',
+        body: (
+          <>
+            <P>
+              Each account has one strict <UI>150 MB</UI> cloud allowance shared by the notebook tree,
+              synced page content, account data (calendar, notes, to-dos) and any files you chose to
+              back up. <UI>Settings → Files and links → Cloud Storage</UI> shows usage by category and
+              warns as you approach the limit (from 80%).
+            </P>
+            <Bullets
+              items={[
+                <>A single page over 20 MB is refused — that almost always means an image was embedded instead of stored as a file.</>,
+                <>Over quota you can still shrink things: a write that reduces usage is always allowed, so you are never locked out of your own work.</>,
+                <><UI>Files in the cloud</UI> lists backed-up files, each with a <UI>Keep local</UI> button that removes its cloud copy.</>,
+                <><UI>Largest pages</UI> lists the pages using the most space, with the same button.</>,
+              ]}
+            />
+            <Callout tone="warn" title="Clear cloud storage">
+              <p>
+                Tick <UI>Pages &amp; documents</UI>, <UI>Backed-up files</UI> and/or{' '}
+                <UI>Calendar &amp; notes</UI> and press <UI>Clear selected</UI> (after a confirmation).
+                It removes those from the cloud only — nothing on this device is deleted, your
+                notebook structure is kept, and afterwards only new or changed items sync.
+              </p>
+            </Callout>
           </>
         ),
       },
