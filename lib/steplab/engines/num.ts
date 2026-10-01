@@ -5,7 +5,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, prows } from '../types'
-import { box, dot, heading, line, makePlot, poly, toneAt, trace, txt } from '../draw'
+import { box, dot, heading, line, makePlot, niceRange, poly, toneAt, trace, txt } from '../draw'
 import { compile, deriv, fx, gauss, rng } from '../expr'
 
 const G_NUM = 'Numerical methods', G_STAT = 'Probability, statistics & data'
@@ -272,9 +272,10 @@ function regressRun(p: Params) {
   if (pts.length < 3 || pts.some((r) => r.length !== 2 || r.some((v) => !Number.isFinite(v)))) throw new LabError('give at least 3 points as x,y;x,y;…')
   const { b0, b1, r2, r, sse, mx, my } = linreg(pts)
   const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
-  const lo = Math.min(...xs) - 0.5, hi = Math.max(...xs) + 0.5
-  const pl = makePlot(40, 30, 380, 240, lo, hi, Math.min(...ys, b0 + b1 * lo) - 0.5, Math.max(...ys, b0 + b1 * hi) + 0.5)
-  const base = (): Prim[] => [heading(20, 14, 'Least-squares line'), ...pl.axes, ...pts.map((q) => dot(pl.X(q[0]), pl.Y(q[1]), 4.5, undefined, 'blue', { solid: true }))]
+  const [lo, hi] = niceRange(xs), [ylo, yhi] = niceRange([...ys, b0 + b1 * Math.min(...xs), b0 + b1 * Math.max(...xs)])
+  const pl = makePlot(40, 30, 380, 240, lo, hi, ylo, yhi)
+  // Click the plot to add a point, drag one to move it, double-click to remove it.
+  const base = (): Prim[] => [heading(20, 14, 'Least-squares line'), ...pl.axes, pl.addPoints('points'), ...pts.map((q, i) => pl.movable(dot(pl.X(q[0]), pl.Y(q[1]), 4.5, undefined, 'blue', { solid: true }), 'points', i))]
   const frames: Frame[] = [
     { draw: base(), note: 'Scatter of the data. We want the line ŷ = b₀ + b₁x that makes the vertical errors as small as possible.' },
     { draw: [...base(), dot(pl.X(mx), pl.Y(my), 6, undefined, 'amber', { solid: true }), txt(440, 60, `mean point (${fmt(mx, 2)}, ${fmt(my, 2)})`, { size: 11.5, mono: true, tone: 'amber' })], note: 'The least-squares line always passes through the mean point (x̄, ȳ).' },

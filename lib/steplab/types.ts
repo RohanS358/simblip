@@ -27,6 +27,10 @@ export type Tone = 'idle' | 'blue' | 'mint' | 'amber' | 'rose' | 'violet' | 'dim
 /** What clicking a primitive does. The renderer applies it to the card's own
  *  parameters, so a student edits the thing they are LOOKING AT instead of a
  *  properties form. Pure data: engines declare it, the card interprets it. */
+export interface Box { x: number; y: number; w: number; h: number }
+/** The data range a plot box shows. */
+export interface Dom { x0: number; x1: number; y0: number; y1: number }
+
 export type Act =
   /** Type a new value in place (Enter commits). */
   | { do: 'edit'; param: string; hint?: string }
@@ -38,11 +42,15 @@ export type Act =
   | { do: 'step'; param: string; by: number; min?: number; max?: number }
   /** Set `param` to `value`; clicking it again (already that value) sets `off` — for "put the fault HERE". */
   | { do: 'set'; param: string; value: string; off: string }
+  /** Click an empty plot to add a point `x,y` (with `label[0]` appended, or `label[1]` on Shift) to a list of rows. */
+  | { do: 'plot'; param: string; box: Box; dom: Dom; label?: [string, string] }
+  /** Drag a point to move row `index` (other columns kept); double-click removes it. */
+  | { do: 'move'; param: string; index: number; box: Box; dom: Dom }
   /** Replace one character of a text param (row/col when it has lines) with the next of `chars`. */
   | { do: 'char'; param: string; index: number; chars: string; row?: number }
 
 export type Prim =
-  | { k: 'rect'; x: number; y: number; w: number; h: number; text?: string; sub?: string; tone?: Tone; r?: number; solid?: boolean; act?: Act }
+  | { k: 'rect'; x: number; y: number; w: number; h: number; text?: string; sub?: string; tone?: Tone; r?: number; solid?: boolean; /** invisible hit area */ ghost?: boolean; act?: Act }
   | { k: 'text'; x: number; y: number; text: string; tone?: Tone; size?: number; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; mono?: boolean; act?: Act }
   | { k: 'line'; x1: number; y1: number; x2: number; y2: number; tone?: Tone; arrow?: boolean; dash?: boolean; w?: number; act?: Act }
   | { k: 'circle'; x: number; y: number; r: number; text?: string; tone?: Tone; solid?: boolean; double?: boolean; act?: Act }

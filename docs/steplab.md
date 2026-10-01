@@ -42,10 +42,11 @@ The card is operated on its face; Properties is only the full list.
 |---|---|---|
 | **Click a primitive** — `act(prim, { do: … })` in `lib/steplab/draw.ts`; interpreted by `lib/steplab/act.ts` | engines | K-map cell: 0 → 1 → X; Hamming/CRC bit: put the error here; line-code/modulation bit: flip it; search maze square: wall on/off; automaton input tape, 8085 program listing, number-systems value: click and type in place |
 | `edit` on a long parameter | any | opens a code box over the picture (Ctrl+Enter runs, Esc cancels) — programs, specs, grammars, matrices |
+| **Plots** — `plot.addPoints(param)` / `plot.movable(prim, param, i)` in `makePlot`; `niceRange` keeps axes steady while dragging | regression, k-means, perceptron, Bézier, 2-D transforms | click empty plot to add a point (Shift = other class), drag a point to move it, double-click to remove it |
 | **Title handle** — `PRIMARY` in `lib/steplab/quick.ts` | every engine | click the picture's title to edit its main input |
 | **On-face controls** — `QUICK` in `lib/steplab/quick.ts` | every engine | dropdowns, sliders (`[name, min, max, step]`), small text boxes and ✎ buttons for long inputs |
 
-Acts: `edit`, `cycle`, `toggle` (list membership, optional third state), `step`, `set` (put it here / click again to clear), `char` (flip one character of a text or grid parameter). A test checks every act, quick control and title handle names a real parameter of its engine.
+Acts: `edit`, `cycle`, `toggle` (list membership, optional third state), `step`, `set` (put it here / click again to clear), `char` (flip one character of a text or grid parameter), `plot` / `move` (add and drag points on a plot). A test checks every act, quick control and title handle names a real parameter of its engine.
 
 ### Adding an engine (≈ 40 lines)
 

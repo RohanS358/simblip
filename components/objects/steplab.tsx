@@ -18,7 +18,7 @@ import { ChevronLeft, ChevronRight, CircleHelp, Pause, Play, RotateCcw, SlidersH
 import { useDocStore } from '@/lib/store/document'
 import { getEngine, runEngine } from '@/lib/steplab/registry'
 import { QuickControls } from './steplab-fields'
-import { applyAct } from '@/lib/steplab/act'
+import { applyAct, applyPoint, dropPoint } from '@/lib/steplab/act'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import type { Act, Params, Prim, Tone } from '@/lib/steplab/types'
 import type { ObjectRendererProps } from './types'
@@ -59,7 +59,7 @@ function PrimView({ p }: { p: Prim }) {
       return (
         <g>
           <rect x={p.x} y={p.y} width={Math.max(0, p.w)} height={Math.max(0, p.h)} rx={p.r ?? 5}
-            fill={FILL(p.tone, p.solid)} stroke={STROKE(p.tone)} strokeWidth={p.tone && p.tone !== 'idle' ? 1.5 : 1} />
+            fill={p.ghost ? 'transparent' : FILL(p.tone, p.solid)} stroke={p.ghost ? 'none' : STROKE(p.tone)} strokeWidth={p.tone && p.tone !== 'idle' ? 1.5 : 1} />
           {label !== undefined && label !== '' && (
             <text x={p.x + p.w / 2} y={p.y + p.h / 2 + (p.sub ? -1 : fs * 0.36)} textAnchor="middle" fontSize={fs}
               fill="var(--foreground)" style={{ fontFamily: 'var(--font-mono)' }}>{label}</text>
@@ -116,17 +116,58 @@ function PrimView({ p }: { p: Prim }) {
 
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
 
-const ACT_HINT: Record<Act['do'], string> = { edit: 'Click to type a value', cycle: 'Click to change', set: 'Click to place here', toggle: 'Click to change', step: 'Click to adjust', char: 'Click to change' }
+const ACT_HINT: Record<Act['do'], string> = { edit: 'Click to type a value', cycle: 'Click to change', set: 'Click to place here', plot: 'Click to add a point (Shift for the other class)', move: 'Drag to move · double-click to remove', toggle: 'Click to change', step: 'Click to adjust', char: 'Click to change' }
 
-/** A primitive the student can click. Pointer-down stops here so pressing it
- *  does not start dragging the whole card. */
-function ActView({ p, onAct }: { p: Prim & { act: Act }; onAct: (a: Act, el: Element) => void }) {
+/** Pointer position in the picture's own coordinates. */
+function svgPoint(el: Element, clientX: number, clientY: number): [number, number] | null {
+  const svg = (el as SVGElement).ownerSVGElement
+  const m = svg?.getScreenCTM()
+  if (!svg || !m) return null
+  const pt = svg.createSVGPoint()
+  pt.x = clientX; pt.y = clientY
+  const q = pt.matrixTransform(m.inverse())
+  return [q.x, q.y]
+}
+
+interface PointIO {
+  /** A pointer landed or moved at (sx, sy) in drawing coordinates. */
+  point: (a: Act, sx: number, sy: number, shift: boolean) => void
+  /** First touch of a gesture — the card records one undo step for it. */
+  begin: () => void
+  drop: (a: Act) => void
+}
+
+/** A primitive the student can click or drag. Pointer-down stops here so pressing
+ *  it does not start dragging the whole card. */
+function ActView({ p, onAct, io }: { p: Prim & { act: Act }; onAct: (a: Act, el: Element) => void; io: PointIO }) {
+  const dragging = useRef(false)
+  const common = { role: 'button' as const, tabIndex: 0, className: 'cursor-pointer outline-none hover:opacity-75 focus-visible:opacity-75' }
+  const hint = <title>{('hint' in p.act && p.act.hint) || ACT_HINT[p.act.do]}</title>
+  const a = p.act
+  if (a.do === 'move') {
+    return (
+      <g {...common} className={`${common.className} touch-none`}
+        onPointerDown={(e) => { e.stopPropagation(); e.currentTarget.setPointerCapture(e.pointerId); dragging.current = true; io.begin() }}
+        onPointerMove={(e) => { if (!dragging.current) return; const q = svgPoint(e.currentTarget, e.clientX, e.clientY); if (q) io.point(a, q[0], q[1], e.shiftKey) }}
+        onPointerUp={(e) => { dragging.current = false; e.currentTarget.releasePointerCapture(e.pointerId) }}
+        onDoubleClick={(e) => { e.stopPropagation(); io.drop(a) }}>
+        {hint}<PrimView p={p} />
+      </g>
+    )
+  }
+  if (a.do === 'plot') {
+    return (
+      <g {...common} onPointerDown={stop}
+        onClick={(e) => { e.stopPropagation(); const q = svgPoint(e.currentTarget, e.clientX, e.clientY); if (q) { io.begin(); io.point(a, q[0], q[1], e.shiftKey) } }}>
+        {hint}<PrimView p={p} />
+      </g>
+    )
+  }
   return (
-    <g role="button" tabIndex={0} className="cursor-pointer outline-none hover:opacity-75 focus-visible:opacity-75" onPointerDown={stop}
-      onClick={(e) => { e.stopPropagation(); onAct(p.act, e.currentTarget) }}
-      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAct(p.act, e.currentTarget) } }}>
-      <title>{('hint' in p.act && p.act.hint) || ACT_HINT[p.act.do]}</title>
-      <PrimView p={p} />
+    <g {...common} onPointerDown={stop}
+      onClick={(e) => { e.stopPropagation(); onAct(a, e.currentTarget) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAct(a, e.currentTarget) } }}>
+      {hint}<PrimView p={p} />
     </g>
   )
 }
@@ -200,6 +241,11 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
     pushHistory(pageId)
     for (const c of changes) edit(c.param, c.value)
   }
+  const io: PointIO = {
+    begin: () => pushHistory(pageId),
+    point: (a, sx, sy, shift) => { for (const c of applyPoint(a, current, sx, sy, shift) ?? []) edit(c.param, c.value) },
+    drop: (a) => { const ch = dropPoint(a, current); if (!ch) return; pushHistory(pageId); for (const c of ch) edit(c.param, c.value) },
+  }
   const commit = () => {
     if (!editing) return
     if (editing.value !== current(editing.param)) { pushHistory(pageId); edit(editing.param, editing.value) }
@@ -246,7 +292,7 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
         {result.ok && frame ? (
           <svg viewBox={`0 0 ${result.trace.w} ${result.trace.h}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
             role="img" aria-label={`${engine?.label}: ${frame.note}`}>
-            {frame.draw.map((p, i) => (p.act ? <ActView key={i} p={p as Prim & { act: Act }} onAct={onAct} /> : <PrimView key={i} p={p} />))}
+            {frame.draw.map((p, i) => (p.act ? <ActView key={i} p={p as Prim & { act: Act }} onAct={onAct} io={io} /> : <PrimView key={i} p={p} />))}
           </svg>
         ) : (
           <p className="m-auto flex h-full items-center justify-center px-6 text-center text-[12px] leading-relaxed text-[var(--accent-rose)]">

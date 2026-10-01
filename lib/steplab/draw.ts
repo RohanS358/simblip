@@ -65,6 +65,15 @@ export const TONE_ORDER: Tone[] = ['blue', 'mint', 'amber', 'violet', 'rose']
 /** A stable colour per index — for processes, pages, packets. */
 export const toneAt = (i: number): Tone => TONE_ORDER[((i % TONE_ORDER.length) + TONE_ORDER.length) % TONE_ORDER.length]
 
+/** A plot range that stays put while a point is dragged inside it: padded by a
+ *  third of the spread and snapped OUT to whole units, so the axes only jump when a
+ *  point is dragged past the edge. */
+export function niceRange(values: number[]): [number, number] {
+  const lo = Math.min(...values), hi = Math.max(...values)
+  const pad = Math.max(1, (hi - lo) / 3)
+  return [Math.floor(lo - pad), Math.ceil(hi + pad)]
+}
+
 /** Make a primitive clickable: `act(box(…), { do: 'toggle', … })`. */
 export const act = <P extends Prim>(p: P, a: Act): P => ({ ...p, act: a })
 
@@ -146,6 +155,12 @@ export interface Plot {
   axes: Prim[]
   curve: (f: (x: number) => number, tone?: Tone, w?: number, n?: number) => Prim
   x0: number; y0: number; w: number; h: number
+  /** The data range shown. */
+  dom: { x0: number; x1: number; y0: number; y1: number }
+  /** An invisible hit area over the whole plot: click it to add a point to `param`. Draw it right after the axes so points sit above it. */
+  addPoints: (param: string, label?: [string, string]) => Prim
+  /** Make a point draggable (and double-click-removable): row `index` of `param`. */
+  movable: <P extends Prim>(p: P, param: string, index: number) => P
 }
 
 /** A framed plot area with tick labels. `X`/`Y` map data → drawing coordinates. */
@@ -165,6 +180,9 @@ export function makePlot(x0: number, y0: number, w: number, h: number, xmin: num
     for (let i = 0; i <= n; i++) { const x = xmin + ((xmax - xmin) * i) / n; const y = f(x); if (Number.isFinite(y)) pts.push([X(x), Math.max(y0 - 4, Math.min(y0 + h + 4, Y(y)))]) }
     return poly(pts, tone, { w: wd })
   }
-  return { X, Y, axes, curve, x0, y0, w, h }
+  const box = { x: x0, y: y0, w, h }, dom = { x0: xmin, x1: xmax, y0: ymin, y1: ymax }
+  const addPoints = (param: string, label?: [string, string]): Prim => ({ k: 'rect', x: x0, y: y0, w, h, ghost: true, act: { do: 'plot', param, box, dom, ...(label ? { label } : {}) } })
+  const movable = <P extends Prim>(p: P, param: string, index: number): P => ({ ...p, act: { do: 'move', param, index, box, dom } })
+  return { X, Y, axes, curve, x0, y0, w, h, dom, addPoints, movable }
 }
 const fmtTick = (v: number) => { const a = Math.abs(v); return a >= 1e4 || (a > 0 && a < 1e-3) ? v.toExponential(0) : String(Math.round(v * 1e6) / 1e6) }

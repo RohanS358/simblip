@@ -3,7 +3,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, prows } from '../types'
-import { box, dot, heading, line, makePlot, poly, toneAt, trace, txt } from '../draw'
+import { box, dot, heading, line, makePlot, niceRange, poly, toneAt, trace, txt } from '../draw'
 
 const G = 'Computer graphics'
 
@@ -178,12 +178,14 @@ function transformRun(p: Params) {
   const pts: number[][][] = [verts.map((v) => [...v])]
   let cur = verts.map((v) => [...v]); let comp: M3 = I3
   for (const { m } of mats) { comp = mul(m, comp); cur = cur.map(([x, y]) => [m[0][0] * x + m[0][1] * y + m[0][2], m[1][0] * x + m[1][1] * y + m[1][2]]); pts.push(cur.map((v) => [...v])) }
-  const all = pts.flat(); const lo = Math.min(...all.map((q) => Math.min(q[0], q[1]))) - 1, hi = Math.max(...all.map((q) => Math.max(q[0], q[1]))) + 1
+  const all = pts.flat(); const [lo, hi] = niceRange(all.flat())
   const pl = makePlot(30, 30, 300, 300, lo, hi, lo, hi)
   const frames: Frame[] = pts.map((shape, k) => {
-    const d: Prim[] = [heading(20, 14, '2-D transformations in homogeneous coordinates'), ...pl.axes]
+    // Drag the ORIGINAL shape's corners (the dots), click to add one, double-click to remove.
+    const d: Prim[] = [heading(20, 14, '2-D transformations in homogeneous coordinates'), ...pl.axes, pl.addPoints('shape')]
     for (let i = 0; i < k; i++) d.push(poly(pts[i].map((v) => [pl.X(v[0]), pl.Y(v[1])]), 'dim', { closed: true, w: 1, dash: true }))
     d.push(poly(shape.map((v) => [pl.X(v[0]), pl.Y(v[1])]), toneAt(k), { closed: true, fill: true, w: 2 }))
+    pts[0].forEach((v, i) => d.push(pl.movable(dot(pl.X(v[0]), pl.Y(v[1]), 5.5, undefined, 'dim', { solid: true }), 'shape', i)))
     shape.forEach((v, i) => d.push(txt(pl.X(v[0]) + 6, pl.Y(v[1]) - 6, `(${fmt(v[0], 2)}, ${fmt(v[1], 2)})`, { size: 9.5, mono: true, tone: 'dim' })))
     let c: M3 = I3; for (let i = 0; i < k; i++) c = mul(mats[i].m, c)
     d.push(txt(350, 50, k === 0 ? 'original' : `after: ${mats[k - 1].label}`, { size: 12, mono: true, bold: true, tone: toneAt(k) }))
@@ -204,11 +206,12 @@ function bezierRun(p: Params) {
   const at = (t: number): { levels: number[][][]; pt: number[] } => { let cur = P; const levels = [cur]; while (cur.length > 1) { cur = cur.slice(1).map((q, i) => [(1 - t) * cur[i][0] + t * q[0], (1 - t) * cur[i][1] + t * q[1]]); levels.push(cur) } return { levels, pt: cur[0] } }
   const curvePts = Array.from({ length: 61 }, (_, i) => at(i / 60).pt)
   const xs = [...P, ...curvePts].map((q) => q[0]), ys = [...P, ...curvePts].map((q) => q[1])
-  const pl = makePlot(30, 30, 380, 280, Math.min(...xs) - 0.5, Math.max(...xs) + 0.5, Math.min(...ys) - 0.5, Math.max(...ys) + 0.5)
+  const [bx0, bx1] = niceRange(xs), [by0, by1] = niceRange(ys)
+  const pl = makePlot(30, 30, 380, 280, bx0, bx1, by0, by1)
   const frames: Frame[] = ts.map((t) => {
     const { levels, pt } = at(t)
-    const d: Prim[] = [heading(20, 14, `de Casteljau · degree ${P.length - 1} Bézier · t = ${t}`), ...pl.axes, poly(curvePts.map((q) => [pl.X(q[0]), pl.Y(q[1])]), 'dim', { w: 1.6 })]
-    levels.forEach((lv, k) => { if (lv.length > 1) d.push(poly(lv.map((q) => [pl.X(q[0]), pl.Y(q[1])]), toneAt(k), { w: 1.4, dash: k > 0 })); lv.forEach((q) => d.push(dot(pl.X(q[0]), pl.Y(q[1]), k === levels.length - 1 ? 6 : 3.5, undefined, k === levels.length - 1 ? 'amber' : toneAt(k), { solid: true }))) })
+    const d: Prim[] = [heading(20, 14, `de Casteljau · degree ${P.length - 1} Bézier · t = ${t}`), ...pl.axes, pl.addPoints('points'), poly(curvePts.map((q) => [pl.X(q[0]), pl.Y(q[1])]), 'dim', { w: 1.6 })]
+    levels.forEach((lv, k) => { if (lv.length > 1) d.push(poly(lv.map((q) => [pl.X(q[0]), pl.Y(q[1])]), toneAt(k), { w: 1.4, dash: k > 0 })); lv.forEach((q, qi) => { const pt = dot(pl.X(q[0]), pl.Y(q[1]), k === 0 ? 6 : k === levels.length - 1 ? 6 : 3.5, undefined, k === levels.length - 1 ? 'amber' : toneAt(k), { solid: true }); d.push(k === 0 ? pl.movable(pt, 'points', qi) : pt) }) })
     P.forEach((q, i) => d.push(txt(pl.X(q[0]) + 7, pl.Y(q[1]) - 7, `P${i}`, { size: 10, mono: true, tone: 'dim' })))
     d.push(txt(430, 60, `B(${t}) = (${fmt(pt[0], 3)}, ${fmt(pt[1], 3)})`, { size: 12, mono: true, bold: true, tone: 'amber' }))
     return { draw: d, note: `Repeatedly interpolate between neighbouring points at the ratio t = ${t}: each level has one point fewer; the last point lies on the curve.` }

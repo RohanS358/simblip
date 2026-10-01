@@ -3,7 +3,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, prows } from '../types'
-import { box, dot, heading, line, makePlot, poly, toneAt, trace, txt, drawBinary, type BNode } from '../draw'
+import { box, dot, heading, line, makePlot, niceRange, poly, toneAt, trace, txt, drawBinary, type BNode } from '../draw'
 import { rng } from '../expr'
 
 const G = 'Artificial intelligence'
@@ -147,13 +147,14 @@ function perceptronRun(p: Params) {
     if (errors === 0) { converged = e; snaps.push({ w: [...w], b, errors: 0, note: `Epoch ${e}: every point is classified correctly — the perceptron has converged.` }); break }
   }
   const xs = data.map((r) => r[0]), ys = data.map((r) => r[1])
-  const lo = Math.min(...xs, ...ys) - 0.5, hi = Math.max(...xs, ...ys) + 0.5
+  const [lo, hi] = niceRange([...xs, ...ys])
   const pl = makePlot(40, 30, 260, 260, lo, hi, lo, hi)
   const frames: Frame[] = snaps.map((s) => {
-    const d: Prim[] = [heading(20, 14, 'Perceptron learning'), ...pl.axes]
+    // Click to add a point of class 1 (Shift: class 0); drag to move; double-click to remove.
+    const d: Prim[] = [heading(20, 14, 'Perceptron learning'), ...pl.axes, pl.addPoints('data', ['1', '0'])]
     if (Math.abs(s.w[1]) > 1e-9) d.push(line(pl.X(lo), pl.Y((-s.b - s.w[0] * lo) / s.w[1]), pl.X(hi), pl.Y((-s.b - s.w[0] * hi) / s.w[1]), 'amber', { w: 2 }))
     else if (Math.abs(s.w[0]) > 1e-9) d.push(line(pl.X(-s.b / s.w[0]), pl.Y(lo), pl.X(-s.b / s.w[0]), pl.Y(hi), 'amber', { w: 2 }))
-    data.forEach((r, i) => d.push(dot(pl.X(r[0]), pl.Y(r[1]), s.hit === i ? 8 : 6, r[2] ? '1' : '0', r[2] ? 'mint' : 'rose', {})))
+    data.forEach((r, i) => d.push(pl.movable(dot(pl.X(r[0]), pl.Y(r[1]), s.hit === i ? 8 : 6, r[2] ? '1' : '0', r[2] ? 'mint' : 'rose', {}), 'data', i)))
     d.push(txt(330, 60, `w = (${fmt(s.w[0], 2)}, ${fmt(s.w[1], 2)})`, { size: 12.5, mono: true }), txt(330, 84, `b = ${fmt(s.b, 2)}`, { size: 12.5, mono: true }), txt(330, 112, s.errors >= 0 ? `misclassified this pass: ${s.errors}` : '', { size: 11.5, mono: true, tone: 'rose' }))
     return { draw: d, note: s.note }
   })
@@ -179,8 +180,9 @@ function kmeansRun(p: Params) {
     hist.push({ assign, cent: cent.map((c) => [...c]), sse, note: `Iteration ${it} — update: move each centroid to the mean of its points.` })
   }
   const xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1])
-  const pl = makePlot(40, 30, 300, 260, Math.min(...xs) - 1, Math.max(...xs) + 1, Math.min(...ys) - 1, Math.max(...ys) + 1)
-  const frames: Frame[] = hist.map((h) => ({ draw: [heading(20, 14, `k-means · k = ${k}`), ...pl.axes, ...pts.map((q, i) => dot(pl.X(q[0]), pl.Y(q[1]), 5, undefined, toneAt(h.assign[i]), { solid: true })), ...h.cent.map((c, i) => box(pl.X(c[0]) - 7, pl.Y(c[1]) - 7, 14, 14, '', toneAt(i))), txt(370, 60, `SSE ${fmt(h.sse, 3)}`, { size: 12.5, mono: true, tone: 'amber' })], note: h.note }))
+  const [kx0, kx1] = niceRange(xs), [ky0, ky1] = niceRange(ys)
+  const pl = makePlot(40, 30, 300, 260, kx0, kx1, ky0, ky1)
+  const frames: Frame[] = hist.map((h) => ({ draw: [heading(20, 14, `k-means · k = ${k}`), ...pl.axes, pl.addPoints('points'), ...pts.map((q, i) => pl.movable(dot(pl.X(q[0]), pl.Y(q[1]), 5, undefined, toneAt(h.assign[i]), { solid: true }), 'points', i)), ...h.cent.map((c, i) => box(pl.X(c[0]) - 7, pl.Y(c[1]) - 7, 14, 14, '', toneAt(i))), txt(370, 60, `SSE ${fmt(h.sse, 3)}`, { size: 12.5, mono: true, tone: 'amber' })], note: h.note }))
   const last = hist[hist.length - 1]
   return trace(560, 320, frames, { sse: fmt(last.sse, 3), centroids: last.cent.map((c) => `(${fmt(c[0], 2)},${fmt(c[1], 2)})`).join(' '), iterations: String(Math.ceil(hist.length / 2)) })
 }

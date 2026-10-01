@@ -2,7 +2,7 @@
 // current value (the card passes the object's value, falling back to the
 // engine default) and the result is the list of parameter writes to make.
 
-import type { Act } from './types'
+import type { Act, Box, Dom } from './types'
 
 export interface Change { param: string; value: string }
 
@@ -13,7 +13,7 @@ const num = (n: number) => String(Math.round(n * 1e6) / 1e6)
 /** `edit` needs a text box, so it is the caller's job (returns null). */
 export function applyAct(a: Act, get: (param: string) => string): Change[] | null {
   switch (a.do) {
-    case 'edit': return null
+    case 'edit': case 'plot': case 'move': return null
     case 'cycle': {
       const i = a.values.indexOf(get(a.param))
       return [{ param: a.param, value: a.values[(i + 1) % a.values.length] }]
@@ -47,4 +47,35 @@ export function applyAct(a: Act, get: (param: string) => string): Change[] | nul
       return [{ param: a.param, value: lines.join('\n') }]
     }
   }
+}
+
+// ── Points on a plot ─────────────────────────────────────────────────────────
+// Point lists are rows "x,y[,label]" joined by ";" or newlines. A click or drag
+// arrives in drawing coordinates; the act carries the box and data range needed
+// to turn it back into data.
+
+const toData = (box: Box, dom: Dom, sx: number, sy: number): [number, number] => {
+  const fx = Math.min(1, Math.max(0, (sx - box.x) / box.w)), fy = Math.min(1, Math.max(0, (sy - box.y) / box.h))
+  const r = (v: number, span: number) => { const d = span >= 20 ? 1 : span >= 2 ? 100 : 1000; return Math.round(v * d) / d }
+  return [r(dom.x0 + fx * (dom.x1 - dom.x0), dom.x1 - dom.x0), r(dom.y1 - fy * (dom.y1 - dom.y0), dom.y1 - dom.y0)]
+}
+const rowsOf = (raw: string) => { const sep = raw.includes('\n') ? '\n' : ';'; return { sep, rows: raw.split(/[;\n]/).map((r) => r.trim()).filter(Boolean).map((r) => r.split(',').map((c) => c.trim())) } }
+
+/** Add a point (plot) or move one (move) from a pointer at drawing coords (sx, sy). */
+export function applyPoint(a: Act, get: (param: string) => string, sx: number, sy: number, shift = false): Change[] | null {
+  if (a.do !== 'plot' && a.do !== 'move') return null
+  const [x, y] = toData(a.box, a.dom, sx, sy)
+  const { sep, rows } = rowsOf(get(a.param))
+  if (a.do === 'plot') rows.push([String(x), String(y), ...(a.label ? [shift ? a.label[1] : a.label[0]] : [])])
+  else if (rows[a.index]) rows[a.index] = [String(x), String(y), ...rows[a.index].slice(2)]
+  else return null
+  return [{ param: a.param, value: rows.map((r) => r.join(',')).join(sep) }]
+}
+
+/** Remove the row a `move` point stands for. */
+export function dropPoint(a: Act, get: (param: string) => string): Change[] | null {
+  if (a.do !== 'move') return null
+  const { sep, rows } = rowsOf(get(a.param))
+  rows.splice(a.index, 1)
+  return [{ param: a.param, value: rows.map((r) => r.join(',')).join(sep) }]
 }
