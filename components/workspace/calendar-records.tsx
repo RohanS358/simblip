@@ -135,6 +135,9 @@ export function openRecord(r: Pick<CalRecord, 'id' | 'kind'>) {
   const node = useWorkspaceStore.getState().nodes[r.id]
   if (node?.kind === 'file') openFile(node)
   else if (node?.kind === 'page') useWorkspaceStore.getState().setActivePage(node.id)
+  // The phone/tablet shell keeps its own "which screen" state, so it has to be
+  // told to show the editor (the desktop shell just follows the active page).
+  window.dispatchEvent(new Event('simblip:show-editor'))
 }
 
 const NOTES_NOTEBOOK = 'Calendar Notes'

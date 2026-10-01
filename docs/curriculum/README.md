@@ -31,3 +31,5 @@ The build **fails if a row names an engine that does not exist**, so the matrix 
 ## Needs a new engine?
 
 Only if no existing Step Lab engine, circuit, mechanics or diagram covers the topic — see [../steplab.md](../steplab.md#adding-an-engine--40-lines). Fields likely to need few or none: civil/mechanics (existing mechanics, fields, graph, table), electrical/electronics (existing circuits, waves, `blocks`), geomatics (`transform2d`, `project3d`).
+
+Engines are filed by subject **package** (`lib/steplab/packages.ts`); a new programme's labs should get their own packages so only that programme's components appear when its packages are enabled — see [../steplab.md](../steplab.md#0-packages-labs-belong-to-subjects-not-to-one-big-widget).

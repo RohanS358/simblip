@@ -3,7 +3,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, pstr, pnum } from '../types'
-import { box, dot, drawTree, heading, line, poly, selfLoop, trace, txt, type NNode } from '../draw'
+import { act as clickable, box, dot, drawTree, heading, line, poly, selfLoop, trace, txt, type NNode } from '../draw'
 
 const G = 'Theory of computation'
 const EPS = new Set(['e', 'ε', 'eps', '', 'epsilon', 'λ'])
@@ -125,8 +125,8 @@ function fsmRun(p: Params, kind: 'dfa' | 'nfa') {
   void off
   const frames: Frame[] = []
   const tape = (k: number): Prim[] => [
-    heading(20, 232, 'input'),
-    ...input.split('').map((c, i) => box(20 + i * 30, 240, 28, 28, c, i < k ? 'mint' : i === k ? 'blue' : 'idle')),
+    clickable(heading(20, 232, 'input ✎'), { do: 'edit', param: 'input', hint: 'Click to type another input string' }),
+    ...input.split('').map((c, i) => clickable(box(20 + i * 30, 240, 28, 28, c, i < k ? 'mint' : i === k ? 'blue' : 'idle'), { do: 'edit', param: 'input', hint: 'Click to type another input string' })),
   ]
   const shift = (d: Prim[]) => d
   void shift
@@ -194,7 +194,7 @@ function pdaRun(p: Params) {
   const W = 640, H = 320
   const frames: Frame[] = chain.map((c, k) => {
     const d: Prim[] = [heading(20, 14, 'Pushdown automaton'), ...drawMachine(m, pos, new Set([c.s]), c.via >= 0 ? [c.via] : [], 'pda')]
-    d.push(heading(20, 232, 'input'), ...input.split('').map((ch, i) => box(20 + i * 30, 240, 28, 28, ch, i < c.i ? 'mint' : i === c.i ? 'blue' : 'idle')))
+    d.push(clickable(heading(20, 232, 'input ✎'), { do: 'edit', param: 'input', hint: 'Click to type another input string' }), ...input.split('').map((ch, i) => clickable(box(20 + i * 30, 240, 28, 28, ch, i < c.i ? 'mint' : i === c.i ? 'blue' : 'idle'), { do: 'edit', param: 'input', hint: 'Click to type another input string' })))
     d.push(heading(470, 14, 'stack'))
     const cells = c.st.split('')
     cells.forEach((s, i) => d.push(box(480, 36 + i * 30, 60, 28, s, i === 0 ? 'amber' : 'idle')))
@@ -243,8 +243,8 @@ function tmRun(p: Params) {
   const frames: Frame[] = snaps.map((s, k) => {
     const d: Prim[] = [heading(20, 14, 'Turing machine'), ...drawMachine(m, pos, new Set([s.state]), s.via >= 0 ? [s.via] : [], 'tm')]
     const lo = s.head - 8
-    d.push(heading(20, 226, 'tape'))
-    for (let i = 0; i < 17; i++) { const idx = lo + i; const v = s.tape.get(idx) ?? m.blank; d.push(box(20 + i * 34, 236, 32, 32, v === m.blank ? '' : v, idx === s.head ? 'blue' : 'idle', v === m.blank ? '_' : undefined)) }
+    d.push(clickable(heading(20, 226, 'tape ✎'), { do: 'edit', param: 'input', hint: 'Click to type the starting tape' }))
+    for (let i = 0; i < 17; i++) { const idx = lo + i; const v = s.tape.get(idx) ?? m.blank; d.push(clickable(box(20 + i * 34, 236, 32, 32, v === m.blank ? '' : v, idx === s.head ? 'blue' : 'idle', v === m.blank ? '_' : undefined), { do: 'edit', param: 'input', hint: 'Click to type the starting tape' })) }
     d.push({ k: 'line', x1: 20 + 8 * 34 + 16, y1: 288, x2: 20 + 8 * 34 + 16, y2: 270, tone: 'blue', arrow: true, w: 2 })
     d.push(txt(20 + 8 * 34 + 16, 304, s.state, { size: 12, mono: true, bold: true, anchor: 'middle', tone: 'blue' }))
     if (k === snaps.length - 1) d.push(txt(430, 200, outcome === 'accepted' ? 'HALT — ACCEPT' : 'HALT — REJECT', { size: 14, bold: true, tone: outcome === 'accepted' ? 'mint' : 'rose' }))
@@ -309,7 +309,7 @@ function cfgRun(p: Params) {
   }
   if (!found) throw new LabError(`"${target}" cannot be derived from ${startSym} — not in the language (within the search limit)`)
   const W = 640, H = 340
-  const frames: Frame[] = found.steps.map((s, k) => ({ draw: [heading(20, 14, `Leftmost derivation of "${target || 'ε'}"`), ...found!.steps.slice(0, k + 1).map((st, i) => txt(20, 44 + i * 20, `${i === 0 ? '' : '⇒ '}${st.form}`, { size: 12.5, mono: true, tone: i === k ? 'blue' : 'idle', bold: i === k })), ...found!.steps.slice(0, k + 1).map((st, i) => txt(300, 44 + i * 20, i === 0 ? '' : st.rule, { size: 11, mono: true, tone: 'amber' }))], note: k === 0 ? `Start from ${startSym}. Each step rewrites the leftmost variable using one production.` : `Apply ${s.rule}.` }))
+  const frames: Frame[] = found.steps.map((s, k) => ({ draw: [clickable(heading(20, 14, `Leftmost derivation of "${target || 'ε'}" ✎`), { do: 'edit', param: 'string', hint: 'Click to type another string' }), ...found!.steps.slice(0, k + 1).map((st, i) => txt(20, 44 + i * 20, `${i === 0 ? '' : '⇒ '}${st.form}`, { size: 12.5, mono: true, tone: i === k ? 'blue' : 'idle', bold: i === k })), ...found!.steps.slice(0, k + 1).map((st, i) => txt(300, 44 + i * 20, i === 0 ? '' : st.rule, { size: 11, mono: true, tone: 'amber' }))], note: k === 0 ? `Start from ${startSym}. Each step rewrites the leftmost variable using one production.` : `Apply ${s.rule}.` }))
   const tree = drawTree(found.root, 34, 52, 400, 200, 13)
   const sc = 1
   void sc

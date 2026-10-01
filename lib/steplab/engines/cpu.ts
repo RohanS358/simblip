@@ -7,7 +7,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, pnum, pstr } from '../types'
-import { box, heading, trace, txt } from '../draw'
+import { act, box, heading, trace, txt } from '../draw'
 
 const hx = (v: number, w = 2) => (v & (w === 2 ? 0xff : 0xffff)).toString(16).toUpperCase().padStart(w, '0')
 
@@ -294,7 +294,7 @@ function cpuRun(p: Params) {
   const codeRows = lines.length
   const W = 640, H = Math.max(300, 76 + codeRows * 20 + 40)
   const frames: Frame[] = snaps.map((s, k) => {
-    const d: Prim[] = [heading(20, 14, 'Program · machine code')]
+    const d: Prim[] = [act(heading(20, 14, 'Program · machine code ✎'), { do: 'edit', param: 'program', hint: 'Click to write the program' })]
     const cur = k > 0 ? snaps[k - 1] : null
     lines.forEach((l, i) => {
       const y = 44 + i * 20
@@ -302,7 +302,7 @@ function cpuRun(p: Params) {
       const wasRun = cur && l.addr === (k > 0 ? snaps[k - 1].addr : null)
       d.push(txt(20, y, hx(l.addr, 4), { size: 11, mono: true, tone: isPC ? 'blue' : 'dim' }))
       d.push(txt(68, y, l.bytes.map((b) => hx(b)).join(' '), { size: 11, mono: true, tone: isPC ? 'blue' : 'dim' }))
-      d.push(txt(150, y, l.text, { size: 12, mono: true, tone: isPC ? 'blue' : wasRun ? 'mint' : 'idle', bold: !!isPC }))
+      d.push(act(txt(150, y, l.text, { size: 12, mono: true, tone: isPC ? 'blue' : wasRun ? 'mint' : 'idle', bold: !!isPC }), { do: 'edit', param: 'program', hint: 'Click to edit the program' }))
     })
     // registers
     const rx = 372
@@ -317,7 +317,7 @@ function cpuRun(p: Params) {
     d.push(box(rx + 100, 110, 92, 30, `${hx(s.c.sp, 4)}H`, s.changed.has('sp') ? 'mint' : 'idle', 'SP'))
     d.push(heading(rx, 160, 'Flags'))
     ;(['s', 'z', 'ac', 'p', 'cy'] as const).forEach((f, i) => d.push(box(rx + i * 50, 168, 44, 34, String(s.c[f]), s.changed.has(f) ? 'amber' : s.c[f] ? 'mint' : 'idle', f.toUpperCase())))
-    d.push(heading(rx, 224, 'Memory watch'))
+    d.push(act(heading(rx, 224, 'Memory watch ✎'), { do: 'edit', param: 'memory', hint: 'Click to set the starting memory, e.g. 2050=25,17' }))
     watch.slice(0, 6).forEach((w, i) => d.push(box(rx + (i % 3) * 84, 232 + Math.floor(i / 3) * 40, 78, 34, hx(s.mem[i]), s.changed.has(`m${i}`) ? 'amber' : 'idle', `${hx(w, 4)}H`)))
     d.push(txt(20, H - 14, `instructions ${k} · T-states ${s.c.t} · at 3 MHz ≈ ${(s.c.t / 3).toFixed(2)} µs`, { size: 12, mono: true, tone: 'amber' }))
     return { draw: d, note: s.text }

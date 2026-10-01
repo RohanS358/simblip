@@ -2,7 +2,7 @@
 // composes a frame with `[...title(..), ...cells(..), ...arrow(..)]` and never
 // thinks about SVG. Coordinates are the engine's own; the renderer scales.
 
-import type { Frame, Prim, Tone, Trace } from './types'
+import type { Act, Frame, Prim, Tone, Trace } from './types'
 
 export const box = (x: number, y: number, w: number, h: number, text?: string, tone: Tone = 'idle', sub?: string): Prim =>
   ({ k: 'rect', x, y, w, h, tone, ...(text !== undefined ? { text } : {}), ...(sub !== undefined ? { sub } : {}) })
@@ -64,6 +64,9 @@ export function trace(w: number, h: number, frames: Frame[], summary: Record<str
 export const TONE_ORDER: Tone[] = ['blue', 'mint', 'amber', 'violet', 'rose']
 /** A stable colour per index — for processes, pages, packets. */
 export const toneAt = (i: number): Tone => TONE_ORDER[((i % TONE_ORDER.length) + TONE_ORDER.length) % TONE_ORDER.length]
+
+/** Make a primitive clickable: `act(box(…), { do: 'toggle', … })`. */
+export const act = <P extends Prim>(p: P, a: Act): P => ({ ...p, act: a })
 
 // ── Binary-tree layout ──────────────────────────────────────────────────────
 // In-order index gives x (no two nodes share a column, so nothing overlaps),

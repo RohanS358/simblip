@@ -66,7 +66,9 @@ function searchRun(p: Params) {
     rows.forEach((row, y) => row.split('').forEach((c, x) => {
       const id = y * r.W + x
       const tone: Tone = c === '#' ? 'dim' : c === 'S' ? 'blue' : c === 'G' ? 'rose' : st.path.includes(id) ? 'mint' : st.cur[0] === x && st.cur[1] === y ? 'amber' : st.closed.includes(id) ? 'violet' : st.open.includes(id) ? 'blue' : 'idle'
-      d.push({ k: 'rect', x: x0 + x * cs, y: y0 + y * cs, w: cs - 2, h: cs - 2, tone, r: 3, solid: c === '#', text: c === 'S' ? 'S' : c === 'G' ? 'G' : undefined })
+      // Click a square to build or remove a wall; the search re-runs on the new maze.
+      const sq: Prim = { k: 'rect', x: x0 + x * cs, y: y0 + y * cs, w: cs - 2, h: cs - 2, tone, r: 3, solid: c === '#', text: c === 'S' ? 'S' : c === 'G' ? 'G' : undefined }
+      d.push(c === 'S' || c === 'G' ? sq : { ...sq, act: { do: 'char', param: 'grid', index: x, row: y, chars: '.#' } })
     }))
     d.push(txt(x0 + r.W * cs + 20, 60, `expanded ${st.closed.length}`, { size: 12.5, mono: true }), txt(x0 + r.W * cs + 20, 84, `frontier ${st.open.length}`, { size: 12.5, mono: true, tone: 'blue' }), txt(x0 + r.W * cs + 20, 130, '■ explored', { size: 11, tone: 'violet' }), txt(x0 + r.W * cs + 20, 148, '■ frontier', { size: 11, tone: 'blue' }), txt(x0 + r.W * cs + 20, 166, '■ current', { size: 11, tone: 'amber' }), txt(x0 + r.W * cs + 20, 184, '■ path', { size: 11, tone: 'mint' }))
     return { draw: d, note: st.found ? `Goal reached after expanding ${st.closed.length} cells; path cost ${r.cost}.` : `Expand (${st.cur[0]}, ${st.cur[1]}) — ${algo === 'bfs' ? 'the oldest frontier cell (FIFO queue)' : algo === 'dfs' ? 'the newest frontier cell (LIFO stack)' : algo === 'greedy' ? 'the cell that looks nearest the goal (min h)' : algo === 'ucs' ? 'the cheapest cell so far (min g)' : 'the cell with the smallest g + h'}.` }

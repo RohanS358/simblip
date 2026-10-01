@@ -587,11 +587,8 @@ function StepLabOptions({ pageId, object }: { pageId: string; object: SceneObjec
   }
   return (
     <div className="space-y-2" onKeyDown={(e) => e.stopPropagation()}>
-      <SectionTitle>Step Lab</SectionTitle>
-      <label className="flex items-center gap-2 text-ui-xs">
-        <span className="w-20 shrink-0 text-muted-foreground">Topic</span>
-        <EnginePicker value={engine?.id ?? ''} onChange={switchEngine} />
-      </label>
+      <SectionTitle>{engine?.label ?? 'Lab'}</SectionTitle>
+      <EnginePicker value={engine?.id ?? ''} onChange={switchEngine} />
       {engine && <p className="text-ui-2xs leading-relaxed text-muted-foreground">{engine.blurb}</p>}
       {engine && <ParamFields engine={engine} params={params} onEdit={edit} onFocus={() => pushHistory(pageId)} />}
       <SectionTitle>Results</SectionTitle>

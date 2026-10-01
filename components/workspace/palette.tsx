@@ -16,6 +16,7 @@ import { motion as fm, AnimatePresence } from "framer-motion";
 import { Check, Search, Shapes, SlidersHorizontal, X } from "lucide-react";
 import { useSpring } from "@/lib/motion";
 import { COMPONENTS } from "@/lib/scene/factory";
+import { LAB_PACKAGES } from "@/lib/steplab/packages";
 import { useDocStore } from "@/lib/store/document";
 import { usePrefs } from "@/lib/store/preferences";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -51,10 +52,11 @@ const DOMAINS = [
   { id: "quantum", label: "Quantum", hue: 270 },
   { id: "economics", label: "Economics", hue: 165 },
   { id: "dsa", label: "DSA", hue: 25 },
-  { id: "computing", label: "Computing", hue: 215 },
-] as const;
+  // Subject lab packages (lib/steplab/packages.ts) — each ships its own engines.
+  ...LAB_PACKAGES.map((p) => ({ id: p.id, label: p.label, hue: p.hue })),
+] as { id: string; label: string; hue: number }[];
 
-type DomainId = (typeof DOMAINS)[number]["id"];
+type DomainId = string;
 
 const DOMAIN_LABEL: Record<DomainId, string> = Object.fromEntries(
   DOMAINS.map((d) => [d.id, d.label]),

@@ -5,7 +5,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, plist } from '../types'
-import { box, cells, dot, drawBinary, heading, line, toneAt, trace, txt, type BNode } from '../draw'
+import { act, box, cells, dot, drawBinary, heading, line, toneAt, trace, txt, type BNode } from '../draw'
 
 const G = 'Data structures & algorithms'
 
@@ -132,12 +132,12 @@ function sortRun(p: Params) {
   const bw = Math.min(46, Math.floor(540 / n)), W = 30 + n * bw + 30, H = 250
   const scale = 150 / (max - Math.min(0, min) || 1)
   const frames: Frame[] = events.map((e, k) => {
-    const d: Prim[] = [heading(20, 14, `${algo} sort · ${n} elements`)]
+    const d: Prim[] = [act(heading(20, 14, `${algo} sort · ${n} elements ✎`), { do: 'edit', param: 'values', hint: 'Click to type your own numbers' })]
     e.arr.forEach((v, i) => {
       const h = Math.max(4, (v - Math.min(0, min)) * scale)
       const tone: Tone = e.swap.includes(i) ? 'rose' : e.hi.includes(i) ? 'amber' : e.sorted.has(i) ? 'mint' : 'blue'
       d.push({ k: 'rect', x: 30 + i * bw + 2, y: 200 - h, w: bw - 4, h, tone, r: 3 })
-      d.push(txt(30 + i * bw + bw / 2, 216, String(v), { size: 11, mono: true, anchor: 'middle' }))
+      d.push(act(txt(30 + i * bw + bw / 2, 216, String(v), { size: 11, mono: true, anchor: 'middle' }), { do: 'edit', param: 'values', hint: 'Click to type your own numbers' }))
     })
     d.push(txt(20, H - 8, `comparisons ${events.slice(0, k + 1).length >= 0 ? cmp : cmp}  ·  moves ${moves}`, { size: 11.5, mono: true, tone: 'amber' }))
     return { draw: d, note: e.note }
@@ -174,9 +174,9 @@ function hashRun(p: Params) {
   }
   if (!['chaining', 'linear', 'quadratic', 'double'].includes(method)) throw new LabError('method is chaining, linear, quadratic or double')
   const W = 560, H = 60 + m * 32 + 60
-  const frames: Frame[] = [{ draw: [heading(20, 14, `${method} · h(k) = k mod ${m}`), ...Array.from({ length: m }, (_, i) => box(70, 34 + i * 32, 90, 26, '', 'dim', undefined)), ...Array.from({ length: m }, (_, i) => txt(56, 52 + i * 32, String(i), { size: 11, mono: true, anchor: 'end', tone: 'dim' }))], note: `Insert ${keys.length} keys into a table of ${m} slots. h(k) = k mod ${m} picks the home slot.` }]
+  const frames: Frame[] = [{ draw: [act(heading(20, 14, `${method} · h(k) = k mod ${m} ✎`), { do: 'edit', param: 'keys', hint: 'Click to type the keys to insert' }), ...Array.from({ length: m }, (_, i) => box(70, 34 + i * 32, 90, 26, '', 'dim', undefined)), ...Array.from({ length: m }, (_, i) => txt(56, 52 + i * 32, String(i), { size: 11, mono: true, anchor: 'end', tone: 'dim' }))], note: `Insert ${keys.length} keys into a table of ${m} slots. h(k) = k mod ${m} picks the home slot.` }]
   log.forEach((e, k) => {
-    const d: Prim[] = [heading(20, 14, `${method} · h(k) = k mod ${m}`)]
+    const d: Prim[] = [act(heading(20, 14, `${method} · h(k) = k mod ${m} ✎`), { do: 'edit', param: 'keys', hint: 'Click to type the keys to insert' })]
     for (let i = 0; i < m; i++) {
       const isProbe = e.probes.includes(i), placed = e.slot === i
       const v = e.table[i]
@@ -220,7 +220,7 @@ function huffmanRun(p: Params) {
   const symbols = [...freq.values()].reduce((a, b) => a + b, 0)
   const W = 620, H = 340
   const frames: Frame[] = snaps.map((s, k) => {
-    const d: Prim[] = [heading(20, 14, 'Huffman coding — repeatedly merge the two lightest trees')]
+    const d: Prim[] = [act(heading(20, 14, 'Huffman coding — repeatedly merge the two lightest trees ✎'), { do: 'edit', param: 'text', hint: 'Click to type the text to encode' })]
     let x = 20
     s.forest.forEach((t) => {
       const { prims, width, height } = drawBinary(toB(t), 34, 46, x + 17, 60, 15)
@@ -302,7 +302,7 @@ function bstRun(p: Params) {
   const { steps, root } = treeOps(mode, ops)
   const W = 620, H = 340
   const frames: Frame[] = steps.map((s) => {
-    const d: Prim[] = [heading(20, 14, mode === 'avl' ? 'AVL tree — balance factor under each node' : 'Binary search tree')]
+    const d: Prim[] = [act(heading(20, 14, (mode === 'avl' ? 'AVL tree — balance factor under each node' : 'Binary search tree') + ' ✎'), { do: 'edit', param: 'ops', hint: 'Click to edit the keys to insert / delete' })]
     const { prims } = drawBinary(toBNode(s.root, s.hot, mode === 'avl'), 44, 58, 40, 60, 16)
     d.push(...prims)
     d.push(txt(20, H - 12, `inorder ${inorder(s.root).join(' ')}`, { size: 11, mono: true, tone: 'amber' }))
@@ -354,7 +354,7 @@ function heapRun(p: Params) {
   const toTree = (arr: number[], i: number, hi: number[]): BNode | null => (i < arr.length ? { label: String(arr[i]), tone: hi.includes(i) ? 'amber' : 'idle', left: toTree(arr, 2 * i + 1, hi), right: toTree(arr, 2 * i + 2, hi) } : null)
   const W = 620, H = 330
   const frames: Frame[] = snaps.map((s) => {
-    const d: Prim[] = [heading(20, 14, `${kind}-heap`)]
+    const d: Prim[] = [act(heading(20, 14, `${kind}-heap ✎`), { do: 'edit', param: 'ops', hint: 'Click to edit the operations (numbers insert; extract removes the root)' })]
     d.push(...drawBinary(toTree(s.arr, 0, s.hi), 46, 58, 60, 84, 16).prims)
     d.push(...cells(20, 30, s.arr, 34, 26, s.arr.map((_, i) => (s.hi.includes(i) ? 'amber' : undefined))))
     return { draw: d, note: s.note }
@@ -419,7 +419,7 @@ function btreeRun(p: Params) {
     return { x, w, node: n, y: 40 + depth * 70, kids }
   }
   const frames: Frame[] = snaps.map((s) => {
-    const d: Prim[] = [heading(20, 14, `${plus ? 'B+' : 'B'}-tree · order ${order}`)]
+    const d: Prim[] = [act(heading(20, 14, `${plus ? 'B+' : 'B'}-tree · order ${order} ✎`), { do: 'edit', param: 'keys', hint: 'Click to type the keys to insert' })]
     const L = layout(s.root, 0, { x: 20 })
     const draw = (n: ReturnType<typeof layout>) => {
       n.kids.forEach((c) => { d.push(line(n.x + n.w / 2, n.y + 26, c.x + c.w / 2, c.y, 'dim', { w: 1.2 })); draw(c) })
@@ -459,7 +459,7 @@ function graphRun(p: Params) {
   const W = 640, H = 340
   const frames: Frame[] = []
   const paint = (title: string, st: Map<string, Tone>, treeEdges: Set<string>, side: string[], sideTitle: string): Prim[] => {
-    const d: Prim[] = [heading(20, 14, title)]
+    const d: Prim[] = [act(heading(20, 14, title + ' ✎'), { do: 'edit', param: 'graph', hint: 'Click to edit the graph (A-B:4;B-C:2…)' })]
     for (const e of edges) {
       const [x1, y1] = pos.get(e.a)!, [x2, y2] = pos.get(e.b)!
       const t = treeEdges.has(`${e.a}-${e.b}`) || treeEdges.has(`${e.b}-${e.a}`)
@@ -552,9 +552,9 @@ function infixRun(p: Params) {
   const { out, steps } = toPostfix(expr)
   const toks = expr.match(/\d+(?:\.\d+)?|[A-Za-z]\w*|[-+*/^()]/g) ?? []
   const W = 560, H = 230
-  const frames: Frame[] = [{ draw: [heading(20, 14, 'Infix → postfix (shunting-yard)'), ...toks.map((t, i) => box(20 + i * 30, 30, 26, 26, t, 'idle'))], note: 'Scan left to right. Operands go to the output; operators wait on a stack until something of lower precedence arrives.' }]
+  const frames: Frame[] = [{ draw: [act(heading(20, 14, 'Infix → postfix (shunting-yard) ✎'), { do: 'edit', param: 'expr', hint: 'Click to type another expression' }), ...toks.map((t, i) => act(box(20 + i * 30, 30, 26, 26, t, 'idle'), { do: 'edit', param: 'expr', hint: 'Click to type another expression' }))], note: 'Scan left to right. Operands go to the output; operators wait on a stack until something of lower precedence arrives.' }]
   steps.forEach((s, k) => {
-    const d: Prim[] = [heading(20, 14, 'Infix → postfix (shunting-yard)'), ...toks.map((t, i) => box(20 + i * 30, 30, 26, 26, t, i === k && s.tok ? 'blue' : i < k ? 'mint' : 'idle'))]
+    const d: Prim[] = [act(heading(20, 14, 'Infix → postfix (shunting-yard) ✎'), { do: 'edit', param: 'expr', hint: 'Click to type another expression' }), ...toks.map((t, i) => act(box(20 + i * 30, 30, 26, 26, t, i === k && s.tok ? 'blue' : i < k ? 'mint' : 'idle'), { do: 'edit', param: 'expr', hint: 'Click to type another expression' }))]
     d.push(heading(20, 84, 'output'), ...s.out.map((t, i) => box(20 + i * 30, 92, 26, 26, t, 'mint')))
     d.push(heading(20, 140, 'operator stack (top on the right)'), ...s.stack.map((t, i) => box(20 + i * 30, 148, 26, 26, t, 'amber')))
     frames.push({ draw: d, note: s.note })
@@ -587,7 +587,7 @@ function hanoiRun(p: Params) {
   move(n, 0, 2, 1)
   const W = 560, H = 220
   const frames: Frame[] = snaps.map((s) => {
-    const d: Prim[] = [heading(20, 14, `Tower of Hanoi · ${n} disks`)]
+    const d: Prim[] = [act(heading(20, 14, `Tower of Hanoi · ${n} disks (click to add one)`), { do: 'cycle', param: 'disks', values: ['1', '2', '3', '4', '5', '6'] })]
     s.pegs.forEach((peg, i) => {
       const cx = 100 + i * 180
       d.push(line(cx, 180, cx, 50, 'dim', { w: 3 }), line(cx - 70, 180, cx + 70, 180, 'dim', { w: 3 }), txt(cx, 200, 'ABC'[i], { size: 12, mono: true, anchor: 'middle', tone: 'dim' }))

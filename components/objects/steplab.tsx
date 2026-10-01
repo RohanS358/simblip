@@ -1,6 +1,8 @@
 'use client'
 
-// Step Lab card. One widget, many topics: it runs whichever engine its
+// Lab card — the one renderer behind every subject package's labs. A palette
+// component (lib/scene/factory.ts labComponents) creates one pinned to a single
+// engine; the card runs whichever engine its
 // `engine` parameter names (lib/steplab/registry.ts), gets back a list of
 // frames — plain drawing primitives plus a one-sentence caption — and lets the
 // reader step, play or scrub through them. It knows nothing about schedulers,
@@ -15,8 +17,10 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { ChevronLeft, ChevronRight, CircleHelp, Pause, Play, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { getEngine, runEngine } from '@/lib/steplab/registry'
-import { EnginePicker, ParamFields, ResultChips } from './steplab-fields'
-import type { Params, Prim, Tone } from '@/lib/steplab/types'
+import { QuickControls } from './steplab-fields'
+import { applyAct } from '@/lib/steplab/act'
+import { openProperties } from '@/lib/store/sidebar-sections'
+import type { Act, Params, Prim, Tone } from '@/lib/steplab/types'
 import type { ObjectRendererProps } from './types'
 
 const COLOR: Record<Tone, string> = {
@@ -110,8 +114,22 @@ function PrimView({ p }: { p: Prim }) {
   }
 }
 
-void ResultChips
 const stop = (e: { stopPropagation: () => void }) => e.stopPropagation()
+
+const ACT_HINT: Record<Act['do'], string> = { edit: 'Click to type a value', cycle: 'Click to change', set: 'Click to place here', toggle: 'Click to change', step: 'Click to adjust', char: 'Click to change' }
+
+/** A primitive the student can click. Pointer-down stops here so pressing it
+ *  does not start dragging the whole card. */
+function ActView({ p, onAct }: { p: Prim & { act: Act }; onAct: (a: Act, el: Element) => void }) {
+  return (
+    <g role="button" tabIndex={0} className="cursor-pointer outline-none hover:opacity-75 focus-visible:opacity-75" onPointerDown={stop}
+      onClick={(e) => { e.stopPropagation(); onAct(p.act, e.currentTarget) }}
+      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onAct(p.act, e.currentTarget) } }}>
+      <title>{('hint' in p.act && p.act.hint) || ACT_HINT[p.act.do]}</title>
+      <PrimView p={p} />
+    </g>
+  )
+}
 
 const IconBtn = ({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: React.ReactNode }) => (
   <button
@@ -122,8 +140,6 @@ const IconBtn = ({ label, onClick, disabled, children }: { label: string; onClic
 )
 
 export function StepLabObject({ pageId, object, selected }: ObjectRendererProps) {
-  const setStringParam = useDocStore((s) => s.setStringParam)
-  const pushHistory = useDocStore((s) => s.pushHistory)
 
   // Every string parameter is an engine argument; `engine` picks the engine.
   const params = useMemo(() => {
@@ -137,8 +153,11 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
   const [k, setK] = useState(0)
   const [playing, setPlaying] = useState(false)
   const [ms, setMs] = useState(750)
-  const [config, setConfig] = useState(false)
   const [help, setHelp] = useState(false)
+  const [editing, setEditing] = useState<{ param: string; value: string; multiline: boolean; box: { left: number; top: number; width: number; height: number } } | null>(null)
+  const stageRef = useRef<HTMLDivElement>(null)
+  const pushHistory = useDocStore((s) => s.pushHistory)
+  const setStringParam = useDocStore((s) => s.setStringParam)
   const total = result.ok ? result.trace.frames.length : 0
 
   // A new configuration starts from its first frame.
@@ -158,10 +177,33 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
   lastRef.current = k >= total - 1
 
   const edit = (name: string, value: string) => setStringParam(pageId, object.id, name, value)
-  const switchEngine = (id: string) => {
+  const current = (name: string) => params[name] ?? engine?.params.find((d) => d.name === name)?.def ?? ''
+  /** Programs, tables and specs: a code box over the whole picture. */
+  const write = (param: string) => {
+    const st = stageRef.current
+    if (!st) return
+    setPlaying(false)
+    setEditing({ param, value: current(param), multiline: true, box: { left: 8, top: 8, width: st.clientWidth - 16, height: st.clientHeight - 16 } })
+  }
+  /** Run what a click on a primitive means: write the parameters, or open an in-place text box. */
+  const onAct = (a: Act, el: Element) => {
+    if (a.do === 'edit') {
+      if (engine?.params.find((d) => d.name === a.param)?.long) return write(a.param)
+      const st = stageRef.current?.getBoundingClientRect(), r = el.getBoundingClientRect()
+      if (!st) return
+      setPlaying(false)
+      setEditing({ param: a.param, value: current(a.param), multiline: false, box: { left: r.left - st.left, top: r.top - st.top, width: Math.max(96, r.width), height: Math.max(26, r.height) } })
+      return
+    }
+    const changes = applyAct(a, current)
+    if (!changes) return
     pushHistory(pageId)
-    for (const name of Object.keys(params)) if (name !== 'engine') edit(name, '')
-    edit('engine', id)
+    for (const c of changes) edit(c.param, c.value)
+  }
+  const commit = () => {
+    if (!editing) return
+    if (editing.value !== current(editing.param)) { pushHistory(pageId); edit(editing.param, editing.value) }
+    setEditing(null)
   }
 
   return (
@@ -177,7 +219,7 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
     >
       <div className="flex items-center gap-2 border-b border-border/60 px-3 py-1.5">
         <span className="min-w-0 flex-1 truncate text-[11.5px] font-semibold tracking-wide text-muted-foreground">
-          {object.name}{engine ? ` · ${engine.label}` : ''}
+          {object.name}{engine && !object.name.startsWith(engine.label) ? ` · ${engine.label}` : ''}
         </span>
         {result.ok && (
           <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">{Math.min(k, total - 1) + 1}/{total}</span>
@@ -185,40 +227,54 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
         <IconBtn label={help ? 'Hide help' : 'What am I looking at?'} onClick={() => setHelp((v) => !v)}>
           <CircleHelp className="h-3.5 w-3.5" />
         </IconBtn>
-        <IconBtn label={config ? 'Hide settings' : 'Settings'} onClick={() => setConfig((v) => !v)}>
+        <IconBtn label="Properties — topic and numbers" onClick={() => { useDocStore.getState().setSelection([object.id]); openProperties() }}>
           <SlidersHorizontal className="h-3.5 w-3.5" />
         </IconBtn>
       </div>
-
-      {config && (
-        <div className="max-h-[45%] space-y-1.5 overflow-y-auto border-b border-border/60 bg-card/60 px-3 py-2" onPointerDown={stop} onKeyDown={stop}>
-          <label className="flex items-center gap-2 text-[11px]">
-            <span className="w-20 shrink-0 text-muted-foreground">Topic</span>
-            <EnginePicker value={engine?.id ?? ''} onChange={switchEngine} />
-          </label>
-          {engine && <ParamFields engine={engine} params={params} onEdit={edit} onFocus={() => pushHistory(pageId)} />}
-        </div>
-      )}
 
       {help && engine && (
         <div className="space-y-1 border-b border-border/60 bg-[color-mix(in_oklch,var(--accent-blue)_7%,var(--card))] px-3 py-2 text-[11.5px] leading-relaxed" onPointerDown={stop}>
           <p className="font-semibold">{engine.label}</p>
           <p className="text-muted-foreground">{engine.blurb}</p>
-          <p className="text-muted-foreground">Press <b>▶</b> to play, <b>←</b> <b>→</b> (or the arrows) to step one move at a time, drag the slider to jump. The sentence under the picture says what just happened and <em>why</em>. Open <b>⚙ settings</b> to change the numbers and watch the picture redraw.</p>
+          <p className="text-muted-foreground">Press <b>▶</b> to play, <b>←</b> <b>→</b> (or the arrows) to step one move at a time, drag the slider to jump. The sentence under the picture says what just happened and <em>why</em>. Open <b>Properties</b> (the sliders button) to change the numbers and watch the picture redraw.</p>
         </div>
       )}
 
-      <div className="min-h-0 flex-1 p-2">
+      {engine && <QuickControls engine={engine} params={params} onEdit={edit} onFocus={() => pushHistory(pageId)} onWrite={write} />}
+
+      <div ref={stageRef} className="relative min-h-0 flex-1 p-2">
         {result.ok && frame ? (
           <svg viewBox={`0 0 ${result.trace.w} ${result.trace.h}`} width="100%" height="100%" preserveAspectRatio="xMidYMid meet"
             role="img" aria-label={`${engine?.label}: ${frame.note}`}>
-            {frame.draw.map((p, i) => <PrimView key={i} p={p} />)}
+            {frame.draw.map((p, i) => (p.act ? <ActView key={i} p={p as Prim & { act: Act }} onAct={onAct} /> : <PrimView key={i} p={p} />))}
           </svg>
         ) : (
           <p className="m-auto flex h-full items-center justify-center px-6 text-center text-[12px] leading-relaxed text-[var(--accent-rose)]">
             {result.ok ? '' : result.error}
           </p>
         )}
+        {editing && (editing.multiline ? (
+          <div className="absolute z-10 flex flex-col overflow-hidden rounded-lg border border-[var(--accent-blue)] bg-background shadow-lg" style={editing.box} onPointerDown={stop}>
+            <textarea autoFocus spellCheck={false} value={editing.value} aria-label={`Edit ${editing.param}`}
+              onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+              onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Escape') setEditing(null); else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) commit() }}
+              className="min-h-0 flex-1 resize-none bg-transparent p-2 font-mono text-[12px] leading-relaxed outline-none" />
+            <div className="flex items-center justify-between gap-2 border-t border-border/60 px-2 py-1 text-[10.5px] text-muted-foreground">
+              <span>Ctrl+Enter to run · Esc to cancel</span>
+              <span className="flex gap-1">
+                <button type="button" onClick={() => setEditing(null)} className="rounded px-2 py-0.5 hover:bg-accent">Cancel</button>
+                <button type="button" onClick={commit} className="rounded bg-[var(--accent-blue)] px-2 py-0.5 text-white">Run</button>
+              </span>
+            </div>
+          </div>
+        ) : (
+          <input autoFocus value={editing.value} aria-label={`Edit ${editing.param}`}
+            onChange={(e) => setEditing({ ...editing, value: e.target.value })}
+            onBlur={commit} onPointerDown={stop}
+            onKeyDown={(e) => { e.stopPropagation(); if (e.key === 'Enter') commit(); else if (e.key === 'Escape') setEditing(null) }}
+            style={{ left: editing.box.left, top: editing.box.top, width: editing.box.width, height: editing.box.height }}
+            className="absolute z-10 rounded-md border border-[var(--accent-blue)] bg-background px-2 font-mono text-[12px] shadow-md outline-none" />
+        ))}
       </div>
 
       <div className="min-h-[34px] border-t border-border/60 px-3 py-1.5 text-[11.5px] leading-snug text-foreground/90">

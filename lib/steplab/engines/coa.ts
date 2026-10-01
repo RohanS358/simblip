@@ -3,7 +3,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, plist } from '../types'
-import { arrow, bits, box, cells, dot, heading, line, toneAt, trace, txt } from '../draw'
+import { act, arrow, bits, box, cells, dot, heading, line, toneAt, trace, txt } from '../draw'
 
 const hex = (v: number, w = 2) => v.toString(16).toUpperCase().padStart(w, '0')
 const parseNum = (s: string): number => {
@@ -140,7 +140,9 @@ function numconvRun(p: Params) {
     const d: Prim[] = [heading(20, 14, `${n} in every code`)]
     rows.slice(0, upto).forEach(([name, val, tone], i) => {
       d.push(txt(20, 42 + i * 24, name, { size: 11, tone: 'dim' }))
-      d.push(txt(190, 42 + i * 24, val, { size: 13, mono: true, tone, bold: i === upto - 1 }))
+      // The decimal row IS the input: click it and type another number (19H, 0x2F and 0b101 work too).
+      const t = txt(190, 42 + i * 24, val, { size: 13, mono: true, tone, bold: i === upto - 1 })
+      d.push(i === 0 ? act(t, { do: 'edit', param: 'n', hint: 'Click and type a number — decimal, 19H, 0x2F or 0b101' }) : t)
     })
     return d
   }
@@ -373,7 +375,8 @@ export const implicantText = (imp: Implicant, vars: number): string => {
 function kmapRun(p: Params) {
   const vars = pnum(p, 'vars', 4)
   if (![2, 3, 4].includes(vars)) throw new LabError('vars must be 2, 3 or 4')
-  const ones = pnums(p, 'minterms', [0, 1, 2, 5, 6, 7, 8, 9, 10, 14])
+  // An empty list is a real function (all zeros) — it is how a student clears the last 1 by clicking.
+  const ones = p.minterms !== undefined && p.minterms.trim() === '' ? [] : pnums(p, 'minterms', [0, 1, 2, 5, 6, 7, 8, 9, 10, 14])
   const dcs = pnums(p, 'dontcares', [])
   const max = 1 << vars
   if ([...ones, ...dcs].some((m) => m < 0 || m >= max || !Number.isInteger(m))) throw new LabError(`minterms must lie in 0…${max - 1}`)
@@ -396,7 +399,8 @@ function kmapRun(p: Params) {
       const m = mAt(r, c)
       const one = ones.includes(m), dc = dcs.includes(m)
       const hl = highlight.findIndex((imp) => covers(imp, m))
-      d.push(box(x0 + c * cellSz, y0 + r * cellSz, cellSz - 2, cellSz - 2, one ? '1' : dc ? 'X' : '0', hl >= 0 ? toneAt(hl) : one ? 'mint' : 'idle', `m${m}`))
+      // Click a cell: 0 → 1 → X (don't-care) → 0.
+      d.push(act(box(x0 + c * cellSz, y0 + r * cellSz, cellSz - 2, cellSz - 2, one ? '1' : dc ? 'X' : '0', hl >= 0 ? toneAt(hl) : one ? 'mint' : 'idle', `m${m}`), { do: 'toggle', param: 'minterms', item: String(m), also: 'dontcares' }))
     }
     return d
   }
@@ -472,7 +476,7 @@ export const COA_ENGINES: EngineDef[] = [
     blurb: 'Quine–McCluskey minimisation drawn as K-map groups.',
     params: [
       { name: 'vars', label: 'Variables', hint: '2, 3 or 4', def: '4', options: ['2', '3', '4'] },
-      { name: 'minterms', label: 'Minterms', hint: 'where F = 1', def: '0 1 2 5 6 7 8 9 10 14' },
+      { name: 'minterms', label: 'Minterms', hint: 'where F = 1 (click cells on the map)', def: '0 1 2 5 6 7 8 9 10 14', optional: true },
       { name: 'dontcares', label: "Don't cares", hint: 'optional', def: '', optional: true },
     ],
     run: kmapRun,

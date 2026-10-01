@@ -4,7 +4,7 @@
 
 import type { EngineDef, Frame, Params, Prim, Tone } from '../types'
 import { LabError, fmt, pnum, pnums, pstr, plist } from '../types'
-import { arrow, bits, box, dot, heading, line, poly, toneAt, trace, txt } from '../draw'
+import { act, arrow, bits, box, dot, heading, line, poly, toneAt, trace, txt } from '../draw'
 
 const bitsOnly = (s: string, what: string) => {
   const t = s.replace(/\s+/g, '')
@@ -74,7 +74,7 @@ function crcRun(p: Params) {
   })
   void y2
   frames.push({
-    draw: [...base, txt(x0, 40, flip ? `received (bit ${flip} flipped)` : 'received (no error)', { size: 11, tone: 'dim' }), ...bits(recv, x0, 50, cw, recv.split('').map((_, i) => (i === flip - 1 ? 'rose' : undefined))),
+    draw: [...base, txt(x0, 40, flip ? `received (bit ${flip} flipped)` : 'received (no error)', { size: 11, tone: 'dim' }), ...bits(recv, x0, 50, cw, recv.split('').map((_, i) => (i === flip - 1 ? 'rose' : undefined))).map((b, i) => act(b, { do: 'set', param: 'flip', value: String(i + 1), off: '0' })),
       txt(x0, 50 + cw + 34, `remainder at the receiver = ${recvRem}`, { size: 14, mono: true, bold: true, tone: /^0+$/.test(recvRem) ? 'mint' : 'rose' }),
       txt(x0, 50 + cw + 58, /^0+$/.test(recvRem) ? 'zero → accepted' : 'non-zero → error detected, frame discarded', { size: 12, tone: /^0+$/.test(recvRem) ? 'mint' : 'rose' })],
     note: /^0+$/.test(recvRem) ? 'The receiver divides the whole word by G: remainder 0 means no detectable error.' : 'A non-zero remainder proves the word was corrupted.',
@@ -108,7 +108,7 @@ function hammingRun(p: Params) {
   const label = (i: number) => ((i & (i - 1)) === 0 ? `p${Math.log2(i) + 1}` : `d${i - Math.floor(Math.log2(i)) - 1}`)
   const draw = (vals: (number | null)[], tones: (Tone | undefined)[], extra: Prim[] = []): Prim[] => [
     heading(20, 14, `Hamming(${n},${k}) · even parity`),
-    ...Array.from({ length: n }, (_, i) => box(30 + i * cw, 44, cw - 3, 34, vals[i + 1] === null ? '' : String(vals[i + 1]), tones[i + 1] ?? 'idle', undefined)),
+    ...Array.from({ length: n }, (_, i) => act(box(30 + i * cw, 44, cw - 3, 34, vals[i + 1] === null ? '' : String(vals[i + 1]), tones[i + 1] ?? 'idle', undefined), { do: 'set', param: 'error', value: String(i + 1), off: '0' })),
     ...Array.from({ length: n }, (_, i) => txt(30 + i * cw + (cw - 3) / 2, 96, label(i + 1), { size: 10.5, anchor: 'middle', mono: true, tone: (i + 1 & i) === 0 ? 'amber' : 'dim' })),
     ...Array.from({ length: n }, (_, i) => txt(30 + i * cw + (cw - 3) / 2, 34, String(i + 1), { size: 9.5, anchor: 'middle', mono: true, tone: 'dim' })),
     ...extra,
@@ -332,7 +332,7 @@ function linecodeRun(p: Params) {
   const frames: Frame[] = []
   for (let k = 0; k <= data.length; k++) {
     const d: Prim[] = [heading(20, 14, 'Line coding')]
-    data.split('').forEach((b, i) => d.push(txt(70 + i * bw + bw / 2, 34, b, { size: 12, mono: true, anchor: 'middle', tone: i < k ? 'blue' : 'dim', bold: i === k - 1 })))
+    data.split('').forEach((b, i) => d.push(act(txt(70 + i * bw + bw / 2, 34, b, { size: 12, mono: true, anchor: 'middle', tone: i < k ? 'blue' : 'dim', bold: i === k - 1 }), { do: 'char', param: 'bits', index: i, chars: '01' })))
     codes.forEach((c, ci) => {
       const y0 = 60 + ci * rowH, mid = y0 + 30, amp = 20
       d.push(txt(20, mid + 4, CODE_NAMES[c] ?? c, { size: 10.5, tone: 'dim' }))
@@ -391,7 +391,7 @@ function modulationRun(p: Params) {
   for (let k = 0; k <= data.length; k++) {
     const d: Prim[] = [heading(20, 14, `${scheme.toUpperCase()} · ${cyc} carrier cycles per bit`)]
     data.split('').forEach((b, i) => {
-      d.push(box(20 + i * bw + 2, 26, bw - 4, 22, b, i < k ? 'blue' : 'idle'))
+      d.push(act(box(20 + i * bw + 2, 26, bw - 4, 22, b, i < k ? 'blue' : 'idle'), { do: 'char', param: 'bits', index: i, chars: '01' }))
       d.push(line(20 + i * bw, 60, 20 + i * bw, H - 20, 'dim', { dash: true, w: 0.5 }))
     })
     d.push(line(20, mid, 20 + data.length * bw, mid, 'dim', { dash: true, w: 0.8 }))

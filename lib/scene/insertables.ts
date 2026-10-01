@@ -6,6 +6,7 @@
 // both without touching either.
 
 import { COMPONENTS, createGeometry, baseObject } from './factory'
+import { LAB_PACKAGES } from '@/lib/steplab/packages'
 import { useDocStore } from '@/lib/store/document'
 import type { SceneObject, Vec2 } from './types'
 import { findPageMeta, useWorkspaceStore } from '@/lib/store/workspace'
@@ -49,13 +50,13 @@ const WIDGETS: Insertable[] = [
   widget('cashflow', 'Cash Flow', 'economics npv irr annuity salvage marr'),
   widget('truthtable', 'Truth Table', 'digital logic gate boolean inputs outputs'),
   widget('dsa', 'DSA Lab', 'c++ cpp code algorithm sort search recursion pointer array visualize interpreter complexity big-o'),
-  widget('steplab', 'Step Lab', 'scheduling page replacement cache cpu pipeline tcp routing automata dfa graphics sorting search minimax queue simulation algorithm step trace os network compiler database'),
   widget('circle', 'Circle', 'shape ellipse'),
   widget('rect', 'Rectangle', 'shape box square'),
   widget('line', 'Line', 'shape beam segment'),
 ]
 
-const title = (s: string) => (s === 'dsa' ? 'DSA' : s.charAt(0).toUpperCase() + s.slice(1))
+const LAB_TITLE = new Map(LAB_PACKAGES.map((p) => [p.id, p.label]))
+const title = (s: string) => (s === 'dsa' ? 'DSA' : LAB_TITLE.get(s) ?? s.charAt(0).toUpperCase() + s.slice(1))
 
 export function getInsertables(): Insertable[] {
   const packages = usePrefs.getState?.()?.packages ?? {}

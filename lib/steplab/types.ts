@@ -24,12 +24,29 @@
  *  `dim` inactive. `idle` is the neutral card colour. */
 export type Tone = 'idle' | 'blue' | 'mint' | 'amber' | 'rose' | 'violet' | 'dim'
 
+/** What clicking a primitive does. The renderer applies it to the card's own
+ *  parameters, so a student edits the thing they are LOOKING AT instead of a
+ *  properties form. Pure data: engines declare it, the card interprets it. */
+export type Act =
+  /** Type a new value in place (Enter commits). */
+  | { do: 'edit'; param: string; hint?: string }
+  /** Click through a fixed list of values. */
+  | { do: 'cycle'; param: string; values: string[] }
+  /** Add/remove `item` in a space/comma list. With `also`, three states: none → param → also → none. */
+  | { do: 'toggle'; param: string; item: string; also?: string }
+  /** Add `by` to a number (clamped). */
+  | { do: 'step'; param: string; by: number; min?: number; max?: number }
+  /** Set `param` to `value`; clicking it again (already that value) sets `off` — for "put the fault HERE". */
+  | { do: 'set'; param: string; value: string; off: string }
+  /** Replace one character of a text param (row/col when it has lines) with the next of `chars`. */
+  | { do: 'char'; param: string; index: number; chars: string; row?: number }
+
 export type Prim =
-  | { k: 'rect'; x: number; y: number; w: number; h: number; text?: string; sub?: string; tone?: Tone; r?: number; solid?: boolean }
-  | { k: 'text'; x: number; y: number; text: string; tone?: Tone; size?: number; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; mono?: boolean }
-  | { k: 'line'; x1: number; y1: number; x2: number; y2: number; tone?: Tone; arrow?: boolean; dash?: boolean; w?: number }
-  | { k: 'circle'; x: number; y: number; r: number; text?: string; tone?: Tone; solid?: boolean; double?: boolean }
-  | { k: 'poly'; pts: number[][]; tone?: Tone; closed?: boolean; fill?: boolean; w?: number; arrow?: boolean; dash?: boolean }
+  | { k: 'rect'; x: number; y: number; w: number; h: number; text?: string; sub?: string; tone?: Tone; r?: number; solid?: boolean; act?: Act }
+  | { k: 'text'; x: number; y: number; text: string; tone?: Tone; size?: number; anchor?: 'start' | 'middle' | 'end'; bold?: boolean; mono?: boolean; act?: Act }
+  | { k: 'line'; x1: number; y1: number; x2: number; y2: number; tone?: Tone; arrow?: boolean; dash?: boolean; w?: number; act?: Act }
+  | { k: 'circle'; x: number; y: number; r: number; text?: string; tone?: Tone; solid?: boolean; double?: boolean; act?: Act }
+  | { k: 'poly'; pts: number[][]; tone?: Tone; closed?: boolean; fill?: boolean; w?: number; arrow?: boolean; dash?: boolean; act?: Act }
 
 export interface Frame {
   draw: Prim[]

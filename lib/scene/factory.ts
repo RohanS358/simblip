@@ -9,6 +9,8 @@ import { createBehavior } from '@/lib/behaviors/registry'
 import type { Recognition } from '@/lib/sketch/recognize'
 import { EMPTY_SPEC } from '@/lib/econ/engine'
 import { DEFAULT_DSA_SOURCE } from '@/lib/dsa/samples'
+import { ENGINES, packageOfEngine } from '@/lib/steplab/registry'
+import { LAB_PACKAGES } from '@/lib/steplab/packages'
 
 let nameCounter = 0
 const autoName = (base: string) => `${base} ${(++nameCounter % 1000)}`
@@ -153,7 +155,7 @@ export function createGeometry(kind: GeometryKind, position: Vec2): SceneObject 
       obj.parameters.outputs = str('')
       break
     case 'steplab':
-      obj.name = autoName('Step Lab')
+      obj.name = autoName('Lab')
       obj.size = { w: 600, h: 440 }
       obj.parameters.engine = str('sched')
       break
@@ -185,10 +187,15 @@ export function fromRecognition(rec: Recognition): SceneObject {
 
 // ── Component palette ───────────────────────────────────────────────────────
 
+/** Packages that predate Step Lab… */
+export type BaseDomain = 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics' | 'dsa'
+/** …and the subject packages the labs ship in (lib/steplab/packages.ts). */
+export type LabDomain = 'os' | 'architecture' | 'datacomm' | 'networks' | 'toc' | 'numerical' | 'statistics' | 'simulation' | 'ai' | 'graphics' | 'database' | 'control'
+
 export interface ComponentDef {
   id: string
   label: string
-  domain: 'mechanics' | 'electrical' | 'electronics' | 'digital' | 'optics' | 'waves' | 'quantum' | 'economics' | 'dsa' | 'computing'
+  domain: BaseDomain | LabDomain
   /** live = participates in the current engine; symbols await their solver */
   live: boolean
   create: (position: Vec2) => SceneObject
@@ -260,7 +267,7 @@ const SYSTEM_LABELS: Record<ComponentDef['domain'], string> = {
   quantum: 'Quantum',
   economics: 'Economics',
   dsa: 'DSA',
-  computing: 'Computing',
+  ...Object.fromEntries(LAB_PACKAGES.map((p) => [p.id, p.label])) as Record<LabDomain, string>,
 }
 
 export function createSystem(domain: ComponentDef['domain'], position: Vec2): SceneObject {
@@ -284,6 +291,22 @@ const systemDef = (domain: ComponentDef['domain']): ComponentDef => ({
   live: true,
   create: (p) => createSystem(domain, p),
 })
+
+/** One palette component per engine, filed under the package that ships it. A card
+ *  made from one is locked to that engine's package (see components/objects/steplab). */
+const labComponents = (): ComponentDef[] =>
+  ENGINES.map((e) => ({
+    id: `lab-${e.id}`,
+    label: e.label,
+    domain: packageOfEngine(e) as ComponentDef['domain'],
+    live: true,
+    create: (p: Vec2) => {
+      const o = createGeometry('steplab', p)
+      o.parameters.engine = str(e.id)
+      o.name = autoName(e.label)
+      return o
+    },
+  }))
 
 export const COMPONENTS: ComponentDef[] = [
   systemDef('mechanics'),
@@ -508,15 +531,6 @@ export const COMPONENTS: ComponentDef[] = [
     create: (p: Vec2) => createGeometry('dsa', p),
   },
 
-  // ── Computing: the Step Lab — one card, many topics (lib/steplab). ──
-  {
-    id: 'step-lab',
-    label: 'Step Lab',
-    domain: 'computing' as const,
-    live: true,
-    create: (p: Vec2) => createGeometry('steplab', p),
-  },
-
   // ── Economics: engineering-economics cash-flow timeline (money moves
   // through time; NPV/FV computed live — see components/objects/cashflow). ──
   econ('cashflow', 'Cash Flow', (p) => {
@@ -647,6 +661,7 @@ export const COMPONENTS: ComponentDef[] = [
         createBehavior('hinge')
       ),
   },
+  ...labComponents(),
 ]
 
 export const componentById = (id: string) => COMPONENTS.find((c) => c.id === id)

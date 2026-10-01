@@ -6,6 +6,8 @@
 // Designed for individual monetization and toggleable enable/disable status.
 
 import type { ComponentDef } from '@/lib/scene/factory'
+import { LAB_PACKAGES } from '@/lib/steplab/packages'
+import { enginesOfPackage } from '@/lib/steplab/registry'
 
 export interface ComponentPackage {
   id: string
@@ -17,6 +19,8 @@ export interface ComponentPackage {
   price: string // 'Included', 'Free', '$9.99', '$14.99', etc.
   isPurchased: boolean
   featuredComponentIds: string[]
+  /** Course ids that ship with this package (content/courses/<id>). */
+  courses?: string[]
 }
 
 export const COMPONENT_PACKAGES: ComponentPackage[] = [
@@ -119,17 +123,18 @@ export const COMPONENT_PACKAGES: ComponentPackage[] = [
     isPurchased: true,
     featuredComponentIds: ['dsa'],
   },
-  {
-    id: 'package:computing',
-    domain: 'computing',
-    name: 'Computer Systems Lab',
-    subject: 'Computing',
-    description: 'Step Lab: schedulers, page replacement, caches, CPUs, TCP, automata, graphics and AI algorithms — each drawn one step at a time.',
-    iconName: 'MonitorPlay',
+  ...LAB_PACKAGES.map((p): ComponentPackage => ({
+    id: `package:${p.id}`,
+    domain: p.id as ComponentDef['domain'],
+    name: p.name,
+    subject: p.label,
+    description: p.description,
+    iconName: p.iconName,
     price: 'Included',
     isPurchased: true,
-    featuredComponentIds: ['step-lab'],
-  },
+    featuredComponentIds: enginesOfPackage(p.id).slice(0, 5).map((e) => `lab-${e.id}`),
+    courses: p.courses,
+  })),
 ]
 
 export function getPackageByDomain(domain: string): ComponentPackage | undefined {

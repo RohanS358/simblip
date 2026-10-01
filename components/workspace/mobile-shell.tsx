@@ -679,6 +679,18 @@ function MobileShellScreens({ onEditorChange }: { onEditorChange: (open: boolean
     if (!childrenOf(ws.nodes, null).some((n) => n.name === SHARED_NB)) ws.addNotebook(SHARED_NB)
   }, [needsSharedNb, store])
 
+  // Something outside the shell (the calendar) opened a page: show the editor.
+  useEffect(() => {
+    const show = () => {
+      if (!store.getState().activePageId) return
+      pushHistory('editor')
+      setView({ kind: 'editor' })
+    }
+    window.addEventListener('simblip:show-editor', show)
+    return () => window.removeEventListener('simblip:show-editor', show)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [store])
+
   const editorShown = view.kind === 'editor' && Boolean(activePageId)
   // Layout effect: hide/show the shell's tab bar in the same frame the editor
   // mounts, not one paint later.

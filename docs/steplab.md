@@ -1,10 +1,25 @@
-# Step Lab, Block Simulator and animated diagrams
+# Subject labs (Step Lab engines), Block Simulator and animated diagrams
 
 Three additions that let the computer-engineering syllabus be taught by *running* things, using the existing object model (geometry + behaviors + parameters), SimScript and the course pipeline. Nothing here has a special-case in the canvas, the AI or the course reader beyond being one more registered kind.
 
 Engine list (generated, always current): [steplab-engines.md](steplab-engines.md) · syllabus coverage: [curriculum/computer.md](curriculum/computer.md) · adding another engineering field: [curriculum/README.md](curriculum/README.md).
 
-## 1. Step Lab — one widget, many algorithms
+## 0. Packages: labs belong to subjects, not to one big widget
+
+There is no "Step Lab" component in the palette. Every engine is its own component (`lab-<engine>`, e.g. *Page replacement*, *DFA*, *Subnetting*) filed under the **subject package** that ships it. A package is what a course ships with and what a user enables in Settings → Packages, so a field of science is added by adding packages, never by growing a shared catalogue.
+
+| Piece | Where |
+|---|---|
+| Package list (id, name, colour, courses) and which engine group each belongs to | `lib/steplab/packages.ts` |
+| Engines of one package | `enginesOfPackage(id)` in `lib/steplab/registry.ts` |
+| Palette components, one per engine | `labComponents()` in `lib/scene/factory.ts` |
+| Package cards (toggle, featured parts, `courses`) | `lib/packages/registry.ts` (generated from the list above) |
+
+Current packages: Operating Systems, Architecture, Data Communication, Networks, Theory of Computation, Numerical Methods, Statistics & Data, Simulation, Artificial Intelligence, Graphics, Databases, Control Systems — plus the existing Digital and DSA packages, which gain their engines (number systems and K-maps; sorting, trees and graphs). Disabling a package hides its components from the palette and the Ctrl+K search. A card's topic picker only switches between engines **of the same package**.
+
+To add a field (e.g. civil): add its packages to `LAB_PACKAGES`, map its engine groups in `GROUP_PACKAGE`, write the engines; palette, settings and AI catalogue follow. The one shared piece is the renderer (`components/objects/steplab.tsx`, geometry kind `steplab`), which draws any engine's frames and knows no subject.
+
+## 1. The engine contract
 
 A large part of the syllabus is an *algorithm acting on state*: a scheduler filling a Gantt chart, a cache choosing a victim, a DFA reading a string. A widget per topic would be ~70 widgets. Instead:
 
@@ -18,6 +33,19 @@ params (strings on the object)  →  engine.run(params)  →  Trace  →  render
 - **Registry** (`lib/steplab/registry.ts`): `ENGINES`, `getEngine`, `runEngine(params)`. `runEngine` fills defaults, honours `optional` empties and **never throws** — a bad input becomes a sentence for the student.
 
 Because engines are pure, the **lesson lint gate runs every figure headless** and checks that the numbers a lesson quotes equal the numbers the engine produces (`expect`), exactly as it checks meter readings on circuits.
+
+### Direct manipulation
+
+The card is operated on its face; Properties is only the full list.
+
+| Mechanism | Where | Example |
+|---|---|---|
+| **Click a primitive** — `act(prim, { do: … })` in `lib/steplab/draw.ts`; interpreted by `lib/steplab/act.ts` | engines | K-map cell: 0 → 1 → X; Hamming/CRC bit: put the error here; line-code/modulation bit: flip it; search maze square: wall on/off; automaton input tape, 8085 program listing, number-systems value: click and type in place |
+| `edit` on a long parameter | any | opens a code box over the picture (Ctrl+Enter runs, Esc cancels) — programs, specs, grammars, matrices |
+| **Title handle** — `PRIMARY` in `lib/steplab/quick.ts` | every engine | click the picture's title to edit its main input |
+| **On-face controls** — `QUICK` in `lib/steplab/quick.ts` | every engine | dropdowns, sliders (`[name, min, max, step]`), small text boxes and ✎ buttons for long inputs |
+
+Acts: `edit`, `cycle`, `toggle` (list membership, optional third state), `step`, `set` (put it here / click again to clear), `char` (flip one character of a text or grid parameter). A test checks every act, quick control and title handle names a real parameter of its engine.
 
 ### Adding an engine (≈ 40 lines)
 
