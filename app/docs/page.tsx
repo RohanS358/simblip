@@ -16,6 +16,21 @@ export const metadata: Metadata = {
   },
 }
 
+
+const breadcrumbs = (name: string, path: string) => ({
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'SIMBLIP', item: SITE_URL },
+    { '@type': 'ListItem', position: 2, name, item: `${SITE_URL}${path}` },
+  ],
+})
+
 export default function DocsPage() {
-  return <DocsView />
+  return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbs('Documentation', '/docs')) }} />
+      <DocsView />
+    </>
+  )
 }

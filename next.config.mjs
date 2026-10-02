@@ -34,6 +34,10 @@ const nextConfig = {
   outputFileTracingIncludes: {
     '/api/courses': ['./content/courses/**/*.json'],
   },
+  // /tutorial was a client-side hop to /notebook; a permanent redirect removes the page and the chain.
+  async redirects() {
+    return [{ source: '/tutorial', destination: '/notebook', permanent: true }]
+  },
   async headers() {
     // _next/static/* already gets long-lived immutable caching from Vercel;
     // these are the public/ assets that don't. sw.js is deliberately

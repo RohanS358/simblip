@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Landing } from '@/components/landing/showcase'
+import { Landing, FAQ } from '@/components/landing/showcase'
 import { AuthRedirect } from '@/components/landing/auth-redirect'
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simblip.rohan-singh.com.np'
@@ -37,10 +37,20 @@ const jsonLd = {
       ],
     },
     {
+      '@type': 'FAQPage',
+      mainEntity: FAQ.map(([name, text]) => ({
+        '@type': 'Question',
+        name,
+        acceptedAnswer: { '@type': 'Answer', text },
+      })),
+    },
+    {
       '@type': 'Person',
       '@id': `${SITE_URL}/#rohan-singh`,
       name: 'Rohan Singh',
       jobTitle: 'Software Developer',
+      url: 'https://github.com/RohanS358',
+      sameAs: ['https://github.com/RohanS358'],
       description: 'Developer and creator of SIMBLIP.',
     },
   ],

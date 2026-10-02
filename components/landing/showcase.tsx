@@ -169,6 +169,13 @@ const FEATURES = [
   ['Docs, boards & PDFs', 'Infinite whiteboards, paged documents that export to PDF, and annotatable PDF/PPT readers — side by side in tabs.'],
 ] as const
 
+export const FAQ: [string, string][] = [
+  ['What is SIMBLIP?', 'SIMBLIP is an engineering notebook on an infinite canvas. You write notes, draw shapes, give them behaviors such as springs, circuits or equations, and press Play to run live physics, circuit and graph simulations.'],
+  ['Who is SIMBLIP for?', 'Engineering students, teachers and institutions. It is licensed to universities, colleges and schools, with role-based workspaces for admins, teachers and students.'],
+  ['Does SIMBLIP work offline?', 'Yes. The notebook is offline-first and stores your work on your device. Optional cloud sync keeps pages in step across devices when your institution enables it.'],
+  ['How do I get access?', 'There is no public sign-up. Institutions are provisioned by licensing, and the institution admin creates accounts. Contact licensing from the pricing section of this page.'],
+]
+
 export function Landing() {
   return (
     <ScrollFx>
@@ -419,6 +426,27 @@ export function Landing() {
             />
           </div>
         </div>
+      </section>
+
+      <section id="faq" className="border-t border-border/60 px-4 py-16 sm:px-8">
+        <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">Frequently asked questions</h2>
+        <dl className="mt-8 grid gap-6 md:grid-cols-2">
+          {FAQ.map(([q, a]) => (
+            <div key={q}>
+              <dt className="text-ui-md font-semibold">{q}</dt>
+              <dd className="mt-1 text-ui-sm leading-relaxed text-muted-foreground">{a}</dd>
+            </div>
+          ))}
+        </dl>
+      </section>
+
+      <section id="about" className="border-t border-border/60 px-4 py-16 sm:px-8">
+        <h2 className="text-[clamp(1.8rem,4vw,3rem)] font-bold leading-[1.02] tracking-[-0.02em]">About the author</h2>
+        <p className="mt-4 max-w-2xl text-ui-md leading-relaxed text-muted-foreground">
+          SIMBLIP is designed and built by <a href="https://github.com/RohanS358" rel="author" className="font-medium text-foreground underline underline-offset-4">Rohan Singh</a>,
+          a software developer from Nepal who builds tools for engineering education: the simulation
+          engine, the notebook canvas and the classroom platform.
+        </p>
       </section>
 
       <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-border/40 px-4 py-8 text-ui-xs text-muted-foreground sm:px-8">
