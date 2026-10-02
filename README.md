@@ -6,6 +6,8 @@ Notes, physics, circuits, equations and live graphs on one infinite canvas. Draw
 
 Designed and developed by **Rohan Singh**.
 
+🌐 **Website:** [simblip.rohan-singh.com.np](https://simblip.rohan-singh.com.np) · 📖 [Documentation](https://simblip.rohan-singh.com.np/docs)
+
 ---
 
 ## What it does
