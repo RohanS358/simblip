@@ -219,11 +219,22 @@ const TALL_SYMBOLS: Record<string, number> = {
   // or 1:4 via the Model dropdown resizes automatically (recommendedHeight).
 }
 
+// Parts whose pins sit on the top/bottom edge need room for the leads: a
+// transistor is a square, a 3-phase source is tall (drawn pins + leads).
+const SYMBOL_SIZE: Record<string, { w: number; h: number }> = {
+  bjt: { w: 72, h: 72 },
+  'bjt-pnp': { w: 72, h: 72 },
+  mosfet: { w: 72, h: 72 },
+  'mosfet-pmos': { w: 72, h: 72 },
+  'three-phase-source': { w: 96, h: 84 },
+  potentiometer: { w: 96, h: 60 },
+}
+
 function symbol(domain: ComponentDef['domain'], name: string, label: string, position: Vec2, params: Record<string, string> = {}): SceneObject {
   const obj = baseObject('symbol', position, autoName(label))
   obj.geometry.symbol = name
   obj.geometry.domain = domain
-  obj.size = { w: 96, h: TALL_SYMBOLS[name] ?? 48 }
+  obj.size = SYMBOL_SIZE[name] ?? { w: 96, h: TALL_SYMBOLS[name] ?? 48 }
   for (const [k, v] of Object.entries(params)) obj.parameters[k] = num(v)
   obj.behaviors.push(createBehavior('electricalNode'))
   return obj

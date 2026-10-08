@@ -10,6 +10,7 @@ import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath, connectorElbowPath, connectorPoints } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
+import { PartSvg } from './part-art'
 import { inkPath } from './ink'
 import { getNumber, getString, type ObjectRendererProps } from './types'
 import { pxToCmRounded } from '@/lib/scene/units'
@@ -258,424 +259,12 @@ function bodyFill(obj: SceneObject): { fill: string; stroke: string; strokeWidth
   }
 }
 
-// Dependent sources render as a diamond (vs. a circle for independent
-// sources) per convention, labeled with the IEEE controlled-source letter:
-// E=VCVS, F=CCCS, G=VCCS, H=CCVS.
-function depSource(label: string) {
-  return (
-    <>
-      <path d="M4 9.6 H22 M4 38.4 H22 M22 9.6 V38.4 M74 9.6 H92 M74 38.4 H92 M74 9.6 V38.4" fill="none" />
-      <path d="M48 6 L74 24 L48 42 L22 24 Z" fill="none" />
-      <text x="48" y="28" textAnchor="middle" fontSize="14" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
-        {label}
-      </text>
-    </>
-  )
-}
-
-// Schematic glyphs in a 96×48 box. Recognizable beats ornate.
-const GLYPHS: Record<string, React.ReactNode> = {
-  resistor: <path d="M4 24 h14 l5 -12 10 24 10 -24 10 24 10 -24 5 12 h24" />,
-  capacitor: <path d="M4 24 h36 M40 8 v32 M56 8 v32 M60 24 h32" />,
-  inductor: (
-    <path d="M4 24 h12 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0 a8 8 0 0 1 16 0 h12" fill="none" />
-  ),
-  battery: <path d="M4 24 h32 M36 10 v28 M48 17 v14 M48 24 h44 M60 6 v0" />,
-  'ac-source': (
-    <>
-      <circle cx="48" cy="24" r="16" fill="none" />
-      <path d="M38 24 q5 -10 10 0 t10 0 M4 24 h28 M64 24 h28" fill="none" />
-    </>
-  ),
-  gnd: <path d="M48 6 v18 M32 24 h32 M38 31 h20 M44 38 h8" />,
-  switch: <path d="M4 24 h24 M68 24 h24 M28 24 l32 -14 M64 24 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" />,
-  diode: <path d="M4 24 h28 M32 12 v24 l28 -12 z M60 12 v24 M60 24 h32" />,
-  led: (
-    <>
-      <path d="M4 24 h28 M32 12 v24 l28 -12 z M60 12 v24 M60 24 h32" />
-      <path d="M52 8 l8 -6 M60 14 l8 -6" strokeWidth="1.4" />
-    </>
-  ),
-  zener: <path d="M4 24 h28 M32 12 v24 l28 -12 z M64 8 L60 12 V36 L56 40 M60 24 h32" />,
-  'current-source': (
-    <>
-      <circle cx="48" cy="24" r="16" fill="none" />
-      <path d="M4 24 h28 M64 24 h28 M40 24 h12 M46 18 l6 6 -6 6" fill="none" />
-    </>
-  ),
-  potentiometer: (
-    <>
-      <path d="M0 0 V10 H14 M82 10 H96 V0" fill="none" />
-      <rect x="14" y="4" width="68" height="12" rx="2" fill="none" />
-      <path d="M48 46 V18 M43 24 l5 -8 5 8" fill="none" />
-    </>
-  ),
-  wattmeter: (
-    <>
-      <circle cx="48" cy="24" r="18" fill="none" />
-      <path d="M4 9.6 H30 M4 38.4 H30 M66 9.6 H92 M66 38.4 H92" fill="none" />
-      <text x="48" y="29" textAnchor="middle" fontSize="13" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
-        W
-      </text>
-    </>
-  ),
-  vcvs: depSource('E'),
-  vccs: depSource('G'),
-  ccvs: depSource('H'),
-  cccs: depSource('F'),
-  transformer: (
-    <path
-      d="M4 9.6 H30 M4 38.4 H30 M66 9.6 H92 M66 38.4 H92
-         M30 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6
-         M66 9.6 a6 6 0 0 0 0 9.6 a6 6 0 0 0 0 9.6 a6 6 0 0 0 0 9.6
-         M44 4 V44 M52 4 V44"
-      fill="none"
-    />
-  ),
-  'transformer-ct': (
-    <path
-      d="M4 9.6 H30 M4 38.4 H30
-         M30 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6 a6 6 0 0 1 0 9.6
-         M44 4 V44 M52 4 V44
-         M66 4.8 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6 a5 5 0 0 0 0 9.6
-         M66 4.8 H92 M66 43.2 H92 M78 24 H92"
-      fill="none"
-    />
-  ),
-  'three-phase-source': (
-    <>
-      <circle cx="48" cy="24" r="16" fill="none" />
-      <path d="M19.2 0 V10 M48 0 V8 M76.8 0 V10 M48 40 V48" fill="none" />
-      <text x="48" y="29" textAnchor="middle" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
-        3~
-      </text>
-    </>
-  ),
-  'dc-machine': (
-    <>
-      <path d="M4 24 h16 M76 24 h16" fill="none" />
-      <circle cx="48" cy="24" r="20" fill="none" />
-      <g data-spin="" style={{ transformOrigin: '48px 24px' }}>
-        <line x1="48" y1="24" x2="48" y2="8" strokeWidth={2} />
-      </g>
-      <text x="48" y="29" textAnchor="middle" fontSize="13" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
-        M
-      </text>
-    </>
-  ),
-  'induction-motor': (
-    <>
-      <path d="M4 9.6 H30 M4 24 H30 M4 38.4 H30 M68 24 H92" fill="none" />
-      <circle cx="48" cy="24" r="18" fill="none" />
-      <g data-spin="" style={{ transformOrigin: '48px 24px' }}>
-        <line x1="48" y1="24" x2="48" y2="10" strokeWidth={2} />
-      </g>
-      <text x="48" y="29" textAnchor="middle" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">
-        3~M
-      </text>
-    </>
-  ),
-  'pressure-plate': (
-    <>
-      <path d="M4 24 h24 M68 24 h24 M28 24 l32 -10 M64 24 a3 3 0 1 0 6 0 a3 3 0 1 0 -6 0" fill="none" />
-      <path d="M20 4 h56" strokeWidth={3} fill="none" />
-      <path d="M48 4 v9 M42 8 l6 6 6 -6" fill="none" />
-    </>
-  ),
-  bjt: (
-    <>
-      <circle cx="48" cy="24" r="18" fill="none" />
-      <path d="M40 12 v24 M40 20 l16 -12 M40 28 l16 12 M4 24 h36 M56 8 v-4 M56 40 v4" />
-    </>
-  ),
-  'bjt-pnp': (
-    <>
-      <circle cx="48" cy="24" r="18" fill="none" />
-      <path d="M40 12 v24 M40 20 l16 -12 M40 28 l16 12 M4 24 h36 M56 8 v-4 M56 40 v4" />
-      <path d="M44 26.5 l-4 1.5 1.5 4" fill="none" />
-    </>
-  ),
-  mosfet: <path d="M4 24 h28 M36 12 v24 M44 10 v8 M44 20 v8 M44 30 v8 M44 14 h24 v-8 M44 34 h24 v8 M44 24 h16" />,
-  'mosfet-pmos': (
-    <>
-      <path d="M4 24 h22 M36 12 v24 M44 10 v8 M44 20 v8 M44 30 v8 M44 14 h24 v-8 M44 34 h24 v8 M44 24 h16" />
-      <circle cx="29" cy="24" r="4" fill="none" />
-    </>
-  ),
-  opamp: <path d="M24 6 v36 l48 -18 z M8 15 h16 M8 33 h16 M72 24 h16 M29 15 h6 M32 12 v6 M29 33 h6" />,
-  // Variable-model symbols (N-input gates, mux, decoder) carry only their
-  // body here — pin stubs are drawn dynamically from terminalsOf() so they
-  // always line up with the chosen model. See STUB_EXTENTS below.
-  'and-gate': <path d="M24 8 h28 a16 16 0 0 1 0 32 h-28 z" fill="none" />,
-  'or-gate': <path d="M20 8 q14 16 0 32 q30 0 48 -16 q-18 -16 -48 -16 z" fill="none" />,
-  'xor-gate': (
-    <path d="M26 8 q14 16 0 32 q30 0 46 -16 q-16 -16 -46 -16 z M18 8 q14 16 0 32" fill="none" />
-  ),
-  'not-gate': <path d="M28 8 v32 l36 -16 z M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0 M4 24 h24 M72 24 h20" fill="none" />,
-  'nand-gate': (
-    <path d="M20 8 h28 a16 16 0 0 1 0 32 h-28 z M64 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0" fill="none" />
-  ),
-  'nor-gate': (
-    <path d="M16 8 q14 16 0 32 q28 0 44 -16 q-16 -16 -44 -16 z M60 24 a4 4 0 1 0 8 0 a4 4 0 1 0 -8 0" fill="none" />
-  ),
-  bulb: (
-    <>
-      <circle cx="48" cy="24" r="14" fill="none" />
-      <path d="M4 24 h30 M62 24 h30 M38 14 l20 20 M58 14 l-20 20" />
-    </>
-  ),
-  fuse: <path d="M4 24 h12 M80 24 h12 M16 16 h64 v16 h-64 z M16 24 h64" fill="none" />,
-  voltmeter: (
-    <>
-      <circle cx="48" cy="24" r="16" fill="none" />
-      <path d="M4 24 h28 M64 24 h28 M42 16 l6 16 6 -16" fill="none" />
-    </>
-  ),
-  ammeter: (
-    <>
-      <circle cx="48" cy="24" r="16" fill="none" />
-      <path d="M4 24 h28 M64 24 h28 M42 32 l6 -16 6 16 M44 27 h8" fill="none" />
-    </>
-  ),
-  probe: (
-    <>
-      <circle cx="48" cy="12" r="8" fill="none" />
-      <path d="M48 20 v26 M44 40 l4 6 4 -6" />
-    </>
-  ),
-  'logic-probe': (
-    <>
-      {/* square-wave badge instead of the analog circle */}
-      <path d="M36 4 h24 v16 h-24 z" fill="none" />
-      <path d="M40 16 h4 v-8 h4 v8 h4 v-8 h4" fill="none" />
-      <path d="M48 20 v26 M44 40 l4 6 4 -6" />
-    </>
-  ),
-  input: <path d="M8 10 h52 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-52 z M66 24 h26" fill="none" />,
-  output: <path d="M4 24 h12 M16 24 a16 16 0 1 0 32 0 a16 16 0 1 0 -32 0" fill="none" />,
-  clock: (
-    <path d="M8 10 h52 a6 6 0 0 1 6 6 v16 a6 6 0 0 1 -6 6 h-52 z M16 32 h8 v-16 h8 v16 h8 v-16 h8 M66 24 h26" fill="none" />
-  ),
-  'd-ff': (
-    <>
-      <path d="M28 6 h44 v36 h-44 z M4 16 h24 M4 32 h24 M72 24 h20 M28 28 l7 4 -7 4" fill="none" />
-      <text x="36" y="20" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">D</text>
-      <text x="60" y="28" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
-    </>
-  ),
-  mux: (
-    <>
-      <path d="M28 4 L64 14 V34 L28 44 z" fill="none" />
-      <text x="38" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">MUX</text>
-    </>
-  ),
-  'half-adder': (
-    <>
-      <path d="M26 6 h44 v36 h-44 z M4 16 h22 M4 32 h22 M70 16 h22 M70 32 h22" fill="none" />
-      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">HA</text>
-    </>
-  ),
-  'full-adder': (
-    <>
-      <path d="M26 6 h44 v36 h-44 z M4 12 h22 M4 24 h22 M4 36 h22 M70 16 h22 M70 32 h22" fill="none" />
-      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">FA</text>
-    </>
-  ),
-  'sr-latch': (
-    <>
-      <path d="M26 6 h44 v36 h-44 z M4 16 h22 M4 32 h22 M70 24 h22" fill="none" />
-      <text x="42" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">SR</text>
-    </>
-  ),
-  'jk-ff': (
-    <>
-      <path d="M26 6 h44 v36 h-44 z M4 12 h22 M4 24 h22 M4 36 h22 M70 24 h22 M26 20 l7 4 -7 4" fill="none" />
-      <text x="42" y="16" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">J</text>
-      <text x="42" y="40" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">K</text>
-      <text x="58" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
-    </>
-  ),
-  decoder: (
-    <>
-      <path d="M26 4 h44 v40 h-44 z" fill="none" />
-      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">DEC</text>
-    </>
-  ),
-  comparator: (
-    <>
-      <path d="M26 4 h44 v40 h-44 z M4 16 h22 M4 32 h22 M70 12 h22 M70 24 h22 M70 36 h22" fill="none" />
-      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">CMP</text>
-    </>
-  ),
-  't-ff': (
-    <>
-      <path d="M28 6 h44 v36 h-44 z M4 16 h24 M4 32 h24 M72 24 h20 M28 28 l7 4 -7 4" fill="none" />
-      <text x="36" y="20" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">T</text>
-      <text x="60" y="28" fontSize="11" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">Q</text>
-    </>
-  ),
-  tristate: (
-    <>
-      <path d="M28 6 L28 42 L68 24 Z M4 16 H28 M4 32 H28 M68 24 H92" fill="none" />
-      <text x="33" y="18.5" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">A</text>
-      <text x="33" y="35.5" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">EN</text>
-    </>
-  ),
-  demux: (
-    <>
-      <path d="M32 14 L32 34 L68 44 V4 Z" fill="none" />
-      <text x="36" y="28" fontSize="8" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">DMX</text>
-    </>
-  ),
-  encoder: (
-    <>
-      <path d="M26 4 h44 v40 h-44 z" fill="none" />
-      <text x="34" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">ENC</text>
-    </>
-  ),
-  'bcd-7seg': (
-    <>
-      <path d="M26 4 h44 v40 h-44 z" fill="none" />
-      <text x="30" y="22" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">BCD</text>
-      <text x="32" y="33" fontSize="7.5" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">7SEG</text>
-    </>
-  ),
-  register4: (
-    <>
-      <path d="M20 4 h56 v40 h-56 z" fill="none" />
-      <text x="28" y="28" fontSize="9" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">SHIFT</text>
-    </>
-  ),
-  counter4: (
-    <>
-      <path d="M20 4 h56 v40 h-56 z" fill="none" />
-      <text x="30" y="28" fontSize="10" stroke="none" fill="var(--foreground)" fontFamily="var(--font-jakarta)">CTR4</text>
-    </>
-  ),
-}
-
-// Glow center per glowing symbol (viewBox coords).
-const GLOW_POS: Record<string, { cx: number; cy: number; r: number }> = {
-  led: { cx: 46, cy: 24, r: 16 },
-  bulb: { cx: 48, cy: 24, r: 15 },
-  output: { cx: 32, cy: 24, r: 15 },
-}
-
-// Body extents for variable-model symbols: where dynamic pin stubs stop on
-// the left and start on the right (bottom stubs are vertical, into the body).
-const STUB_EXTENTS: Record<string, { leftEnd: number; rightStart: number; topEnd?: number }> = {
-  'and-gate': { leftEnd: 26, rightStart: 68 },
-  'or-gate': { leftEnd: 24, rightStart: 68 },
-  'xor-gate': { leftEnd: 21, rightStart: 72 },
-  'nand-gate': { leftEnd: 22, rightStart: 72 },
-  'nor-gate': { leftEnd: 20, rightStart: 68 },
-  mux: { leftEnd: 30, rightStart: 64 },
-  decoder: { leftEnd: 28, rightStart: 70 },
-  demux: { leftEnd: 32, rightStart: 68 },
-  encoder: { leftEnd: 26, rightStart: 70 },
-  register4: { leftEnd: 20, rightStart: 76, topEnd: 4 },
-}
-
-// 7-segment display: each segment is a live pin (a..g, matching terminal
-// order) — lit/dimmed by the same data-pin/data-state sync every other
-// digital object's pin badges use (world.ts writes it generically).
-const SEVEN_SEG_SEGMENTS = [
-  'M48 6 H80', // a — top
-  'M82 8 V22', // b — upper-right
-  'M82 26 V40', // c — lower-right
-  'M48 40 H80', // d — bottom
-  'M46 26 V40', // e — lower-left
-  'M46 8 V22', // f — upper-left
-  'M48 23 H80', // g — middle
-]
-function SevenSegGlyph() {
-  return (
-    <>
-      <path d={Array.from({ length: 7 }, (_, i) => `M0 ${((i + 1) / 8) * 48} H44`).join(' ')} fill="none" strokeWidth={1.5} opacity={0.6} />
-      {SEVEN_SEG_SEGMENTS.map((d, i) => (
-        <path
-          key={i}
-          data-pin={i}
-          d={d}
-          fill="none"
-          strokeWidth={5}
-          className="opacity-15 transition-opacity duration-100 data-[state='1']:opacity-100"
-          stroke="var(--accent-mint)"
-        />
-      ))}
-    </>
-  )
-}
-
 /**
- * Just the symbol's shape — no terminals, no live-value chrome. Extracted so
- * a component palette/catalog can show the exact same schematic glyph as the
- * canvas without pulling in the interactive extras (see component-icons.tsx).
+ * Just the symbol's shape — no live-value chrome. The palette/catalog shows the
+ * exact same drawing as the canvas (see part-art.tsx).
  */
-export function SymbolIcon({ obj, className }: { obj: SceneObject; className?: string }) {
-  const name = obj.geometry.symbol ?? ''
-  const glyph = name === 'seven-seg' ? <SevenSegGlyph /> : GLYPHS[name]
-  const glow = GLOW_POS[name]
-  const terminals = terminalsOf(obj)
-  const stubExt = STUB_EXTENTS[name]
-  // Pin stubs generated from the live terminal layout (glyph space 96×48).
-  const stubPath = stubExt
-    ? terminals
-        .map((td) =>
-          td.y === 1
-            ? `M${(td.x * 96).toFixed(1)} 46 V34`
-            : td.y === 0 && stubExt.topEnd !== undefined
-              ? `M${(td.x * 96).toFixed(1)} 2 V${stubExt.topEnd}`
-              : td.x === 0
-                ? `M4 ${(td.y * 48).toFixed(1)} H${stubExt.leftEnd}`
-                : `M${stubExt.rightStart} ${(td.y * 48).toFixed(1)} H92`
-        )
-        .join(' ')
-    : ''
-  return (
-    <svg
-      viewBox="0 0 96 48"
-      width="100%"
-      height="100%"
-      preserveAspectRatio="xMidYMid meet"
-      stroke="var(--foreground)"
-      strokeWidth={2}
-      fill="none"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-label={obj.name}
-      className={className}
-    >
-      {glow && (
-        <circle
-          data-glow=""
-          cx={glow.cx}
-          cy={glow.cy}
-          r={glow.r}
-          fill="var(--accent-amber)"
-          stroke="none"
-          style={{ opacity: 0, transition: 'opacity 120ms linear' }}
-        />
-      )}
-      {stubPath && <path d={stubPath} fill="none" />}
-      {glyph ?? (
-        <>
-          <rect x="16" y="8" width="64" height="32" rx="6" />
-          <text
-            x="48"
-            y="29"
-            textAnchor="middle"
-            fill="var(--foreground)"
-            stroke="none"
-            fontSize="11"
-            fontFamily="var(--font-jakarta)"
-          >
-            {obj.name.split(' ')[0]}
-          </text>
-        </>
-      )}
-    </svg>
-  )
+export function SymbolIcon({ obj, className, pins }: { obj: SceneObject; className?: string; pins?: boolean }) {
+  return <PartSvg obj={obj} className={className} pins={pins} />
 }
 
 function SymbolGlyph({ obj }: { obj: SceneObject }) {
@@ -685,10 +274,12 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
     ([n, p]) => p.kind === 'number' && n !== 'inputs'
   )
   return (
-    <div className="relative flex h-full w-full flex-col items-center justify-center">
-      <SymbolIcon obj={obj} />
+    <div className="relative h-full w-full">
+      <div className="absolute inset-0">
+        <SymbolIcon obj={obj} />
+      </div>
       {firstParam && (
-        <span className="pointer-events-none -mt-0.5 font-mono text-[9.5px] text-muted-foreground">
+        <span className="pointer-events-none absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[9.5px] text-muted-foreground">
           {firstParam[0]}={firstParam[1].kind === 'number' ? firstParam[1].value : ''}
         </span>
       )}
@@ -697,22 +288,20 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
         data-reading=""
         className="pointer-events-none absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[10px] font-semibold text-[var(--accent-amber)]"
       />
-      {/* connection terminals; digital pins get a live 0/1 badge */}
-      {terminals.map((td, i) => (
-        <span
-          key={i}
-          className="pointer-events-none absolute"
-          style={{ left: `calc(${td.x * 100}% - 3px)`, top: `calc(${td.y * 100}% - 3px)` }}
-        >
-          <span className="block h-1.5 w-1.5 rounded-full bg-[var(--accent-mint)] opacity-70" />
-          {digital && (
+      {/* digital pins get a live 0/1 badge at the pin */}
+      {digital &&
+        terminals.map((td, i) => (
+          <span
+            key={i}
+            className="pointer-events-none absolute"
+            style={{ left: `${td.x * 100}%`, top: `${td.y * 100}%` }}
+          >
             <span
               data-pin={i}
-              className="absolute -top-3.5 left-1/2 -translate-x-1/2 font-mono text-[9.5px] font-bold text-muted-foreground data-[state=1]:text-[var(--accent-mint)]"
+              className="absolute -top-4 left-1/2 -translate-x-1/2 font-mono text-[9.5px] font-bold text-muted-foreground data-[state=1]:text-[var(--accent-mint)]"
             />
-          )}
-        </span>
-      ))}
+          </span>
+        ))}
     </div>
   )
 }

@@ -216,7 +216,7 @@ function dummyFor(def: ComponentDef): SceneObject {
 
 export function ComponentIcon({ def }: { def: ComponentDef }) {
   const obj = dummyFor(def)
-  if (obj.geometry.kind === 'symbol') return <SymbolIcon obj={obj} />
+  if (obj.geometry.kind === 'symbol') return <SymbolIcon obj={obj} pins={false} />
   const render = obj.metadata.render as string | undefined
   const Icon = (render && BY_RENDER[render]) || BY_ID[def.id] || Square
   return <Icon />
