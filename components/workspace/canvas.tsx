@@ -44,6 +44,7 @@ import { pageKindForFile } from '@/components/workspace/open-file'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
+import { eraseTargets } from '@/lib/scene/erase'
 import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
 import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
 import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
@@ -3658,23 +3659,14 @@ export function InfiniteCanvas({
     if (e.button !== 0 && !penErase) return
     const store = useDocStore.getState()
 
-    // Eraser: drag over ink strokes to remove them (bare ink only — bodies
-    // and components are deleted deliberately, not swept away).
+    // Eraser: universal — drag over anything to remove it. Ink under the
+    // cursor goes first; otherwise the topmost object (lib/scene/erase.ts).
     if (tool === 'eraser' || penErase) {
       const eraseAt = (clientX: number, clientY: number) => {
         const p = toCanvas(clientX, clientY)
         const page = useDocStore.getState().pages[pageId]
         if (!page) return
-        const hits = Object.values(page.objects)
-          .filter(
-            (o) =>
-              o.geometry.kind === 'stroke' &&
-              p.x >= o.position.x - 8 &&
-              p.x <= o.position.x + o.size.w + 8 &&
-              p.y >= o.position.y - 8 &&
-              p.y <= o.position.y + o.size.h + 8
-          )
-          .map((o) => o.id)
+        const hits = eraseTargets(page.objects, p, 10 / vpRef.current.zoom)
         if (hits.length > 0) useDocStore.getState().removeObjects(pageId, hits)
       }
       eraseAt(e.clientX, e.clientY)
@@ -4196,6 +4188,14 @@ export function InfiniteCanvas({
         ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank && !docPen ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={(e) => {
+        // The eraser takes the press before ANY object does — text boxes, notes
+        // and tables stop pointerdown for their own editing.
+        if (editing && tool === 'eraser' && e.button === 0) {
+          e.stopPropagation()
+          setCtxMenu(null)
+          handleBackgroundPointerDown(e)
+          return
+        }
         if (handlePinWireDown(e)) return
         handleTouchDownCapture(e)
       }}
