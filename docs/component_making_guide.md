@@ -250,19 +250,24 @@ templates (simple / page-reading / trivial respectively):
 ## 7. Recipe D — new circuit symbol
 
 Symbols are ONE geometry kind (`symbol`) with `geometry.symbol = '<name>'` and
-`geometry.domain`, an `electricalNode` behavior, and a default box of **96×48**.
+`geometry.domain`, an `electricalNode` behavior, and a default box of **96×48** (override in `SYMBOL_SIZE`).
 
 1. **Factory row** — most symbols are one line in the big tuple array in
    `lib/scene/factory.ts`: `['electronics', 'relay', 'Relay', { coilR: '100' }]`. Params
    here become live numeric parameters (inspector-editable expressions).
-2. **Glyph** — add SVG to the `GLYPHS` record in `components/objects/geometry.tsx`, drawn
-   in the 96×48 box. House style: *"recognizable beats ornate"* — 2px strokes,
-   `currentColor`, IEEE/IEC textbook shapes. Unknown symbols fall back to a labeled box, so
-   the component works before the glyph exists.
+2. **Art** — add an entry to `ARTS` in `components/objects/part-art.tsx`: a `body(ctx)`
+   function that draws in REAL pixels inside the body box (`ctx.x0..x1`, `y0..y1`, centre
+   `cx/cy`) — circles use `rad(ctx)`, bars/zigzags span `bw`, so it stays correct at any size.
+   Pin leads are drawn for you from the pin to the body edge; pass `contact` when the body
+   isn't a rectangle (circle, OR-gate back, diode triangle), or `noLeads` to draw your own.
+   Pin names for labelled ICs go in `pinNames()`. Unknown symbols fall back to a labelled box.
+   Check it at three sizes on `/dev/parts` (dev gallery) before shipping.
 3. **Terminals** — `terminalsOf()` in `lib/circuit/engine.ts` defines pin positions
-   (fractions of the box). Wires bond to terminals within `SNAP` (14px): if a symbol packs
-   ≥4 pins on one edge, give it a taller default via `TALL_SYMBOLS` in `factory.ts`
-   (see the seven-seg comment there for the arithmetic).
+   (fractions of the box) — the renderer reads the same list, so art and pins cannot drift.
+   Wires bond within `SNAP` (14px): if a symbol packs ≥4 pins on one edge, or has pins on
+   the top/bottom edge (transistors), give it a default size via `TALL_SYMBOLS` /
+   `SYMBOL_SIZE` in `factory.ts`. Users wire by dragging from a pin
+   (`lib/circuit/pin-wire.ts`); nothing to register.
 4. **Solver stamp** — teach `lib/circuit/engine.ts` the device's MNA stamp (analog) or its
    logic function (digital pass).
 5. **Channels** — if it has readings worth graphing, add a `BY_SYMBOL` entry in

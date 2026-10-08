@@ -1488,6 +1488,15 @@ export function InfiniteCanvas({
   // Pin wiring: hover ring on a pin, and the live wire while one is dragged.
   const [pinHover, setPinHover] = useState<Vec2 | null>(null)
   const [wiring, setWiring] = useState<{ route: Vec2[]; target: PinHit | null } | null>(null)
+  // Wire released in free space: offer parts to drop there (autocomplete).
+  const [wirePick, setWirePick] = useState<{
+    x: number
+    y: number
+    scale: number
+    tip: Vec2
+    fromPin: PinHit | null
+    fromWire: WireHit | null
+  } | null>(null)
   // Custom right-click menu: screen-space position + the object under it.
   // `scale` counters the editor STAGE's own ancestor transform:scale() (the
   // "Fit width"/zoom-to-fit wrapper presentation-view.tsx and doc-view.tsx
@@ -3363,6 +3372,59 @@ export function InfiniteCanvas({
   }
   
 
+  /** Persist a routed wire. Pin ends are anchors (they follow their part); a free end is a T-junction. */
+  const commitWire = (r: Vec2[], startPin: PinHit | null, endPin: PinHit | null) => {
+    const store = useDocStore.getState()
+    const xs = r.map((q) => q.x)
+    const ys = r.map((q) => q.y)
+    const minX = Math.min(...xs), minY = Math.min(...ys)
+    const loc = (q: Vec2) => [q.x - minX, q.y - minY]
+    const obj = fromRecognition({
+      kind: 'line',
+      points: [loc(r[0]), loc(r[r.length - 1])],
+      x: minX,
+      y: minY,
+      w: Math.max(Math.max(...xs) - minX, 2),
+      h: Math.max(Math.max(...ys) - minY, 2),
+    })
+    obj.name = obj.name.replace(/^Line/, 'Wire')
+    obj.metadata.render = 'connector'
+    if (startPin) obj.metadata.startAnchor = { kind: 'terminal', objectId: startPin.objectId, terminalId: String(startPin.idx) }
+    if (endPin) obj.metadata.endAnchor = { kind: 'terminal', objectId: endPin.objectId, terminalId: String(endPin.idx) }
+    obj.metadata.bends = r.slice(1, -1).map(loc)
+    obj.metadata.startCap = 'none'
+    obj.metadata.endCap = 'none'
+    obj.behaviors.push(createBehavior('wire'))
+    obj.z = topZ(pageId)
+    store.addObject(pageId, obj)
+    // Nothing selected afterwards: selection chrome would sit on the pin you
+    // are about to wire from next.
+    store.setSelection([])
+  }
+
+  /** Autocomplete: drop `partId` where the wire was released, pin 0 on the tip, and wire it up. */
+  const placeAtWireEnd = (partId: string) => {
+    const pick = wirePick
+    const def = componentById(partId)
+    setWirePick(null)
+    if (!pick || !def) return
+    const store = useDocStore.getState()
+    const part = def.create({ x: 0, y: 0 })
+    const t0 = terminalsOf(part)[0]
+    // pin 0 on the tip, snapped to the 12px grid so the part lines up with its neighbours
+    const px = Math.round((pick.tip.x - t0.x * part.size.w) / 12) * 12
+    const py = Math.round((pick.tip.y - t0.y * part.size.h) / 12) * 12
+    part.position = { x: px, y: py }
+    part.z = topZ(pageId)
+    store.addObject(pageId, part)
+    const objs = store.pages[pageId]?.objects ?? useDocStore.getState().pages[pageId]?.objects ?? {}
+    const w0 = terminalWorld(part, t0)
+    const pin: PinHit = { objectId: part.id, idx: 0, point: { x: w0.x, y: w0.y } }
+    const live = useDocStore.getState().pages[pageId]?.objects ?? objs
+    const r = pick.fromPin ? routePins(live, pick.fromPin, pin) : pick.fromWire ? routeWireToPin(live, pick.fromWire, pin) : null
+    if (r && r.length >= 2) commitWire(r, pick.fromPin, pin)
+  }
+
   /** Press a circuit pin and drag to wire it — no tool to pick. Release on a
    *  pin, or anywhere on another part (it finds the nearest free pin). The wire
    *  is the anchored connector the Shaper makes, routed around bodies. */
@@ -3382,6 +3444,7 @@ export function InfiniteCanvas({
     e.stopPropagation()
     e.preventDefault()
     setPinHover(null)
+    setWirePick(null)
     const startPt = fromPin?.point ?? fromWire!.point
     // Stand-in "pin" so body-targeting can measure from a wire point.
     const origin: PinHit = fromPin ?? { objectId: '', idx: -1, point: startPt }
@@ -3392,7 +3455,11 @@ export function InfiniteCanvas({
     let armed = !!fromPin // a wire press waits for a few px of drag, so a click still selects
     const sx = e.clientX
     const sy = e.clientY
+    let lastX = sx
+    let lastY = sy
     const solve = (ev: PointerEvent) => {
+      lastX = ev.clientX
+      lastY = ev.clientY
       if (!armed) {
         if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return
         armed = true
@@ -3434,6 +3501,13 @@ export function InfiniteCanvas({
         store.setSelection([fromWire.wireId])
         return
       }
+      if (!t && wasArmed && r.length >= 2) {
+        const tipPt = r[r.length - 1]
+        const lp = toLocal(lastX, lastY)
+        if (Math.hypot(tipPt.x - startPt.x, tipPt.y - startPt.y) > 30)
+          setWirePick({ x: lp.x, y: lp.y, scale: stageScale(), tip: tipPt, fromPin, fromWire })
+        return
+      }
       if (!t || r.length < 2) return
       if (fromPin && t.pin) {
         const dup = wireBetween(store.pages[pageId]?.objects ?? {}, fromPin, t.pin)
@@ -3442,32 +3516,7 @@ export function InfiniteCanvas({
           return
         }
       }
-      const xs = r.map((q) => q.x)
-      const ys = r.map((q) => q.y)
-      const minX = Math.min(...xs), minY = Math.min(...ys)
-      const loc = (q: Vec2) => [q.x - minX, q.y - minY]
-      const obj = fromRecognition({
-        kind: 'line',
-        points: [loc(r[0]), loc(r[r.length - 1])],
-        x: minX,
-        y: minY,
-        w: Math.max(Math.max(...xs) - minX, 2),
-        h: Math.max(Math.max(...ys) - minY, 2),
-      })
-      obj.name = obj.name.replace(/^Line/, 'Wire')
-      obj.metadata.render = 'connector'
-      // Only pin ends are anchors (they follow their part); a T-junction end is free.
-      if (fromPin) obj.metadata.startAnchor = { kind: 'terminal', objectId: fromPin.objectId, terminalId: String(fromPin.idx) }
-      if (t.pin) obj.metadata.endAnchor = { kind: 'terminal', objectId: t.pin.objectId, terminalId: String(t.pin.idx) }
-      obj.metadata.bends = r.slice(1, -1).map(loc)
-      obj.metadata.startCap = 'none'
-      obj.metadata.endCap = 'none'
-      obj.behaviors.push(createBehavior('wire'))
-      obj.z = topZ(pageId)
-      store.addObject(pageId, obj)
-      // Nothing selected afterwards: selection chrome would sit on the pin you
-      // are about to wire from next.
-      store.setSelection([])
+      commitWire(r, fromPin, t.pin ?? null)
     }
     window.addEventListener('pointermove', solve)
     window.addEventListener('pointerup', up)
@@ -4178,6 +4227,7 @@ export function InfiniteCanvas({
       onPointerUp={() => penErasing && setPenErasing(false)}
       onPointerDown={(e) => {
         setCtxMenu(null)
+        setWirePick(null)
         setSlash(null)
         handleBackgroundPointerDown(e)
       }}
@@ -4633,6 +4683,42 @@ export function InfiniteCanvas({
             setSlash(null)
           }}
         />
+      )}
+
+      {wirePick && (
+        <div
+          className="glass-strong absolute z-50 grid w-56 grid-cols-2 gap-0.5 rounded-xl p-1 text-ui-sm"
+          style={{
+            left: Math.min(wirePick.x, (containerRef.current?.clientWidth ?? 400) - 232),
+            top: wirePick.y,
+            transform: wirePick.scale !== 1 ? `scale(${1 / wirePick.scale})` : undefined,
+            transformOrigin: 'top left',
+          }}
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className="col-span-2 px-2.5 pb-0.5 pt-1 text-ui-2xs text-muted-foreground">Add here and connect</div>
+          {(
+            [
+              ['resistor', 'Resistor'],
+              ['capacitor', 'Capacitor'],
+              ['inductor', 'Inductor'],
+              ['led', 'LED'],
+              ['diode', 'Diode'],
+              ['switch', 'Switch'],
+              ['battery', 'Battery'],
+              ['gnd', 'Ground'],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className="menu-row flex items-center rounded-lg px-2.5 py-1.5 text-left transition-colors"
+              onClick={() => placeAtWireEnd(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
       )}
 
       {ctxMenu && (
