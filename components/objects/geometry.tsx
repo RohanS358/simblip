@@ -100,6 +100,9 @@ import {
   solveBarrier,
 } from '@/lib/quantum/engine'
 
+/** Auto-converted wires read as bronze conductors, distinct from amber UI accents. */
+const WIRE_BRONZE = '#b5773a'
+
 /** Seconds of Play for the wave/quantum figures, advanced on the display's
  *  own frames (≤ 30 Hz) — the runtime store's clock is throttled to ~7 Hz,
  *  which made traveling waves visibly stutter. 0 in edit, frozen on pause.
@@ -1384,7 +1387,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const optics = render ? OPTICS_STYLE[render] : undefined
     // Attachment dots: mark where a connector/wire meets whatever it touches,
     // in the same color as the line itself.
-    const endColor = connector ? 'var(--accent-mint)' : isWire ? 'var(--accent-amber)' : undefined
+    const endColor = connector ? 'var(--accent-mint)' : isWire ? WIRE_BRONZE : undefined
     return (
       <svg width="100%" height="100%" className="overflow-visible" aria-label={object.name}>
         {isElbowConnector && (
@@ -1402,7 +1405,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           data-wire={flowable ? '' : undefined}
           d={d}
           fill="none"
-          stroke={render === 'measurement' ? 'var(--accent-rose)' : isWire ? 'var(--accent-amber)' : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : stroke}
+          stroke={render === 'measurement' ? 'var(--accent-rose)' : isWire ? WIRE_BRONZE : isElbowConnector ? 'var(--accent-mint)' : optics ? optics.color : connector ? 'var(--accent-mint)' : stroke}
           strokeWidth={render === 'measurement' ? 1.5 : isWire ? 2.5 : isElbowConnector ? 2.5 : optics ? optics.width : connector ? 2 : isBody(object.behaviors) ? 6 : 2}
           // A dashed connector is how a diagram draws an implied or optional
           // relation (`a --> b` in lib/scene/diagram.ts) — the one line style
@@ -1779,7 +1782,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             data-wire={flowable ? '' : undefined}
             d={strokePath}
             fill={isBody(object.behaviors) ? fill : 'none'}
-            stroke={isWire && !isBody(object.behaviors) ? 'var(--accent-amber)' : stroke}
+            stroke={isWire && !isBody(object.behaviors) ? WIRE_BRONZE : stroke}
             strokeWidth={isWire ? 2.5 : 2}
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -1788,12 +1791,12 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
         {flowOverlays(strokePath)}
         {showEnds && (
           <>
-            <circle cx={strokePts[0][0]} cy={strokePts[0][1]} r={3.5} fill="var(--accent-amber)" />
+            <circle cx={strokePts[0][0]} cy={strokePts[0][1]} r={3.5} fill={WIRE_BRONZE} />
             <circle
               cx={strokePts[strokePts.length - 1][0]}
               cy={strokePts[strokePts.length - 1][1]}
               r={3.5}
-              fill="var(--accent-amber)"
+              fill={WIRE_BRONZE}
             />
           </>
         )}
