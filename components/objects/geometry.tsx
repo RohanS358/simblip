@@ -11,6 +11,7 @@ import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
 import { connectorPath, connectorElbowPath, connectorPoints } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { PartSvg } from './part-art'
+import { hoppedPath } from '@/lib/circuit/hops'
 import { inkPath } from './ink'
 import { getNumber, getString, type ObjectRendererProps } from './types'
 import { pxToCmRounded } from '@/lib/scene/units'
@@ -328,6 +329,11 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // current scene (no time-stepping engine needed — see lib/optics/engine.ts).
   const isLightSource = render === 'light-source'
   const pageObjects = useDocStore((s) => (isLightSource ? s.pages[pageId]?.objects : undefined))
+  // Wire hops: a drawn wire watches the page's other wires so it can arc over
+  // the ones it crosses without joining (lib/circuit/hops.ts).
+  const isWireLine = kind === 'line' && object.behaviors.some((b) => b.enabled && b.type === 'wire')
+  const wireObjects = useDocStore((s) => (isWireLine ? s.pages[pageId]?.objects : undefined))
+  const hopD = useMemo(() => (isWireLine && wireObjects ? hoppedPath(object, wireObjects) : null), [isWireLine, wireObjects, object])
   const rays = useMemo(() => {
     if (!isLightSource || !pageObjects) return []
     return traceRays(Object.values(pageObjects))
@@ -960,7 +966,9 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const isElbowConnector = render === 'connector'
     const isSpecial = render && ['spring', 'damper', 'rope', 'wire', 'connector'].includes(render)
     const bends = (object.metadata.bends as number[][] | undefined) ?? []
-    const d = isElbowConnector
+    const d = hopD && isWire
+      ? hopD
+      : isElbowConnector
       ? connectorElbowPath(a[0], a[1], bends, b[0], b[1])
       : pts.length > 2 && !isSpecial
         ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')

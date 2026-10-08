@@ -44,6 +44,7 @@ import { pageKindForFile } from '@/components/workspace/open-file'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
+import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
 import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
 import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { connectorPoints } from '@/lib/render/connector-path'
@@ -1484,6 +1485,9 @@ export function InfiniteCanvas({
   // Connector tool: blue dot at the nearest boundary point under the
   // cursor, shown on hover (no active gesture) and while dragging.
   const [connectorSnapDot, setConnectorSnapDot] = useState<Vec2 | null>(null)
+  // Pin wiring: hover ring on a pin, and the live wire while one is dragged.
+  const [pinHover, setPinHover] = useState<Vec2 | null>(null)
+  const [wiring, setWiring] = useState<{ route: Vec2[]; target: PinHit | null } | null>(null)
   // Custom right-click menu: screen-space position + the object under it.
   // `scale` counters the editor STAGE's own ancestor transform:scale() (the
   // "Fit width"/zoom-to-fit wrapper presentation-view.tsx and doc-view.tsx
@@ -3359,6 +3363,120 @@ export function InfiniteCanvas({
   }
   
 
+  /** Press a circuit pin and drag to wire it — no tool to pick. Release on a
+   *  pin, or anywhere on another part (it finds the nearest free pin). The wire
+   *  is the anchored connector the Shaper makes, routed around bodies. */
+  const handlePinWireDown = (e: React.PointerEvent): boolean => {
+    if (!editing || tool !== 'select' || viewer || e.button !== 0) return false
+    if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return false
+    const el = e.target as HTMLElement
+    if (el.closest?.('input, textarea, select, button, [role="button"], [contenteditable="true"], [data-connector-segment]')) return false
+    const objs0 = useDocStore.getState().pages[pageId]?.objects ?? {}
+    const zoom0 = vpRef.current.zoom
+    const p0 = toCanvas(e.clientX, e.clientY)
+    const fromPin = pinHit(objs0, p0, (e.pointerType === 'touch' ? 16 : 9) / zoom0)
+    // No pin under the pointer? A wire body works too — drag from mid-wire to
+    // branch off it. A plain click there still just selects the wire.
+    const fromWire = fromPin ? null : wireHit(objs0, p0, (e.pointerType === 'touch' ? 12 : 6) / zoom0)
+    if (!fromPin && !fromWire) return false
+    e.stopPropagation()
+    e.preventDefault()
+    setPinHover(null)
+    const startPt = fromPin?.point ?? fromWire!.point
+    // Stand-in "pin" so body-targeting can measure from a wire point.
+    const origin: PinHit = fromPin ?? { objectId: '', idx: -1, point: startPt }
+    type Tgt = { point: Vec2; pin?: PinHit; wire?: WireHit }
+    let routeKey = ''
+    let route: Vec2[] = [startPt]
+    let target: Tgt | null = null
+    let armed = !!fromPin // a wire press waits for a few px of drag, so a click still selects
+    const sx = e.clientX
+    const sy = e.clientY
+    const solve = (ev: PointerEvent) => {
+      if (!armed) {
+        if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 5) return
+        armed = true
+      }
+      const objs = useDocStore.getState().pages[pageId]?.objects ?? {}
+      const tip = toCanvas(ev.clientX, ev.clientY)
+      const z = vpRef.current.zoom
+      const pin = pinHit(objs, tip, 14 / z, fromPin ?? undefined) ?? bodyTarget(objs, tip, origin)
+      // From a pin, landing on a wire makes a T-junction; from a wire, only pins.
+      const wire = !pin && fromPin ? wireHit(objs, tip, 8 / z) : null
+      target = pin ? { point: pin.point, pin } : wire ? { point: wire.point, wire } : null
+      const key = pin ? `p${pin.objectId}:${pin.idx}` : wire ? `w${wire.wireId}:${Math.round(wire.point.x)},${Math.round(wire.point.y)}` : ''
+      if (target && key !== routeKey) {
+        routeKey = key
+        if (pin) route = fromPin ? routePins(objs, fromPin, pin) : routeWireToPin(objs, fromWire!, pin)
+        else route = routeWireToPin(objs, wire!, fromPin!).reverse()
+      } else if (!target) {
+        routeKey = ''
+        route = fromPin ? routeLoose(objs, fromPin, tip) : routeFromWire(fromWire!, tip)
+      }
+      setWiring({ route, target: target ? ({ point: target.point } as unknown as PinHit) : null })
+    }
+    const done = () => {
+      window.removeEventListener('pointermove', solve)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('keydown', key)
+      setWiring(null)
+    }
+    const cancel = () => done()
+    const key = (ev: KeyboardEvent) => ev.key === 'Escape' && done()
+    const up = () => {
+      const t = target
+      const r = route
+      const wasArmed = armed
+      done()
+      const store = useDocStore.getState()
+      if (!wasArmed && fromWire) {
+        store.setSelection([fromWire.wireId])
+        return
+      }
+      if (!t || r.length < 2) return
+      if (fromPin && t.pin) {
+        const dup = wireBetween(store.pages[pageId]?.objects ?? {}, fromPin, t.pin)
+        if (dup) {
+          store.setSelection([dup])
+          return
+        }
+      }
+      const xs = r.map((q) => q.x)
+      const ys = r.map((q) => q.y)
+      const minX = Math.min(...xs), minY = Math.min(...ys)
+      const loc = (q: Vec2) => [q.x - minX, q.y - minY]
+      const obj = fromRecognition({
+        kind: 'line',
+        points: [loc(r[0]), loc(r[r.length - 1])],
+        x: minX,
+        y: minY,
+        w: Math.max(Math.max(...xs) - minX, 2),
+        h: Math.max(Math.max(...ys) - minY, 2),
+      })
+      obj.name = obj.name.replace(/^Line/, 'Wire')
+      obj.metadata.render = 'connector'
+      // Only pin ends are anchors (they follow their part); a T-junction end is free.
+      if (fromPin) obj.metadata.startAnchor = { kind: 'terminal', objectId: fromPin.objectId, terminalId: String(fromPin.idx) }
+      if (t.pin) obj.metadata.endAnchor = { kind: 'terminal', objectId: t.pin.objectId, terminalId: String(t.pin.idx) }
+      obj.metadata.bends = r.slice(1, -1).map(loc)
+      obj.metadata.startCap = 'none'
+      obj.metadata.endCap = 'none'
+      obj.behaviors.push(createBehavior('wire'))
+      obj.z = topZ(pageId)
+      store.addObject(pageId, obj)
+      // Nothing selected afterwards: selection chrome would sit on the pin you
+      // are about to wire from next.
+      store.setSelection([])
+    }
+    window.addEventListener('pointermove', solve)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    window.addEventListener('keydown', key)
+    solve(e.nativeEvent)
+    return true
+  }
+
   const beginGesture = (mode: GestureMode, e: React.PointerEvent, extra?: Partial<Gesture>) => {
     const store = useDocStore.getState()
     gestureRef.current = {
@@ -3712,6 +3830,12 @@ export function InfiniteCanvas({
     // System boundaries only grab their border/label — clicks in the middle
     // fall through to marquee so the contents stay selectable.
     const hit = store.pages[pageId]?.objects[id]
+    // A drawn wire is never dragged by its body (it would tear loose from its
+    // pins): a press selects it; branching off it starts from the wire itself.
+    if (hit && editing && hit.metadata.render === 'connector' && hit.behaviors.some((b) => b.enabled && b.type === 'wire')) {
+      store.setSelection([id])
+      return
+    }
     if (hit?.metadata.render === 'system' && editing) {
       const p = toCanvas(e.clientX, e.clientY)
       const m = 16
@@ -4007,7 +4131,7 @@ export function InfiniteCanvas({
         !transparent && 'bg-background'
       )}
       style={{
-        cursor: editing ? cursor : 'default',
+        cursor: editing ? (pinHover || wiring ? 'crosshair' : cursor) : 'default',
         // Scroll yes, browser pinch-zoom no — but only with the select tool.
         // With a drawing tool up the reader must NOT claim the drag: a native
         // pan fires pointercancel and drops the stroke mid-line. Same as the
@@ -4022,7 +4146,10 @@ export function InfiniteCanvas({
         // absent value here would mean "none" even while a pen is selected.
         ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank && !docPen ? ('none' as const) : ('auto' as const) } : {}),
       }}
-      onPointerDownCapture={handleTouchDownCapture}
+      onPointerDownCapture={(e) => {
+        if (handlePinWireDown(e)) return
+        handleTouchDownCapture(e)
+      }}
       onPointerMoveCapture={handleTouchMoveCapture}
       onPointerUpCapture={handleTouchUpCapture}
       onPointerCancelCapture={handleTouchUpCapture}
@@ -4032,6 +4159,12 @@ export function InfiniteCanvas({
           const held = (e.buttons & 32) !== 0 || (e.buttons & 2) !== 0
           if (held !== penErasing) setPenErasing(held)
         } else if (penErasing) setPenErasing(false)
+        if (editing && tool === 'select' && !gestureRef.current && !wiring && e.pointerType !== 'touch') {
+          const oh = useDocStore.getState().pages[pageId]?.objects ?? {}
+          const ph = toCanvas(e.clientX, e.clientY)
+          const next = (pinHit(oh, ph, 9 / vpRef.current.zoom) ?? wireHit(oh, ph, 6 / vpRef.current.zoom))?.point ?? null
+          if ((next?.x ?? null) !== (pinHover?.x ?? null) || (next?.y ?? null) !== (pinHover?.y ?? null)) setPinHover(next)
+        }
         if (tool === 'shaper' && !gestureRef.current) {
           const p = toCanvas(e.clientX, e.clientY)
           const store = useDocStore.getState()
@@ -4265,6 +4398,32 @@ export function InfiniteCanvas({
                 strokeWidth={2}
                 strokeLinecap="round"
                 strokeLinejoin="round"
+              />
+            )}
+          </svg>
+        )}
+
+        {(pinHover || wiring) && (
+          <svg className="pointer-events-none absolute left-0 top-0 overflow-visible" width={1} height={1}>
+            {wiring && wiring.route.length > 1 && (
+              <path
+                d={wiring.route.map((q, i) => `${i ? 'L' : 'M'}${q.x} ${q.y}`).join('')}
+                fill="none"
+                stroke="#b5773a"
+                strokeWidth={2.5 / viewport.zoom}
+                strokeDasharray={wiring.target ? undefined : `${6 / viewport.zoom} ${4 / viewport.zoom}`}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            )}
+            {(wiring?.target?.point ?? pinHover) && (
+              <circle
+                cx={(wiring?.target?.point ?? pinHover)!.x}
+                cy={(wiring?.target?.point ?? pinHover)!.y}
+                r={6 / viewport.zoom}
+                fill="color-mix(in oklch, var(--accent-mint) 35%, transparent)"
+                stroke="var(--accent-mint)"
+                strokeWidth={2 / viewport.zoom}
               />
             )}
           </svg>
