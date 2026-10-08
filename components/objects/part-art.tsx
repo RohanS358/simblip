@@ -637,13 +637,29 @@ const ARTS: Record<string, Art> = {
       </>
     ),
   },
+  // A toggle switch, not a box: pill track + knob that sits right (on, mint) or left (off).
   input: {
     body: (c) => {
       const on = c.num('value', 0) >= 0.5
+      const th = clamp(c.bh * 0.62, 16, 30)
+      const tw = Math.min(c.bw, th * 2.1)
+      const x = c.x1 - tw
+      const y = c.cy - th / 2
+      const kr = th / 2 - 3
       return (
         <>
-          <rect x={c.x0} y={c.y0 + c.bh * 0.12} width={c.bw} height={c.bh * 0.76} rx={6} />
-          {T(c.cx, c.cy, clamp(c.bh * 0.3, 9, 13), on ? '1' : '0')}
+          <rect
+            x={x}
+            y={y}
+            width={tw}
+            height={th}
+            rx={th / 2}
+            fill={on ? 'color-mix(in oklch, var(--accent-mint) 45%, transparent)' : 'color-mix(in oklch, var(--foreground) 8%, transparent)'}
+            stroke={on ? 'var(--accent-mint)' : 'var(--foreground)'}
+          />
+          <circle cx={on ? x + tw - th / 2 : x + th / 2} cy={c.cy} r={kr} fill={on ? 'var(--accent-mint)' : 'var(--background)'} />
+          {T(on ? x + th * 0.55 : x + tw - th * 0.55, c.cy + 0.5, clamp(th * 0.42, 8, 12), on ? '1' : '0')}
+          {T(x - 4, c.cy, clamp(th * 0.4, 8, 11), 'IN', 'end')}
         </>
       )
     },
