@@ -415,7 +415,7 @@ export function terminalWorld(obj: SceneObject, t: TerminalDef): { x: number; y:
   return rotatePoint(obj.position.x + t.x * obj.size.w, obj.position.y + t.y * obj.size.h, cx, cy, obj.rotation)
 }
 
-function wireWorldPoints(obj: SceneObject): number[][] {
+export function wireWorldPoints(obj: SceneObject): number[][] {
   const pts = obj.geometry.points ?? [
     [0, 0],
     [obj.size.w, 0],
@@ -615,6 +615,8 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
     for (const { item } of nearest.values()) union(item, wireBase + wi)
     wires.forEach((w2, wj) => {
       if (wi === wj) return
+      // T-junction: this wire's end lands on the other wire's BODY.
+      for (const e of ends) if (polyDist(e[0], e[1], w2.pts) < 3) union(wireBase + wi, wireBase + wj)
       const ends2 = [w2.pts[0], w2.pts[w2.pts.length - 1]]
       for (const e of ends) {
         for (const e2 of ends2) {

@@ -43,7 +43,8 @@ import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
 import { pageKindForFile } from '@/components/workspace/open-file'
 import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
-import { nearestTerminal, terminalsOf, terminalWorld, SNAP } from '@/lib/circuit/engine'
+import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
+import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
 import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { connectorPoints } from '@/lib/render/connector-path'
 import { applyAnnotation } from '@/lib/scene/annotate'
@@ -173,6 +174,42 @@ function snapConnectorPoint(
   }
   if (!best) return { point: pt, anchor: null }
   return { point: best.point, anchor: { kind: 'boundary', objectId: best.objectId, t: best.t } }
+}
+
+
+/** Shift+pen end snap: a circuit pin wins; otherwise a wire's BODY, hit
+ *  perpendicular to the run so the T-junction stays square. `h` is the axis
+ *  of the segment touching this end. */
+function snapOrthoEnd(
+  pt: P,
+  h: boolean,
+  objects: Record<string, SceneObject>,
+  zoom: number
+): { point: P; hit: 'terminal' | 'wire' } | null {
+  const th = SNAP / zoom
+  const objList = Object.values(objects)
+  const t = nearestTerminal(objList, { x: pt[0], y: pt[1] }, th)
+  if (t) return { point: [t.x, t.y], hit: 'terminal' }
+  let best: { point: P; d: number } | null = null
+  for (const o of objList) {
+    if (!isConductor(o) || o.geometry.kind === 'symbol') continue
+    const w = wireWorldPoints(o)
+    for (let i = 0; i < w.length - 1; i++) {
+      const [a, b] = [w[i], w[i + 1]]
+      const vertical = Math.abs(a[0] - b[0]) < 0.5
+      const horizontal = Math.abs(a[1] - b[1]) < 0.5
+      // Only meet a segment head-on (run along h → target vertical, and v.v.).
+      if (h ? !vertical : !horizontal) continue
+      const [lo, hi] = h ? [Math.min(a[1], b[1]), Math.max(a[1], b[1])] : [Math.min(a[0], b[0]), Math.max(a[0], b[0])]
+      const along = h ? pt[1] : pt[0]
+      if (along < lo - th || along > hi + th) continue
+      const c = Math.min(hi, Math.max(lo, along))
+      const cand: P = h ? [a[0], c] : [c, a[1]]
+      const d = Math.hypot(cand[0] - pt[0], cand[1] - pt[1])
+      if (d < th && (!best || d < best.d)) best = { point: cand, d }
+    }
+  }
+  return best ? { point: best.point, hit: 'wire' } : null
 }
 
 // Universal placement gestures: click spawns the default; dragging sizes
@@ -2825,30 +2862,43 @@ export function InfiniteCanvas({
           // Shift-routed orthogonal polylines (≥1 locked corner) commit
           // exactly as drawn — recognition would only smudge deliberate 90°
           // elbows. Endpoints still snap onto terminals and conduct.
-          if (g.orthoPts && (g.orthoPts.length >= 2 || store.tool === 'shaper')) {
-            let minX = Infinity
-            let minY = Infinity
-            let maxX = -Infinity
-            let maxY = -Infinity
-            for (const [x, y] of points) {
-              if (x < minX) minX = x
-              if (y < minY) minY = y
-              if (x > maxX) maxX = x
-              if (y > maxY) maxY = y
+          if (g.orthoPts && points.length >= 2 && (g.orthoPts.length >= 2 || store.tool === 'shaper' || e.shiftKey)) {
+            const objs = store.pages[pageId]?.objects ?? {}
+            const zoom = vpRef.current.zoom
+            const corners: P[] = [...g.orthoPts.map(([x, y]) => [x, y] as P), [points[points.length - 1][0], points[points.length - 1][1]]]
+            const firstH = corners.length > 1 && Math.abs(corners[1][0] - corners[0][0]) >= Math.abs(corners[1][1] - corners[0][1])
+            const lastH = corners.length > 1 && Math.abs(corners[corners.length - 1][1] - corners[corners.length - 2][1]) < Math.abs(corners[corners.length - 1][0] - corners[corners.length - 2][0])
+            const s0 = snapOrthoEnd(corners[0], firstH, objs, zoom)
+            const e0 = snapOrthoEnd(corners[corners.length - 1], lastH, objs, zoom)
+            const route = finalizeOrtho(corners, s0?.point ?? null, e0?.point ?? null)
+            if (route.length >= 2) {
+              const dense = densify(route)
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+              for (const [x, y] of dense) {
+                if (x < minX) minX = x
+                if (y < minY) minY = y
+                if (x > maxX) maxX = x
+                if (y > maxY) maxY = y
+              }
+              const obj = fromRecognition({
+                kind: 'stroke',
+                points: dense.map(([x, y, pr]) => [x - minX, y - minY, pr]),
+                x: minX,
+                y: minY,
+                w: Math.max(maxX - minX, 1),
+                h: Math.max(maxY - minY, 1),
+              })
+              stampInkMeta(obj)
+              // Landing on a pin or another wire makes it a conductor (bronze).
+              if (s0 || e0) {
+                obj.behaviors.push(createBehavior('wire'))
+                obj.name = obj.name.replace(/^(Line|Stroke)/, 'Wire')
+              }
+              obj.z = topZ(pageId)
+              store.addObject(pageId, obj)
+              store.setSelection([obj.id])
+              return null
             }
-            const obj = fromRecognition({
-              kind: 'stroke',
-              points: points.map(([x, y]) => [x - minX, y - minY]),
-              x: minX,
-              y: minY,
-              w: Math.max(maxX - minX, 1),
-              h: Math.max(maxY - minY, 1),
-            })
-            stampInkMeta(obj)
-            obj.z = topZ(pageId)
-            store.addObject(pageId, obj)
-            store.setSelection([obj.id])
-            return null
           }
 
           const rec = recognize(points)
