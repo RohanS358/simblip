@@ -261,7 +261,7 @@ Symbols are ONE geometry kind (`symbol`) with `geometry.symbol = '<name>'` and
    Pin leads are drawn for you from the pin to the body edge; pass `contact` when the body
    isn't a rectangle (circle, OR-gate back, diode triangle), or `noLeads` to draw your own.
    Pin names for labelled ICs go in `pinNames()`. Unknown symbols fall back to a labelled box.
-   Check it at three sizes on `/dev/parts` (dev gallery) before shipping.
+   Check it at several sizes (width/height) before shipping.
 3. **Terminals** — `terminalsOf()` in `lib/circuit/engine.ts` defines pin positions
    (fractions of the box) — the renderer reads the same list, so art and pins cannot drift.
    Wires bond within `SNAP` (14px): if a symbol packs ≥4 pins on one edge, or has pins on
