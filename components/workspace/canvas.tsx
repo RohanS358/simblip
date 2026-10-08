@@ -2774,14 +2774,19 @@ export function InfiniteCanvas({
             return
           }
 
-          const endAnchor =
-            store.tool === 'shaper'
-              ? snapConnectorPoint(
-                  { x: points[points.length - 1][0], y: points[points.length - 1][1] },
-                  store.pages[pageId]?.objects ?? {},
-                  vpRef.current.zoom
-                ).anchor
-              : null
+          // Snap from where the pen actually is: the orthogonal stroke's own
+          // end is axis-locked and can sit a full perpendicular offset away
+          // from the pin the pen is on. Fall back to the stroke end.
+          let endAnchor: ConnectorAnchor | null = null
+          if (store.tool === 'shaper') {
+            const objs = store.pages[pageId]?.objects ?? {}
+            const zoom = vpRef.current.zoom
+            const tip = toCanvas(e.clientX, e.clientY)
+            const last = points[points.length - 1]
+            endAnchor =
+              snapConnectorPoint(tip, objs, zoom).anchor ??
+              snapConnectorPoint({ x: last[0], y: last[1] }, objs, zoom).anchor
+          }
 
           // Shaper commit: a stroke with at least one snapped end becomes a
           // connector (mint) or, when both ends land on circuit terminals, a
