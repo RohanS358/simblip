@@ -25,7 +25,7 @@ import { cursorForTool } from '@/lib/scene/tool-cursors'
 import { PRST_POLYGON_POINTS } from '@/lib/scene/preset-shapes'
 import { matchesCombo, resolveCombo, ACTIONS } from '@/lib/keymap'
 import { searchInsertables, insertAt, insertImage, viewportCenter, type Insertable } from '@/lib/scene/insertables'
-import { hasClipboard } from '@/lib/store/clipboard'
+import { hasClipboard, isOwnText } from '@/lib/store/clipboard'
 import { openProperties } from '@/lib/store/sidebar-sections'
 import { useActiveTextEditor } from '@/lib/store/text-editor'
 import {
@@ -439,7 +439,7 @@ function ctxMenuItems(objectId: string | null, editing: boolean, pageId: string)
       ['Properties', openProperties],
       ['Reset view', () => useDocStore.getState().setViewport(pageId, { x: 0, y: 0, zoom: 1 })],
     ]
-    if (editing && hasClipboard()) items.push(['Paste', () => pasteClipboard(pageId)])
+    if (editing && hasClipboard()) items.push(['Paste', () => pasteClipboard(pageId, viewportCenter(pageId))])
     return items
   }
   const sel = useDocStore.getState().selection
@@ -1973,7 +1973,8 @@ export function InfiniteCanvas({
       const htmlText = e.clipboardData?.getData('text/html') ?? ''
       const textToPaste = plainText || (htmlText ? htmlText.replace(/<[^>]+>/g, '') : '')
 
-      if (!locked && textToPaste.trim()) {
+      // Text we mirrored ourselves on copy means "paste the objects", not a text box.
+      if (!locked && textToPaste.trim() && !(hasClipboard() && isOwnText(plainText))) {
         e.preventDefault()
         const at = lastPointerRef.current
           ? toCanvas(lastPointerRef.current.clientX, lastPointerRef.current.clientY)
@@ -1997,7 +1998,7 @@ export function InfiniteCanvas({
 
       if (!locked && hasClipboard()) {
         e.preventDefault()
-        pasteClipboard(pageId)
+        pasteClipboard(pageId, viewportCenter(pageId))
       }
     }
     window.addEventListener('keydown', onKeyDown)

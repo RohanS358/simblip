@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import { useDocStore } from '@/lib/store/document'
 import { openProperties } from '@/lib/store/sidebar-sections'
-import { setClipboard, getClipboard, nextPasteOffset } from '@/lib/store/clipboard'
+import { setClipboard, getClipboard, nextPasteOffset, noteCopyOrigin, getSourcePageId } from '@/lib/store/clipboard'
 import { nextTopZ, reorderZ, restackZ } from '@/lib/scene/z-order'
 import { groupOf, makeGroup, rootGroupOf } from '@/lib/scene/group'
 import { str, uid, type SceneObject } from '@/lib/scene/types'
@@ -91,8 +91,12 @@ export function copySelection(pageId: string) {
         return ''
       })
       .filter(Boolean)
-    if (textPieces.length > 0 && typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
-      navigator.clipboard.writeText(textPieces.join('\n\n')).catch(() => {})
+    // Always overwrite the OS clipboard (a lone space when there is no text)
+    // so stale foreign text can't out-rank the objects on the next paste.
+    const mirrored = textPieces.length > 0 ? textPieces.join('\n\n') : ' '
+    noteCopyOrigin(pageId, mirrored)
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(mirrored).catch(() => {})
     }
   }
 }
@@ -103,18 +107,30 @@ export function cutSelection(pageId: string) {
   if (store.selection.length > 0) store.removeObjects(pageId, store.selection)
 }
 
-export function pasteClipboard(pageId: string) {
+export function pasteClipboard(pageId: string, viewCenter?: { x: number; y: number }) {
   const items = getClipboard()
   if (items.length === 0) return
   const store = useDocStore.getState()
   const offset = nextPasteOffset()
+  // Pasting onto a different page: the source coordinates mean nothing there,
+  // so drop the group's bounding box at the visible center instead.
+  let dx = offset, dy = offset
+  if (viewCenter && getSourcePageId() !== pageId) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
+    for (const o of items) {
+      x0 = Math.min(x0, o.position.x); y0 = Math.min(y0, o.position.y)
+      x1 = Math.max(x1, o.position.x + o.size.w); y1 = Math.max(y1, o.position.y + o.size.h)
+    }
+    dx = viewCenter.x - (x0 + x1) / 2 + offset - 24
+    dy = viewCenter.y - (y0 + y1) / 2 + offset - 24
+  }
   const idMap = new Map<string, string>()
   const clones = items.map((src) => {
     const clone: SceneObject = JSON.parse(JSON.stringify(src))
     const newId = uid()
     idMap.set(src.id, newId)
     clone.id = newId
-    clone.position = { x: src.position.x + offset, y: src.position.y + offset }
+    clone.position = { x: src.position.x + dx, y: src.position.y + dy }
     clone.z = topZ(pageId)
     clone.behaviors.forEach((b) => (b.id = uid()))
     return clone
