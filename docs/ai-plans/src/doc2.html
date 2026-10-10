@@ -1,0 +1,577 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>SIMBLIP Sketch — Document 2</title>
+<link rel="stylesheet" href="style.css"></head><body>
+
+<section class="cover">
+  <div class="kicker">SIMBLIP · AI Plan · Document 2 of 2</div>
+  <h1>The Sketch Model</h1>
+  <div class="sub">A small, fast, on-device vision system that turns what you draw — or photograph — into a running simulation: circuits, mechanics, optics. Built from strokes first, pixels second, and a tiny vision-language model only when nothing else will do.</div>
+  <div class="meta"><table>
+    <tr><td>Written</td><td>10 October 2026</td></tr>
+    <tr><td>For</td><td>Rohan Singh (product owner) and any developer joining SIMBLIP</td></tr>
+    <tr><td>Built by</td><td>Claude, developing inside this repository, with Rohan steering</td></tr>
+    <tr><td>Companion</td><td>Document 1 — “The Tutor” (language model, tool layer, teaching engine). Read its Section 5 (runtime and memory) first.</td></tr>
+    <tr><td>Basis</td><td>Read directly from the repo at commit <code>979bc08</code>: <code>lib/sketch/*</code>, <code>app/train</code>, <code>components/workspace/canvas.tsx</code>, <code>lib/scene/circuit-layout.ts</code>, <code>components/objects/part-art.tsx</code>, SimScript and the engines</td></tr>
+  </table></div>
+</section>
+
+<h1 class="first">How to read this document</h1>
+<div class="two">
+<div class="card"><h4>10-minute read</h4><p>Section 1 (what we make), Section 3.1 (the pipeline picture) and Section 4.1 (the five models in one table).</p></div>
+<div class="card"><h4>Before writing code</h4><p>Section 2 (what already exists — a lot), then the phase you are on in Section 7.</p></div>
+<div class="card"><h4>If you are Rohan</h4><p>Section 5.5 asks you to organise a data-collection session; Section 8 is your learning path; Section 9 lists your decisions.</p></div>
+<div class="card"><h4>If you are Claude</h4><p>Section 7 is the work order; Appendix A is the schema every stage must emit.</p></div>
+</div>
+<h2>Contents</h2>
+<div class="toc">
+<div><span class="n">1</span>What we are making</div>
+<div><span class="n">2</span>What already exists in SIMBLIP</div>
+<div><span class="n">3</span>Architecture: the pipeline and its contract</div>
+<div><span class="n">4</span>The models (S0–S4), one by one</div>
+<div><span class="n">5</span>Data: where the training set comes from</div>
+<div><span class="n">6</span>Training, export, shipping, memory</div>
+<div><span class="n">7</span>How to build it: phases and exit criteria</div>
+<div><span class="n">8</span>What you need to learn, and the tool list</div>
+<div><span class="n">9</span>Evaluation, risks, open questions</div>
+<div><span class="n">A</span>Appendix: schema, taxonomy, worked example, sources</div>
+</div>
+<div class="callout warn"><b class="t">Honesty about numbers</b><span class="pill amber">est.</span> marks planning estimates (model-size arithmetic, vendor or press claims) that Phase S2 must replace with measurements. <span class="pill mint">exists</span> marks something verified in the repo. Outside facts came from a web search on 10 Oct 2026; sources are in Appendix D. Accuracy targets are <i>targets</i>, not results — nothing here has been trained yet.</div>
+
+<!-- ============================ 1 ============================ -->
+<h1>1. What we are making</h1>
+<h2>1.1 One sentence</h2>
+<p><b>You draw it (or photograph it), SIMBLIP understands what the parts are and how they connect, shows its understanding for you to correct, and then it runs — with one undo step to take it all back.</b></p>
+
+<h2>1.2 Three ways in</h2>
+<table>
+<tr><th></th><th>Input</th><th>Example</th><th>What the system has to know</th></tr>
+<tr><td><b>A</b></td><td><b>Live ink</b> — strokes from pen, finger or mouse on the canvas</td><td>A student sketches a battery, a resistor and an LED and joins them with lines</td><td>Which strokes form a symbol; what the symbol is; its orientation; which wire ends touch which pins; any value written beside it (“1k”, “9V”)</td></tr>
+<tr><td><b>B</b></td><td><b>Photo or screenshot</b> of a diagram</td><td>Phone photo of a circuit from a textbook or the whiteboard; a screenshot from a PDF</td><td>The same, but from pixels: clean up the picture, find symbols, trace wires, read printed or handwritten labels</td></tr>
+<tr><td><b>C</b></td><td><b>Situation sketches</b> — informal drawings of a physical set-up</td><td>A ramp, a block on it, an arrow marked “5 N”, “m = 2 kg”, “μ = 0.2”</td><td>Objects (ramp, block, spring, pulley), their spatial relations (on, attached to, left of), and the numbers that give them physical meaning</td></tr>
+</table>
+<p><b>Output for all three:</b> one structured description, the <b>Scene IR</b> (Section 3.2), compiled by deterministic code into SimScript — the language the app already runs, lints and renders. The model never writes canvas objects itself.</p>
+
+<h2>1.3 Domains, in order of delivery</h2>
+<table>
+<tr><th>Wave</th><th>Domain</th><th>Why this order</th></tr>
+<tr><td>1</td><td><b>Analog &amp; digital circuits</b></td><td>Clearest vocabulary (~60 symbols), strict topology (a netlist), the app already auto-draws a clean schematic from a netlist, and the most common thing a student sketches.</td></tr>
+<tr><td>2</td><td><b>Mechanics</b> (ramps, masses, springs, ropes, pulleys, pendulums)</td><td>Needs spatial reasoning (“touching”, “on top of”) rather than wiring; the engine already attaches constraints by overlap, so relations are mostly geometry.</td></tr>
+<tr><td>3</td><td><b>Optics &amp; waves</b> (sources, lenses, mirrors, slits, screens)</td><td>Fewer symbols; left-to-right layout already assumed by the engine.</td></tr>
+<tr><td>4</td><td>Graphs, trees, state machines, block diagrams (<code>diagram()</code> / DSA Lab)</td><td>Different compile target, same recogniser plumbing.</td></tr>
+</table>
+
+<h2>1.4 Why not “just use a vision-language model”?</h2>
+<table>
+<tr><th>Question</th><th>Giant general VLM</th><th>This plan (strokes + tiny specialist models)</th></tr>
+<tr><td>RAM</td><td>≥ 2&nbsp;GB for anything usable; competes with the tutor’s brain for the same 2&nbsp;GB</td><td>Always-on part is a few MB; optional VLM is loaded alone</td></tr>
+<tr><td>Wiring accuracy</td><td>Generative models <i>describe</i>; they hallucinate a plausible but wrong netlist, and you cannot see it</td><td>Topology comes from geometry (which end touches which pin) — deterministic and checkable</td></tr>
+<tr><td>Verification</td><td>None — output is prose</td><td>IR → compile → lint → engine run; equivalence can be tested by simulating both</td></tr>
+<tr><td>Latency</td><td>Seconds per image on CPU</td><td>Milliseconds per symbol</td></tr>
+<tr><td>Uses the extra information live ink has</td><td>No — sees a picture</td><td>Yes — stroke order, direction and timing make recognition far easier than pixels</td></tr>
+<tr><td>Improves with use</td><td>Not without retraining</td><td>Every correction is a new labelled example</td></tr>
+</table>
+<div class="callout good"><b class="t">The design stance</b>The recogniser <b>proposes</b>, the compiler <b>decides</b>, the user <b>corrects</b>. This is the same stance <code>lib/sketch/recognize.ts</code> already takes: <i>“a wrong guess costs the user nothing — meaning still comes from behaviors the user attaches.”</i></div>
+
+<h2>1.5 Success looks like</h2>
+<table>
+<tr><th>Dimension</th><th>Target (not yet measured)</th></tr>
+<tr><td>Symbol accuracy, live ink, writers never seen in training</td><td>top-1 ≥ 90%, top-3 ≥ 98% on the real (crowd) test set</td></tr>
+<tr><td>Whole-circuit correctness (5–12 parts, hand-drawn)</td><td>≥ 80% of circuits compile to a netlist that <i>behaves identically</i> to the intended one (compared by simulating both); the rest need ≤ 2 taps to fix</td></tr>
+<tr><td>Photo of a clean printed circuit</td><td>≥ 70% correct on first pass in wave 1; improves with Phase S5</td></tr>
+<tr><td>Time</td><td>Ink: &lt; 150&nbsp;ms after pen-up on a Mid device. Photo: &lt; 3&nbsp;s on Mid, no model download beyond the always-on bundle</td></tr>
+<tr><td>Memory</td><td>Always-on ≤ 60&nbsp;MB; photo mode ≤ 2&nbsp;GB total including the optional VLM, never co-resident with the tutor’s brain</td></tr>
+<tr><td>Trust</td><td>Never silently wrong: low-confidence parts are highlighted and the user confirms before anything is placed</td></tr>
+</table>
+
+<!-- ============================ 2 ============================ -->
+<h1>2. What already exists in SIMBLIP</h1>
+<p>The sketch-to-simulation idea is <b>already half built</b>. This section is the map of what to reuse. All of it was read in the repo.</p>
+
+<h2>2.1 The recognition stack today</h2>
+<table>
+<tr><th>Piece</th><th>File</th><th>What it does</th><th>Verdict</th></tr>
+<tr><td>Shape recogniser <span class="pill mint">exists</span></td><td><code>lib/sketch/recognize.ts</code> (202 lines)</td><td>One stroke → circle / rect / line / regular 3–8-gon / stroke. RDP simplification, “closed” test, deliberately conservative: irregular doodles stay ink.</td><td><b>Keep as S0.</b> Its restraint is a feature.</td></tr>
+<tr><td>Discriminative features <span class="pill mint">exists</span></td><td><code>lib/sketch/features.ts</code> (335 lines)</td><td><code>normalizeStrokes</code>, <code>stripLeads</code> (removes the shared horizontal leads so the body — zigzag, plates, arrowhead — dominates), <code>features()</code> + a CART decision tree.</td><td>The <b>leads insight is gold</b> — carry it into SketchNet’s input design. The tree becomes a fast pre-filter / fallback.</td></tr>
+<tr><td>Custom templates <span class="pill mint">exists</span></td><td><code>lib/sketch/custom.ts</code> (300 lines)</td><td>$P-style point-cloud matching, rotation-sensitive on purpose; templates stored in a <b>global cloud table</b> <code>simblip_sketch_templates</code> (<code>cloud</code>, <code>strokes</code>) so every user’s examples help everyone; two-stage match (tree narrows, body-first distance picks).</td><td>This is the <b>baseline to beat</b> and the <b>data source</b> (Section 5).</td></tr>
+<tr><td>/train page <span class="pill mint">exists</span></td><td><code>app/train/page.tsx</code></td><td>Anyone draws a symbol, picks the component it becomes, saves. Multi-stroke. States the goal: “rebuild a whole sketched diagram — every symbol it recognises spawns the real component, and the wires between them already connect via node snapping.”</td><td>Upgrade into a <b>guided collection tool</b> (Section 5.5).</td></tr>
+<tr><td>Pen + hold <span class="pill mint">exists</span></td><td><code>components/workspace/canvas.tsx</code> imports <code>recognize</code> and <code>matchCustomSketch</code></td><td>The interaction: draw, hold the pen, shapes and symbols snap to real parts.</td><td>SketchNet slots in behind the <i>same</i> gesture. No new interaction to teach.</td></tr>
+<tr><td>Part drawings <span class="pill mint">exists</span></td><td><code>components/objects/part-art.tsx</code></td><td>One SVG body per circuit part, in real pixels, with pins computed by <code>terminalsOf()</code> — “add a part = one entry in ARTS”.</td><td><b>The synthetic-data engine</b>: every class’s clean shape already exists as vector paths.</td></tr>
+<tr><td>Auto schematic layout <span class="pill mint">exists</span></td><td><code>lib/scene/circuit-layout.ts</code></td><td>Simulated-annealing placement (wire length + 400·crossings + perimeter, 20&nbsp;px clearance) then orthogonal A* routing. Circuits are created <i>without x/y</i> and drawn automatically.</td><td>Means the compiler can emit a pure netlist and the app draws it tidily — the user’s messy sketch becomes a clean schematic.</td></tr>
+<tr><td>Component registry <span class="pill mint">exists</span></td><td><code>lib/scene/factory.ts</code> <code>COMPONENTS</code></td><td>The id every class must map to.</td><td>Class list is derived from it (no third copy).</td></tr>
+<tr><td>SimScript + anchors <span class="pill mint">exists</span></td><td><code>lib/scene/simscript.ts</code>, <code>simscript-component-reference.md</code></td><td><code>create(kind, props)</code>, <code>connect(a.anchor, b.anchor)</code>, <code>addproperty</code>, <code>graph.plot</code>; named anchors (<code>.positive .negative .a .b .anode .cathode .base …</code>).</td><td>The IR → SimScript compile target.</td></tr>
+<tr><td>Lint / fix / verify <span class="pill mint">exists</span></td><td><code>simscript-lint.ts</code>, <code>simscript-fix.ts</code>, <code>verify-scene.ts</code></td><td>Static checks and deterministic repairs.</td><td>Runs on every compiled sketch — a wrong IR cannot produce a broken scene.</td></tr>
+<tr><td>OCR <span class="pill mint">exists</span></td><td><code>lib/ai/attachments.ts</code> (Tesseract.js, lazy WASM, language data cached in IndexedDB)</td><td>Images → text. Reads printed words; poor on diagrams.</td><td>Reuse for printed labels in photos (S3b).</td></tr>
+<tr><td>Spatial constraint logic <span class="pill mint">exists</span></td><td><code>docs/architecture.md</code>, physics runtime</td><td>“A spring whose endpoint touches a mass attaches to it; a hinge pins whatever bodies it overlaps; nothing found = world anchor.”</td><td>Mechanics sketches only need <i>correct geometry and classes</i>; relations come for free.</td></tr>
+</table>
+
+<h2>2.2 What is missing (the real gaps)</h2>
+<ol>
+<li><b>No learned recogniser.</b> Everything today is template or rule matching. It degrades as the number of classes and writers grows — the $P approach compares to every template and has no notion of “I don’t know”.</li>
+<li><b>No topology extraction</b> from messy drawings: wires that overshoot, nearly touch, cross without joining, or have junction dots. Today relies on “node snapping” at placement.</li>
+<li><b>No handwriting or label recognition</b> — a value written beside a part (“10 kΩ”) is ignored.</li>
+<li><b>No photo input.</b> Images become OCR text (<code>attachments.ts</code> says so plainly: “a circuit diagram yields little or nothing”).</li>
+<li><b>No semantics for mechanics sketches</b> (ramp = static line at an angle, block on it = rigid body, arrow = force), and no way to say “I’m not sure”.</li>
+<li><b>No feedback loop.</b> A user’s correction is not captured as a training example.</li>
+<li><b>No evaluation set</b>, so accuracy can’t be stated, only felt.</li>
+</ol>
+
+<!-- ============================ 3 ============================ -->
+<h1>3. Architecture: the pipeline and its contract</h1>
+<h2>3.1 The pipeline</h2>
+<figure>
+<svg viewBox="0 0 700 372" xmlns="http://www.w3.org/2000/svg" font-family="Inter, DejaVu Sans, sans-serif" font-size="10.5">
+  <defs><marker id="c" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5b6676"/></marker></defs>
+  <g text-anchor="middle">
+  <rect x="8" y="8" width="150" height="40" rx="8" fill="#eef2fe" stroke="#b9c8f7"/><text x="83" y="25" font-weight="700">A · Live ink</text><text x="83" y="39" fill="#5b6676">vector strokes + timing</text>
+  <rect x="8" y="146" width="150" height="40" rx="8" fill="#eef2fe" stroke="#b9c8f7"/><text x="83" y="163" font-weight="700">B · Photo / screenshot</text><text x="83" y="177" fill="#5b6676">pixels</text>
+  <rect x="8" y="212" width="150" height="40" rx="8" fill="#eef2fe" stroke="#b9c8f7"/><text x="83" y="229" font-weight="700">C · Situation sketch</text><text x="83" y="243" fill="#5b6676">ink or photo</text></g>
+
+  <g text-anchor="middle">
+  <rect x="190" y="8" width="150" height="40" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="265" y="25" font-weight="700">Group strokes</text><text x="265" y="39" fill="#5b6676">time gap + proximity</text>
+  <rect x="190" y="146" width="150" height="40" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="265" y="163" font-weight="700">Clean the picture</text><text x="265" y="177" fill="#5b6676">deskew · binarise · thin</text></g>
+
+  <g text-anchor="middle">
+  <rect x="372" y="8" width="150" height="40" rx="8" fill="#f1ebfd" stroke="#cdbdf5"/><text x="447" y="25" font-weight="700">S1 SketchNet</text><text x="447" y="39" fill="#5b6676">class · pose · confidence</text>
+  <rect x="372" y="62" width="150" height="40" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="447" y="79" font-weight="700">S0 geometry</text><text x="447" y="93" fill="#5b6676">wires · arrows · shapes</text>
+  <rect x="372" y="116" width="150" height="40" rx="8" fill="#f1ebfd" stroke="#cdbdf5"/><text x="447" y="133" font-weight="700">S3 text &amp; values</text><text x="447" y="147" fill="#5b6676">chars → "10k", "5 N"</text>
+  <rect x="372" y="170" width="150" height="40" rx="8" fill="#fdf5e6" stroke="#f0cf8f"/><text x="447" y="187" font-weight="700">S2 detector (photos)</text><text x="447" y="201" fill="#5b6676">only if CC + S1 miss</text>
+  <rect x="372" y="224" width="150" height="40" rx="8" fill="#fcecef" stroke="#f2b7c1"/><text x="447" y="241" font-weight="700">S4 tiny VLM (optional)</text><text x="447" y="255" fill="#5b6676">unknown figures · captions</text></g>
+
+  <g text-anchor="middle">
+  <rect x="554" y="62" width="138" height="104" rx="8" fill="#16202e"/><text x="623" y="86" fill="#fff" font-weight="700">Scene IR</text><text x="623" y="102" fill="#9fb0c8">nodes · edges · values</text><text x="623" y="116" fill="#9fb0c8">+ confidence + doubts</text><text x="623" y="136" fill="#7ee0c3">the contract</text><text x="623" y="152" fill="#7ee0c3">(Appendix A)</text></g>
+
+  <g text-anchor="middle">
+  <rect x="190" y="290" width="150" height="40" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="265" y="307" font-weight="700">Compiler (no model)</text><text x="265" y="321" fill="#5b6676">IR → SimScript</text>
+  <rect x="372" y="290" width="150" height="40" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="447" y="307" font-weight="700">Lint · fix · verify</text><text x="447" y="321" fill="#5b6676">exists today</text>
+  <rect x="554" y="290" width="138" height="40" rx="8" fill="#eef2fe" stroke="#b9c8f7"/><text x="623" y="307" font-weight="700">Ghost preview</text><text x="623" y="321" fill="#5b6676">tap to correct → place</text></g>
+
+  <g stroke="#5b6676" stroke-width="1.4" fill="none" marker-end="url(#c)">
+   <path d="M158 28H188"/><path d="M158 166H188"/><path d="M340 28H370"/><path d="M340 166L370 190"/><path d="M522 28L552 80"/><path d="M522 82H552"/><path d="M522 136L552 120"/><path d="M522 190L552 140"/><path d="M522 244L552 150"/>
+   <path d="M623 166V230H265V288"/><path d="M340 310H370"/><path d="M522 310H552"/></g>
+  <path d="M83 252V278H190" stroke="#5b6676" stroke-width="1.4" fill="none" stroke-dasharray="4 3"/>
+  <text x="196" y="274" fill="#5b6676" font-size="9.5">situation sketches skip the netlist; relations come from geometry</text>
+  <path d="M265 330V356H623V332" stroke="#12a37f" stroke-width="1.4" fill="none" stroke-dasharray="4 3" marker-end="url(#c)"/>
+  <text x="440" y="352" text-anchor="middle" fill="#0b7a5e" font-size="9.5">user corrections → new training examples (opt-in)</text>
+</svg>
+<figcaption>Figure 1 — Every input becomes the same Scene IR; everything after the IR is deterministic and already verified by existing code.</figcaption>
+</figure>
+
+<h2>3.2 The contract: Scene IR</h2>
+<p>The IR is the most important design object in this document. It makes the pipeline testable stage by stage, lets a human or Claude write ground truth by hand, and keeps the models <b>replaceable</b>: a better classifier tomorrow changes nothing downstream.</p>
+<pre><code>// lib/sketch/ir.ts  (full zod schema in Appendix A)
+type SketchIR = {
+  domain: 'circuit' | 'digital' | 'mechanics' | 'optics' | 'diagram'
+  nodes: Array&lt;{
+    id: string
+    cls: string                        // a COMPONENTS id, e.g. 'resistor', 'battery', 'block'
+    conf: number                       // 0..1, calibrated
+    alt?: Array&lt;{ cls: string; conf: number }&gt;   // top-3 for the correction menu
+    bbox: [x: number, y: number, w: number, h: number]
+    rot: 0 | 90 | 180 | 270            // pose; polarity lives here
+    flip?: boolean
+    values?: Record&lt;string, string&gt;   // { R: '10k' } — raw text; the compiler parses units
+    source: 'ink' | 'photo'
+  }&gt;
+  edges: Array&lt;{ a: { node: string; pin: string }; b: { node: string; pin: string }; kind: 'wire' | 'rope' | 'rod' | 'spring' | 'damper'; conf: number }&gt;
+  labels: Array&lt;{ text: string; bbox: number[]; attachedTo?: string }&gt;
+  doubts: Array&lt;{ ref: string; why: 'low-confidence' | 'ambiguous-junction' | 'dangling-wire' | 'unreadable-value' }&gt;
+}</code></pre>
+<p><b>Rules:</b> (1) Stages may only <i>add or refine</i> IR fields, never invent canvas objects. (2) Every low-confidence decision must also appear in <code>doubts</code>, because the UI shows them. (3) The IR is serialisable and small (a few KB) — it can travel to the tutor as part of the <code>sketch.recognize</code> tool result.</p>
+
+<h2>3.3 The compiler (no model)</h2>
+<table>
+<tr><th>Domain</th><th>Strategy</th><th>Why</th></tr>
+<tr><td>Circuit / digital</td><td>Emit <code>create()</code> and <code>connect()</code> with <b>no x/y</b>; the auto-layout engine draws the schematic.</td><td>The user’s sketch only needs to be <i>topologically</i> right. Hand-drawn geometry doesn’t have to be preserved (and shouldn’t be — it is untidy). Optional “keep my layout” mode places by IR bbox.</td></tr>
+<tr><td>Mechanics</td><td>Emit <code>create()</code> with x/y from IR bboxes, attach <code>rigidBody</code> / <code>staticBody</code> by class, set parameters from labels; let the physics runtime resolve constraints by touching.</td><td>Position <i>is</i> the information. “Ground below falling bodies” is already a rule in the generator prompt.</td></tr>
+<tr><td>Optics</td><td>Left-to-right on one axis; y from the sketch; <code>f</code> etc. from labels.</td><td>Matches existing engine convention.</td></tr>
+</table>
+<p>The compiler’s output goes through <code>lintSimScript</code> and <code>autofixSimScript</code>. If lint fails, the compiler has a bug, not the model — and the tests (Section 7) catch it on hand-written IR before any model exists.</p>
+
+<h2>3.4 Interaction design: “ghost, confirm, place”</h2>
+<ol>
+<li><b>Ghost overlay.</b> After pen-hold (live ink) or import (photo), draw the recognised parts translucent over the user’s own ink, each labelled (“resistor 10 kΩ”) with a coloured dot for confidence: green ≥ 0.9, amber 0.6–0.9, red &lt; 0.6.</li>
+<li><b>Fix by tapping.</b> Tap a part → the top-3 alternatives plus “draw it again” plus a full list. Tap a wire end → “connect / don’t connect”. Tap a value → type it.</li>
+<li><b>Place.</b> “Make it live” replaces ink with real parts as <b>one undo step</b> (the same <code>pushHistory</code> guarantee used by AI edits). The original ink is kept on a hidden layer so Undo restores it exactly.</li>
+<li><b>Explain what you see.</b> The tutor (Doc 1) can narrate the IR: “I read this as a 9&nbsp;V battery in series with a 1&nbsp;kΩ resistor and an LED. The LED symbol points the wrong way for current to flow — want to try flipping it?” That is a teaching moment the pipeline gets <i>for free</i> because the IR names things.</li>
+<li><b>Learn from the fix.</b> A correction is stored locally as <code>{strokes, correctedClass}</code>; with consent it is uploaded to the same global table <code>/train</code> already writes to.</li>
+</ol>
+
+<!-- ============================ 4 ============================ -->
+<h1>4. The models (S0–S4), one by one</h1>
+<h2>4.1 Summary</h2>
+<table>
+<tr><th>Id</th><th>Job</th><th>Technique</th><th>Size</th><th>Latency (Mid CPU)</th><th>Always loaded?</th></tr>
+<tr><td><b>S0</b></td><td>Stroke grouping, wires, arrows, simple shapes, junction dots</td><td>Geometry and rules (existing <code>recognize.ts</code>, extended)</td><td>0 MB</td><td>&lt; 5 ms</td><td>Yes</td></tr>
+<tr><td><b>S1</b> SketchNet</td><td>Symbol class + orientation + confidence from strokes</td><td>Tiny CNN on a rendered 32×32 image <b>plus</b> a small GRU on the resampled stroke sequence, two heads</td><td>≈ 0.3–1.5&nbsp;MB int8 <span class="pill amber">est.</span></td><td>&lt; 5 ms per symbol <span class="pill amber">est.</span></td><td>Yes (lazy after first pen-hold)</td></tr>
+<tr><td><b>S3a</b> Ink characters</td><td>Handwritten digits, units, Greek, ± etc. beside parts</td><td>Same architecture family as S1, ~80 classes, then a unit grammar</td><td>≈ 0.5&nbsp;MB <span class="pill amber">est.</span></td><td>&lt; 5 ms per char</td><td>Yes</td></tr>
+<tr><td><b>S3b</b> Printed text</td><td>Labels in photos</td><td>Existing Tesseract.js</td><td>language data cached today</td><td>0.5–2 s</td><td>On demand</td></tr>
+<tr><td><b>S2</b> Detector</td><td>Find symbols in a messy photo</td><td>Nano detector (YOLOX-Nano / NanoDet class), fine-tuned</td><td>≈ 1–4&nbsp;MB <span class="pill amber">est.</span></td><td>≈ 50–200 ms <span class="pill amber">est.</span></td><td>On demand, only if needed</td></tr>
+<tr><td><b>S4</b> Tiny VLM</td><td>Classify an unknown figure, caption it, propose IR for informal pictures</td><td>SmolVLM-256M or 500M</td><td>256M reported &lt; 1&nbsp;GB GPU memory; 500M ≈ 1.23&nbsp;GB (press figures, unverified)</td><td>seconds</td><td>No — loaded alone, brain unloaded</td></tr>
+</table>
+
+<h2>4.2 S0 — geometry and rules (extend what exists)</h2>
+<ul>
+<li><b>Stroke grouping.</b> Strokes belong to one symbol if they are close in time (pen-up gap &lt; ~600&nbsp;ms, tuned on data) <i>and</i> their bounding boxes overlap or nearly touch. A capacitor is two parallel strokes; a battery several; a gate is a body plus a bubble. Grouping errors are a main failure source, so the grouping parameters are <b>learned from the collected data</b>, not guessed.</li>
+<li><b>Wires.</b> Long, near-straight, near-axis-aligned strokes, or polylines with right angles, that are <i>not</i> inside a symbol group. Their endpoints are matched to nearby pins (S1 gives a pin template per class; <code>terminalsOf()</code> gives real pin positions after placement). Overshoot and gaps below a tolerance snap. T-junctions with a dot connect; crossings without a dot don’t (the circuit-redesign phase already added hop arcs for unconnected crossings — the same semantics).</li>
+<li><b>Arrows</b> (forces, velocities, current direction): a line plus a short “V” head at one end; direction and length become an IR edge attribute for mechanics.</li>
+<li><b>Ramp, ground, wall</b>: long strokes classified by angle and by what is attached below/above; hatching (many short parallel strokes) means “fixed ground”.</li>
+</ul>
+
+<h2>4.3 S1 — SketchNet</h2>
+<h3>Input design (this is where accuracy is won)</h3>
+<ul>
+<li><b>Normalise</b> with the existing <code>normalizeStrokes</code>; <b>strip leads</b> with the existing <code>stripLeads</code> so the discriminating body fills the frame. Feed both the full and the body-only view (two channels).</li>
+<li><b>Raster view:</b> render strokes to 32×32 (anti-aliased, fixed 2&nbsp;px line width). A tiny CNN handles shape.</li>
+<li><b>Sequence view:</b> resample each stroke to a fixed number of points (e.g. 64 total across strokes) as <code>(x, y, penUp, direction-change)</code>. A small GRU captures <i>how</i> it was drawn (a zigzag resistor has ≥ 4 direction reversals; a battery has stroke-length asymmetry).</li>
+<li><b>Fuse</b> both embeddings → two heads: <b>class</b> (~100 classes + <code>unknown</code>) and <b>pose</b> (0/90/180/270 + flip). Polarity (diode direction, battery +/–) is a pose, not a class — avoids doubling the class count.</li>
+</ul>
+<h3>Why this should be small</h3>
+<p>32×32 inputs with ~100 classes is MNIST-scale. A 4-block CNN (channels 16-32-64-96) plus a 64-unit GRU is on the order of 150–400 k parameters <span class="pill amber">est.</span> — about 0.3–1.5&nbsp;MB after int8 quantisation. If it turns out too weak, widen it; there is a hundred-fold margin before it competes with anything else in the memory budget.</p>
+<h3>Calibration and “I don’t know”</h3>
+<ul>
+<li>Train with an explicit <code>unknown</code> class (random doodles, letters, partial symbols) and apply <b>temperature scaling</b> on a validation set so confidence means something — the UI relies on it for the green/amber/red dots and for the top-3 menu.</li>
+<li>Keep the existing $P/CART matcher as a <b>fallback and ensemble member</b>: if SketchNet’s confidence is low <i>and</i> the user has custom templates for this class, use theirs. Users who teach the app their own symbols (the point of <code>/train</code>) must never get worse.</li>
+</ul>
+<h3>Classes</h3>
+<p>See Appendix B. The list is generated from <code>COMPONENTS</code> plus mechanics/optics primitives; <b>a class without a component to map to is a gap to report, not a class to invent.</b></p>
+
+<h2>4.4 S3 — text and values</h2>
+<ul>
+<li><b>S3a (ink).</b> Segment characters (stroke grouping again), classify with the same architecture over ~80 symbols: digits, <code>. , + − × / ^ = Ω μ π θ k M m n p V A F H Hz s N g °</code>, a few Latin letters. Then a <b>unit grammar</b> turns “1 0 k Ω” into <code>{R:'10k'}</code>. Restricting the alphabet is what makes this tiny and accurate; free-form handwriting recognition is a much larger problem and is <i>not</i> attempted.</li>
+<li><b>Association.</b> A label belongs to the nearest part (distance in the part’s local frame, preferring “above/below the body”); ambiguous cases go to <code>doubts</code> as <code>unreadable-value</code> and the UI offers a keypad.</li>
+<li><b>S3b (photo).</b> Tesseract on label crops (not the whole image) with a digits/units whitelist — far more reliable than whole-image OCR, and cheap because crops are small.</li>
+</ul>
+
+<h2>4.5 S2 — detector for photos (only if needed)</h2>
+<p>Strategy: <b>start without a detector.</b> A clean textbook diagram can be binarised, split into connected components, and each component classified by S1 (rendered from the component’s pixels). That reuses S1 at zero extra megabytes. Add a nano detector <i>only</i> if the Phase S5 evaluation shows recall problems on messy photos (touching symbols, text overlap, shadows).</p>
+<div class="callout risk"><b class="t">Licence trap</b>The popular Ultralytics YOLOv8/YOLO11 family is released under AGPL-3.0 (with a paid enterprise licence). Shipping it inside SIMBLIP would pull in obligations Rohan almost certainly doesn’t want. Prefer an Apache-2.0 detector (YOLOX-Nano, NanoDet-Plus) and re-check the licence of any pretrained weights before use.</div>
+
+<h2>4.6 S4 — tiny vision-language model (optional, last)</h2>
+<p>SmolVLM-256M and 500M are Apache-2.0 vision-language models published with ONNX and WebGPU demos; a Hugging Face write-up reports the 256M model runs single-image inference in under 1&nbsp;GB of GPU memory and the 500M model needs about 1.23&nbsp;GB; the paper reports up to 80 decode tokens/s for the 256M model in a browser on an M4 Max MacBook. These are <span class="pill amber">vendor/press numbers</span>, not CPU measurements on a 4&nbsp;GB laptop.</p>
+<p>Allowed jobs: (a) decide <i>what kind</i> of figure this is (circuit? free-body diagram? graph? text-only?) so the right pipeline runs; (b) caption it for the tutor (“a ramp with a block and a pulley”); (c) propose IR for informal situation pictures, <b>flagged low-confidence</b>. <b>Forbidden:</b> being the only source of wiring.</p>
+<p><b>Memory rule:</b> S4 and the tutor’s language model are never resident together. Photo import asks the engine lease to unload the brain, runs S4, releases it, and the brain reloads on the next chat turn (weights stay cached in OPFS). Decide whether S4 ships at all from the Phase S6 evaluation.</p>
+
+<!-- ============================ 5 ============================ -->
+<h1>5. Data: where the training set comes from</h1>
+<p>A classifier is only as good as its data, and drawings are where public data is thinnest. The plan uses four sources and — crucially — <b>never evaluates on synthetic data alone</b>.</p>
+
+<h2>5.1 Source 1 — Synthetic strokes from SIMBLIP’s own part drawings</h2>
+<p>Every circuit part has a vector drawing in <code>part-art.tsx</code>; mechanics and optics primitives have shapes in the object renderers. Turn those paths into pen strokes and corrupt them the way real hands do:</p>
+<pre><code>// scripts/ai/sketch/synth.ts  (sketch of the generator)
+for each class c, for each style variant v (IEC box resistor, ANSI zigzag, US/IEEE gates, …):
+  paths = svgPathsOf(c, v)                       // from part-art / object renderers
+  repeat N times:
+    strokes = splitIntoPenStrokes(paths, strokeCount ~ real distribution, orderPerm)
+    strokes = resample(strokes, speedProfile())              // variable point density
+    strokes = lowFreqWobble(strokes, amp ~ U(0.5,3)px)       // smooth hand tremor (Perlin-like)
+    strokes = jitter(strokes, sigma ~ 0.4px) ; overshoot(strokes) ; gapAtJoins(strokes)
+    strokes = affine(strokes, rot ~ ±12°, scale ~ U(0.7,1.4), shear ~ ±0.15)   // keep 0/90/180/270 poses explicit
+    strokes = maybeDoubleStroke(strokes) ; maybeBreak(strokes)
+    leads   = addRandomLeads(strokes)                         // so stripLeads is exercised
+    emit {strokes, cls: c, pose}</code></pre>
+<p>This gives hundreds of thousands of labelled samples for free, <b>and</b> it exposes a modelling question worth answering early: <i>which symbol standard do your students draw?</i> Resistors appear as zigzags and as boxes across syllabi; both must be classes-in-one (variant augmentation), or the model will say “unknown” to half the room.</p>
+
+<h2>5.2 Source 2 — Crowd data from /train <span class="pill mint">exists</span></h2>
+<p>The <code>simblip_sketch_templates</code> table already receives <code>cloud</code> and <code>strokes</code> from anyone using <code>/train</code>. This is the <b>real-world distribution</b>: real hands, real devices (mouse, pen, finger). Use it as the fine-tuning set and, above all, as the <b>test set</b>, split <b>by writer</b> (all examples from one person stay together) so the score means “a person the model never met”.</p>
+<ul>
+<li>Counts matter more than cleverness. Target ≥ 30 writers × all classes × 3 repetitions for wave 1 (≈ 30 × 60 × 3 = 5,400 symbols). That is a classroom afternoon (Section 5.5).</li>
+<li><b>Privacy:</b> strokes only, no identity, no free text. Add a consent line on <code>/train</code> saying the examples train a shared model; allow deletion. Students may be minors — get the school’s sign-off for any organised session.</li>
+<li><b>Quality control:</b> drop examples that S1 + the old matcher both strongly disagree with the label on (probably mislabelled), then <i>review</i> that disagreement list by hand — it is also a list of the confusable classes.</li>
+</ul>
+
+<h2>5.3 Source 3 — Public datasets (verify each licence before use)</h2>
+<table>
+<tr><th>Use</th><th>Candidate</th><th>Note</th></tr>
+<tr><td><code>unknown</code> class and generic shapes</td><td>Google QuickDraw (stroke-vector doodles, CC BY 4.0 per its release)</td><td>Gives millions of non-symbol doodles; attribute properly.</td></tr>
+<tr><td>Hand-drawn circuit symbols / diagrams</td><td>Published hand-drawn circuit datasets (e.g. CGHD)</td><td>Check licence and label format; useful mostly for the photo/detector path.</td></tr>
+<tr><td>Handwritten maths characters</td><td>CROHME-family online handwriting data</td><td>Licence terms vary; digits/units only are needed.</td></tr>
+</table>
+<p>I have not verified these licences. Treat this table as a to-do: <b>do not train on anything whose licence has not been written into <code>docs/ai/decisions.md</code></b>.</p>
+
+<h2>5.4 Source 4 — Rendered scenes with free labels (for photos)</h2>
+<p>The app can already generate many valid scenes (the SimScript corpus, the 100-question set, course figures). Because each scene is created <i>from</i> a known IR, rendering it to an image gives a picture with <b>perfect labels for free</b> (boxes, classes, connections). Then make it look like a photo: paper texture, ruled/grid lines, perspective warp, uneven lighting, shadows, blur, JPEG noise, pen-thickness changes, partial occlusion. Use this to train the detector and to test the clean-up stage. Real photographs are still required for evaluation.</p>
+<p><b>Claude as annotator:</b> Claude can read images, so for a held-out set of ~300 <i>real</i> photos (textbook pages, whiteboards, student notebooks — collected with permission) Claude drafts the IR by eye and Rohan or a teacher spot-checks a sample (say one in five). It is slow to label thousands that way but ideal for a small, high-quality test set.</p>
+
+<h2>5.5 A data-collection session (Rohan’s task)</h2>
+<ol>
+<li>Upgrade <code>/train</code> to a <b>guided mode</b> (Phase S1): it shows “Draw: resistor” with a progress bar, three repetitions per class, random class order, a device tag (mouse / pen / finger), and a 5-second thank-you screen. Gamify lightly (a leaderboard of classes completed, not of people).</li>
+<li>Run it in one class period with 20–30 students on their own laptops and phones, with the teacher’s agreement and a short consent line.</li>
+<li>Collect 10–15 <b>whole hand-drawn circuits and mechanics scenes</b> per student from a printed prompt sheet (“draw a series circuit with a battery, a switch and two bulbs”). These become the <b>end-to-end test set</b> that no model ever trains on.</li>
+<li>Freeze it: copy to <code>scripts/ai/sketch/testset/</code>, hash it, never use it for training.</li>
+</ol>
+
+<h2>5.6 Dataset hygiene</h2>
+<ul>
+<li>Split <b>by writer</b>, never by sample. Split synthetic and real separately and report both.</li>
+<li>Report <b>per-class</b> numbers; a single average hides that “capacitor vs battery” is failing.</li>
+<li>Keep a <code>MANIFEST.json</code> with source, licence, count and hash for every dataset.</li>
+<li>Version the class list; when a class is added, old models are retrained, not patched.</li>
+</ul>
+
+<!-- ============================ 6 ============================ -->
+<h1>6. Training, export, shipping, memory</h1>
+<h2>6.1 Where it trains</h2>
+<p>Everything here fits the author’s <b>RTX 4060 laptop (8&nbsp;GB)</b> — in fact a CPU would nearly do for S1. Tools: <b>PyTorch</b> for training, <b>ONNX</b> for the exchange format, <b>onnxruntime</b> for int8 quantisation and verification, <b>ONNX Runtime Web</b> in the browser.</p>
+
+<h2>6.2 SketchNet skeleton</h2>
+<pre><code># scripts/ai/sketch/train/sketchnet.py   (skeleton — Claude will complete and test it)
+class SketchNet(nn.Module):
+    def __init__(self, n_cls, n_pose=8, seq_len=64):
+        super().__init__()
+        self.cnn = nn.Sequential(                       # input: 2×32×32  (full view, body-only view)
+            blk(2, 16), blk(16, 32), blk(32, 64), blk(64, 96), nn.AdaptiveAvgPool2d(1), nn.Flatten())
+        self.gru = nn.GRU(input_size=4, hidden_size=64, batch_first=True)   # (x, y, pen_up, turn)
+        self.cls  = nn.Sequential(nn.Linear(96 + 64, 128), nn.ReLU(), nn.Dropout(0.2), nn.Linear(128, n_cls))
+        self.pose = nn.Linear(96 + 64, n_pose)
+    def forward(self, img, seq):
+        a = self.cnn(img); _, h = self.gru(seq); z = torch.cat([a, h[-1]], 1)
+        return self.cls(z), self.pose(z)
+# loss = CE(cls, label_smoothing=0.05) + 0.5·CE(pose) ; AdamW, cosine schedule, 30–60 epochs
+# augment on the fly: re-run the synthetic wobble on stored vector strokes (never augment a rendered image only)
+# after training: temperature-scale on validation → export ONNX (opset 17) → onnxruntime int8 → check |logit diff| &lt; ε</code></pre>
+
+<h2>6.3 Evaluation (what “good” means)</h2>
+<table>
+<tr><th>Level</th><th>Metric</th><th>Notes</th></tr>
+<tr><td>Symbol</td><td>top-1, top-3, per-class recall, confusion matrix, expected calibration error, <code>unknown</code> precision/recall</td><td>Real writer-independent test set reported <i>separately</i> from synthetic</td></tr>
+<tr><td>Wiring</td><td>edge precision/recall on the whole-scene test set</td><td>Counts a wire as correct only if both pins are right</td></tr>
+<tr><td>Scene</td><td><b>Behavioural equivalence</b>: compile the predicted IR and the ground-truth IR, run both through the real circuit engine, compare node voltages (circuits) or trajectories (mechanics) within tolerance</td><td>Unique to SIMBLIP — the engine <i>is</i> the scorer. Two different-looking netlists that behave identically both pass.</td></tr>
+<tr><td>Human effort</td><td>taps-to-correct per scene</td><td>The metric the user actually feels</td></tr>
+<tr><td>Speed &amp; RAM</td><td>ms per symbol, MB resident, first-load size</td><td>On the three reference devices from Doc 1</td></tr>
+</table>
+<p>Likely confusions to inspect first: resistor ↔ inductor ↔ zigzag-doodle; capacitor ↔ battery ↔ two parallel lines; diode ↔ LED ↔ zener; AND ↔ NAND ↔ bubble-less buffer; mass ↔ wheel ↔ charge; spring ↔ coil inductor; ground ↔ wall hatching.</p>
+
+<h2>6.4 Shipping</h2>
+<ul>
+<li><b>Format:</b> ONNX int8 files (<code>sketchnet-v1.onnx</code>, <code>inkchars-v1.onnx</code>), content-hashed, versioned in a small <code>models.json</code> manifest shared with the Tutor’s manifest (Doc 1, Section 5.4).</li>
+<li><b>Runtime:</b> ONNX Runtime Web (WASM, SIMD, threads when cross-origin isolated; WebGPU provider when present). Its WASM binary is the real first-load cost (on the order of ten megabytes <span class="pill amber">est.</span>) — <b>lazy-load it after the first pen-hold</b>, cache it, and show a small “learning to read your drawing…” first-time state. If that proves too heavy for the always-on feel, S1 and S3a (a few hundred thousand parameters) can be run by a ~150-line hand-written TypeScript forward pass instead; decide with the Phase S2 numbers.</li>
+<li><b>Threading:</b> run in a Worker beside the Tutor’s worker; never on the main thread (physics owns it).</li>
+<li><b>Hosting:</b> the files are small enough to serve from the app’s own static assets; the optional VLM goes to the same object storage as the Tutor’s weights.</li>
+<li><b>Credits:</b> every dataset and model goes into <code>scripts/third-party-licenses.mjs</code>, and the “Rohan Singh” credit rule for public surfaces applies to any “powered by” text.</li>
+</ul>
+
+<h2>6.5 Memory arbitration with the Tutor</h2>
+<table>
+<tr><th>Mode</th><th>Resident</th><th>Total (est.)</th></tr>
+<tr><td>Normal use, Standard tier</td><td>Tutor 1.7&nbsp;B + SketchNet + inkchars + ORT</td><td>≈ 1.6–1.7&nbsp;GB</td></tr>
+<tr><td>Normal use, Lite tier</td><td>Tutor 0.6&nbsp;B + SketchNet + inkchars + ORT</td><td>≈ 0.8–0.9&nbsp;GB</td></tr>
+<tr><td>Photo import, with VLM</td><td>VLM + SketchNet + ORT (Tutor <b>unloaded</b>)</td><td>≈ 0.7–1.4&nbsp;GB depending on 256M / 500M</td></tr>
+<tr><td>Photo import, without VLM</td><td>Tutor stays; connected components + S1 + Tesseract (transient ≈ 100–200&nbsp;MB)</td><td>≈ 1.9&nbsp;GB — tight on Standard; use the Lite brain or unload</td></tr>
+</table>
+<p>The Doc 1 <code>ModelLease</code> is the one place that decides this; sketch code asks it for permission instead of loading things itself.</p>
+
+<!-- ============================ 7 ============================ -->
+<h1>7. How to build it: phases and exit criteria</h1>
+<p>Rule of this plan: <b>build the pipeline around the models before the models</b>. A deterministic compiler with hand-written IR can be fully tested on day one; the existing recogniser stands in for S1 until the new one beats it on a fair test.</p>
+
+<figure>
+<svg viewBox="0 0 700 120" xmlns="http://www.w3.org/2000/svg" font-family="Inter, DejaVu Sans, sans-serif" font-size="10">
+  <g text-anchor="middle" fill="#16202e">
+  <rect x="6" y="14" width="94" height="58" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="53" y="34" font-weight="700">S0</text><text x="53" y="48">IR + compiler</text><text x="53" y="60">+ gold IR tests</text>
+  <rect x="108" y="14" width="94" height="58" rx="8" fill="#e8f7f2" stroke="#9ddbc9"/><text x="155" y="34" font-weight="700">S1</text><text x="155" y="48">Data: synth +</text><text x="155" y="60">guided /train</text>
+  <rect x="210" y="14" width="94" height="58" rx="8" fill="#f1ebfd" stroke="#cdbdf5"/><text x="257" y="34" font-weight="700">S2</text><text x="257" y="48">SketchNet v1</text><text x="257" y="60">train + ship</text>
+  <rect x="312" y="14" width="94" height="58" rx="8" fill="#f1ebfd" stroke="#cdbdf5"/><text x="359" y="34" font-weight="700">S3</text><text x="359" y="48">Wires, values,</text><text x="359" y="60">ghost UI</text>
+  <rect x="414" y="14" width="94" height="58" rx="8" fill="#fdf5e6" stroke="#f0cf8f"/><text x="461" y="34" font-weight="700">S4</text><text x="461" y="48">Mechanics +</text><text x="461" y="60">optics</text>
+  <rect x="516" y="14" width="86" height="58" rx="8" fill="#fcecef" stroke="#f2b7c1"/><text x="559" y="34" font-weight="700">S5</text><text x="559" y="48">Photo path</text><text x="559" y="60">(CC + S1)</text>
+  <rect x="610" y="14" width="84" height="58" rx="8" fill="#f4f6f9" stroke="#d9dee6"/><text x="652" y="34" font-weight="700">S6</text><text x="652" y="48">VLM eval,</text><text x="652" y="60">tutor tools</text></g>
+  <g fill="#5b6676" text-anchor="middle"><text x="53" y="90">M</text><text x="155" y="90">M</text><text x="257" y="90">M</text><text x="359" y="90">L</text><text x="461" y="90">L</text><text x="559" y="90">L</text><text x="652" y="90">M</text></g>
+  <text x="6" y="112" fill="#5b6676">S0–S1 can start immediately and run beside Document 1’s P1–P3. S2 onward needs the shared engine (Doc 1, P4) for memory arbitration.</text>
+</svg>
+<figcaption>Figure 2 — Phase order. Sizes S/M/L as in Document 1.</figcaption>
+</figure>
+
+<h2>Phase S0 — IR, compiler and gold tests <span class="pill">M</span></h2>
+<ul>
+<li><b>Build:</b> <code>lib/sketch/ir.ts</code> (zod schema, Appendix A), <code>lib/sketch/compile.ts</code> (circuit + digital first), pin-name tables derived from <code>terminalsOf()</code> and the anchor list in the SimScript reference, <code>lib/sketch/compile.test.mjs</code>.</li>
+<li><b>Gold set:</b> write ~40 IR files by hand (or have Claude write them from textbook circuits and verify) under <code>scripts/ai/sketch/gold/</code>: series/parallel, divider, RC, rectifier, transistor switch, op-amp amplifier, gate networks, flip-flop counter.</li>
+<li><b>Tests:</b> every gold IR compiles → <code>lintSimScript</code> clean → engine runs; compiled scenes render with the auto-layout engine; wrong IR (missing pin, unknown class) produces a clear error, not a crash.</li>
+<li><b>Exit:</b> 40/40 gold IR compile, lint, and simulate; compile time &lt; 20&nbsp;ms each.</li>
+</ul>
+
+<h2>Phase S1 — Data foundations <span class="pill">M</span></h2>
+<ul>
+<li><b>Build:</b> the synthetic stroke generator (Section 5.1) with a CLI that writes a sharded dataset and <code>MANIFEST.json</code>; guided <code>/train</code> mode; export script for the cloud table → local dataset (writer-split); the class list generated from <code>COMPONENTS</code>.</li>
+<li><b>Rohan:</b> run the collection session (Section 5.5); the end-to-end test set is frozen here.</li>
+<li><b>Exit:</b> ≥ 200 k synthetic samples; ≥ 30 writers’ real data; the <b>baseline</b> (existing CART + $P matcher) scored on the real test set — this number is what S2 must beat.</li>
+</ul>
+
+<h2>Phase S2 — SketchNet v1 <span class="pill">M</span></h2>
+<ul>
+<li><b>Build:</b> training script (Section 6.2), calibration, ONNX int8 export, <code>lib/sketch/sketchnet.ts</code> (worker wrapper + pre-processing identical to training — a shared test vector file guards against train/serve skew), feature flag in <code>canvas.tsx</code> pen+hold path with fallback to the old matcher.</li>
+<li><b>Tests:</b> golden input → golden logits (Python ↔ browser, within tolerance); latency and memory on the reference devices; flag off = behaviour unchanged.</li>
+<li><b>Exit:</b> real-test top-1 beats the baseline and reaches the target in 1.5 (or the gap is explained); &lt; 5&nbsp;ms per symbol; always-on bundle size recorded and in budget.</li>
+</ul>
+
+<h2>Phase S3 — Wires, values, ghost UI <span class="pill">L</span></h2>
+<ul>
+<li><b>Build:</b> grouping and wire/junction extraction (S0 extended), S3a ink characters + unit grammar, label association, ghost overlay + tap-to-correct + “Make it live” as one undo step, doubts list, correction capture (local first, opt-in upload).</li>
+<li><b>Exit:</b> on the whole-circuit test set, ≥ 80% behavioural equivalence (or the failure analysis is written and the next fix named); median taps-to-correct ≤ 2.</li>
+</ul>
+
+<h2>Phase S4 — Mechanics and optics <span class="pill">L</span></h2>
+<ul>
+<li><b>Build:</b> mechanics classes and relations (ramp, ground hatching, block, ball, spring, rope, pulley if a component exists — otherwise report the gap), arrows → forces/velocities, label → parameter mapping, compiler paths with x/y; optics left-to-right.</li>
+<li><b>Exit:</b> a set of 30 gold situation sketches (“block on a 30° ramp with friction”, “two masses over a pulley”, “convex lens with object at 2f”) run and match expected motion/ray behaviour.</li>
+</ul>
+
+<h2>Phase S5 — Photo path <span class="pill">L</span></h2>
+<ul>
+<li><b>Build:</b> clean-up (perspective correction, adaptive threshold, thinning), connected components → S1, pixel wire tracing (skeleton + junction detection), S3b label crops, synthetic-photo generator (5.4), real-photo evaluation set labelled with Claude’s help.</li>
+<li><b>Decision point:</b> if recall on real photos is poor, fine-tune and ship a nano detector (S2 model in 4.1); otherwise skip it.</li>
+<li><b>Exit:</b> ≥ 70% scene-level correctness on clean printed circuits; transient memory measured; no download beyond the always-on bundle (unless the detector was needed).</li>
+</ul>
+
+<h2>Phase S6 — VLM evaluation and tutor tools <span class="pill">M</span></h2>
+<ul>
+<li><b>Build:</b> evaluate SmolVLM-256M/500M on 100 real figures for the three allowed jobs (4.6); ship only if it adds measurable value over S5. Implement <code>sketch.recognize</code> and <code>sketch.to_scene</code> in the Tutor’s tool registry (Doc 1, Section 4), with the memory lease. Teaching moves: “here’s what I read”, polarity and open-circuit mistakes.</li>
+<li><b>Exit:</b> a student can photograph a textbook circuit, see the ghost preview, fix one wire, make it live, and ask the tutor “why does the LED not light?”.</li>
+</ul>
+
+<h2>7.1 Working agreement for Claude</h2>
+<ol>
+<li>Every stage emits the IR and has a unit test on hand-written input before any model touches it.</li>
+<li>No metric is reported without the writer-independent real test set. Synthetic numbers are labelled “synthetic”.</li>
+<li>The frozen test sets (<code>testset/</code>, hash in <code>MANIFEST.json</code>) are read-only in training scripts — enforce with a hash check that fails the run.</li>
+<li>A feature flag guards every user-visible change; the old recogniser remains the fallback until a phase exit says otherwise.</li>
+<li>Commit, merge and verify the deployment after each edit (standing rule); append decisions to <code>docs/ai/decisions.md</code>.</li>
+</ol>
+
+<!-- ============================ 8 ============================ -->
+<h1>8. What you need to learn, and the tool list</h1>
+<h2>8.1 Learning path</h2>
+<table>
+<tr><th>#</th><th>Topic</th><th>Depth</th><th>Why it matters here</th></tr>
+<tr><td>1</td><td>What a classifier, a loss, overfitting and a train/validation/test split are</td><td><span class="pill blue">understand</span></td><td>Everything in Section 6.3 depends on it</td></tr>
+<tr><td>2</td><td>Why split <b>by writer</b>; leakage; per-class metrics; confusion matrices</td><td><span class="pill blue">understand</span></td><td>The difference between a demo and a product</td></tr>
+<tr><td>3</td><td>Calibration (“is 90% confident right 90% of the time?”)</td><td><span class="pill blue">understand</span></td><td>The ghost-preview colours are only honest if confidence is calibrated</td></tr>
+<tr><td>4</td><td>Convolutional networks and GRUs at a conceptual level; parameters vs size on disk; int8 quantisation</td><td><span class="pill blue">understand</span></td><td>To judge the 0.3–1.5&nbsp;MB claim and to say no to a bigger model</td></tr>
+<tr><td>5</td><td>Data augmentation; synthetic data and its limits (“sim-to-real gap”)</td><td><span class="pill blue">understand</span></td><td>Why real student drawings are the test set</td></tr>
+<tr><td>6</td><td>ONNX and ONNX Runtime Web (WASM vs WebGPU provider)</td><td><span class="pill blue">understand</span> / <span class="pill">skip</span> internals</td><td>How a PyTorch model becomes a browser file</td></tr>
+<tr><td>7</td><td>Basic image processing: thresholding, connected components, skeletonisation, perspective transform</td><td><span class="pill blue">understand</span></td><td>The photo path; Claude implements, you recognise failures</td></tr>
+<tr><td>8</td><td>Object detection basics (boxes, IoU, NMS); detector licences</td><td><span class="pill blue">understand</span></td><td>Only if S5 needs a detector</td></tr>
+<tr><td>9</td><td>Vision-language models: what they can and can’t be trusted with</td><td><span class="pill blue">understand</span></td><td>S4 decision</td></tr>
+<tr><td>10</td><td>Running a data-collection session ethically (consent, minors, deletion)</td><td><span class="pill mint">use</span></td><td>Section 5.5</td></tr>
+<tr><td>11</td><td>Circuit/mechanics notation standards (IEC vs ANSI symbols) as your students actually draw them</td><td><span class="pill mint">use</span></td><td>The taxonomy depends on it — you know this better than any model</td></tr>
+</table>
+
+<h2>8.2 Tool and library list</h2>
+<table>
+<tr><th>Tool</th><th>Purpose</th><th>Licence (verify)</th><th>Where</th></tr>
+<tr><td>PyTorch</td><td>Train SketchNet / ink-char models</td><td>BSD-style</td><td>Train (RTX 4060)</td></tr>
+<tr><td>ONNX + onnxruntime (Python)</td><td>Export, int8 quantise, verify</td><td>MIT</td><td>Train</td></tr>
+<tr><td>ONNX Runtime Web</td><td>Run in browser (WASM / WebGPU)</td><td>MIT</td><td>Ship</td></tr>
+<tr><td>transformers.js</td><td>Run SmolVLM in browser (optional)</td><td>Apache-2.0</td><td>S6, optional</td></tr>
+<tr><td>SmolVLM-256M / 500M</td><td>Tiny VLM</td><td>Apache-2.0 (verify per checkpoint)</td><td>S6, optional</td></tr>
+<tr><td>YOLOX-Nano / NanoDet-Plus</td><td>Nano detector if needed</td><td>Apache-2.0 — <b>avoid AGPL YOLOv8/11</b></td><td>S5, conditional</td></tr>
+<tr><td>OpenCV.js or hand-written TS</td><td>Threshold, components, skeleton, warp</td><td>Apache-2.0</td><td>S5 (prefer hand-written to avoid a ~8&nbsp;MB WASM — decide by size)</td></tr>
+<tr><td>Tesseract.js</td><td>Printed labels</td><td>Apache-2.0</td><td>Exists</td></tr>
+<tr><td>html2canvas-pro</td><td>Render scenes to images for synthetic photos</td><td>MIT</td><td>Already a dependency</td></tr>
+<tr><td>Playwright</td><td>Latency/RAM harness, synthetic photo capture</td><td>Apache-2.0</td><td>Already used</td></tr>
+<tr><td>QuickDraw / hand-drawn circuit / CROHME-type datasets</td><td>Negatives, characters, photos</td><td><b>Check each</b></td><td>Section 5.3</td></tr>
+</table>
+
+<!-- ============================ 9 ============================ -->
+<h1>9. Evaluation, risks, open questions</h1>
+<h2>9.1 Risks</h2>
+<table>
+<tr><th>Risk</th><th>Likelihood</th><th>Impact</th><th>Mitigation</th></tr>
+<tr><td>Real hand-drawing differs from synthetic → good synthetic score, bad real score</td><td>High</td><td>High</td><td>Real writer-independent test set from day one; fine-tune on crowd data; report both; collect more where per-class recall is low.</td></tr>
+<tr><td>Look-alike classes confuse students (resistor/inductor, diode/LED)</td><td>High</td><td>Medium</td><td>Pose/feature heads, top-3 menu, tutor asks “is this a diode or an LED?” when the neighbouring value or colour disambiguates.</td></tr>
+<tr><td>Wiring errors dominate (wrong junction)</td><td>High</td><td>High</td><td>Deterministic tolerance rules tuned on data; dots mean junctions; ghost preview highlights ambiguous junctions; behavioural-equivalence test shows which errors matter.</td></tr>
+<tr><td>Different symbol standards across schools</td><td>Medium</td><td>Medium</td><td>Variant classes folded to one component; survey before fixing the taxonomy.</td></tr>
+<tr><td>ORT WASM first-load too heavy for slow networks</td><td>Medium</td><td>Medium</td><td>Lazy load, cache, or hand-written forward pass for S1/S3a.</td></tr>
+<tr><td>Photo path under-delivers on messy photos</td><td>High</td><td>Medium</td><td>Honest scope: clean printed diagrams first; guided “retake with the page flat” hints; optional detector/VLM only if measured useful.</td></tr>
+<tr><td>Licence problems (AGPL detector, dataset terms)</td><td>Medium</td><td>High</td><td>Licence column in the manifest; no training on unverified data.</td></tr>
+<tr><td>Student privacy in uploaded strokes</td><td>Low</td><td>High</td><td>Strokes only, consent, deletion, no identity, school sign-off for sessions.</td></tr>
+<tr><td>Memory contention with the Tutor</td><td>Medium</td><td>Medium</td><td>Single lease owner; VLM never co-resident with the brain.</td></tr>
+</table>
+
+<h2>9.2 Open questions</h2>
+<ol>
+<li><b>Which symbol standards</b> do your target colleges actually draw? (A 20-minute survey of two or three teachers answers this and may remove classes.)</li>
+<li><b>Is pen/tablet the main input</b>, or mouse and touch? Pressure and stroke dynamics differ; the collection session must mirror real use.</li>
+<li><b>Does the VLM earn its place?</b> Decide from S6 evidence, not enthusiasm.</li>
+<li><b>Which mechanics symbols are missing as components</b> (pulley, pivot, incline presets)? Each gap is either a new component (which then needs engine support) or an out-of-scope note.</li>
+</ol>
+
+<h2>9.3 Decisions that are Rohan’s</h2>
+<ul>
+<li>Approving the symbol taxonomy and the standards it covers.</li>
+<li>Organising and consenting the data-collection session.</li>
+<li>Whether student corrections may be uploaded to the shared model by default (recommended: opt-in).</li>
+<li>Whether photo import ships in wave 1 or waits until the live-ink path is excellent (recommended: wait).</li>
+</ul>
+
+<!-- ============================ A ============================ -->
+<h1>Appendix A — Scene IR (full schema)</h1>
+<pre><code>// lib/sketch/ir.ts
+import { z } from 'zod'
+const Rot = z.union([z.literal(0), z.literal(90), z.literal(180), z.literal(270)])
+const Node = z.object({
+  id: z.string(),
+  cls: z.string(),                          // validated against COMPONENTS ∪ MECH_PRIMITIVES at compile time
+  conf: z.number().min(0).max(1),
+  alt: z.array(z.object({ cls: z.string(), conf: z.number() })).max(3).optional(),
+  bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
+  rot: Rot, flip: z.boolean().optional(),
+  values: z.record(z.string(), z.string()).optional(),
+  source: z.enum(['ink', 'photo']),
+})
+const Pin = z.object({ node: z.string(), pin: z.string() })     // pin names = SimScript anchors (.positive, .a, .anode, .in1 …)
+const Edge = z.object({ a: Pin, b: Pin, kind: z.enum(['wire','rope','rod','spring','damper']), conf: z.number() })
+const Label = z.object({ text: z.string(), bbox: z.array(z.number()).length(4), attachedTo: z.string().optional() })
+const Doubt = z.object({ ref: z.string(), why: z.enum(['low-confidence','ambiguous-junction','dangling-wire','unreadable-value']) })
+export const SketchIR = z.object({
+  domain: z.enum(['circuit','digital','mechanics','optics','diagram']),
+  nodes: z.array(Node), edges: z.array(Edge), labels: z.array(Label), doubts: z.array(Doubt),
+})</code></pre>
+
+<h2>Appendix B — Class taxonomy (wave 1 and 2 starting list)</h2>
+<p>Ids come from the SimScript <code>create()</code> kinds the app already has (see <code>Modelfile</code> / <code>simscript-component-reference.md</code>). Anything in <i>italics</i> needs a decision (may not exist as a component).</p>
+<table>
+<tr><th>Domain</th><th>Classes</th><th>Pose-sensitive</th></tr>
+<tr><td>Sources and ground</td><td>battery, ac-source, current-source, three-phase-source, gnd</td><td>battery, current-source</td></tr>
+<tr><td>Passives</td><td>resistor, bulb, capacitor, inductor, potentiometer, transformer, fuse, switch</td><td>capacitor (polarised), switch</td></tr>
+<tr><td>Meters</td><td>voltmeter, ammeter, wattmeter, probe</td><td>—</td></tr>
+<tr><td>Semiconductors</td><td>diode, led, zener, bjt, bjt-pnp, mosfet, mosfet-pmos, opamp</td><td>all</td></tr>
+<tr><td>Digital</td><td>and-gate, or-gate, xor-gate, nand-gate, nor-gate, not-gate, d-ff, jk-ff, t-ff, sr-latch, mux, demux, half-adder, full-adder, counter4, seven-seg, input, clock, output</td><td>all</td></tr>
+<tr><td>Mechanics</td><td>mass, block, wheel, ground, beam, spring, rope, rod, damper, hinge, motor, charge, <i>incline / wall (static line)</i>, <i>pulley</i>, <i>force arrow</i>, <i>velocity arrow</i></td><td>spring/rope are edges; arrows carry direction</td></tr>
+<tr><td>Fields</td><td>efield, bfield (regions)</td><td>direction</td></tr>
+<tr><td>Optics</td><td>light-source, thin-lens, optical-mirror, optical-screen, slit</td><td>lens (converging/diverging), mirror</td></tr>
+<tr><td>Waves / quantum</td><td>wave-source, wave-boundary, transmission-line, quantum-well, tunnel-barrier</td><td>—</td></tr>
+<tr><td>Non-symbol</td><td><b>wire</b> (handled by S0), <b>junction dot</b>, <b>text</b> (to S3a), <b>unknown</b></td><td>—</td></tr>
+</table>
+
+<h2>Appendix C — Worked example: from ink to running scene</h2>
+<p><b>The user draws:</b> a vertical double-line with the longer line on top (battery), a zigzag labelled “1k”, a triangle-with-bar (diode) pointing the wrong way, and wires joining them in a loop. They hold the pen.</p>
+<pre><code>// S0 groups 3 symbol-strokes-sets + 4 wires.   S1 → [battery 0.97 rot 90, resistor 0.95, diode 0.88 rot 180]
+// S3a reads "1 k" next to the zigzag → values {R:'1k'}.   Wires end within tolerance of pins → edges.
+{
+  "domain":"circuit",
+  "nodes":[ {"id":"n1","cls":"battery","conf":0.97,"bbox":[40,60,30,60],"rot":90,"source":"ink"},
+            {"id":"n2","cls":"resistor","conf":0.95,"values":{"R":"1k"},"bbox":[120,50,60,24],"rot":0,"source":"ink"},
+            {"id":"n3","cls":"diode","conf":0.88,"alt":[{"cls":"led","conf":0.09}],"bbox":[220,60,40,30],"rot":180,"source":"ink"} ],
+  "edges":[ {"a":{"node":"n1","pin":"positive"},"b":{"node":"n2","pin":"a"},"kind":"wire","conf":0.96},
+            {"a":{"node":"n2","pin":"b"},"b":{"node":"n3","pin":"anode"},"kind":"wire","conf":0.92},
+            {"a":{"node":"n3","pin":"cathode"},"b":{"node":"n1","pin":"negative"},"kind":"wire","conf":0.95} ],
+  "labels":[], "doubts":[{"ref":"n3","why":"low-confidence"}]
+}
+// Compiler (no model, no x/y → auto-layout draws it):
+var n1 = create("battery", {V: 9});
+var n2 = create("resistor", {R: 1000});
+var n3 = create("diode", {});
+connect(n1.positive, n2.a);
+connect(n2.b, n3.anode);
+connect(n3.cathode, n1.negative);
+graph.plot(n2.I);</code></pre>
+<p>Unspecified battery voltage is the one place the compiler uses a <b>default</b> (9&nbsp;V here) and records it as a doubt so the ghost preview asks “battery voltage?”. Here the diode’s pose (rot&nbsp;180) places the anode on the resistor side, which is correct for forward conduction when the battery’s positive terminal feeds the resistor; had the user drawn it reversed, the IR would show it faithfully, the simulation would show no current, and the tutor (Doc 1) can turn that into the lesson “why is there no current?”. <i>(Pin/anchor names above follow the SimScript reference; the exact pose-to-anchor mapping is derived from <code>terminalsOf()</code> in Phase S0 — treat this example as illustrative.)</i></p>
+
+<h2>Appendix D — Sources for outside facts (10 Oct 2026)</h2>
+<ul class="small">
+<li><a href="https://huggingface.co/blog/smolervlm">SmolVLM small variants (Hugging Face)</a>; <a href="https://arxiv.org/pdf/2504.05299">SmolVLM paper</a>; <a href="https://gigazine.net/gsc_news/en/20250124-hugging-face-released-smolvlm/">Gigazine coverage</a>; <a href="https://pyimagesearch.com/category/webgpu/">PyImageSearch: SmolVLM in the browser with Transformers.js</a> — the memory figures are press-reported and unverified here.</li>
+<li><a href="https://pinggy.io/blog/run_llm_in_browser_webgpu/">Local inference in a browser tab (2026)</a> — WebGPU availability varies by browser; sources disagree on Safari/Firefox.</li>
+<li>Dataset and detector licence statements (QuickDraw, hand-drawn circuit sets, CROHME, Ultralytics AGPL) are from general knowledge and <b>must be re-verified</b> before use; none were fetched in this session.</li>
+</ul>
+<p class="small">Everything about SIMBLIP itself — file paths, behaviour, line counts — comes from reading this repository.</p>
+
+</body></html>

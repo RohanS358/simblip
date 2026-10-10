@@ -1,0 +1,46 @@
+@page { size: A4; margin: 18mm 16mm 20mm 16mm; }
+:root { --ink:#16202e; --mute:#5b6676; --line:#d9dee6; --soft:#f4f6f9; --accent:#2f5bea; --mint:#12a37f; --amber:#c98200; --rose:#d1445b; --violet:#7a4be0; }
+* { box-sizing: border-box; }
+html { font-family: 'Inter', 'DejaVu Sans', sans-serif; font-size: 9.6pt; line-height: 1.5; color: var(--ink); }
+body { margin: 0; }
+h1,h2,h3,h4 { line-height: 1.2; margin: 0; }
+h1 { font-size: 21pt; letter-spacing: -0.02em; border-bottom: 2.5px solid var(--accent); padding-bottom: 6px; margin: 0 0 12px; break-before: page; }
+h1.first { break-before: auto; }
+h2 { font-size: 13.5pt; margin: 20px 0 6px; color: var(--accent); letter-spacing: -0.01em; break-after: avoid; }
+h3 { font-size: 10.8pt; margin: 14px 0 4px; break-after: avoid; }
+h4 { font-size: 9.6pt; margin: 10px 0 2px; color: var(--mute); text-transform: uppercase; letter-spacing: .06em; break-after: avoid; }
+p { margin: 5px 0 7px; }
+ul, ol { margin: 4px 0 8px; padding-left: 18px; }
+li { margin: 2px 0; }
+a { color: var(--accent); text-decoration: none; }
+code { font-family: 'DejaVu Sans Mono', monospace; font-size: 8.2pt; background: var(--soft); padding: 0.5px 3px; border-radius: 3px; }
+pre { font-family: 'DejaVu Sans Mono', monospace; font-size: 7.6pt; line-height: 1.42; background: #101827; color: #e6edf7; padding: 9px 11px; border-radius: 6px; overflow: hidden; white-space: pre-wrap; break-inside: avoid; margin: 7px 0 9px; }
+pre code { background: none; padding: 0; font-size: inherit; color: inherit; }
+table { border-collapse: collapse; width: 100%; margin: 7px 0 11px; font-size: 8.4pt; break-inside: auto; }
+th { text-align: left; background: var(--soft); border-bottom: 1.5px solid var(--line); padding: 4px 6px; font-weight: 700; }
+td { border-bottom: 1px solid var(--line); padding: 4px 6px; vertical-align: top; }
+tr { break-inside: avoid; }
+.callout { border-left: 3.5px solid var(--accent); background: #eef2fe; padding: 7px 11px; border-radius: 0 6px 6px 0; margin: 9px 0; break-inside: avoid; }
+.callout.warn { border-color: var(--amber); background: #fdf5e6; }
+.callout.good { border-color: var(--mint); background: #e8f7f2; }
+.callout.risk { border-color: var(--rose); background: #fcecef; }
+.callout b.t { display:block; font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; margin-bottom: 2px; color: var(--mute); }
+.cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; page-break-after: always; }
+.cover .kicker { color: var(--accent); font-weight: 700; letter-spacing: .14em; text-transform: uppercase; font-size: 9pt; }
+.cover h1 { font-size: 34pt; border: none; margin: 8px 0 12px; break-before: auto; }
+.cover .sub { font-size: 13pt; color: var(--mute); max-width: 150mm; }
+.cover .meta { margin-top: 40px; font-size: 9pt; color: var(--mute); }
+.cover .meta td { border: none; padding: 2px 8px 2px 0; }
+.pill { display:inline-block; font-size: 7.4pt; font-weight:700; padding: 1px 6px; border-radius: 99px; background: var(--soft); border: 1px solid var(--line); color: var(--mute); }
+.pill.mint{background:#e8f7f2;border-color:#9ddbc9;color:#0b7a5e}.pill.amber{background:#fdf5e6;border-color:#f0cf8f;color:#8a5a00}.pill.rose{background:#fcecef;border-color:#f2b7c1;color:#a52a40}.pill.blue{background:#eef2fe;border-color:#b9c8f7;color:#2347b8}.pill.violet{background:#f1ebfd;border-color:#cdbdf5;color:#5a31b8}
+.toc { columns: 2; column-gap: 24px; font-size: 9pt; }
+.toc div { margin: 2px 0; }
+.toc .n { color: var(--accent); font-weight: 700; display:inline-block; width: 22px; }
+figure { margin: 10px 0 12px; break-inside: avoid; text-align: center; }
+figure svg { max-width: 100%; height: auto; }
+figcaption { font-size: 8pt; color: var(--mute); margin-top: 3px; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; break-inside: avoid; }
+.card h4 { margin-top: 0; }
+.small { font-size: 8.2pt; color: var(--mute); }
+hr { border: none; border-top: 1px solid var(--line); margin: 14px 0; }
