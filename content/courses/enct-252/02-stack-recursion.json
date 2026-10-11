@@ -1,14 +1,14 @@
 {
   "title": "Stacks, expressions and recursion",
   "kicker": "ENCT 252 · Data Structure and Algorithms · Chapter 2",
-  "subtitle": "Last in, first out — and why that is exactly the shape of function calls.",
+  "subtitle": "Last in, first out — and why that is exactly the shape of function calls. The chapter builds the stack, uses it to evaluate and convert expressions, then shows recursion as the stack in disguise, ending with the classic recursive algorithms.",
   "sections": [
     {
       "id": "stack",
       "locator": "2.1",
       "title": "The stack ADT",
       "eyebrow": "LIFO",
-      "body": "<p>A <em class=\"term\">stack</em> allows insertion and removal only at one end, the top: <b>push</b> adds, <b>pop</b> removes, <b>peek</b> reads. The last item pushed is the first popped (LIFO). An array with a <code>top</code> index implements it; overflow (push on full) and underflow (pop on empty) must be checked. All operations are O(1).</p>",
+      "body": "<p>Think of a stack of plates in a canteen. You add a plate on top and take a plate from the top; to reach the plate at the bottom you must remove everything above it. A <em class=\"term\">stack</em> behaves exactly like this: insertion and removal happen at one end only, the <b>top</b>. The operations are <b>push</b> (add on top), <b>pop</b> (remove and return the top), <b>peek</b> or <b>top</b> (read the top without removing) and <b>isEmpty</b>. The last item pushed is the first popped — <em class=\"term\">LIFO</em>, last in, first out.</p><p>As an ADT, a stack is only this contract. Two implementations are common. In an <b>array</b>, an integer <code>top</code> records the index of the top element (−1 when empty); push increments it and stores, pop returns and decrements. The size is fixed, so pushing onto a full stack is <b>overflow</b> and must be checked, as must <b>underflow</b> (popping an empty stack). In a <b>linked list</b>, push inserts a new node at the head and pop removes the head — no size limit apart from memory. Both give O(1) for every operation, which is the stack’s selling point. C++ provides <code>std::stack</code> built on a deque; the program below pushes 10, 20, 30, 40 and pops them back in reverse order.</p>",
       "questions": [
         {
           "id": "lifo",
@@ -39,6 +39,66 @@
               "body": "It was popped second."
             }
           ]
+        },
+        {
+          "id": "overflow",
+          "prompt": "In an array-based stack of capacity 5 holding 5 items, a push is attempted. What must the code do?",
+          "choices": [
+            {
+              "text": "Overwrite the bottom item."
+            },
+            {
+              "text": "Detect overflow and refuse (or grow the array).",
+              "correct": true
+            },
+            {
+              "text": "Ignore the check; C++ will handle it."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That would destroy data and violate LIFO semantics."
+            },
+            {
+              "title": "Correct.",
+              "body": "Writing past the end would corrupt memory; checking top == capacity − 1 prevents it."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Raw arrays do no bounds checking."
+            }
+          ]
+        },
+        {
+          "id": "complexity",
+          "prompt": "What is the cost of push, pop and peek on a stack?",
+          "choices": [
+            {
+              "text": "O(n) for pop."
+            },
+            {
+              "text": "O(log n)."
+            },
+            {
+              "text": "O(1) each.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Pop does not search; it removes the top directly."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "No search is involved."
+            },
+            {
+              "title": "Correct.",
+              "body": "They touch only the top element."
+            }
+          ]
         }
       ],
       "figures": [
@@ -53,14 +113,80 @@
             }
           }
         }
+      ],
+      "problems": [
+        {
+          "id": "p-trace",
+          "prompt": "<p>Start with an empty stack. Operations: push 5, push 8, pop, push 3, push 9, pop, pop. List the contents (bottom → top) after each operation and the popped values.</p>",
+          "answer": "[5] → [5,8] → pop gives <b>8</b>, [5] → [5,3] → [5,3,9] → pop <b>9</b>, [5,3] → pop <b>3</b>, [5]. Popped sequence 8, 9, 3."
+        }
+      ]
+    },
+    {
+      "id": "apps",
+      "locator": "2.2",
+      "title": "What stacks are used for",
+      "eyebrow": "Applications",
+      "body": "<p>Whenever something must be undone in reverse order, a stack appears. The <b>undo</b> command in an editor pushes each action and pops it to reverse. A web browser’s <b>back button</b> is a stack of visited pages. The run-time system uses a stack for <b>function calls</b> — each call pushes a frame holding its parameters, local variables and return address, and each return pops it — which is the subject of the recursion sections below. Compilers use stacks to <b>check balanced brackets</b>, to convert and evaluate expressions, and to parse nested constructs. Algorithms use them to simulate recursion (depth-first search) and for backtracking (maze solving).</p><p>The bracket-matching algorithm is the cleanest first example. Scan the text left to right; on an opening bracket (, [ or { push it; on a closing bracket, the stack must be non-empty and its top must be the matching opening bracket — pop it; any mismatch is an error; at the end the stack must be empty. Run it on <code>{[()]}(</code>: the first six characters match perfectly, but the final “(” is never closed, so the stack is not empty and the text is not balanced.</p>",
+      "questions": [
+        {
+          "id": "bracket",
+          "prompt": "Which input does the bracket-matching algorithm reject because of a MISMATCH rather than a leftover?",
+          "choices": [
+            {
+              "text": "(("
+            },
+            {
+              "text": "()"
+            },
+            {
+              "text": "(]",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "This leaves two unmatched openers at the end — a leftover, not a mismatch."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "This is perfectly balanced."
+            },
+            {
+              "title": "Correct.",
+              "body": "The closing ] meets a top of ( which does not match it."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp2",
+          "caption": "Figure 2.2.1 — What stacks are used for",
+          "note": "Change the string to {[()]} and run again: balanced.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <stack>\\n#include <string>\\nusing namespace std;\\nint main() {\\n  string s = \\\"{[()]}(\\\";\\n  stack<char> st;\\n  bool ok = true;\\n  for (int i = 0; i < s.size(); i++) {\\n    char c = s[i];\\n    if (c == '(' || c == '[' || c == '{') st.push(c);\\n    else {\\n      if (st.empty()) { ok = false; break; }\\n      char t = st.top();\\n      st.pop();\\n      if ((c == ')' && t != '(') || (c == ']' && t != '[') || (c == '}' && t != '{')) { ok = false; break; }\\n    }\\n  }\\n  if (!st.empty()) ok = false;\\n  cout << (ok ? \\\"balanced\\\" : \\\"not balanced\\\") << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "not balanced"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-brk",
+          "prompt": "<p>For each string say whether it is balanced and, if not, why: (a) <code>([{}])</code> (b) <code>(()</code> (c) <code>)(</code>.</p>",
+          "answer": "(a) balanced. (b) not balanced: one “(” left on the stack at the end. (c) not balanced: the first “)” arrives with an empty stack (underflow)."
+        }
       ]
     },
     {
       "id": "postfix",
-      "locator": "2.2",
-      "title": "Infix to postfix with a stack",
-      "eyebrow": "Expressions",
-      "body": "<p>Humans write <em class=\"term\">infix</em> (A+B) which needs precedence rules; <em class=\"term\">postfix</em> (AB+) does not. To convert: operands go straight to the output; an operator first pops any stacked operator of higher or equal precedence, then is pushed; \"(\" is pushed, \")\" pops until \"(\". At the end pop everything. A+B*C−(D/E) becomes <b>A B C * + D E / -</b>.</p>",
+      "locator": "2.3",
+      "title": "Expressions: infix, prefix and postfix",
+      "eyebrow": "Notation",
+      "body": "<p>We normally write arithmetic in <em class=\"term\">infix</em> notation, with the operator between its operands: A + B. It is ambiguous without rules — what does A + B × C mean? — so we need <b>precedence</b> (× before +), <b>associativity</b> (left to right for − and /; right to left for exponentiation) and <b>parentheses</b> to override them. In <em class=\"term\">postfix</em> (reverse Polish, Łukasiewicz in reverse) the operator follows its operands: A B +. In <em class=\"term\">prefix</em> (Polish) it precedes them: + A B. Both are unambiguous without parentheses or precedence, because the position of each operator already says what it applies to. That makes them ideal for a machine, and a stack evaluates them effortlessly.</p><p><b>Evaluating postfix</b> is mechanical: scan left to right; push each operand; on an operator, pop the top two values (the first popped is the <em>right</em> operand), apply the operator, push the result. At the end the stack holds the answer. For 2 3 * 5 4 * + 9 −: push 2, 3; × gives 6; push 5, 4; × gives 20; + gives 26… the run below computes 6 + 20 − 9 = 17.</p><p><b>Converting infix to postfix</b> (Dijkstra’s shunting-yard algorithm) uses a stack of <em>operators</em>. Read tokens left to right. An operand goes straight to the output. For an operator, pop and output any stacked operator of <em>higher or equal</em> precedence (for left-associative operators), then push it. “(” is pushed; “)” pops and outputs until the matching “(” (which is discarded). At the end pop everything to the output. A + B × C − (D / E) becomes <b>A B C * + D E / -</b>. Step the card: the stack is the lower row, the output the row above.</p>",
       "worked": [
         {
           "toc": "Method",
@@ -71,6 +197,11 @@
           "why": "2 3 + → 5; 5 4 × → 20; 6 2 / → 3; 20 3 − → 17.",
           "math": "2 3 + 4 * 6 2 / -\\ \\Rightarrow\\ 17",
           "hero": true
+        },
+        {
+          "toc": "Operand order",
+          "why": "Order matters for − and /: when popping, the first value is the right operand. For 6 2 / the stack holds [6, 2]; pop gives b = 2 then a = 6, so the result is a / b = 3, not 2 / 6.",
+          "math": "a\\ \\mathrm{op}\\ b,\\ b\\ \\text{popped first}"
         }
       ],
       "questions": [
@@ -103,17 +234,88 @@
               "body": "Precedence overrides left-to-right."
             }
           ]
+        },
+        {
+          "id": "popt",
+          "prompt": "When an operator is read during infix-to-postfix conversion, what happens first?",
+          "choices": [
+            {
+              "text": "It is output immediately."
+            },
+            {
+              "text": "The stack is emptied completely."
+            },
+            {
+              "text": "Operators on the stack of higher or equal precedence are popped to the output, then the new operator is pushed.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Operands go to the output; operators wait on the stack."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Only operators that bind at least as tightly are popped."
+            },
+            {
+              "title": "Correct.",
+              "body": "This keeps the correct order of evaluation in the output."
+            }
+          ]
+        },
+        {
+          "id": "rpn",
+          "prompt": "Why do compilers like postfix?",
+          "choices": [
+            {
+              "text": "It is shorter than infix."
+            },
+            {
+              "text": "It needs no parentheses or precedence rules and can be evaluated with a simple stack in one left-to-right pass.",
+              "correct": true
+            },
+            {
+              "text": "It is easier for humans to read."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It is the same length (without the parentheses)."
+            },
+            {
+              "title": "Correct.",
+              "body": "The order of operators already encodes the order of evaluation."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It usually is not; it is easier for machines."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "lab2",
-          "caption": "Figure 2.2.1 — infix → postfix",
+          "id": "lab3",
+          "caption": "Figure 2.3.1 — infix → postfix",
           "note": "Stack on the bottom row, output above it.",
           "script": "var lab = create(\"steplab\", {\"name\":\"inf\",\"engine\":\"infix\",\"expr\":\"A+B*C-(D/E)\",\"width\":600,\"height\":440});",
           "expect": {
             "inf": {
               "postfix": "A B C * + D E / -"
+            }
+          }
+        },
+        {
+          "id": "cpp4",
+          "caption": "Figure 2.3.2 — Expressions: infix, prefix and postfix",
+          "note": "Evaluating the postfix 2 3 * 5 4 * + 9 −.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <stack>\\n#include <string>\\nusing namespace std;\\nint main() {\\n  stack<int> s;\\n  string e = \\\"23*54*+9-\\\";\\n  for (int i = 0; i < e.size(); i++) {\\n    char c = e[i];\\n    if (c >= '0' && c <= '9') s.push(c - '0');\\n    else {\\n      int b = s.top(); s.pop();\\n      int a = s.top(); s.pop();\\n      if (c == '+') s.push(a + b);\\n      else if (c == '-') s.push(a - b);\\n      else s.push(a * b);\\n    }\\n  }\\n  cout << s.top() << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "17"
             }
           }
         }
@@ -124,7 +326,7 @@
           "prompt": "<p>Convert A+B*C−(D/E) to postfix.</p>",
           "answer": "<b>A B C * + D E / -</b>",
           "verify": {
-            "id": "lab3",
+            "id": "lab5",
             "caption": "answer",
             "note": "The conversion.",
             "script": "var lab = create(\"steplab\", {\"name\":\"ans\",\"engine\":\"infix\",\"expr\":\"A+B*C-(D/E)\",\"width\":600,\"height\":440});",
@@ -134,15 +336,25 @@
               }
             }
           }
+        },
+        {
+          "id": "p-eval",
+          "prompt": "<p>Evaluate the postfix expression 5 1 2 + 4 * + 3 −.</p>",
+          "answer": "1 2 + → 3; 3 4 * → 12; 5 12 + → 17; 17 3 − → <b>14</b>."
+        },
+        {
+          "id": "p-pre",
+          "prompt": "<p>Write (A + B) * C in prefix and in postfix.</p>",
+          "answer": "Postfix: <b>A B + C *</b>. Prefix: <b>* + A B C</b>."
         }
       ]
     },
     {
       "id": "rec",
-      "locator": "2.3",
-      "title": "Recursion",
-      "eyebrow": "A function that calls itself",
-      "body": "<p>A <em class=\"term\">recursive</em> function solves a problem by calling itself on a smaller one. It needs a <b>base case</b> (stop) and a step that moves toward it. Each call gets its own frame on the <em class=\"term\">call stack</em>; returns unwind it. Factorial: n! = n × (n−1)!, with 0! = 1. Run it and the Lab shows the stack grow and shrink.</p>",
+      "locator": "2.4",
+      "title": "Recursion: a function that calls itself",
+      "eyebrow": "The idea",
+      "body": "<p>Some problems contain smaller copies of themselves. To compute n!, note that n! = n × (n − 1)!: the factorial of n is n times the factorial of something smaller. A <em class=\"term\">recursive</em> function exploits this by calling itself on the smaller problem. Every correct recursive function has two parts: a <b>base case</b> that is answered directly (0! = 1) and stops the recursion, and a <b>recursive case</b> that reduces the problem and calls the function again, <em>moving towards the base case</em>. Leave out the base case, or fail to approach it, and the calls never stop.</p><p>How does the machine keep track? Each call gets its own <em class=\"term\">activation record</em> (stack frame) on the <b>call stack</b>, holding its parameters, its local variables and where to return. A new call pushes a frame; a return pops it. The run-time stack <em>is</em> the stack ADT of the previous sections, used by the machine itself. That is why a recursion that goes a million levels deep crashes with a <b>stack overflow</b>: it has run out of frame space. Run the factorial program and watch the stack grow five frames deep, then unwind as each pending multiplication completes.</p><p>Trace the figure: <code>fact(4)</code> calls <code>fact(3)</code>, which calls <code>fact(2)</code>, then <code>fact(1)</code> — the base case, which returns 1 without calling anything. Now the frames pop in reverse order: fact(2) returns 2 × 1 = 2, fact(3) returns 3 × 2 = 6, fact(4) returns 4 × 6 = 24. Nothing is multiplied on the way <em>down</em>; all the work happens on the way <em>back up</em>.</p>",
       "questions": [
         {
           "id": "base",
@@ -173,12 +385,72 @@
               "body": "It keeps calling itself."
             }
           ]
+        },
+        {
+          "id": "frames",
+          "prompt": "fact(5) is called. How many stack frames exist (counting main’s call as the first) when the base case fact(1) is running?",
+          "choices": [
+            {
+              "text": "1 frame."
+            },
+            {
+              "text": "5 frames: fact(5), fact(4), fact(3), fact(2), fact(1).",
+              "correct": true
+            },
+            {
+              "text": "10 frames."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only one if the calls had finished — they have not."
+            },
+            {
+              "title": "Correct.",
+              "body": "Each pending call keeps its frame until its callee returns."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "There is exactly one frame per active call."
+            }
+          ]
+        },
+        {
+          "id": "down",
+          "prompt": "In fact(n) = n * fact(n − 1), when do the multiplications actually happen?",
+          "choices": [
+            {
+              "text": "On the way back up, after the base case returns.",
+              "correct": true
+            },
+            {
+              "text": "On the way down, before each call."
+            },
+            {
+              "text": "All at once at the end."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Each frame waits for its callee’s result before multiplying."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The value of fact(n − 1) is not yet known on the way down."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They happen one by one as each frame returns."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "cpp4",
-          "caption": "Figure 2.3.1 — Recursion",
+          "id": "cpp6",
+          "caption": "Figure 2.4.1 — Recursion: a function that calls itself",
           "note": "fact(5) makes 5 nested calls, then multiplies on the way back.",
           "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint fact(int n) {\\n  if (n <= 1) return 1;\\n  return n * fact(n - 1);\\n}\\nint main() {\\n  cout << fact(5) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
           "expect": {
@@ -186,15 +458,185 @@
               "output": "120"
             }
           }
+        },
+        {
+          "id": "dia7",
+          "caption": "Figure 2.4.2 — the call stack for fact(4)",
+          "note": "The stack grows down the page, then unwinds back up.",
+          "script": "diagram(\"mode: sequence\\n[main] as m\\n[fact(4)] as a\\n[fact(3)] as b\\n[fact(2)] as c\\n[fact(1)] as d\\nm -> a : call\\na -> b : call fact(3)\\nb -> c : call fact(2)\\nc -> d : call fact(1)\\nd -> c : return 1 (base case)\\nc -> b : return 2 × 1 = 2\\nb -> a : return 3 × 2 = 6\\na -> m : return 4 × 6 = 24\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-rectrace",
+          "prompt": "<p>Trace <code>fact(4)</code> and give the sequence of returned values.</p>",
+          "answer": "fact(1) → 1; fact(2) → 2; fact(3) → 6; fact(4) → <b>24</b> (returned in that order after the base case)."
+        }
+      ]
+    },
+    {
+      "id": "examples",
+      "locator": "2.5",
+      "title": "Classic recursive algorithms",
+      "eyebrow": "Practice",
+      "body": "<p>Four short programs teach most of what exams ask. <b>Greatest common divisor</b> (Euclid): gcd(a, b) = a if b = 0, otherwise gcd(b, a mod b). Each call shrinks the second argument, so it must reach 0. gcd(48, 18) → gcd(18, 12) → gcd(12, 6) → gcd(6, 0) = 6. <b>Digit sum</b>: sumDigits(n) = n if n &lt; 10 else (n mod 10) + sumDigits(n / 10); 9045 gives 5 + 4 + 0 + 9 = 18. <b>Fast exponentiation</b>: x^n = (x^{n/2})² for even n and x·(x^{n/2})² for odd n — halving the exponent gives O(log n) multiplications instead of n; power(2, 10) needs only 5 calls. <b>Binary search</b> (next chapters) is the same halving idea on a sorted array.</p><p>Compare fast exponentiation with the obvious loop. Computing 2¹⁰ naively takes 10 multiplications; the recursive halving version takes five calls (n = 10, 5, 2, 1, 0). For exponent a million that is 1,000,000 against about 20: the difference between a design that works and one that does not.</p>",
+      "worked": [
+        {
+          "toc": "First call",
+          "why": "Trace gcd(48, 18).",
+          "math": "gcd(48,18)=gcd(18,48\\bmod18)=gcd(18,12)"
+        },
+        {
+          "toc": "Reduce",
+          "why": "Continue until the second argument is 0.",
+          "math": "gcd(18,12)=gcd(12,6)=gcd(6,0)"
+        },
+        {
+          "toc": "Result",
+          "why": "The base case returns a.",
+          "math": "gcd(48,18)=6",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "gcdcalls",
+          "prompt": "How many calls does gcd(48, 18) make, counting the first?",
+          "choices": [
+            {
+              "text": "2."
+            },
+            {
+              "text": "6."
+            },
+            {
+              "text": "4 — gcd(48,18), gcd(18,12), gcd(12,6), gcd(6,0).",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "The second argument shrinks slowly; four calls are needed."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "6 is the answer, not the number of calls."
+            },
+            {
+              "title": "Correct.",
+              "body": "The last is the base case b = 0."
+            }
+          ]
+        },
+        {
+          "id": "powcalls",
+          "prompt": "Why does power(x, n) with halving use about log₂ n calls?",
+          "choices": [
+            {
+              "text": "It uses n calls."
+            },
+            {
+              "text": "It uses n² calls."
+            },
+            {
+              "text": "Each call halves n, so n reaches 0 after about log₂ n steps.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That is the naive linear version."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "There is no nested work."
+            },
+            {
+              "title": "Correct.",
+              "body": "The naive loop uses n multiplications."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp8",
+          "caption": "Figure 2.5.1 — Classic recursive algorithms",
+          "note": "Euclid’s algorithm: gcd(48,18) = 6 and gcd(17,5) = 1.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint gcd(int a, int b) {\\n  if (b == 0) return a;\\n  return gcd(b, a % b);\\n}\\nint main() {\\n  cout << gcd(48, 18) << \\\" \\\" << gcd(17, 5) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "6 1"
+            }
+          }
+        },
+        {
+          "id": "cpp9",
+          "caption": "Figure 2.5.2 — Classic recursive algorithms",
+          "note": "2¹⁰ = 1024 using only 5 calls.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint calls = 0;\\nint power(int x, int n) {\\n  calls++;\\n  if (n == 0) return 1;\\n  int h = power(x, n / 2);\\n  if (n % 2 == 0) return h * h;\\n  return h * h * x;\\n}\\nint main() {\\n  cout << power(2, 10) << \\\" \\\" << calls << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "1024 5"
+            }
+          }
+        },
+        {
+          "id": "cpp10",
+          "caption": "Figure 2.5.3 — Classic recursive algorithms",
+          "note": "9045 → 5 + 4 + 0 + 9.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint sumDigits(int n) {\\n  if (n < 10) return n;\\n  return n % 10 + sumDigits(n / 10);\\n}\\nint main() {\\n  cout << sumDigits(9045) << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "18"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-gcd",
+          "prompt": "<p>Compute gcd(252, 105) by Euclid’s algorithm, showing each step.</p>",
+          "answer": "gcd(252,105) = gcd(105,42) = gcd(42,21) = gcd(21,0) = <b>21</b>."
+        },
+        {
+          "id": "p-pow",
+          "prompt": "<p>How many recursive calls does power(3, 13) make (counting the first)? Give the value too.</p>",
+          "answer": "n: 13 → 6 → 3 → 1 → 0: <b>5 calls</b>. 3¹³ = <b>1,594,323</b>."
         }
       ]
     },
     {
       "id": "hanoi",
-      "locator": "2.4",
+      "locator": "2.6",
       "title": "Tower of Hanoi",
       "eyebrow": "Recursion at its best",
-      "body": "<p>Move <i>n</i> disks from A to C using B, one at a time, never a larger on a smaller. Recursively: move n−1 disks A→B, move the largest A→C, move n−1 disks B→C. The count satisfies T(n) = 2T(n−1) + 1, so T(n) = 2ⁿ − 1. For 4 disks: <b>15</b> moves.</p>",
+      "body": "<p>Three pegs, A, B and C. Peg A holds <i>n</i> disks of decreasing size, the largest at the bottom. Move them all to C, one at a time, never placing a larger disk on a smaller one, using B as a spare. Try it by hand with n = 4 and you will be lost; think recursively and it is trivial. To move n disks from A to C: first move the top n − 1 disks from A to B (using C as the spare), then move the largest disk from A to C, then move the n − 1 disks from B to C (using A). The two sub-moves are the <em>same problem</em> with one disk fewer. The base case is zero disks: do nothing.</p><p>Counting the moves gives a recurrence. Let T(n) be the number of moves. Then T(n) = T(n − 1) + 1 + T(n − 1) = 2T(n − 1) + 1 with T(0) = 0. Unrolling shows T(n) = 2ⁿ − 1: T(1) = 1, T(2) = 3, T(3) = 7, T(4) = <b>15</b>. The cost is exponential — adding a single disk doubles the work — and it is provably the minimum number of moves, so no cleverness avoids it. The legend says monks move 64 golden disks; at one move a second that is 2⁶⁴ − 1 seconds, about 585 billion years.</p>",
+      "derivation": [
+        {
+          "toc": "Recurrence",
+          "why": "The recursion makes two calls on n − 1 disks and one direct move.",
+          "math": "T(n)=2T(n-1)+1,\\quad T(0)=0"
+        },
+        {
+          "toc": "Unroll",
+          "why": "Unroll once and twice to see the pattern.",
+          "math": "T(n)=2(2T(n-2)+1)+1=4T(n-2)+3=8T(n-3)+7"
+        },
+        {
+          "toc": "Pattern",
+          "why": "After k steps the coefficient of T is 2^k and the constant is 2^k − 1.",
+          "math": "T(n)=2^{k}T(n-k)+(2^{k}-1)"
+        },
+        {
+          "toc": "Closed form",
+          "why": "Stop at k = n where T(0) = 0.",
+          "math": "T(n)=2^{n}-1",
+          "hero": true
+        }
+      ],
       "worked": [
         {
           "toc": "Recurrence",
@@ -237,12 +679,42 @@
               "body": "2⁵ − 1."
             }
           ]
+        },
+        {
+          "id": "hbase",
+          "prompt": "What is the base case of the Hanoi recursion?",
+          "choices": [
+            {
+              "text": "Moving zero (or one) disk: nothing (or a single move) to do.",
+              "correct": true
+            },
+            {
+              "text": "Moving the largest disk."
+            },
+            {
+              "text": "Moving all disks at once."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It stops the recursion; every other case reduces n by 1."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is a step in the recursive case."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the original problem."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "lab5",
-          "caption": "Figure 2.4.1 — three disks",
+          "id": "lab11",
+          "caption": "Figure 2.6.1 — three disks",
           "note": "Seven moves for three disks.",
           "script": "var lab = create(\"steplab\", {\"name\":\"h3\",\"engine\":\"hanoi\",\"disks\":3,\"width\":600,\"height\":440});",
           "expect": {
@@ -250,15 +722,38 @@
               "moves": "7"
             }
           }
+        },
+        {
+          "id": "cpp12",
+          "caption": "Figure 2.6.2 — Tower of Hanoi",
+          "note": "The recursion counts 15 moves for 4 disks.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint moves = 0;\\nvoid hanoi(int n, char a, char b, char c) {\\n  if (n == 0) return;\\n  hanoi(n - 1, a, c, b);\\n  moves++;\\n  hanoi(n - 1, c, b, a);\\n}\\nint main() {\\n  hanoi(4, 'A', 'B', 'C');\\n  cout << moves << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "15"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-hn",
+          "prompt": "<p>How many moves does Tower of Hanoi need for 10 disks? For 20?</p>",
+          "answer": "2¹⁰ − 1 = <b>1,023</b>; 2²⁰ − 1 = <b>1,048,575</b>."
+        },
+        {
+          "id": "p-hcalls",
+          "prompt": "<p>How many calls to the hanoi function (including those with n = 0) does hanoi(3, …) make?</p>",
+          "answer": "Each non-trivial call makes 2 further calls. Calls form a full binary tree of height 3: 2⁴ − 1 = <b>15 calls</b> (7 that do a move, 8 base cases)."
         }
       ]
     },
     {
-      "id": "iter",
-      "locator": "2.5",
-      "title": "Recursion versus iteration",
-      "eyebrow": "Choosing",
-      "body": "<p>Anything recursive can be written with a loop and an explicit stack. Recursion is natural for trees and divide-and-conquer; it costs stack space and call overhead. <em class=\"term\">Tail recursion</em> (the recursive call is the last action) can be turned into a loop by the compiler. Naive Fibonacci recurses twice and recomputes the same values exponentially — memoisation fixes it.</p>",
+      "id": "types",
+      "locator": "2.7",
+      "title": "Kinds of recursion and the cost of recursion",
+      "eyebrow": "Terminology",
+      "body": "<p>Recursion comes in several shapes. In <b>direct</b> recursion a function calls itself; in <b>indirect</b> (mutual) recursion f calls g and g calls f. In <b>linear</b> recursion each call makes at most one further call (factorial, gcd); in <b>binary</b> or <b>tree</b> recursion each makes two (Fibonacci, Hanoi), which is where exponential costs hide. A call is <b>tail recursive</b> if the recursive call is the very last thing the function does — there is nothing left to do after it returns, such as the multiplication in <code>n * fact(n-1)</code>. A tail-recursive function can be turned into a loop automatically (<em>tail-call optimisation</em>) so it uses no extra stack; the factorial above is <em>not</em> tail recursive, but the accumulator version <code>fact(n, acc) = fact(n − 1, n·acc)</code> is.</p><p>The costs of recursion are time (call overhead) and space (a frame per pending call, O(depth)). The danger is repeated work. The naive Fibonacci function recomputes the same values over and over: fib(10) makes 177 calls for an answer that needs only 10 additions. Remember the answers in a table — <b>memoisation</b> — and each value is computed once; fib(10) then makes only 19 calls. This is the seed of dynamic programming: when subproblems overlap, recursion needs a memory.</p>",
       "questions": [
         {
           "id": "fib",
@@ -289,15 +784,182 @@
               "body": "It has one."
             }
           ]
+        },
+        {
+          "id": "tail",
+          "prompt": "Which is tail recursive?",
+          "choices": [
+            {
+              "text": "n * fact(n − 1)."
+            },
+            {
+              "text": "A function whose last action is the recursive call, such as gcd(b, a % b).",
+              "correct": true
+            },
+            {
+              "text": "fib(n−1) + fib(n−2)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A multiplication remains after the call returns."
+            },
+            {
+              "title": "Correct.",
+              "body": "Nothing remains to be done after the call returns, so the frame can be reused."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "An addition remains after both calls."
+            }
+          ]
+        },
+        {
+          "id": "depth",
+          "prompt": "A linear recursion of depth n allocates no arrays. What is its space complexity?",
+          "choices": [
+            {
+              "text": "O(n) for the stack frames.",
+              "correct": true
+            },
+            {
+              "text": "O(1)."
+            },
+            {
+              "text": "O(log n)."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "One frame per pending call."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The frames are real memory."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only if the depth were logarithmic."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp13",
+          "caption": "Figure 2.7.1 — Kinds of recursion and the cost of recursion",
+          "note": "Naive: 177 calls for fib(10).",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint calls = 0;\\nint fib(int n) {\\n  calls++;\\n  if (n < 2) return n;\\n  return fib(n - 1) + fib(n - 2);\\n}\\nint main() {\\n  cout << fib(10) << \\\" \\\" << calls << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "55 177"
+            }
+          }
+        },
+        {
+          "id": "cpp14",
+          "caption": "Figure 2.7.2 — Kinds of recursion and the cost of recursion",
+          "note": "Memoised: only 19 calls for the same answer.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint memo[30];\\nint calls = 0;\\nint fib(int n) {\\n  calls++;\\n  if (n < 2) return n;\\n  if (memo[n] != 0) return memo[n];\\n  memo[n] = fib(n - 1) + fib(n - 2);\\n  return memo[n];\\n}\\nint main() {\\n  cout << fib(10) << \\\" \\\" << calls << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "55 19"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-memo",
+          "prompt": "<p>Naive fib(5) makes how many calls (counting the first)? Use C(n) = C(n−1) + C(n−2) + 1 with C(0) = C(1) = 1.</p>",
+          "answer": "C(2) = 3, C(3) = 5, C(4) = 9, C(5) = <b>15</b>. (The pattern C(n) = 2·fib(n+1) − 1 grows like 1.618ⁿ.)"
+        }
+      ]
+    },
+    {
+      "id": "iter",
+      "locator": "2.8",
+      "title": "Recursion versus iteration and backtracking",
+      "eyebrow": "Choosing",
+      "body": "<p>Anything recursive can be written with a loop and an explicit stack, because the call stack <em>is</em> a stack; and any loop can be written as tail recursion. Which to use? Recursion is natural when the problem or the data is recursive — trees, divide-and-conquer, backtracking — and the code mirrors the definition. Iteration is usually faster and uses O(1) stack, and is safer for very deep problems. A good rule: use recursion when it makes the algorithm clearer and the depth is modest (log n or at most a few thousand); use a loop when the recursion is linear and the depth could be large.</p><p><b>Backtracking</b> is recursion with an undo step. To solve a puzzle (eight queens, a maze, sudoku) you make a choice, recurse to try to complete the solution, and if you reach a dead end you <em>undo</em> the choice and try the next. The recursion stack remembers where to back up to. The same idea explains depth-first search in graphs, which we use two chapters from now.</p>",
+      "questions": [
+        {
+          "id": "rvi",
+          "prompt": "When is iteration preferable to recursion?",
+          "choices": [
+            {
+              "text": "Never; recursion is always better."
+            },
+            {
+              "text": "Only when the problem is a tree."
+            },
+            {
+              "text": "When the recursion is linear and deep, because a loop uses O(1) stack and avoids overflow.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Each has its place."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Trees are where recursion shines."
+            },
+            {
+              "title": "Correct.",
+              "body": "Recursion’s frames cost space and time."
+            }
+          ]
+        },
+        {
+          "id": "bt",
+          "prompt": "What distinguishes backtracking from plain recursion?",
+          "choices": [
+            {
+              "text": "It never reaches a base case."
+            },
+            {
+              "text": "It uses no stack."
+            },
+            {
+              "text": "It undoes a choice and tries an alternative when a branch fails.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It has base cases (solution found or dead end)."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It uses the call stack."
+            },
+            {
+              "title": "Correct.",
+              "body": "The recursive call stack remembers where to back up."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-conv",
+          "prompt": "<p>Convert the recursive sum(n) = n + sum(n − 1), sum(0) = 0 into a loop, and state the saving in space.</p>",
+          "answer": "<code>s = 0; for (i = 1; i &lt;= n; i++) s += i;</code> The recursive version holds n frames (O(n) space); the loop holds O(1)."
         }
       ]
     },
     {
       "id": "summary",
-      "locator": "2.6",
+      "locator": "2.9",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Stack = LIFO, O(1) push/pop; it underlies calls, undo and expression evaluation.</li><li>Recursion = base case + smaller problem; the call stack holds the frames.</li></ul>"
+      "body": "<ul><li>A stack is LIFO with O(1) push, pop and peek; check overflow and underflow. It powers undo, back, bracket matching, expression handling and the call stack.</li><li>Postfix needs no parentheses: evaluate with a stack of numbers; convert from infix with a stack of operators (shunting-yard).</li><li>Recursion = base case + a smaller problem; each active call has a stack frame; work happens as frames return.</li><li>Classics: factorial, gcd (Euclid), digit sum, fast exponentiation (log n), Hanoi (2ⁿ − 1 moves).</li><li>Tree recursion can be exponential (naive Fibonacci); memoisation fixes it. Tail recursion can become a loop. Backtracking is recursion with undo.</li></ul>"
     }
   ]
 }

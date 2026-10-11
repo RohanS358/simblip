@@ -1,14 +1,14 @@
 {
   "title": "Queues and linked lists",
   "kicker": "ENCT 252 · Data Structure and Algorithms · Chapters 3–4",
-  "subtitle": "First in, first out; and a chain of nodes that grows one link at a time.",
+  "subtitle": "First in, first out; and a chain of nodes that grows one link at a time. The chapter builds queues (linear, circular, deque, priority) and the linked list family, then compares them with arrays.",
   "sections": [
     {
       "id": "queue",
       "locator": "3.1",
       "title": "The queue ADT",
       "eyebrow": "FIFO",
-      "body": "<p>A <em class=\"term\">queue</em> adds at the <em class=\"term\">rear</em> (enqueue) and removes from the <em class=\"term\">front</em> (dequeue): first in, first out. Think of a print queue. A plain array queue wastes space as the front creeps forward; a <em class=\"term\">circular queue</em> wraps the indices with modulo, so the array is fully reused. A <em class=\"term\">deque</em> allows both ends; a <em class=\"term\">priority queue</em> removes the highest-priority item first (implemented by a heap).</p>",
+      "body": "<p>People wait in a line at a ticket counter: the first to arrive is the first to be served. A <em class=\"term\">queue</em> models that. Items are added at one end, the <em class=\"term\">rear</em> (or tail), by <b>enqueue</b>, and removed from the other end, the <em class=\"term\">front</em> (or head), by <b>dequeue</b>: first in, first out, <em class=\"term\">FIFO</em>. You may also read the front item (<b>peek</b>/<b>front</b>) and test for <b>isEmpty</b> and <b>isFull</b>. Where the stack reverses order, the queue preserves it.</p><p>Queues are everywhere that work must be handled fairly in arrival order: the OS ready queue and printer spooler, network routers buffering packets, keyboard input buffers, call-centre systems, and the breadth-first search algorithm we meet in the graphs chapter. Their cost model is the same as the stack’s: with a good implementation both enqueue and dequeue are O(1). The program below enqueues 10, 20, 30, 40 and drains them — the same numbers as in the stack chapter, now coming out in arrival order.</p>",
       "questions": [
         {
           "id": "fifo",
@@ -39,11 +39,41 @@
               "body": "It is the rear."
             }
           ]
+        },
+        {
+          "id": "stackvs",
+          "prompt": "Items 1, 2, 3 are inserted in that order. Which structure returns them as 3, 2, 1?",
+          "choices": [
+            {
+              "text": "A stack.",
+              "correct": true
+            },
+            {
+              "text": "A queue."
+            },
+            {
+              "text": "Both."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Last in, first out reverses the arrival order."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "A queue returns them as 1, 2, 3."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only the stack reverses."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "cpp1",
+          "id": "cpp2",
           "caption": "Figure 3.1.1 — The queue ADT",
           "note": "The same four numbers as the stack — now in arrival order.",
           "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <queue>\\nusing namespace std;\\nint main() {\\n  queue<int> q;\\n  for (int i = 1; i <= 4; i++) q.push(i * 10);\\n  while (!q.empty()) {\\n    cout << q.front() << \\\" \\\";\\n    q.pop();\\n  }\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
@@ -56,11 +86,11 @@
       ]
     },
     {
-      "id": "circ",
+      "id": "impl",
       "locator": "3.2",
-      "title": "Circular queue arithmetic",
+      "title": "Array implementations and the circular queue",
       "eyebrow": "Wrap around",
-      "body": "<p>With array size <i>N</i>, advance an index by <code>i = (i + 1) % N</code>. The queue is empty when front == rear and (keeping one slot unused) full when (rear + 1) % N == front. Otherwise empty and full look identical.</p>",
+      "body": "<p>Implement a queue on an array with two indices, <code>front</code> and <code>rear</code>. Enqueue stores at <code>rear</code> and increments it; dequeue reads <code>front</code> and increments it. There is a flaw: both indices only move forward, so after N enqueues and dequeues <code>rear</code> reaches the end even though the array may be nearly empty — the front slots are wasted. Shifting every element down on each dequeue fixes it but makes dequeue O(n).</p><p>The elegant fix is the <em class=\"term\">circular queue</em>: treat the array as a ring by advancing indices with modulo arithmetic, <code>i = (i + 1) % N</code>. When rear reaches the last slot the next enqueue wraps to slot 0, reusing the space freed by dequeues. One subtlety: if front == rear means empty, then a completely full queue would look the same. The usual remedy is to leave <b>one slot unused</b>: the queue is empty when front == rear and full when (rear + 1) % N == front. Alternatively keep a separate count. Both enqueue and dequeue are then O(1) with a fixed capacity.</p><p>The program simulates a ring of N = 5 slots (capacity 4 because one slot stays empty) receiving 1…7 and, when full, discarding the oldest — as a log buffer does. After seven insertions the ring holds 4, 5, 6, 7.</p>",
       "worked": [
         {
           "toc": "Given",
@@ -69,12 +99,13 @@
         {
           "toc": "Wrap",
           "why": "rear becomes (4 + 1) mod 5 = 0 — it wrapped.",
-          "math": "(4+1)\\bmod 5=0",
-          "hero": true
+          "math": "(4+1)\\bmod 5=0"
         },
         {
-          "toc": "Full?",
-          "why": "Full check: (rear+1) mod N = 1 ≠ front 3, so there is still room."
+          "toc": "Count",
+          "why": "Full check: (rear + 1) mod N = 1 ≠ front = 3, so there is still room. The number of items is (rear − front + N) mod N.",
+          "math": "(0-3+5)\\bmod5=2",
+          "hero": true
         }
       ],
       "questions": [
@@ -107,6 +138,213 @@
               "body": "Unrelated."
             }
           ]
+        },
+        {
+          "id": "linearflaw",
+          "prompt": "What is wrong with a simple (non-circular) array queue?",
+          "choices": [
+            {
+              "text": "Dequeue is O(n) always."
+            },
+            {
+              "text": "It cannot store integers."
+            },
+            {
+              "text": "After many enqueue/dequeue pairs the rear index hits the end although the front slots are free, wasting space.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Only if you shift elements; the simple version does not shift."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It can store anything."
+            },
+            {
+              "title": "Correct.",
+              "body": "Circular indexing reuses the vacated slots."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp3",
+          "caption": "Figure 3.2.1 — Array implementations and the circular queue",
+          "note": "Watch rear wrap from 4 back to 0; front is pushed forward when the ring is full.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nint main() {\\n  int N = 5;\\n  int a[5];\\n  int front = 0, rear = 0;\\n  for (int v = 1; v <= 7; v++) {\\n    if ((rear + 1) % N == front) {\\n      cout << \\\"full at \\\" << v << endl;\\n      front = (front + 1) % N;\\n    }\\n    a[rear] = v;\\n    rear = (rear + 1) % N;\\n  }\\n  cout << front << \\\" \\\" << rear << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "full at 5\nfull at 6\nfull at 7\n3 2"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-circ",
+          "prompt": "<p>A circular queue has N = 8, front = 6 and rear = 2. How many items does it hold, and in which array positions are they?</p>",
+          "answer": "Count = (rear − front + N) mod N = (2 − 6 + 8) mod 8 = <b>4</b>. Positions: 6, 7, 0, 1 (rear = 2 is the next free slot)."
+        },
+        {
+          "id": "p-full",
+          "prompt": "<p>N = 6, front = 2. At which value of rear is the queue full?</p>",
+          "answer": "Full when (rear + 1) mod 6 = 2 → rear = <b>1</b> (holding 5 items, one slot unused)."
+        }
+      ]
+    },
+    {
+      "id": "variants",
+      "locator": "3.3",
+      "title": "Deque and priority queue",
+      "eyebrow": "Variations",
+      "body": "<p>Two relatives of the queue deserve their own names. A <em class=\"term\">deque</em> (double-ended queue, “deck”) allows insertion and removal at <em>both</em> ends — push_front, push_back, pop_front, pop_back. It generalises both stack and queue and is used for sliding-window algorithms and work-stealing schedulers. Variants restrict one end: an <em>input-restricted</em> deque inserts at one end only, an <em>output-restricted</em> one removes from one end only.</p><p>A <em class=\"term\">priority queue</em> abandons FIFO: every item carries a priority and <b>dequeue removes the item with the highest priority</b>, whatever its arrival order. It models hospital triage, CPU priority scheduling, event simulation and Dijkstra’s algorithm. The naive implementation — an unsorted list (O(1) insert, O(n) remove-max) or a sorted list (O(n) insert, O(1) remove-max) — is improved to O(log n) for both by a <b>heap</b>, which the trees chapter builds. The programs show both: a deque pushed at both ends, and a priority queue returning the largest first even though 50 arrived third.</p>",
+      "questions": [
+        {
+          "id": "pq",
+          "prompt": "Which structure returns the item with the highest priority regardless of arrival order?",
+          "choices": [
+            {
+              "text": "A plain queue."
+            },
+            {
+              "text": "A priority queue.",
+              "correct": true
+            },
+            {
+              "text": "A stack."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It returns the oldest item."
+            },
+            {
+              "title": "Correct.",
+              "body": "FIFO order is replaced by priority order."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It returns the newest item."
+            }
+          ]
+        },
+        {
+          "id": "deque",
+          "prompt": "A deque supports which operations?",
+          "choices": [
+            {
+              "text": "Only removal at both ends."
+            },
+            {
+              "text": "Random access in O(1) only."
+            },
+            {
+              "text": "Insertion and removal at both ends.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "It supports insertion at both ends too."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That describes an array."
+            },
+            {
+              "title": "Correct.",
+              "body": "It behaves as a stack if you use one end and a queue if you use both ends in opposite roles."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp4",
+          "caption": "Figure 3.3.1 — Deque and priority queue",
+          "note": "Both ends are open: 0 1 2 3, then trim both ends.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <deque>\\nusing namespace std;\\nint main() {\\n  deque<int> d;\\n  d.push_back(2);\\n  d.push_back(3);\\n  d.push_front(1);\\n  d.push_front(0);\\n  cout << d.front() << \\\" \\\" << d.back() << \\\" \\\";\\n  d.pop_front();\\n  d.pop_back();\\n  cout << d.front() << \\\" \\\" << d.back() << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "0 3 1 2"
+            }
+          }
+        },
+        {
+          "id": "cpp5",
+          "caption": "Figure 3.3.2 — Deque and priority queue",
+          "note": "Largest first, regardless of arrival order.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <queue>\\nusing namespace std;\\nint main() {\\n  priority_queue<int> pq;\\n  pq.push(30);\\n  pq.push(10);\\n  pq.push(50);\\n  pq.push(20);\\n  while (!pq.empty()) {\\n    cout << pq.top() << \\\" \\\";\\n    pq.pop();\\n  }\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "50 30 20 10"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-pqcost",
+          "prompt": "<p>Compare the cost of enqueue and remove-max for a priority queue built on (a) an unsorted array, (b) a sorted array, (c) a heap.</p>",
+          "answer": "(a) insert O(1), remove-max O(n). (b) insert O(n) (find place, shift), remove-max O(1). (c) heap: both <b>O(log n)</b>."
+        }
+      ]
+    },
+    {
+      "id": "qapps",
+      "locator": "3.4",
+      "title": "Using queues: buffering, scheduling and simulation",
+      "eyebrow": "Applications",
+      "body": "<p>A queue decouples a producer from a consumer that run at different speeds. A keyboard driver enqueues keystrokes as they happen; the program dequeues them when it is ready. A router enqueues arriving packets and forwards them at the link speed — when the queue is full, packets are dropped. The OS ready queue and I/O device queues are FIFO lists of process control blocks. Breadth-first search uses a queue to visit vertices level by level. And a queue is the core of a <b>simulation</b>: customers arrive, wait in line, and are served one per tick; the queue length tells you whether the system is overloaded.</p><p>The program simulates six time steps with arrivals of 1, 0, 2, 0, 1 and 1 customers; one customer is served per step. Five are served and the queue ends empty, so the server kept up. If one more customer had arrived at the start, a backlog would have remained.</p>",
+      "questions": [
+        {
+          "id": "qbuf",
+          "prompt": "A fast producer feeds a slow consumer through a bounded queue. What happens when the queue fills?",
+          "choices": [
+            {
+              "text": "The queue grows without limit."
+            },
+            {
+              "text": "The consumer speeds up."
+            },
+            {
+              "text": "The producer must wait or items must be dropped, depending on the design.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A bounded queue cannot."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It does not."
+            },
+            {
+              "title": "Correct.",
+              "body": "A bounded buffer’s limit is its safety valve."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp6",
+          "caption": "Figure 3.4.1 — Using queues: buffering, scheduling and simulation",
+          "note": "Customers served and the queue length left at the end.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\n#include <queue>\\nusing namespace std;\\nint main() {\\n  queue<int> q;\\n  int served = 0;\\n  int arrivals[6] = {1, 0, 2, 0, 1, 1};\\n  for (int t = 0; t < 6; t++) {\\n    for (int k = 0; k < arrivals[t]; k++) q.push(t);\\n    if (!q.empty()) {\\n      q.pop();\\n      served++;\\n    }\\n  }\\n  cout << served << \\\" \\\" << q.size() << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "5 0"
+            }
+          }
         }
       ]
     },
@@ -115,7 +353,7 @@
       "locator": "4.1",
       "title": "The linked list",
       "eyebrow": "Nodes and pointers",
-      "body": "<p>A <em class=\"term\">linked list</em> stores each item in a node with a <code>next</code> pointer; you hold only the <em class=\"term\">head</em>. Insert at the head is O(1); insert after a known node is O(1); search is O(n); there is no index access. Nodes are allocated individually, so the list grows without a fixed size. <em class=\"term\">Doubly linked</em> nodes add a <code>prev</code> pointer (traverse both ways; deletion given the node is O(1)); <em class=\"term\">circular</em> lists link the last node back to the first.</p>",
+      "body": "<p>An array keeps its items side by side in one block of memory, which is why indexing is instant — and why inserting in the middle means shifting everything after it, and growing means copying. A <em class=\"term\">linked list</em> makes the opposite trade. Each item lives in its own <em class=\"term\">node</em> that holds the value and a <code>next</code> pointer to the following node; nodes can be anywhere in memory. You keep a single pointer, the <em class=\"term\">head</em>, to the first node; the last node’s next is <code>null</code>. To reach the k-th item you must follow k pointers — O(k) — so there is no index access; in exchange, once you stand at a position, insertion and deletion there are O(1) because only pointers change, and the list grows one node at a time with no copying and no pre-declared size.</p><p>In C++ a node is a struct: <code>struct Node { int val; Node* next; };</code> and a node is created with <code>new</code> and destroyed with <code>delete</code>. The program inserts 10, 20, 30 at the head, one after another: each new node points to the old head and becomes the head, so the list reads 30 20 10 — reversed. Step through it in the DSA Lab and watch the pointer arrows.</p><p>Three variants matter. A <em class=\"term\">doubly linked</em> list adds a <code>prev</code> pointer, so you can walk both ways and delete a node given only the node itself (O(1)), at the cost of an extra pointer per node. A <em class=\"term\">circular</em> list links the last node back to the first, useful for round-robin scheduling. A <b>header node</b> (sentinel) before the first item removes the special case for the empty list.</p>",
       "questions": [
         {
           "id": "ins",
@@ -146,11 +384,71 @@
               "body": "Not a tree."
             }
           ]
+        },
+        {
+          "id": "access",
+          "prompt": "Why is reading the 100th element of a linked list slower than of an array?",
+          "choices": [
+            {
+              "text": "Linked lists are stored on disk."
+            },
+            {
+              "text": "You must follow 99 next pointers from the head; an array computes the address directly.",
+              "correct": true
+            },
+            {
+              "text": "Because nodes are bigger."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Both live in memory."
+            },
+            {
+              "title": "Correct.",
+              "body": "That is O(n) versus O(1)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The problem is the traversal, not the size."
+            }
+          ]
+        },
+        {
+          "id": "doubly",
+          "prompt": "What does a doubly linked list gain over a singly linked one?",
+          "choices": [
+            {
+              "text": "O(1) deletion of a node given only the node, and traversal in both directions, at the cost of an extra pointer.",
+              "correct": true
+            },
+            {
+              "text": "It uses less memory."
+            },
+            {
+              "text": "It has O(1) indexing."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The prev pointer replaces the search for the predecessor."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It uses more — two pointers per node."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Indexing is still O(n)."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "cpp2",
+          "id": "cpp7",
           "caption": "Figure 4.1.1 — The linked list",
           "note": "Inserting at the head reverses the order; watch the pointer arrows.",
           "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Node {\\n  int val;\\n  Node* next;\\n};\\nint main() {\\n  Node* head = nullptr;\\n  for (int i = 1; i <= 3; i++) {\\n    Node* n = new Node();\\n    n->val = i * 10;\\n    n->next = head;\\n    head = n;\\n  }\\n  for (Node* p = head; p != nullptr; p = p->next) cout << p->val << \\\" \\\";\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
@@ -159,15 +457,21 @@
               "output": "30 20 10"
             }
           }
+        },
+        {
+          "id": "scr1",
+          "caption": "Figure 4.1.2 — array versus linked lists",
+          "note": "Neither wins everywhere — choose by the operation you do most.",
+          "script": "var t = create(\"table\", { headers: \"Operation;Array;Singly linked list;Doubly linked list\", data: [[\"Access k-th element\",\"O(1)\",\"O(n)\",\"O(n)\"],[\"Insert at head\",\"O(n) shift\",\"O(1)\",\"O(1)\"],[\"Insert at tail\",\"O(1) amortised\",\"O(n) (O(1) with tail ptr)\",\"O(1) with tail ptr\"],[\"Insert after a known node\",\"O(n) shift\",\"O(1)\",\"O(1)\"],[\"Delete a known node\",\"O(n) shift\",\"O(n) (need predecessor)\",\"O(1)\"],[\"Search (unsorted)\",\"O(n)\",\"O(n)\",\"O(n)\"],[\"Extra memory per item\",\"0\",\"1 pointer\",\"2 pointers\"]], summary: \"None\" });"
         }
       ]
     },
     {
       "id": "ops",
       "locator": "4.2",
-      "title": "Insert, delete and reverse",
+      "title": "Insert, delete, search",
       "eyebrow": "Pointer surgery",
-      "body": "<p>To delete the node after <code>p</code>: <code>q = p->next; p->next = q->next; delete q;</code>. To reverse: keep <code>prev</code>, <code>cur</code>, <code>next</code>; for each node save next, point cur->next at prev, then advance all three. Always handle the empty list and the single-node case.</p>",
+      "body": "<p>Every list operation is a careful rearrangement of pointers, and every bug is a pointer set in the wrong order. <b>Insert at the head</b>: <code>n->next = head; head = n;</code>. <b>Insert after node p</b>: <code>n->next = p->next; p->next = n;</code> — set the new node’s pointer <em>first</em>, or you lose the rest of the list. <b>Insert at the tail</b>: walk to the last node (O(n)) unless you keep a tail pointer. <b>Delete the node after p</b>: <code>q = p->next; p->next = q->next; delete q;</code>. <b>Delete the head</b>: <code>t = head; head = head->next; delete t;</code>. <b>Search</b>: walk from the head until the value matches or you reach null — O(n). Always ask the four questions: what if the list is empty? what if there is one node? what if the target is the head? the tail?</p><p>Deleting the node after the one holding 2 in the list 1 2 3 4 5 re-links 2 to 4 and frees 3, leaving 1 2 4 5. To delete a node you must first have its <em>predecessor</em>, which is why a singly linked deletion by value needs a trailing pointer, and why a doubly linked list (which stores the predecessor in the node) deletes in O(1).</p>",
       "questions": [
         {
           "id": "del",
@@ -198,23 +502,188 @@
               "body": "Unrelated."
             }
           ]
+        },
+        {
+          "id": "order",
+          "prompt": "When inserting new node n after p, which assignment must come first?",
+          "choices": [
+            {
+              "text": "p->next = n;"
+            },
+            {
+              "text": "n->next = p->next;",
+              "correct": true
+            },
+            {
+              "text": "Either order works."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "This would orphan the rest of the list."
+            },
+            {
+              "title": "Correct.",
+              "body": "If p->next = n came first, the old successor would be lost."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The order matters."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "dia3",
-          "caption": "Figure 4.2.1 — walking a list",
+          "id": "cpp8",
+          "caption": "Figure 4.2.1 — Insert, delete, search",
+          "note": "Delete the node after 2: its pointer skips over 3.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Node { int val; Node* next; };\\nint main() {\\n  Node* head = nullptr;\\n  for (int i = 5; i >= 1; i--) {\\n    Node* n = new Node();\\n    n->val = i;\\n    n->next = head;\\n    head = n;\\n  }\\n  Node* p = head;\\n  while (p->val != 2) p = p->next;\\n  Node* q = p->next;\\n  p->next = q->next;\\n  delete q;\\n  for (Node* x = head; x != nullptr; x = x->next) cout << x->val << \\\" \\\";\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "1 2 4 5"
+            }
+          }
+        },
+        {
+          "id": "dia9",
+          "caption": "Figure 4.2.2 — walking a list",
           "note": "Traversal follows next until null.",
           "script": "diagram(\"direction: right\\n[head] as h #blue\\n[10] as a #mint\\n[20] as b #mint\\n[30] as c #mint\\n(null) as n\\nh -> a\\na -> b\\nb -> c\\nc -> n\\n@0 h -> a : p\\n@1 a -> b : p\\n@2 b -> c : p\\n@3 c -> n : stop\\nloop 5\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-del",
+          "prompt": "<p>List: 4 → 7 → 9 → 12. Write the pointer assignments to insert 8 after 7, giving 4 → 7 → 8 → 9 → 12.</p>",
+          "answer": "<code>n = new Node(8); n->next = p->next; p->next = n;</code> where p points at 7. n now points to 9 and 7 points to n."
+        }
+      ]
+    },
+    {
+      "id": "reverse",
+      "locator": "4.3",
+      "title": "Reversing a list and finding the middle",
+      "eyebrow": "Classic exercises",
+      "body": "<p>Two exercises appear in almost every exam. <b>Reverse a list in place</b> with three pointers: <code>prev</code> (initially null), <code>cur</code> (the head) and <code>nxt</code>. For each node: save <code>nxt = cur->next</code>, flip the link <code>cur->next = prev</code>, then advance <code>prev = cur; cur = nxt</code>. When <code>cur</code> is null, <code>prev</code> is the new head. It takes O(n) time and O(1) extra space. Run the program: the list 40 30 20 10 becomes 10 20 30 40.</p><p><b>Find the middle</b> in a single pass with two pointers moving at different speeds: <code>slow</code> advances one node per step and <code>fast</code> two. When fast reaches the end, slow is at the middle — no need to count the length first. The same “tortoise and hare” idea detects a cycle (Floyd’s algorithm): if the list loops back on itself, fast eventually laps slow and they meet; if it has an end, fast reaches null. For 1…7 the middle is the 4th node, value 4.</p>",
+      "worked": [
+        {
+          "toc": "Start",
+          "why": "Reverse 1 → 2 → 3 by hand. Start: prev = null, cur = 1."
+        },
+        {
+          "toc": "Step 1",
+          "why": "Node 1: nxt = 2; 1.next = null; prev = 1; cur = 2.",
+          "math": "1\\to\\text{null}"
+        },
+        {
+          "toc": "Done",
+          "why": "Node 2: nxt = 3; 2.next = 1; prev = 2; cur = 3. Node 3: nxt = null; 3.next = 2; prev = 3; cur = null.",
+          "math": "3\\to2\\to1",
+          "hero": true
+        }
+      ],
+      "questions": [
+        {
+          "id": "rev",
+          "prompt": "What is the time and extra space of in-place list reversal?",
+          "choices": [
+            {
+              "text": "O(n²) time."
+            },
+            {
+              "text": "O(n) time, O(1) extra space.",
+              "correct": true
+            },
+            {
+              "text": "O(n) extra space."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A single pass suffices."
+            },
+            {
+              "title": "Correct.",
+              "body": "One pass with three pointers; no new nodes."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It reuses the existing nodes."
+            }
+          ]
+        },
+        {
+          "id": "floyd",
+          "prompt": "Why do slow and fast pointers meet if the list has a cycle?",
+          "choices": [
+            {
+              "text": "Fast gains one node per step on slow inside the loop, so it must eventually catch up.",
+              "correct": true
+            },
+            {
+              "text": "They start at the same node."
+            },
+            {
+              "text": "Because the list is circular by default."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "If the list ends, fast reaches null and the test stops."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "They start together but separate; meeting later requires a loop."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Only a list with a cycle is circular."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "cpp10",
+          "caption": "Figure 4.3.1 — Reversing a list and finding the middle",
+          "note": "Three pointers walk the list, flipping each link.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Node { int val; Node* next; };\\nNode* push(Node* head, int v) {\\n  Node* n = new Node();\\n  n->val = v;\\n  n->next = head;\\n  return n;\\n}\\nNode* reverse(Node* head) {\\n  Node* prev = nullptr;\\n  Node* cur = head;\\n  while (cur != nullptr) {\\n    Node* nxt = cur->next;\\n    cur->next = prev;\\n    prev = cur;\\n    cur = nxt;\\n  }\\n  return prev;\\n}\\nint main() {\\n  Node* head = nullptr;\\n  for (int i = 1; i <= 4; i++) head = push(head, i * 10);\\n  for (Node* p = head; p != nullptr; p = p->next) cout << p->val << \\\" \\\";\\n  cout << endl;\\n  head = reverse(head);\\n  for (Node* p = head; p != nullptr; p = p->next) cout << p->val << \\\" \\\";\\n  cout << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "40 30 20 10 \n10 20 30 40"
+            }
+          }
+        },
+        {
+          "id": "cpp11",
+          "caption": "Figure 4.3.2 — Reversing a list and finding the middle",
+          "note": "slow moves 1, fast moves 2: when fast ends, slow is in the middle.",
+          "script": "var lab = create(\"dsa\", {\"name\":\"prog\",\"source\":\"#include <iostream>\\nusing namespace std;\\nstruct Node { int val; Node* next; };\\nint main() {\\n  Node* head = nullptr;\\n  for (int i = 7; i >= 1; i--) {\\n    Node* n = new Node();\\n    n->val = i;\\n    n->next = head;\\n    head = n;\\n  }\\n  Node* slow = head;\\n  Node* fast = head;\\n  while (fast != nullptr && fast->next != nullptr) {\\n    slow = slow->next;\\n    fast = fast->next->next;\\n  }\\n  cout << slow->val << endl;\\n  return 0;\\n}\\n\",\"width\":760,\"height\":520});",
+          "expect": {
+            "prog": {
+              "output": "4"
+            }
+          }
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-mid",
+          "prompt": "<p>With slow/fast pointers on a list of 8 nodes, which node does slow stop at?</p>",
+          "answer": "Fast steps: 1→3→5→7→(null after 9). Slow steps 1→2→3→4→5: after fast falls off the end slow is at the <b>5th node</b> (the second of the two middle nodes)."
         }
       ]
     },
     {
       "id": "apps",
-      "locator": "4.3",
+      "locator": "4.4",
       "title": "Applications: stack, queue and polynomials",
       "eyebrow": "Uses",
-      "body": "<p>A list makes a stack (push/pop at the head) and a queue (insert at tail, remove at head, with a tail pointer) without a size limit. A polynomial is stored as a list of (coefficient, exponent) nodes in decreasing exponent; adding two polynomials walks both lists like merging sorted lists.</p>",
+      "body": "<p>A linked list makes a stack with no size limit: push and pop both work at the head in O(1). It makes a queue too if you keep both a head pointer (dequeue here) and a tail pointer (enqueue here), both O(1). Many other structures are lists in disguise: the chains in a hash table, the adjacency lists of a graph, the free-block list of a memory manager, the undo history of an editor.</p><p>A classic example is polynomial arithmetic. A polynomial such as 5x¹⁰⁰ + 3x² + 1 has a huge degree but only three non-zero terms. Stored in an array it would need 101 slots; stored as a list of (coefficient, exponent) nodes in decreasing exponent it needs three. Adding two polynomials is exactly the merge of two sorted lists: compare the exponents of the current terms; if equal add the coefficients, otherwise copy the term with the larger exponent and advance that list. Adding 3x² + 2x + 1 and x² + 5 gives 4x² + 2x + 6 in one pass of cost O(m + n).</p>",
       "worked": [
         {
           "toc": "Task",
@@ -257,6 +726,36 @@
               "body": "They can."
             }
           ]
+        },
+        {
+          "id": "listq",
+          "prompt": "To make O(1) enqueue and dequeue on a linked list you need…",
+          "choices": [
+            {
+              "text": "Both a head pointer and a tail pointer.",
+              "correct": true
+            },
+            {
+              "text": "Only a head pointer."
+            },
+            {
+              "text": "A doubly linked list with no pointers kept."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Enqueue at the tail, dequeue at the head."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Enqueue at the tail would take O(n)."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "You still need to know where the ends are."
+            }
+          ]
         }
       ],
       "problems": [
@@ -264,15 +763,66 @@
           "id": "p1",
           "prompt": "<p>Array vs linked list: which is better for frequent random access by index? For frequent insertion in the middle?</p>",
           "answer": "Random access: <b>array</b> (O(1) vs O(n)). Insertion in the middle once you hold the position: <b>linked list</b> (O(1) vs O(n) shifting)."
+        },
+        {
+          "id": "p-poly",
+          "prompt": "<p>Multiply nothing — just add (4x³ + 2x) and (5x³ − 3x² + 7). Give the result list.</p>",
+          "answer": "Merge by exponent: x³: 4 + 5 = 9; x²: −3; x: 2; constant: 7 → <b>9x³ − 3x² + 2x + 7</b>."
+        }
+      ]
+    },
+    {
+      "id": "choose",
+      "locator": "4.5",
+      "title": "Arrays versus linked lists: how to choose",
+      "eyebrow": "Decision",
+      "body": "<p>The comparison table in section 4.1 is worth learning, but the choice is usually decided by one question: <em>what do you do most?</em> If you index by position, scan sequentially or keep the data sorted for binary search, use an array — and note that arrays are very friendly to the CPU cache because neighbouring elements are loaded together, a real-world advantage that Big-O hides. If you insert and delete often at known positions, if the size is unpredictable and you cannot afford the occasional O(n) resize, or if you need to splice lists together in O(1), use a linked list. Memory matters too: a singly linked list spends a pointer (8 bytes) per item on top of the value, so a list of ints uses three times the memory of an array of ints.</p>",
+      "questions": [
+        {
+          "id": "cachefriendly",
+          "prompt": "Besides indexing, why do arrays often beat linked lists in practice?",
+          "choices": [
+            {
+              "text": "Arrays have O(1) insertion in the middle."
+            },
+            {
+              "text": "Contiguous elements share cache lines, so sequential scans are much faster than chasing scattered pointers.",
+              "correct": true
+            },
+            {
+              "text": "Linked lists cannot be traversed."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "They have O(n) insertion."
+            },
+            {
+              "title": "Correct.",
+              "body": "Big-O ignores this constant factor."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "They can, just with poorer locality."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-memory",
+          "prompt": "<p>A list of 1,000,000 ints (4 bytes) with 8-byte pointers: memory for an array versus a singly linked list (ignore allocator overhead)?</p>",
+          "answer": "Array: 4 MB. Linked list: (4 + 8) × 10⁶ = <b>12 MB</b>, three times larger (and more with alignment padding)."
         }
       ]
     },
     {
       "id": "summary",
-      "locator": "4.4",
+      "locator": "4.6",
       "title": "Summary",
       "eyebrow": "Recap",
-      "body": "<ul><li>Queue = FIFO; circular arrays reuse space.</li><li>Linked list: O(1) insertion at a known place, O(n) search.</li></ul>"
+      "body": "<ul><li>Queue = FIFO; enqueue at the rear, dequeue at the front, O(1). Circular arrays reuse space with modulo arithmetic and one spare slot.</li><li>Deque: both ends; priority queue: highest priority out first (heap gives O(log n)).</li><li>Linked list: nodes joined by pointers; O(1) insert/delete at a known place, O(n) access and search; doubly and circular variants.</li><li>Pointer surgery rules: set the new node’s pointer first; handle empty, single-node, head and tail cases.</li><li>Reverse with prev/cur/next; find the middle and detect cycles with slow/fast pointers.</li><li>Choose arrays for indexing and cache-friendly scans, lists for frequent insertion and unpredictable size.</li></ul>"
     }
   ]
 }
