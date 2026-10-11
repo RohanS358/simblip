@@ -24,6 +24,7 @@
 // the readability for a fraction of the code.
 
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
+import { placeRails } from './rail-layout'
 import type { SceneObject } from './types'
 
 export type Edge = { fromId: string; toId: string; fromIdx: number; toIdx: number }
@@ -211,6 +212,14 @@ export function placeOptimized(
   getObj: (id: string) => SceneObject | undefined,
   origin: Pt,
 ): Placement {
+  // A loop or ladder of two-terminal parts is drawn as rails (rail-layout.ts):
+  // what the annealer would make of it is a staircase. Anything else — gates,
+  // transistors, bridges, several sources — falls through to the search below.
+  // (`__noRails` lets the bench compare the two on the same circuits.)
+  if (!(globalThis as { __noRails?: boolean }).__noRails) {
+    const rails = placeRails(ids, edges, getObj, origin)
+    if (rails) return rails
+  }
   const n = ids.length
   const index = new Map(ids.map((id, i) => [id, i]))
   const objs = ids.map((id) => getObj(id))

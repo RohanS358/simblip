@@ -19,6 +19,7 @@ import { MODELS, estimateRamMB, type Tier } from '@/lib/ai/engine/catalog'
 import { localEngine } from '@/lib/ai/engine/local'
 import { useEngine, useEnginePrefs, type Backend } from '@/lib/ai/engine/store'
 import { resolveRoute } from '@/lib/ai/transport'
+import { activeContext, runTool } from '@/lib/tools'
 import { useBridge, refreshBridgeTools, BRIDGE_PORT, type AgentMode } from '@/lib/tools/bridge'
 import { Choice, ObsidianPrefRow, SettingCard } from './settings-fields'
 
@@ -46,7 +47,7 @@ export const cancelDownload = () => downloading?.abort()
 
 // Dev only: lets scripts/ai-e2e.mjs pick a tier without clicking through menus.
 if (typeof window !== 'undefined' && process.env.NODE_ENV !== 'production') {
-  ;(window as unknown as { __ai: unknown }).__ai = { downloadModel, useEngine, useEnginePrefs, localEngine }
+  ;(window as unknown as { __ai: unknown }).__ai = { downloadModel, useEngine, useEnginePrefs, localEngine, runTool, activeContext }
 }
 
 /** Probe once per page load. Cheap — see LocalEngine.probe. */

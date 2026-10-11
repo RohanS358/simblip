@@ -1374,11 +1374,11 @@ export function applySceneLayout(
   // Scale about the scene's own top-left so relative geometry is preserved
   // exactly — a spring's endpoints move with the bodies they are bound to.
   const box = unionRect(made.map(rectOf))!
-  for (const o of made) {
+  const place = (o: SceneObject, restoreShape: boolean) => {
     const nx = box.x + (o.position.x - box.x) * scale + dx
     const ny = box.y + (o.position.y - box.y) * scale + dy
     const patch: Partial<SceneObject> = { position: { x: nx, y: ny } }
-    if (scale !== 1) {
+    if (scale !== 1 || restoreShape) {
       patch.size = { w: o.size.w * scale, h: o.size.h * scale }
       // Line-ish geometry carries its shape in `points`, not in size alone.
       if (o.geometry.points) {
@@ -1387,4 +1387,17 @@ export function applySceneLayout(
     }
     store().updateObject(pageId, o.id, patch, { history: false })
   }
+  // Bodies first, connectors last. Moving a body re-projects every connector
+  // bound to it (document.ts reprojectConnectors), which flattens a routed
+  // polyline to a straight two-point line — so a connector moved BEFORE its
+  // bodies was then overwritten, and one moved after was restored only by luck.
+  // A connector is a rigid part of the scene: it takes the same shift as
+  // everything else, from its own snapshot, AFTER the bodies have settled, and
+  // brings its routed shape back. (Found by a voltmeter-style tap wire that
+  // ended 92px from its pin: the second bulb of a parallel pair was not
+  // connected at all, and the circuit solved without it.)
+  const isConnector = (o: SceneObject) =>
+    o.geometry.kind === 'line' && o.behaviors.some((b) => b.type === 'wire' || b.params.targetA?.kind === 'string')
+  for (const o of made) if (!isConnector(o)) place(o, false)
+  for (const o of made) if (isConnector(o)) place(o, true)
 }
