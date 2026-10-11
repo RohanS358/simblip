@@ -47,7 +47,10 @@ export interface AiTurn {
   /** Which lane answered. Most coursework is not a simulation — of the
    *  course's own 100 questions, 44 are derivations and 37 numericals — so a
    *  turn very often carries prose instead of (or as well as) a script. */
-  intent?: 'simulate' | 'explain' | 'both'
+  intent?: 'simulate' | 'explain' | 'both' | 'edit' | 'act'
+  /** Tools the assistant used on this turn, in order. Shown as chips so an
+   *  action is never invisible. */
+  toolSteps?: { name: string; args?: unknown; ok: boolean; summary: string }[]
   /** A written answer in Markdown: derivation, numerical or short note.
    *  While streaming this is the live text; the terminating event replaces it
    *  with the cleaned version (LaTeX delimiters normalised for the notebook). */

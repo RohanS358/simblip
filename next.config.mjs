@@ -69,6 +69,14 @@ const nextConfig = {
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+          // With COOP above this makes the page crossOriginIsolated, which is what
+          // lets the on-device model use several CPU threads (SharedArrayBuffer):
+          // the difference between ~1 and ~5 tokens/s on a laptop with no GPU.
+          // `credentialless` rather than `require-corp`: cross-origin images and
+          // scripts still load (without cookies) instead of needing a CORP header
+          // from every third party. Browsers that lack it ignore the header and
+          // fall back to one thread.
+          { key: 'Cross-Origin-Embedder-Policy', value: 'credentialless' },
         ],
       },
     ]

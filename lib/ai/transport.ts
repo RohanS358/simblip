@@ -21,8 +21,17 @@ import '@/lib/tools'
 
 export type Route = { where: 'device'; tier: Tier } | { where: 'server' } | { where: 'blocked'; why: string }
 
+let serverOnce = false
+/** Send the NEXT request to the server, once. For the case where the device is
+ *  too slow for what was asked (a scene on a CPU-only laptop) and the user
+ *  chooses to trade privacy for speed — per request, never silently. */
+export const useServerOnce = () => {
+  serverOnce = true
+}
+
 /** Where the next request goes, and why not if it can't. */
 export function resolveRoute(): Route {
+  if (serverOnce) return { where: 'server' }
   const { backend, tier: pref } = useEnginePrefs.getState()
   const { cached, caps, tier: loaded } = useEngine.getState()
   const tier = pref && cached.includes(pref) ? pref : loaded && cached.includes(loaded) ? loaded : cached[0]
@@ -47,9 +56,13 @@ setToolGenerator(async () => {
   return localEngine.generator()
 })
 
-/** Parse a Server-Sent Events body into AiEvents. A frame may be split across
- *  chunks, so the trailing partial frame is carried over. */
-async function* readSse(res: Response): AsyncGenerator<AiEvent> {
+/** Read a Server-Sent Events body, handing each event to `onEvent`. A frame
+ *  may be split across chunks, so the trailing partial frame is carried over.
+ *
+ *  Callbacks, not an async generator: the bundler's async-generator helper
+ *  (`awaitWrap`) was missing at runtime in the browser build, and a plain
+ *  loop is simpler anyway. */
+async function readSse(res: Response, onEvent: (e: AiEvent) => void): Promise<void> {
   const reader = res.body?.getReader()
   if (!reader) throw new Error('No response body')
   const decoder = new TextDecoder()
@@ -64,41 +77,19 @@ async function* readSse(res: Response): AsyncGenerator<AiEvent> {
       const event = /^event:\s*(.+)$/m.exec(frame)?.[1]
       const raw = /^data:\s*([\s\S]*)$/m.exec(frame)?.[1]
       if (!event || raw === undefined) continue
-      yield { event, data: JSON.parse(raw) } as AiEvent
+      onEvent({ event, data: JSON.parse(raw) } as AiEvent)
     }
   }
 }
 
-/** A queue that turns runAi's callback into something `for await` can read. */
-function channel<T>() {
-  const items: T[] = []
-  let wake: (() => void) | null = null
-  let closed = false
-  return {
-    push(v: T) {
-      items.push(v)
-      wake?.()
-    },
-    close() {
-      closed = true
-      wake?.()
-    },
-    async *[Symbol.asyncIterator]() {
-      for (;;) {
-        while (items.length) yield items.shift() as T
-        if (closed) return
-        await new Promise<void>((r) => (wake = r))
-        wake = null
-      }
-    },
-  }
-}
-
-export async function* streamAi(req: AiRequest, signal: AbortSignal): AsyncGenerator<AiEvent> {
+/** Run one request wherever it belongs, reporting events as they happen. Always
+ *  ends with exactly one `done` unless the request is aborted (which throws). */
+export async function streamAi(req: AiRequest, signal: AbortSignal, onEvent: (e: AiEvent) => void): Promise<void> {
   const route = resolveRoute()
+  serverOnce = false
 
   if (route.where === 'blocked') {
-    yield { event: 'done', data: { message: route.why } }
+    onEvent({ event: 'done', data: { message: route.why } })
     return
   }
 
@@ -109,29 +100,30 @@ export async function* streamAi(req: AiRequest, signal: AbortSignal): AsyncGener
       signal,
       body: JSON.stringify({ ...req, stream: true }),
     })
-    yield* readSse(res)
-    return
+    return readSse(res, onEvent)
   }
 
-  // On this device.
-  const ch = channel<AiEvent>()
+  // On this device. Worked examples are what make a small model write valid
+  // SimScript (zero-shot, Qwen3-0.6B copied the page's spring-mass into a
+  // "voltage divider"; with 3 examples it wrote R1/R2 correctly) — but each is
+  // ~400 prompt tokens, and reading the prompt IS the wait on a laptop CPU
+  // (~40 tok/s measured). 2 is the compromise; fine-tuning removes the need for
+  // them entirely (docs/ai-plans), and the panel offers "use the server" for a
+  // single slow request.
+  const devShots = (globalThis as { __aiOpts?: { shots?: number } }).__aiOpts?.shots
+  req = { ...req, shots: req.shots ?? devShots ?? 2 }
   const generator = () => Promise.resolve(localEngine.generator(signal))
-  const run = (async () => {
-    try {
-      await localEngine.ensure(route.tier, signal)
-      await runAi(req, {
-        script: generator,
-        explain: generator,
-        emit: (e) => ch.push(e),
-        streaming: true,
-        act: makeAct({ engine: { chat: (r) => localEngine.chat({ ...r, signal }, route.tier) }, ctx: () => activeContext(signal), emit: (e) => ch.push(e), signal }),
-      })
-    } catch (e) {
-      ch.push({ event: 'done', data: { message: e instanceof Error ? e.message : 'On-device generation failed.' } })
-    } finally {
-      ch.close()
-    }
-  })()
-  yield* ch
-  await run
+  try {
+    await localEngine.ensure(route.tier, signal)
+    await runAi(req, {
+      script: generator,
+      explain: generator,
+      emit: onEvent,
+      streaming: true,
+      act: makeAct({ engine: { chat: (r) => localEngine.chat({ ...r, signal }, route.tier) }, ctx: () => activeContext(signal), emit: onEvent, signal }),
+    })
+  } catch (e) {
+    if (signal.aborted) throw e
+    onEvent({ event: 'done', data: { message: e instanceof Error ? e.message : 'On-device generation failed.' } })
+  }
 }

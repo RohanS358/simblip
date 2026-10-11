@@ -51,6 +51,7 @@ import { FileObject } from '@/components/objects/file-view'
 const MobileShell = dynamic(() => import('./mobile-shell').then((m) => m.MobileShell), { ssr: false })
 const CommandPalette = dynamic(() => import('./command-palette').then((m) => m.CommandPalette), { ssr: false })
 const Calculator = dynamic(() => import('./calculator').then((m) => m.Calculator), { ssr: false })
+const AiAgentBridge = dynamic(() => import('./ai-agent-bridge').then((m) => m.AiAgentBridge), { ssr: false })
 const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
 const EventLogPanel = dynamic(() => import('./event-log-panel').then((m) => m.EventLogPanel), { ssr: false })
 import { WalkthroughOverlay } from './walkthrough-overlay'
@@ -831,6 +832,7 @@ export function WorkspaceShell() {
         onOpenChange={setCommandOpen}
         onOpenSettings={() => setSettingsOpen(true)}
       />
+      <AiAgentBridge />
       <SettingsDialog
         open={settingsOpen}
         onOpenChange={(o) => {

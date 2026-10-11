@@ -14,7 +14,7 @@ import type { SimScriptGenerator } from '@/lib/ai/generate'
 import { GeneratorUnavailableError } from '@/lib/ai/generate'
 import { MODELS, estimateRamMB, modelUrl, type Tier } from './catalog'
 import { probeCapabilities } from './probe'
-import { useEngine } from './store'
+import { useEngine, useEnginePrefs } from './store'
 
 // ── Minimal shape of wllama we rely on (also what tests fake) ───────────────
 
@@ -50,6 +50,7 @@ export interface ChatReply {
 interface Chunk {
   choices: { delta: { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] }; finish_reason: string | null }[]
   timings?: { predicted_per_second?: number }
+  prompt_progress?: { total: number; processed: number }
 }
 
 export interface WllamaLike {
@@ -67,7 +68,7 @@ const WASM_PATH = '/vendor/wllama/wllama.wasm'
 async function realFactory(): Promise<WllamaLike> {
   // Dynamic: the 10 MB runtime must not be in the bundle of anyone who never
   // opens the assistant.
-  const { Wllama } = await import('@wllama/wllama')
+  const { Wllama } = await import('@wllama/wllama/esm/index.js')
   return new Wllama({ default: WASM_PATH }, { allowOffline: true, suppressNativeLog: true }) as unknown as WllamaLike
 }
 
@@ -101,76 +102,104 @@ export class LocalEngine {
       return entries.some((e) => e.metadata.originalURL === url && e.size >= m.sizeMB * 1e6 * 0.98)
     })
     useEngine.getState().patch({ cached })
+    useEnginePrefs.getState().setDownloaded(cached)
     return cached
   }
 
+  /** What this device can run. Cheap: does NOT load the runtime (the cache is
+   *  only inspected on demand, see refreshCached). */
   async probe() {
     const caps = await probeCapabilities()
     const st = useEngine.getState()
-    st.patch({ caps, state: st.state === 'unknown' ? 'absent' : st.state })
-    await this.refreshCached().catch(() => {})
+    const hint = useEnginePrefs.getState().downloaded
+    st.patch({ caps, cached: st.cached.length ? st.cached : hint, state: st.state === 'unknown' ? 'absent' : st.state })
     return caps
   }
 
   /**
-   * Make `tier` ready: download if needed (progress is reported), then load
-   * into memory. Safe to call repeatedly — concurrent callers share one open.
+   * Make `tier` ready: load into memory, and — only when `allowDownload` is
+   * set, i.e. the user pressed Download — fetch it first. A model is 0.4–1.1 GB;
+   * nothing may start that download as a side effect of a chat message, even
+   * if the cache was cleared behind our back.
    */
-  async ensure(tier: Tier, signal?: AbortSignal): Promise<void> {
+  async ensure(tier: Tier, signal?: AbortSignal, allowDownload = false): Promise<void> {
     this.touch()
     if (this.loaded === tier && this.w) return
     if (this.opening) {
       await this.opening
       if (this.loaded === tier) return
     }
-    this.opening = this.open(tier, signal).finally(() => {
+    this.opening = this.open(tier, signal, allowDownload).finally(() => {
       this.opening = null
     })
     return this.opening
   }
 
-  private async open(tier: Tier, signal?: AbortSignal) {
+  private async open(tier: Tier, signal: AbortSignal | undefined, allowDownload: boolean) {
     const store = useEngine.getState()
     const m = MODELS[tier]
     try {
       if (this.loaded && this.loaded !== tier) await this.release()
       const w = await this.instance()
       const wasCached = (await this.refreshCached()).includes(tier)
+      if (!wasCached && !allowDownload) {
+        throw new GeneratorUnavailableError(`The ${m.label} on-device model is not downloaded (${m.sizeMB} MB). Download it in the assistant, or switch to the server.`)
+      }
       store.patch({ state: wasCached ? 'loading' : 'downloading', tier, progress: 0, error: null })
       const caps = useEngine.getState().caps ?? (await this.probe())
       const base = {
         n_ctx: m.nCtx,
+        // Without jinja the chat template is applied WITHOUT the tool definitions: the
+        // model never sees its tools and just talks (measured: a measurement question
+        // got an invented "2.25 m/s" with tool_choice 'required' set).
+        jinja: true,
         useCache: true,
         signal,
         progressCallback: ({ loaded, total }: { loaded: number; total: number }) =>
           useEngine.getState().patch({ progress: total ? loaded / total : 0 }),
-        ...(caps.isolated ? { n_threads: Math.max(2, Math.min(4, Math.floor(caps.cores / 2))) } : {}),
+        // Threads need cross-origin isolation (SharedArrayBuffer). Leave a core for the
+        // page: the simulation runs on the main thread at up to 120 Hz.
+        ...(caps.isolated ? { n_threads: Math.max(2, Math.min(8, caps.cores - 1)) } : {}),
+        // No REAL GPU → say so: otherwise llama.cpp offloads to whatever adapter
+        // exists, including a software one that is slower than the CPU build.
+        ...(caps.webgpu ? {} : { n_gpu_layers: 0 }),
       }
+      // Dev knobs (window.__aiOpts) so speed can be MEASURED per configuration.
+      const dev = (globalThis as { __aiOpts?: { quantKV?: boolean; nCtx?: number; nGpuLayers?: number; nThreads?: number; nBatch?: number; nUbatch?: number } }).__aiOpts ?? {}
+      const tuned = { ...base, ...(dev.nCtx ? { n_ctx: dev.nCtx } : {}), ...(dev.nGpuLayers !== undefined ? { n_gpu_layers: dev.nGpuLayers } : {}), ...(dev.nThreads ? { n_threads: dev.nThreads } : {}), ...(dev.nBatch ? { n_batch: dev.nBatch } : {}), ...(dev.nUbatch ? { n_ubatch: dev.nUbatch } : {}) }
       try {
         // 8-bit KV cache halves the second-biggest memory cost.
-        await w.loadModelFromUrl(modelUrl(m), { ...base, flash_attn: true, cache_type_k: 'q8_0', cache_type_v: 'q8_0' })
+        if (dev.quantKV === false) throw new Error('quantised KV disabled')
+        await w.loadModelFromUrl(modelUrl(m), { ...tuned, flash_attn: true, cache_type_k: 'q8_0', cache_type_v: 'q8_0' })
       } catch (e) {
         if (signal?.aborted) throw e
         // Some backends (older GPUs) lack quantised-KV kernels: retry plain.
-        await w.loadModelFromUrl(modelUrl(m), base)
+        await w.loadModelFromUrl(modelUrl(m), tuned)
       }
       this.loaded = tier
+      const downloaded = Array.from(new Set([...useEngine.getState().cached, tier]))
+      useEnginePrefs.getState().setDownloaded(downloaded)
       useEngine.getState().patch({
         state: 'ready',
         progress: 1,
-        accel: w.isSupportWebGPU?.() ? 'webgpu' : 'cpu',
+        // The API existing is not an adapter existing: report the GPU only when
+        // the probe found a real one, or the UI would claim acceleration it lacks.
+        accel: caps.webgpu && w.isSupportWebGPU?.() ? 'webgpu' : 'cpu',
         threads: w.getNumThreads?.() ?? null,
-        cached: Array.from(new Set([...useEngine.getState().cached, tier])),
+        cached: downloaded,
       })
     } catch (e) {
       this.loaded = null
       const aborted = signal?.aborted
+      // Not downloaded is a state to act on, not a fault to report.
+      const missing = e instanceof GeneratorUnavailableError
       useEngine.getState().patch({
-        state: aborted ? 'absent' : 'error',
-        error: aborted ? null : e instanceof Error ? e.message : String(e),
+        state: aborted || missing ? 'absent' : 'error',
+        error: aborted || missing ? null : e instanceof Error ? e.message : String(e),
         progress: 0,
       })
       if (aborted) throw new GeneratorUnavailableError('Download cancelled.')
+      if (missing) throw e
       throw new GeneratorUnavailableError(`Could not load the on-device model: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
@@ -225,6 +254,7 @@ export class LocalEngine {
           top_p: 0.9,
           stream: true,
           cache_prompt: true,
+          return_progress: true,
           // Qwen3 reasons at length by default; a tutor that thinks for 800
           // tokens before every answer is a tutor on a 4-core laptop nobody
           // waits for.
@@ -235,8 +265,13 @@ export class LocalEngine {
         let shown = ''
         let tps: number | null = null
         const calls = new Map<number, { id: string; name: string; arguments: string }>()
+        useEngine.getState().patch({ prefill: 0 })
         for await (const chunk of stream) {
+          if (chunk.prompt_progress?.total) useEngine.getState().patch({ prefill: chunk.prompt_progress.processed / chunk.prompt_progress.total })
           const delta = chunk.choices[0]?.delta
+          if (delta?.content || delta?.tool_calls) {
+            if (useEngine.getState().prefill !== null) useEngine.getState().patch({ prefill: null })
+          }
           if (delta?.content) {
             content += delta.content
             // Hide think blocks from the live preview too.
@@ -259,10 +294,15 @@ export class LocalEngine {
         return { content: stripThink(content).trim(), toolCalls: [...calls.values()].filter((c) => c.name), tokensPerSec: tps }
       } catch (e) {
         if (req.signal?.aborted) throw e
-        throw new GeneratorUnavailableError(`On-device generation failed: ${e instanceof Error ? e.message : String(e)}`)
+        const msg = e instanceof Error ? e.message : String(e)
+        // llama.cpp's own wording is accurate and useless to a student.
+        if (/exceeds the available context|kv_cache_full/.test(msg)) {
+          throw new GeneratorUnavailableError('That is too much for the on-device model to read at once. Try a shorter message, or detach the page (the @ chip above the message box).')
+        }
+        throw new GeneratorUnavailableError(`On-device generation failed: ${msg}`)
       } finally {
         this.touch()
-        if (useEngine.getState().state === 'generating') useEngine.getState().patch({ state: 'ready' })
+        useEngine.getState().patch({ prefill: null, ...(useEngine.getState().state === 'generating' ? { state: 'ready' as const } : {}) })
       }
     }
     // Serialise, and keep the chain alive after a failure.
@@ -276,6 +316,13 @@ export class LocalEngine {
     return {
       name: 'on-device',
       generate: async (system, user, onToken, shots, maxTokens) => {
+        // Dev only (scripts/ai-e2e.mjs): a canned reply, so the panel's scene flow can be
+        // tested end to end without waiting minutes on a CPU for a small model.
+        const fake = (globalThis as { __aiOpts?: { fakeReply?: string } }).__aiOpts?.fakeReply
+        if (fake && process.env.NODE_ENV !== 'production') {
+          for (const ch of fake.match(/[\s\S]{1,12}/g) ?? []) onToken?.(ch)
+          return fake
+        }
         const reply = await this.chat({
           messages: [{ role: 'system', content: system }, ...(shots ?? []), { role: 'user', content: user }],
           maxTokens,

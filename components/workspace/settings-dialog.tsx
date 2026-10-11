@@ -48,12 +48,14 @@ import {
   BookOpen,
   ExternalLink,
   CalendarDays,
+  BrainCircuit,
 } from 'lucide-react'
 import { PenSettings } from './pen-settings'
 import { HexColorSwatchPicker } from './hex-color-swatch-picker'
 import { BackupSettings } from './backup-settings'
 import { CalendarLinks } from './calendar-links'
 import { PrivacySettings } from './privacy-settings'
+import { AiAssistantSettings } from './ai-engine'
 import { StoragePanel } from './storage-panel'
 import { CloudStorageSection } from './cloud-storage'
 import { useSyncPrefsStore, type SyncCategory } from '@/lib/sync/sync-prefs'
@@ -1069,6 +1071,7 @@ type TabId =
   | 'packages'
   | 'pen'
   | 'simulation'
+  | 'assistant'
   | 'privacy'
   | 'docs'
   | 'about'
@@ -1095,6 +1098,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'packages', label: 'Packages', detail: 'Optional components', icon: Package, category: 'options' },
   { id: 'pen', label: 'Pen feel', detail: 'Stylus & pressure', icon: Edit3, category: 'tools' },
   { id: 'simulation', label: 'Simulation Engine', detail: 'Physics solver', icon: Activity, category: 'tools' },
+  { id: 'assistant', label: 'AI assistant', detail: 'Model, on-device, agents', icon: BrainCircuit, category: 'tools' },
   { id: 'privacy', label: 'Privacy', detail: 'Your data, terms', icon: ShieldCheck, category: 'tools' },
   { id: 'docs', label: 'Documentation', detail: 'The full user manual', icon: BookOpen, category: 'tools' },
   { id: 'about', label: 'About', detail: 'Version, credits', icon: HelpCircle, category: 'tools' },
@@ -1523,6 +1527,8 @@ export function SettingsDialog({
                 </SettingCard>
               </div>
             )}
+
+            {activeTab === 'assistant' && <AiAssistantSettings />}
 
             {activeTab === 'privacy' && <PrivacySettings />}
 

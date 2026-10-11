@@ -61,8 +61,10 @@ export function makeAct({ engine, ctx, emit, signal }: ActDeps) {
     }
 
     if (plan.kind === 'quick') {
-      const res = await step(plan.tool, {})
-      return { message: res.summary, toolSteps: steps }
+      await step(plan.tool, {})
+      // The chip already says what happened; repeating it as a sentence under
+      // the chip is noise.
+      return { message: '', toolSteps: steps }
     }
 
     const tools = plan.tools.map(toOai).filter((t): t is ToolDef => t !== null)
@@ -77,7 +79,10 @@ export function makeAct({ engine, ctx, emit, signal }: ActDeps) {
       const reply = await engine.chat({
         messages,
         tools,
-        toolChoice: 'auto',
+        // First round MUST call a tool. Left on 'auto', a small model answers a
+        // measurement question from imagination ("the mass is moving at 9.81 m/s")
+        // without ever looking at the simulation — measured on Qwen3-0.6B.
+        toolChoice: round === 0 ? 'required' : 'auto',
         maxTokens: 400,
         signal,
         onToken: (c) => emit({ event: 'token', data: c }),

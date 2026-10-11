@@ -29,9 +29,9 @@ export const MODELS: Record<Tier, ModelSpec> = {
     repo: 'unsloth/Qwen3-1.7B-GGUF',
     file: 'Qwen3-1.7B-Q4_K_M.gguf',
     sizeMB: 1107,
-    nCtx: 4096,
+    nCtx: 6144,
     kvBytesPerToken: 28 * 8 * 128 * 2,
-    blurb: 'Best answers. Needs ~1.6 GB of memory.',
+    blurb: 'Best answers.',
   },
   lite: {
     tier: 'lite',
@@ -39,9 +39,9 @@ export const MODELS: Record<Tier, ModelSpec> = {
     repo: 'unsloth/Qwen3-0.6B-GGUF',
     file: 'Qwen3-0.6B-Q4_K_M.gguf',
     sizeMB: 397,
-    nCtx: 4096,
+    nCtx: 6144,
     kvBytesPerToken: 28 * 8 * 128 * 2,
-    blurb: 'Fast and small. Needs ~0.7 GB of memory.',
+    blurb: 'Fast and small.',
   },
 }
 

@@ -304,3 +304,28 @@ export const sceneRedo = registerTool(
     },
   })
 )
+
+// ── Seeing the page ─────────────────────────────────────────────────────────
+
+export const sceneSnapshot = registerTool(
+  defineTool({
+    name: 'scene.snapshot',
+    summary: 'Take a picture of the page as it looks now',
+    help: 'Returns a JPEG so a vision-capable agent can SEE the result of what it built. Costs a render, so use it to check work, not on every step.',
+    effect: 'read',
+    keywords: ['screenshot', 'picture', 'snapshot', 'what does it look like', 'see the page'],
+    input: z.object({ scale: z.number().min(0.25).max(1).optional() }),
+    async run({ scale }, ctx) {
+      if (!ctx.pageId) return noPage()
+      const el = typeof document === 'undefined'
+        ? null
+        : (Array.from(document.querySelectorAll<HTMLElement>('[data-canvas-root]')).find((e) => e.dataset.canvasRoot === ctx.pageId) ?? null)
+      if (!el) return fail('The page is not on screen, so there is nothing to photograph. Open it first (page.open).')
+      // Loaded on demand: a 200 KB renderer nobody needs until an agent asks.
+      const { default: html2canvas } = await import('html2canvas-pro')
+      const canvas = await html2canvas(el, { scale: scale ?? 0.6, backgroundColor: null, logging: false, useCORS: true })
+      const image = canvas.toDataURL('image/jpeg', 0.72)
+      return ok(`Snapshot ${canvas.width}x${canvas.height}.`, { image, width: canvas.width, height: canvas.height })
+    },
+  })
+)

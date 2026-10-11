@@ -30,7 +30,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { renderMath } from '@/lib/text/katex-lazy'
 import { useKatexReady } from '@/lib/text/use-katex-ready'
 import { answerColumnSize, blocksToSimScript } from '@/lib/ai/explain'
-import { blocksToSlides, deckTitle } from '@/lib/ai/slides'
+import { createDeck } from '@/lib/ai/make-deck'
+import { streamAi, useServerOnce } from '@/lib/ai/transport'
+import { getTool } from '@/lib/tools/registry'
+import { AiEngineStrip, useRoute } from './ai-engine'
+import { useEngine } from '@/lib/ai/engine/store'
 import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
 import { viewportBounds } from '@/lib/scene/insertables'
@@ -195,6 +199,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
       alive = false
     }
   }, [])
+  const route = useRoute()
   const addTurn = useAiChat((s) => s.addTurn)
   const patchTurn = useAiChat((s) => s.patchTurn)
   const clear = useAiChat((s) => s.clear)
@@ -262,6 +267,11 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
         toast.error('Open a page first.')
         return false
       }
+      // executeSimScript writes with history:false throughout, so without this the
+      // scene had NO undo entry of its own — Ctrl+Z reverted whatever the user did
+      // BEFORE asking (found by e2e: one undo left 11 of 12 objects, and a second
+      // would have eaten earlier work). One snapshot = the whole scene is one Undo.
+      useDocStore.getState().pushHistory(pageId, true)
       try {
         // Placement is decided by geometry, not by the model: the script's
         // coordinates are a layout, and this is where it actually goes.
@@ -301,24 +311,13 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
   const makeSlides = useCallback(
     (turn: Pick<AiTurn, 'id' | 'prompt' | 'blocks'>) => {
       if (!turn.blocks?.length) return
-      const ws = useWorkspaceStore.getState()
-      const parentId = pageId ? ws.nodes[pageId]?.parentId : null
-      if (!parentId) {
+      const made = createDeck(pageId, turn.blocks, turn.prompt)
+      if (!made) {
         toast.error('Open a notebook page first.')
         return
       }
-      // Name the page after the deck's subject, not the request: the raw
-      // prompt showed up in the sidebar as "make me slides on different
-      // states of matter and their related gr…".
-      const markdown = turn.blocks.map((b) => b.content).join('\n\n')
-      const id = ws.addPageIn(parentId, deckTitle(markdown, turn.prompt) || 'Untitled Presentation', 'pptx')
-      const slides = blocksToSlides(turn.blocks, turn.prompt)
-      for (const objects of slides) {
-        const slideId = useWorkspaceStore.getState().addDocSheet(id)
-        for (const obj of objects) useDocStore.getState().addObject(slideId, obj)
-      }
       patchTurn(turn.id, { slidesMade: true })
-      toast.success(`${slides.length} slide${slides.length === 1 ? '' : 's'} created.`)
+      toast.success(`${made.slides} slide${made.slides === 1 ? '' : 's'} created.`)
     },
     [pageId, patchTurn]
   )
@@ -462,111 +461,90 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             ),
           }
         })()
-        const res = await fetch('/api/ai', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          signal: controller.signal,
-          body: JSON.stringify({
-            // The model sees the file contents folded in; the turn keeps the
-            // user's own words, so the thread stays readable.
-            prompt: withAttachments(prompt, sent),
-            stream: true,
-            ...(model ? { model } : {}),
-            ...(ctx ?? {}),
-            // What was said before, so "add a graph to that" resolves. Read
-            // at send time rather than from the render closure: the turn we
-            // just added is already in the store, and a stale closure would
-            // silently drop the most recent exchange — the one a follow-up
-            // almost always refers to. Only settled turns are useful context,
-            // so the in-flight one (and any failure) is filtered out.
-            history: useAiChat
-              .getState()
-              .turns.filter((t) => t.id !== turnId && t.status === 'ok')
-              .map((t) => ({ prompt: t.prompt, answer: t.answer, script: t.script })),
-            pageContext: page
-              ? {
-                  variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
-                  objectCount: Object.keys(page.objects).length,
-                }
-              : undefined,
-          }),
-        })
-        const reader = res.body?.getReader()
-        if (!reader) throw new Error('No response body')
-
-        const decoder = new TextDecoder()
-        let buffer = ''
+        // The panel does not care WHERE the model runs — on this device or on
+        // the server — only that events arrive in the same shape.
+        let lane: string = 'simulate'
         let live = ''
-        // Which lane the router picked, sent before the first token so prose
-        // streams into the answer pane and script into the code pane — a
-        // derivation shown in the SimScript highlighter reads as garbage.
-        let lane: 'simulate' | 'explain' | 'both' = 'simulate'
-        for (;;) {
-          const { done, value } = await reader.read()
-          if (done) break
-          buffer += decoder.decode(value, { stream: true })
-          // SSE frames are blank-line separated; the tail may be partial.
-          const frames = buffer.split('\n\n')
-          buffer = frames.pop() ?? ''
-          for (const frame of frames) {
-            const evt = /^event:\s*(.+)$/m.exec(frame)?.[1]
-            const raw = /^data:\s*([\s\S]*)$/m.exec(frame)?.[1]
-            if (!evt || raw === undefined) continue
-            if (evt === 'intent') {
-              lane = JSON.parse(raw) as typeof lane
-              patchTurn(turnId, { intent: lane })
-            } else if (evt === 'token') {
-              live += JSON.parse(raw) as string
-              // Live text is a PREVIEW — unverified, never executed.
-              patchTurn(turnId, lane === 'simulate' ? { script: live } : { answer: live })
-            } else if (evt === 'done') {
-              const data = JSON.parse(raw) as {
-                message: string
-                script?: string
-                answer?: string
-                blocks?: { kind: 'text' | 'formula'; content: string }[]
-                editPlan?: EditPlan
+        const steps: NonNullable<AiTurn['toolSteps']> = []
+        const request = {
+          // The model sees the file contents folded in; the turn keeps the
+          // user's own words, so the thread stays readable.
+          prompt: withAttachments(prompt, sent),
+          ...(model ? { model } : {}),
+          ...(ctx ?? {}),
+          // What was said before, so "add a graph to that" resolves. Read at
+          // send time rather than from the render closure: the turn we just
+          // added is already in the store, and a stale closure would silently
+          // drop the most recent exchange — the one a follow-up almost always
+          // refers to. Only settled turns are useful context, so the
+          // in-flight one (and any failure) is filtered out.
+          history: useAiChat
+            .getState()
+            .turns.filter((t) => t.id !== turnId && t.status === 'ok')
+            .map((t) => ({ prompt: t.prompt, answer: t.answer, script: t.script })),
+          pageContext: page
+            ? {
+                variables: page.variables.map((v) => ({ name: v.name, expr: v.expr })),
+                objectCount: Object.keys(page.objects).length,
               }
-              if (data.editPlan) {
-                // A plan is a PROPOSAL. It is verified but not applied — the
-                // user confirms it below, and applying re-verifies against
-                // the page as it is at that moment.
-                patchTurn(turnId, {
-                  editPlan: data.editPlan,
-                  message: data.message,
-                  status: 'ok',
-                })
-              } else if (data.script || data.answer) {
-                patchTurn(turnId, {
-                  // Clear the streamed preview when this lane produced no
-                  // script, or a half-written scene would linger on screen.
-                  script: data.script ?? '',
-                  answer: data.answer,
-                  blocks: data.blocks,
-                  message: data.message,
-                  status: 'ok',
-                })
-                if (auto && data.script && pageId) {
-                  // Same clamped placement as the Add button. This used to
-                  // pass viewportCenter directly, which puts the scene's
-                  // TOP-LEFT at the centre — so it always hung off the
-                  // bottom-right, and off a slide entirely.
-                  const spot = placeAnswerAndScene(null, true, viewportBounds(pageId)).scene
-                  if (spot) runScript(data.script, turnId, spot)
-                }
-                // "Make me slides on X" asked for a deck, not for a button
-                // that makes one — build it now. Gated on wantsSlides so an
-                // ordinary derivation still just answers; the manual "Make
-                // slides" action stays for turning any answer into a deck.
-                if (data.blocks?.length && wantsSlides(prompt)) {
-                  makeSlides({ id: turnId, prompt, blocks: data.blocks })
-                }
-              } else {
-                patchTurn(turnId, { message: data.message, status: 'error' })
+            : undefined,
+        }
+        await streamAi(request, controller.signal, (ev) => {
+          if (ev.event === 'intent') {
+            // Which lane the router picked, sent before the first token so
+            // prose streams into the answer pane and script into the code
+            // pane — a derivation shown in the SimScript highlighter reads as
+            // garbage.
+            lane = ev.data
+            patchTurn(turnId, { intent: ev.data })
+          } else if (ev.event === 'token') {
+            live += ev.data
+            // Live text is a PREVIEW — unverified, never executed.
+            patchTurn(turnId, lane === 'simulate' ? { script: live } : { answer: live })
+          } else if (ev.event === 'tool') {
+            steps.push(ev.data)
+            patchTurn(turnId, { toolSteps: [...steps] })
+          } else if (ev.event === 'done') {
+            const data = ev.data
+            if (data.editPlan) {
+              // A plan is a PROPOSAL. It is verified but not applied — the user
+              // confirms it below, and applying re-verifies against the page as
+              // it is at that moment.
+              patchTurn(turnId, { editPlan: data.editPlan, message: data.message, status: 'ok' })
+            } else if (data.toolSteps) {
+              // The assistant ACTED (ran, measured, opened). The tool chips are
+              // the record; the message is its plain-language reply.
+              patchTurn(turnId, { toolSteps: data.toolSteps, answer: data.message, message: undefined, script: '', status: 'ok' })
+            } else if (data.script || data.answer) {
+              patchTurn(turnId, {
+                // Clear the streamed preview when this lane produced no script,
+                // or a half-written scene would linger on screen.
+                script: data.script ?? '',
+                answer: data.answer,
+                blocks: data.blocks,
+                message: data.message,
+                status: 'ok',
+              })
+              if (auto && data.script && pageId) {
+                // Same clamped placement as the Add button. This used to pass
+                // viewportCenter directly, which puts the scene's TOP-LEFT at
+                // the centre — so it always hung off the bottom-right, and off
+                // a slide entirely.
+                const spot = placeAnswerAndScene(null, true, viewportBounds(pageId)).scene
+                if (spot) runScript(data.script, turnId, spot)
               }
+              // "Make me slides on X" asked for a deck, not for a button that
+              // makes one — build it now. Gated on wantsSlides so an ordinary
+              // derivation still just answers; the manual "Make slides" action
+              // stays for turning any answer into a deck.
+              if (data.blocks?.length && wantsSlides(prompt)) {
+                makeSlides({ id: turnId, prompt, blocks: data.blocks })
+              }
+            } else {
+              patchTurn(turnId, { message: data.message, status: 'error' })
             }
           }
-        }
+        })
       } catch (e) {
         if (controller.signal.aborted) {
           patchTurn(turnId, { status: 'error', message: 'Stopped.' })
@@ -712,6 +690,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   turn={t}
                   onApplyEdit={applyEdit}
                   onDiscardEdit={(turn) => patchTurn(turn.id, { editPlan: undefined })}
+                  onUndo={() => pageId && useDocStore.getState().undo(pageId)}
                   docPage={pageId ? docPages[pageId] : undefined}
                   // A written answer is placed as text/formula objects, via
                   // the SAME executeSimScript path a scene goes through — so
@@ -761,6 +740,12 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                     if (t.script && spots.scene) runScript(t.script, t.id, spots.scene)
                   }}
                   onRetry={() => void send(t.prompt)}
+                  onServer={() => {
+                    // Cancel the slow on-device attempt, then ask the server — once.
+                    abortRef.current?.abort()
+                    useServerOnce()
+                    setTimeout(() => void send(t.prompt), 400)
+                  }}
                   onMakeSlides={t.blocks?.length ? () => makeSlides(t) : undefined}
                 />
               ))
@@ -796,8 +781,9 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             name and a two-segment toggle cannot share a line — unwrapped, the
             toggle ran off the right edge. The Select takes the full row and
             the toggle drops beneath it instead. */}
+        <AiEngineStrip />
         <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
-          {models.models.length > 0 && (
+          {route.where === 'server' && models.models.length > 0 && (
             // The app's own Select, not a native <select>: a native one paints
             // the OS menu, which looks nothing like every other dropdown in
             // this workspace. Radix gives the same popover, ticks and hover
@@ -1021,16 +1007,20 @@ function AnswerBlock({ source, streaming }: { source: string; streaming?: boolea
 }
 
 function Turn({
-  turn, onAdd, onRetry, onMakeSlides, onApplyEdit, onDiscardEdit, docPage,
+  turn, onAdd, onRetry, onServer, onMakeSlides, onApplyEdit, onDiscardEdit, onUndo, docPage,
 }: {
   turn: AiTurn
   onAdd: () => void
   onRetry: () => void
+  /** Abandon the on-device attempt and ask the server instead, for this one request. */
+  onServer: () => void
   /** Only set for a turn that has written blocks — a pure scene has nothing
    *  to put on a slide, so there's no button to show. */
   onMakeSlides?: () => void
   onApplyEdit: (turn: AiTurn) => void
   onDiscardEdit: (turn: AiTurn) => void
+  /** Undo what the tools on this turn changed — one Ctrl+Z, same as the keyboard. */
+  onUndo: () => void
   /** The live page, so an op's object id renders as that object's name. */
   docPage: PageDoc | undefined
 }) {
@@ -1100,10 +1090,44 @@ function Turn({
             )}
           </div>
         )}
-        {streaming && !turn.script && !turn.answer && (
+        {/* What the assistant DID. Every tool call is visible — acting on your
+            notebook is never silent — and a change is one Undo away. */}
+        {turn.toolSteps && turn.toolSteps.length > 0 && (
+          <div className="space-y-1">
+            {turn.toolSteps.map((st, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'flex items-start gap-1.5 rounded-md border px-2 py-1 text-ui-xs',
+                  st.ok ? 'border-border/60 bg-card/50' : 'border-[var(--accent-rose)]/40 bg-[var(--accent-rose)]/5'
+                )}
+              >
+                {st.ok ? (
+                  <Check className="mt-px h-3 w-3 shrink-0 text-[var(--accent-mint)]" />
+                ) : (
+                  <X className="mt-px h-3 w-3 shrink-0 text-[var(--accent-rose)]" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <code className="font-mono text-ui-2xs text-muted-foreground">{st.name}</code>
+                  <span className="block break-words text-foreground/90">{st.summary}</span>
+                </span>
+              </div>
+            ))}
+            {turn.toolSteps.some((st) => st.ok && getTool(st.name)?.effect === 'write') && (
+              <button
+                type="button"
+                onClick={onUndo}
+                className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-ui-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              >
+                <RotateCcw className="h-3 w-3" /> Undo
+              </button>
+            )}
+          </div>
+        )}
+        {streaming && !turn.script && !turn.answer && !turn.toolSteps?.length && (
           <div className="flex items-center gap-2 text-ui-xs text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
-            Thinking&hellip;
+            <Thinking onServer={onServer} />
           </div>
         )}
 
@@ -1188,6 +1212,31 @@ function Turn({
         )}
       </div>
     </div>
+  )
+}
+
+/** "Thinking…" with a clock. On a laptop CPU the model spends tens of seconds
+ *  READING the request before the first word appears; a bare spinner reads as a
+ *  hang, a counter (and the model's own reading progress) reads as work. */
+function Thinking({ onServer }: { onServer: () => void }) {
+  const [secs, setSecs] = useState(0)
+  const prefill = useEngine((s) => s.prefill)
+  const onDevice = useEngine((s) => s.state === 'generating')
+  const cpu = useEngine((s) => s.accel === 'cpu')
+  useEffect(() => {
+    const t = setInterval(() => setSecs((n) => n + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return (
+    <span className="tabular-nums">
+      {prefill !== null && prefill > 0 ? `Reading your request… ${Math.round(prefill * 100)}%` : 'Thinking…'}
+      {secs >= 4 && <span className="ml-1.5 text-muted-foreground/70">{secs}s</span>}
+      {onDevice && cpu && secs >= 20 && (
+        <button type="button" onClick={onServer} className="ml-2 underline-offset-2 hover:underline" title="Send just this request to the server instead of running it on this device">
+          Too slow? Use the server
+        </button>
+      )}
+    </span>
   )
 }
 
