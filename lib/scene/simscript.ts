@@ -834,6 +834,10 @@ export function executeSimScript(
         plot_style: str(style),
       }
       store().addObject(pageId, newGraph, { history: false })
+      // A graph this script made is part of the scene: it must be moved with the
+      // rest by the placement pass, and composed beside the scene rather than left
+      // wherever it was dropped before the circuit was laid out.
+      if (!graphObj && !created.includes(newGraph.id)) created.push(newGraph.id)
     },
   }
 
@@ -1226,29 +1230,92 @@ export function executeSimScript(
     }
   }
 
-  // ── Unplaced cards stack, they don't pile up ──────────────────────────────
-  // A card created without x/y lands at the origin — and so does the next one,
-  // and the answer text already sitting there. Anything the script didn't
-  // position explicitly is pushed clear of what's already on the page, in
-  // creation order, so a script that writes two formulas gets two readable
-  // formulas instead of one illegible overlap. Only cards move: a body or a
-  // connector's position is physics, not layout.
+  // ── Composition: where the explanation, the graph and the controls go ─────
+  // A script that builds a scene and writes graph.plot(...), a note and a slider
+  // WITHOUT coordinates is describing WHAT is on the sheet, not where. Where is
+  // decided here, once, the same way every time — so a model never has to do
+  // arithmetic about a board it cannot see, and every generated scene reads the
+  // same: the thing itself on the left, its graph and explanation in a column on
+  // the right, the knobs underneath.
+  //
+  //     ┌────────────────┐  ┌────────┐
+  //     │   the scene    │  │ graph  │
+  //     │                │  ├────────┤
+  //     └────────────────┘  │ note   │
+  //     [ slider ] [ slider ]└────────┘
+  //
+  // Only cards the script did NOT position are moved, and only when there is a
+  // scene to compose around; otherwise the older "stack, don't pile up" rule runs
+  // (an answer column, a lone formula).
   const CARD_KINDS = new Set(['formula', 'text', 'note', 'graph', 'chart', 'table', 'gridtable', 'surface3d', 'code', 'cashflow', 'truthtable', 'steplab'])
-  const movable = created.filter((id) => {
+  const CONTROL_KINDS = new Set(['slider', 'button', 'trigger'])
+  const unplaced = created.filter((id) => {
     const o = store().pages[pageId]?.objects?.[id]
-    return !!o && !explicitPos.has(id) && CARD_KINDS.has(o.geometry.kind)
+    return !!o && !explicitPos.has(id) && (CARD_KINDS.has(o.geometry.kind) || CONTROL_KINDS.has(o.geometry.kind))
   })
-  if (movable.length > 0) {
+  const unplacedSet = new Set(unplaced)
+  const heroObjs = created
+    .map((id) => store().pages[pageId]?.objects?.[id])
+    .filter((o): o is SceneObject => !!o && !unplacedSet.has(o.id) && !CARD_KINDS.has(o.geometry.kind) && !CONTROL_KINDS.has(o.geometry.kind))
+  const rectOfObj = (o: SceneObject) => ({ x1: o.position.x, y1: o.position.y, x2: o.position.x + o.size.w, y2: o.position.y + o.size.h })
+
+  if (unplaced.length > 0 && heroObjs.length > 0) {
+    const rs = heroObjs.map(rectOfObj)
+    const H = { x1: Math.min(...rs.map((r) => r.x1)), y1: Math.min(...rs.map((r) => r.y1)), x2: Math.max(...rs.map((r) => r.x2)), y2: Math.max(...rs.map((r) => r.y2)) }
+    const COL_W = 380
+    const GAP = 20
+    const get = (id: string) => store().pages[pageId]!.objects[id]
+    const set = (id: string, patch: Partial<SceneObject>) => store().updateObject(pageId, id, patch, { history: false })
+    const DATA = new Set(['graph', 'chart', 'table', 'gridtable', 'surface3d', 'code', 'cashflow', 'truthtable', 'steplab'])
+    const data = unplaced.filter((id) => DATA.has(get(id).geometry.kind))
+    const words = unplaced.filter((id) => ['note', 'text', 'formula'].includes(get(id).geometry.kind))
+    const controls = unplaced.filter((id) => CONTROL_KINDS.has(get(id).geometry.kind))
+    // A wide scene leaves no room beside it: the column goes underneath instead.
+    const beside = H.x2 - H.x1 <= 780
+    const colX = beside ? H.x2 + 60 : H.x1
+    let y = beside ? H.y1 : H.y2 + 60 + (controls.length > 0 ? 90 : 0)
+    const stack = (ids: string[], w: number) => {
+      for (const id of ids) {
+        const o = get(id)
+        let h = o.size.h
+        if (['note', 'text'].includes(o.geometry.kind)) {
+          // The renderer does not grow a note to fit its text: size it from the text.
+          const raw = o.parameters.text?.kind === 'string' ? o.parameters.text.value : ''
+          const perLine = Math.max(20, Math.floor((w - 28) / 7.4))
+          const lines = raw.split('\n').reduce((n, ln) => n + Math.max(1, Math.ceil(ln.length / perLine)), 0)
+          h = Math.max(90, Math.min(380, lines * 21 + 48))
+        }
+        const width = o.geometry.kind === 'formula' ? Math.min(o.size.w, w) : w
+        set(id, { position: { x: colX, y }, size: { w: width, h } })
+        y += h + GAP
+      }
+    }
+    stack(data, COL_W)
+    stack(words, COL_W)
+    // Knobs: a row under the scene, wrapping at the scene's width (at least a slider-and-a-half).
+    const rowW = Math.max(H.x2 - H.x1, 520)
+    let cx = H.x1
+    let cy = H.y2 + 40
+    let rowH = 0
+    for (const id of controls) {
+      const o = get(id)
+      if (cx > H.x1 && cx + o.size.w > H.x1 + rowW) { cx = H.x1; cy += rowH + GAP; rowH = 0 }
+      set(id, { position: { x: cx, y: cy } })
+      cx += o.size.w + GAP
+      rowH = Math.max(rowH, o.size.h)
+    }
+  } else if (unplaced.some((id) => CARD_KINDS.has(store().pages[pageId]!.objects[id].geometry.kind))) {
+    // No scene to compose around: just keep unplaced cards from piling up.
+    const movable = unplaced.filter((id) => CARD_KINDS.has(store().pages[pageId]!.objects[id].geometry.kind))
     const movableSet = new Set(movable)
-    const rectOf = (o: SceneObject) => ({ x1: o.position.x, y1: o.position.y, x2: o.position.x + o.size.w, y2: o.position.y + o.size.h })
     const GAP = 16
     const occupied = Object.values(store().pages[pageId]?.objects ?? {})
       .filter((o) => !movableSet.has(o.id))
-      .map(rectOf)
+      .map(rectOfObj)
     for (const id of movable) {
       const o = store().pages[pageId]?.objects?.[id]
       if (!o) continue
-      let r = rectOf(o)
+      let r = rectOfObj(o)
       // Each push can slide it into something else, so keep going until it
       // sits clear (bounded: every step moves strictly down past one box).
       for (let guard = 0; guard < occupied.length + 1; guard++) {
