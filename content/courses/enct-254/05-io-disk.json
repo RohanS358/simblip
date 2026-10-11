@@ -1,14 +1,109 @@
 {
   "title": "I/O software and disk scheduling",
   "kicker": "ENCT 254 · Operating System · Chapter 4 (I/O)",
-  "subtitle": "Devices are slow and strange. The OS hides that with layers — and orders disk requests to keep the head from wandering.",
+  "subtitle": "Devices are slow and strange. The OS hides that with layers — and orders disk requests to keep the head from wandering. This chapter covers device controllers, the three ways to move data, driver layering, disk arithmetic, the six scheduling algorithms, RAID and flash.",
   "sections": [
     {
-      "id": "layers",
-      "locator": "4.6",
-      "title": "The I/O software stack",
-      "eyebrow": "Layers",
-      "body": "<p>Device-independent code (naming, buffering, protection) sits above a <b>driver</b> that knows one device's registers, which talks to the controller and raises an <b>interrupt</b> when a transfer ends. Three ways to move data: <em class=\"term\">programmed I/O</em> (the CPU polls), <em class=\"term\">interrupt-driven</em> (the CPU does other work and is interrupted), and <em class=\"term\">DMA</em> (a controller copies the whole block to memory and interrupts once).</p>",
+      "id": "devices",
+      "locator": "5.1",
+      "title": "Devices and their controllers",
+      "eyebrow": "Hardware side",
+      "body": "<p>An I/O device has two parts. The <b>device</b> itself does the mechanical or electronic work — spin a platter, scan a key matrix, modulate a signal. The <b>controller</b> (or adapter) is the electronics that the computer talks to: a small chip with <b>registers</b> — a status register (“busy”, “error”, “data ready”), a command register, and a data buffer. The CPU controls the device by reading and writing those registers, either through special I/O instructions on a separate I/O address space (<em>port-mapped I/O</em>) or by ordinary loads and stores to addresses that are wired to the controller instead of RAM (<em>memory-mapped I/O</em>, the common approach today).</p><p>Devices differ enormously, which is the OS designer’s headache. By how data is moved they are <b>block devices</b> (disks, SSDs: data in fixed-size blocks, random access possible) or <b>character devices</b> (keyboards, serial ports: a stream of bytes, no seeking). By speed they span nine orders of magnitude, as the table shows. The OS’s job is to give them all one uniform interface — in Unix, “everything is a file”: <code>open</code>, <code>read</code>, <code>write</code>, <code>close</code> work on a disk file, a terminal and a network socket alike — while handling the differences below that line.</p>",
+      "questions": [
+        {
+          "id": "mmio",
+          "prompt": "What is memory-mapped I/O?",
+          "choices": [
+            {
+              "text": "Controller registers appear at ordinary memory addresses, so normal load/store instructions talk to the device.",
+              "correct": true
+            },
+            {
+              "text": "Copying a device’s data into RAM with DMA."
+            },
+            {
+              "text": "Mapping a file into a process’s address space."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "No special I/O instructions are needed; protection can be done with the memory-management hardware."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is DMA, a different idea."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is mmap for files, unrelated to device registers."
+            }
+          ]
+        },
+        {
+          "id": "blockchar",
+          "prompt": "Which of these is a character device?",
+          "choices": [
+            {
+              "text": "A hard disk."
+            },
+            {
+              "text": "An SSD."
+            },
+            {
+              "text": "A keyboard.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Disks are block devices."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "SSDs are block devices too."
+            },
+            {
+              "title": "Correct.",
+              "body": "It delivers a stream of bytes with no random access."
+            }
+          ]
+        }
+      ],
+      "figures": [
+        {
+          "id": "scr1",
+          "caption": "Figure 5.1.1 — device speeds",
+          "note": "Nine orders of magnitude separate a keyboard from a fast network card — one I/O design cannot suit them all.",
+          "script": "var t = create(\"table\", { headers: \"Device;Typical data rate;Interaction style\", data: [[\"Keyboard\",\"10 B/s\",\"character, interrupt per key\"],[\"Mouse / touch\",\"100 B/s\",\"character, interrupt\"],[\"Printer\",\"100 KB/s\",\"block, spooled\"],[\"Hard disk\",\"100–200 MB/s\",\"block, DMA\"],[\"SATA SSD\",\"500 MB/s\",\"block, DMA\"],[\"NVMe SSD\",\"3–7 GB/s\",\"block, queues + DMA\"],[\"10 Gb Ethernet\",\"1.2 GB/s\",\"frame, DMA + interrupts\"]], summary: \"None\" });"
+        }
+      ]
+    },
+    {
+      "id": "techniques",
+      "locator": "5.2",
+      "title": "Three ways to move data: polling, interrupts, DMA",
+      "eyebrow": "Mechanisms",
+      "body": "<p>Suppose a program wants 4 KB from a device. In <b>programmed I/O</b> (polling) the CPU repeatedly reads the status register until it says “ready”, then copies one byte or word, and repeats for the whole block. It is simple and has no latency of its own, but the CPU does nothing else while the device works — hopeless for slow devices. In <b>interrupt-driven I/O</b> the CPU starts the operation and goes off to run another process; when the device is ready it raises an interrupt, a handler copies one unit of data, and the CPU returns to its work. Waiting costs nothing, but the CPU still copies every byte and takes one interrupt per unit — at high data rates the interrupts alone can saturate the processor.</p><p><em class=\"term\">Direct memory access</em> (DMA) solves this for block devices. The driver tells a DMA controller the memory address, the byte count and the direction; the controller then moves the whole block between the device and RAM on its own, stealing bus cycles, and interrupts the CPU <em>once</em> at the end. For a 4 KB transfer interrupt-driven I/O might take thousands of interrupts, DMA takes one. The CPU only sets up and cleans up. The figure shows the sequence; the worked example puts numbers on the saving.</p>",
+      "worked": [
+        {
+          "toc": "Per byte",
+          "why": "A device delivers 100,000 bytes per second. Interrupt-driven I/O takes one interrupt per byte, each costing the CPU 5 µs. What fraction of the CPU is spent on interrupts?",
+          "math": "100{,}000\\times5\\,\\mu\\text{s}=0.5\\ \\text{s per second}"
+        },
+        {
+          "toc": "DMA rate",
+          "why": "Half the CPU. Now use DMA with 4,096-byte blocks and the same 5 µs per interrupt.",
+          "math": "\\tfrac{100{,}000}{4096}\\approx24.4\\ \\text{interrupts/s}"
+        },
+        {
+          "toc": "Cost",
+          "why": "Time spent: 24.4 × 5 µs ≈ 122 µs per second.",
+          "math": "\\approx0.012\\%\\ \\text{of the CPU}",
+          "hero": true
+        }
+      ],
       "questions": [
         {
           "id": "dma",
@@ -39,28 +134,156 @@
               "body": "A driver still sets up the transfer."
             }
           ]
+        },
+        {
+          "id": "pollok",
+          "prompt": "When is polling a reasonable choice?",
+          "choices": [
+            {
+              "text": "For a hard disk read."
+            },
+            {
+              "text": "Whenever the CPU has nothing else to do."
+            },
+            {
+              "text": "When the device responds within a few cycles, so the busy-wait is shorter than the cost of taking an interrupt.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "A disk wait is millions of cycles; polling would waste them."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Even then interrupts allow the CPU to sleep and save power."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is also used by very high-speed network cards under heavy load."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "dia1",
-          "caption": "Figure 4.6.1 — a DMA read",
+          "id": "dia2",
+          "caption": "Figure 5.2.1 — a DMA read",
           "note": "With DMA the CPU is free during the copy.",
           "script": "diagram(\"mode: sequence\\n[Process] as p\\n[Driver] as d\\n[Controller + DMA] as c\\np -> d : read(block 42)\\nd -> c : start transfer\\nc -> c : copy disk → memory\\nc --> d : interrupt (done)\\nd --> p : data ready\");"
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-dma",
+          "prompt": "<p>A disk transfers 8 MB/s in 512-byte blocks and each interrupt costs 10 µs of CPU. Compute the CPU load from interrupts with one interrupt per block (DMA), and with one interrupt per byte.</p>",
+          "answer": "<b>Per block:</b> 8,000,000 / 512 = 15,625 interrupts/s × 10 µs = 0.156 s/s = <b>15.6 %</b>. <b>Per byte:</b> 8,000,000 × 10 µs = 80 s per second — impossible: the CPU cannot keep up (8000 % load). DMA is essential."
+        }
+      ]
+    },
+    {
+      "id": "layers",
+      "locator": "5.3",
+      "title": "The I/O software stack",
+      "eyebrow": "Layers",
+      "body": "<p>I/O software is organised in layers so that the ugly, device-specific parts are confined to the bottom. From the hardware upwards: <b>interrupt handlers</b> do the minimum urgent work and wake the driver; <b>device drivers</b> know one family of devices — its registers, its command set, its quirks — and translate generic requests (“read block 42”) into controller commands; the <b>device-independent layer</b> provides what all devices need — a uniform interface and naming (<code>/dev/sda</code>), buffering, caching, error reporting, protection and allocation of dedicated devices; and <b>user-level libraries</b> and spoolers sit on top.</p><p>Three services in the middle layer deserve their own names. <b>Buffering</b> keeps data in a memory area while it moves between a device and a process, smoothing speed mismatches and allowing one request to overlap the next (double buffering). <b>Caching</b> keeps recently used data in fast memory (the buffer cache holds disk blocks so repeated reads never reach the disk). <b>Spooling</b> queues output for a device that cannot be shared — a printer — so that many programs can “print” at once and a daemon feeds the printer one job at a time (which also removes the mutual-exclusion condition for deadlock). I/O calls may be <b>blocking</b> (the process sleeps until completion — simplest), <b>non-blocking</b> (returns immediately with whatever is available) or <b>asynchronous</b> (returns immediately and signals when finished, as in <code>io_uring</code> or Windows overlapped I/O).</p>",
+      "questions": [
+        {
+          "id": "driver",
+          "prompt": "What is the job of a device driver?",
+          "choices": [
+            {
+              "text": "To translate generic requests from the kernel into the specific commands and register accesses of one device family.",
+              "correct": true
+            },
+            {
+              "text": "To schedule processes on the CPU."
+            },
+            {
+              "text": "To store files on the disk."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It is the only code that needs to know the device’s details; the rest of the OS sees a uniform interface."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is the scheduler."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is the file system; the driver only moves blocks."
+            }
+          ]
+        },
+        {
+          "id": "spool",
+          "prompt": "Why is spooling used for printers?",
+          "choices": [
+            {
+              "text": "A printer cannot be shared, so jobs are queued on disk and a daemon prints them one at a time, letting programs continue.",
+              "correct": true
+            },
+            {
+              "text": "To make the printer faster."
+            },
+            {
+              "text": "To avoid the need for a driver."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "It also prevents deadlock over the printer by removing mutual exclusion from the program’s view."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "The printer’s speed is unchanged."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "The daemon still uses a driver."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-buf",
+          "prompt": "<p>Distinguish buffering, caching and spooling in one line each.</p>",
+          "answer": "<b>Buffering:</b> temporary holding of data in transit between producer and consumer of different speeds. <b>Caching:</b> keeping a copy of frequently used data in faster storage to avoid slower access. <b>Spooling:</b> queuing a job’s output on disk for a non-shareable device that processes it later."
         }
       ]
     },
     {
       "id": "disk",
-      "locator": "4.7",
+      "locator": "5.4",
       "title": "How a disk spends its time",
       "eyebrow": "Mechanics",
-      "body": "<p>A magnetic disk access is <em class=\"term\">seek time</em> (move the arm to the cylinder) + <em class=\"term\">rotational latency</em> (wait for the sector to come under the head) + <em class=\"term\">transfer time</em>. Seek dominates, so schedulers reorder requests to shorten head travel. SSDs have no arm, so these algorithms matter for spinning disks.</p>",
+      "body": "<p>A magnetic disk is a stack of spinning platters with one head per surface on a common arm. A <b>track</b> is a ring on one surface; the tracks at the same arm position on all surfaces form a <b>cylinder</b>; a track is divided into <b>sectors</b>, the smallest unit transferred (512 bytes historically, 4 KB now). Reading or writing a sector takes three phases. <em class=\"term\">Seek time</em>: move the arm to the right cylinder — typically 4–12 ms and by far the slowest part. <em class=\"term\">Rotational latency</em>: wait for the wanted sector to rotate under the head — on average half a revolution. <em class=\"term\">Transfer time</em>: read the sector as it passes — tiny for one sector. Access time = seek + latency + transfer.</p><p>The numbers explain two facts about disks. <b>Random access is slow</b>: each random 4 KB read costs about 13 ms, so a disk sustains roughly 75 random operations per second regardless of how fast its sequential transfer rate is. <b>Sequential access is fast</b>: after one seek and latency the head streams data at 100–200 MB/s. Hence every file system tries to keep a file’s blocks contiguous, and every scheduler tries to reduce arm movement. SSDs have no arm, so these algorithms matter for spinning disks only.</p>",
       "worked": [
         {
-          "toc": "Average rotational latency",
+          "toc": "Rotational latency",
           "why": "A 7200 rpm disk turns once every 60/7200 s = 8.33 ms. On average the wanted sector is half a turn away.",
-          "math": "\\text{latency}=\\tfrac12\\cdot 8.33\\ \\text{ms}\\approx 4.17\\ \\text{ms}",
+          "math": "\\text{latency}=\\tfrac12\\cdot 8.33\\ \\text{ms}\\approx 4.17\\ \\text{ms}"
+        },
+        {
+          "toc": "Transfer",
+          "why": "Average seek time 9 ms. Transfer of one 4 KB block at 150 MB/s: 4096 / 150,000,000 s.",
+          "math": "t_{xfer}\\approx0.027\\ \\text{ms}"
+        },
+        {
+          "toc": "Access time",
+          "why": "Add the three components.",
+          "math": "9+4.17+0.03=13.2\\ \\text{ms}"
+        },
+        {
+          "toc": "IOPS",
+          "why": "Random operations per second the disk can sustain:",
+          "math": "\\tfrac{1}{0.0132}\\approx76\\ \\text{IOPS}",
           "hero": true
         }
       ],
@@ -94,15 +317,70 @@
               "body": "Arm movement is the largest term, and it depends on the order requests are served."
             }
           ]
+        },
+        {
+          "id": "rpm",
+          "prompt": "Doubling a disk’s rotational speed from 7200 to 14,400 rpm changes the average rotational latency by what factor?",
+          "choices": [
+            {
+              "text": "It halves (4.17 ms → 2.08 ms).",
+              "correct": true
+            },
+            {
+              "text": "It doubles."
+            },
+            {
+              "text": "It stays the same."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "Latency is half a revolution, and a revolution takes half as long."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "Faster rotation shortens the wait."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "Latency depends directly on rotation time."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-rot",
+          "prompt": "<p>A 5400 rpm disk has average seek 12 ms and a transfer rate of 80 MB/s. How long does it take to read one 64 KB block at a random location?</p>",
+          "answer": "Revolution = 60/5400 = 11.11 ms; latency = 5.56 ms. Transfer = 65,536 / 80,000,000 = 0.82 ms. Total = 12 + 5.56 + 0.82 = <b>18.4 ms</b>."
         }
       ]
     },
     {
       "id": "sched",
-      "locator": "4.8",
-      "title": "FCFS, SSTF, SCAN, LOOK",
+      "locator": "5.5",
+      "title": "Disk scheduling: FCFS, SSTF, SCAN, C-SCAN, LOOK, C-LOOK",
       "eyebrow": "Policies",
-      "body": "<p>Head at 53, requests 98 183 37 122 14 124 65 67 on a 200-cylinder disk. <em class=\"term\">FCFS</em> serves in arrival order: <b>640</b> cylinders. <em class=\"term\">SSTF</em> always picks the nearest request: <b>236</b>, but can starve far requests. <em class=\"term\">SCAN</em> (elevator) sweeps to one end then reverses; <em class=\"term\">LOOK</em> reverses at the last request: going up first costs <b>299</b>. The circular versions (<em class=\"term\">C-SCAN</em>, <em class=\"term\">C-LOOK</em>) jump back and serve in one direction only — C-LOOK <b>322</b> — for more uniform waiting.</p>",
+      "body": "<p>When several requests are queued, the order in which the arm visits cylinders decides the total head movement. Take head at 53 and requests 98 183 37 122 14 124 65 67 on a 200-cylinder disk. <em class=\"term\">FCFS</em> serves in arrival order — fair, but the arm zig-zags: <b>640</b> cylinders. <em class=\"term\">SSTF</em> (shortest seek time first) always picks the nearest request: <b>236</b>, a big saving, but it behaves like SJF and can <em>starve</em> far requests when new nearby ones keep arriving.</p><p>The <em class=\"term\">SCAN</em> or <em>elevator</em> algorithm sweeps the arm from one end to the other, serving requests on the way, then reverses — like a lift in a building. No request waits more than two sweeps, so it cannot starve. Going up first costs <b>331</b>; going down first costs <b>236</b>. <em class=\"term\">LOOK</em> is SCAN that reverses at the last request in each direction instead of going to the disk edge: <b>299</b>. The circular variants <em class=\"term\">C-SCAN</em> (<b>382</b>) and <em class=\"term\">C-LOOK</em> (<b>322</b>) serve in one direction only and jump back to the start after each sweep, which gives a more uniform waiting time (the cylinders at the edges are not visited twice per cycle).</p><p>Which to use? SSTF and LOOK are reasonable defaults; SCAN-style algorithms win when the load is heavy; FCFS is fine when requests are few. In practice the best choice also depends on the file-allocation method and on the controller, which reorders requests itself — modern disks with native command queuing do much of this internally.</p>",
+      "worked": [
+        {
+          "toc": "First pick",
+          "why": "Head at 53, moving up. SSTF order: nearest first. Distances: 65 is 12 away, 67 is 14 away, 37 is 16 away — pick 65.",
+          "math": "53\\to65:\\ 12"
+        },
+        {
+          "toc": "Accumulate",
+          "why": "From 65 the nearest is 67 (2); from 67 the nearest is 37 (30)… Continue until all eight are served and add the moves.",
+          "math": "12+2+30+23+84+24+2+59"
+        },
+        {
+          "toc": "Total",
+          "why": "The sum matches the card.",
+          "math": "\\text{total}=236",
+          "hero": true
+        }
+      ],
       "questions": [
         {
           "id": "starve",
@@ -133,12 +411,72 @@
               "body": "FCFS is fair in order, merely slow."
             }
           ]
+        },
+        {
+          "id": "clook",
+          "prompt": "What does C-LOOK do after serving the last request in the upward direction?",
+          "choices": [
+            {
+              "text": "It jumps back to the lowest pending request and sweeps up again, serving in one direction only.",
+              "correct": true
+            },
+            {
+              "text": "It reverses and serves requests on the way down."
+            },
+            {
+              "text": "It goes to the disk’s last cylinder first."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The circular variants give more uniform waiting times than SCAN or LOOK."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is LOOK."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "That is C-SCAN, which goes to the edge."
+            }
+          ]
+        },
+        {
+          "id": "whichsmall",
+          "prompt": "Which algorithm usually gives the smallest total head movement on a random queue, but with the risk of unfairness?",
+          "choices": [
+            {
+              "text": "FCFS."
+            },
+            {
+              "text": "SSTF.",
+              "correct": true
+            },
+            {
+              "text": "C-SCAN."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "FCFS is usually the worst for total movement."
+            },
+            {
+              "title": "Correct.",
+              "body": "It is greedy: each step is the shortest, at the cost of possible starvation."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It trades movement for uniform waiting."
+            }
+          ]
         }
       ],
       "figures": [
         {
-          "id": "lab2",
-          "caption": "Figure 4.8.1 — FCFS",
+          "id": "lab3",
+          "caption": "Figure 5.5.1 — FCFS",
           "note": "FCFS zig-zags.",
           "script": "var lab = create(\"steplab\", {\"name\":\"fcfs\",\"engine\":\"disk\",\"algo\":\"fcfs\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
           "expect": {
@@ -148,8 +486,8 @@
           }
         },
         {
-          "id": "lab3",
-          "caption": "Figure 4.8.2 — SSTF",
+          "id": "lab4",
+          "caption": "Figure 5.5.2 — SSTF",
           "note": "SSTF hugs nearby requests.",
           "script": "var lab = create(\"steplab\", {\"name\":\"sstf\",\"engine\":\"disk\",\"algo\":\"sstf\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
           "expect": {
@@ -159,9 +497,20 @@
           }
         },
         {
-          "id": "lab4",
-          "caption": "Figure 4.8.3 — LOOK",
-          "note": "LOOK sweeps up then down.",
+          "id": "lab5",
+          "caption": "Figure 5.5.3 — SCAN",
+          "note": "SCAN goes to the edge, then reverses.",
+          "script": "var lab = create(\"steplab\", {\"name\":\"scan\",\"engine\":\"disk\",\"algo\":\"scan\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
+          "expect": {
+            "scan": {
+              "total": "331"
+            }
+          }
+        },
+        {
+          "id": "lab6",
+          "caption": "Figure 5.5.4 — LOOK",
+          "note": "LOOK sweeps up then down, turning at the last request.",
           "script": "var lab = create(\"steplab\", {\"name\":\"look\",\"engine\":\"disk\",\"algo\":\"look\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
           "expect": {
             "look": {
@@ -176,7 +525,7 @@
           "prompt": "<p>Head at 53, queue 98 183 37 122 14 124 65 67. Total head movement for SSTF and for FCFS?</p>",
           "answer": "SSTF: 53→65→67→37→14→98→122→124→183 = <b>236</b>. FCFS: <b>640</b>. SCAN going down first (to 0) then up = <b>236</b>.",
           "verify": {
-            "id": "lab5",
+            "id": "lab7",
             "caption": "answer",
             "note": "SSTF path.",
             "script": "var lab = create(\"steplab\", {\"name\":\"a\",\"engine\":\"disk\",\"algo\":\"sstf\",\"sweep\":\"up\",\"head\":53,\"queue\":\"98 183 37 122 14 124 65 67\",\"width\":600,\"height\":440});",
@@ -186,15 +535,59 @@
               }
             }
           }
+        },
+        {
+          "id": "p-look",
+          "prompt": "<p>With the same queue, LOOK going up first and C-LOOK: totals?</p>",
+          "answer": "LOOK (up first, reverse at 183 then down to 14): <b>299</b>. C-LOOK (up to 183, jump back to 14, continue to 37): <b>322</b> (counting the return jump as head movement)."
+        }
+      ]
+    },
+    {
+      "id": "manage",
+      "locator": "5.6",
+      "title": "Disk management: formatting, boot blocks and swap",
+      "eyebrow": "Housekeeping",
+      "body": "<p>A fresh disk is just magnetic surface. <b>Low-level formatting</b> divides it into sectors, each with a header, a data area and an error-correcting code (ECC) trailer. The OS then writes its own structures: it <b>partitions</b> the disk into one or more logical disks, and creates a file system on each (<b>logical formatting</b>: an empty directory, free-space map, and so on). The first sector holds the boot block and partition table (the MBR we met in Chapter 1). Sectors that fail are recorded as <b>bad blocks</b>: simple controllers keep a list and skip them, smarter ones remap a bad sector to a spare sector kept in each cylinder (<em>sector sparing</em>) so the file system never sees it.</p><p>Disk space is also used for <b>swap space</b> — the backing store for virtual memory from the previous section. Swap can be a dedicated partition (no file-system overhead, fast) or a file. Because swap holds pages no longer than a process lives and is accessed in page-sized units, it is managed with simpler, faster allocation than ordinary files.</p>",
+      "questions": [
+        {
+          "id": "badblock",
+          "prompt": "What is sector sparing?",
+          "choices": [
+            {
+              "text": "Using only half the disk."
+            },
+            {
+              "text": "Writing every sector twice."
+            },
+            {
+              "text": "The controller remaps a failed sector to a spare one so the file system does not see the defect.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Sparing reserves a few spare sectors, not half the disk."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "That is mirroring, not sparing."
+            },
+            {
+              "title": "Correct.",
+              "body": "It hides bad sectors below the file-system layer."
+            }
+          ]
         }
       ]
     },
     {
       "id": "raid",
-      "locator": "4.9",
-      "title": "RAID in one page",
+      "locator": "5.7",
+      "title": "RAID: reliability and speed from many disks",
       "eyebrow": "Redundancy",
-      "body": "<p><em class=\"term\">RAID 0</em> stripes data across disks (speed, no safety). <em class=\"term\">RAID 1</em> mirrors (survives one failure, half the capacity). <em class=\"term\">RAID 5</em> stripes with distributed parity: the parity block is the XOR of the data blocks, so any one lost block is recoverable; usable capacity is (n−1)/n.</p>",
+      "body": "<p>A single disk is slow compared with a CPU and fails sooner or later. <em class=\"term\">RAID</em> (redundant array of independent disks) combines several disks to gain speed, reliability or both, while looking like one disk to the OS. The two basic tools are <b>striping</b> (splitting data into blocks laid out round-robin over the disks, so several blocks can be read at once) and <b>redundancy</b> (extra copies or parity that allow reconstruction).</p><ul><li><em class=\"term\">RAID 0</em> stripes only: n× the speed and capacity, but any single failure loses everything — reliability is <em>worse</em> than one disk.</li><li><em class=\"term\">RAID 1</em> mirrors: every block is written to two disks. It survives a failure and reads can be served from either, at the price of half the capacity.</li><li><em class=\"term\">RAID 5</em> stripes with <b>distributed parity</b>: for each stripe one block holds the XOR of the others, and the parity block rotates among the disks so no disk is a bottleneck. Any one lost block is recoverable by XOR-ing the survivors; usable capacity is (n − 1)/n. The weakness is the <em>small-write penalty</em>: updating one data block needs four I/Os (read old data, read old parity, write new data, write new parity).</li><li><b>RAID 6</b> keeps two independent parities and survives two simultaneous failures — important with very large disks, where a rebuild takes hours and a second failure during it is likely. RAID 10 (a stripe of mirrors) combines speed and safety at 50 % capacity.</li></ul>",
       "worked": [
         {
           "toc": "Parity",
@@ -206,6 +599,11 @@
           "why": "If the second disk dies, XOR the others with the parity: 1011 ⊕ 1100 ⊕ 0001 = 0110 — recovered.",
           "math": "0110",
           "hero": true
+        },
+        {
+          "toc": "Why",
+          "why": "Why does that work? XOR is its own inverse: A ⊕ B ⊕ C ⊕ (A ⊕ B ⊕ C) = 0, so any one term equals the XOR of all the others.",
+          "math": "B = A\\oplus C\\oplus P"
         }
       ],
       "questions": [
@@ -238,15 +636,87 @@
               "body": "That is RAID 1 (mirroring halves capacity)."
             }
           ]
+        },
+        {
+          "id": "r0",
+          "prompt": "Which statement about RAID 0 is true?",
+          "choices": [
+            {
+              "text": "It survives any single disk failure."
+            },
+            {
+              "text": "It gives speed but no redundancy, so a single disk failure loses the whole array.",
+              "correct": true
+            },
+            {
+              "text": "It halves the capacity."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "That needs mirroring or parity."
+            },
+            {
+              "title": "Correct.",
+              "body": "The probability of failure rises with the number of disks."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It keeps full capacity."
+            }
+          ]
+        },
+        {
+          "id": "r5write",
+          "prompt": "Why is a small write on RAID 5 slow?",
+          "choices": [
+            {
+              "text": "Because RAID 5 has no cache."
+            },
+            {
+              "text": "The parity block must also be updated: read old data and parity, write new data and parity — four I/Os for one logical write.",
+              "correct": true
+            },
+            {
+              "text": "Because parity is stored on a separate disk."
+            }
+          ],
+          "responses": [
+            {
+              "title": "A tempting idea.",
+              "body": "Caching is common; the penalty is intrinsic."
+            },
+            {
+              "title": "Correct.",
+              "body": "Large sequential writes avoid the penalty by computing parity for a whole stripe."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "In RAID 5 parity is distributed, not on a dedicated disk (that is RAID 4)."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-raid",
+          "prompt": "<p>Eight 2 TB disks are configured as (a) RAID 0, (b) RAID 1 (mirror pairs), (c) RAID 5, (d) RAID 6. Give the usable capacity of each and the number of disk failures survived in the worst case.</p>",
+          "answer": "(a) 16 TB, survives 0. (b) 8 TB, survives 1 in the worst case (two failures in one pair lose data). (c) 14 TB, survives 1. (d) 12 TB, survives 2."
+        },
+        {
+          "id": "p-par",
+          "prompt": "<p>Data blocks are 110010, 011101 and 101001. Compute the parity block, then reconstruct the first block assuming it is lost.</p>",
+          "answer": "P = 110010 ⊕ 011101 ⊕ 101001 = <b>000110</b> (110010 ⊕ 011101 = 101111; ⊕ 101001 = 000110). Recover: 011101 ⊕ 101001 ⊕ 000110 = <b>110010</b> ✓."
         }
       ]
     },
     {
       "id": "stable",
-      "locator": "4.9b",
+      "locator": "5.8",
       "title": "Stable storage",
       "eyebrow": "Surviving crashes",
-      "body": "<p>A single disk write can be interrupted by a crash, leaving a half-written block. <em class=\"term\">Stable storage</em> makes a write all-or-nothing by keeping two copies: write copy A and verify it, then write copy B and verify it. After a crash, recovery compares the pair — if they differ and one has a bad checksum, copy the good one over it; if both are good but different, copy A to B. At most one copy is ever damaged, so a good value always survives.</p>",
+      "body": "<p>A single disk write can be interrupted by a crash, leaving a half-written block, and a disk can silently lose a block altogether. <em class=\"term\">Stable storage</em> is an abstraction that makes a write all-or-nothing: it either completes correctly or leaves the old value intact. It uses <em>two</em> copies of every block, ideally on different disks. To write: write the first copy and verify it by reading it back; only then write the second copy and verify it. After a crash, a recovery routine compares each pair. If both copies are good and equal, nothing to do. If one has a bad checksum, copy the good one over it. If both are good but different (the crash fell between the two writes), copy the first over the second. At most one copy is ever damaged by a single crash, so a valid value always survives. Databases build their transaction logs on this idea.</p>",
       "questions": [
         {
           "id": "stab",
@@ -278,14 +748,21 @@
             }
           ]
         }
+      ],
+      "problems": [
+        {
+          "id": "p-stab",
+          "prompt": "<p>After a crash the recovery routine finds copy A good with value 17 and copy B good with value 12. What does it do, and what value does the system see?</p>",
+          "answer": "Both copies are valid but different — the crash happened between the two writes. Recovery copies A over B, so the system sees <b>17</b> (the new value, whose write had completed on the first copy)."
+        }
       ]
     },
     {
       "id": "ssd",
-      "locator": "4.10",
+      "locator": "5.9",
       "title": "SSD and NVMe",
       "eyebrow": "Flash",
-      "body": "<p>Flash has no moving parts, so random access is fast; but it is erased in large blocks and wears out, so a controller spreads writes (wear levelling). NVMe attaches flash over PCIe with deep parallel queues, removing the SATA bottleneck. Cost per bit: HDD cheapest, SSD middle, RAM dearest.</p>",
+      "body": "<p>Flash memory has no moving parts, so random access is fast — tens of microseconds — and the seek problem disappears, along with the point of elevator scheduling. But flash has its own quirks. A page can be written only once after its block has been <b>erased</b>, and erasure works on large blocks (hundreds of KB); cells also <b>wear out</b> after a limited number of erase cycles. The SSD controller hides this with a <b>flash translation layer</b>: it writes new data to fresh pages, keeps a map from logical to physical pages, performs <b>wear levelling</b> to spread erases evenly, and runs <b>garbage collection</b> in the background. The OS helps by sending <code>TRIM</code> commands that tell the drive which blocks are free.</p><p>NVMe attaches flash directly over the PCIe bus with up to 64 K parallel command queues, removing the old SATA bottleneck and bringing millions of operations per second. Cost per bit remains HDD cheapest, SSD middle, DRAM dearest, which is why systems use all three in a hierarchy.</p>",
       "questions": [
         {
           "id": "ssd",
@@ -316,8 +793,52 @@
               "body": "They have a sophisticated one."
             }
           ]
+        },
+        {
+          "id": "wear",
+          "prompt": "What is wear levelling?",
+          "choices": [
+            {
+              "text": "Spreading writes and erases evenly over all flash blocks so none wears out early.",
+              "correct": true
+            },
+            {
+              "text": "Making the SSD run cooler."
+            },
+            {
+              "text": "Sorting files by size."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "The controller remaps hot logical blocks to different physical blocks over time."
+            },
+            {
+              "title": "Close, but not it.",
+              "body": "It concerns write cycles, not temperature."
+            },
+            {
+              "title": "It looks right at first.",
+              "body": "It is not a file-system operation."
+            }
+          ]
+        }
+      ],
+      "problems": [
+        {
+          "id": "p-ssd",
+          "prompt": "<p>Give two reasons why the same file system and scheduler tuned for a hard disk may be a poor fit for an SSD.</p>",
+          "answer": "(1) HDD schedulers minimise seeks; an SSD has none, so reordering buys little and costs CPU. (2) Defragmenting an HDD to make files contiguous is useless on an SSD and only wastes erase cycles. Also write amplification and wear mean the file system should avoid needless rewrites and issue TRIM."
         }
       ]
+    },
+    {
+      "id": "summary",
+      "locator": "5.10",
+      "title": "Summary",
+      "eyebrow": "Recap",
+      "body": "<ul><li>Controllers have registers; I/O is port- or memory-mapped. Data moves by polling, interrupts or DMA — DMA gives one interrupt per block.</li><li>The stack: interrupt handler → driver → device-independent layer (buffering, caching, spooling) → user library.</li><li>Disk access = seek + rotational latency (half a turn) + transfer; random access ≈ 13 ms, so ~76 IOPS.</li><li>Scheduling: FCFS fair but slow; SSTF fast but may starve; SCAN/LOOK bounded; C-SCAN/C-LOOK uniform.</li><li>RAID 0 stripes, 1 mirrors, 5 uses XOR parity (capacity (n−1)/n), 6 survives two failures.</li><li>Stable storage = two copies written in sequence; SSDs trade seek time for erase-block and wear management.</li></ul>"
     }
   ]
 }
