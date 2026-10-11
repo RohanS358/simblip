@@ -37,7 +37,7 @@ export function applyPlan(pageId: string, plan: EditPlan): ApplyResult {
   if (!check.ok) return { ok: false, applied: 0, errors: check.errors }
 
   // One entry for the whole batch.
-  store.pushHistory(pageId)
+  store.pushHistory(pageId, true)
 
   let applied = 0
   const errors: string[] = []

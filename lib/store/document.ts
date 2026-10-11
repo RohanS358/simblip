@@ -332,7 +332,10 @@ interface DocState {
    *  OPFS cleanup before the page is evicted via forgetPage. Returns [] when
    *  the page is not in memory (already evicted or never loaded). */
   collectPageOpfsRefs: (pageId: string) => string[]
-  pushHistory: (pageId: string) => void
+  /** `force` skips the gesture-coalescing window: an AI/tool action is a
+   *  discrete step and must always have its own pre-change snapshot, even when
+   *  the previous edit was under 400 ms ago. */
+  pushHistory: (pageId: string, force?: boolean) => void
   undo: (pageId: string) => void
   redo: (pageId: string) => void
 
@@ -637,11 +640,11 @@ export const useDocStore = create<DocState>()(
           .map((o) => o.geometry.src!.slice('opfs:'.length))
       },
 
-      pushHistory: (pageId) => {
+      pushHistory: (pageId, force = false) => {
         const now = Date.now()
         const last = lastPushAt.get(pageId) ?? 0
         lastPushAt.set(pageId, now)
-        if (now - last < COALESCE_MS) return // mid-gesture — the pre-gesture snapshot already covers this
+        if (!force && now - last < COALESCE_MS) return // mid-gesture — the pre-gesture snapshot already covers this
         const content = get().pages[pageId]
         if (!content) return
         let h = histories.get(pageId)

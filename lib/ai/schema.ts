@@ -37,6 +37,11 @@ export const aiResponseSchema = z.object({
    *  applied — the client previews it and the user confirms. Typed loosely
    *  here so lib/ai/edit-ops.ts stays the single source of truth for the op
    *  vocabulary; it is re-verified against the live page before applying. */
+  /** Tools the assistant used this turn, in order — shown as chips, so an
+   *  action is never invisible. */
+  toolSteps: z
+    .array(z.object({ name: z.string(), args: z.unknown(), ok: z.boolean(), summary: z.string() }))
+    .optional(),
   editPlan: z
     .object({ ops: z.array(z.unknown()), summary: z.string() })
     .optional(),

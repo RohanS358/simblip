@@ -25,7 +25,7 @@ function buildCsp(nonce: string) {
     // API for token verification and directly to blob storage for the bytes
     // themselves — both origins are outside 'self' by design (that's the
     // whole point of client-direct upload, see upload-url/route.ts's comment).
-    `connect-src 'self' blob: https://vercel.com https://*.public.blob.vercel-storage.com`,
+    `connect-src 'self' blob: https://vercel.com https://*.public.blob.vercel-storage.com https://huggingface.co https://*.huggingface.co https://*.hf.co http://127.0.0.1:* ws://127.0.0.1:* ws://localhost:*`,
     `worker-src 'self' blob:`,
     `media-src 'self' blob:`,
     `manifest-src 'self'`,
