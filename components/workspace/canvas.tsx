@@ -1377,10 +1377,10 @@ export function InfiniteCanvas({
   // The runtime is ONE global world: a sim running on another notebook/page
   // must not lock THIS canvas (switching back and forth left the pen dead),
   // and ink is harmless to a running sim (strokes have no bodies), so the
-  // pen and eraser keep working over a live simulation.
+  // pen, eraser and part placement keep working over a live simulation (placing stops it).
   const runPageId = useRuntimeStore((s) => s.pageId)
   const editing =
-    playMode === 'edit' || (runPageId !== null && runPageId !== pageId) || tool === 'pen' || tool === 'eraser'
+    playMode === 'edit' || (runPageId !== null && runPageId !== pageId) || tool === 'pen' || tool === 'eraser' || tool === 'place'
 
   // Doc sheets (clickThrough): with the select tool the canvas is transparent
   // to clicks so a caret can land in the flowing body. That also meant the
@@ -3927,6 +3927,8 @@ export function InfiniteCanvas({
     if (tool === 'place') {
       const def = toolOption ? componentById(toolOption) : undefined
       if (!def) return
+      // Placing a part means editing: a running simulation stops first, then the part lands.
+      if (useRuntimeStore.getState().mode !== 'edit') stop()
       if (CONNECTOR_IDS.has(def.id)) {
         setStroke([[point.x, point.y]])
         beginGesture('placeLine', e, { placeComponent: def.id })
