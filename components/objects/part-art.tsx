@@ -752,7 +752,8 @@ export function hasArt(sym: string) {
   return sym in ARTS
 }
 
-export function PartSvg({ obj, className, pins: showPins = true }: { obj: SceneObject; className?: string; pins?: boolean }) {
+export function PartSvg({ obj, className, pins: showPins = true, wired = '' }: { obj: SceneObject; className?: string; pins?: boolean; wired?: string }) {
+  const wiredSet = new Set(wired ? wired.split(',').map(Number) : [])
   const sym = obj.geometry.symbol ?? ''
   const w = Math.max(24, obj.size.w)
   const h = Math.max(24, obj.size.h)
@@ -820,7 +821,7 @@ export function PartSvg({ obj, className, pins: showPins = true }: { obj: SceneO
         </>
       )}
       {showPins &&
-        pins.map((p) => (
+        pins.filter((p) => !wiredSet.has(p.i)).map((p) => (
           <circle key={p.i} cx={p.x} cy={p.y} r={2.5} fill="var(--accent-mint)" stroke="none" opacity={0.75} />
         ))}
     </svg>

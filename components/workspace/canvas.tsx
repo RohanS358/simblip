@@ -41,10 +41,11 @@ import {
 } from '@/lib/scene/selection-actions'
 import { findNode, useWorkspaceStore } from '@/lib/store/workspace'
 import { pageKindForFile } from '@/components/workspace/open-file'
-import { baseObject, createGeometry, fromRecognition, componentById } from '@/lib/scene/factory'
+import { baseObject, createGeometry, fromRecognition, componentById, COMPONENTS } from '@/lib/scene/factory'
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
 import { eraseTargets } from '@/lib/scene/erase'
+import { wirePolyline } from '@/lib/circuit/pin-wire'
 import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, overPart, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
 import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
 import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
@@ -938,6 +939,8 @@ const ObjectView = memo(function ObjectView({
   // pptx import's <a:xfrm flipH/flipV> — OOXML mirrors the shape WITHIN its
   // own box first, then rotates, so scale must come before rotate in the
   // transform list (CSS applies right-to-left with transformOrigin center).
+  // A drawn wire is edited through its own end rings and segment pills (geometry.tsx), never a box.
+  const isWireConn = object.metadata.render === 'connector' && object.behaviors.some((b) => b.enabled && b.type === 'wire')
   const flipH = Boolean(object.metadata.flipH)
   const flipV = Boolean(object.metadata.flipV)
   const objectTransform =
@@ -1011,6 +1014,7 @@ const ObjectView = memo(function ObjectView({
           sharp ? 'rounded-none' : 'rounded-xl',
           selected &&
             !multiSelected &&
+            !isWireConn &&
             (sharp
               ? 'ring-1 ring-inset ring-[var(--ring)]'
               : 'ring-1 ring-[var(--ring)] ring-offset-1 ring-offset-transparent')
@@ -1028,7 +1032,7 @@ const ObjectView = memo(function ObjectView({
       {/* Only show per-object resize/rotate grips for single selections.
           Multi-selections get a shared group bounding box rendered by the
           canvas, so individual grips would be visually cluttered. */}
-      {selected && !multiSelected && (
+      {selected && !multiSelected && !isWireConn && (
         // Selection chrome rides a layer with the SAME rotation as the
         // object, so grips sit on the corners the user actually sees. Each
         // grip counter-scales by chromeScale (1/zoom) to stay a constant
@@ -1147,6 +1151,17 @@ const ObjectView = memo(function ObjectView({
     </div>
   )
 })
+
+let partPool: typeof COMPONENTS | null = null
+/** Circuit parts the add-here menu offers: electrical/electronic/digital SYMBOLS
+ *  (not boundaries or truth tables). Built once — create() numbers an object name per call. */
+function circuitPartPool(): typeof COMPONENTS {
+  return (partPool ??= COMPONENTS.filter(
+    (c) =>
+      (c.domain === 'electrical' || c.domain === 'electronics' || c.domain === 'digital') &&
+      c.create({ x: 0, y: 0 }).geometry.kind === 'symbol'
+  ))
+}
 
 /** Is this screen point on a run of text in a document body? */
 function overDocText(x: number, y: number): boolean {
@@ -1491,6 +1506,16 @@ export function InfiniteCanvas({
   // Pin wiring: hover ring on a pin, and the live wire while one is dragged.
   const [pinHover, setPinHover] = useState<Vec2 | null>(null)
   const [wiring, setWiring] = useState<{ route: Vec2[]; target: PinHit | null } | null>(null)
+  // Parts picked from the add-here menu, newest first (survives reloads).
+  const [recentParts, setRecentParts] = useState<string[]>(() => {
+    try {
+      const v = JSON.parse(localStorage.getItem('simblip.wireRecents') ?? '[]')
+      return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 6) : []
+    } catch {
+      return []
+    }
+  })
+  const [pickQuery, setPickQuery] = useState('')
   // Wire released in free space: offer parts to drop there (autocomplete).
   const [wirePick, setWirePick] = useState<{
     x: number
@@ -3432,6 +3457,13 @@ export function InfiniteCanvas({
     const def = componentById(partId)
     setWirePick(null)
     if (!pick || !def) return
+    setRecentParts((prev) => {
+      const next = [partId, ...prev.filter((x) => x !== partId)].slice(0, 6)
+      try {
+        localStorage.setItem('simblip.wireRecents', JSON.stringify(next))
+      } catch {}
+      return next
+    })
     const store = useDocStore.getState()
     const part = def.create({ x: 0, y: 0 })
     const t0 = terminalsOf(part)[0]
@@ -3449,6 +3481,76 @@ export function InfiniteCanvas({
     if (r && r.length >= 2) commitWire(r, pick.fromPin, pin)
   }
 
+  /** Drag one end ring of a selected wire: snap to a pin (re-attaches and re-routes),
+   *  land on empty canvas (free end), or on another wire (T-junction). */
+  const beginWireEndDrag = (wireId: string, which: 'start' | 'end') => {
+    const store0 = useDocStore.getState()
+    const wire = store0.pages[pageId]?.objects[wireId]
+    const poly = wire ? wirePolyline(wire) : null
+    if (!wire || !poly) return
+    const fixedIsStart = which === 'end'
+    const fixed = fixedIsStart ? poly[0] : poly[poly.length - 1]
+    const fa = (fixedIsStart ? wire.metadata.startAnchor : wire.metadata.endAnchor) as { kind?: string; objectId?: string; terminalId?: string } | undefined
+    const fixedPin: PinHit | null =
+      fa?.kind === 'terminal' && fa.objectId ? { objectId: fa.objectId, idx: Number(fa.terminalId), point: fixed } : null
+    let route: Vec2[] = [fixed]
+    let target: Vec2 | null = null
+    let targetPin: PinHit | null = null
+    let moved = false
+    const solve = (ev: PointerEvent) => {
+      moved = true
+      const objs = { ...(useDocStore.getState().pages[pageId]?.objects ?? {}) }
+      delete objs[wireId] // the wire being edited must not snap to itself
+      const tip = toCanvas(ev.clientX, ev.clientY)
+      const z = vpRef.current.zoom
+      const pin = pinHit(objs, tip, 14 / z, fixedPin ?? undefined)
+      const wh = pin ? null : wireHit(objs, tip, 8 / z)
+      targetPin = pin
+      target = pin ? pin.point : wh ? wh.point : null
+      const end = target ?? tip
+      if (pin && fixedPin) route = routePins(objs, fixedPin, pin)
+      else if (pin) route = routeWireToPin(objs, { wireId: '', point: fixed, horizontal: true }, pin)
+      else if (fixedPin) route = routeLoose(objs, fixedPin, end)
+      else route = [fixed, { x: end.x, y: fixed.y }, end]
+      setWiring({ route, target: target ? ({ point: target } as unknown as PinHit) : null })
+    }
+    const done = () => {
+      window.removeEventListener('pointermove', solve)
+      window.removeEventListener('pointerup', up)
+      window.removeEventListener('pointercancel', cancel)
+      window.removeEventListener('keydown', key)
+      setWiring(null)
+    }
+    const cancel = () => done()
+    const key = (ev: KeyboardEvent) => ev.key === 'Escape' && done()
+    const up = () => {
+      const r = fixedIsStart ? route : [...route].reverse() // stored start → end
+      const pin = targetPin as PinHit | null
+      done()
+      if (!moved || r.length < 2) return
+      const store = useDocStore.getState()
+      const xs = r.map((q) => q.x)
+      const ys = r.map((q) => q.y)
+      const minX = Math.min(...xs), minY = Math.min(...ys)
+      const loc = (q: Vec2) => [q.x - minX, q.y - minY]
+      const meta = { ...wire.metadata, bends: r.slice(1, -1).map(loc) } as Record<string, unknown>
+      const key2 = which === 'start' ? 'startAnchor' : 'endAnchor'
+      if (pin) meta[key2] = { kind: 'terminal', objectId: pin.objectId, terminalId: String(pin.idx) }
+      else delete meta[key2]
+      store.pushHistory(pageId)
+      store.updateObject(pageId, wireId, {
+        position: { x: minX, y: minY },
+        size: { w: Math.max(Math.max(...xs) - minX, 2), h: Math.max(Math.max(...ys) - minY, 2) },
+        geometry: { ...wire.geometry, points: [loc(r[0]), loc(r[r.length - 1])] },
+        metadata: meta,
+      })
+    }
+    window.addEventListener('pointermove', solve)
+    window.addEventListener('pointerup', up)
+    window.addEventListener('pointercancel', cancel)
+    window.addEventListener('keydown', key)
+  }
+
   /** Press a circuit pin and drag to wire it — no tool to pick. Release on a
    *  pin, or anywhere on another part (it finds the nearest free pin). The wire
    *  is the anchored connector the Shaper makes, routed around bodies. */
@@ -3456,7 +3558,7 @@ export function InfiniteCanvas({
     if (!editing || tool !== 'select' || viewer || e.button !== 0) return false
     if (e.pointerType === 'touch' && (touchesRef.current.size > 1 || pinchRef.current)) return false
     const el = e.target as HTMLElement
-    if (el.closest?.('input, textarea, select, button, [role="button"], [contenteditable="true"], [data-connector-segment]')) return false
+    if (el.closest?.('input, textarea, select, button, [role="button"], [contenteditable="true"], [data-connector-segment], [data-connector-end]')) return false
     const objs0 = useDocStore.getState().pages[pageId]?.objects ?? {}
     const zoom0 = vpRef.current.zoom
     const p0 = toCanvas(e.clientX, e.clientY)
@@ -3531,7 +3633,7 @@ export function InfiniteCanvas({
         const tipPt = r[r.length - 1]
         const lp = toLocal(lastX, lastY)
         if (Math.hypot(tipPt.x - startPt.x, tipPt.y - startPt.y) > 30)
-          setWirePick({ x: lp.x, y: lp.y, scale: stageScale(), tip: tipPt, fromPin, fromWire })
+          (setPickQuery(''), setWirePick({ x: lp.x, y: lp.y, scale: stageScale(), tip: tipPt, fromPin, fromWire }))
         return
       }
       if (!t || r.length < 2) return
@@ -3862,6 +3964,13 @@ export function InfiniteCanvas({
     // marquee underneath the drag.
     if ((e.target as HTMLElement).closest('input, textarea, select, [role="slider"], [data-slot^="slider"], [contenteditable="true"]')) {
       e.stopPropagation()
+      return
+    }
+    const endEl = (e.target as HTMLElement).closest('[data-connector-end]') as HTMLElement | null
+    if (endEl && editing) {
+      e.stopPropagation()
+      e.preventDefault()
+      beginWireEndDrag(id, endEl.dataset.connectorEnd === 'start' ? 'start' : 'end')
       return
     }
     const segEl = (e.target as HTMLElement).closest('[data-connector-segment]') as HTMLElement | null
@@ -4711,41 +4820,60 @@ export function InfiniteCanvas({
         />
       )}
 
-      {wirePick && (
-        <div
-          className="glass-strong absolute z-50 grid w-56 grid-cols-2 gap-0.5 rounded-xl p-1 text-ui-sm"
-          style={{
-            left: Math.min(wirePick.x, (containerRef.current?.clientWidth ?? 400) - 232),
-            top: wirePick.y,
-            transform: wirePick.scale !== 1 ? `scale(${1 / wirePick.scale})` : undefined,
-            transformOrigin: 'top left',
-          }}
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div className="col-span-2 px-2.5 pb-0.5 pt-1 text-ui-2xs text-muted-foreground">Add here and connect</div>
-          {(
-            [
-              ['resistor', 'Resistor'],
-              ['capacitor', 'Capacitor'],
-              ['inductor', 'Inductor'],
-              ['led', 'LED'],
-              ['diode', 'Diode'],
-              ['switch', 'Switch'],
-              ['battery', 'Battery'],
-              ['gnd', 'Ground'],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className="menu-row flex items-center rounded-lg px-2.5 py-1.5 text-left transition-colors"
-              onClick={() => placeAtWireEnd(id)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
+      {wirePick && (() => {
+        const pool = circuitPartPool()
+        const q = pickQuery.trim().toLowerCase()
+        const matches = q
+          ? pool.filter((c) => c.label.toLowerCase().includes(q) || c.id.toLowerCase().includes(q))
+          : pool
+        const recents = q ? [] : recentParts.map((id) => pool.find((c) => c.id === id)).filter((c): c is (typeof pool)[number] => !!c)
+        const row = (c: (typeof pool)[number]) => (
+          <button
+            key={c.id}
+            type="button"
+            className="menu-row flex w-full items-center rounded-lg px-2.5 py-1.5 text-left transition-colors"
+            onClick={() => placeAtWireEnd(c.id)}
+          >
+            {c.label}
+          </button>
+        )
+        return (
+          <div
+            className="glass-strong absolute z-50 w-60 rounded-xl p-1 text-ui-sm"
+            style={{
+              left: Math.min(wirePick.x, (containerRef.current?.clientWidth ?? 400) - 252),
+              top: wirePick.y,
+              transform: wirePick.scale !== 1 ? `scale(${1 / wirePick.scale})` : undefined,
+              transformOrigin: 'top left',
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <input
+              autoFocus
+              value={pickQuery}
+              onChange={(e) => setPickQuery(e.target.value)}
+              onKeyDown={(e) => {
+                e.stopPropagation()
+                if (e.key === 'Enter' && matches[0]) placeAtWireEnd(matches[0].id)
+                if (e.key === 'Escape') setWirePick(null)
+              }}
+              placeholder="Search parts…"
+              className="mb-1 w-full rounded-lg bg-foreground/5 px-2.5 py-1.5 text-ui-sm outline-none placeholder:text-muted-foreground focus:bg-foreground/10"
+            />
+            <div className="max-h-64 overflow-y-auto overscroll-contain">
+              {recents.length > 0 && (
+                <>
+                  <div className="px-2.5 pb-0.5 pt-1 text-ui-2xs text-muted-foreground">Recent</div>
+                  {recents.map(row)}
+                  <div className="px-2.5 pb-0.5 pt-1.5 text-ui-2xs text-muted-foreground">All parts</div>
+                </>
+              )}
+              {matches.length > 0 ? matches.map(row) : <div className="px-2.5 py-2 text-muted-foreground">No part matches “{pickQuery}”</div>}
+            </div>
+          </div>
+        )
+      })()}
 
       {ctxMenu && (
         <div

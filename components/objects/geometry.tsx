@@ -8,10 +8,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SceneObject } from '@/lib/scene/types'
 import { isBody, connectorBehavior } from '@/lib/behaviors/registry'
-import { connectorPath, connectorElbowPath, connectorPoints } from '@/lib/render/connector-path'
+import { connectorPath, connectorElbowPath, connectorPoints, roundedPath } from '@/lib/render/connector-path'
 import { terminalsOf } from '@/lib/circuit/engine'
 import { PartSvg } from './part-art'
 import { hoppedPath } from '@/lib/circuit/hops'
+import { usedPinsKey } from '@/lib/circuit/pin-wire'
 import { inkPath } from './ink'
 import { getNumber, getString, type ObjectRendererProps } from './types'
 import { pxToCmRounded } from '@/lib/scene/units'
@@ -268,7 +269,9 @@ export function SymbolIcon({ obj, className, pins }: { obj: SceneObject; classNa
   return <PartSvg obj={obj} className={className} pins={pins} />
 }
 
-function SymbolGlyph({ obj }: { obj: SceneObject }) {
+function SymbolGlyph({ obj, pageId }: { obj: SceneObject; pageId: string }) {
+  // A pin that already has a wire loses its green dot — the wire end replaces it.
+  const wired = useDocStore((s) => usedPinsKey(s.pages[pageId]?.objects ?? {}, obj.id))
   const terminals = terminalsOf(obj)
   const digital = obj.geometry.domain === 'digital'
   const firstParam = Object.entries(obj.parameters).find(
@@ -277,7 +280,7 @@ function SymbolGlyph({ obj }: { obj: SceneObject }) {
   return (
     <div className="relative h-full w-full">
       <div className="absolute inset-0">
-        <SymbolIcon obj={obj} />
+        <PartSvg obj={obj} wired={wired} />
       </div>
       {firstParam && (
         <span className="pointer-events-none absolute -top-3.5 left-1/2 -translate-x-1/2 whitespace-nowrap font-mono text-[9.5px] text-muted-foreground">
@@ -333,6 +336,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
   // the ones it crosses without joining (lib/circuit/hops.ts).
   const isWireLine = kind === 'line' && object.behaviors.some((b) => b.enabled && b.type === 'wire')
   const wireObjects = useDocStore((s) => (isWireLine ? s.pages[pageId]?.objects : undefined))
+  const zoom = useDocStore((s) => (isWireLine ? (s.viewports[pageId]?.zoom ?? 1) : 1))
   const hopD = useMemo(() => (isWireLine && wireObjects ? hoppedPath(object, wireObjects) : null), [isWireLine, wireObjects, object])
   const rays = useMemo(() => {
     if (!isLightSource || !pageObjects) return []
@@ -504,7 +508,7 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     return lines
   }
 
-  if (kind === 'symbol') return <SymbolGlyph obj={object} />
+  if (kind === 'symbol') return <SymbolGlyph obj={object} pageId={pageId} />
 
   // System boundary: a labeled dashed region. Purely declarative — the
   // canvas reads its domain to steer sketch recognition inside it.
@@ -969,7 +973,9 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
     const d = hopD && isWire
       ? hopD
       : isElbowConnector
-      ? connectorElbowPath(a[0], a[1], bends, b[0], b[1])
+      ? isWire
+        ? roundedPath(connectorPoints(a, bends, b))
+        : connectorElbowPath(a[0], a[1], bends, b[0], b[1])
       : pts.length > 2 && !isSpecial
         ? `M ${pts[0][0]} ${pts[0][1]} ` + pts.slice(1).map(p => `L ${p[0]} ${p[1]}`).join(' ')
         : connectorPath(render, a[0], a[1], b[0], b[1])
@@ -1026,10 +1032,23 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           return allPts.slice(0, -1).map((p, i) => {
             const q = allPts[i + 1]
             const axis = Math.abs(q[0] - p[0]) > Math.abs(q[1] - p[1]) ? 'h' : 'v'
+            // A wire bends ONLY at its pill (the blue handle); the rest of the
+            // run is free to start a new connection. So its grab strip is just
+            // the pill's length around the midpoint, not the whole segment.
+            let [x1, y1, x2, y2] = [p[0], p[1], q[0], q[1]]
+            if (isWire) {
+              const len = Math.hypot(q[0] - p[0], q[1] - p[1])
+              const half = Math.min(len / 2, 12 / zoom)
+              const mx = (p[0] + q[0]) / 2
+              const my = (p[1] + q[1]) / 2
+              const ux = len ? (q[0] - p[0]) / len : 0
+              const uy = len ? (q[1] - p[1]) / len : 0
+              ;[x1, y1, x2, y2] = [mx - ux * half, my - uy * half, mx + ux * half, my + uy * half]
+            }
             return (
               <line
                 key={i}
-                x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]}
+                x1={x1} y1={y1} x2={x2} y2={y2}
                 stroke="transparent"
                 strokeWidth={14}
                 data-connector-segment={i}
@@ -1038,6 +1057,45 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
               />
             )
           })
+        })()}
+        {isElbowConnector && isWire && selected && (() => {
+          // Canva-style editing chrome in place of a bounding box: a ring at each
+          // end (drag to re-attach), a pill on every segment you can drag sideways.
+          const allPts = connectorPoints(a, bends, b)
+          const k = 1 / zoom
+          const ring = 'var(--ring, #3b82f6)'
+          return (
+            <g>
+              {allPts.slice(0, -1).map((p, i) => {
+                const q = allPts[i + 1]
+                const len = Math.hypot(q[0] - p[0], q[1] - p[1])
+                if (len < 30 * k) return null
+                const horiz = Math.abs(q[0] - p[0]) > Math.abs(q[1] - p[1])
+                const w = (horiz ? 18 : 7) * k
+                const h = (horiz ? 7 : 18) * k
+                return (
+                  <rect
+                    key={i}
+                    x={(p[0] + q[0]) / 2 - w / 2}
+                    y={(p[1] + q[1]) / 2 - h / 2}
+                    width={w}
+                    height={h}
+                    rx={3.5 * k}
+                    fill="white"
+                    stroke={ring}
+                    strokeWidth={1.2 * k}
+                    style={{ pointerEvents: 'none' }}
+                  />
+                )
+              })}
+              {([['start', a], ['end', b]] as const).map(([which, pt]) => (
+                <g key={which}>
+                  <circle cx={pt[0]} cy={pt[1]} r={11 * k} fill="transparent" data-connector-end={which} style={{ cursor: 'crosshair', pointerEvents: 'all' }} />
+                  <circle cx={pt[0]} cy={pt[1]} r={5 * k} fill="white" stroke={ring} strokeWidth={1.5 * k} style={{ pointerEvents: 'none' }} />
+                </g>
+              ))}
+            </g>
+          )
         })()}
         {render === 'measurement' &&
           (() => {
@@ -1338,13 +1396,13 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
             <text y={4} textAnchor="middle" fontSize={10.5} fontWeight={600} fill="var(--background)" style={{ fontFamily: 'var(--font-mono)' }} />
           </g>
         )}
-        {endColor && (
+        {endColor && !(selected && isElbowConnector && isWire) && (
           <>
             <circle data-endpoint="a" cx={a[0]} cy={a[1]} r={3.5} fill={endColor} />
             <circle data-endpoint="b" cx={b[0]} cy={b[1]} r={3.5} fill={endColor} />
           </>
         )}
-        {selected && (
+        {selected && !(isElbowConnector && isWire) && (
           <>
             <circle cx={a[0]} cy={a[1]} r={4} fill="var(--ring)" />
             <circle cx={b[0]} cy={b[1]} r={4} fill="var(--ring)" />

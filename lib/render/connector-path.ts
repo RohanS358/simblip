@@ -125,3 +125,26 @@ export function connectorElbowPath(
   const pts = connectorPoints([x1, y1], bends, [x2, y2])
   return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
 }
+
+/** Polyline with softened corners (radius r, shrunk to fit short segments) —
+ *  the Canva-style elbow. Same points as connectorElbowPath, rounder joints. */
+export function roundedPath(pts: number[][], r = 6): string {
+  if (pts.length < 3) return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p[0]} ${p[1]}`).join(' ')
+  let d = `M ${pts[0][0]} ${pts[0][1]}`
+  for (let i = 1; i < pts.length - 1; i++) {
+    const p = pts[i]
+    const a = pts[i - 1]
+    const b = pts[i + 1]
+    const l1 = Math.hypot(p[0] - a[0], p[1] - a[1])
+    const l2 = Math.hypot(b[0] - p[0], b[1] - p[1])
+    const rr = Math.min(r, l1 / 2, l2 / 2)
+    if (rr < 0.5) {
+      d += ` L ${p[0]} ${p[1]}`
+      continue
+    }
+    d += ` L ${p[0] - ((p[0] - a[0]) / l1) * rr} ${p[1] - ((p[1] - a[1]) / l1) * rr}`
+    d += ` Q ${p[0]} ${p[1]} ${p[0] + ((b[0] - p[0]) / l2) * rr} ${p[1] + ((b[1] - p[1]) / l2) * rr}`
+  }
+  const last = pts[pts.length - 1]
+  return d + ` L ${last[0]} ${last[1]}`
+}

@@ -225,3 +225,17 @@ export function overPart(objects: Record<string, SceneObject>, p: Pt): boolean {
   }
   return false
 }
+
+/** Pins of one part that already carry a wire, as "0,2" — a primitive, so a
+ *  store selector can return it without re-rendering on every unrelated change. */
+export function usedPinsKey(objects: Record<string, SceneObject>, objectId: string): string {
+  const out = new Set<number>()
+  for (const o of Object.values(objects)) {
+    if (o.metadata.render !== 'connector') continue
+    for (const k of ['startAnchor', 'endAnchor'] as const) {
+      const a = o.metadata[k] as { kind?: string; objectId?: string; terminalId?: string } | undefined
+      if (a?.kind === 'terminal' && a.objectId === objectId) out.add(Number(a.terminalId))
+    }
+  }
+  return [...out].sort((x, y) => x - y).join(',')
+}
