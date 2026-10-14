@@ -73,4 +73,8 @@ Next.js 16 · React 19 · TypeScript · Tailwind 4 · Zustand · Matter.js · ma
 
 **SIMBLIP is created, designed and developed by [Rohan Singh](https://github.com/rohansingh).**
 
+### Contributors
+
+- [kunwarsampanna3](https://github.com/kunwarsampanna3)
+
 © Rohan Singh. All rights reserved.
