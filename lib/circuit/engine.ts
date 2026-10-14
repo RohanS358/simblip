@@ -360,6 +360,8 @@ const DEF: Record<string, Record<string, number>> = {
   led: { Vf: 2 },
   zener: { Vf: 0.7, Vz: 5.1 },
   potentiometer: { R: 1000, ratio: 0.5 },
+  bjt: { beta: 100, Vbe: 0.7 },
+  'bjt-pnp': { beta: 100, Vbe: 0.7 },
   mosfet: { Vt: 2 },
   'mosfet-pmos': { Vt: 2 },
   opamp: { gain: 1e5 },
@@ -782,6 +784,10 @@ export function fmtUnit(v: number, unit: string): string {
 
 // ── Step ────────────────────────────────────────────────────────────────────
 
+// BJT large-signal model (state.on: 0 off · 1 forward-active · 2 saturated)
+const BJT_RBE = 100 // base-emitter series resistance above Vbe, Ω
+const BJT_RSAT = 5 // collector-emitter resistance when saturated, Ω
+const BJT_VCE_SAT = 0.2
 const OPEN = 1e-9 // conductance of an open branch
 const CLOSED = 1e3 // conductance of a closed switch / ammeter shunt
 // Digital logic HIGH represents a real 5V rail wherever a digital net meets
@@ -921,16 +927,32 @@ export function stepCircuit(
       } else if (s === 'bjt' || s === 'bjt-pnp') {
         const [B, C2, E] = comp.nets
         const pnp = s === 'bjt-pnp'
-        if (comp.state.on) {
-          const gbe = 1 / 1000
+        const mode = comp.state.on ?? 0
+        if (mode) {
+          // base-emitter: Vbe drop + RBE. (PNP: the same junction, current E → B.)
+          const gbe = 1 / BJT_RBE
+          const Vbe = pv(comp, 'Vbe')
           if (pnp) {
             stampG(E, B, gbe)
-            stampI(E, B, -gbe * 0.7)
+            stampI(E, B, -gbe * Vbe)
           } else {
             stampG(B, E, gbe)
-            stampI(B, E, -gbe * 0.7)
+            stampI(B, E, -gbe * Vbe)
           }
-          stampG(C2, E, 1 / 5) // saturated switch
+          if (mode === 2) {
+            stampG(C2, E, 1 / BJT_RSAT) // saturated: Ic is whatever the load allows
+          } else {
+            // forward-active: Ic = beta · Ib, a controlled current Ib = gbe·(Vbe_node − Vbe)
+            const gm = Math.max(pv(comp, 'beta'), 0) * gbe
+            const [hi, lo] = pnp ? [E, C2] : [C2, E] // current flows hi → lo through the device
+            const [cp, cm] = pnp ? [E, B] : [B, E] // controlling junction, + to −
+            A[hi][cp] += gm
+            A[hi][cm] -= gm
+            A[lo][cp] -= gm
+            A[lo][cm] += gm
+            z[hi] += gm * Vbe
+            z[lo] -= gm * Vbe
+          }
         } else {
           stampG(B, E, OPEN)
           stampG(C2, E, OPEN)
@@ -1122,10 +1144,23 @@ export function stepCircuit(
         }
       } else if (s === 'bjt' || s === 'bjt-pnp') {
         const pnp = s === 'bjt-pnp'
-        const vbe = pnp ? x[comp.nets[2]] - x[comp.nets[0]] : x[comp.nets[0]] - x[comp.nets[2]]
-        const on = comp.state.on ? vbe > 0.55 : vbe > 0.65
-        if ((comp.state.on ?? 0) !== +on) {
-          comp.state.on = +on
+        const [B, C2, E] = comp.nets
+        const vbe = pnp ? x[E] - x[B] : x[B] - x[E]
+        const vce = pnp ? x[E] - x[C2] : x[C2] - x[E]
+        const Vbe = pv(comp, 'Vbe')
+        const beta = Math.max(pv(comp, 'beta'), 0)
+        const prev = comp.state.on ?? 0
+        let mode = prev
+        if (prev === 0) {
+          if (vbe > Vbe + 0.01) mode = 1
+        } else {
+          const ib = (vbe - Vbe) / BJT_RBE
+          if (ib < -0.0001) mode = 0 // the junction would have to conduct backwards
+          else if (prev === 1 && vce < BJT_VCE_SAT) mode = 2 // asked for more Ic than the load allows
+          else if (prev === 2 && vce / BJT_RSAT > beta * ib * 1.02 + 1e-6) mode = 1 // Ic fell below beta·Ib
+        }
+        if (prev !== mode) {
+          comp.state.on = mode
           changed = true
         }
       } else if (s === 'mosfet' || s === 'mosfet-pmos') {
@@ -1394,8 +1429,11 @@ export function stepCircuit(
     } else if (s === 'bjt' || s === 'bjt-pnp') {
       const [B, C2, E] = comp.nets
       const pnp = s === 'bjt-pnp'
-      const ib = comp.state.on ? (pnp ? (v(E) - v(B) - 0.7) / 1000 : (v(B) - v(E) - 0.7) / 1000) : 0
-      const ic = comp.state.on ? (pnp ? (v(E) - v(C2)) / 5 : (v(C2) - v(E)) / 5) : 0
+      const mode = comp.state.on ?? 0
+      const vbe = pnp ? v(E) - v(B) : v(B) - v(E)
+      const vce = pnp ? v(E) - v(C2) : v(C2) - v(E)
+      const ib = mode ? Math.max(0, (vbe - pv(comp, 'Vbe')) / BJT_RBE) : 0
+      const ic = mode === 2 ? vce / BJT_RSAT : mode === 1 ? Math.max(pv(comp, 'beta'), 0) * ib : 0
       if (pnp) {
         comp.outflow[0] = ib
         comp.outflow[1] = ic
