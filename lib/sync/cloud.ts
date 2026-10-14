@@ -47,6 +47,8 @@ import { splitPulledTree } from '@/lib/sync/tree-visibility'
 import { canonicalJSON, fingerprint, mergeById, threeWayMerge } from '@/lib/sync/merge'
 import { PROJECT_QUOTA_BYTES, jsonBytes } from '@/lib/storage/quota'
 
+const MAX_REQUEST_BYTES = 3.5 * 1024 * 1024
+
 export const syncConfigured = cloudConfigured
 
 export type SyncPhase =
@@ -501,17 +503,27 @@ export function startSync() {
           delete ledger.held[id]
         }
         if (ledger.tooLarge[id] === print) continue // unchanged since refused
-        rows.push({ id, content, viewport, baseRev: ledger.revs[id] ?? null, print, bytes: jsonBytes(content) })
+        const bytes = jsonBytes(content) + jsonBytes(viewport)
+        if (bytes > MAX_REQUEST_BYTES) {
+          // Vercel rejects bodies > 4.5 MB before our route runs — it can never fit.
+          ledger.tooLarge[id] = print
+          toast.error('A page is too large to sync', {
+            description: 'It stays safe on this device. Large images belong in files, not on the page.',
+          })
+          clean.push(id)
+          continue
+        }
+        rows.push({ id, content, viewport, baseRev: ledger.revs[id] ?? null, print, bytes })
       }
       ledger.dirty = ledger.dirty.filter((id) => !clean.includes(id))
 
-      // Size-bounded batches: ≤ 50 rows / ~8 MB each. The first batch also
+      // Size-bounded batches: ≤ 50 rows / ~3.5 MB each (Vercel's body cap is 4.5 MB). The first batch also
       // carries the tree, account data and deletions.
       const batches: Row[][] = []
       let cur: Row[] = []
       let curBytes = 0
       for (const r of rows) {
-        if (cur.length > 0 && (cur.length >= 50 || curBytes + r.bytes > 8 * 1024 * 1024)) {
+        if (cur.length > 0 && (cur.length >= 50 || curBytes + r.bytes > MAX_REQUEST_BYTES)) {
           batches.push(cur)
           cur = []
           curBytes = 0
