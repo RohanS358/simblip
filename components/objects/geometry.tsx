@@ -1019,6 +1019,11 @@ export function GeometryObject({ pageId, object, selected }: ObjectRendererProps
           markerStart={isElbowConnector && object.metadata.startCap === 'arrow' ? `url(#arrow-start-${object.id})` : undefined}
           markerEnd={isElbowConnector && object.metadata.endCap === 'arrow' ? `url(#arrow-end-${object.id})` : undefined}
         />
+        {isWire && (
+          // The wire's click target: a wide invisible stroke along the line itself.
+          // (The object's box takes no pointer events — see ObjectView.)
+          <path d={d} fill="none" stroke="transparent" strokeWidth={12} strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'stroke' }} />
+        )}
         {isElbowConnector && selected && (() => {
           // Invisible wide hit-strips per segment so a selected connector's
           // interior shape can be dragged perpendicular to each segment —

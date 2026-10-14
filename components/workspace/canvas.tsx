@@ -943,6 +943,7 @@ const ObjectView = memo(function ObjectView({
   // own box first, then rotates, so scale must come before rotate in the
   // transform list (CSS applies right-to-left with transformOrigin center).
   // A drawn wire is edited through its own end rings and segment pills (geometry.tsx), never a box.
+  const isWireLine = object.geometry.kind === 'line' && object.behaviors.some((b) => b.enabled && b.type === 'wire')
   const isWireConn = object.metadata.render === 'connector' && object.behaviors.some((b) => b.enabled && b.type === 'wire')
   const flipH = Boolean(object.metadata.flipH)
   const flipV = Boolean(object.metadata.flipV)
@@ -976,7 +977,9 @@ const ObjectView = memo(function ObjectView({
       // prop) and objects have to opt back in or they'd stop being
       // selectable. It is the default value everywhere else, so this costs
       // nothing on a normal board.
-      className="pointer-events-auto absolute touch-pan-y"
+      // A drawn wire is hit ONLY along its own line (its hit stroke in geometry.tsx),
+      // never across its bounding box.
+      className={cn(isWireLine ? 'pointer-events-none' : 'pointer-events-auto', 'absolute touch-pan-y')}
       style={{
         left: object.position.x,
         top: object.position.y,
