@@ -1,0 +1,30 @@
+{"prompt": "Make an RC low-pass filter that cuts off at about 1 kHz", "recipe": "novel"}
+{"prompt": "I need a circuit with a 9 V battery and three resistors in series, then show me the current", "recipe": "novel"}
+{"prompt": "build a voltage divider that gives 3.3 V out of 12 V", "recipe": "novel"}
+{"prompt": "Show me how a capacitor charges when I close a switch", "recipe": "novel"}
+{"prompt": "two light bulbs side by side on a battery, what happens when one burns out?", "recipe": "novel"}
+{"prompt": "A pendulum on a long string, 0.3 m, I want to change its mass", "recipe": "novel"}
+{"prompt": "a spring with a heavy weight bouncing up and down, let me change the stiffness", "recipe": "novel"}
+{"prompt": "Throw a ball at 45 degrees and show its path", "recipe": "novel"}
+{"prompt": "A heavy block hits a light block that is standing still", "recipe": "novel"}
+{"prompt": "What does a block on a steep slope with no friction do?", "recipe": "novel"}
+{"prompt": "LED with a resistor so it does not burn out on 5 volts", "recipe": "novel"}
+{"prompt": "show half wave rectifier with filter capacitor 50 Hz", "recipe": "novel"}
+{"prompt": "an inverting amplifier with gain 10 using an op-amp", "recipe": "novel"}
+{"prompt": "A step down transformer from 230 V to about 12 V", "recipe": "novel"}
+{"prompt": "AND gate with two switches and a truth table", "recipe": "novel"}
+{"prompt": "how does a half adder add two bits?", "recipe": "novel"}
+{"prompt": "4 bit binary counter with a slow clock", "recipe": "novel"}
+{"prompt": "A ball falling from 2 metres onto the floor, plot the height", "recipe": "novel"}
+{"prompt": "spring mass damper system with a damping slider", "recipe": "novel"}
+{"prompt": "a resonant RLC circuit at 500 Hz", "recipe": "novel"}
+{"prompt": "lens focusing a beam of light onto a screen", "recipe": "novel"}
+{"prompt": "a charged particle curving in a magnetic field", "recipe": "novel"}
+{"prompt": "Two resistors in parallel, 220 and 330 ohms, with an ammeter", "recipe": "novel"}
+{"prompt": "series and parallel resistors together: one in series with a pair in parallel", "recipe": "novel"}
+{"prompt": "mass swinging on a rope, show the speed", "recipe": "novel"}
+{"prompt": "a D flip-flop remembering a bit", "recipe": "novel"}
+{"prompt": "RL circuit where the current builds up slowly", "recipe": "novel"}
+{"prompt": "a bulb and a switch on a 6 V battery", "recipe": "novel"}
+{"prompt": "Show me Ohm's law with a variable resistor", "recipe": "novel"}
+{"prompt": "projectile launched horizontally from a cliff", "recipe": "novel"}

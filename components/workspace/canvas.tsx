@@ -45,7 +45,7 @@ import { baseObject, createGeometry, fromRecognition, componentById } from '@/li
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
 import { eraseTargets } from '@/lib/scene/erase'
-import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
+import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, overPart, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
 import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
 import { nearestPointOnBoundary, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { connectorPoints } from '@/lib/render/connector-path'
@@ -3460,10 +3460,12 @@ export function InfiniteCanvas({
     const objs0 = useDocStore.getState().pages[pageId]?.objects ?? {}
     const zoom0 = vpRef.current.zoom
     const p0 = toCanvas(e.clientX, e.clientY)
-    const fromPin = pinHit(objs0, p0, (e.pointerType === 'touch' ? 16 : 9) / zoom0)
+    const fromPin = pinHit(objs0, p0, (e.pointerType === 'touch' ? 14 : 7) / zoom0)
     // No pin under the pointer? A wire body works too — drag from mid-wire to
     // branch off it. A plain click there still just selects the wire.
-    const fromWire = fromPin ? null : wireHit(objs0, p0, (e.pointerType === 'touch' ? 12 : 6) / zoom0)
+    // …but never over a part's body: a wire running past a part must not make
+    // the part undraggable.
+    const fromWire = fromPin || overPart(objs0, p0) ? null : wireHit(objs0, p0, (e.pointerType === 'touch' ? 12 : 6) / zoom0)
     if (!fromPin && !fromWire) return false
     e.stopPropagation()
     e.preventDefault()
@@ -4235,7 +4237,7 @@ export function InfiniteCanvas({
         if (editing && tool === 'select' && !gestureRef.current && !wiring && e.pointerType !== 'touch') {
           const oh = useDocStore.getState().pages[pageId]?.objects ?? {}
           const ph = toCanvas(e.clientX, e.clientY)
-          const next = (pinHit(oh, ph, 9 / vpRef.current.zoom) ?? wireHit(oh, ph, 6 / vpRef.current.zoom))?.point ?? null
+          const next = (pinHit(oh, ph, 7 / vpRef.current.zoom) ?? (overPart(oh, ph) ? null : wireHit(oh, ph, 6 / vpRef.current.zoom)))?.point ?? null
           if ((next?.x ?? null) !== (pinHover?.x ?? null) || (next?.y ?? null) !== (pinHover?.y ?? null)) setPinHover(next)
         }
         if (tool === 'shaper' && !gestureRef.current) {

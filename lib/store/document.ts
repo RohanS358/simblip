@@ -27,6 +27,7 @@ import { markPageDeleted } from '@/lib/store/deleted-pages'
 import { pointAtBoundaryT, type ConnectorAnchor } from '@/lib/scene/connectors'
 import { refitBends } from '@/lib/render/connector-path'
 import { terminalsOf, terminalWorld } from '@/lib/circuit/engine'
+import { routePins } from '@/lib/circuit/pin-wire'
 import { ANCHOR_INDEX } from '@/lib/scene/simscript-props'
 
 /** Resolves an anchor to a world point on `obj`. Anchors without a `kind`
@@ -454,7 +455,7 @@ function wiringOf(obj: SceneObject): {
   }
 }
 
-function reprojectConnectors(page: PageContent, movedObjectId: string): PageContent {
+function reprojectConnectors(page: PageContent, movedObjectId: string, reroute = false): PageContent {
   let objects = page.objects
   let changed = false
   for (const obj of Object.values(page.objects)) {
@@ -501,11 +502,33 @@ function reprojectConnectors(page: PageContent, movedObjectId: string): PageCont
     // straightening into a slanted line.
     const oldBends = obj.metadata.bends as number[][] | undefined
     let newMeta = obj.metadata
+    const sa = startAnchor as { kind?: string; terminalId?: string } | undefined
+    const ea = endAnchor as { kind?: string; terminalId?: string } | undefined
+    const pinToPin = sa?.kind === 'terminal' && ea?.kind === 'terminal' && !!startObj && !!endObj
+    const rerouted = () =>
+      routePins(
+        objects,
+        { objectId: startObj!.id, idx: Number(sa!.terminalId), point: a },
+        { objectId: endObj!.id, idx: Number(ea!.terminalId), point: b }
+      )
+        .slice(1, -1)
+        .map((q) => [q.x - px, q.y - py])
     if (oldBends && oldBends.length > 0) {
       const dx = obj.position.x - px
       const dy = obj.position.y - py
       const rebased = oldBends.map((p) => [p[0] + dx, p[1] + dy])
-      newMeta = { ...obj.metadata, bends: refitBends(localA, rebased, localB) }
+      let bends = refitBends(localA, rebased, localB)
+      // Refitting keeps a route square only while the pins keep their exit
+      // directions. Rotating a part flips them (the wire would run into the
+      // body), and a long move can still leave a slanted run — a wire is
+      // never slanted, so route it afresh between its two pins instead.
+      const chain = [localA, ...bends, localB]
+      const square = chain.every((q, i) => i === 0 || Math.abs(q[0] - chain[i - 1][0]) < 0.5 || Math.abs(q[1] - chain[i - 1][1]) < 0.5)
+      if (pinToPin && (reroute || !square)) bends = rerouted()
+      else if (!square) bends = []
+      newMeta = { ...obj.metadata, bends }
+    } else if (pinToPin && reroute) {
+      newMeta = { ...obj.metadata, bends: rerouted() }
     }
 
     const newObj = {
@@ -723,12 +746,12 @@ export const useDocStore = create<DocState>()(
         // locked object's patchObject call above is a no-op, so its
         // connectors must stay put too — re-reading state after the set
         // above is what lets us tell the two cases apart).
-        if (patch.position || patch.size) {
+        if (patch.position || patch.size || patch.rotation !== undefined) {
           set((s) => {
             const page = s.pages[pageId]
             const movedObj = page?.objects[id]
             if (!page || !movedObj || movedObj.metadata.locked) return {}
-            const next = reprojectConnectors(page, id)
+            const next = reprojectConnectors(page, id, patch.rotation !== undefined)
             return next === page ? {} : { pages: { ...s.pages, [pageId]: next } }
           })
         }

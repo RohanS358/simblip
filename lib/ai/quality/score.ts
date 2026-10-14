@@ -54,8 +54,14 @@ const isWire = (o: SceneObject) => o.behaviors.some((b) => b.type === 'wire') ||
 const PANELS = new Set(['graph', 'note', 'text', 'chart', 'table', 'gridtable', 'slider', 'button', 'trigger', 'formula', 'truthtable', 'code', 'surface3d', 'cashflow', 'steplab', 'dsa', 'picture'])
 const isPanel = (o: SceneObject) => PANELS.has(o.geometry.kind)
 /** Things that BEAUTY applies to as bodies: symbols and shapes, not wires/panels/containers. */
-const isBody = (o: SceneObject) => !isWire(o) && !isPanel(o) && o.geometry.kind !== 'group' && o.geometry.kind !== 'stroke'
-const isContainer = (o: SceneObject) => o.name === 'system' || o.geometry.kind === 'rect' && o.metadata?.system === true
+const LINKS = new Set(['spring', 'rope', 'rod', 'damper', 'torsionSpring'])
+/** A spring, rope or rod: drawn BETWEEN bodies, so it always touches them. */
+const isLink = (o: SceneObject) => o.geometry.kind === 'line' && o.behaviors.some((b) => LINKS.has(b.type))
+const isBody = (o: SceneObject) => !isWire(o) && !isLink(o) && !isPanel(o) && o.geometry.kind !== 'group' && o.geometry.kind !== 'stroke' && o.geometry.kind !== 'line'
+/** The dashed MECHANICS / OPTICS box: everything sits inside it by design. */
+const isContainer = (o: SceneObject) => o.metadata?.render === 'system'
+/** Ground and other fixed bodies are SUPPOSED to be touched. */
+const isFixed = (o: SceneObject) => o.behaviors.some((b) => b.type === 'staticBody') || o.geometry.symbol === 'ground' || /^ground|floor|wall|beam|ceiling$/i.test(o.name)
 
 /** Axis-aligned box of an object after rotation about its centre. */
 export function boxOf(o: SceneObject): Rect {
@@ -140,6 +146,7 @@ export function scoreLooks(objs: SceneObject[], frame?: Frame): { score: number;
   for (let i = 0; i < boxes.length; i++) {
     for (let j = i + 1; j < boxes.length; j++) {
       const small = Math.min(area(boxes[i]), area(boxes[j]))
+      if (isFixed(solids[i]) || isFixed(solids[j])) continue
       if (small > 0 && inter(boxes[i], boxes[j]) / small > 0.06) {
         overlapping++
         if (issues.length < 8) issues.push(`${solids[i].name || solids[i].geometry.kind} overlaps ${solids[j].name || solids[j].geometry.kind}`)
@@ -203,9 +210,9 @@ export function scoreLooks(objs: SceneObject[], frame?: Frame): { score: number;
   // 5b. Lanes: how many distinct rows and columns the parts occupy. A designed
   // sheet reuses a few rails; a staircase gives every part its own row AND column.
   const lane = (vals: number[]) => { const u: number[] = []; for (const v of vals.sort((a, b) => a - b)) if (!u.length || v - u[u.length - 1] > 12) u.push(v); return u.length }
-  const lanes = cs.length > 3 ? (lane(cs.map((c) => c[0])) + lane(cs.map((c) => c[1]))) / cs.length : 0
-  const grid = cs.length > 3 ? clamp01((2 - lanes) / 1.2) : 1
-  if (cs.length > 3 && grid < 0.6) issues.push('parts sit on a diagonal / each on its own row and column')
+  const lanes = cs.length > 6 ? (lane(cs.map((c) => c[0])) + lane(cs.map((c) => c[1]))) / cs.length : 0
+  const grid = cs.length > 6 ? clamp01((2 - lanes) / 1.2) : 1
+  if (cs.length > 6 && grid < 0.6) issues.push('parts sit on a diagonal / each on its own row and column')
 
   // 6. Spacing: parts jammed together read as clutter.
   let tight = 0
@@ -252,9 +259,14 @@ export function scoreTeaches(objs: SceneObject[], rt: Runtime): { score: number;
   const notes = objs.filter((o) => o.geometry.kind === 'note' || o.geometry.kind === 'text')
   const controls = objs.filter((o) => ['slider', 'button', 'trigger'].includes(o.geometry.kind))
 
+  // Some scenes have nothing to graph: a logic circuit shows bits, and a lens
+  // shows a ray picture. Demanding a plot there would teach the model to invent one.
+  const SYMBOLIC = new Set(['truthtable', 'logic-probe', 'output', 'input', 'clock', 'd-ff', 'half-adder', 'full-adder'])
+  const OPTICAL = new Set(['lightSource', 'thinLens', 'opticalMirror', 'opticalScreen', 'slit', 'refractor', 'waveSource', 'waveBoundary', 'transmissionLine', 'quantumWell', 'tunnelBarrier'])
+  const noPlotNeeded = objs.some((o) => (o.geometry.symbol && SYMBOLIC.has(o.geometry.symbol)) || o.geometry.kind === 'truthtable' || o.behaviors.some((b) => OPTICAL.has(b.type)))
   // A plot of something that actually moves.
-  const plotted = physical ? (graphs.length === 0 ? 0 : rt.graphs.some((g) => g.live) ? 1 : 0.4) : 1
-  if (physical && graphs.length === 0) issues.push('nothing is plotted')
+  const plotted = physical && !noPlotNeeded ? (graphs.length === 0 ? 0 : rt.graphs.some((g) => g.live) ? 1 : 0.4) : 1
+  if (physical && !noPlotNeeded && graphs.length === 0) issues.push('nothing is plotted')
   if (graphs.length && !rt.graphs.some((g) => g.live)) issues.push('the plot shows no change')
 
   // Named parts (R1, Vin, Bob) instead of anonymous ones.
