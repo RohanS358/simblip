@@ -3572,12 +3572,21 @@ export function InfiniteCanvas({
     const objs0 = useDocStore.getState().pages[pageId]?.objects ?? {}
     const zoom0 = vpRef.current.zoom
     const p0 = toCanvas(e.clientX, e.clientY)
-    const fromPin = pinHit(objs0, p0, (e.pointerType === 'touch' ? 14 : 7) / zoom0)
+    // While a wire is selected it is in edit mode (end rings + pills): its body
+    // and its end pins do not start new connections.
+    const selWires = useDocStore.getState().selection.filter((id) => objs0[id] && wirePolyline(objs0[id]))
+    const selEnds = selWires.flatMap((id) => {
+      const poly = wirePolyline(objs0[id])!
+      return [poly[0], poly[poly.length - 1]]
+    })
+    const rawPin = pinHit(objs0, p0, (e.pointerType === 'touch' ? 14 : 7) / zoom0)
+    const fromPin = rawPin && selEnds.some((q) => Math.hypot(q.x - rawPin.point.x, q.y - rawPin.point.y) < 3) ? null : rawPin
     // No pin under the pointer? A wire body works too — drag from mid-wire to
     // branch off it. A plain click there still just selects the wire.
     // …but never over a part's body: a wire running past a part must not make
     // the part undraggable.
-    const fromWire = fromPin || overPart(objs0, p0) ? null : wireHit(objs0, p0, (e.pointerType === 'touch' ? 12 : 6) / zoom0)
+    const wh0 = fromPin || rawPin || overPart(objs0, p0) ? null : wireHit(objs0, p0, (e.pointerType === 'touch' ? 12 : 6) / zoom0)
+    const fromWire = wh0 && !selWires.includes(wh0.wireId) ? wh0 : null
     if (!fromPin && !fromWire) return false
     e.stopPropagation()
     e.preventDefault()
@@ -4355,9 +4364,14 @@ export function InfiniteCanvas({
         } else if (penErasing) setPenErasing(false)
         if (editing && tool === 'select' && !gestureRef.current && !wiring && e.pointerType !== 'touch') {
           const oh = useDocStore.getState().pages[pageId]?.objects ?? {}
+          // A selected wire is being EDITED (rings + pills): no green connection hint.
+          if (useDocStore.getState().selection.some((id) => oh[id] && wirePolyline(oh[id]))) {
+            if (pinHover) setPinHover(null)
+          } else {
           const ph = toCanvas(e.clientX, e.clientY)
           const next = (pinHit(oh, ph, 7 / vpRef.current.zoom) ?? (overPart(oh, ph) ? null : wireHit(oh, ph, 6 / vpRef.current.zoom)))?.point ?? null
           if ((next?.x ?? null) !== (pinHover?.x ?? null) || (next?.y ?? null) !== (pinHover?.y ?? null)) setPinHover(next)
+          }
         }
         if (tool === 'shaper' && !gestureRef.current) {
           const p = toCanvas(e.clientX, e.clientY)
