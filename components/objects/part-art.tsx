@@ -99,7 +99,7 @@ function pinNames(sym: string, n: number): string[] {
     case 'diode': case 'led': case 'zener': return ['A', 'K']
     case 'bjt': case 'bjt-pnp': return ['B', 'C', 'E']
     case 'mosfet': case 'mosfet-pmos': return ['G', 'D', 'S']
-    case 'opamp': return ['+', '−', 'out']
+    case 'opamp': return ['+', '−', 'out', 'V+', 'V−']
     default: return []
   }
 }
@@ -566,7 +566,13 @@ const ARTS: Record<string, Art> = {
         </>
       )
     },
-    contact: (c, p) => (p.side === 'r' ? c.x1 : c.x0),
+    // Supply leads end on the triangle's slanted top / bottom edge.
+    contact: (c, p) => {
+      if (p.side === 'r') return c.x1
+      if (p.side === 'l') return c.x0
+      const edge = ((p.x - c.x0) / Math.max(c.x1 - c.x0, 1)) * (c.cy - c.y0)
+      return p.side === 't' ? c.y0 + edge : c.y1 - edge
+    },
   },
   probe: {
     noLeads: true,

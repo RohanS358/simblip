@@ -228,6 +228,7 @@ const SYMBOL_SIZE: Record<string, { w: number; h: number }> = {
   'mosfet-pmos': { w: 72, h: 72 },
   'three-phase-source': { w: 96, h: 84 },
   potentiometer: { w: 96, h: 60 },
+  opamp: { w: 96, h: 72 }, // supply pins top and bottom
 }
 
 function symbol(domain: ComponentDef['domain'], name: string, label: string, position: Vec2, params: Record<string, string> = {}): SceneObject {
@@ -599,7 +600,7 @@ export const COMPONENTS: ComponentDef[] = [
       ['electronics', 'bjt-pnp', 'BJT (PNP)', { beta: '100', Vbe: '0.7' }],
       ['electronics', 'mosfet', 'MOSFET (N)', { Vt: '2' }],
       ['electronics', 'mosfet-pmos', 'MOSFET (P)', { Vt: '2' }],
-      ['electronics', 'opamp', 'Op-Amp', { gain: '100000' }],
+      ['electronics', 'opamp', 'Op-Amp', { gain: '100000', headroom: '0.5' }],
       ['digital', 'input', 'Input', { value: '0' }],
       ['digital', 'clock', 'Clock', { f: '1' }],
       ['digital', 'output', 'Output', {}],

@@ -263,7 +263,7 @@ export const ANCHOR_INDEX: Record<string, Record<string, number>> = {
   'bjt-pnp':        { base: 0, b: 0, collector: 1, c: 1, emitter: 2, e: 2 },
   mosfet:           { gate: 0, g: 0, drain: 1, d: 1, source: 2, s: 2 },
   'mosfet-pmos':    { gate: 0, g: 0, drain: 1, d: 1, source: 2, s: 2 },
-  opamp:            { 'in+': 0, inp: 0, positive: 0, 'in-': 1, inn: 1, negative: 1, out: 2, output: 2 },
+  opamp:            { 'in+': 0, inp: 0, positive: 0, 'in-': 1, inn: 1, negative: 1, out: 2, output: 2, 'v+': 3, vcc: 3, vdd: 3, vplus: 3, 'v-': 4, vee: 4, vss: 4, vminus: 4 },
   'sr-latch':       { s: 0, r: 1, q: 2, output: 2 },
   'd-ff':           { d: 0, clk: 1, clock: 1, q: 2, output: 2 },
   't-ff':           { t: 0, clk: 1, clock: 1, q: 2, output: 2 },

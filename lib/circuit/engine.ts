@@ -93,7 +93,9 @@ export const TERMINALS: Record<string, TerminalDef[]> = {
     { x: 0, y: 0.3125 },
     { x: 0, y: 0.6875 },
     { x: 1, y: 0.5 },
-  ], // [in+, in−, out]
+    { x: 0.4, y: 0 },
+    { x: 0.4, y: 1 },
+  ], // [in+, in−, out, V+, V−] — the supplies are optional (see CircuitComponent.rails)
   vcvs: T4, // voltage-controlled voltage source
   vccs: T4, // voltage-controlled current source
   ccvs: T4, // current-controlled voltage source (ctrl pins carry the sensed current)
@@ -364,7 +366,7 @@ const DEF: Record<string, Record<string, number>> = {
   'bjt-pnp': { beta: 100, Vbe: 0.7 },
   mosfet: { Vt: 2 },
   'mosfet-pmos': { Vt: 2 },
-  opamp: { gain: 1e5 },
+  opamp: { gain: 1e5, headroom: 0.5 },
   vcvs: { gain: 2 },
   vccs: { gm: 0.01 },
   ccvs: { r: 100 },
@@ -510,6 +512,8 @@ export interface CircuitComponent {
   nets: number[]
   state: Record<string, number>
   vsrcRow?: number // battery / ac-source / opamp extra unknown
+  /** op-amp with BOTH supply pins wired: its output is limited to the rails. Unwired = ideal, no limit. */
+  rails?: boolean
   outflow: number[] // per-terminal current INTO the net (amps), updated per step
 }
 
@@ -659,6 +663,15 @@ export function buildCircuit(objects: SceneObject[]): Circuit | null {
       nVsrc += rows
     }
     return comp
+  })
+
+  // An op-amp whose V+ and V− pins both touch something runs on real rails.
+  const itemsOnRoot = new Map<number, number>()
+  for (let i = 0; i < itemCount; i++) itemsOnRoot.set(find(i), (itemsOnRoot.get(find(i)) ?? 0) + 1)
+  circComps.forEach((c, ci) => {
+    if (c.symbol !== 'opamp') return
+    const wired = (ti: number) => (itemsOnRoot.get(find(termPts[termBase[ci] + ti].item)) ?? 0) > 1
+    c.rails = c.nets.length >= 5 && wired(3) && wired(4)
   })
 
   const circWires: CircuitWire[] = []
@@ -976,9 +989,20 @@ export function stepCircuit(
         const row = n + comp.vsrcRow!
         const gain = Math.max(pv(comp, 'gain'), 1)
         A[out][row] += 1 // output source current
-        A[row][out] += 1 // Vout − gain·(V+ − V−) = 0
-        A[row][p] -= gain
-        A[row][m] += gain
+        A[row][out] += 1
+        const sat = comp.rails ? (comp.state.sat ?? 0) : 0
+        if (sat > 0) {
+          // pinned to the upper rail: Vout = V+ − headroom
+          A[row][comp.nets[3]] -= 1
+          z[row] = -pv(comp, 'headroom')
+        } else if (sat < 0) {
+          // pinned to the lower rail: Vout = V− + headroom
+          A[row][comp.nets[4]] -= 1
+          z[row] = pv(comp, 'headroom')
+        } else {
+          A[row][p] -= gain // Vout − gain·(V+ − V−) = 0
+          A[row][m] += gain
+        }
       } else if (s === 'vcvs') {
         const [p, m, outP, outM] = comp.nets
         const row = n + comp.vsrcRow!
@@ -1161,6 +1185,28 @@ export function stepCircuit(
         }
         if (prev !== mode) {
           comp.state.on = mode
+          changed = true
+        }
+      } else if (s === 'opamp' && comp.rails) {
+        // Linear unless the unlimited output would leave the rails. A CLAMPED op-amp
+        // is judged by the sign of its input difference, not by its (pinned) output:
+        // it stays clamped only while the inputs still push outward; once the
+        // feedback pulls the other way it is released to find its linear point.
+        const [p, m, , vp, vn] = comp.nets
+        const hr = pv(comp, 'headroom')
+        const diff = x[p] - x[m]
+        const cur = comp.state.sat ?? 0
+        const hi = x[vp] - hr
+        const lo = x[vn] + hr
+        let sat: number
+        if (cur > 0) sat = diff > 0 ? 1 : 0
+        else if (cur < 0) sat = diff < 0 ? -1 : 0
+        else {
+          const want = Math.max(pv(comp, 'gain'), 1) * diff
+          sat = hi <= lo ? 0 : want > hi ? 1 : want < lo ? -1 : 0
+        }
+        if ((comp.state.sat ?? 0) !== sat) {
+          comp.state.sat = sat
           changed = true
         }
       } else if (s === 'mosfet' || s === 'mosfet-pmos') {

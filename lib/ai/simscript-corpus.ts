@@ -224,7 +224,7 @@ MAKING A SCENE ACTUALLY MOVE (a scene that draws but does not simulate is a fail
 
 KINDS (create) — params in ()
 - electrical: battery(V) ac-source(V,f) current-source(I) resistor(R) bulb(R) capacitor(C) inductor(L) potentiometer(R,ratio) switch(closed) fuse(Imax) gnd voltmeter ammeter wattmeter probe vcvs(gain) vccs(gm) ccvs(r) cccs(beta) transformer(n) three-phase-source(V,f) dc-machine electric-motor induction-motor pressure-plate
-- electronics: diode(Vf) led(Vf) zener(Vz) bjt(beta) bjt-pnp mosfet(Vt) mosfet-pmos opamp(gain)
+- electronics: diode(Vf) led(Vf) zener(Vz) bjt(beta) bjt-pnp mosfet(Vt) mosfet-pmos opamp(gain, headroom)
 - digital: input(value) clock(f) output logic-probe and/or/xor/nand/nor/not-gate d-ff jk-ff t-ff sr-latch tristate mux demux encoder decoder half-adder full-adder comparator seven-seg bcd-7seg register4 counter4(mod)
 - mechanics: mass(mass) block(mass) beam wheel ground spring rope rod damper hinge motor(speed) charge(q,vx,vy) efield(Ex,Ey) bfield(Bz) dielectric(epsr,sigma,mur) heat-block torsion-pendulum reference-point — rigidBody props: mass,friction,restitution,vx,vy,omega,showTrail
 - optics: light-source thin-lens(f) optical-mirror optical-screen slit
@@ -266,7 +266,7 @@ CASH FLOW — create("cashflow", { spec: {…} })
 
 ANCHORS (connect)
 - battery/sources: .positive .negative — resistor/bulb/capacitor/switch/fuse: .a .b — diode/led/zener: .anode .cathode
-- bjt: .base .collector .emitter — mosfet: .gate .drain .source — opamp: .inp .inn .out — potentiometer: .top .wiper .bottom
+- bjt: .base .collector .emitter — mosfet: .gate .drain .source — opamp: .inp .inn .out (optional supply rails .vcc .vee — wire both and the output clips to them) — potentiometer: .top .wiper .bottom
 - gates: .in1 .in2 .out — not/tristate: .in .out — flip-flops: .d/.j/.k/.t .clk .q — full-adder: .a .b .cin .sum .cout — counter4: .clk .q0..q3 — mux: .in0 .in1 .sel .out
 - gnd/probe: .terminal — mechanics/shapes: .centre
 - Never create("graph") — always graph.plot(). Never create("symbol").
