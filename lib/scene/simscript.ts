@@ -1272,7 +1272,10 @@ export function executeSimScript(
     const controls = unplaced.filter((id) => CONTROL_KINDS.has(get(id).geometry.kind))
     // A wide scene leaves no room beside it: the column goes underneath instead.
     const beside = H.x2 - H.x1 <= 780
-    const colX = beside ? H.x2 + 60 : H.x1
+    // The knobs row sits under the scene and may be wider than it (two sliders
+    // are 500px): the column must clear BOTH, or the second slider lands on the note.
+    const rowW = controls.length > 1 ? Math.max(H.x2 - H.x1, 500) : H.x2 - H.x1
+    const colX = beside ? H.x1 + Math.max(H.x2 - H.x1, rowW) + 60 : H.x1
     let y = beside ? H.y1 : H.y2 + 60 + (controls.length > 0 ? 90 : 0)
     const stack = (ids: string[], w: number) => {
       for (const id of ids) {
@@ -1293,7 +1296,6 @@ export function executeSimScript(
     stack(data, COL_W)
     stack(words, COL_W)
     // Knobs: a row under the scene, wrapping at the scene's width (at least a slider-and-a-half).
-    const rowW = Math.max(H.x2 - H.x1, 520)
     let cx = H.x1
     let cy = H.y2 + 40
     let rowH = 0

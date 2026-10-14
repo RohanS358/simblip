@@ -63,18 +63,26 @@ export { scoreScene, boxOf } from '@/lib/ai/quality/score'
           const buf = readBuffer(o.id)
           if (!buf || !buf.samples.length) continue
           for (const s of buf.samples) for (const v of Object.values(s.channels)) if (!Number.isFinite(v) || Math.abs(v) > 1e9) rt.unstable = true
-          if (o.behaviors.some((b) => b.type === 'electricalNode')) {
+          // Only ANALOG parts have a current to speak of; logic gates carry bits.
+          if (o.behaviors.some((b) => b.type === 'electricalNode') && buf.samples[0].channels.I !== undefined) {
             sawCircuit = true
             if (buf.samples.some((s) => Math.abs(s.channels.I ?? 0) > 1e-9)) anyCurrent = true
           }
         }
         if (sawCircuit && !anyCurrent) rt.deadCircuit = true
         for (const g of objs.filter((o) => o.geometry.kind === 'graph')) {
+          // graph.plot() writes `series` as "objectId:channel; objectId:channel" (and
+          // `formulas` for expressions); a graph bound by hand uses sourceId/yChannels.
+          const pairs = String(g.parameters.series?.value ?? '').split(';').map((x) => x.trim()).filter(Boolean).map((x) => x.split(':'))
           const src = String(g.parameters.sourceId?.value ?? '')
-          const ch = String(g.parameters.yChannels?.value ?? '').split(/[,;]/).map((s) => s.trim()).filter(Boolean)
-          const buf = src ? readBuffer(src) : undefined
-          const live = !!buf && ch.some((c) => { const vs = buf.samples.map((s) => s.channels[c]).filter(Number.isFinite); return vs.length > 3 && Math.max(...vs) - Math.min(...vs) > 1e-9 })
-          rt.graphs.push({ channel: ch.join(','), live })
+          for (const c of String(g.parameters.yChannels?.value ?? '').split(/[,;]/).map((x) => x.trim()).filter(Boolean)) pairs.push([src, c])
+          const live = pairs.some(([oid, ch]) => {
+            const buf = readBuffer(oid)
+            if (!buf) return false
+            const vs = buf.samples.map((s2) => s2.channels[ch]).filter(Number.isFinite)
+            return vs.length > 3 && Math.max(...vs) - Math.min(...vs) > 1e-9
+          })
+          rt.graphs.push({ channel: pairs.map((p) => p.join(':')).join(','), live: live || (pairs.length === 0 && !!g.parameters.formulas) })
         }
       } catch (e) {
         rt.unstable = true
