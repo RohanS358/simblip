@@ -209,3 +209,19 @@ export function routeWireToPin(objects: Record<string, SceneObject>, w: WireHit,
   if (!ob || !router) return routeFromWire(w, b.point)
   return simplify(routeEdgeFrom(router, w.point, ob, terminalsOf(ob)[b.idx]))
 }
+
+/** Is p over the body of a circuit part? (Presses there move the part, not start a branch.) */
+export function overPart(objects: Record<string, SceneObject>, p: Pt): boolean {
+  for (const o of Object.values(objects)) {
+    if (!isPart(o)) continue
+    const cx = o.position.x + o.size.w / 2
+    const cy = o.position.y + o.size.h / 2
+    const r = (-(o.rotation ?? 0) * Math.PI) / 180
+    const dx = p.x - cx
+    const dy = p.y - cy
+    const lx = dx * Math.cos(r) - dy * Math.sin(r)
+    const ly = dx * Math.sin(r) + dy * Math.cos(r)
+    if (Math.abs(lx) <= o.size.w / 2 && Math.abs(ly) <= o.size.h / 2) return true
+  }
+  return false
+}
