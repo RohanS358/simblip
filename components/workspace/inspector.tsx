@@ -4,6 +4,7 @@
 // "Convert to physics object" = attaching a behavior here. Every numeric
 // field accepts an expression against the page's variable scope.
 
+import { ObjectPicker } from './object-picker'
 import { useState, useEffect, useMemo, useRef, useContext, createContext, useId } from 'react'
 import {
   Link,
@@ -1437,23 +1438,15 @@ function GraphOptions({
               style={{ background: GRAPH_COLORS[i % GRAPH_COLORS.length] }}
               aria-hidden
             />
-            <select
-              aria-label={`Series ${i + 1} object`}
-              className={selectCls}
+            <ObjectPicker
+              ariaLabel={`Series ${i + 1} object`}
               value={s.objectId}
-              onChange={(e) => {
-                const objId = e.target.value
+              options={bodies.map((o) => ({ id: o.id, label: o.name }))}
+              onChange={(objId) => {
                 const chs = channelsOf(objId)
                 updateSeries(i, { objectId: objId, channel: chs.includes(s.channel) ? s.channel : chs[0] })
               }}
-            >
-              {!bodies.some((o) => o.id === s.objectId) && <option value={s.objectId}>(missing)</option>}
-              {bodies.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+            />
             <select
               aria-label={`Series ${i + 1} channel`}
               className={cn(selectCls, 'w-24 shrink-0 font-mono')}
@@ -2006,26 +1999,20 @@ function SliderOptions({ pageId, object }: { pageId: string; object: SceneObject
       {targetType === 'objectParam' && (
         <div>
           <label className="text-ui-xs text-muted-foreground">Target Component</label>
-          <select
-            aria-label="Target Component"
+          <ObjectPicker
+            ariaLabel="Target Component"
             value={targetObjectId}
-            onChange={(e) =>
+            placeholder="Select component…"
+            options={objects.map((o) => ({ id: o.id, label: `${o.name} (${o.geometry.kind})` }))}
+            onChange={(v) =>
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { parameters: { ...object.parameters, targetObjectId: str(v) } },
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-ui-sm outline-none"
-          >
-            <option value="">Select component…</option>
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} ({o.geometry.kind})
-              </option>
-            ))}
-          </select>
+            />
         </div>
       )}
 
@@ -2172,26 +2159,20 @@ function ButtonOptions({ pageId, object }: { pageId: string; object: SceneObject
       {targetType === 'objectParam' && (
         <div>
           <label className="text-ui-xs text-muted-foreground">Target Component</label>
-          <select
-            aria-label="Target Component"
+          <ObjectPicker
+            ariaLabel="Target Component"
             value={targetObjectId}
-            onChange={(e) =>
+            placeholder="Select component…"
+            options={objects.map((o) => ({ id: o.id, label: `${o.name} (${o.geometry.kind})` }))}
+            onChange={(v) =>
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { parameters: { ...object.parameters, targetObjectId: str(v) } },
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-ui-sm outline-none"
-          >
-            <option value="">Select component…</option>
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} ({o.geometry.kind})
-              </option>
-            ))}
-          </select>
+            />
         </div>
       )}
 
@@ -2314,26 +2295,20 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         </select>
 
         {sourceType === 'objectParam' && (
-          <select
-            aria-label="Component Parameter"
+          <ObjectPicker
+            ariaLabel="Component Parameter"
             value={sourceObjectId}
-            onChange={(e) =>
+            placeholder="Select source component…"
+            options={objects.map((o) => ({ id: o.id, label: `${o.name} (${o.geometry.kind})` }))}
+            onChange={(v) =>
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, sourceObjectId: str(e.target.value) } },
+                { parameters: { ...object.parameters, sourceObjectId: str(v) } },
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-ui-xs outline-none"
-          >
-            <option value="">Select source component…</option>
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} ({o.geometry.kind})
-              </option>
-            ))}
-          </select>
+            />
         )}
 
         <select
@@ -2427,26 +2402,20 @@ function TriggerOptions({ pageId, object }: { pageId: string; object: SceneObjec
         </select>
 
         {targetType === 'objectParam' && (
-          <select
-            aria-label="Component Parameter"
+          <ObjectPicker
+            ariaLabel="Component Parameter"
             value={targetObjectId}
-            onChange={(e) =>
+            placeholder="Select target component…"
+            options={objects.map((o) => ({ id: o.id, label: `${o.name} (${o.geometry.kind})` }))}
+            onChange={(v) =>
               updateObject(
                 pageId,
                 object.id,
-                { parameters: { ...object.parameters, targetObjectId: str(e.target.value) } },
+                { parameters: { ...object.parameters, targetObjectId: str(v) } },
                 { history: true }
               )
             }
-            className="w-full rounded-md border border-input bg-background/60 px-2 py-1 text-ui-xs outline-none"
-          >
-            <option value="">Select target component…</option>
-            {objects.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.name} ({o.geometry.kind})
-              </option>
-            ))}
-          </select>
+            />
         )}
 
         <select

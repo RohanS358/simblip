@@ -45,6 +45,7 @@ import { baseObject, createGeometry, fromRecognition, componentById, COMPONENTS 
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
 import { eraseTargets } from '@/lib/scene/erase'
+import { useHoverHighlight } from '@/lib/store/hover-highlight'
 import { wirePolyline } from '@/lib/circuit/pin-wire'
 import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, overPart, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
 import { finalizeOrtho, densify, type P } from '@/lib/scene/ortho'
@@ -900,6 +901,8 @@ const ObjectView = memo(function ObjectView({
   onRotateStart: (e: React.PointerEvent, id: string) => void
   onHover: (id: string | null) => void
 }) {
+  // A picker row (inspector dropdown) is pointing at this object: glow so you can see which.
+  const glowing = useHoverHighlight((st) => st.id === object.id)
   // Components UI scale — same CSS zoom trick as panel text size. Scales
   // KaTeX, table cells, graph labels, lab chrome, etc. without fighting
   // canvas viewport zoom.
@@ -981,6 +984,7 @@ const ObjectView = memo(function ObjectView({
         height: object.size.h || undefined,
         zIndex: object.z,
         transformOrigin: 'center center',
+        filter: glowing ? 'drop-shadow(0 0 4px var(--accent-amber)) drop-shadow(0 0 12px var(--accent-amber))' : undefined,
       }}
       onPointerDown={(e) => onPointerDown(e, object.id)}
       // Double-click meaning is declared per kind in lib/scene/dblclick-policy
@@ -1029,6 +1033,9 @@ const ObjectView = memo(function ObjectView({
       >
         <Renderer pageId={pageId} object={object} selected={selected} />
       </div>
+      {glowing && object.geometry.kind !== 'line' && object.geometry.kind !== 'stroke' && (
+        <div className="pointer-events-none absolute -inset-1 animate-pulse rounded-lg ring-2 ring-[var(--accent-amber)]" />
+      )}
       {/* Only show per-object resize/rotate grips for single selections.
           Multi-selections get a shared group bounding box rendered by the
           canvas, so individual grips would be visually cluttered. */}
