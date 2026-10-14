@@ -1282,6 +1282,8 @@ export function InfiniteCanvas({
   const lastPointerRef = useRef<{ clientX: number; clientY: number } | null>(null)
   const gestureRef = useRef<Gesture | null>(null)
   const spaceRef = useRef(false)
+  // True once Space was used to pan; a clean tap (no pan) rotates the selection 90°.
+  const spacePannedRef = useRef(false)
   // Touch state: live touch points, the two-finger pinch baseline, and the
   // long-press timer that stands in for right-click on touch screens.
   const touchesRef = useRef<Map<number, Vec2>>(new Map())
@@ -1795,7 +1797,10 @@ export function InfiniteCanvas({
       // to the keyboard — otherwise every mounted-but-off-screen sheet/page
       // would react to the same keystroke too.
       if (!active) return
-      if (matchesCombo(e, resolveCombo('view.pan')) && !isTyping(e.target)) spaceRef.current = true
+      if (matchesCombo(e, resolveCombo('view.pan')) && !isTyping(e.target)) {
+        if (!spaceRef.current) spacePannedRef.current = false
+        spaceRef.current = true
+      }
       if (matchesCombo(e, resolveCombo('view.measure')) && !isTyping(e.target)) setAltHeld(true)
       if (isTyping(e.target)) return
 
@@ -1982,7 +1987,25 @@ export function InfiniteCanvas({
       }
     }
     const onKeyUp = (e: KeyboardEvent) => {
-      if (matchesCombo(e, resolveCombo('view.pan'))) spaceRef.current = false
+      if (matchesCombo(e, resolveCombo('view.pan'))) {
+        const tapped = spaceRef.current && !spacePannedRef.current
+        spaceRef.current = false
+        if (tapped && active && !isTyping(e.target) && useRuntimeStore.getState().mode === 'edit') {
+          const st = useDocStore.getState()
+          const objs = st.pages[pageId]?.objects ?? {}
+          for (const id of st.selection) {
+            const o = objs[id]
+            if (!o || o.metadata.locked || o.metadata.render === 'system') continue
+            if (o.geometry.kind === 'group') {
+              for (const [cid, next] of Object.entries(rotateGroupBy(o, objs, 90))) {
+                st.updateObject(pageId, cid, next, { history: cid === id })
+              }
+            } else {
+              st.updateObject(pageId, id, { rotation: Math.round((o.rotation + 90) * 10) / 10 % 360 })
+            }
+          }
+        }
+      }
       if (matchesCombo(e, resolveCombo('view.measure'))) setAltHeld(false)
     }
     const onBlur = () => setAltHeld(false)
@@ -3653,6 +3676,7 @@ export function InfiniteCanvas({
       gesturePrefs().penButtonErases &&
       (e.buttons & 32 || e.buttons & 2) !== 0
     if (!locked && !penErase && (e.button === 1 || spaceRef.current)) {
+      spacePannedRef.current = true
       beginGesture('pan', e)
       return
     }
