@@ -20,7 +20,7 @@ function segDist(p: P, a: P, b: P): number {
   return Math.hypot(p.x - (a.x + dx * t), p.y - (a.y + dy * t))
 }
 
-function polyDist(p: P, pts: P[]): number {
+export function polyDist(p: P, pts: P[]): number {
   if (pts.length === 1) return Math.hypot(p.x - pts[0].x, p.y - pts[0].y)
   let d = Infinity
   for (let i = 1; i < pts.length; i++) d = Math.min(d, segDist(p, pts[i - 1], pts[i]))
@@ -38,7 +38,7 @@ function toLocal(o: SceneObject, p: P): P {
   return { x: cx + dx * Math.cos(r) - dy * Math.sin(r), y: cy + dx * Math.sin(r) + dy * Math.cos(r) }
 }
 
-function inkPolyline(o: SceneObject): P[] | null {
+export function inkPolyline(o: SceneObject): P[] | null {
   const wire = wirePolyline(o)
   if (wire) return wire
   const pts = o.geometry.points

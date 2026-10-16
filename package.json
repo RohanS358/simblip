@@ -16,7 +16,7 @@
     "predev": "node scripts/copy-wllama.mjs",
     "mcp": "node scripts/mcp/simblip-mcp.mjs",
     "e2e:ai": "node scripts/ai-e2e.mjs",
-    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs scripts/mcp/*.test.mjs"
+    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs lib/scene/scribble.test.mjs scripts/mcp/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

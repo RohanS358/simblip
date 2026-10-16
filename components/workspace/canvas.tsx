@@ -45,6 +45,7 @@ import { baseObject, createGeometry, fromRecognition, componentById, COMPONENTS 
 import { createBehavior, isBody } from '@/lib/behaviors/registry'
 import { nearestTerminal, terminalsOf, terminalWorld, isConductor, wireWorldPoints, SNAP } from '@/lib/circuit/engine'
 import { eraseTargets } from '@/lib/scene/erase'
+import { isScribble, scribbleVictims } from '@/lib/scene/scribble'
 import { useHoverHighlight } from '@/lib/store/hover-highlight'
 import { wirePolyline } from '@/lib/circuit/pin-wire'
 import { pinHit, bodyTarget, routePins, routeLoose, wireBetween, wireHit, overPart, routeFromWire, routeWireToPin, type PinHit, type WireHit } from '@/lib/circuit/pin-wire'
@@ -251,46 +252,6 @@ const SHAPE_SIDES: Record<string, number> = { triangle: 3, pentagon: 5, hexagon:
 // unit-space point table the PPTX importer uses for these preset ids, so a
 // dock-drawn arrow and an imported deck's arrow are the same geometry.
 const SHAPE_FIXED_POINTS: Record<string, number[][]> = PRST_POLYGON_POINTS
-
-/** A furious cover-it-up scribble: long dense path that keeps folding back
- *  on itself. Way more total turning and ink than any writing or shape. */
-function isScribble(pts: number[][]): boolean {
-  // How hard you must scribble before anything is deleted. Every threshold
-  // moves together with the setting: at 0 you have to scratch long and
-  // furiously; at 1 a quick zigzag is enough. The defaults sit in the middle.
-  const k = Math.min(1, Math.max(0, penPrefs().scribbleSensitivity))
-  const lerp = (a: number, b: number) => a + (b - a) * k
-  const minPts = lerp(60, 24) // how much ink before we even look
-  const minFold = lerp(8, 3) // path length vs. its own size — how doubled-back
-  const minTurn = lerp(10, 3) * Math.PI // total turning — how many reversals
-
-  if (pts.length < minPts) return false
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
-  let len = 0
-  let totalTurn = 0
-  let prevAng: number | null = null
-  for (let i = 0; i < pts.length; i++) {
-    const [x, y] = pts[i]
-    minX = Math.min(minX, x); minY = Math.min(minY, y)
-    maxX = Math.max(maxX, x); maxY = Math.max(maxY, y)
-    if (i > 0) {
-      const dx = x - pts[i - 1][0]
-      const dy = y - pts[i - 1][1]
-      const d = Math.hypot(dx, dy)
-      if (d < 1) continue
-      len += d
-      const ang = Math.atan2(dy, dx)
-      if (prevAng !== null) {
-        let t = Math.abs(ang - prevAng)
-        if (t > Math.PI) t = 2 * Math.PI - t
-        totalTurn += t
-      }
-      prevAng = ang
-    }
-  }
-  const diag = Math.hypot(maxX - minX, maxY - minY)
-  return diag > 40 && len / diag > minFold && totalTurn > minTurn
-}
 
 /** How long after the last stylus contact a bare touch is still treated as a
  *  resting palm rather than deliberate input. Long enough to cover the pause
@@ -2904,28 +2865,8 @@ export function InfiniteCanvas({
           // Scribble-out: scratching furiously over your work deletes what
           // is underneath — the scribble itself never commits. (Nothing
           // under it? Then it is just ink and flows through normally.)
-          if (store.tool === 'pen' && !g.orthoPts && isScribble(points)) {
-            let sx0 = Infinity, sy0 = Infinity, sx1 = -Infinity, sy1 = -Infinity
-            for (const [x, y] of points) {
-              sx0 = Math.min(sx0, x); sy0 = Math.min(sy0, y)
-              sx1 = Math.max(sx1, x); sy1 = Math.max(sy1, y)
-            }
-            const victims = Object.values(store.pages[pageId]?.objects ?? {})
-              .filter((o) => {
-                if (o.metadata.render === 'system') return false
-                const ox1 = o.position.x + o.size.w
-                const oy1 = o.position.y + o.size.h
-                const ix = Math.max(0, Math.min(sx1, ox1) - Math.max(sx0, o.position.x))
-                const iy = Math.max(0, Math.min(sy1, oy1) - Math.max(sy0, o.position.y))
-                // covered ≥60% of the object, or its centre is buried
-                const cxo = o.position.x + o.size.w / 2
-                const cyo = o.position.y + o.size.h / 2
-                return (
-                  (ix * iy) / Math.max(o.size.w * o.size.h, 1) >= 0.6 ||
-                  (cxo > sx0 && cxo < sx1 && cyo > sy0 && cyo < sy1 && ix * iy > 0)
-                )
-              })
-              .map((o) => o.id)
+          if (store.tool === 'pen' && !g.orthoPts && isScribble(points, penPrefs().scribbleSensitivity, vpRef.current.zoom)) {
+            const victims = scribbleVictims(store.pages[pageId]?.objects ?? {}, points, vpRef.current.zoom)
             if (victims.length > 0) {
               store.pushHistory(pageId)
               store.removeObjects(pageId, victims)
