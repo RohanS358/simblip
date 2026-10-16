@@ -1,0 +1,104 @@
+{
+  "name": "fuse-series",
+  "description": "A 1 A fuse passes 50 mA without blowing.",
+  "ir": {
+    "domain": "circuit",
+    "nodes": [
+      {
+        "id": "b1",
+        "cls": "battery",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "5"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "f1",
+        "cls": "fuse",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "Imax": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r1",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "100"
+        },
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "b1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "f1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "f1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "r1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "b1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "r1",
+      "channel": "I",
+      "value": 0.05
+    }
+  ]
+}

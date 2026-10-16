@@ -1,0 +1,115 @@
+{
+  "name": "nand-1-1",
+  "description": "NAND of 1,1 is 0.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "in1",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "in2",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "g1",
+        "cls": "nand-gate",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "out1",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "in1",
+          "pin": "output"
+        },
+        "b": {
+          "node": "g1",
+          "pin": "input1"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "in2",
+          "pin": "output"
+        },
+        "b": {
+          "node": "g1",
+          "pin": "input2"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "g1",
+          "pin": "output"
+        },
+        "b": {
+          "node": "out1",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "out1",
+      "channel": "value",
+      "value": 0,
+      "abs": 0.01
+    }
+  ]
+}

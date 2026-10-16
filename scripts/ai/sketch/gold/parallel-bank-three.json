@@ -1,0 +1,166 @@
+{
+  "name": "parallel-bank-three",
+  "description": "1k, 2k, 3k across 12 V → 12, 6, 4 mA.",
+  "ir": {
+    "domain": "circuit",
+    "nodes": [
+      {
+        "id": "b1",
+        "cls": "battery",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "12"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r1",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "1k"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r2",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "2k"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r3",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "3k"
+        },
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "b1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "r1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "b1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "b1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "r2",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r2",
+          "pin": "b"
+        },
+        "b": {
+          "node": "b1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "b1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "r3",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r3",
+          "pin": "b"
+        },
+        "b": {
+          "node": "b1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "r1",
+      "channel": "I",
+      "value": 0.012
+    },
+    {
+      "part": "r2",
+      "channel": "I",
+      "value": 0.006
+    },
+    {
+      "part": "r3",
+      "channel": "I",
+      "value": 0.004
+    }
+  ]
+}

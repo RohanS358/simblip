@@ -1,0 +1,104 @@
+{
+  "name": "batteries-series-aiding",
+  "description": "Two 3 V cells stacked (+ to −) behind 600 ohm → 10 mA.",
+  "ir": {
+    "domain": "circuit",
+    "nodes": [
+      {
+        "id": "b1",
+        "cls": "battery",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "3"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "b2",
+        "cls": "battery",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "3"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r1",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "600"
+        },
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "b1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "r1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "b2",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "b2",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "b1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "r1",
+      "channel": "I",
+      "value": 0.01
+    }
+  ]
+}

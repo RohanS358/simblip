@@ -1,0 +1,105 @@
+{
+  "name": "counter-clock",
+  "description": "4-bit counter on a clock — structural.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "clk",
+        "cls": "clock",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "f": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "c1",
+        "cls": "counter4",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "o0",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "o1",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "clk",
+          "pin": "output"
+        },
+        "b": {
+          "node": "c1",
+          "pin": "clk"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "c1",
+          "pin": "q0"
+        },
+        "b": {
+          "node": "o0",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "c1",
+          "pin": "q1"
+        },
+        "b": {
+          "node": "o1",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": []
+}

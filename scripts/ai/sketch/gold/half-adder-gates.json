@@ -1,0 +1,183 @@
+{
+  "name": "half-adder-gates",
+  "description": "XOR + AND build a half adder: 1+1 → sum 0, carry 1.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "ina",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "inb",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "x1",
+        "cls": "xor-gate",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "a1",
+        "cls": "and-gate",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "os",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          480,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "oc",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          590,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "ina",
+          "pin": "output"
+        },
+        "b": {
+          "node": "x1",
+          "pin": "input1"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "inb",
+          "pin": "output"
+        },
+        "b": {
+          "node": "x1",
+          "pin": "input2"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "ina",
+          "pin": "output"
+        },
+        "b": {
+          "node": "a1",
+          "pin": "input1"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "inb",
+          "pin": "output"
+        },
+        "b": {
+          "node": "a1",
+          "pin": "input2"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "x1",
+          "pin": "output"
+        },
+        "b": {
+          "node": "os",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "a1",
+          "pin": "output"
+        },
+        "b": {
+          "node": "oc",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "os",
+      "channel": "value",
+      "value": 0,
+      "abs": 0.01
+    },
+    {
+      "part": "oc",
+      "channel": "value",
+      "value": 1,
+      "abs": 0.01
+    }
+  ]
+}

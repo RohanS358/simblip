@@ -1,0 +1,143 @@
+{
+  "name": "mux-select",
+  "description": "2:1 mux with select=1 passes in1.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "i0",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "0"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "i1",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "sel",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "m1",
+        "cls": "mux",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "out1",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          480,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "i0",
+          "pin": "output"
+        },
+        "b": {
+          "node": "m1",
+          "pin": "in0"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "i1",
+          "pin": "output"
+        },
+        "b": {
+          "node": "m1",
+          "pin": "in1"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "sel",
+          "pin": "output"
+        },
+        "b": {
+          "node": "m1",
+          "pin": "sel"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "m1",
+          "pin": "out"
+        },
+        "b": {
+          "node": "out1",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "out1",
+      "channel": "value",
+      "value": 1,
+      "abs": 0.01
+    }
+  ]
+}

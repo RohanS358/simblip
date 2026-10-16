@@ -1,0 +1,174 @@
+{
+  "name": "full-adder-block",
+  "description": "The full-adder block: 1+1+1 → sum 1, carry 1.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "ina",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "inb",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "inc",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "fa",
+        "cls": "full-adder",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "os",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          480,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "oc",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          590,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "ina",
+          "pin": "output"
+        },
+        "b": {
+          "node": "fa",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "inb",
+          "pin": "output"
+        },
+        "b": {
+          "node": "fa",
+          "pin": "b"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "inc",
+          "pin": "output"
+        },
+        "b": {
+          "node": "fa",
+          "pin": "cin"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "fa",
+          "pin": "sum"
+        },
+        "b": {
+          "node": "os",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "fa",
+          "pin": "carry"
+        },
+        "b": {
+          "node": "oc",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": [
+    {
+      "part": "os",
+      "channel": "value",
+      "value": 1,
+      "abs": 0.01
+    },
+    {
+      "part": "oc",
+      "channel": "value",
+      "value": 1,
+      "abs": 0.01
+    }
+  ]
+}

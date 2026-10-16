@@ -1,0 +1,108 @@
+{
+  "name": "d-ff-clock",
+  "description": "D flip-flop clocked at 1 Hz — structural.",
+  "ir": {
+    "domain": "digital",
+    "nodes": [
+      {
+        "id": "d",
+        "cls": "input",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "value": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "clk",
+        "cls": "clock",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "f": "1"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "ff",
+        "cls": "d-ff",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "out1",
+        "cls": "output",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "d",
+          "pin": "output"
+        },
+        "b": {
+          "node": "ff",
+          "pin": "d"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "clk",
+          "pin": "output"
+        },
+        "b": {
+          "node": "ff",
+          "pin": "clk"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "ff",
+          "pin": "q"
+        },
+        "b": {
+          "node": "out1",
+          "pin": "input"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": []
+}

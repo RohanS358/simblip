@@ -1,0 +1,127 @@
+{
+  "name": "rlc-series-ac",
+  "description": "Series RLC from an AC source — structural.",
+  "ir": {
+    "domain": "circuit",
+    "nodes": [
+      {
+        "id": "ac1",
+        "cls": "ac-source",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "10",
+          "f": "100"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "r1",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "50"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "l1",
+        "cls": "inductor",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "L": "10m"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "c1",
+        "cls": "capacitor",
+        "conf": 1,
+        "bbox": [
+          370,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "C": "10u"
+        },
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "ac1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "r1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "l1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "l1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "c1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "c1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "ac1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": []
+}

@@ -1,0 +1,96 @@
+{
+  "name": "half-wave-rectifier",
+  "description": "AC source, diode and load — structural.",
+  "ir": {
+    "domain": "circuit",
+    "nodes": [
+      {
+        "id": "ac1",
+        "cls": "ac-source",
+        "conf": 1,
+        "bbox": [
+          40,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "V": "5",
+          "f": "50"
+        },
+        "source": "ink"
+      },
+      {
+        "id": "d1",
+        "cls": "diode",
+        "conf": 1,
+        "bbox": [
+          150,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "source": "ink"
+      },
+      {
+        "id": "r1",
+        "cls": "resistor",
+        "conf": 1,
+        "bbox": [
+          260,
+          40,
+          60,
+          30
+        ],
+        "rot": 0,
+        "values": {
+          "R": "1k"
+        },
+        "source": "ink"
+      }
+    ],
+    "edges": [
+      {
+        "a": {
+          "node": "ac1",
+          "pin": "positive"
+        },
+        "b": {
+          "node": "d1",
+          "pin": "anode"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "d1",
+          "pin": "cathode"
+        },
+        "b": {
+          "node": "r1",
+          "pin": "a"
+        },
+        "kind": "wire",
+        "conf": 1
+      },
+      {
+        "a": {
+          "node": "r1",
+          "pin": "b"
+        },
+        "b": {
+          "node": "ac1",
+          "pin": "negative"
+        },
+        "kind": "wire",
+        "conf": 1
+      }
+    ],
+    "labels": [],
+    "doubts": []
+  },
+  "expect": []
+}
