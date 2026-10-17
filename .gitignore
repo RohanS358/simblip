@@ -34,3 +34,6 @@ image copy 2.png
 public/third-party-licenses.txt
 public/vendor/wllama/
 .cache/
+
+# sketch datasets (generated / collected; manifests are what we keep)
+/data/sketch/
