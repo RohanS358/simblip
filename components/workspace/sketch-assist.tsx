@@ -9,7 +9,7 @@
 import { useEffect } from 'react'
 import { Check, Loader2, Pencil, RotateCw, Trash2 } from 'lucide-react'
 import { componentById } from '@/lib/scene/factory'
-import { WAVE1_CLASSES } from '@/lib/sketch/classes'
+import { MECH_PICK, WAVE1_CLASSES } from '@/lib/sketch/classes'
 import type { ReadFailure } from '@/lib/sketch/read-sketch'
 import type { Box } from '@/lib/sketch/neural-pick'
 
@@ -115,7 +115,7 @@ export function ReadFailureCard({
   }, [onKeepDrawing])
 
   const canChoose = failure.reason === 'unrecognised'
-  const title = failure.reason === 'not-loaded' ? 'Recogniser still loading' : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : "Couldn't recognise this sketch"
+  const title = failure.reason === 'not-loaded' ? 'Recogniser still loading' : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : failure.reason === 'unsupported' ? "Can't build this yet" : "Couldn't recognise this sketch"
 
   return (
     <div
@@ -160,9 +160,16 @@ export function ReadFailureCard({
             onKeyDown={stop}
           >
             <option value="">Choose component…</option>
-            {WAVE1_CLASSES.map((c) => (
-              <option key={c} value={c}>{labelOf(c)}</option>
-            ))}
+            <optgroup label="Circuits">
+              {WAVE1_CLASSES.map((c) => (
+                <option key={c} value={c}>{labelOf(c)}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Mechanics">
+              {MECH_PICK.map((c) => (
+                <option key={c} value={c}>{labelOf(c)}</option>
+              ))}
+            </optgroup>
           </select>
         </label>
       )}

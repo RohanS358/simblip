@@ -49,6 +49,20 @@ const numberOf = (v: string | undefined): number | null => {
   return Number.isFinite(n) ? n : null
 }
 
+const MARGIN = 40
+
+/**
+ * Where the emitted script's frame sits, as an origin to hand to executeSimScript so that every
+ * part lands exactly where it was drawn: the script's coordinates are relative to the sketch's
+ * top-left minus the system margin, plus a 10 px offset that keeps them non-zero.
+ */
+export function mechFrame(ir: SketchIRType): { x: number; y: number } {
+  const bodies = ir.nodes.filter((n) => n.cls !== 'force' && n.cls !== 'velocity')
+  const ext = bodies.map(extent)
+  if (!ext.length) return { x: 200, y: 100 }
+  return { x: Math.min(...ext.map((e) => e[0])) - MARGIN - 10, y: Math.min(...ext.map((e) => e[1])) - MARGIN - 10 }
+}
+
 export function compileMechanicsIR(ir: SketchIRType): CompileResult {
   const errors: CompileError[] = []
   const warnings: string[] = []
@@ -83,7 +97,6 @@ export function compileMechanicsIR(ir: SketchIRType): CompileResult {
 
   // frame: everything is emitted relative to the sketch's top-left, with a margin for the system
   const ext = bodies.map(extent)
-  const MARGIN = 40
   const minX = Math.min(...ext.map((e) => e[0])) - MARGIN
   const minY = Math.min(...ext.map((e) => e[1])) - MARGIN
   const maxX = Math.max(...ext.map((e) => e[2])) + MARGIN

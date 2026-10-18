@@ -6,6 +6,7 @@
 
 import { startCircuitGhost, type CircuitGhost } from './circuit-ghost'
 import { NEURAL_SHOW_P, pickNeural, boxOf, type Box, type NeuralPick } from './neural-pick'
+import { startMechGhost, type MechGhost } from './mech-ghost'
 
 export interface PlainStroke {
   id: string
@@ -19,11 +20,14 @@ export type ReadFailure =
   | { reason: 'not-loaded'; message: string }
   | { reason: 'no-ink'; message: string }
   | { reason: 'error'; message: string }
+  /** recognised, but the engine has no component for it (a pulley): said plainly, never guessed */
+  | { reason: 'unsupported'; message: string; box: Box; ids: string[] }
   | { reason: 'unrecognised'; message: string; best?: { cls: string; p: number }; box: Box; ids: string[] }
   | { reason: 'not-connected'; message: string; box: Box; ids: string[]; parts: number }
 
 export type ReadResult =
   | { kind: 'circuit'; ghost: CircuitGhost }
+  | { kind: 'mechanics'; ghost: MechGhost }
   | { kind: 'symbol'; pick: Extract<NeuralPick, { kind: 'place' }>; ids: string[] }
   | { kind: 'fail'; failure: ReadFailure }
 
@@ -49,6 +53,42 @@ export function connectedInk(strokes: PlainStroke[], seedId: string, gap = 48): 
   return strokes.filter((s) => inside.has(s.id))
 }
 
+/**
+ * How strongly a mechanics reading looks like mechanics rather than a circuit. HARD evidence is
+ * what a circuit sketch does not contain — a block (a drawn rectangle), a confidently hatched
+ * ground or a wedge ramp; without at least one, the score is zero, because a zigzag, a circle
+ * and a few lines are just as likely to be a resistor, a bulb and wires. SOFT evidence (balls,
+ * arrows, springs and ropes) only adds to a reading that already has some.
+ */
+export function mechanicsEvidence(g: MechGhost): number {
+  let hard = 0
+  let soft = 0
+  for (const p of g.result.parts) {
+    if (p.cls === 'block') hard++
+    else if (p.cls === 'ground' && p.conf >= 0.85) hard++
+    else if (p.cls === 'mass' || p.cls === 'force' || p.cls === 'velocity') soft++
+  }
+  if (hard < 1) return 0
+  return hard + 0.7 * soft + 0.5 * g.result.edges.length
+}
+
+/** A hinge with a rod or rope to a ball that hangs below it. */
+export function hasPendulum(g: MechGhost): boolean {
+  const byId = new Map(g.ir.nodes.map((n) => [n.id, n]))
+  const cy = (id: string) => {
+    const n = byId.get(id)
+    return n ? n.bbox[1] + n.bbox[3] / 2 : 0
+  }
+  return g.ir.edges.some((e) => {
+    if (e.kind === 'spring') return false
+    const a = byId.get(e.a.node)
+    const b = byId.get(e.b.node)
+    if (!a || !b) return false
+    const [h, m] = a.cls === 'hinge' ? [a, b] : [b, a]
+    return h.cls === 'hinge' && m.cls === 'mass' && cy(m.id) > cy(h.id) + 20
+  })
+}
+
 export function unionBox(strokes: PlainStroke[]): Box {
   return boxOf(strokes.flatMap((s) => s.pts))
 }
@@ -72,14 +112,33 @@ export function readSketch(
   const cluster = connectedInk(strokes, seedId)
   if (!seed || cluster.length === 0) return { kind: 'fail', failure: { reason: 'no-ink', message: 'There is no sketch here to read.' } }
 
+  // Mechanics first as a candidate (ground, ramps, blocks, balls, springs, arrows), because a
+  // hatched wall reads as a circuit "ground" symbol and a spring as a resistor. It must have real
+  // mechanics evidence to win; a circuit reading with more confident parts beats it.
+  // Mechanics parts are related by position, not touching (a ball above the ground), so the group is wider
+  const mechCluster = connectedInk(strokes, seedId, 200)
+  const mech = mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
+  if (mech?.result.gaps.length) {
+    const gap = mech.result.gaps[0]
+    return { kind: 'fail', failure: { reason: 'unsupported', message: gap.message, box: unionBox(mechCluster), ids: mechCluster.map((s) => s.id) } }
+  }
+  const mechScore = mech ? mechanicsEvidence(mech) : 0
+  const pendulum = !!mech && hasPendulum(mech)
+
   let circuitParts = 0
+  let circuit: CircuitGhost | null = null
   if (cluster.length >= 4) {
     const g = startCircuitGhost(pageId, cluster, net, charNet)
     if (g) {
       circuitParts = g.result.parts.length
-      if (g.result.parts.length >= 2 && g.result.ir.edges.length >= 1) return { kind: 'circuit', ghost: g }
+      if (g.result.parts.length >= 2 && g.result.ir.edges.length >= 1) circuit = g
     }
   }
+  const circuitScore = circuit ? circuit.result.parts.filter((p) => p.conf >= 0.8).length : 0
+  if (mech && mechScore >= 1.5 && (!circuit || mechScore > circuitScore)) return { kind: 'mechanics', ghost: mech }
+  // a pendulum has no block or hatched ground to point at, so it counts only when no circuit reading competes
+  if (mech && pendulum && !circuit) return { kind: 'mechanics', ghost: mech }
+  if (circuit) return { kind: 'circuit', ghost: circuit }
 
   const others = cluster.filter((s) => s.id !== seedId)
   const pick = pickNeural(net, seed.pts, others, { minP: NEURAL_SHOW_P })

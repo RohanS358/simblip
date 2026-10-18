@@ -60,6 +60,10 @@ import type { Box } from '@/lib/sketch/neural-pick'
 import { connectedInk, readSketch, unionBox, type ReadFailure, type ReadResult } from '@/lib/sketch/read-sketch'
 import { checkSimulates, failureFromBuild, failureFromCompile, type StepFailure } from '@/lib/sketch/pipeline'
 import { DoneChip, ReadFailureCard } from './sketch-assist'
+import { MechGhostOverlay, MechGhostPanel } from './mech-ghost'
+import { extractMechanics } from '@/lib/sketch/mech'
+import { compileMechGhost, editMechLink, editMechPart, mechInkToReplace, mechOrigin, type MechEdit, type MechGhost } from '@/lib/sketch/mech-ghost'
+import { verifyScene } from '@/lib/scene/verify-scene'
 import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
 import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
 import { GhostPreview } from './ghost-preview'
@@ -1346,6 +1350,10 @@ export function InfiniteCanvas({
   const [circuitGhost, setCircuitGhost] = useState<CircuitGhost | null>(null)
   const [circuitError, setCircuitError] = useState<StepFailure | null>(null)
   const [circuitHover, setCircuitHover] = useState<string | null>(null)
+  // Mechanics preview (ground, ramps, blocks, balls, springs, ropes, arrows)
+  const [mechGhost, setMechGhost] = useState<MechGhost | null>(null)
+  const [mechError, setMechError] = useState<StepFailure | null>(null)
+  const [mechHover, setMechHover] = useState<string | null>(null)
   useEffect(() => {
     startCircuitFromSelection = (pid) => {
       const net = peekSketchNet()
@@ -1400,7 +1408,13 @@ export function InfiniteCanvas({
     const runRead = (pid: string, id: string): ReadResult => {
       try {
         const res = readSketch(pid, plainOf(pid), id, peekSketchNet(), peekInkChars() ?? undefined)
-        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : `${res.ghost.result.parts.length} parts`)
+        if (res.kind !== 'mechanics') {
+          // what the mechanics reader made of the same ink, so a "not recognised" can be told from "not mechanics"
+          const mc = connectedInk(plainOf(pid), id, 200)
+          const mr = extractMechanics(mc)
+          sketchLog(`mechanics view of ${mc.length} strokes (page has ${plainOf(pid).length}):`, mr.parts.map((p) => `${p.cls}@${p.conf.toFixed(2)}`).join(' ') || 'nothing', `links ${mr.edges.length}`, `ignored ${mr.ignoredIds.length}`, 'gaps', mr.gaps.length, JSON.stringify(mr.stats))
+        }
+        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : res.kind === 'mechanics' ? `${res.ghost.ir.nodes.length} parts, ${res.ghost.ir.edges.length} links` : `${res.ghost.result.parts.length} parts`)
         return res
       } catch (e) {
         sketchLog('read threw', e)
@@ -1408,7 +1422,12 @@ export function InfiniteCanvas({
       }
     }
     const show = (res: ReadResult, pid: string, id: string, pointerType: string) => {
-      if (res.kind === 'circuit') {
+      if (res.kind === 'mechanics') {
+        setMechError(null)
+        setReadFailure(null)
+        setPending(null)
+        setMechGhost(res.ghost)
+      } else if (res.kind === 'circuit') {
         setCircuitError(null)
         setReadFailure(null)
         setPending(null)
@@ -1455,6 +1474,24 @@ export function InfiniteCanvas({
           }, Math.max(0, READ_MIN_MS - (performance.now() - t0)))
         }, 40)
       },
+    }
+    // Debug hook (only with the trace flag on): window.__sketch.read(i) reads the sketch around the
+    // i-th newest ink stroke on the open page, exactly as pressing "Done drawing" would.
+    try {
+      if (localStorage.getItem('simblip-debug-sketch')) {
+        ;(window as unknown as Record<string, unknown>).__sketch = {
+          read: (fromEnd = 1) => {
+            const st = useDocStore.getState()
+            const pid = Object.keys(st.pages).sort((a, b) => Object.keys(st.pages[b].objects).length - Object.keys(st.pages[a].objects).length)[0]
+            const ids = plainOf(pid).map((o) => o.id)
+            const id = ids[ids.length - fromEnd]
+            sketchOps.current?.startRead(pid, id, 'mouse')
+            return { pid, id, plain: ids.length }
+          },
+        }
+      }
+    } catch {
+      /* storage blocked: no hook */
     }
     return () => {
       sketchOps.current = null
@@ -1515,7 +1552,45 @@ export function InfiniteCanvas({
     setCircuitError(null)
   }, [circuitGhost])
   useEffect(() => setCircuitGhost(null), [pageId])
+  useEffect(() => setMechGhost(null), [pageId])
 
+  // "Make it live" for a mechanics reading: compile, swap the ink for the scene in one undo step
+  // (restoring the ink if building fails), then ask the real scene verifier whether it will work.
+  const confirmMech = useCallback(() => {
+    if (!mechGhost) return
+    const res = compileMechGhost(mechGhost)
+    if (!res.ok) {
+      setMechError(failureFromCompile(res.errors))
+      return
+    }
+    const store = useDocStore.getState()
+    const pid = mechGhost.pageId
+    const live = store.pages[pid]?.objects ?? {}
+    const ids = mechInkToReplace(mechGhost).filter((id) => live[id])
+    const removed = ids.map((id) => live[id])
+    store.pushHistory(pid, true)
+    const origin = mechOrigin(mechGhost)
+    if (ids.length) store.removeObjects(pid, ids)
+    const before = new Set(Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}))
+    try {
+      executeSimScript(pid, res.script, origin)
+    } catch (e) {
+      for (const o of removed) store.addObject(pid, o)
+      setMechError(failureFromBuild(e))
+      return
+    }
+    const now = useDocStore.getState().pages[pid]?.objects ?? {}
+    const built = Object.keys(now).filter((id) => !before.has(id))
+    if (built.length) useDocStore.getState().setSelection(built)
+    // Step 5: would it run as drawn? A spring that touches nothing, a body with nothing under it...
+    const report = verifyScene(Object.values(now), built)
+    const bad = report.issues.find((i) => i.level === 'error')
+    const n = mechGhost.ir.nodes.length
+    if (bad) toast(`Built ${n} parts, but it may not run as drawn: ${bad.message}`, { duration: 9000 })
+    else toast(`Built a mechanics scene from ${n} parts. Press Play.`, { duration: 3000 })
+    setMechGhost(null)
+    setMechError(null)
+  }, [mechGhost])
   // Ghost preview -> "Make it live": swap the ink for the part in ONE history
   // step, and keep the strokes + the label the user settled on as a real
   // example, on this device only (lib/sketch/corrections.ts).
@@ -5066,7 +5141,7 @@ export function InfiniteCanvas({
         </div>
       )}
 
-      {pen.neuralSketch !== false && tool === 'pen' && !ghost && !circuitGhost && (
+      {pen.neuralSketch !== false && tool === 'pen' && !ghost && !circuitGhost && !mechGhost && (
         <div
           className="absolute left-0 top-0"
           style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}
@@ -5126,6 +5201,26 @@ export function InfiniteCanvas({
             )
           )}
         </div>
+      )}
+
+      {mechGhost && mechGhost.pageId === pageId && (
+        <>
+          <div
+            className="absolute left-0 top-0"
+            style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0', pointerEvents: 'none' }}
+          >
+            <MechGhostOverlay ghost={mechGhost} zoom={viewport.zoom} hoverId={mechHover} />
+          </div>
+          <MechGhostPanel
+            ghost={mechGhost}
+            error={mechError}
+            onEdit={(id: string, edit: MechEdit) => { setMechError(null); setMechGhost((g) => (g ? editMechPart(g, id, edit) : g)) }}
+            onLink={(i: number, kind) => setMechGhost((g) => (g ? editMechLink(g, i, kind) : g))}
+            onHover={setMechHover}
+            onConfirm={confirmMech}
+            onCancel={() => { setMechGhost(null); setMechError(null) }}
+          />
+        </>
       )}
 
       {circuitGhost && circuitGhost.pageId === pageId && (

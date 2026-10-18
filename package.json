@@ -26,6 +26,7 @@
     "sketch:layouts": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/make-layouts.mjs",
     "sketch:preview-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/preview-scenes.mjs",
     "sketch:eval-mech": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-mech.mjs",
+    "sketch:eval-optics": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-optics.mjs",
     "sketch:eval-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-scenes.mjs",
     "sketch:debug-scenes": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/debug-scenes.mjs",
     "sketch:synth-chars": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/synth-chars.mjs"

@@ -15,6 +15,7 @@ import { KNOWN_KINDS } from '@/lib/ai/simscript-corpus'
 import { ANCHOR_INDEX } from '@/lib/scene/simscript-props'
 import { anchorValid, channelsOf, lintSimScript } from '@/lib/ai/simscript-lint'
 import { compileMechanicsIR } from './compile-mech'
+import { compileOpticsIR } from './compile-optics'
 
 export type CompileErrorCode =
   | 'schema' | 'unsupported-domain' | 'duplicate-node' | 'unknown-class' | 'not-a-component'
@@ -48,7 +49,7 @@ export interface CompileResult {
 const NOT_COMPONENTS = new Set(['wire', 'junction', 'junction-dot', 'text', 'unknown'])
 
 /** Domains this compiler can emit so far. */
-const SUPPORTED = new Set<SketchIRType['domain']>(['circuit', 'digital', 'mechanics'])
+const SUPPORTED = new Set<SketchIRType['domain']>(['circuit', 'digital', 'mechanics', 'optics'])
 
 /** Live parameters a kind accepts, from simscript-component-reference.md. */
 const PARAMS: Record<string, string[]> = {
@@ -147,11 +148,12 @@ export function compileIR(input: unknown, options: CompileOptions = {}): Compile
   if (!SUPPORTED.has(ir.domain)) {
     errors.push({
       code: 'unsupported-domain',
-      message: `domain "${ir.domain}" is not compiled yet — circuit, digital and mechanics only (optics is next in Phase S4)`,
+      message: `domain "${ir.domain}" is not compiled yet — circuit, digital, mechanics and optics only`,
     })
     return fail()
   }
   if (ir.domain === 'mechanics') return compileMechanicsIR(ir)
+  if (ir.domain === 'optics') return compileOpticsIR(ir)
 
   // ── nodes ────────────────────────────────────────────────────────────────
   const byId = new Map<string, SketchIRNode>()

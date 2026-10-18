@@ -10,7 +10,7 @@
 import { useEffect, useMemo } from 'react'
 import { Check, RotateCw, X } from 'lucide-react'
 import { componentById } from '@/lib/scene/factory'
-import { WAVE1_CLASSES } from '@/lib/sketch/classes'
+import { MECH_PICK, WAVE1_CLASSES } from '@/lib/sketch/classes'
 import { confidenceOf, ghostSize, type Ghost } from '@/lib/sketch/ghost'
 import { SymbolIcon } from '@/components/objects/geometry'
 
@@ -173,7 +173,7 @@ export function GhostPreview({
             onKeyDown={stop}
           >
             <option value="">Other…</option>
-            {WAVE1_CLASSES.filter((c) => c !== ghost.cls).map((c) => (
+            {[...WAVE1_CLASSES, ...MECH_PICK].filter((c) => c !== ghost.cls).map((c) => (
               <option key={c} value={c}>{labelOf(c)}</option>
             ))}
           </select>

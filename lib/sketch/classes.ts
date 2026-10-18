@@ -17,6 +17,9 @@ export const WAVE1_CLASSES = [
   'bjt', 'mosfet', 'opamp',
 ] as const
 
+/** Mechanics components a person can choose by hand for a drawn shape (the mechanics reader names these, not the network). */
+export const MECH_PICK = ['block', 'mass', 'wheel', 'ground', 'beam', 'hinge'] as const
+
 /** Not a symbol: doodles, partial symbols, stray marks. Teaches "I don't know". */
 export const UNKNOWN_CLASS = 'unknown'
 

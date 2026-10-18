@@ -424,8 +424,11 @@ export function executeSimScript(
           kind: def.kind,
           // A polygon's outline lives in its own box, so a resized prism
           // scales its vertices with it (a line keeps its two endpoints).
+          // A line (lens, mirror, screen) keeps its two endpoints but takes its length from
+          // width/height: the endpoints ARE the aperture, and a height that was asked for was
+          // silently dropped, so every lens came out the stock 120 px.
           points:
-            'points' in def && def.points && def.kind === 'polygon'
+            'points' in def && def.points && (def.kind === 'polygon' || def.kind === 'line')
               ? def.points.map(([x, y]) => [(x * (props.width ?? def.w)) / def.w, (y * (props.height ?? def.h)) / def.h])
               : 'points' in def ? def.points : undefined,
         },

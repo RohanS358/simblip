@@ -68,15 +68,17 @@ export interface MechResult {
   /** things the engine has no component for: reported, never guessed. */
   gaps: MechGap[]
   unit: number
+  /** what the primitives pass found, for the debug trace */
+  stats: { strokes: number; closed: number; springs: number; lines: number; hatched: number; ticks: number; arrows: number; shortest: number; longest: number }
 }
 
 // ── small geometry ──────────────────────────────────────────────────────────────
 
-const deg = (r: number) => (r * 180) / Math.PI
+export const deg = (r: number) => (r * 180) / Math.PI
 const rad = (d: number) => (d * Math.PI) / 180
 
 /** Direction p→q in degrees, folded into (−90, 90] — a line has no head. */
-function lineAngle(p: Pt, q: Pt): number {
+export function lineAngle(p: Pt, q: Pt): number {
   let a = deg(Math.atan2(q[1] - p[1], q[0] - p[0]))
   if (a > 90) a -= 180
   if (a <= -90) a += 180
@@ -148,7 +150,7 @@ const segProj = (p: ArrayLike<number>, a: Pt, b: Pt) => {
 }
 
 /** Distance from p to the segment ab. */
-const toSeg = (p: ArrayLike<number>, a: Pt, b: Pt) => segDist(p, a, b)
+export const toSeg = (p: ArrayLike<number>, a: Pt, b: Pt) => segDist(p, a, b)
 
 function rotPoly(cx: number, cy: number, w: number, h: number, angle: number): Pt[] {
   const c = Math.cos(rad(angle))
@@ -184,11 +186,12 @@ export interface Primitive {
 }
 
 export type Closed =
+  | { kind: 'lens'; cx: number; cy: number; w: number; h: number; angle: number; conf: number }
   | { kind: 'circle'; cx: number; cy: number; r: number; conf: number }
   | { kind: 'rect'; cx: number; cy: number; w: number; h: number; angle: number; conf: number }
   | { kind: 'tri'; verts: Pt[]; conf: number }
 
-export function closedShape(p: Primitive): Closed | null {
+export function closedShape(p: Primitive, opts: { lens?: boolean } = {}): Closed | null {
   const diag = Math.hypot(p.box.x1 - p.box.x0, p.box.y1 - p.box.y0)
   if (p.len < 24 || diag < 14) return null
   // a loop: the ends meet (a hand leaves a gap, or overshoots)
@@ -207,6 +210,11 @@ export function closedShape(p: Primitive): Closed | null {
   const mr = radii.reduce((a, b) => a + b, 0) / radii.length
   const cv = Math.sqrt(radii.reduce((a, b) => a + (b - mr) ** 2, 0) / radii.length) / Math.max(1e-6, mr)
   const aspect = rect.w / Math.max(1e-6, rect.h)
+  // A lens outline: a tall (or wide) closed shape pointed at both ends — much longer than it is thick,
+  // and not a thin rectangle. Only asked for by the optics reader; mechanics has no use for it.
+  if (opts.lens && (aspect >= 2.4 || aspect <= 1 / 2.4) && fill < 0.88 && fill > 0.45) {
+    return { kind: 'lens', cx: rect.cx, cy: rect.cy, w: rect.w, h: rect.h, angle: rect.angle, conf: 0.8 }
+  }
   // a square is 1.0 of its bounding rectangle, a circle 0.785; rounded, wobbly squares land in between
   if (fill >= 0.87) {
     return { kind: 'rect', cx: rect.cx, cy: rect.cy, w: rect.w, h: rect.h, angle: Math.abs(rect.angle) < 3 ? 0 : rect.angle, conf: Math.max(0.55, Math.min(0.97, 0.6 + (fill - 0.9) * 4)) }
@@ -265,10 +273,10 @@ export function zigzag(p: Primitive): { swings: number; amp: number } | null {
   return swings >= 6 && amp >= 4 ? { swings, amp } : null
 }
 
-const straightness = (p: Primitive) => dist(p.p0, p.p1) / Math.max(1, p.len)
+export const straightness = (p: Primitive) => dist(p.p0, p.p1) / Math.max(1, p.len)
 
 /** Total-least-squares line through the stroke, with the ends projected onto it. */
-function fitLine(pts: Pt[]): [Pt, Pt] {
+export function fitLine(pts: Pt[]): [Pt, Pt] {
   const n = pts.length
   const mx = pts.reduce((a, q) => a + q[0], 0) / n
   const my = pts.reduce((a, q) => a + q[1], 0) / n
@@ -295,7 +303,7 @@ function fitLine(pts: Pt[]): [Pt, Pt] {
   return [a, b]
 }
 
-interface Line {
+export interface Line {
   id: string
   p0: Pt
   p1: Pt
@@ -303,13 +311,13 @@ interface Line {
   angle: number
 }
 
-const mkLine = (p: Primitive): Line => {
+export const mkLine = (p: Primitive): Line => {
   const [a, b] = fitLine(p.pts)
   return { id: p.id, p0: a, p1: b, len: dist(a, b), angle: lineAngle(a, b) }
 }
 
 /** Angle between two lines in [0, 90]. */
-const between = (a: number, b: number) => {
+export const between = (a: number, b: number) => {
   const d = Math.abs(a - b) % 180
   return d > 90 ? 180 - d : d
 }
@@ -319,7 +327,7 @@ const between = (a: number, b: number) => {
  * Two strokes that meet end to end and together make a loop (a rectangle or circle drawn in two
  * goes) or a spring (a long zigzag the hand lifted in the middle) are one primitive.
  */
-function joinStrokes(prims: Primitive[]): Primitive[] {
+export function joinStrokes(prims: Primitive[]): Primitive[] {
   const taken = new Set<number>()
   const out: Primitive[] = []
   const merge = (a: Primitive, b: Primitive, ra: boolean, rb: boolean): Primitive => {
@@ -360,6 +368,123 @@ function joinStrokes(prims: Primitive[]): Primitive[] {
   return out
 }
 
+
+export interface Arrow {
+  shaft: Line
+  tail: Pt
+  tip: Pt
+  heads: string[]
+}
+
+/** Hatched hosts: a long line with at least three short ticks along one side (ground, a wall, a mirror's back). */
+export function findHatch(lines: Line[]): { hatchHost: Map<string, string[]>; tickTaken: Set<string>; hostsByLen: Line[] } {
+  const tickOf = (t: Line, h: Line): { foot: number } | null => {
+    if (t.id === h.id || t.len < 6 || t.len > Math.min(0.32 * h.len, 60)) return null
+    if (between(t.angle, h.angle) < 22) return null
+    const dx = h.p1[0] - h.p0[0]
+    const dy = h.p1[1] - h.p0[1]
+    const L = Math.hypot(dx, dy)
+    let bestD = Infinity
+    let foot = 0
+    for (const e of [t.p0, t.p1]) {
+      const d = toSeg(e, h.p0, h.p1)
+      if (d < bestD) {
+        bestD = d
+        foot = ((e[0] - h.p0[0]) * dx + (e[1] - h.p0[1]) * dy) / (L * L)
+      }
+    }
+    // hatching lies on ONE side of its line: a tick that crosses it (a focal mark on an axis) is not hatching
+    const sideOf = (e: Pt) => Math.sign((e[0] - h.p0[0]) * dy - (e[1] - h.p0[1]) * dx)
+    const dA = toSeg(t.p0, h.p0, h.p1)
+    const dB = toSeg(t.p1, h.p0, h.p1)
+    if (dA > 3 && dB > 3 && sideOf(t.p0) !== sideOf(t.p1)) return null
+    return bestD <= 12 && foot > -0.05 && foot < 1.05 ? { foot } : null
+  }
+  const hatchHost = new Map<string, string[]>()
+  const tickTaken = new Set<string>()
+  const hostsByLen = lines.slice().sort((a, b) => b.len - a.len)
+  for (const h of hostsByLen) {
+    if (h.len < 40 || tickTaken.has(h.id)) continue
+    const ticks = lines.filter((t) => !tickTaken.has(t.id) && tickOf(t, h))
+    const feet = ticks.map((t) => tickOf(t, h)!.foot)
+    if (ticks.length >= 3 && Math.max(...feet) - Math.min(...feet) >= 0.35) {
+      hatchHost.set(h.id, ticks.map((t) => t.id))
+      for (const t of ticks) tickTaken.add(t.id)
+    }
+  }
+
+  return { hatchHost, tickTaken, hostsByLen }
+}
+
+/**
+ * Arrows: a shaft with two short head strokes (or one V stroke) folding back from its tip.
+ * `used` are strokes already claimed by something else.
+ */
+export function findArrows(
+  lines: Line[],
+  prims: Primitive[],
+  used: Set<string>,
+  hatchHost: Map<string, string[]>,
+  tickTaken: Set<string>
+): { arrows: Arrow[]; spent: Set<string> } {
+  // 3b. arrows: a shaft with two short head strokes (or one V) folding back from its tip
+  const free = lines.filter((l) => !tickTaken.has(l.id) && !hatchHost.has(l.id))
+  const arrows: Arrow[] = []
+  const spent = new Set<string>()
+  for (const s of free.slice().sort((a, b) => b.len - a.len)) {
+    if (spent.has(s.id) || s.len < 22) continue
+    for (const [tip, tail] of [[s.p1, s.p0], [s.p0, s.p1]] as Array<[Pt, Pt]>) {
+      const back = [tail[0] - tip[0], tail[1] - tip[1]]
+      const backAng = Math.atan2(back[1], back[0])
+      const heads = free.filter((h) => {
+        if (h.id === s.id || spent.has(h.id) || h.len > 0.65 * s.len || h.len < 6) return false
+        const tol = Math.max(10, 0.5 * h.len)
+        const e = dist(h.p0, tip) <= tol ? h.p1 : dist(h.p1, tip) <= tol ? h.p0 : null
+        if (!e) return false
+        const a = Math.abs(((Math.atan2(e[1] - tip[1], e[0] - tip[0]) - backAng + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)
+        return deg(a) >= 10 && deg(a) <= 68
+      })
+      const side = (h: Line) => {
+        const e = dist(h.p0, tip) <= dist(h.p1, tip) ? h.p1 : h.p0
+        return Math.sign((e[0] - tip[0]) * back[1] - (e[1] - tip[1]) * back[0])
+      }
+      const left = heads.filter((h) => side(h) > 0)
+      const right = heads.filter((h) => side(h) < 0)
+      if (left.length && right.length) {
+        const hs = [left[0], right[0]]
+        arrows.push({ shaft: s, tail, tip, heads: hs.map((h) => h.id) })
+        spent.add(s.id)
+        hs.forEach((h) => spent.add(h.id))
+        break
+      }
+    }
+  }
+  // …or a V drawn in one stroke at the tip
+  for (const s of free.slice().sort((a, b) => b.len - a.len)) {
+    if (spent.has(s.id) || s.len < 22) continue
+    for (const [tip, tail] of [[s.p1, s.p0], [s.p0, s.p1]] as Array<[Pt, Pt]>) {
+      const v = prims.find((q) => {
+        if (q.ids.some((i) => used.has(i)) || spent.has(q.id) || q.id === s.id || q.len > 0.9 * s.len || q.len < 12) return false
+        const simp = rdp(q.pts, Math.max(2, 0.08 * q.len))
+        if (simp.length !== 3) return false
+        const vert = simp[1]
+        if (dist(vert, tip) > Math.max(9, 0.3 * q.len)) return false
+        const back = Math.atan2(tail[1] - tip[1], tail[0] - tip[0])
+        const arm = (e: Pt) => Math.abs(((Math.atan2(e[1] - vert[1], e[0] - vert[0]) - back + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)
+        return deg(arm(simp[0])) >= 10 && deg(arm(simp[0])) <= 68 && deg(arm(simp[2])) >= 10 && deg(arm(simp[2])) <= 68
+      })
+      if (v) {
+        arrows.push({ shaft: s, tail, tip, heads: [v.id] })
+        spent.add(s.id)
+        spent.add(v.id)
+        break
+      }
+    }
+  }
+
+  return { arrows, spent }
+}
+
 // ── the reader ──────────────────────────────────────────────────────────────────
 
 export function extractMechanics(strokes: MechStroke[]): MechResult {
@@ -383,7 +508,7 @@ export function extractMechanics(strokes: MechStroke[]): MechResult {
   const closed: Array<{ p: Primitive; c: Closed }> = []
   for (const p of prims) {
     const c = closedShape(p)
-    if (c) closed.push({ p, c })
+    if (c && c.kind !== 'lens') closed.push({ p, c })
   }
   const bodyDiags = closed.filter((x) => x.c.kind !== 'tri').map((x) => Math.hypot(x.p.box.x1 - x.p.box.x0, x.p.box.y1 - x.p.box.y0))
   const bigDiag = bodyDiags.length ? Math.max(...bodyDiags) : 0
@@ -403,7 +528,7 @@ export function extractMechanics(strokes: MechStroke[]): MechResult {
         angle: 0,
         strokeIds: p.ids,
       })
-    } else {
+    } else if (c.kind === 'tri') {
       // a wedge: its slanted edge is the ramp
       const v = c.verts
       let best: { a: Pt; b: Pt; ang: number; len: number } | null = null
@@ -475,91 +600,11 @@ export function extractMechanics(strokes: MechStroke[]): MechResult {
   const lines: Line[] = prims.filter((p) => !p.ids.some((i) => used.has(i)) && p.len >= 6 && straightness(p) >= (p.len < 32 ? 0.7 : 0.82)).map(mkLine)
   const longest = lines.reduce((m, l) => Math.max(m, l.len), 0)
 
-  // 3a. hatched hosts: a long line with ≥ 3 short ticks along one side
-  const tickOf = (t: Line, h: Line): { foot: number } | null => {
-    if (t.id === h.id || t.len < 6 || t.len > Math.min(0.32 * h.len, 60)) return null
-    if (between(t.angle, h.angle) < 22) return null
-    const dx = h.p1[0] - h.p0[0]
-    const dy = h.p1[1] - h.p0[1]
-    const L = Math.hypot(dx, dy)
-    let bestD = Infinity
-    let foot = 0
-    for (const e of [t.p0, t.p1]) {
-      const d = toSeg(e, h.p0, h.p1)
-      if (d < bestD) {
-        bestD = d
-        foot = ((e[0] - h.p0[0]) * dx + (e[1] - h.p0[1]) * dy) / (L * L)
-      }
-    }
-    return bestD <= 12 && foot > -0.05 && foot < 1.05 ? { foot } : null
-  }
-  const hatchHost = new Map<string, string[]>()
-  const tickTaken = new Set<string>()
-  const hostsByLen = lines.slice().sort((a, b) => b.len - a.len)
-  for (const h of hostsByLen) {
-    if (h.len < 40 || tickTaken.has(h.id)) continue
-    const ticks = lines.filter((t) => !tickTaken.has(t.id) && tickOf(t, h))
-    const feet = ticks.map((t) => tickOf(t, h)!.foot)
-    if (ticks.length >= 3 && Math.max(...feet) - Math.min(...feet) >= 0.35) {
-      hatchHost.set(h.id, ticks.map((t) => t.id))
-      for (const t of ticks) tickTaken.add(t.id)
-    }
-  }
+  // 3a. hatched hosts
+  const { hatchHost, tickTaken, hostsByLen } = findHatch(lines)
 
-  // 3b. arrows: a shaft with two short head strokes (or one V) folding back from its tip
-  const free = lines.filter((l) => !tickTaken.has(l.id) && !hatchHost.has(l.id))
-  const arrows: Array<{ shaft: Line; tail: Pt; tip: Pt; heads: string[] }> = []
-  const spent = new Set<string>()
-  for (const s of free.slice().sort((a, b) => b.len - a.len)) {
-    if (spent.has(s.id) || s.len < 22) continue
-    for (const [tip, tail] of [[s.p1, s.p0], [s.p0, s.p1]] as Array<[Pt, Pt]>) {
-      const back = [tail[0] - tip[0], tail[1] - tip[1]]
-      const backAng = Math.atan2(back[1], back[0])
-      const heads = free.filter((h) => {
-        if (h.id === s.id || spent.has(h.id) || h.len > 0.65 * s.len || h.len < 6) return false
-        const tol = Math.max(10, 0.5 * h.len)
-        const e = dist(h.p0, tip) <= tol ? h.p1 : dist(h.p1, tip) <= tol ? h.p0 : null
-        if (!e) return false
-        const a = Math.abs(((Math.atan2(e[1] - tip[1], e[0] - tip[0]) - backAng + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)
-        return deg(a) >= 10 && deg(a) <= 68
-      })
-      const side = (h: Line) => {
-        const e = dist(h.p0, tip) <= dist(h.p1, tip) ? h.p1 : h.p0
-        return Math.sign((e[0] - tip[0]) * back[1] - (e[1] - tip[1]) * back[0])
-      }
-      const left = heads.filter((h) => side(h) > 0)
-      const right = heads.filter((h) => side(h) < 0)
-      if (left.length && right.length) {
-        const hs = [left[0], right[0]]
-        arrows.push({ shaft: s, tail, tip, heads: hs.map((h) => h.id) })
-        spent.add(s.id)
-        hs.forEach((h) => spent.add(h.id))
-        break
-      }
-    }
-  }
-  // …or a V drawn in one stroke at the tip
-  for (const s of free.slice().sort((a, b) => b.len - a.len)) {
-    if (spent.has(s.id) || s.len < 22) continue
-    for (const [tip, tail] of [[s.p1, s.p0], [s.p0, s.p1]] as Array<[Pt, Pt]>) {
-      const v = prims.find((q) => {
-        if (q.ids.some((i) => used.has(i)) || spent.has(q.id) || q.id === s.id || q.len > 0.9 * s.len || q.len < 12) return false
-        const simp = rdp(q.pts, Math.max(2, 0.08 * q.len))
-        if (simp.length !== 3) return false
-        const vert = simp[1]
-        if (dist(vert, tip) > Math.max(9, 0.3 * q.len)) return false
-        const back = Math.atan2(tail[1] - tip[1], tail[0] - tip[0])
-        const arm = (e: Pt) => Math.abs(((Math.atan2(e[1] - vert[1], e[0] - vert[0]) - back + 3 * Math.PI) % (2 * Math.PI)) - Math.PI)
-        return deg(arm(simp[0])) >= 10 && deg(arm(simp[0])) <= 68 && deg(arm(simp[2])) >= 10 && deg(arm(simp[2])) <= 68
-      })
-      if (v) {
-        arrows.push({ shaft: s, tail, tip, heads: [v.id] })
-        spent.add(s.id)
-        spent.add(v.id)
-        break
-      }
-    }
-  }
+  // 3b. arrows
+  const { arrows, spent } = findArrows(lines, prims, used, hatchHost, tickTaken)
 
   // 3c. the remaining straight lines: surfaces (ground, ramps, walls), ropes and rods
   const rest = lines.filter((l) => !tickTaken.has(l.id) && !spent.has(l.id) && !hatchHost.has(l.id))
@@ -795,5 +840,16 @@ export function extractMechanics(strokes: MechStroke[]): MechResult {
     ignoredIds: ignored,
     gaps,
     unit,
+    stats: {
+      strokes: prims.length,
+      closed: closed.length,
+      springs: springs.length,
+      lines: lines.length,
+      hatched: hatchHost.size,
+      ticks: tickTaken.size,
+      arrows: arrows.length,
+      shortest: Math.round(Math.min(...prims.map((p) => p.len))),
+      longest: Math.round(Math.max(...prims.map((p) => p.len))),
+    },
   }
 }
