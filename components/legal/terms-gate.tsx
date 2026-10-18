@@ -4,23 +4,20 @@
 //
 // Accounts are provisioned by an admin or the platform operator, so the user
 // never passed through a sign-up flow where terms would normally appear. This
-// is where they see them: once per account, before the app opens, with each
-// term acknowledged individually rather than behind one blanket "I agree".
+// is where they see them: once per account, before the app opens, with a single
+// checkbox; the full text opens separately on /legal.
 //
 // Room boards are exempt — `board` is a classroom display signing itself in,
 // not a person who can meaningfully accept anything.
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
-import { Check, ShieldCheck } from 'lucide-react'
+import { ShieldCheck } from 'lucide-react'
 import * as DialogPrimitive from '@radix-ui/react-dialog'
 import * as VisuallyHidden from '@radix-ui/react-visually-hidden'
 import { useAuthStore } from '@/lib/auth/store'
 import { useConsent, termsOutstanding } from '@/lib/store/consent'
-import { TERMS_ITEMS, EFFECTIVE_DATE, TERMS_VERSION } from '@/lib/legal'
-import { useMotionOff, useSpring } from '@/lib/motion'
+import { EFFECTIVE_DATE, TERMS_VERSION } from '@/lib/legal'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 export function TermsGate() {
   const status = useAuthStore((s) => s.status)
@@ -28,10 +25,8 @@ export function TermsGate() {
   const name = useAuthStore((s) => s.profile?.full_name)
   const outstanding = useConsent(termsOutstanding)
   const acceptTerms = useConsent((s) => s.acceptTerms)
-  const motionOff = useMotionOff()
-  const transition = useSpring('soft')
 
-  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [agreed, setAgreed] = useState(false)
   // Hydration guard: the persisted store reads localStorage on the client, so
   // rendering the gate during SSR would flash it for users who already accepted.
   const [ready, setReady] = useState(false)
@@ -39,15 +34,6 @@ export function TermsGate() {
 
   const show = ready && status === 'authed' && role !== 'board' && outstanding
   if (!show) return null
-
-  const allChecked = checked.size === TERMS_ITEMS.length
-  const toggle = (id: string) =>
-    setChecked((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
 
   const firstName = name?.trim().split(/\s+/)[0]
 
@@ -79,70 +65,50 @@ export function TermsGate() {
               {firstName ? `Welcome, ${firstName}.` : 'Welcome to SIMBLIP.'}
             </h2>
             <p className="mt-1.5 text-ui-md leading-relaxed text-muted-foreground">
-              Your institution set this account up for you. Confirm each point below — they cover
-              what you can expect from SIMBLIP and what it expects from you.
+              Your institution set this account up for you. Please accept the terms to continue.
             </p>
           </div>
 
-          {/* Checklist */}
-          <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
-            <ul className="space-y-2">
-              {TERMS_ITEMS.map((item, i) => {
-                const on = checked.has(item.id)
-                return (
-                  <motion.li
-                    key={item.id}
-                    initial={motionOff ? false : { opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={motionOff ? { duration: 0 } : { ...transition, delay: i * 0.04 }}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => toggle(item.id)}
-                      aria-pressed={on}
-                      className={cn(
-                        'flex w-full gap-3 rounded-xl border p-3.5 text-left transition-colors',
-                        'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent-blue)] focus-visible:ring-offset-2 focus-visible:ring-offset-background',
-                        on
-                          ? 'border-[var(--accent-blue)]/40 bg-[var(--accent-blue)]/[0.06]'
-                          : 'border-border hover:bg-muted/50',
-                      )}
-                    >
-                      <span
-                        aria-hidden
-                        className={cn(
-                          'mt-0.5 flex size-[1.125rem] shrink-0 items-center justify-center rounded-[0.3rem] border transition-colors',
-                          on
-                            ? 'border-[var(--accent-blue)] bg-[var(--accent-blue)] text-white'
-                            : 'border-muted-foreground/40',
-                        )}
-                      >
-                        {on && <Check className="size-3 stroke-[3]" />}
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block text-ui-md font-semibold">{item.title}</span>
-                        <span className="mt-1 block text-ui-sm leading-relaxed text-muted-foreground">
-                          {item.body}
-                        </span>
-                      </span>
-                    </button>
-                  </motion.li>
-                )
-              })}
-            </ul>
+          {/* One-click acceptance; full text lives on /legal */}
+          <div className="px-6 py-5">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={agreed}
+                onChange={(e) => setAgreed(e.target.checked)}
+                className="mt-0.5 size-[1.125rem] shrink-0 accent-[var(--accent-blue)]"
+              />
+              <span className="text-ui-md leading-relaxed">
+                I accept the{' '}
+                <a
+                  href="/legal#terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--accent-blue)] underline underline-offset-2"
+                >
+                  Terms &amp; Conditions
+                </a>{' '}
+                and{' '}
+                <a
+                  href="/legal"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-[var(--accent-blue)] underline underline-offset-2"
+                >
+                  Privacy Policy
+                </a>
+                .
+              </span>
+            </label>
           </div>
 
           {/* Footer */}
           <div className="flex items-center justify-between gap-4 border-t border-border px-6 py-4">
             <p className="font-mono text-ui-xs text-muted-foreground">
               v{TERMS_VERSION} · {EFFECTIVE_DATE}
-              <span className="mx-1.5">·</span>
-              <span className={allChecked ? 'text-[var(--accent-mint)]' : undefined}>
-                {checked.size}/{TERMS_ITEMS.length} confirmed
-              </span>
             </p>
-            <Button size="sm" disabled={!allChecked} onClick={acceptTerms} className="min-w-28">
-              {allChecked ? 'Start using SIMBLIP' : 'Confirm each point'}
+            <Button size="sm" disabled={!agreed} onClick={acceptTerms} className="min-w-28">
+              Start using SIMBLIP
             </Button>
           </div>
         </DialogPrimitive.Content>
