@@ -62,11 +62,10 @@ import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/correction
 import { GhostPreview } from './ghost-preview'
 import { CircuitGhostOverlay, CircuitGhostPanel } from './circuit-ghost'
 import {
-  compileGhost, editPart, examplesFrom, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost,
+  compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost,
   type CircuitGhost, type PartEdit,
 } from '@/lib/sketch/circuit-ghost'
 import { executeSimScript } from '@/lib/scene/simscript'
-import { viewportBounds } from '@/lib/scene/insertables'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -491,7 +490,7 @@ function convertSelectionToCircuit(pageId: string) {
   // Experimental setting on: show the whole-circuit preview first (nothing is
   // replaced until it is confirmed). If it can't read anything, fall through to
   // the older converter below, exactly as when the setting is off.
-  if (penPrefs().neuralSketch && startCircuitFromSelection?.(pageId)) return
+  if (penPrefs().neuralSketch !== false && startCircuitFromSelection?.(pageId)) return
   const store = useDocStore.getState()
   const page = store.pages[pageId]
   if (!page) return
@@ -1359,6 +1358,51 @@ export function InfiniteCanvas({
       startCircuitFromSelection = null
     }
   }, [])
+  // The ink the held stroke belongs to — every plain stroke joined to it, directly or
+  // through others — read as a circuit. Opens the preview only when it really is
+  // one (two or more parts and at least one connection); otherwise returns false
+  // and the single-symbol path carries on.
+  const openCircuitRef = useRef<((pid: string, seedId: string) => boolean) | null>(null)
+  useEffect(() => {
+    openCircuitRef.current = (pid, seedId) => {
+      const net = peekSketchNet()
+      if (!net) return false
+      const objs = useDocStore.getState().pages[pid]?.objects ?? {}
+      const plain = Object.values(objs).filter(
+        (o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
+      )
+      const seed = plain.find((o) => o.id === seedId)
+      if (!seed) return false
+      const gap = (a: SceneObject, b: SceneObject) => {
+        const dx = Math.max(0, a.position.x - (b.position.x + b.size.w), b.position.x - (a.position.x + a.size.w))
+        const dy = Math.max(0, a.position.y - (b.position.y + b.size.h), b.position.y - (a.position.y + a.size.h))
+        return Math.hypot(dx, dy)
+      }
+      const inCluster = new Set<string>([seed.id])
+      const queue = [seed]
+      while (queue.length && inCluster.size < 400) {
+        const cur = queue.pop()!
+        for (const o of plain) {
+          if (!inCluster.has(o.id) && gap(cur, o) <= 48) {
+            inCluster.add(o.id)
+            queue.push(o)
+          }
+        }
+      }
+      if (inCluster.size < 4) return false
+      const strokes = plain
+        .filter((o) => inCluster.has(o.id))
+        .map((o) => ({
+          id: o.id,
+          pts: (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y]),
+        }))
+      const g = startCircuitGhost(pid, strokes, net, peekInkChars() ?? undefined)
+      if (!g || g.result.parts.length < 2 || g.result.ir.edges.length < 1) return false
+      setCircuitError(null)
+      setCircuitGhost(g)
+      return true
+    }
+  }, [])
   // "Make it live": build the circuit from the (possibly corrected) reading, then
   // swap it for the ink — one undo step. The ink is only removed once the circuit
   // has been built, so a failure leaves the sketch exactly as it was.
@@ -1373,15 +1417,26 @@ export function InfiniteCanvas({
     const pid = circuitGhost.pageId
     const live = store.pages[pid]?.objects ?? {}
     const ids = inkToReplace(circuitGhost).filter((id) => live[id])
+    const removed = ids.map((id) => live[id])
     store.pushHistory(pid, true)
     const origin = inkOrigin(circuitGhost)
+    const bounds = inkBounds(circuitGhost)
+    // The sketch goes first, so the new circuit is laid out where it was drawn and
+    // does not dodge the very ink it replaces; if building fails, the ink comes back.
+    if (ids.length) store.removeObjects(pid, ids)
+    const before = new Set(Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}))
     try {
-      executeSimScript(pid, res.script, { x: origin.x - 10, y: origin.y - 10 }, { bounds: viewportBounds(pid), fixedFrame: false })
+      // No layout pass: it would dodge unrelated content and drift away from the sketch.
+      void bounds
+      executeSimScript(pid, res.script, { x: origin.x - 10, y: origin.y - 10 })
     } catch (e) {
+      for (const o of removed) store.addObject(pid, o)
       setCircuitError(e instanceof Error ? e.message : 'Could not build this circuit.')
       return
     }
-    if (ids.length) store.removeObjects(pid, ids)
+    // select what was built, so it is plain where it went
+    const built = Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}).filter((id) => !before.has(id))
+    if (built.length) useDocStore.getState().setSelection(built)
     try {
       for (const ex of examplesFrom(circuitGhost, writerId(localStorage))) addCorrection(localStorage, ex)
     } catch {
@@ -1446,7 +1501,7 @@ export function InfiniteCanvas({
   useEffect(() => setGhost(null), [pageId])
   // Fetch the sketch network ahead of the first hold, so the hold never waits.
   useEffect(() => {
-    if (pen.neuralSketch) {
+    if (pen.neuralSketch !== false) {
       void peekSketchNet()
       void peekInkChars()
     }
@@ -3164,7 +3219,8 @@ export function InfiniteCanvas({
           // corrects) it. A guess too weak to show falls through to the
           // template matcher below, exactly as when the setting is off.
           let ghostPick: Extract<NeuralPick, { kind: 'place' }> | null = null
-          if (!obj && held && penPrefs().neuralSketch) {
+          let declineMsg: string | null = null
+          if (!obj && held && penPrefs().neuralSketch !== false) {
             const net = peekSketchNet()
             if (!net) {
               toast('Neural recogniser is still loading — using the older matcher this time.')
@@ -3179,7 +3235,7 @@ export function InfiniteCanvas({
                 })
               const pick = pickNeural(net, points, recent, { minP: NEURAL_SHOW_P })
               if (pick.kind === 'place' && componentById(pick.cls)) ghostPick = pick
-              else if (pick.kind === 'decline') toast(pick.message, { duration: 2500 })
+              else if (pick.kind === 'decline') declineMsg = pick.message
             }
           }
           if (!obj && held && !ghostPick) {
@@ -3203,7 +3259,7 @@ export function InfiniteCanvas({
             // exactly the ink that was drawn; the Shaper tool is the explicit
             // way to get clean shapes.
             const keep: Recognition =
-              held && rec.kind !== 'stroke' && !ghostPick
+              held && rec.kind !== 'stroke' && !ghostPick && penPrefs().neuralSketch === false
                 ? rec
                 : {
                     kind: 'stroke',
@@ -3223,7 +3279,23 @@ export function InfiniteCanvas({
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
             recentInkRef.current = [...recentInkRef.current.slice(-19), { id: obj.id, t: performance.now() }]
           }
-          if (ghostPick && obj.geometry.kind === 'stroke') {
+          // Holding the pen after a DRAWING (symbols joined by wires) reads the whole
+          // connected sketch as a circuit; after a single symbol it names that symbol.
+          let circuitOpened = false
+          if (held && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
+            circuitOpened = openCircuitRef.current?.(pageId, obj.id) ?? false
+          }
+          if (declineMsg && !ghostPick && !circuitOpened) toast(declineMsg, { duration: 2500 })
+          // Recognition on: the held stroke was kept raw so it could join a circuit. If it
+          // did not, hold-to-clean-shape still works exactly as before (circle, box, line).
+          if (!circuitOpened && !ghostPick && held && rec.kind !== 'stroke' && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke') {
+            const clean = fromRecognition(rec)
+            clean.z = obj.z
+            store.removeObjects(pageId, [obj.id])
+            store.addObject(pageId, clean)
+            obj = clean
+          }
+          if (ghostPick && !circuitOpened && obj.geometry.kind === 'stroke') {
             setGhost({
               pageId,
               cls: ghostPick.cls,

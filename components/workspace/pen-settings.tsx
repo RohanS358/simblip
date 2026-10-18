@@ -257,7 +257,7 @@ export function PenSettings() {
         onChange={() => setPen({ neuralSketch: !pen.neuralSketch })}
       />
 
-      {pen.neuralSketch && <SavedCorrections />}
+      {pen.neuralSketch !== false && <SavedCorrections />}
 
       {isTouchDevice && (
         <div className="pt-1">

@@ -94,6 +94,32 @@ export function inkToReplace(g: CircuitGhost): string[] {
   return [...ids]
 }
 
+/**
+ * Where the circuit may be laid out: the area the sketch covered (at least 480 × 340,
+ * centred on it), so the circuit comes out where the drawing was — not wherever
+ * the viewport happens to be.
+ */
+export function inkBounds(g: CircuitGhost): { left: number; top: number; right: number; bottom: number } {
+  let x0 = Infinity
+  let y0 = Infinity
+  let x1 = -Infinity
+  let y1 = -Infinity
+  for (const id of inkToReplace(g)) {
+    for (const p of g.ink[id] ?? []) {
+      if (p[0] < x0) x0 = p[0]
+      if (p[0] > x1) x1 = p[0]
+      if (p[1] < y0) y0 = p[1]
+      if (p[1] > y1) y1 = p[1]
+    }
+  }
+  if (!Number.isFinite(x0)) return { left: 0, top: 0, right: 1400, bottom: 900 }
+  const w = Math.max(480, x1 - x0 + 120)
+  const h = Math.max(340, y1 - y0 + 120)
+  const cx = (x0 + x1) / 2
+  const cy = (y0 + y1) / 2
+  return { left: cx - w / 2, top: cy - h / 2, right: cx + w / 2, bottom: cy + h / 2 }
+}
+
 /** Top-left of the ink being replaced — where the new circuit is anchored. */
 export function inkOrigin(g: CircuitGhost): { x: number; y: number } {
   let x = Infinity
