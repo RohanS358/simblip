@@ -1563,6 +1563,23 @@ export function play(pageId: string, scopeId: string | null = null) {
   rt.setTime(0)
 }
 
+/**
+ * Advance a built world by `seconds` of simulated time with no DOM, no store writes and no
+ * animation frame — the same integration stepFrame performs, for tests and for checking that a
+ * scene built from a sketch actually MOVES as drawn. Bodies are read back from `world.bodies`.
+ */
+export function advanceWorld(w: World, scope: Scope, seconds: number, onStep?: (t: number) => void): void {
+  const steps = Math.max(1, Math.round((seconds * 1000) / STEP))
+  for (let i = 0; i < steps; i++) {
+    applyLiveParams(w, scope, STEP)
+    Matter.Engine.update(w.engine, STEP)
+    w.t += STEP / 1000
+    onStep?.(w.t)
+  }
+}
+
+export type { World }
+
 export function pause() {
   if (!world) return
   if (world.raf !== null) cancelAnimationFrame(world.raf)

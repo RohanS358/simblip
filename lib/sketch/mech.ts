@@ -236,25 +236,33 @@ export function closedShape(p: Primitive): Closed | null {
 }
 
 /** A zigzag between two ends: how many times it swings across its own chord. */
-function zigzag(p: Primitive): { swings: number; amp: number } | null {
+export function zigzag(p: Primitive): { swings: number; amp: number } | null {
   const chord = dist(p.p0, p.p1)
-  if (chord < 30 || p.len / chord < 1.12) return null
+  if (chord < 30 || p.len / chord < 1.15) return null
   const ux = (p.p1[0] - p.p0[0]) / chord
   const uy = (p.p1[1] - p.p0[1]) / chord
   const res = resamplePath(p.pts, 3)
-  const v = res.map((q) => -(q[0] - p.p0[0]) * uy + (q[1] - p.p0[1]) * ux)
-  const amp = Math.max(...v.map(Math.abs))
-  // hysteresis: wobble in a wire stays inside ±4 px, a spring swings well past it
-  const h = Math.max(4.5, Math.min(9, 0.02 * chord))
-  let side = 0
+  const raw = res.map((q) => -(q[0] - p.p0[0]) * uy + (q[1] - p.p0[1]) * ux)
+  // light smoothing, then count the swings: each time the path crosses sideways by at least `h`
+  // from its last extreme. A wobbling wire never swings that far, that often.
+  const v = raw.map((_, i) => (raw[Math.max(0, i - 1)] + raw[i] + raw[Math.min(raw.length - 1, i + 1)]) / 3)
+  const amp = (Math.max(...v) - Math.min(...v)) / 2
+  const h = Math.max(3, 0.5 * amp * 0.6)
+  let dir = 0
+  let ext = v[0]
   let swings = 0
   for (const x of v) {
-    if (Math.abs(x) < h) continue
-    const s = x > 0 ? 1 : -1
-    if (side !== 0 && s !== side) swings++
-    side = s
+    if (dir >= 0 && x <= ext - h) {
+      if (dir !== 0) swings++
+      dir = -1
+      ext = x
+    } else if (dir <= 0 && x >= ext + h) {
+      if (dir !== 0) swings++
+      dir = 1
+      ext = x
+    } else if ((dir > 0 && x > ext) || (dir < 0 && x < ext)) ext = x
   }
-  return swings >= 5 && amp >= 7 ? { swings, amp } : null
+  return swings >= 6 && amp >= 4 ? { swings, amp } : null
 }
 
 const straightness = (p: Primitive) => dist(p.p0, p.p1) / Math.max(1, p.len)

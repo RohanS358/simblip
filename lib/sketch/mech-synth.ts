@@ -309,7 +309,8 @@ const springHoriz: MechSituation = {
     const bx = rng.range(380, 440)
     const k = b.block(bx, gy - bh / 2 - 7, bw, bh)
     b.spring(wall, k, [152, gy - bh / 2 - 7], [bx - bw / 2, gy - bh / 2 - 7], 6, rng.range(10, 14))
-    b.expect = { kind: 'oscillates', body: k }
+    // drawn at its natural length, so nothing moves until something disturbs it
+    b.expect = { kind: 'rests', body: k }
     return b
   },
 }
@@ -324,7 +325,6 @@ const springVertical: MechSituation = {
     const r = rng.range(30, 40)
     const m = b.ball(cx, 270, r)
     b.spring(c, m, [cx, 110], [cx, 270 - r], 6, rng.range(10, 14))
-    b.ground(cx - 130, 400, cx + 130, 400)
     b.expect = { kind: 'oscillates', body: m }
     return b
   },
@@ -406,7 +406,7 @@ const twoBlocksSpring: MechSituation = {
     const a = b.block(x1, gy - bh / 2 - 7, bw, bh)
     const c = b.block(x2, gy - bh / 2 - 7, bw, bh)
     b.spring(a, c, [x1 + bw / 2, gy - bh / 2 - 7], [x2 - bw / 2, gy - bh / 2 - 7], 6, rng.range(10, 14))
-    b.expect = { kind: 'oscillates', body: a }
+    b.expect = { kind: 'rests', body: a }
     return b
   },
 }
@@ -497,7 +497,7 @@ const betweenWalls: MechSituation = {
     const y = gy - bh / 2 - 7
     b.spring(w1, k, [112, y], [x - bw / 2, y])
     b.spring(k, w2, [x + bw / 2, y], [588, y])
-    b.expect = { kind: 'oscillates', body: k }
+    b.expect = { kind: 'rests', body: k }
     return b
   },
 }
@@ -626,6 +626,27 @@ const atwood: MechSituation = {
   },
 }
 
+const springPulled: MechSituation = {
+  id: 'spring-block-pulled',
+  title: 'A block on a spring, pulled by a force',
+  build: (rng) => {
+    const b = new SceneBuilder(rng)
+    const gy = 320
+    b.ground(120, gy, 620, gy)
+    const wall = b.ground(150, 180, 150, gy, true, [-1, 0])
+    const bw = rng.range(80, 100)
+    const bh = rng.range(60, 74)
+    const bx = rng.range(330, 380)
+    const y = gy - bh / 2 - 7
+    const k = b.block(bx, y, bw, bh)
+    b.spring(wall, k, [152, y], [bx - bw / 2, y], 6, rng.range(10, 14))
+    const L = rng.range(70, 100)
+    b.arrow(k, [bx + bw / 2 + 2, y], [bx + bw / 2 + L, y])
+    b.expect = { kind: 'oscillates', body: k }
+    return b
+  },
+}
+
 export const MECH_SITUATIONS: MechSituation[] = [
   blockOnGround,
   ballOnGround,
@@ -644,6 +665,7 @@ export const MECH_SITUATIONS: MechSituation[] = [
   projectile,
   rampForce,
   betweenWalls,
+  springPulled,
   hangingFromSpringWithGround,
   ballOnRamp,
   doublePendulum,
