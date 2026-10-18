@@ -62,7 +62,7 @@ import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/correction
 import { GhostPreview } from './ghost-preview'
 import { CircuitGhostOverlay, CircuitGhostPanel } from './circuit-ghost'
 import {
-  compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost,
+  compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost, toCheck,
   type CircuitGhost, type PartEdit,
 } from '@/lib/sketch/circuit-ghost'
 import { executeSimScript } from '@/lib/scene/simscript'
@@ -437,6 +437,18 @@ const THREE_FINGER_PX = 60
  */
 const propsOpenedForRef = { current: null as string | null }
 const HOLD_STILL_PX = 6
+/** Console trace of the drawing → recognition path; on with localStorage 'simblip-debug-sketch'. */
+function sketchLog(...a: unknown[]): void {
+  try {
+    if (localStorage.getItem('simblip-debug-sketch')) console.info('[sketch]', ...a)
+  } catch {
+    /* storage unavailable: no trace */
+  }
+}
+/** Pause after the last stroke before an unasked reading is offered (no hold needed). */
+const AUTO_READ_MS = 900
+/** How sure the network must be before a reading is offered without the person asking. */
+const AUTO_READ_P = 0.8
 
 // Object-drag hold-time and tap-vs-drag distance (touch only) now live in
 // Settings' Gestures tab — see gesturePrefs().holdBeforeDragMs/tapVsDragPx.
@@ -1321,6 +1333,12 @@ export function InfiniteCanvas({
   const pen = usePrefs((s) => s.pen)
   // Plain ink strokes committed recently (id + time), for grouping a multi-stroke symbol.
   const recentInkRef = useRef<Array<{ id: string; t: number }>>([])
+  // Auto-read: a short pause after the last stroke reads what was drawn, no hold needed.
+  const autoReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const autoReadRef = useRef<((pid: string, id: string, pointerType: string) => void) | null>(null)
+  const previewOpenRef = useRef(false)
+  /** True while the open preview came from an auto-read rather than a hold. */
+  const autoOfferedRef = useRef(false)
   // Recognised symbol awaiting the user's confirm / correction (neural setting on).
   const [ghost, setGhost] = useState<Ghost | null>(null)
   // Whole-circuit preview ("Recognize components" with the neural setting on).
@@ -1362,9 +1380,13 @@ export function InfiniteCanvas({
   // through others — read as a circuit. Opens the preview only when it really is
   // one (two or more parts and at least one connection); otherwise returns false
   // and the single-symbol path carries on.
-  const openCircuitRef = useRef<((pid: string, seedId: string) => boolean) | null>(null)
+  const openCircuitRef = useRef<((pid: string, seedId: string, strict?: boolean) => boolean) | null>(null)
   useEffect(() => {
-    openCircuitRef.current = (pid, seedId) => {
+    previewOpenRef.current = !!ghost || !!circuitGhost
+    if (!ghost && !circuitGhost) autoOfferedRef.current = false
+  }, [ghost, circuitGhost])
+  useEffect(() => {
+    openCircuitRef.current = (pid, seedId, strict) => {
       const net = peekSketchNet()
       if (!net) return false
       const objs = useDocStore.getState().pages[pid]?.objects ?? {}
@@ -1389,7 +1411,8 @@ export function InfiniteCanvas({
           }
         }
       }
-      if (inCluster.size < 4) return false
+      sketchLog(`circuit: ${plain.length} plain strokes on page; grouped ${inCluster.size}; kinds`, JSON.stringify(plain.filter((o) => inCluster.has(o.id)).map((o) => [o.geometry.kind, Math.round(o.position.x), Math.round(o.position.y), Math.round(o.size.w), Math.round(o.size.h)])))
+      if (inCluster.size < 4) return sketchLog(`circuit: only ${inCluster.size} connected stroke(s), need 4`) ?? false
       const strokes = plain
         .filter((o) => inCluster.has(o.id))
         .map((o) => ({
@@ -1397,10 +1420,52 @@ export function InfiniteCanvas({
           pts: (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y]),
         }))
       const g = startCircuitGhost(pid, strokes, net, peekInkChars() ?? undefined)
+      sketchLog(`circuit: ${inCluster.size} strokes →`, g ? `${g.result.parts.map((p) => p.cls).join(',')}; ${g.result.ir.edges.length} connections; doubts ${JSON.stringify(g.result.ir.doubts.map((d) => d.why))}` : 'nothing read')
       if (!g || g.result.parts.length < 2 || g.result.ir.edges.length < 1) return false
+      // Offered unasked (no hold): only a reading with nothing left to check.
+      if (strict && toCheck(g) > 0) return false
       setCircuitError(null)
       setCircuitGhost(g)
       return true
+    }
+    autoReadRef.current = (pid, id, pointerType) => {
+      if (previewOpenRef.current || gestureRef.current) return sketchLog('auto-read skipped: preview open or pen down')
+      const store = useDocStore.getState()
+      if (store.tool !== 'pen' || !store.inkToShape) return sketchLog('auto-read skipped: not the pen tool, or ink-to-shape off')
+      const net = peekSketchNet()
+      const objs = store.pages[pid]?.objects ?? {}
+      const o = objs[id]
+      if (!net) return sketchLog('auto-read skipped: recogniser not loaded yet')
+      if (!o || o.geometry.kind !== 'stroke' || o.behaviors.length > 0) return sketchLog('auto-read skipped: stroke is gone or not plain ink')
+      if (openCircuitRef.current?.(pid, id, true)) {
+        autoOfferedRef.current = true
+        return sketchLog('auto-read: opened whole-circuit preview')
+      }
+      sketchLog('auto-read: not a confident circuit, trying a single symbol')
+      const now = performance.now()
+      const toPts = (s: SceneObject) => (s.geometry.points ?? []).map(([x, y]) => [x + s.position.x, y + s.position.y])
+      const recent = recentInkRef.current
+        .filter((r) => r.id !== id && now - r.t < NEURAL_GROUP_MS && objs[r.id]?.geometry.kind === 'stroke' && objs[r.id].behaviors.length === 0)
+        .map((r) => ({ id: r.id, pts: toPts(objs[r.id]) }))
+      const pick = pickNeural(net, toPts(o), recent, { minP: AUTO_READ_P })
+      if (pick.kind !== 'place' || pick.p < AUTO_READ_P || !componentById(pick.cls)) {
+        return sketchLog('auto-read: single symbol not confident enough', pick.kind === 'place' ? `${pick.cls} ${pick.p.toFixed(2)}` : pick.message)
+      }
+      sketchLog('auto-read: offering', pick.cls, pick.p.toFixed(2))
+      autoOfferedRef.current = true
+      setGhost({
+        pageId: pid,
+        cls: pick.cls,
+        p: pick.p,
+        pose: pick.pose,
+        box: pick.box,
+        ids: [id, ...pick.absorb],
+        alts: pick.alts,
+        predicted: pick.cls,
+        predictedP: pick.p,
+        rotated: false,
+        device: pointerDevice(pointerType),
+      })
     }
   }, [])
   // "Make it live": build the circuit from the (possibly corrected) reading, then
@@ -3286,6 +3351,18 @@ export function InfiniteCanvas({
             circuitOpened = openCircuitRef.current?.(pageId, obj.id) ?? false
           }
           if (declineMsg && !ghostPick && !circuitOpened) toast(declineMsg, { duration: 2500 })
+          // Not held: no hold is needed. Once the pen has been still for a moment, read
+          // what was drawn and offer it (only a confident reading is offered unasked).
+          if (!held && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
+            const id = obj.id
+            const pointerType = e.pointerType
+            sketchLog('stroke committed, auto-read in', AUTO_READ_MS, 'ms')
+            if (autoReadTimerRef.current) clearTimeout(autoReadTimerRef.current)
+            autoReadTimerRef.current = setTimeout(() => {
+              autoReadTimerRef.current = null
+              autoReadRef.current?.(pageId, id, pointerType)
+            }, AUTO_READ_MS)
+          }
           // Recognition on: the held stroke was kept raw so it could join a circuit. If it
           // did not, hold-to-clean-shape still works exactly as before (circle, box, line).
           if (!circuitOpened && !ghostPick && held && rec.kind !== 'stroke' && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke') {
@@ -4538,6 +4615,19 @@ export function InfiniteCanvas({
         ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank && !docPen ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={(e) => {
+        // Drawing on: a pending auto-read waits for the next pause, and a preview that
+        // was offered unasked steps aside (one the person asked for with a hold stays).
+        if (tool === 'pen' && !(e.target as Element | null)?.closest?.('[role="dialog"]')) {
+          if (autoReadTimerRef.current) {
+            clearTimeout(autoReadTimerRef.current)
+            autoReadTimerRef.current = null
+          }
+          if (autoOfferedRef.current && previewOpenRef.current) {
+            sketchLog('auto-offered preview dismissed: drawing continued')
+            setGhost(null)
+            setCircuitGhost(null)
+          }
+        }
         // The eraser takes the press before ANY object does — text boxes, notes
         // and tables stop pointerdown for their own editing.
         if (editing && tool === 'eraser' && e.button === 0) {
@@ -4576,6 +4666,10 @@ export function InfiniteCanvas({
       onPointerLeave={() => penErasing && setPenErasing(false)}
       onPointerUp={() => penErasing && setPenErasing(false)}
       onPointerDown={(e) => {
+        if (autoReadTimerRef.current) {
+          clearTimeout(autoReadTimerRef.current)
+          autoReadTimerRef.current = null
+        }
         setCtxMenu(null)
         setWirePick(null)
         setSlash(null)

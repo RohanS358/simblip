@@ -105,7 +105,9 @@ export function shapeOf(s: InkStroke): Shape {
   const closed = len > 20 && chord < 0.12 * len
   const straight = len > 0 && chord / len >= 0.88
   // runs along the axes, give or take a hand's wobble and slant, and turns only a few times
-  const { axisFraction, turns } = axisStats(pts)
+  // The sampling step shrinks for shorter strokes, so a small coil or zigzag is not
+  // smoothed into a straight line just because it was drawn small.
+  const { axisFraction, turns } = axisStats(pts, Math.min(6, Math.max(2.5, len / 45)))
   const ortho = !closed && len >= 20 && axisFraction >= 0.78 && turns <= 5
   return { id: s.id, pts, box, len, diag: diagOf(box), chord, simp, straight, ortho, axisFraction, turns, closed }
 }
