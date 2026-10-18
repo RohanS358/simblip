@@ -16,8 +16,11 @@
 
 import type { SketchPrediction } from './sketchnet'
 
-/** Lowest probability for the best non-'unknown' class to be accepted. */
+/** Lowest probability for the best non-'unknown' class to be accepted outright. */
 export const NEURAL_MIN_P = 0.45
+/** Lowest probability worth SHOWING in the ghost preview for the user to confirm
+ *  or correct — a wrong-but-plausible guess is where a correction teaches most. */
+export const NEURAL_SHOW_P = 0.15
 /** Strokes drawn within this long of the hold can belong to the same symbol. */
 export const NEURAL_GROUP_MS = 6000
 /** How near (page px) another stroke must be to join the group. */
@@ -33,7 +36,16 @@ export interface InkCandidate {
 }
 
 export type NeuralPick =
-  | { kind: 'place'; cls: string; p: number; pose: 0 | 90 | 180 | 270; absorb: string[]; box: Box }
+  | {
+      kind: 'place'
+      cls: string
+      p: number
+      pose: 0 | 90 | 180 | 270
+      /** Other plausible symbols, most likely first (never 'unknown'). */
+      alts: Array<{ cls: string; p: number }>
+      absorb: string[]
+      box: Box
+    }
   | { kind: 'decline'; message: string }
 
 export const boxOf = (pts: number[][]): Box => {
@@ -58,7 +70,18 @@ export function bestSymbol(pred: SketchPrediction): { cls: string; p: number } |
 
 type Net = { predict(strokes: number[][][]): SketchPrediction }
 
-export function pickNeural(net: Net, points: number[][], recent: InkCandidate[], pad = NEURAL_GROUP_PAD): NeuralPick {
+const altsOf = (pred: SketchPrediction, chosen: string) =>
+  pred.top.filter((t) => t.cls !== 'unknown' && t.cls !== chosen).map((t) => ({ cls: t.cls, p: t.conf }))
+
+export interface PickOptions {
+  /** Lowest best-symbol probability to place/show. Default NEURAL_MIN_P. */
+  minP?: number
+  pad?: number
+}
+
+export function pickNeural(net: Net, points: number[][], recent: InkCandidate[], opts: PickOptions = {}): NeuralPick {
+  const minP = opts.minP ?? NEURAL_MIN_P
+  const pad = opts.pad ?? NEURAL_GROUP_PAD
   const single = net.predict([points])
   const sBest = bestSymbol(single)
 
@@ -85,18 +108,18 @@ export function pickNeural(net: Net, points: number[][], recent: InkCandidate[],
 
   // The group wins only if it is a real improvement: a lone stroke that already
   // reads well must not swallow its neighbours.
-  const useGroup = !!gBest && gBest.p >= NEURAL_MIN_P && (!sBest || sBest.p < NEURAL_MIN_P || gBest.p > sBest.p + 0.1)
+  const useGroup = !!gBest && gBest.p >= minP && (!sBest || sBest.p < minP || gBest.p > sBest.p + 0.1)
   if (useGroup && gBest && group) {
-    return { kind: 'place', cls: gBest.cls, p: gBest.p, pose: group.pose, absorb: ids, box }
+    return { kind: 'place', cls: gBest.cls, p: gBest.p, pose: group.pose, alts: altsOf(group, gBest.cls), absorb: ids, box }
   }
-  if (sBest && sBest.p >= NEURAL_MIN_P) {
-    return { kind: 'place', cls: sBest.cls, p: sBest.p, pose: single.pose, absorb: [], box: boxOf(points) }
+  if (sBest && sBest.p >= minP) {
+    return { kind: 'place', cls: sBest.cls, p: sBest.p, pose: single.pose, alts: altsOf(single, sBest.cls), absorb: [], box: boxOf(points) }
   }
   const seen = gBest && (!sBest || gBest.p > sBest.p) ? gBest : sBest
   return {
     kind: 'decline',
     message: seen
-      ? `Neural recogniser: not sure enough (best guess ${seen.cls} ${Math.round(seen.p * 100)}%, needs ${Math.round(NEURAL_MIN_P * 100)}%).`
+      ? `Neural recogniser: not sure enough (best guess ${seen.cls} ${Math.round(seen.p * 100)}%, needs ${Math.round(minP * 100)}%).`
       : "Neural recogniser: that doesn't look like a known symbol.",
   }
 }

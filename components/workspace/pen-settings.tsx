@@ -6,7 +6,9 @@
 // behaviour lives here and only here: stability, smoothness, sensitivity,
 // thickness, colour (basic + custom), style and scribble-to-erase.
 
+import { useState } from 'react'
 import { X } from 'lucide-react'
+import { clearCorrections, loadCorrections, toJsonl } from '@/lib/sketch/corrections'
 import { Slider } from '@/components/ui/slider'
 import { inkPath } from '@/components/objects/ink'
 import {
@@ -255,6 +257,8 @@ export function PenSettings() {
         onChange={() => setPen({ neuralSketch: !pen.neuralSketch })}
       />
 
+      {pen.neuralSketch && <SavedCorrections />}
+
       {isTouchDevice && (
         <div className="pt-1">
           <p className="pb-1 text-ui-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">
@@ -290,6 +294,49 @@ export function PenSettings() {
       >
         Reset pen to defaults
       </button>
+    </div>
+  )
+}
+
+/** Confirmed / corrected symbols kept on this device as real examples. */
+function SavedCorrections() {
+  const [n, setN] = useState(() => {
+    try { return loadCorrections(localStorage).length } catch { return 0 }
+  })
+  const exportThem = () => {
+    const rows = loadCorrections(localStorage)
+    const blob = new Blob([toJsonl(rows)], { type: 'application/x-ndjson' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `simblip-corrections-${new Date().toISOString().slice(0, 10)}.jsonl`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+  return (
+    <div className="rounded-md border border-border/60 p-2 text-ui-sm">
+      <p className="font-medium">Saved corrections: {n}</p>
+      <p className="pb-1.5 text-muted-foreground">
+        Each time you confirm or fix a symbol, its strokes and your choice are kept on this device only —
+        no name, no account, nothing uploaded. Export them to check or train the model.
+      </p>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          disabled={n === 0}
+          className="rounded border border-border px-2 py-1 hover:bg-muted disabled:opacity-40"
+          onClick={exportThem}
+        >
+          Export
+        </button>
+        <button
+          type="button"
+          disabled={n === 0}
+          className="rounded border border-border px-2 py-1 hover:bg-muted disabled:opacity-40"
+          onClick={() => { clearCorrections(localStorage); setN(0) }}
+        >
+          Delete all
+        </button>
+      </div>
     </div>
   )
 }

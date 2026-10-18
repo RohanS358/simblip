@@ -56,7 +56,10 @@ import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
 import { peekSketchNet } from '@/lib/sketch/sketchnet'
-import { NEURAL_GROUP_MS, pickNeural, type Box as NeuralBox } from '@/lib/sketch/neural-pick'
+import { NEURAL_GROUP_MS, NEURAL_SHOW_P, pickNeural, type NeuralPick } from '@/lib/sketch/neural-pick'
+import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
+import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
+import { GhostPreview } from './ghost-preview'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -1305,6 +1308,59 @@ export function InfiniteCanvas({
   const pen = usePrefs((s) => s.pen)
   // Plain ink strokes committed recently (id + time), for grouping a multi-stroke symbol.
   const recentInkRef = useRef<Array<{ id: string; t: number }>>([])
+  // Recognised symbol awaiting the user's confirm / correction (neural setting on).
+  const [ghost, setGhost] = useState<Ghost | null>(null)
+  // Ghost preview -> "Make it live": swap the ink for the part in ONE history
+  // step, and keep the strokes + the label the user settled on as a real
+  // example, on this device only (lib/sketch/corrections.ts).
+  const confirmGhost = useCallback(() => {
+    if (!ghost) return
+    const store = useDocStore.getState()
+    const objs = store.pages[ghost.pageId]?.objects ?? {}
+    const def = componentById(ghost.cls)
+    if (!def) { setGhost(null); return }
+    const ids = ghost.ids.filter((id) => objs[id])
+    const strokes = ids.map((id) => {
+      const o = objs[id]
+      return (o.geometry.points ?? []).map(([x, y]) => [x + o.position.x, y + o.position.y])
+    })
+    const cx = (ghost.box.x0 + ghost.box.x1) / 2
+    const cy = (ghost.box.y0 + ghost.box.y1) / 2
+    const part = def.create({ x: cx, y: cy })
+    part.size = ghostSize(ghost.box, part.geometry.kind === 'symbol')
+    part.position = { x: cx - part.size.w / 2, y: cy - part.size.h / 2 }
+    if (ghost.pose) part.rotation = ghost.pose
+    store.pushHistory(ghost.pageId)
+    if (ids.length) store.removeObjects(ghost.pageId, ids)
+    part.z = topZ(ghost.pageId)
+    store.addObject(ghost.pageId, part)
+    store.setSelection([part.id])
+    if (strokes.length) {
+      try {
+        addCorrection(
+          localStorage,
+          makeCorrection(
+            {
+              cls: ghost.cls,
+              pose: ghost.pose,
+              strokes,
+              device: ghost.device,
+              predicted: ghost.predicted,
+              confidence: ghost.predictedP,
+              changed: ghost.cls !== ghost.predicted,
+              rotated: ghost.rotated,
+            },
+            writerId(localStorage)
+          )
+        )
+      } catch {
+        /* storage blocked: the part is placed either way */
+      }
+    }
+    setGhost(null)
+  }, [ghost])
+  // A ghost belongs to the page it was drawn on.
+  useEffect(() => setGhost(null), [pageId])
   // Fetch the sketch network ahead of the first hold, so the hold never waits.
   useEffect(() => {
     if (pen.neuralSketch) void peekSketchNet()
@@ -3015,15 +3071,13 @@ export function InfiniteCanvas({
           // Taught symbols win over generic shapes: match the held doodle
           // against the user's custom sketch templates (lib/sketch/custom).
           // Experimental (pen setting, off by default): SketchNet names the held
-          // symbol first — alone, or together with the strokes just before it
-          // that touch it (a battery is two plates; a gate is body + leads).
-          // Holding is intent, so the bar is modest and the answer is announced
-          // (lib/sketch/neural-pick.ts). Anything it declines falls straight
-          // through to the template matcher below, exactly as before.
-          let neuralRotation = 0
-          let neuralId: string | null = null
-          let neuralBox: NeuralBox | null = null
-          let neuralAbsorb: string[] = []
+          // symbol — alone, or together with the strokes just before it that
+          // touch it (a battery is two plates; a gate is body + leads). It is
+          // only ever a SUGGESTION: the ink stays, a ghost preview is drawn
+          // over it, and nothing is replaced until the user confirms (or
+          // corrects) it. A guess too weak to show falls through to the
+          // template matcher below, exactly as when the setting is off.
+          let ghostPick: Extract<NeuralPick, { kind: 'place' }> | null = null
           if (!obj && held && penPrefs().neuralSketch) {
             const net = peekSketchNet()
             if (!net) {
@@ -3037,41 +3091,23 @@ export function InfiniteCanvas({
                   const o = objs[r.id]
                   return { id: r.id, pts: (o.geometry.points ?? []).map(([x, y]) => [x + o.position.x, y + o.position.y]) }
                 })
-              const pick = pickNeural(net, points, recent)
-              if (pick.kind === 'place' && componentById(pick.cls)) {
-                neuralId = pick.cls
-                neuralRotation = pick.pose
-                neuralBox = pick.box
-                neuralAbsorb = pick.absorb
-                toast(`Neural recogniser: ${pick.cls} (${Math.round(pick.p * 100)}%)${pick.absorb.length ? `, from ${pick.absorb.length + 1} strokes` : ''}`, { duration: 2000 })
-              } else if (pick.kind === 'decline') {
-                toast(pick.message, { duration: 2500 })
-              }
+              const pick = pickNeural(net, points, recent, { minP: NEURAL_SHOW_P })
+              if (pick.kind === 'place' && componentById(pick.cls)) ghostPick = pick
+              else if (pick.kind === 'decline') toast(pick.message, { duration: 2500 })
             }
           }
-          if (!obj && held) {
-            const m = neuralId ? { componentId: neuralId } : matchCustomSketch([points])
+          if (!obj && held && !ghostPick) {
+            const m = matchCustomSketch([points])
             const def = m ? componentById(m.componentId) : undefined
             if (def) {
-              // A grouped symbol is placed over the whole group, not just the last stroke.
-              const gx = neuralBox ? (neuralBox.x0 + neuralBox.x1) / 2 : cx
-              const gy = neuralBox ? (neuralBox.y0 + neuralBox.y1) / 2 : cy
-              const gw = neuralBox ? neuralBox.x1 - neuralBox.x0 : rec.w
-              const gh = neuralBox ? neuralBox.y1 - neuralBox.y0 : rec.h
-              obj = def.create({ x: gx, y: gy })
+              obj = def.create({ x: cx, y: cy })
               if (obj.geometry.kind === 'symbol') {
-                const w2 = Math.min(200, Math.max(72, gw))
+                const w2 = Math.min(200, Math.max(72, rec.w))
                 obj.size = { w: w2, h: w2 / 2 }
               } else {
-                obj.size = { w: Math.max(24, gw), h: Math.max(24, gh) }
+                obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
               }
-              obj.position = { x: gx - obj.size.w / 2, y: gy - obj.size.h / 2 }
-              // SketchNet also reads which way the symbol faces (diode, battery, gate…).
-              if (neuralId && neuralRotation) obj.rotation = neuralRotation
-              if (neuralAbsorb.length) {
-                store.pushHistory(pageId)
-                store.removeObjects(pageId, neuralAbsorb)
-              }
+              obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
             }
           }
           if (!obj) {
@@ -3081,7 +3117,7 @@ export function InfiniteCanvas({
             // exactly the ink that was drawn; the Shaper tool is the explicit
             // way to get clean shapes.
             const keep: Recognition =
-              held && rec.kind !== 'stroke'
+              held && rec.kind !== 'stroke' && !ghostPick
                 ? rec
                 : {
                     kind: 'stroke',
@@ -3100,6 +3136,21 @@ export function InfiniteCanvas({
           store.addObject(pageId, obj)
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
             recentInkRef.current = [...recentInkRef.current.slice(-19), { id: obj.id, t: performance.now() }]
+          }
+          if (ghostPick && obj.geometry.kind === 'stroke') {
+            setGhost({
+              pageId,
+              cls: ghostPick.cls,
+              p: ghostPick.p,
+              pose: ghostPick.pose,
+              box: ghostPick.box,
+              ids: [obj.id, ...ghostPick.absorb],
+              alts: ghostPick.alts,
+              predicted: ghostPick.cls,
+              predictedP: ghostPick.p,
+              rotated: false,
+              device: pointerDevice(e.pointerType),
+            })
           }
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) touchNoteAnchor(attachInkToNote(pageId, obj.id))
           // Plain ink stays unselected (it's writing); only strokes that
@@ -3901,6 +3952,7 @@ export function InfiniteCanvas({
       const snapped =
         tool === 'shaper' ? snapConnectorPoint(p, store.pages[pageId]?.objects ?? {}, vpRef.current.zoom) : null
       const startPoint = snapped?.anchor ? snapped.point : p
+      setGhost(null)
       setStroke([[startPoint.x, startPoint.y, inkPressure(e)]])
       beginGesture('draw', e, { startAnchor: snapped?.anchor ?? null })
       return
@@ -4805,6 +4857,26 @@ export function InfiniteCanvas({
               applyAnnotation(pageId, quickLabel.id, e.target.value)
               setQuickLabel(null)
             }}
+          />
+        </div>
+      )}
+
+      {ghost && ghost.pageId === pageId && (
+        // Own transformed layer, like the quick label: it must stay clickable
+        // while a drawing tool is armed.
+        <div
+          className="absolute left-0 top-0"
+          style={{
+            transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+            transformOrigin: '0 0',
+          }}
+        >
+          <GhostPreview
+            ghost={ghost}
+            zoom={viewport.zoom}
+            onChange={(patch) => setGhost((g) => (g ? { ...g, ...patch } : g))}
+            onConfirm={confirmGhost}
+            onDismiss={() => setGhost(null)}
           />
         </div>
       )}

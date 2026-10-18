@@ -20,7 +20,9 @@
     "sketch:synth": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/synth.mjs",
     "sketch:preview": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/preview.mjs",
     "sketch:baseline": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-baseline.mjs",
-    "sketch:export": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/export-tensors.mjs"
+    "sketch:export": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/export-tensors.mjs",
+    "sketch:import-real": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/import-real.mjs",
+    "sketch:eval-real": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-real.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
