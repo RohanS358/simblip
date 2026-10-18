@@ -44,7 +44,7 @@ handwriting: no real whole-circuit sketch exists yet, so every number below is s
 - The Next dev server slows evaluations badly; stop it first.
 
 ## Repo health
-- `npm run test:ai`: 498 tests, 496 pass. The 2 failures (`pipeline.test.mjs`: a corpus slider sample and an
+- `npm run test:ai`: 523 tests, 521 pass. The 2 failures (`pipeline.test.mjs`: a corpus slider sample and an
   inline-maths case) are older and unrelated to sketching.
 - The older tests did not run on Windows (`npx` spawn, file-URL imports); fixed with `scripts/test/exec.mjs`.
 - `tsc` clean; `npx next build` succeeds. `npm run build` stops in its `prebuild` licence check on this

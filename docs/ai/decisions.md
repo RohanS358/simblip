@@ -213,3 +213,25 @@ Document 2 — The Sketch Model* (10 Oct 2026).
 - **Honest numbers (synthetic):** 71 % exact without labels, 31 % with labels drawn; see docs/ai/s3-progress.md.
 - **Test infrastructure:** tests that spawn `npx esbuild` now use `scripts/test/exec.mjs` and file URLs, so the
   whole suite runs on Windows.
+
+## 2026-10-19 — Phase S4: mechanics and optics read by geometry, not by SketchNet
+
+- **Decision:** the S4 readers (`lib/sketch/mech.ts`, `lib/sketch/optics.ts`) are deterministic and geometric
+  (closed shapes → blocks/balls/lenses, zigzags → springs, hatched lines → ground/mirror, arrow heads → forces/beams,
+  relations by position). No new neural model. **Why:** in mechanics position IS the information; the shapes are
+  simple primitives; a rule reader can be unit-tested on hand-written strokes (plan §7.1) and its failures explained
+  to the person; and there was no real data to train a classifier on. **Revisit** when real S4 sketches exist and the
+  rules measurably fail on them — the IR is the contract, so a learned primitive classifier can replace a rule
+  without touching the compilers.
+- **Pulley:** the engine has no pulley component, so it is recognised and *reported as unsupported* (card "Can't
+  build this yet") — never guessed as a ball. A ramp is a rotated static `ground` bar (a wedge's slanted edge); no
+  new component.
+- **Defaults** (nothing typed): block 2 kg, ball 1 kg, push 4 N/kg, launch 1.5 m/s. The canvas is 1 px = 1 mm and
+  the engine's springs are heavily damped; both are the engine's behaviour and are recorded, not worked around.
+- **Domain choice** is evidence-based and conservative: a lens ⇒ optics; a block / hatched ground / wedge ⇒
+  mechanics; a hinge-rod-bob pendulum only when no circuit reading competes. A circuit is never read as mechanics
+  (16/16 generated layouts). Force vs velocity arrows are one class until a label can be read; the preview switches it.
+- **Engine change:** `create()` for optics lines now scales the endpoints by width/height (the aperture a script
+  asked for used to be dropped). `advanceWorld` (headless step) was added to `lib/physics/world.ts` for tests.
+- **Honest status:** synthetic only — mechanics 92.6 % exact, optics 92.5 %, and every scene read right behaves as
+  drawn on the real physics / ray tracer. No real handwriting has been tried. Details: docs/ai/s4-progress.md.

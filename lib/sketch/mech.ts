@@ -397,7 +397,8 @@ export function findHatch(lines: Line[]): { hatchHost: Map<string, string[]>; ti
     const sideOf = (e: Pt) => Math.sign((e[0] - h.p0[0]) * dy - (e[1] - h.p0[1]) * dx)
     const dA = toSeg(t.p0, h.p0, h.p1)
     const dB = toSeg(t.p1, h.p0, h.p1)
-    if (dA > 3 && dB > 3 && sideOf(t.p0) !== sideOf(t.p1)) return null
+    // (a tick that merely starts a little past the line, as a hand does, is not crossing it: both ends must be clearly away)
+    if (Math.min(dA, dB) > Math.max(5, 0.3 * t.len) && sideOf(t.p0) !== sideOf(t.p1)) return null
     return bestD <= 12 && foot > -0.05 && foot < 1.05 ? { foot } : null
   }
   const hatchHost = new Map<string, string[]>()

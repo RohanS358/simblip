@@ -64,6 +64,7 @@ import { MechGhostOverlay, MechGhostPanel } from './mech-ghost'
 import { extractMechanics } from '@/lib/sketch/mech'
 import { compileMechGhost, editMechLink, editMechPart, mechInkToReplace, mechOrigin, type MechEdit, type MechGhost } from '@/lib/sketch/mech-ghost'
 import { verifyScene } from '@/lib/scene/verify-scene'
+import { traceRays } from '@/lib/optics/engine'
 import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
 import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
 import { GhostPreview } from './ghost-preview'
@@ -1414,7 +1415,7 @@ export function InfiniteCanvas({
           const mr = extractMechanics(mc)
           sketchLog(`mechanics view of ${mc.length} strokes (page has ${plainOf(pid).length}):`, mr.parts.map((p) => `${p.cls}@${p.conf.toFixed(2)}`).join(' ') || 'nothing', `links ${mr.edges.length}`, `ignored ${mr.ignoredIds.length}`, 'gaps', mr.gaps.length, JSON.stringify(mr.stats))
         }
-        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : res.kind === 'mechanics' ? `${res.ghost.ir.nodes.length} parts, ${res.ghost.ir.edges.length} links` : `${res.ghost.result.parts.length} parts`)
+        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : res.kind === 'mechanics' ? `${res.ghost.domain}: ${res.ghost.ir.nodes.length} parts, ${res.ghost.ir.edges.length} links` : `${res.ghost.result.parts.length} parts`)
         return res
       } catch (e) {
         sketchLog('read threw', e)
@@ -1582,12 +1583,20 @@ export function InfiniteCanvas({
     const now = useDocStore.getState().pages[pid]?.objects ?? {}
     const built = Object.keys(now).filter((id) => !before.has(id))
     if (built.length) useDocStore.getState().setSelection(built)
-    // Step 5: would it run as drawn? A spring that touches nothing, a body with nothing under it...
-    const report = verifyScene(Object.values(now), built)
-    const bad = report.issues.find((i) => i.level === 'error')
+    // Step 5: would it work as drawn?
     const n = mechGhost.ir.nodes.length
-    if (bad) toast(`Built ${n} parts, but it may not run as drawn: ${bad.message}`, { duration: 9000 })
-    else toast(`Built a mechanics scene from ${n} parts. Press Play.`, { duration: 3000 })
+    if (mechGhost.domain === 'optics') {
+      // optics is traced live (no Play): the question is whether any ray was cast at all
+      const rays = traceRays(built.map((id) => now[id]).filter(Boolean))
+      if (!rays.length) toast(`Built ${n} parts, but no ray is traced: ${built.some((id) => now[id]?.behaviors.some((b) => b.type === 'lightSource')) ? 'nothing reaches an optical part' : 'there is no light source'}.`, { duration: 9000 })
+      else toast(`Built an optical bench from ${n} parts — the rays are traced live.`, { duration: 3500 })
+    } else {
+      // A spring that touches nothing, a body with nothing under it...
+      const report = verifyScene(Object.values(now), built)
+      const bad = report.issues.find((i) => i.level === 'error')
+      if (bad) toast(`Built ${n} parts, but it may not run as drawn: ${bad.message}`, { duration: 9000 })
+      else toast(`Built a mechanics scene from ${n} parts. Press Play.`, { duration: 3000 })
+    }
     setMechGhost(null)
     setMechError(null)
   }, [mechGhost])

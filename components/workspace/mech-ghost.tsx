@@ -8,7 +8,7 @@
 
 import { useEffect } from 'react'
 import { Check, X } from 'lucide-react'
-import { MECH_CLASSES, mechToCheck, type MechGhost, type MechEdit } from '@/lib/sketch/mech-ghost'
+import { classesOf, mechToCheck, type MechGhost, type MechEdit } from '@/lib/sketch/mech-ghost'
 import { stepLine, type StepFailure } from '@/lib/sketch/pipeline'
 import type { SketchIRNode } from '@/lib/sketch/ir'
 
@@ -21,6 +21,10 @@ const LABEL: Record<string, string> = {
   hinge: 'Hinge / anchor',
   force: 'Force arrow',
   velocity: 'Velocity arrow',
+  'light-source': 'Light source',
+  'thin-lens': 'Lens',
+  'optical-mirror': 'Mirror',
+  'optical-screen': 'Screen',
 }
 
 const colourOf = (g: MechGhost, n: SketchIRNode) => {
@@ -103,6 +107,50 @@ export function MechGhostOverlay({ ghost, zoom, hoverId }: { ghost: MechGhost; z
             </g>
           )
         }
+        if (n.cls === 'light-source') {
+          const r = n.bbox[2] / 2
+          const a = ((n.angle ?? 0) * Math.PI) / 180
+          const tail: [number, number] = [cx + Math.cos(a) * (r + 3), cy + Math.sin(a) * (r + 3)]
+          const tip: [number, number] = [cx + Math.cos(a) * (r + 60), cy + Math.sin(a) * (r + 60)]
+          return (
+            <g key={n.id} stroke={c} fill="none" strokeWidth={sw * 1.6} strokeLinecap="round">
+              <circle cx={cx} cy={cy} r={r} {...common} />
+              <line x1={tail[0]} y1={tail[1]} x2={tip[0]} y2={tip[1]} />
+              {badge}
+            </g>
+          )
+        }
+        if (n.cls === 'thin-lens' || n.cls === 'optical-mirror' || n.cls === 'optical-screen') {
+          // vertical aperture, turned by its tilt; a lens carries its arrowheads, a mirror its hatching
+          const h = n.bbox[3]
+          const conv = Number(n.values?.f ?? 1) >= 0
+          const hl = 12 / zoom
+          const ends: Array<[number, number]> = [[cx, cy - h / 2], [cx, cy + h / 2]]
+          return (
+            <g key={n.id} transform={`rotate(${n.angle ?? 0} ${cx} ${cy})`} stroke={c} fill="none" strokeWidth={sw * (n.cls === 'optical-screen' ? 3 : 1.8)} strokeLinecap="round">
+              <line x1={cx} y1={cy - h / 2} x2={cx} y2={cy + h / 2} strokeOpacity={hot ? 1 : 0.8} />
+              {n.cls === 'thin-lens' &&
+                ends.map((e, k) => {
+                  const dir = k === 0 ? 1 : -1
+                  const base = conv ? Math.atan2(dir, 0) : Math.atan2(-dir, 0)
+                  return [-0.5, 0.5].map((s2) => (
+                    <line key={`${k}${s2}`} x1={e[0]} y1={e[1]} x2={e[0] + hl * Math.cos(base + s2)} y2={e[1] + hl * Math.sin(base + s2)} />
+                  ))
+                })}
+              {n.cls === 'optical-mirror' &&
+                Array.from({ length: Math.max(2, Math.floor(h / (16 / zoom + 8))) }, (_, k) => {
+                  const y = cy - h / 2 + 8 / zoom + k * (16 / zoom + 8)
+                  return <line key={k} x1={cx} y1={y} x2={cx + 9 / zoom} y2={y + 9 / zoom} strokeWidth={sw} />
+                })}
+              <g transform={`rotate(${-(n.angle ?? 0)} ${cx} ${cy - h / 2})`}>
+                <g transform={`translate(${cx - 8 / zoom},${cy - h / 2 - 6 / zoom}) scale(${1 / zoom})`}>
+                  <circle r={8} cx={0} cy={0} fill={c} stroke="none" />
+                  <text x={0} y={3.5} textAnchor="middle" fontSize={10} fontWeight={600} fill="#fff" stroke="none">{i + 1}</text>
+                </g>
+              </g>
+            </g>
+          )
+        }
         // ground bars and blocks: a rectangle turned about its centre
         return (
           <g key={n.id} transform={`rotate(${n.angle ?? 0} ${cx} ${cy})`}>
@@ -117,6 +165,8 @@ export function MechGhostOverlay({ ghost, zoom, hoverId }: { ghost: MechGhost; z
 }
 
 const VALUE_FOR: Record<string, { key: string; placeholder: string; unit: string } | undefined> = {
+  'thin-lens': { key: 'f', placeholder: 'f', unit: 'px' },
+  'optical-mirror': { key: 'f', placeholder: 'f (0 = flat)', unit: 'px' },
   block: { key: 'mass', placeholder: 'mass', unit: 'kg' },
   mass: { key: 'mass', placeholder: 'mass', unit: 'kg' },
   force: { key: 'F', placeholder: 'force', unit: 'N' },
@@ -154,12 +204,12 @@ export function MechGhostPanel({
   const nodes = ghost.ir.nodes
   const idx = (id: string) => nodes.findIndex((n) => n.id === id) + 1
   const check = mechToCheck(ghost)
-  const slope = (n: SketchIRNode) => (n.cls === 'ground' && Math.abs(n.angle ?? 0) >= 3 && Math.abs(Math.abs(n.angle ?? 0) - 90) >= 3 ? `${Math.round(Math.abs(n.angle ?? 0))}° ramp` : n.cls === 'ground' && Math.abs(Math.abs(n.angle ?? 0) - 90) < 3 ? 'wall' : n.cls === 'ground' ? 'level' : null)
+  const slope = (n: SketchIRNode) => n.cls === 'optical-mirror' || n.cls === 'optical-screen' ? (Math.abs(n.angle ?? 0) >= 3 ? `tilted ${Math.round(Math.abs(n.angle ?? 0))}°` : 'upright') : n.cls === 'light-source' ? (Math.abs(n.angle ?? 0) >= 3 ? `aimed ${Math.round(n.angle ?? 0)}°` : 'aimed right') : (n.cls === 'ground' && Math.abs(n.angle ?? 0) >= 3 && Math.abs(Math.abs(n.angle ?? 0) - 90) >= 3 ? `${Math.round(Math.abs(n.angle ?? 0))}° ramp` : n.cls === 'ground' && Math.abs(Math.abs(n.angle ?? 0) - 90) < 3 ? 'wall' : n.cls === 'ground' ? 'level' : null)
 
   return (
     <div
       role="dialog"
-      aria-label="Sketch to mechanics"
+      aria-label={ghost.domain === 'optics' ? 'Sketch to optics' : 'Sketch to mechanics'}
       className="pointer-events-auto absolute left-1/2 top-3 z-50 flex max-h-[72vh] w-[min(94vw,480px)] -translate-x-1/2 flex-col gap-2 overflow-auto rounded-lg border border-border bg-card p-3 text-ui-sm shadow-xl"
       onPointerDown={stop}
       onPointerUp={stop}
@@ -167,7 +217,7 @@ export function MechGhostPanel({
       onKeyDown={(e) => e.stopPropagation()}
     >
       <div className="flex items-baseline gap-2">
-        <span className="font-semibold">Sketch → mechanics</span>
+        <span className="font-semibold">{ghost.domain === 'optics' ? 'Sketch → optics' : 'Sketch → mechanics'}</span>
         <span className="text-muted-foreground">
           {nodes.length} part{nodes.length === 1 ? '' : 's'} · {ghost.ir.edges.length} link{ghost.ir.edges.length === 1 ? '' : 's'} · {check ? `${check} to check` : 'nothing to check'}
         </span>
@@ -194,7 +244,7 @@ export function MechGhostPanel({
                 value={n.cls}
                 onChange={(e) => onEdit(n.id, { cls: e.target.value })}
               >
-                {MECH_CLASSES.map((c) => (
+                {classesOf(ghost).map((c) => (
                   <option key={c} value={c}>{LABEL[c]}</option>
                 ))}
               </select>
@@ -248,7 +298,11 @@ export function MechGhostPanel({
         </ul>
       )}
 
-      <p className="text-muted-foreground">Masses and strengths are typed here — they are not read from handwriting yet. Blank means a default.</p>
+      <p className="text-muted-foreground">
+        {ghost.domain === 'optics'
+          ? 'Focal lengths come from marks on the axis when there are any; otherwise type f here (negative diverges). Blank means the default.'
+          : 'Masses and strengths are typed here — they are not read from handwriting yet. Blank means a default.'}
+      </p>
 
       {error && (
         <div role="alert" className="rounded border border-[var(--accent-rose)] p-2">

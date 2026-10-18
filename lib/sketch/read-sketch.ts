@@ -6,7 +6,8 @@
 
 import { startCircuitGhost, type CircuitGhost } from './circuit-ghost'
 import { NEURAL_SHOW_P, pickNeural, boxOf, type Box, type NeuralPick } from './neural-pick'
-import { startMechGhost, type MechGhost } from './mech-ghost'
+import { startMechGhost, startOpticsGhost, type MechGhost } from './mech-ghost'
+import { opticsEvidence } from './optics'
 
 export interface PlainStroke {
   id: string
@@ -63,13 +64,13 @@ export function connectedInk(strokes: PlainStroke[], seedId: string, gap = 48): 
 export function mechanicsEvidence(g: MechGhost): number {
   let hard = 0
   let soft = 0
-  for (const p of g.result.parts) {
+  for (const p of g.result?.parts ?? []) {
     if (p.cls === 'block') hard++
     else if (p.cls === 'ground' && p.conf >= 0.85) hard++
     else if (p.cls === 'mass' || p.cls === 'force' || p.cls === 'velocity') soft++
   }
   if (hard < 1) return 0
-  return hard + 0.7 * soft + 0.5 * g.result.edges.length
+  return hard + 0.7 * soft + 0.5 * (g.result?.edges.length ?? 0)
 }
 
 /** A hinge with a rod or rope to a ball that hangs below it. */
@@ -118,7 +119,12 @@ export function readSketch(
   // Mechanics parts are related by position, not touching (a ball above the ground), so the group is wider
   const mechCluster = connectedInk(strokes, seedId, 200)
   const mech = mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
-  if (mech?.result.gaps.length) {
+  // A lens settles it: a mechanics sketch has no use for one. (Checked first, so a lens drawn as a
+  // double arrow or a circle-with-a-beam is never mistaken for a pulley or a ball.)
+  const optics = mechCluster.length >= 3 ? startOpticsGhost(pageId, mechCluster) : null
+  const opticsScore = optics?.optics ? opticsEvidence(optics.optics) : 0
+  if (optics && opticsScore >= 3) return { kind: 'mechanics', ghost: optics }
+  if (mech?.result?.gaps.length) {
     const gap = mech.result.gaps[0]
     return { kind: 'fail', failure: { reason: 'unsupported', message: gap.message, box: unionBox(mechCluster), ids: mechCluster.map((s) => s.id) } }
   }
