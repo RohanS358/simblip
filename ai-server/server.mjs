@@ -111,6 +111,12 @@ export function createServer(cfg) {
         const alias = cfg.aliases[body.model]
         const model = alias?.model ?? body.model
         const out = { ...body, model, keep_alive: body.keep_alive ?? cfg.keepAlive, options: { ...(alias?.options ?? {}), ...(body.options ?? {}) } }
+        // A fine-tuned lane carries SimScript in its weights: swap the app's ~1k-token
+        // prompt + few-shots for the short one it was trained on (prefill is the slow part).
+        if (alias?.system && Array.isArray(body.messages)) {
+          const lastUser = [...body.messages].reverse().find((m) => m.role === 'user')
+          out.messages = [{ role: 'system', content: alias.system }, ...(lastUser ? [lastUser] : [])]
+        }
         if (alias && out.think === undefined && alias.think !== undefined) out.think = alias.think
 
         const ac = new AbortController()

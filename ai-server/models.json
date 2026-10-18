@@ -1,5 +1,5 @@
 {
-  "simblip-script":  { "model": "simblip-simscript", "options": { "temperature": 0.2 } },
+  "simblip-script":  { "model": "simblip-lite-q8", "system": "You write SimScript for SIMBLIP. Reply with SimScript code only.", "options": { "temperature": 0.2 } },
   "simblip-explain": { "model": "qwen3:8b", "think": false, "options": { "temperature": 0.3 } },
   "simblip-tools":   { "model": "qwen3:8b", "think": false, "options": { "temperature": 0 } }
 }

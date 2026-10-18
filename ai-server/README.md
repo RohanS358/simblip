@@ -21,3 +21,13 @@ OLLAMA_EXPLAIN_MODEL=simblip-explain
 Reaching the laptop from Vercel: bind stays on loopback; put a tunnel in front (Cloudflare Tunnel or Tailscale Funnel). Never expose port 8787 raw.
 
 Lanes are aliases in `models.json`: swap the model behind a lane without touching the app. Queue (`AI_SERVER_CONCURRENCY`, default 1), rate limit and logs: see the header of `server.mjs`.
+
+## Models (measured 2026-10-18, RTX 4060 8 GB, 30 novel prompts, no few-shots for fine-tunes)
+
+| Lane model | Scenes passing all checks | Notes |
+|---|---|---|
+| `qwen3:8b` base + full SimScript prompt | 0% (43% valid) | good for prose and tool calls, not SimScript |
+| `simblip-lite` Q4_K_M (0.6B fine-tune, 397 MB) | 83% | 1.2 s/prompt |
+| `simblip-lite-q8` Q8_0 (640 MB) | **93%** | same as bf16 |
+
+Register the fine-tune: copy `simblip-lite-Q8_0.gguf` beside `Modelfile.simblip-lite`, then `ollama create simblip-lite-q8 -f Modelfile.simblip-lite`. Weights are not in git (build: `scripts/ai/train/`, GGUF via `.cache/llama.cpp`).

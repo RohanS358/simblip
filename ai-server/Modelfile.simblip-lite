@@ -1,0 +1,14 @@
+FROM ./simblip-lite-Q8_0.gguf
+TEMPLATE """{{- if .System }}<|im_start|>system
+{{ .System }}<|im_end|>
+{{ end }}<|im_start|>user
+{{ .Prompt }}<|im_end|>
+<|im_start|>assistant
+<think>
+
+</think>
+
+"""
+SYSTEM "You write SimScript for SIMBLIP. Reply with SimScript code only."
+PARAMETER stop "<|im_end|>"
+PARAMETER temperature 0.2
