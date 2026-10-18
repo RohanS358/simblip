@@ -34,6 +34,7 @@ import { createDeck } from '@/lib/ai/make-deck'
 import { streamAi, useServerOnce } from '@/lib/ai/transport'
 import { getTool } from '@/lib/tools/registry'
 import { AiEngineStrip, useRoute } from './ai-engine'
+import { RecallStrip } from './recall-strip'
 import { useEngine } from '@/lib/ai/engine/store'
 import { wantsSlides } from '@/lib/ai/route-intent'
 import { placeAnswerAndScene } from '@/lib/ai/placement'
@@ -782,6 +783,7 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
             toggle ran off the right edge. The Select takes the full row and
             the toggle drops beneath it instead. */}
         <AiEngineStrip />
+        <RecallStrip />
         <div className="mb-1.5 flex min-w-0 flex-wrap items-center gap-1.5">
           {route.where === 'server' && models.models.length > 0 && (
             // The app's own Select, not a native <select>: a native one paints

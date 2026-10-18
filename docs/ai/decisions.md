@@ -1,10 +1,9 @@
-# AI decisions log
+# AI decision log (append, never rewrite)
 
-## 2026-10-18 — Sketch Model, Phase S0 (IR + compiler + gold tests)
-- `lib/sketch/ir.ts` (zod Scene IR, plan Appendix A), `lib/sketch/compile.ts` (IR → SimScript, no model), `lib/sketch/units.ts` ("10 kΩ" → 10000).
-- Circuit/digital emit `create()`/`connect()` with no x/y (auto-layout draws it). Mechanics/optics emit x/y from bboxes and wrap in a fitted `system` (the linter requires one).
-- Pins that are not valid JS members (`in+`, `v-`, `ctrl+`) compile to their identifier aliases (`inp`, `vminus`, `ctrlp`).
-- A battery with no written voltage compiles with the default and a doubt, so the ghost preview asks.
-- Classes with no component (e.g. `incline`, `pulley`) are reported as errors, never invented.
-- 40 gold IR in `scripts/ai/sketch/gold/` (regenerate: `node scripts/ai/sketch/make-gold.mjs`): all compile, lint clean, and execute in the real runtime (`lib/sketch/*.test.mjs`, part of `npm run test:ai`).
-- Still open (Rohan's): symbol taxonomy/standards, data-collection session, dataset licences (none verified — nothing may be trained on third-party data until written here).
+Format: date · decision · evidence · what would change it.
+
+- 2026-10-18 · Learning engine (Phase 3) is model-free: FSRS-4.5 hand-rolled in `lib/learning/fsrs.ts` (no `ts-fsrs` dependency), hint ladder / mastery / card lint are deterministic code; the model only words content. · 10 tests in `lib/learning/learning.test.mjs` (intervals grow, Easy>Good>Hard, R=0.9 at one stability). · Swap to `ts-fsrs` if the parameters need per-user optimisation.
+- 2026-10-18 · Retrieval is BM25 over lesson sections (`lib/learning/bm25.ts`), no embedding model; only the 3 best lessons by title are downloaded per query (`lib/tools/course-corpus.ts`). · 0 MB model RAM, honours course grants because it reads `/api/courses`. · Add embeddings only if BM25 recall measures insufficient.
+- 2026-10-18 · Learner state lives in its own persisted store `simblip-learner`, never in the chat store, and never leaves the device unless page-sync is on. · Plan D9 (minors' data). · A teacher view needs an explicit class-consent flow first (Phase 6).
+- 2026-10-18 · Cards are records, not a new `PageKind`. · Plan §6.5: PageKind already has 8 kinds, each touching routing/export/sync. · Revisit if printable deck pages become a core flow.
+- 2026-10-18 · Mode is an explicit Learn/Answer toggle (`RecallStrip`), never inferred. · Plan §6.3.
