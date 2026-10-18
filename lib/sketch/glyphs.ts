@@ -355,3 +355,43 @@ export const GLYPHS: Record<Wave1Class, (rng: Rng) => Glyph> = {
   mosfet,
   opamp,
 }
+
+// ── where the wires go ─────────────────────────────────────────────────────
+// Pin positions in the same 100 × 60 frame, at pose 0, for a typical drawing of
+// each class. Names are SimScript anchors (what the IR and compiler use).
+// lib/sketch/pins.ts turns these into bounding-box fractions — calibrated against
+// real glyph output by scripts/ai/sketch/calibrate-pins.mjs — which is what the
+// wire matcher actually uses; this table is the single source they derive from.
+
+export interface FramePin {
+  name: string
+  x: number
+  y: number
+}
+
+const two = (a: string, b: string): FramePin[] => [{ name: a, x: 0, y: MID }, { name: b, x: 100, y: MID }]
+
+export const PIN_FRAME: Record<Wave1Class, FramePin[]> = {
+  battery: two('positive', 'negative'), // pose 0: the long (positive) plate is on the left
+  resistor: two('a', 'b'),
+  capacitor: two('a', 'b'),
+  inductor: two('a', 'b'),
+  switch: two('a', 'b'),
+  bulb: two('a', 'b'),
+  led: two('anode', 'cathode'),
+  diode: two('anode', 'cathode'),
+  gnd: [{ name: 'terminal', x: 50, y: 0 }],
+  'ac-source': two('positive', 'negative'),
+  voltmeter: two('a', 'b'),
+  ammeter: two('a', 'b'),
+  'and-gate': [{ name: 'input1', x: 0, y: 20 }, { name: 'input2', x: 0, y: 40 }, { name: 'output', x: 100, y: MID }],
+  'or-gate': [{ name: 'input1', x: 0, y: 20 }, { name: 'input2', x: 0, y: 40 }, { name: 'output', x: 100, y: MID }],
+  'xor-gate': [{ name: 'input1', x: 0, y: 20 }, { name: 'input2', x: 0, y: 40 }, { name: 'output', x: 100, y: MID }],
+  'nand-gate': [{ name: 'input1', x: 0, y: 20 }, { name: 'input2', x: 0, y: 40 }, { name: 'output', x: 100, y: MID }],
+  'nor-gate': [{ name: 'input1', x: 0, y: 20 }, { name: 'input2', x: 0, y: 40 }, { name: 'output', x: 100, y: MID }],
+  'not-gate': [{ name: 'input', x: 0, y: MID }, { name: 'output', x: 100, y: MID }],
+  bjt: [{ name: 'base', x: 0, y: MID }, { name: 'collector', x: 63, y: 0 }, { name: 'emitter', x: 63, y: 60 }],
+  mosfet: [{ name: 'gate', x: 0, y: 38 }, { name: 'drain', x: 62, y: 0 }, { name: 'source', x: 62, y: 60 }],
+  // minus-on-top is the common drawing; plus-on-top is the 30 % variant (see opamp()).
+  opamp: [{ name: 'in-', x: 0, y: 18 }, { name: 'in+', x: 0, y: 42 }, { name: 'out', x: 100, y: MID }],
+}

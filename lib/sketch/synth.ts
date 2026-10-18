@@ -283,6 +283,30 @@ function toEvents(rng: Rng, w: WriterStyle, pts: Pt[], t0: number): { stroke: St
 
 // ── one sample ─────────────────────────────────────────────────────────────
 
+/**
+ * One stroke, from the pixel path a person means to draw to the timed events a
+ * pointer device reports: end overshoot/gap, a dense path, rounded corners,
+ * wobble, then event sampling. `sizeRef` is how big the thing being drawn is,
+ * because sloppiness scales with it. Null when the stroke came out a speck.
+ */
+function penStroke(rng: Rng, w: WriterStyle, path: Pt[], t: number, sizeRef: number): { stroke: Stroke3; tEnd: number } | null {
+  let px = path
+  // ends: overshoot or fall short
+  for (const atStart of [true, false]) {
+    if (rng.chance(w.endNoise)) px = pushEnd(px, atStart, rng.chance(0.55) ? rng.range(0, 7) : -rng.range(0, 5))
+  }
+  // the hand: dense path, rounded corners, wobble
+  let dense = resample(px, 1.5)
+  // A stroke shortened to a speck is not a stroke: the pen never left a mark.
+  if (dense.length < 3) return null
+  // Sloppiness scales with how big the symbol is drawn: a person drawing large
+  // is not proportionally shakier, so rounding and wobble are relative to size.
+  dense = roundCorners(dense, Math.round((w.rounding * rng.range(0.6, 1.4) * sizeRef * 0.035) / 1.5))
+  dense = wobble(rng, dense, w.wobble * Math.max(0.7, Math.min(1.6, sizeRef / 110)))
+  // the device: sampled events with timing
+  return toEvents(rng, w, dense, t)
+}
+
 /** Strokes in frame units → timed pixel strokes, as writer `w` would draw them. */
 export function render(rng: Rng, w: WriterStyle, frameStrokes: Pt[][]): Stroke3[] {
   // 1. how the pen moves: join, lift, reverse, reorder
@@ -310,23 +334,10 @@ export function render(rng: Rng, w: WriterStyle, frameStrokes: Pt[][]): Stroke3[
   const out: Stroke3[] = []
   let t = 0
   for (const s of strokes) {
-    let px = s.map(place)
-    // 3. ends: overshoot or fall short
-    for (const atStart of [true, false]) {
-      if (rng.chance(w.endNoise)) px = pushEnd(px, atStart, rng.chance(0.55) ? rng.range(0, 7) : -rng.range(0, 5))
-    }
-    // 4. the hand: dense path, rounded corners, wobble
-    let dense = resample(px, 1.5)
-    // A stroke shortened to a speck is not a stroke: the pen never left a mark.
-    if (dense.length < 3) continue
-    // Sloppiness scales with how big the symbol is drawn: a person drawing large
-    // is not proportionally shakier, so rounding and wobble are relative to size.
-    dense = roundCorners(dense, Math.round((w.rounding * rng.range(0.6, 1.4) * w.size * 0.035) / 1.5))
-    dense = wobble(rng, dense, w.wobble * Math.max(0.7, Math.min(1.6, w.size / 110)))
-    // 5. the device: sampled events with timing
-    const { stroke, tEnd } = toEvents(rng, w, dense, t)
-    out.push(stroke.map(([x, y, tt]) => [Math.round((x + ox) * 10) / 10, Math.round((y + oy) * 10) / 10, tt]))
-    t = tEnd + rng.range(90, w.device === 'finger' ? 600 : 480)
+    const made = penStroke(rng, w, s.map(place), t, w.size)
+    if (!made) continue
+    out.push(made.stroke.map(([x, y, tt]) => [Math.round((x + ox) * 10) / 10, Math.round((y + oy) * 10) / 10, tt]))
+    t = made.tEnd + rng.range(90, w.device === 'finger' ? 600 : 480)
   }
   // Every stroke was a speck (only possible for a near-empty glyph): draw the
   // first one plainly rather than hand back a sample with no ink.
@@ -520,4 +531,105 @@ export function* generate(opts: GenOptions): Generator<SketchSampleT> {
       yield { id, cls: UNKNOWN_CLASS, pose: 0, strokes: d.strokes, source: 'synthetic-negative', ...base, meta: meta({ variant: d.kind }) }
     }
   }
+}
+
+
+// ── whole-circuit scenes: symbols and wires drawn where a layout puts them ──
+
+export interface Placement {
+  /** Where the symbol's centre goes (page px). */
+  cx: number
+  cy: number
+  /** How wide the 100-unit glyph frame is drawn, px. */
+  width: number
+  /** Whole-symbol turn, degrees clockwise (0/90/180/270). */
+  pose: Pose
+}
+
+export interface PlacedSymbol {
+  strokes: Stroke3[]
+  variant: string
+  /** The drawn ink's bounding box, page px. */
+  box: { x0: number; y0: number; x1: number; y1: number }
+}
+
+/** A symbol drawn at a given place and size: the same hand as drawSymbol, but not at a random spot. */
+export function drawSymbolPlaced(rng: Rng, w: WriterStyle, cls: Wave1Class, at: Placement, t0 = 0): PlacedSymbol {
+  const glyph = glyphFor(rng, w, cls)
+  const rad = (at.pose * Math.PI) / 180
+  const edited = editLeads(rng, w, glyph.strokes)
+  const frame = edited.map((st) => st.pts.map((p) => rotate(p, [50, 30], rad)))
+  let strokes = mergeTouching(rng, w, frame)
+  strokes = splitLong(rng, w, strokes)
+  strokes = strokes.map((st) => (rng.chance(0.5) ? st.slice().reverse() : st))
+  if (rng.chance(w.orderShuffle)) rng.shuffle(strokes)
+
+  const scale = (at.width / 100) * Math.exp(rng.gauss() * 0.05)
+  const asp = Math.exp(rng.gauss() * 0.06)
+  const tilt = (Math.max(-6, Math.min(6, w.tilt * 0.5 + rng.gauss() * 1.5)) * Math.PI) / 180
+  const place = (p: Pt): Pt => {
+    const x = (p[0] - 50) * scale * Math.sqrt(asp)
+    const y = (p[1] - 30) * (scale / Math.sqrt(asp))
+    const [rx, ry] = rotate([x, y], [0, 0], tilt)
+    return [rx + at.cx, ry + at.cy]
+  }
+  const out: Stroke3[] = []
+  let t = t0
+  for (const st of strokes) {
+    const made = penStroke(rng, w, st.map(place), t, at.width)
+    if (!made) continue
+    out.push(made.stroke.map(([x, y, tt]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10, tt]))
+    t = made.tEnd + rng.range(90, w.device === 'finger' ? 500 : 400)
+  }
+  if (out.length === 0) {
+    const made = toEvents(rng, w, resample(strokes[0].map(place), 1.5), t0)
+    out.push(made.stroke.map(([x, y, tt]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10, tt]))
+  }
+  const all = out.flat()
+  return {
+    strokes: out,
+    variant: glyph.variant,
+    box: {
+      x0: Math.min(...all.map((p) => p[0])), y0: Math.min(...all.map((p) => p[1])),
+      x1: Math.max(...all.map((p) => p[0])), y1: Math.max(...all.map((p) => p[1])),
+    },
+  }
+}
+
+/**
+ * Wires (or any polylines already in page px) drawn by hand: occasionally lifted
+ * mid-way, ends loose, corners rounded, wobbled, timed. Returns the strokes and
+ * the time the last one ended.
+ */
+export function drawPolylines(rng: Rng, w: WriterStyle, polys: Pt[][], t0: number, sizeRef = 110): { strokes: Stroke3[]; tEnd: number } {
+  const out: Stroke3[] = []
+  let t = t0
+  for (const poly of polys) {
+    let parts: Pt[][] = [poly]
+    if (poly.length >= 3 && rng.chance(w.splitProb * 0.5)) {
+      const k = rng.int(1, poly.length - 2)
+      parts = [poly.slice(0, k + 1), poly.slice(k)]
+    }
+    for (const part of parts) {
+      const made = penStroke(rng, w, rng.chance(0.5) ? part : part.slice().reverse(), t, sizeRef)
+      if (!made) continue
+      out.push(made.stroke.map(([x, y, tt]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10, tt]))
+      t = made.tEnd + rng.range(80, w.device === 'finger' ? 500 : 380)
+    }
+  }
+  return { strokes: out, tEnd: t }
+}
+
+/** A junction dot: a small filled blob, drawn as a quick scribble. */
+export function drawDot(rng: Rng, w: WriterStyle, cx: number, cy: number, t0: number): { strokes: Stroke3[]; tEnd: number } {
+  const r = rng.range(2.2, 4.2)
+  const pts: Pt[] = []
+  const turns = rng.int(1, 2)
+  for (let i = 0; i <= 10 * turns; i++) {
+    const a = (i / 10) * 2 * Math.PI
+    const rr = r * (1 - (i / (10 * turns)) * 0.6)
+    pts.push([cx + rr * Math.cos(a) + rng.gauss() * 0.3, cy + rr * Math.sin(a) + rng.gauss() * 0.3])
+  }
+  const made = toEvents(rng, w, pts, t0)
+  return { strokes: [made.stroke.map(([x, y, tt]) => [Math.round(x * 10) / 10, Math.round(y * 10) / 10, tt])], tEnd: made.tEnd + rng.range(60, 200) }
 }
