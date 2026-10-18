@@ -19,6 +19,8 @@ export const IRNode = z.object({
   bbox: z.tuple([z.number(), z.number(), z.number(), z.number()]),
   /** Pose; polarity lives here. */
   rot: Rot,
+  /** Mechanics/optics: the part's turn in degrees, any value (a 30° ramp is not a multiple of 90). Screen frame, y down. */
+  angle: z.number().optional(),
   flip: z.boolean().optional(),
   /** Raw text per parameter, e.g. { R: '10k' } — the compiler parses units. */
   values: z.record(z.string(), z.string()).optional(),
