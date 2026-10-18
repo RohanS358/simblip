@@ -34,11 +34,11 @@ const r = rng(7)
 
 /** [prompt, tool, args, digest?] generators. */
 const gens = [
-  () => { const t = fill(TOPICS, r); return [fill([`make 3 flash cards about ${t}`, `create flash cards for ${t}`, `write me 2 flashcards on ${t}`], r), 'course.search', { query: t, k: 3 }] },
-  () => { const t = fill(TOPICS, r); return [fill([`find the lesson on ${t}`, `lesson about ${t}`, `find notes on ${t}`], r), 'course.search', { query: t }] },
+  () => { const t = fill(TOPICS, r); return [fill([`make 3 flash cards about ${t}`, `create flash cards for ${t}`, `write me 2 flashcards on ${t}`, `flashcards about ${t} please`, `I want flash cards for ${t}`], r), 'course.search', { query: t, k: 3 }] },
+  () => { const t = fill(TOPICS, r); return [fill([`find the lesson on ${t}`, `lesson about ${t}`, `find notes on ${t}`, `find the chapter on ${t}`, `lesson on ${t} in my course`], r), 'course.search', { query: t }] },
   () => { const [id, ch] = fill(NODES, r); return [fill([`how fast is the ${id}?`, `what is the ${ch} at ${id}?`, `measure the ${ch} of ${id}`, `what's the current through ${id}?`], r), 'scene.measure', { id, channel: ch }, `${id} (${ch})`] },
   () => { const n = fill(PAGES, r); return [fill([`open my ${n} page`, `go to the ${n} page`, `switch to the ${n} notebook`], r), 'page.list', {}] },
-  () => [fill(["I'm stuck on this", 'give me a hint', "i don't get this one"], r), 'learn.hint', { questionId: `q${1 + Math.floor(r() * 9)}` }],
+  () => { const q = `q${1 + Math.floor(r() * 9)}`; return [fill(["I'm stuck on this", 'give me a hint', "i don't get this one", 'can I get a clue for this'], r), 'learn.hint', { questionId: q }, `Current question id: ${q}`] },
   () => [fill(['what should I study', 'what is my weakest topic', 'exam tomorrow what should I revise'], r), 'learn.mastery.get', { n: 5 }],
   () => { const items = fill([['Voltage', 'Current', 'Resistance'], ['Red', 'Orange', 'Yellow', 'Green'], ['Mercury', 'Venus', 'Earth', 'Mars']], r); return [fill(['mnemonic for this list: ', 'how do I remember '], r) + items.join(', '), 'learn.mnemonic', { items }] },
 ]
@@ -50,7 +50,7 @@ const isEval = (p) => parseInt(hash(p).slice(0, 4), 16) % 8 === 0
 const toolsFor = (prompt) => routeAct(prompt, true)?.tools ?? null
 const train = [], evalRows = []
 let bad = 0
-for (let i = 0; i < 1600; i++) {
+for (let i = 0; i < 4000; i++) {
   const [prompt, tool, args, digest] = fill(gens, r)()
   const offered = toolsFor(prompt)
   if (!offered || !offered.includes(tool)) { bad++; continue }
