@@ -43,9 +43,9 @@
     "hidden": 64,
     "trunk": 128
   },
-  "temperature": 0.6342798471450806,
+  "temperature": 0.6290539503097534,
   "temperatureBakedIntoClassHead": true,
-  "sha256": "87e4babe618898be7cbe102dec258beeb51b6447807b6af4a9b57eb8fc8a235a",
+  "sha256": "84bbb435242795dc833ea50183fff788862c45fa5bfe2bdf3186a9f997c27a04",
   "bytes": 465448,
   "parameters": 116570,
   "tensors": [
@@ -209,12 +209,12 @@
   "evidence": {
     "synthetic": {
       "n": 31050,
-      "top1": 0.9882,
-      "top3": 0.9995,
-      "ece": 0.0024,
-      "pose_acc": 0.9945,
-      "unknown_precision": 0.9785,
-      "unknown_recall": 0.9756
+      "top1": 0.9832,
+      "top3": 0.9993,
+      "ece": 0.0034,
+      "pose_acc": 0.9896,
+      "unknown_precision": 0.9602,
+      "unknown_recall": 0.9378
     },
     "real": null,
     "note": "Measured on generated (synthetic) writers only. No real-world accuracy has been measured."

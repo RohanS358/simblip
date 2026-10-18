@@ -122,3 +122,25 @@ Document 2 — The Sketch Model* (10 Oct 2026).
 - **Open:** the 55.3 % → 98.8 % jump is partly a sign the synthetic world is
   easy for a CNN. Real data is the test that matters; until then the setting
   stays off by default.
+
+## 2026-10-18 — SketchNet v1 retrained after a real-use failure (bare symbols)
+
+- **What happened:** Rohan enabled the setting, drew a resistor/diode and held the
+  pen: nothing happened. A clean zigzag with leads I drove through the app myself
+  DID convert, so the hook works. The generator (v1) almost never drew symbols
+  without connecting leads, which is how people usually sketch a part. Measured:
+  top-1 99.2 % with leads, **81.9 % without** (battery 21/40, switch 19/40, AND
+  gate 40/40 wrong), and only 70.6 % of bare symbols cleared the 0.9 gate.
+- **Fix:** generator v2 — each simulated writer has a `leadless` propensity
+  (0–0.7) and draws the whole symbol bare with that probability. Retrained from
+  scratch (same architecture, same recipe). Bare symbols now: top-1 97.9 %, 95.0 %
+  both correct and ≥ 0.9. Standard synthetic test (75 unseen synthetic writers):
+  top-1 98.32 %, top-3 99.93 %, ECE 0.0034. Slightly lower than before because
+  the data is harder, not worse.
+- **Declines are now visible:** when the setting is on and a hold is not
+  accepted, a toast says why ("not sure enough (resistor 74 %, needs 90 %)" or
+  "doesn't look like a known symbol"; or "still loading"). Silence looked broken
+  and hid the evidence.
+- **Lesson:** a high synthetic score hid a distribution gap that one honest use
+  exposed. The remaining gaps are unknown until real strokes exist.
+  Treat toasts reporting low confidence on real drawings as the first real data.

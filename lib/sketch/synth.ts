@@ -34,7 +34,7 @@ import { UNKNOWN_CLASS, WAVE1_CLASSES, POSE_SYMMETRY, canonicalPose, type Pose, 
 import type { SketchSampleT } from './dataset'
 
 /** Bump when the generator's output distribution changes; stored in every sample's meta. */
-export const GENERATOR_VERSION = 1
+export const GENERATOR_VERSION = 2
 
 type Device = SketchSampleT['device']
 type Stroke3 = Array<[number, number, number]>
@@ -69,6 +69,10 @@ export interface WriterStyle {
   dt: number
   /** Chance a connecting lead is left out. */
   leadOmit: number
+  /** Chance the whole symbol is drawn bare, with no leads at all — how most
+   *  people sketch a part before wiring it. (v1 had almost none of these, and
+   *  the first model failed on bare gates/batteries/switches.) */
+  leadless: number
 }
 
 /** Mouse and touchpad first, finger second, pen rare — as the students are. */
@@ -102,6 +106,7 @@ export function makeWriter(rng: Rng, id: string, device?: Device): WriterStyle {
     speed: r(p.speed),
     dt: r(p.dt),
     leadOmit: rng.range(0, 0.22),
+    leadless: rng.range(0, 0.7),
   }
 }
 
@@ -155,6 +160,7 @@ function pushEnd(pts: Pt[], atStart: boolean, by: number): Pt[] {
 // ── glyph-space edits (frame units) ────────────────────────────────────────
 
 function editLeads(rng: Rng, w: WriterStyle, strokes: GlyphStroke[]): GlyphStroke[] {
+  if (rng.chance(w.leadless)) return strokes.filter((s) => !s.lead)
   const out: GlyphStroke[] = []
   for (const s of strokes) {
     if (!s.lead) { out.push(s); continue }

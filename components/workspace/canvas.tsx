@@ -3021,11 +3021,21 @@ export function InfiniteCanvas({
           let neuralId: string | null = null
           if (!obj && held && penPrefs().neuralSketch) {
             const net = peekSketchNet()
-            if (net) {
+            if (!net) {
+              toast('Neural recogniser is still loading — using the older matcher this time.')
+            } else {
               const pred = net.predict([points])
               if (pred.cls !== 'unknown' && pred.conf >= NEURAL_MIN_CONF && componentById(pred.cls)) {
                 neuralId = pred.cls
                 neuralRotation = pred.pose
+              } else {
+                // An experimental feature must say when it declines, or it just looks broken.
+                toast(
+                  pred.cls === 'unknown'
+                    ? "Neural recogniser: that doesn't look like a known symbol."
+                    : `Neural recogniser wasn't sure enough (${pred.cls} ${Math.round(pred.conf * 100)}%, needs ${Math.round(NEURAL_MIN_CONF * 100)}%).`,
+                  { duration: 2500 }
+                )
               }
             }
           }
