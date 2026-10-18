@@ -8,6 +8,7 @@ import './pages'
 import './learn'
 import './course-corpus'
 import './teacher'
+import './lesson'
 
 export { listTools, getTool, runTool, toolSpecs, toolSchema, setToolGenerator } from './registry'
 export { activeContext } from './context'

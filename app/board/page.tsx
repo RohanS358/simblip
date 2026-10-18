@@ -34,6 +34,7 @@ import { Sidebar, RailButton } from '@/components/workspace/sidebar'
 import { CommandPalette } from '@/components/workspace/command-palette'
 import { SettingsDialog } from '@/components/workspace/settings-dialog'
 import { WalkthroughOverlay } from '@/components/workspace/walkthrough-overlay'
+import { LessonPlayer } from '@/components/workspace/lesson-player'
 import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
 import { Calculator } from '@/components/workspace/calculator'
 import { PageControlsMenu } from '@/components/workspace/page-controls-menu'
@@ -755,6 +756,7 @@ function BoardSurface() {
           />
           <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
           <WalkthroughOverlay />
+          <LessonPlayer />
         </div>
       ) : (
         <div className="relative flex h-full flex-col">

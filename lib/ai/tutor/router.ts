@@ -16,6 +16,8 @@
 
 export type ActPlan =
   | { kind: 'quick'; tool: string }
+  /** One tool, arguments taken straight from the words — no model needed. */
+  | { kind: 'direct'; tool: string; args: Record<string, unknown> }
   | { kind: 'agent'; tools: string[] }
 
 const QUICK: [RegExp, string][] = [
@@ -41,8 +43,13 @@ const MASTERY_RE = /\b(?:what should i (?:study|revise)|weakest|my (?:mastery|pr
 const MNEMONIC_RE = /\b(?:mnemonic|acronym|how (?:do i|to|can i) (?:remember|memori[sz]e))\b/i
 const LESSON_RE = /\b(?:find (?:the )?(?:lesson|notes?|chapter)|(?:lesson|notes?|chapter) (?:on|about)|in (?:the|my) (?:course|syllabus))\b/i
 
+/** "teach me Ohm's law", "give me a video lesson on diodes" → a film of the course lesson. */
+const TEACH_RE = /^(?:please\s+)?(?:(?:can you\s+)?teach\s+(?:me|us)(?:\s+about)?|(?:give|make|show)\s+(?:me|us)\s+(?:a\s+)?(?:(?:video|animated|interactive)\s+)?(?:lesson|video|animation)\s+(?:on|about|of)|animate|walk\s+(?:me|us)\s+through)\s+(?:the\s+|a\s+|an\s+)?(.{3,80}?)\s*[.!?]*$/i
+
 export function routeAct(prompt: string, hasPage: boolean): ActPlan | null {
   const p = prompt.trim()
+  const teach = TEACH_RE.exec(p)
+  if (teach) return { kind: 'direct', tool: 'teach.lesson', args: { topic: teach[1].replace(/\s+(?:with|using|in)\s+(?:a\s+)?(?:video|animation|visuals?).*$/i, '').trim() } }
   for (const [re, tool] of QUICK) if (re.test(p)) return { kind: 'quick', tool }
   if (PAGES_RE.test(p)) return { kind: 'agent', tools: ['page.list', 'page.open', 'page.create'] }
   if (CARDS_RE.test(p)) return { kind: 'agent', tools: ['course.search', 'learn.cards.create'] }

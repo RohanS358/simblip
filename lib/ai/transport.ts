@@ -14,7 +14,7 @@ import { runAi, type AiEvent, type AiRequest } from '@/lib/ai/run'
 import { localEngine } from '@/lib/ai/engine/local'
 import { MODELS, type Tier } from '@/lib/ai/engine/catalog'
 import { useEngine, useEnginePrefs } from '@/lib/ai/engine/store'
-import { makeAct } from '@/lib/ai/tutor/act'
+import { makeAct, tryDirect } from '@/lib/ai/tutor/act'
 import { activeContext } from '@/lib/tools/context'
 import { setToolGenerator } from '@/lib/tools/registry'
 import '@/lib/tools'
@@ -93,6 +93,7 @@ export async function streamAi(req: AiRequest, signal: AbortSignal, onEvent: (e:
     return
   }
 
+  if (await tryDirect(req, activeContext(signal), onEvent)) return
   if (route.where === 'server') {
     const res = await fetch('/api/ai', {
       method: 'POST',

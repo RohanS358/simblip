@@ -45,6 +45,20 @@ export interface ActDeps {
   signal?: AbortSignal
 }
 
+/** Direct requests ("teach me Ohm's law") need no model, so they run in the browser
+ *  whichever backend would have answered. True when handled (a `done` was emitted). */
+export async function tryDirect(req: AiRequest, ctx: ToolContext, emit: (e: AiEvent) => void): Promise<boolean> {
+  const plan = routeAct(req.prompt, Boolean(req.pageDigest))
+  if (plan?.kind !== 'direct') return false
+  const res = await runTool(plan.tool, plan.args, ctx)
+  if (!res.ok) return false
+  const step: ToolStep = { name: plan.tool, args: plan.args, ok: true, summary: res.summary }
+  emit({ event: 'intent', data: 'act' })
+  emit({ event: 'tool', data: step })
+  emit({ event: 'done', data: { message: res.summary, toolSteps: [step] } })
+  return true
+}
+
 /** Build the `act` hook runAi() takes. Returns null for requests that are not
  *  tool requests, so the ordinary lanes handle them. */
 export function makeAct({ engine, ctx, emit, signal }: ActDeps) {
@@ -58,6 +72,15 @@ export function makeAct({ engine, ctx, emit, signal }: ActDeps) {
       steps.push(s)
       emit({ event: 'tool', data: s })
       return res
+    }
+
+    if (plan.kind === 'direct') {
+      // A miss (no lesson for this topic) falls through to the ordinary lanes
+      // instead of showing a failed chip for something the user never asked by name.
+      const res = await runTool(plan.tool, plan.args, ctx())
+      if (!res.ok) return null
+      emit({ event: 'tool', data: { name: plan.tool, args: plan.args, ok: true, summary: res.summary } })
+      return { message: res.summary, toolSteps: [{ name: plan.tool, args: plan.args, ok: true, summary: res.summary }] }
     }
 
     if (plan.kind === 'quick') {

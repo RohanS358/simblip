@@ -55,6 +55,7 @@ const AiAgentBridge = dynamic(() => import('./ai-agent-bridge').then((m) => m.Ai
 const SettingsDialog = dynamic(() => import('./settings-dialog').then((m) => m.SettingsDialog), { ssr: false })
 const EventLogPanel = dynamic(() => import('./event-log-panel').then((m) => m.EventLogPanel), { ssr: false })
 import { WalkthroughOverlay } from './walkthrough-overlay'
+import { LessonPlayer } from './lesson-player'
 import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
 import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
 
@@ -842,6 +843,7 @@ export function WorkspaceShell() {
         initialTab={settingsTab}
       />
       <WalkthroughOverlay />
+      <LessonPlayer />
     </div>
   )
 }

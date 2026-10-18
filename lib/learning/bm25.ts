@@ -1,7 +1,10 @@
 // BM25 over lesson sections — retrieval with no embedding model (0 MB RAM).
 export interface Doc { id: string; title: string; text: string; lessonId?: string; sectionId?: string }
 
-const tok = (s: string) => s.toLowerCase().replace(/<[^>]+>/g, ' ').match(/[a-z0-9]+/g) ?? []
+// Apostrophes vanish ("Ohm's" → "ohms") and a trailing plural s is dropped
+// ("resistors" → "resistor"), so a student's wording still finds the lesson title.
+const stem = (t: string) => (t.length > 3 && t.endsWith('s') && !t.endsWith('ss') ? t.slice(0, -1) : t)
+const tok = (s: string) => (s.toLowerCase().replace(/<[^>]+>/g, ' ').replace(/['’]/g, '').match(/[a-z0-9]+/g) ?? []).map(stem)
 
 export function bm25(docs: Doc[], query: string, k = 5): { doc: Doc; score: number }[] {
   const q = [...new Set(tok(query))]
