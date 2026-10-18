@@ -151,6 +151,8 @@ export const SCRIPT_TOKENS = 700
 export const EXPLAIN_TOKENS = 2000
 
 const OLLAMA_HOST = process.env.OLLAMA_HOST ?? 'http://localhost:11434'
+/** Set when OLLAMA_HOST is the separate AI server (ai-server/), which requires a bearer key. */
+const ollamaAuth = (): Record<string, string> => (process.env.OLLAMA_API_KEY ? { Authorization: `Bearer ${process.env.OLLAMA_API_KEY}` } : {})
 /** The default for both lanes. `simblip-simscript` is not a stock model: it
  *  is built by buildModelfile() (lib/ai/simscript-corpus.ts) with the
  *  SimScript prompt and twelve few-shots baked into its template. */
@@ -190,7 +192,7 @@ export function makeOllamaGenerator(model: string): SimScriptGenerator {
     try {
       const res = await fetch(`${OLLAMA_HOST}/api/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...ollamaAuth() },
         body: JSON.stringify({
           model,
           messages: [
@@ -349,7 +351,7 @@ export async function pickGenerator(
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 400)
-    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal })
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal, headers: ollamaAuth() })
     clearTimeout(timer)
     if (res.ok) return local
   } catch {
@@ -501,7 +503,7 @@ async function warmOne(model: string): Promise<void> {
   try {
     await fetch(`${OLLAMA_HOST}/api/chat`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...ollamaAuth() },
       body: JSON.stringify({
         model,
         messages: [{ role: 'user', content: 'hi' }],
@@ -542,7 +544,7 @@ async function ollamaTags(): Promise<string[] | null> {
   try {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), 800)
-    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal })
+    const res = await fetch(`${OLLAMA_HOST}/api/tags`, { signal: controller.signal, headers: ollamaAuth() })
     clearTimeout(timer)
     if (!res.ok) return null
     const json = (await res.json()) as { models?: { name?: string }[] }
