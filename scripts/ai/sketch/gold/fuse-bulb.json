@@ -1,0 +1,87 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "b",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "9"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "f",
+      "cls": "fuse",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "l",
+      "cls": "bulb",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "f",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "f",
+        "pin": "b"
+      },
+      "b": {
+        "node": "l",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "l",
+        "pin": "b"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

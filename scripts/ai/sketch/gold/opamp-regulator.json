@@ -1,0 +1,118 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "v",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "3"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "a",
+      "cls": "opamp",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "p",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "12"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "n",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "12"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "v",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "a",
+        "pin": "in+"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "a",
+        "pin": "in-"
+      },
+      "b": {
+        "node": "a",
+        "pin": "out"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "p",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "a",
+        "pin": "v+"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "n",
+        "pin": "negative"
+      },
+      "b": {
+        "node": "a",
+        "pin": "v-"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

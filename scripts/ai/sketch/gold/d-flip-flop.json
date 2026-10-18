@@ -1,0 +1,97 @@
+{
+  "domain": "digital",
+  "nodes": [
+    {
+      "id": "d",
+      "cls": "input",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "k",
+      "cls": "clock",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "f",
+      "cls": "d-ff",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "q",
+      "cls": "output",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "d",
+        "pin": "out"
+      },
+      "b": {
+        "node": "f",
+        "pin": "d"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "k",
+        "pin": "out"
+      },
+      "b": {
+        "node": "f",
+        "pin": "clk"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "f",
+        "pin": "q"
+      },
+      "b": {
+        "node": "q",
+        "pin": "in"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

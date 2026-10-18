@@ -1,0 +1,37 @@
+{
+  "domain": "mechanics",
+  "nodes": [
+    {
+      "id": "e",
+      "cls": "efield",
+      "conf": 0.95,
+      "bbox": [
+        60,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "q",
+      "cls": "charge",
+      "conf": 0.95,
+      "bbox": [
+        180,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "values": {
+        "q": "2"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [],
+  "labels": [],
+  "doubts": []
+}

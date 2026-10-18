@@ -1,0 +1,103 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "s",
+      "cls": "ac-source",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "24",
+        "f": "50"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "t",
+      "cls": "transformer",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "r",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "100"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "s",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "t",
+        "pin": "p1"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "s",
+        "pin": "negative"
+      },
+      "b": {
+        "node": "t",
+        "pin": "p2"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "t",
+        "pin": "s1"
+      },
+      "b": {
+        "node": "r",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r",
+        "pin": "b"
+      },
+      "b": {
+        "node": "t",
+        "pin": "s2"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

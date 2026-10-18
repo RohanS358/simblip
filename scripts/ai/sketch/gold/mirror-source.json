@@ -1,0 +1,34 @@
+{
+  "domain": "optics",
+  "nodes": [
+    {
+      "id": "s",
+      "cls": "light-source",
+      "conf": 0.95,
+      "bbox": [
+        60,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "m",
+      "cls": "optical-mirror",
+      "conf": 0.95,
+      "bbox": [
+        180,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [],
+  "labels": [],
+  "doubts": []
+}

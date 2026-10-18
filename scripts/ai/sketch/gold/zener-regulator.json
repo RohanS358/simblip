@@ -1,0 +1,130 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "b",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "12"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "r",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "470"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "z",
+      "cls": "zener",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "l",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "1k"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "r",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r",
+        "pin": "b"
+      },
+      "b": {
+        "node": "z",
+        "pin": "cathode"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "z",
+        "pin": "anode"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r",
+        "pin": "b"
+      },
+      "b": {
+        "node": "l",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "l",
+        "pin": "b"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

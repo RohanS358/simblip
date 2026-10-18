@@ -1,0 +1,127 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "b",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "9"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "rb",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "10k"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "q",
+      "cls": "bjt",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "l",
+      "cls": "bulb",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "l",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "l",
+        "pin": "b"
+      },
+      "b": {
+        "node": "q",
+        "pin": "collector"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "q",
+        "pin": "emitter"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "rb",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "rb",
+        "pin": "b"
+      },
+      "b": {
+        "node": "q",
+        "pin": "base"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

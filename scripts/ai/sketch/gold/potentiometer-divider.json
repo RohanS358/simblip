@@ -1,0 +1,102 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "b",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "9"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "p",
+      "cls": "potentiometer",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "10k"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "v",
+      "cls": "voltmeter",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "p",
+        "pin": "top"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "p",
+        "pin": "bottom"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "v",
+        "pin": "a"
+      },
+      "b": {
+        "node": "p",
+        "pin": "wiper"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "v",
+        "pin": "b"
+      },
+      "b": {
+        "node": "p",
+        "pin": "bottom"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

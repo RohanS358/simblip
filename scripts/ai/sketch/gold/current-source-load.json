@@ -1,0 +1,65 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "i",
+      "cls": "current-source",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "I": "10m"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "r",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "470"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "i",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "r",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r",
+        "pin": "b"
+      },
+      "b": {
+        "node": "i",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

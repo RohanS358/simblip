@@ -1,0 +1,159 @@
+{
+  "domain": "digital",
+  "nodes": [
+    {
+      "id": "a",
+      "cls": "input",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "b",
+      "cls": "input",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "x",
+      "cls": "xor-gate",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "n",
+      "cls": "and-gate",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "s",
+      "cls": "output",
+      "conf": 0.95,
+      "bbox": [
+        400,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "c",
+      "cls": "output",
+      "conf": 0.95,
+      "bbox": [
+        490,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "a",
+        "pin": "out"
+      },
+      "b": {
+        "node": "x",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "b",
+        "pin": "out"
+      },
+      "b": {
+        "node": "x",
+        "pin": "b"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "a",
+        "pin": "out"
+      },
+      "b": {
+        "node": "n",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "b",
+        "pin": "out"
+      },
+      "b": {
+        "node": "n",
+        "pin": "b"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "x",
+        "pin": "out"
+      },
+      "b": {
+        "node": "s",
+        "pin": "in"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "n",
+        "pin": "out"
+      },
+      "b": {
+        "node": "c",
+        "pin": "in"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

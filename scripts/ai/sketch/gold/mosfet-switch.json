@@ -1,0 +1,127 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "b",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "9"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "q",
+      "cls": "mosfet",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "l",
+      "cls": "bulb",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "v",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "5"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "b",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "l",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "l",
+        "pin": "b"
+      },
+      "b": {
+        "node": "q",
+        "pin": "drain"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "q",
+        "pin": "source"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "v",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "q",
+        "pin": "gate"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "v",
+        "pin": "negative"
+      },
+      "b": {
+        "node": "b",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

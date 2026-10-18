@@ -1,0 +1,50 @@
+{
+  "domain": "mechanics",
+  "nodes": [
+    {
+      "id": "h",
+      "cls": "hinge",
+      "conf": 0.95,
+      "bbox": [
+        60,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "m",
+      "cls": "mass",
+      "conf": 0.95,
+      "bbox": [
+        180,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "values": {
+        "mass": "1"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "h",
+        "pin": "centre"
+      },
+      "b": {
+        "node": "m",
+        "pin": "centre"
+      },
+      "kind": "rod",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

@@ -1,0 +1,72 @@
+{
+  "domain": "digital",
+  "nodes": [
+    {
+      "id": "k",
+      "cls": "clock",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "c",
+      "cls": "counter4",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "q",
+      "cls": "output",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "k",
+        "pin": "out"
+      },
+      "b": {
+        "node": "c",
+        "pin": "clk"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "c",
+        "pin": "q0"
+      },
+      "b": {
+        "node": "q",
+        "pin": "in"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

@@ -24,6 +24,7 @@ const QUICK: [RegExp, string][] = [
   [/^(?:please\s+)?(?:stop|reset|restart|rewind)(?:\s+(?:it|this|the\s+(?:simulation|sim|scene)))?\s*[.!]*$/i, 'scene.reset'],
   [/^(?:please\s+)?(?:undo|undo (?:that|it|the last (?:change|thing))|take that back|revert (?:that|it))\s*[.!]*$/i, 'scene.undo'],
   [/^(?:please\s+)?(?:redo|redo (?:that|it)|put it back)\s*[.!]*$/i, 'scene.redo'],
+  [/^(?:please\s+)?(?:quiz me|review(?: my)?(?: flash)?\s*cards?|flash\s*cards?|what(?:'s| is) due|cards? due)\s*[.!?]*$/i, 'learn.cards.next'],
   [/^(?:what(?:'s| is| do i have)\s+(?:on\s+)?(?:this|the)\s+page|describe\s+(?:this|the)\s+page|what(?:'s| is) here)\s*\??$/i, 'scene.describe'],
 ]
 
@@ -34,10 +35,21 @@ const MEASURE_RE =
 const PAGES_RE =
   /\b(?:(?:open|go to|switch to|show)\s+(?:the\s+|my\s+)?(?:\w+\s+)?(?:page|board|notebook)|(?:new|blank|create (?:a )?)\s*(?:page|board|document)|list\s+(?:my\s+)?pages|what pages|which pages)\b/i
 
+const CARDS_RE = /\b(?:(?:make|create|write|add)\s+(?:me\s+)?(?:\d+\s+)?(?:some\s+)?flash\s*cards?|flash\s*cards?\s+(?:for|about|on)|remember this)\b/i
+const HINT_RE = /\b(?:hint|i(?:'m| am) stuck|i don'?t get|give me a clue)\b/i
+const MASTERY_RE = /\b(?:what should i (?:study|revise)|weakest|my (?:mastery|progress)|test tomorrow|exam tomorrow)\b/i
+const MNEMONIC_RE = /\b(?:mnemonic|acronym|how (?:do i|to|can i) (?:remember|memori[sz]e))\b/i
+const LESSON_RE = /\b(?:find (?:the )?(?:lesson|notes?|chapter)|(?:lesson|notes?|chapter) (?:on|about)|in (?:the|my) (?:course|syllabus))\b/i
+
 export function routeAct(prompt: string, hasPage: boolean): ActPlan | null {
   const p = prompt.trim()
   for (const [re, tool] of QUICK) if (re.test(p)) return { kind: 'quick', tool }
   if (PAGES_RE.test(p)) return { kind: 'agent', tools: ['page.list', 'page.open', 'page.create'] }
+  if (CARDS_RE.test(p)) return { kind: 'agent', tools: ['course.search', 'learn.cards.create'] }
+  if (HINT_RE.test(p)) return { kind: 'agent', tools: ['learn.hint', 'course.search'] }
+  if (MASTERY_RE.test(p)) return { kind: 'agent', tools: ['learn.mastery.get', 'learn.cards.next'] }
+  if (MNEMONIC_RE.test(p)) return { kind: 'agent', tools: ['learn.mnemonic'] }
+  if (LESSON_RE.test(p)) return { kind: 'agent', tools: ['course.search'] }
   // A measurement needs a page that has something on it.
   if (hasPage && MEASURE_RE.test(p)) return { kind: 'agent', tools: ['scene.measure', 'scene.describe', 'scene.run'] }
   return null

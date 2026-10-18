@@ -1,0 +1,131 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "s",
+      "cls": "ac-source",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "12",
+        "f": "50"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "d",
+      "cls": "diode",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "c",
+      "cls": "capacitor",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "C": "470u"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "r",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "1k"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "s",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "d",
+        "pin": "anode"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "d",
+        "pin": "cathode"
+      },
+      "b": {
+        "node": "c",
+        "pin": "positive"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "c",
+        "pin": "negative"
+      },
+      "b": {
+        "node": "s",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "d",
+        "pin": "cathode"
+      },
+      "b": {
+        "node": "r",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r",
+        "pin": "b"
+      },
+      "b": {
+        "node": "s",
+        "pin": "negative"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

@@ -1,0 +1,37 @@
+{
+  "domain": "mechanics",
+  "nodes": [
+    {
+      "id": "g",
+      "cls": "ground",
+      "conf": 0.95,
+      "bbox": [
+        60,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "b",
+      "cls": "block",
+      "conf": 0.95,
+      "bbox": [
+        180,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "values": {
+        "mass": "2"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [],
+  "labels": [],
+  "doubts": []
+}

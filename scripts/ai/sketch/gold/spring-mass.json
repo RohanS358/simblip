@@ -1,0 +1,50 @@
+{
+  "domain": "mechanics",
+  "nodes": [
+    {
+      "id": "w",
+      "cls": "ground",
+      "conf": 0.95,
+      "bbox": [
+        60,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "m",
+      "cls": "mass",
+      "conf": 0.95,
+      "bbox": [
+        180,
+        200,
+        100,
+        60
+      ],
+      "rot": 0,
+      "values": {
+        "mass": "2"
+      },
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "w",
+        "pin": "centre"
+      },
+      "b": {
+        "node": "m",
+        "pin": "centre"
+      },
+      "kind": "spring",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}

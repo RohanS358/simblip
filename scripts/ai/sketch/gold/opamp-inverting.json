@@ -1,0 +1,155 @@
+{
+  "domain": "circuit",
+  "nodes": [
+    {
+      "id": "v",
+      "cls": "battery",
+      "conf": 0.95,
+      "bbox": [
+        40,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "V": "1"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "r1",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        130,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "1k"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "r2",
+      "cls": "resistor",
+      "conf": 0.95,
+      "bbox": [
+        220,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "values": {
+        "R": "10k"
+      },
+      "source": "ink"
+    },
+    {
+      "id": "a",
+      "cls": "opamp",
+      "conf": 0.95,
+      "bbox": [
+        310,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    },
+    {
+      "id": "g",
+      "cls": "gnd",
+      "conf": 0.95,
+      "bbox": [
+        400,
+        60,
+        60,
+        30
+      ],
+      "rot": 0,
+      "source": "ink"
+    }
+  ],
+  "edges": [
+    {
+      "a": {
+        "node": "v",
+        "pin": "positive"
+      },
+      "b": {
+        "node": "r1",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r1",
+        "pin": "b"
+      },
+      "b": {
+        "node": "a",
+        "pin": "in-"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "a",
+        "pin": "in-"
+      },
+      "b": {
+        "node": "r2",
+        "pin": "a"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "r2",
+        "pin": "b"
+      },
+      "b": {
+        "node": "a",
+        "pin": "out"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "a",
+        "pin": "in+"
+      },
+      "b": {
+        "node": "g",
+        "pin": "terminal"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    },
+    {
+      "a": {
+        "node": "v",
+        "pin": "negative"
+      },
+      "b": {
+        "node": "g",
+        "pin": "terminal"
+      },
+      "kind": "wire",
+      "conf": 0.95
+    }
+  ],
+  "labels": [],
+  "doubts": []
+}
