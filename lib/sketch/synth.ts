@@ -29,7 +29,7 @@
 // still synthetic hands. See `source`.
 
 import { makeRng, hash32, type Rng } from './rng'
-import { GLYPHS, type GlyphStroke, type Pt } from './glyphs'
+import { GLYPHS, type Glyph, type GlyphStroke, type Pt } from './glyphs'
 import { UNKNOWN_CLASS, WAVE1_CLASSES, POSE_SYMMETRY, canonicalPose, type Pose, type Wave1Class } from './classes'
 import type { SketchSampleT } from './dataset'
 
@@ -37,7 +37,7 @@ import type { SketchSampleT } from './dataset'
 export const GENERATOR_VERSION = 2
 
 type Device = SketchSampleT['device']
-type Stroke3 = Array<[number, number, number]>
+export type Stroke3 = Array<[number, number, number]>
 
 export interface WriterStyle {
   id: string
@@ -544,6 +544,8 @@ export interface Placement {
   width: number
   /** Whole-symbol turn, degrees clockwise (0/90/180/270). */
   pose: Pose
+  /** Italic slant: how far the top leans right, as a fraction of height (handwriting). */
+  slant?: number
 }
 
 export interface PlacedSymbol {
@@ -555,9 +557,13 @@ export interface PlacedSymbol {
 
 /** A symbol drawn at a given place and size: the same hand as drawSymbol, but not at a random spot. */
 export function drawSymbolPlaced(rng: Rng, w: WriterStyle, cls: Wave1Class, at: Placement, t0 = 0): PlacedSymbol {
-  const glyph = glyphFor(rng, w, cls)
+  return drawGlyphPlaced(rng, w, glyphFor(rng, w, cls), at, t0, true)
+}
+
+/** Any glyph (a symbol, a handwritten character) drawn at a place and size by writer `w`. */
+export function drawGlyphPlaced(rng: Rng, w: WriterStyle, glyph: Glyph, at: Placement, t0 = 0, withLeads = false): PlacedSymbol {
   const rad = (at.pose * Math.PI) / 180
-  const edited = editLeads(rng, w, glyph.strokes)
+  const edited = withLeads ? editLeads(rng, w, glyph.strokes) : glyph.strokes
   const frame = edited.map((st) => st.pts.map((p) => rotate(p, [50, 30], rad)))
   let strokes = mergeTouching(rng, w, frame)
   strokes = splitLong(rng, w, strokes)
@@ -570,7 +576,7 @@ export function drawSymbolPlaced(rng: Rng, w: WriterStyle, cls: Wave1Class, at: 
   const place = (p: Pt): Pt => {
     const x = (p[0] - 50) * scale * Math.sqrt(asp)
     const y = (p[1] - 30) * (scale / Math.sqrt(asp))
-    const [rx, ry] = rotate([x, y], [0, 0], tilt)
+    const [rx, ry] = rotate([x + (at.slant ?? 0) * y, y], [0, 0], tilt)
     return [rx + at.cx, ry + at.cy]
   }
   const out: Stroke3[] = []

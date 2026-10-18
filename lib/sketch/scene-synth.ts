@@ -14,6 +14,9 @@ import { POSE_SYMMETRY, canonicalPose, type Pose, type Wave1Class } from './clas
 import type { SketchIRType } from './ir'
 import { PIN_TEMPLATE, pinsOf, type WorldPin } from './pins'
 import { drawDot, drawPolylines, drawSymbolPlaced, type WriterStyle } from './synth'
+import { drawChar } from './char-synth'
+import { CHAR_LABELS } from './char-glyphs'
+import { mainParamOf } from './compile'
 import type { Rng } from './rng'
 
 type Pt = [number, number]
@@ -43,7 +46,7 @@ export interface Scene {
   /** Every stroke, in the order the person drew them. [x, y, t] page px / ms. */
   strokes: Stroke3[]
   /** What each stroke is — for debugging and per-stage metrics only; the extractor never sees it. */
-  roles: Array<{ role: 'symbol' | 'wire' | 'dot'; owner: string }>
+  roles: Array<{ role: 'symbol' | 'wire' | 'dot' | 'text'; owner: string }>
   /** Ground truth: the circuit that was drawn, with each node's bbox taken from its ink. */
   truth: SketchIRType
 }
@@ -96,7 +99,14 @@ function pinNameAt(cls: string, index: number): string | null {
  * `scale` is page px per layout px: the app's schematic is small (a 96 px part),
  * a sketch is usually bigger.
  */
-export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.id, scale = rng.range(1.15, 2.2)): Scene {
+export interface SceneOptions {
+  /** Write each part's value beside it ("4.7k", "9V"), as a student would. Default off. */
+  text?: boolean
+}
+
+const UNIT_LETTER: Record<string, string> = { R: 'Ω', V: 'V', C: 'F', L: 'H' }
+
+export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.id, scale = rng.range(1.15, 2.2), opts: SceneOptions = {}): Scene {
   const ox = rng.range(50, 300)
   const oy = rng.range(50, 300)
   const at = (x: number, y: number): Pt => [x * scale + ox, y * scale + oy]
@@ -104,7 +114,7 @@ export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.
   const strokes: Stroke3[] = []
   const roles: Scene['roles'] = []
   let t = 0
-  const push = (list: Stroke3[], role: 'symbol' | 'wire' | 'dot', owner: string) => {
+  const push = (list: Stroke3[], role: 'symbol' | 'wire' | 'dot' | 'text', owner: string) => {
     for (const s of list) { strokes.push(s); roles.push({ role, owner }) }
   }
 
@@ -167,6 +177,42 @@ export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.
       push(d.strokes, 'dot', 'junction')
       t = d.tEnd
     }
+  }
+
+  // 4. values written beside the parts
+  if (opts.text) {
+    layout.ir.nodes.forEach((n, i) => {
+      const key = mainParamOf(n.cls)
+      const raw = key ? n.values?.[key] : undefined
+      if (!raw) return
+      // a unit letter after the number about half the time ("4.7kΩ", "9V")
+      let text = raw
+      const unit = key ? UNIT_LETTER[key] : undefined
+      if (unit && rng.chance(0.45)) text += unit
+      const box = boxes[i]
+      const pw = Math.max(box.x1 - box.x0, box.y1 - box.y0)
+      const H = pw * rng.range(0.16, 0.24)
+      const advance = H * rng.range(0.72, 0.95)
+      const width = text.length * advance
+      const horizontal = box.x1 - box.x0 >= box.y1 - box.y0
+      // above a horizontal part, beside a vertical one
+      let x = horizontal ? (box.x0 + box.x1) / 2 - width / 2 : box.x1 + H * 0.9
+      const y = horizontal ? box.y0 - H * rng.range(0.9, 1.4) : (box.y0 + box.y1) / 2
+      for (const ch of text) {
+        if (ch === '.') {
+          const d = drawDot(rng, w, x + advance * 0.25, y + H * 0.45, t)
+          push(d.strokes, 'text', n.id)
+          t = d.tEnd
+        } else if ((CHAR_LABELS as readonly string[]).includes(ch)) {
+          const strokesC = drawChar(rng, w, ch as (typeof CHAR_LABELS)[number], H, { cx: x + advance * 0.5, cy: y })
+          const shifted = strokesC.map((s) => s.map(([px, py, tt]): [number, number, number] => [px, py, tt + t]))
+          push(shifted, 'text', n.id)
+          t = Math.max(...shifted.flat().map((q) => q[2])) + rng.range(60, 220)
+        }
+        x += advance
+      }
+      t += rng.range(100, 400)
+    })
   }
 
   const t0 = strokes[0][0][2]

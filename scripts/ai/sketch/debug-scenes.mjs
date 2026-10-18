@@ -24,12 +24,19 @@ const scan = Number(arg('scan', 150))
 const onlyFails = process.argv.includes('--only-fails')
 const skip = Number(arg('skip', 0))
 const without = arg('without', '')
+const withText = process.argv.includes('--text')
 const modelBase = resolve(arg('model', 'public/models/sketchnet-v1'))
 
 const manifest = JSON.parse(readFileSync(`${modelBase}.json`, 'utf8'))
 const bin = readFileSync(`${modelBase}.bin`)
 const net = createSketchNet(manifest, bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength))
 const { layouts } = JSON.parse(readFileSync(file, 'utf8'))
+let charNet
+if (withText) {
+  const cm = JSON.parse(readFileSync(resolve('public/models/inkchars-v1.json'), 'utf8'))
+  const cb = readFileSync(resolve('public/models/inkchars-v1.bin'))
+  charNet = createSketchNet(cm, cb.buffer.slice(cb.byteOffset, cb.byteOffset + cb.byteLength))
+}
 const rng = makeRng(seed)
 const PAL = ['#2563eb', '#16a34a', '#d97706', '#7c3aed', '#0891b2', '#db2777', '#65a30d', '#ea580c']
 const cells = []
@@ -38,9 +45,9 @@ let shown = 0, failsSeen = 0
 for (let i = 0; i < scan && shown < want; i++) {
   const layout = layouts[rng.int(0, layouts.length - 1)]
   const w = makeWriter(rng.fork(`w${i}`), `eval-w${i}`)
-  const scene = drawScene(layout, rng.fork(`s${i}`), w)
+  const scene = drawScene(layout, rng.fork(`s${i}`), w, undefined, undefined, { text: withText })
   const ink = scene.strokes.map((pts, k) => ({ id: `k${k}`, pts }))
-  const got = extractCircuit(ink, net)
+  const got = extractCircuit(ink, net, { charNet })
   const c = compareIR(got.ir, scene.truth)
   if (onlyFails && c.exact) continue
   if (process.argv.includes('--parts-only') && !(c.missed || c.extra)) continue
@@ -48,6 +55,7 @@ for (let i = 0; i < scan && shown < want; i++) {
   if (without && scene.truth.nodes.some((n) => n.cls === without)) continue
   if (failsSeen++ < skip) continue
   const colorOf = new Map()
+  ;(got.texts ?? []).forEach((t) => t.strokeIds.forEach((id) => colorOf.set(id, '#dc2626')))
   got.parts.forEach((p, k) => p.strokeIds.forEach((id) => colorOf.set(id, PAL[k % PAL.length])))
   const all = scene.strokes.flat()
   const x0 = Math.min(...all.map((p) => p[0])) - 14, y0 = Math.min(...all.map((p) => p[1])) - 14

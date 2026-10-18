@@ -16,6 +16,7 @@ import type { SketchIRType } from './ir'
 import { pinsOf, type WorldPin } from './pins'
 import { bestSymbol } from './neural-pick'
 import { canonicalPose, type Pose } from './classes'
+import { attachValues, findText, type TextRead } from './values'
 import type { SketchPrediction } from './sketchnet'
 
 export interface InkStroke {
@@ -36,6 +37,8 @@ export interface ExtractOptions {
   /** How far (× unit) a wire end may be from a pin, and from another wire, and still count as touching. */
   tolPinK?: number
   tolJoinK?: number
+  /** The character network. When given, values written beside parts ("10k") are read. */
+  charNet?: Recogniser
 }
 
 export interface ExtractedPart {
@@ -48,6 +51,14 @@ export interface ExtractedPart {
   strokeIds: string[]
   alts: Array<{ cls: string; conf: number }>
   pins: WorldPin[]
+  /** Op-amps: the two input names were swapped because the + was drawn on the first input. */
+  flip?: boolean
+  /** Op-amps: the +/− marks were read (otherwise the default is a guess). */
+  polarityKnown?: boolean
+  /** Raw text per parameter, e.g. { R: '10k' } — typed by the user or read from ink. */
+  values?: Record<string, string>
+  /** Text was written beside this part but could not be read as a value. */
+  valueUnreadable?: boolean
 }
 
 export interface ExtractResult {
@@ -58,6 +69,15 @@ export interface ExtractResult {
   /** Ink that was neither part, wire nor dot (stray marks, unreadable groups). */
   ignoredIds: string[]
   unit: number
+  /** The wire and dot strokes as read, so wireUp() can be run again after an edit. */
+  wires?: Shape[]
+  dots?: Shape[]
+  /** Wire ends that landed on nothing (page px). */
+  looseEnds?: Pt[]
+  /** Ink read as part values; replaced along with the circuit. */
+  textIds?: string[]
+  /** Every line of text found, readable or not. */
+  texts?: TextRead[]
 }
 
 export interface Shape {
@@ -214,6 +234,7 @@ function orientOpamp(d: PartDraft): void {
   const b = count(inPlus)
   d.polarityKnown = a !== b && Math.max(a, b) >= 2 && Math.min(a, b) >= 1
   if (d.polarityKnown && a > b) {
+    d.flipped = true
     // two strokes (a plus) by the first input: it is the non-inverting one
     d.pins = d.pins.map((p) => (p === inMinus ? { ...p, name: 'in+' } : p === inPlus ? { ...p, name: 'in-' } : p))
   }
@@ -229,6 +250,7 @@ interface PartDraft {
   pins: WorldPin[]
   /** Op-amps: the +/− marks were read (otherwise the default is a guess). */
   polarityKnown?: boolean
+  flipped?: boolean
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
@@ -251,57 +273,38 @@ export function extractCircuit(strokes: InkStroke[], net: Recogniser, opts: Extr
   return best!.result
 }
 
-/** How well a reading explains the ink: confident parts count for, stray ink and loose wire ends against. */
-function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOptions): { result: ExtractResult; score: number } {
-  const minPartP = opts.minPartP ?? 0.35
-  // ── 1. dots, wires, and what is left (bodies, plates, leads) ─────────────
-  // A junction dot is a small LOOPY scribble; a short straight stroke is a '+' or a plate.
-  const isDot = (s: Shape) => s.diag <= Math.max(8, 0.12 * U) && s.len >= 2 * Math.max(s.diag, 3) && s.len <= 6 * Math.max(s.diag, 3)
-  const dots = shapes.filter(isDot)
-  const rest = shapes.filter((s) => !isDot(s))
-  const wires: Shape[] = rest.filter((s) => looksLikeWire(s, 0.9 * U, U))
-  const bodyShapes = rest.filter((s) => !looksLikeWire(s, 0.9 * U, U))
+/** What the wiring step needs to know about a part. */
+export interface WirePart {
+  id: string
+  pins: WorldPin[]
+}
 
-  // ── 2. symbols: group the body strokes, ask the network ─────────────────
-  const groups = absorbSatellites(cluster(bodyShapes, 0.2 * U), U)
-  const drafts: PartDraft[] = []
-  const ignored: Shape[] = []
-  for (const g0 of groups) {
-    const { kept, peeled, pred } = peelWires(g0, net, U)
-    wires.push(...peeled)
-    const best = bestSymbol(pred)
-    if (!best || best.p < minPartP) {
-      ignored.push(...kept)
-      continue
-    }
-    const box = kept.map((s) => s.box).reduce(unionBox)
-    const pose = pred.pose
-    drafts.push({
-      cls: best.cls, conf: best.p, pose, box, strokes: kept,
-      alts: pred.top.filter((t) => t.cls !== 'unknown' && t.cls !== best.cls).map((t) => ({ cls: t.cls, conf: t.conf })),
-      pins: pinsOf(best.cls, pose, box),
-    })
+export interface Wiring {
+  edges: SketchIRType['edges']
+  doubts: SketchIRType['doubts']
+  /** Wire ends that landed on nothing. */
+  danglingEnds: number
+  /** Where they are (page px), so the preview can mark them. */
+  looseEnds: Pt[]
+}
+
+/**
+ * Wires land on pins; wires meet wires; dots join crossings; the connected pins
+ * become edges. Separate from reading the parts so the preview can re-run it
+ * when the user changes a part's class or turn (which moves its pins).
+ */
+export function wireUp(parts: WirePart[], wires: Shape[], dots: Shape[], U: number, opts: ExtractOptions = {}): Wiring {
+  const doubts: SketchIRType['doubts'] = []
+  const addDoubt = (ref: string, why: SketchIRType['doubts'][number]['why']) => {
+    if (!doubts.some((d) => d.ref === ref && d.why === why)) doubts.push({ ref, why })
   }
-  for (const d of drafts) if (d.cls === 'opamp') orientOpamp(d)
-  drafts.sort((a, b) => a.box.x0 - b.box.x0 || a.box.y0 - b.box.y0)
-  const parts: ExtractedPart[] = drafts.map((d, i) => ({
-    id: `n${i + 1}`, cls: d.cls, conf: d.conf, pose: d.pose, box: d.box, strokeIds: d.strokes.map((s) => s.id), alts: d.alts, pins: d.pins,
-  }))
-
-  // ── 3. wires land on pins; wires meet wires; dots join crossings ────────
   const tolPin = clamp((opts.tolPinK ?? 0.4) * U, 12, 60)
   const tolJoin = clamp((opts.tolJoinK ?? 0.12) * U, 6, 26)
   const pinKeys: Array<{ part: number; pin: WorldPin; key: string }> = []
   parts.forEach((p, pi) => p.pins.forEach((pin) => pinKeys.push({ part: pi, pin, key: `${p.id}.${pin.name}` })))
-  const pinIndex = new Map(pinKeys.map((k, i) => [k.key, i]))
   // DSU items: wires first, then pins
   const dsu = new Dsu(wires.length + pinKeys.length)
-  const doubts: SketchIRType['doubts'] = []
   const ends = new Map<number, boolean[]>() // per wire: [startAttached, endAttached]
-  const addDoubt = (ref: string, why: SketchIRType['doubts'][number]['why']) => {
-    if (!doubts.some((d) => d.ref === ref && d.why === why)) doubts.push({ ref, why })
-  }
-  const loose = new Set<string>()
 
   wires.forEach((w, wi) => {
     const attached = [false, false]
@@ -355,18 +358,19 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
   })
 
   // loose ends
+  const looseEnds: Pt[] = []
   wires.forEach((w, wi) => {
     const att = ends.get(wi)!
+    if (!att[0]) looseEnds.push([w.pts[0][0], w.pts[0][1]])
+    if (!att[1]) looseEnds.push([w.pts[w.pts.length - 1][0], w.pts[w.pts.length - 1][1]])
     if (!att[0] || !att[1]) {
       // an end that touches another wire's CROSSING without a dot is a free end too
-      loose.add(w.id)
       addDoubt(`wire:${w.id}`, 'dangling-wire')
     }
   })
   // crossings without a dot are NOT connections — nothing to do, which is the point
-  void polyCrossings
 
-  // ── 4. nets → edges ─────────────────────────────────────────────────────
+  // nets → edges
   const nets = new Map<number, string[]>()
   pinKeys.forEach((k, i) => {
     const r = dsu.find(wires.length + i)
@@ -385,11 +389,32 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
       edges.push({ a: { node: an, pin: ap }, b: { node: bn, pin: bp }, kind: 'wire', conf: 1 })
     }
   }
-  void pinIndex
 
-  // ── 5. assemble ─────────────────────────────────────────────────────────
-  for (const p of parts) if (p.conf < 0.6) addDoubt(p.id, 'low-confidence')
-  drafts.forEach((d, i) => { if (d.cls === 'opamp' && !d.polarityKnown) addDoubt(parts[i].id, 'ambiguous-junction') })
+
+  const danglingEnds = wires.reduce((n, _w, wi) => n + (ends.get(wi)![0] ? 0 : 1) + (ends.get(wi)![1] ? 0 : 1), 0)
+  return { edges, doubts, danglingEnds, looseEnds }
+}
+
+/** A part's pins at its current class and turn (op-amps keep their read orientation). */
+export function partPins(p: Pick<ExtractedPart, 'cls' | 'pose' | 'box' | 'flip'>): WorldPin[] {
+  const pins = pinsOf(p.cls, p.pose, p.box)
+  if (p.cls !== 'opamp' || !p.flip) return pins
+  const a = pins.find((q) => q.name === 'in-')
+  const b = pins.find((q) => q.name === 'in+')
+  return pins.map((q) => (q === a ? { ...q, name: 'in+' } : q === b ? { ...q, name: 'in-' } : q))
+}
+
+/** Parts + wiring → Scene IR, with the doubts a person should look at. */
+export function irFrom(parts: ExtractedPart[], wiring: Wiring): SketchIRType {
+  const doubts = wiring.doubts.map((d) => ({ ...d }))
+  const add = (ref: string, why: SketchIRType['doubts'][number]['why']) => {
+    if (!doubts.some((d) => d.ref === ref && d.why === why)) doubts.push({ ref, why })
+  }
+  for (const p of parts) {
+    if (p.conf < 0.6) add(p.id, 'low-confidence')
+    if (p.cls === 'opamp' && !p.polarityKnown) add(p.id, 'ambiguous-junction')
+    if (p.valueUnreadable) add(p.id, 'unreadable-value')
+  }
   const nodes: SketchIRType['nodes'] = parts.map((p) => ({
     id: p.id,
     cls: p.cls,
@@ -397,18 +422,133 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
     alt: p.alts.slice(0, 3).map((a) => ({ cls: a.cls, conf: Math.round(a.conf * 1000) / 1000 })),
     bbox: [p.box.x0, p.box.y0, p.box.x1 - p.box.x0, p.box.y1 - p.box.y0] as [number, number, number, number],
     rot: canonicalPose(p.cls, p.pose),
+    ...(p.values && Object.keys(p.values).length ? { values: p.values } : {}),
     source: 'ink' as const,
   }))
-  const danglingEnds = wires.reduce((n, _w, wi) => n + (ends.get(wi)![0] ? 0 : 1) + (ends.get(wi)![1] ? 0 : 1), 0)
-  const score = parts.reduce((a, p) => a + p.conf, 0) - 0.4 * ignored.length - 0.25 * danglingEnds
+  return { domain: 'circuit', nodes, edges: wiring.edges, labels: [], doubts }
+}
+
+/**
+ * Re-read the wiring after the user changed parts (a class, a turn, a value).
+ * Pins move with the class and turn, so the nets are rebuilt from the same wire
+ * strokes. Everything else about the reading is kept.
+ */
+export function rewire(result: ExtractResult, parts: ExtractedPart[], opts: ExtractOptions = {}): ExtractResult {
+  const next = parts.map((p) => ({ ...p, pins: partPins(p) }))
+  const wiring = wireUp(next, result.wires ?? [], result.dots ?? [], result.unit, opts)
+  return { ...result, parts: next, ir: irFrom(next, wiring), looseEnds: wiring.looseEnds }
+}
+
+/** How well a reading explains the ink: confident parts count for, stray ink and loose wire ends against. */
+function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOptions): { result: ExtractResult; score: number } {
+  const minPartP = opts.minPartP ?? 0.35
+  // ── 1. dots, wires, and what is left (bodies, plates, leads) ─────────────
+  // A junction dot is a small LOOPY scribble; a short straight stroke is a '+' or a plate.
+  const isDot = (s: Shape) => s.diag <= Math.max(8, 0.12 * U) && s.len >= 2 * Math.max(s.diag, 3) && s.len <= 6 * Math.max(s.diag, 3)
+  const dots = shapes.filter(isDot)
+  const rest = shapes.filter((s) => !isDot(s))
+  const wires: Shape[] = rest.filter((s) => looksLikeWire(s, 0.9 * U, U))
+  const bodyShapes = rest.filter((s) => !looksLikeWire(s, 0.9 * U, U))
+
+  // ── 1b. values written beside parts — found BEFORE the symbols are grouped,
+  //        or a label 30 px from a resistor is swept into the resistor's strokes ──
+  let textReads: TextRead[] = []
+  const textUsed = new Set<string>()
+  let bodiesForGroups = bodyShapes
+  if (opts.charNet) {
+    const near = clamp((opts.tolJoinK ?? 0.12) * U, 6, 26) * 1.5
+    // a dot that is not on a wire is a decimal point, not a junction
+    const free = dots.filter((d) => {
+      const c: Pt = [(d.box.x0 + d.box.x1) / 2, (d.box.y0 + d.box.y1) / 2]
+      return !wires.some((w) => polyDist(c, w.simp) <= near)
+    })
+    const candidates = [...bodyShapes.filter((s) => s.diag <= 0.45 * U), ...free]
+    textReads = findText(candidates, bodyShapes, net, opts.charNet, U)
+    for (const r of textReads) r.strokeIds.forEach((id) => textUsed.add(id))
+    bodiesForGroups = bodyShapes.filter((s) => !textUsed.has(s.id))
+  }
+
+  // ── 2. symbols: group the body strokes, ask the network ─────────────────
+  const groups = absorbSatellites(cluster(bodiesForGroups, 0.2 * U), U)
+  const drafts: PartDraft[] = []
+  const ignored: Shape[] = []
+  for (const g0 of groups) {
+    const { kept, peeled, pred } = peelWires(g0, net, U)
+    wires.push(...peeled)
+    const best = bestSymbol(pred)
+    if (!best || best.p < minPartP) {
+      ignored.push(...kept)
+      continue
+    }
+    const box = kept.map((s) => s.box).reduce(unionBox)
+    const pose = pred.pose
+    drafts.push({
+      cls: best.cls, conf: best.p, pose, box, strokes: kept,
+      alts: pred.top.filter((t) => t.cls !== 'unknown' && t.cls !== best.cls).map((t) => ({ cls: t.cls, conf: t.conf })),
+      pins: pinsOf(best.cls, pose, box),
+    })
+  }
+  for (const d of drafts) if (d.cls === 'opamp') orientOpamp(d)
+  drafts.sort((a, b) => a.box.x0 - b.box.x0 || a.box.y0 - b.box.y0)
+  const parts: ExtractedPart[] = drafts.map((d, i) => ({
+    id: `n${i + 1}`, cls: d.cls, conf: d.conf, pose: d.pose, box: d.box, strokeIds: d.strokes.map((s) => s.id), alts: d.alts, pins: d.pins,
+    flip: d.flipped, polarityKnown: d.polarityKnown,
+  }))
+
+  // ── values: attach what was read to the nearest parts ─────────────────
+  const textIds = new Set<string>()
+  const att = attachValues(parts, textReads, U)
+  for (const a of att.attached) {
+    const part = parts.find((p) => p.id === a.partId)!
+    part.values = { ...(part.values ?? {}), [a.param]: a.text }
+    a.strokeIds.forEach((id) => textIds.add(id))
+  }
+  // written beside a part but not readable as a value: ask, don't guess
+  for (const r of textReads) {
+    if (r.ok) continue
+    const c: Pt = [(r.box.x0 + r.box.x1) / 2, (r.box.y0 + r.box.y1) / 2]
+    let best: { p: ExtractedPart; d: number } | null = null
+    for (const p of parts) {
+      const dx = Math.max(p.box.x0 - c[0], 0, c[0] - p.box.x1)
+      const dy = Math.max(p.box.y0 - c[1], 0, c[1] - p.box.y1)
+      const d = Math.hypot(dx, dy)
+      if (d <= 1.1 * U && (!best || d < best.d)) best = { p, d }
+    }
+    if (best) best.p.valueUnreadable = true
+  }
+  // a decimal point that belonged to some text is not a junction dot
+  const wiringDots = dots.filter((d) => !textUsed.has(d.id))
+  let wiring = wireUp(parts, wires, wiringDots, U, opts)
+  // Every real part in a circuit is wired to something. One nothing connects to is
+  // stray ink — most often a handwritten label that read as a symbol — so it is
+  // dropped (and its ink left alone) and the wiring read again without it. A
+  // drawing of nothing BUT unwired parts is kept as it is.
+  const wired = new Set<string>()
+  wiring.edges.forEach((e) => { wired.add(e.a.node); wired.add(e.b.node) })
+  const stray = parts.filter((p) => !wired.has(p.id))
+  const strayIds: string[] = []
+  if (stray.length > 0 && stray.length < parts.length) {
+    for (const p of stray) {
+      strayIds.push(...p.strokeIds)
+      parts.splice(parts.indexOf(p), 1)
+    }
+    wiring = wireUp(parts, wires, wiringDots, U, opts)
+  }
+  const ir = irFrom(parts, wiring)
+  const score = parts.reduce((a, p) => a + p.conf, 0) - 0.4 * ignored.length - 0.25 * wiring.danglingEnds - 0.5 * strayIds.length / 4
   return {
     result: {
-      ir: { domain: 'circuit', nodes, edges, labels: [], doubts },
+      ir,
       parts,
       wireIds: wires.map((w) => w.id),
-      dotIds: dots.map((d) => d.id),
-      ignoredIds: ignored.map((s) => s.id),
+      dotIds: wiringDots.map((d) => d.id),
+      ignoredIds: [...ignored.map((s) => s.id), ...strayIds],
       unit: U,
+      wires,
+      dots: wiringDots,
+      looseEnds: wiring.looseEnds,
+      textIds: [...textIds],
+      texts: textReads,
     },
     score,
   }

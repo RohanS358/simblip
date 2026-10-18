@@ -33,11 +33,11 @@ export const FRAME = { w: 100, h: 60 }
 
 // ── primitives ─────────────────────────────────────────────────────────────
 
-const line = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y1]]
-const lead = (x0: number, y0: number, x1: number, y1: number): GlyphStroke => ({ pts: line(x0, y0, x1, y1), lead: true })
-const body = (pts: Pt[]): GlyphStroke => ({ pts })
+export const line = (x0: number, y0: number, x1: number, y1: number): Pt[] => [[x0, y0], [x1, y1]]
+export const lead = (x0: number, y0: number, x1: number, y1: number): GlyphStroke => ({ pts: line(x0, y0, x1, y1), lead: true })
+export const body = (pts: Pt[]): GlyphStroke => ({ pts })
 
-function arc(cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, n = 18): Pt[] {
+export function arc(cx: number, cy: number, rx: number, ry: number, a0: number, a1: number, n = 18): Pt[] {
   const out: Pt[] = []
   for (let i = 0; i <= n; i++) {
     const a = a0 + ((a1 - a0) * i) / n
@@ -46,9 +46,9 @@ function arc(cx: number, cy: number, rx: number, ry: number, a0: number, a1: num
   return out
 }
 
-const circle = (cx: number, cy: number, r: number): Pt[] => arc(cx, cy, r, r, -Math.PI / 2, (3 * Math.PI) / 2, 28)
+export const circle = (cx: number, cy: number, r: number): Pt[] => arc(cx, cy, r, r, -Math.PI / 2, (3 * Math.PI) / 2, 28)
 
-function quad(p0: Pt, c: Pt, p1: Pt, n = 14): Pt[] {
+export function quad(p0: Pt, c: Pt, p1: Pt, n = 14): Pt[] {
   const out: Pt[] = []
   for (let i = 0; i <= n; i++) {
     const t = i / n

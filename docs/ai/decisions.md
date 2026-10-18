@@ -199,3 +199,17 @@ Document 2 — The Sketch Model* (10 Oct 2026).
 - **Not done in this slice:** time/space stroke grouping learned from data, wire
   and junction extraction, value (digits/units) recognition, the S3 exit
   evaluation on whole circuits.
+
+## 2026-10-19 — Phase S3 completed (on generated data) and verified end to end
+
+- **Reader** `lib/sketch/extract.ts`; **preview + Make it live** `components/workspace/circuit-ghost.tsx`,
+  `lib/sketch/circuit-ghost.ts`; entry is the existing *Recognize components* action when the experimental pen
+  setting is on (falls back to the older converter if nothing is recognised).
+- **Values** read by `inkchars-v1` (a second SketchNet-shaped model, 465 KB), loaded lazily; without it values are
+  typed in the preview. The first train silently broke the ohm sign (Python read UTF-8 as cp1252) — fixed in
+  train/export scripts and covered by a test on the label set.
+- **Stray-part pruning:** a part nothing is wired to is dropped (usually a label that read as a symbol). Cost: a
+  little recall on text-free sketches (parts found 96.7 → 95.5 %).
+- **Honest numbers (synthetic):** 71 % exact without labels, 31 % with labels drawn; see docs/ai/s3-progress.md.
+- **Test infrastructure:** tests that spawn `npx esbuild` now use `scripts/test/exec.mjs` and file URLs, so the
+  whole suite runs on Windows.

@@ -12,6 +12,7 @@ import { join, resolve } from 'node:path'
 import { gunzipSync } from 'node:zlib'
 import { parseShard } from '../../../lib/sketch/dataset.ts'
 import { ALL_LABELS } from '../../../lib/sketch/classes.ts'
+import { CHAR_MODEL_LABELS } from '../../../lib/sketch/char-synth.ts'
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d }
 const dir = resolve(arg('dir', 'data/sketch/synthetic'))
@@ -41,7 +42,7 @@ function svg(s) {
 }
 
 // every `step`th sample so the row mixes writers and devices
-const rows = ALL_LABELS.map((cls) => {
+const rows = (arg('labels', 'symbols') === 'chars' ? CHAR_MODEL_LABELS : ALL_LABELS).map((cls) => {
   const list = byCls[cls] ?? []
   const step = Math.max(1, Math.floor(list.length / per))
   const picks = Array.from({ length: per }, (_, i) => list[i * step]).filter(Boolean)

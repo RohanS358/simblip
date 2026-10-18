@@ -9,32 +9,10 @@
 // this measurement.
 
 import { writeFileSync } from 'node:fs'
-import { GLYPHS, PIN_FRAME } from '../../../lib/sketch/glyphs.ts'
-import { makeRng } from '../../../lib/sketch/rng.ts'
+import { measurePins } from '../../../lib/sketch/pin-calibration.ts'
 import { WAVE1_CLASSES } from '../../../lib/sketch/classes.ts'
 
-// A pin can sit a hair outside the box (mosfet drain at 1.008): it is ON the edge.
-const clamp = (x) => +Math.min(1, Math.max(0, x)).toFixed(3)
-
-export function measure() {
-  const out = {}
-  for (const cls of WAVE1_CLASSES) {
-    const acc = PIN_FRAME[cls].map(() => [0, 0])
-    const N = 60
-    for (let i = 0; i < N; i++) {
-      const g = GLYPHS[cls](makeRng(9000 + i))
-      const pts = g.strokes.flatMap((s) => s.pts)
-      const x0 = Math.min(...pts.map((p) => p[0])), x1 = Math.max(...pts.map((p) => p[0]))
-      const y0 = Math.min(...pts.map((p) => p[1])), y1 = Math.max(...pts.map((p) => p[1]))
-      PIN_FRAME[cls].forEach((pin, k) => {
-        acc[k][0] += (pin.x - x0) / Math.max(x1 - x0, 1e-6)
-        acc[k][1] += (pin.y - y0) / Math.max(y1 - y0, 1e-6)
-      })
-    }
-    out[cls] = PIN_FRAME[cls].map((pin, k) => ({ name: pin.name, u: clamp(acc[k][0] / N), v: clamp(acc[k][1] / N) }))
-  }
-  return out
-}
+const measure = () => measurePins(60)
 
 const table = measure()
 const rows = WAVE1_CLASSES.map(

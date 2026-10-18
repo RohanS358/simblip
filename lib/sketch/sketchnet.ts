@@ -229,31 +229,50 @@ export function createSketchNet(manifest: SketchNetManifest, weights: ArrayBuffe
 }
 
 const MODEL = 'sketchnet-v1'
-let loading: Promise<SketchNet | null> | null = null
-let ready: SketchNet | null = null
+const CHAR_MODEL = 'inkchars-v1'
 
-/** The network if it has finished loading, else null — and starts loading it.
- *  For synchronous callers (a pointer-up handler) that must never wait. */
-export function peekSketchNet(): SketchNet | null {
-  if (!ready) void loadSketchNet()
-  return ready
+interface Slot {
+  loading: Promise<SketchNet | null> | null
+  ready: SketchNet | null
+}
+const slots = new Map<string, Slot>()
+const slotFor = (name: string): Slot => {
+  let s = slots.get(name)
+  if (!s) slots.set(name, (s = { loading: null, ready: null }))
+  return s
 }
 
 /**
- * Fetch and build the shipped model once. Resolves to null — never throws — if
- * the files are missing or incompatible, so callers simply fall back to the
- * older recogniser.
+ * Fetch and build a shipped model once. Resolves to null — never throws — if
+ * the files are missing or incompatible, so callers simply fall back to doing
+ * without it (the older recogniser; or typing a value by hand).
  */
-export function loadSketchNet(base = '/models'): Promise<SketchNet | null> {
-  loading ??= (async () => {
+export function loadModel(name: string, base = '/models'): Promise<SketchNet | null> {
+  const slot = slotFor(name)
+  slot.loading ??= (async () => {
     try {
-      const [m, w] = await Promise.all([fetch(`${base}/${MODEL}.json`), fetch(`${base}/${MODEL}.bin`)])
+      const [m, w] = await Promise.all([fetch(`${base}/${name}.json`), fetch(`${base}/${name}.bin`)])
       if (!m.ok || !w.ok) return null
-      ready = createSketchNet((await m.json()) as SketchNetManifest, await w.arrayBuffer())
-      return ready
+      slot.ready = createSketchNet((await m.json()) as SketchNetManifest, await w.arrayBuffer())
+      return slot.ready
     } catch {
       return null
     }
   })()
-  return loading
+  return slot.loading
 }
+
+/** The network if it has finished loading, else null — and starts loading it.
+ *  For synchronous callers (a pointer-up handler) that must never wait. */
+const peek = (name: string): SketchNet | null => {
+  const slot = slotFor(name)
+  if (!slot.ready) void loadModel(name)
+  return slot.ready
+}
+
+/** The symbol network (see peek). */
+export const peekSketchNet = (): SketchNet | null => peek(MODEL)
+/** The handwritten-character network that reads values like "10k"; null until loaded or if absent. */
+export const peekInkChars = (): SketchNet | null => peek(CHAR_MODEL)
+
+export const loadSketchNet = (base = '/models'): Promise<SketchNet | null> => loadModel(MODEL, base)

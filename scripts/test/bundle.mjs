@@ -9,9 +9,10 @@
 // resolve from the repo. Tests using this must run with --test-force-exit: the
 // stores keep timers alive.
 
-import { execFileSync } from 'node:child_process'
+import { execFileSync } from './exec.mjs'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { resolve, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 const root = resolve(import.meta.dirname, '../..')
 
@@ -48,5 +49,5 @@ export async function bundle(entry, name) {
     ['esbuild', src, '--bundle', '--format=esm', '--platform=node', `--outfile=${out}`, `--alias:@=${root}`, '--external:react', '--external:react-dom', '--log-level=error'],
     { cwd: root, stdio: 'pipe' }
   )
-  return import(`${out}?t=${Date.now()}`)
+  return import(`${pathToFileURL(out).href}?t=${Date.now()}`)
 }

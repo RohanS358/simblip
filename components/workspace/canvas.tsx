@@ -55,11 +55,18 @@ import { connectorPoints } from '@/lib/render/connector-path'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
-import { peekSketchNet } from '@/lib/sketch/sketchnet'
+import { peekInkChars, peekSketchNet } from '@/lib/sketch/sketchnet'
 import { NEURAL_GROUP_MS, NEURAL_SHOW_P, pickNeural, type NeuralPick } from '@/lib/sketch/neural-pick'
 import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
 import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
 import { GhostPreview } from './ghost-preview'
+import { CircuitGhostOverlay, CircuitGhostPanel } from './circuit-ghost'
+import {
+  compileGhost, editPart, examplesFrom, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost,
+  type CircuitGhost, type PartEdit,
+} from '@/lib/sketch/circuit-ghost'
+import { executeSimScript } from '@/lib/scene/simscript'
+import { viewportBounds } from '@/lib/scene/insertables'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -477,7 +484,14 @@ async function embedDocFileOnCanvas(pageId: string, file: File, at: { x: number;
   if (!result.ok) toast.error(result.error)
 }
 
+/** Set by the mounted canvas: reads the selected ink as a whole circuit and opens the preview. */
+let startCircuitFromSelection: ((pageId: string) => boolean) | null = null
+
 function convertSelectionToCircuit(pageId: string) {
+  // Experimental setting on: show the whole-circuit preview first (nothing is
+  // replaced until it is confirmed). If it can't read anything, fall through to
+  // the older converter below, exactly as when the setting is off.
+  if (penPrefs().neuralSketch && startCircuitFromSelection?.(pageId)) return
   const store = useDocStore.getState()
   const page = store.pages[pageId]
   if (!page) return
@@ -1310,6 +1324,75 @@ export function InfiniteCanvas({
   const recentInkRef = useRef<Array<{ id: string; t: number }>>([])
   // Recognised symbol awaiting the user's confirm / correction (neural setting on).
   const [ghost, setGhost] = useState<Ghost | null>(null)
+  // Whole-circuit preview ("Recognize components" with the neural setting on).
+  const [circuitGhost, setCircuitGhost] = useState<CircuitGhost | null>(null)
+  const [circuitError, setCircuitError] = useState<string | null>(null)
+  const [circuitHover, setCircuitHover] = useState<string | null>(null)
+  useEffect(() => {
+    startCircuitFromSelection = (pid) => {
+      const net = peekSketchNet()
+      if (!net) {
+        toast('Neural recogniser is still loading — try again in a moment.')
+        return true
+      }
+      const store = useDocStore.getState()
+      const page = store.pages[pid]
+      if (!page) return false
+      const strokes = store.selection
+        .map((id) => page.objects[id])
+        .filter((o): o is SceneObject => !!o && (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0)
+        .map((o) => ({
+          id: o.id,
+          pts: (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y]),
+        }))
+      // the value reader is optional: without it values are typed in the preview
+      const g = startCircuitGhost(pid, strokes, net, peekInkChars() ?? undefined)
+      if (!g) {
+        toast('Neural recogniser found no circuit symbols — trying the older converter.')
+        return false
+      }
+      setCircuitError(null)
+      setCircuitGhost(g)
+      return true
+    }
+    return () => {
+      startCircuitFromSelection = null
+    }
+  }, [])
+  // "Make it live": build the circuit from the (possibly corrected) reading, then
+  // swap it for the ink — one undo step. The ink is only removed once the circuit
+  // has been built, so a failure leaves the sketch exactly as it was.
+  const confirmCircuit = useCallback(() => {
+    if (!circuitGhost) return
+    const res = compileGhost(circuitGhost)
+    if (!res.ok) {
+      setCircuitError(res.errors[0]?.message ?? 'Could not build this circuit.')
+      return
+    }
+    const store = useDocStore.getState()
+    const pid = circuitGhost.pageId
+    const live = store.pages[pid]?.objects ?? {}
+    const ids = inkToReplace(circuitGhost).filter((id) => live[id])
+    store.pushHistory(pid, true)
+    const origin = inkOrigin(circuitGhost)
+    try {
+      executeSimScript(pid, res.script, { x: origin.x - 10, y: origin.y - 10 }, { bounds: viewportBounds(pid), fixedFrame: false })
+    } catch (e) {
+      setCircuitError(e instanceof Error ? e.message : 'Could not build this circuit.')
+      return
+    }
+    if (ids.length) store.removeObjects(pid, ids)
+    try {
+      for (const ex of examplesFrom(circuitGhost, writerId(localStorage))) addCorrection(localStorage, ex)
+    } catch {
+      /* storage blocked: the circuit is placed either way */
+    }
+    toast(`Built a circuit from ${circuitGhost.result.parts.length} parts.`, { duration: 2500 })
+    setCircuitGhost(null)
+    setCircuitError(null)
+  }, [circuitGhost])
+  useEffect(() => setCircuitGhost(null), [pageId])
+
   // Ghost preview -> "Make it live": swap the ink for the part in ONE history
   // step, and keep the strokes + the label the user settled on as a real
   // example, on this device only (lib/sketch/corrections.ts).
@@ -1363,7 +1446,10 @@ export function InfiniteCanvas({
   useEffect(() => setGhost(null), [pageId])
   // Fetch the sketch network ahead of the first hold, so the hold never waits.
   useEffect(() => {
-    if (pen.neuralSketch) void peekSketchNet()
+    if (pen.neuralSketch) {
+      void peekSketchNet()
+      void peekInkChars()
+    }
   }, [pen.neuralSketch])
   // Phone: the zoom pill appears only while zooming (see the HUD effect).
   const isPhone = useIsNarrow(767)
@@ -4859,6 +4945,30 @@ export function InfiniteCanvas({
             }}
           />
         </div>
+      )}
+
+      {circuitGhost && circuitGhost.pageId === pageId && (
+        <>
+          <div
+            className="absolute left-0 top-0"
+            style={{
+              transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+              transformOrigin: '0 0',
+              pointerEvents: 'none',
+            }}
+          >
+            <CircuitGhostOverlay ghost={circuitGhost} zoom={viewport.zoom} hoverId={circuitHover} />
+          </div>
+          <CircuitGhostPanel
+            ghost={circuitGhost}
+            error={circuitError}
+            onEdit={(id: string, edit: PartEdit) => { setCircuitError(null); setCircuitGhost((g) => (g ? editPart(g, id, edit) : g)) }}
+            onKeepLayout={(keep: boolean) => setCircuitGhost((g) => (g ? setKeepLayout(g, keep) : g))}
+            onHover={setCircuitHover}
+            onConfirm={confirmCircuit}
+            onCancel={() => { setCircuitGhost(null); setCircuitError(null) }}
+          />
+        </>
       )}
 
       {ghost && ghost.pageId === pageId && (

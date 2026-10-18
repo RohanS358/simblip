@@ -13,6 +13,7 @@
 
 import type { SketchIRType } from './ir'
 import { Dsu } from './geom'
+import { mainParamOf, parseQuantity } from './compile'
 
 /** Classes whose two terminals can be swapped without changing the circuit. */
 const SYMMETRIC = new Set(['resistor', 'capacitor', 'inductor', 'switch', 'bulb', 'voltmeter', 'ammeter', 'ac-source'])
@@ -126,4 +127,35 @@ export function compareIR(pred: SketchIRType, truth: SketchIRType): Comparison {
     truthNodes: truth.nodes.length, predictedNodes: pred.nodes.length, matched, missed, extra,
     classCorrect, netsMissing, netsExtra, exact, taps,
   }
+}
+
+export interface ValueComparison {
+  /** Parts whose true circuit has a value. */
+  total: number
+  /** Of those, how many the reading gave any value for. */
+  read: number
+  /** Of those, how many it got right (same number, any spelling: 4.7k = 4700). */
+  right: number
+}
+
+/** Compare the main value of each paired part. */
+export function compareValues(pred: SketchIRType, truth: SketchIRType): ValueComparison {
+  const tp = pair(pred.nodes, truth.nodes)
+  let total = 0
+  let read = 0
+  let right = 0
+  for (const t of truth.nodes) {
+    const key = mainParamOf(t.cls)
+    const want = key ? t.values?.[key] : undefined
+    if (!key || !want) continue
+    total++
+    const p = pred.nodes.find((n) => n.id === tp.get(t.id))
+    const got = p && p.cls === t.cls ? p.values?.[key] : undefined
+    if (!got) continue
+    read++
+    const a = parseQuantity(got)
+    const b = parseQuantity(want)
+    if (a && b && Math.abs(a.value - b.value) <= 1e-9 * Math.max(Math.abs(b.value), 1e-12)) right++
+  }
+  return { total, read, right }
 }

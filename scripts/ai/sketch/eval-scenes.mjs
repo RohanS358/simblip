@@ -14,7 +14,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createSketchNet } from '../../../lib/sketch/sketchnet.ts'
 import { extractCircuit } from '../../../lib/sketch/extract.ts'
-import { compareIR } from '../../../lib/sketch/compare-ir.ts'
+import { compareIR, compareValues } from '../../../lib/sketch/compare-ir.ts'
 import { drawScene } from '../../../lib/sketch/scene-synth.ts'
 import { makeRng } from '../../../lib/sketch/rng.ts'
 import { makeWriter } from '../../../lib/sketch/synth.ts'
@@ -24,6 +24,8 @@ const file = resolve(arg('layouts', 'data/sketch/scenes/layouts-s1.json'))
 const N = Number(arg('n', 300))
 const seed = Number(arg('seed', 7))
 const verbose = process.argv.includes('--verbose')
+const withText = process.argv.includes('--text')
+const noCharNet = process.argv.includes('--no-charnet')
 const xopts = { tolPinK: arg('tolPin') ? Number(arg('tolPin')) : undefined, tolJoinK: arg('tolJoin') ? Number(arg('tolJoin')) : undefined, minPartP: arg('minPartP') ? Number(arg('minPartP')) : undefined }
 const modelBase = resolve(arg('model', 'public/models/sketchnet-v1'))
 
@@ -31,6 +33,13 @@ const manifest = JSON.parse(readFileSync(`${modelBase}.json`, 'utf8'))
 const bin = readFileSync(`${modelBase}.bin`)
 const net = createSketchNet(manifest, bin.buffer.slice(bin.byteOffset, bin.byteOffset + bin.byteLength))
 const { layouts } = JSON.parse(readFileSync(file, 'utf8'))
+let charNet
+if (withText && !noCharNet) {
+  const cm = JSON.parse(readFileSync(resolve('public/models/inkchars-v1.json'), 'utf8'))
+  const cb = readFileSync(resolve('public/models/inkchars-v1.bin'))
+  charNet = createSketchNet(cm, cb.buffer.slice(cb.byteOffset, cb.byteOffset + cb.byteLength))
+}
+const vals = { total: 0, read: 0, right: 0, circuitsAllRight: 0, circuitsWithValues: 0 }
 const rng = makeRng(seed)
 
 const agg = () => ({ n: 0, exact: 0, taps: 0, nodes: 0, matched: 0, classOk: 0, extra: 0, netsMissing: 0, netsExtra: 0, truthNets: 0 })
@@ -44,9 +53,14 @@ const t0 = Date.now()
 for (let i = 0; i < N; i++) {
   const layout = layouts[rng.int(0, layouts.length - 1)]
   const w = makeWriter(rng.fork(`w${i}`), `eval-w${i}`)
-  const scene = drawScene(layout, rng.fork(`s${i}`), w)
+  const scene = drawScene(layout, rng.fork(`s${i}`), w, undefined, undefined, { text: withText })
   const ink = scene.strokes.map((pts, k) => ({ id: `k${k}`, pts }))
-  const got = extractCircuit(ink, net, xopts)
+  const got = extractCircuit(ink, net, { ...xopts, charNet })
+  if (withText) {
+    const v = compareValues(got.ir, scene.truth)
+    vals.total += v.total; vals.read += v.read; vals.right += v.right
+    if (v.total) { vals.circuitsWithValues++; if (v.right === v.total) vals.circuitsAllRight++ }
+  }
   const c = compareIR(got.ir, scene.truth)
   const topo = layout.ir.nodes.map((n) => n.cls).sort().join('+')
   for (const bucket of [total, (byDevice[scene.device] ??= agg()), (byTopo[topo] ??= agg())]) {
@@ -75,6 +89,7 @@ const line = (name, a) =>
   `${name.padEnd(12)} n=${String(a.n).padStart(4)}  exact ${pct(a.exact, a.n).padStart(6)}  parts found ${pct(a.matched, a.nodes).padStart(6)}  class ok ${pct(a.classOk, a.matched).padStart(6)}  extra ${a.extra}  nets missing/extra ${a.netsMissing}/${a.netsExtra}  taps/circuit ${(a.taps / a.n).toFixed(2)}`
 console.log(`SYNTHETIC whole-circuit sketches (generated hands; not real-world validation) — ${N} circuits, ${((Date.now() - t0) / 1000).toFixed(1)}s`)
 console.log(line('ALL', total))
+if (withText) console.log(`values written beside parts: ${vals.total} — read ${(100 * vals.read / vals.total).toFixed(1)}%, read correctly ${(100 * vals.right / vals.total).toFixed(1)}%; circuits with every value right: ${vals.circuitsAllRight}/${vals.circuitsWithValues}`)
 console.log('why circuits fail (first matching reason):', JSON.stringify(why))
 for (const [d, a] of Object.entries(byDevice)) console.log(line(d, a))
 if (verbose) {

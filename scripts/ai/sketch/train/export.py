@@ -14,6 +14,7 @@ and lib/sketch/golden/<name>.golden.json: real strokes with the logits Python
 computed for them, which lib/sketch/sketchnet.test.mjs reproduces in TypeScript.
 """
 import argparse
+import sys
 import gzip
 import hashlib
 import json
@@ -26,6 +27,9 @@ from torch import nn
 
 from model import SketchNet
 
+# labels can contain non-ASCII (the ohm sign); a Windows console would crash printing them
+sys.stdout.reconfigure(encoding='utf-8')
+
 p = argparse.ArgumentParser()
 p.add_argument('--run', required=True)
 p.add_argument('--data', required=True)
@@ -36,7 +40,7 @@ p.add_argument('--golden', default='lib/sketch/golden')
 a = p.parse_args()
 
 ck = torch.load(os.path.join(a.run, 'model.pt'), map_location='cpu')
-meta = json.load(open(os.path.join(a.data, 'meta.json')))
+meta = json.load(open(os.path.join(a.data, 'meta.json'), encoding='utf-8'))
 labels, T = ck['labels'], ck['temperature']
 model = SketchNet(len(labels))
 model.load_state_dict(ck['state'])
@@ -73,7 +77,7 @@ for name, t in tensors:
     off += t.size
 with open(os.path.join(a.out, f'{a.name}.bin'), 'wb') as f:
     f.write(blob)
-report = json.load(open(os.path.join(a.run, 'report.json')))
+report = json.load(open(os.path.join(a.run, 'report.json'), encoding='utf-8'))
 manifest = {
     'name': a.name,
     'preprocessVersion': meta['preprocessVersion'],
@@ -94,7 +98,7 @@ manifest = {
         'note': 'Measured on generated (synthetic) writers only. No real-world accuracy has been measured.',
     },
 }
-json.dump(manifest, open(os.path.join(a.out, f'{a.name}.json'), 'w'), indent=2)
+json.dump(manifest, open(os.path.join(a.out, f'{a.name}.json'), 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
 print(f"weights: {len(blob)} bytes ({report['parameters']} parameters)  sha256 {manifest['sha256'][:12]}")
 
 
@@ -156,7 +160,7 @@ for cls, (i, s) in want.items():
         'pose_logits': [round(float(v), 6) for v in q[0]],
     })
 json.dump({'name': a.name, 'labels': labels, 'preprocessVersion': meta['preprocessVersion'], 'samples': rows},
-          open(os.path.join(a.golden, f'{a.name}.golden.json'), 'w'), separators=(',', ':'))
+          open(os.path.join(a.golden, f'{a.name}.golden.json'), 'w', encoding='utf-8'), separators=(',', ':'), ensure_ascii=False)
 print('golden samples:', len(rows))
 
 os.makedirs('docs/ai/reports', exist_ok=True)

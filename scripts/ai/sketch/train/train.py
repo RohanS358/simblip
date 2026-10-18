@@ -8,6 +8,7 @@ Every number in the report is tagged with the data group it was measured on.
 section appears only if real samples are present in the val/test split.
 """
 import argparse
+import sys
 import json
 import os
 import time
@@ -17,6 +18,9 @@ import torch
 from torch import nn
 
 from model import SketchNet
+
+# labels can contain non-ASCII (the ohm sign); a Windows console would crash printing them
+sys.stdout.reconfigure(encoding='utf-8')
 
 p = argparse.ArgumentParser()
 p.add_argument('--data', required=True)
@@ -30,7 +34,7 @@ torch.manual_seed(a.seed)
 np.random.seed(a.seed)
 os.makedirs(a.run, exist_ok=True)
 dev = 'cuda' if torch.cuda.is_available() else 'cpu'
-meta = json.load(open(os.path.join(a.data, 'meta.json')))
+meta = json.load(open(os.path.join(a.data, 'meta.json'), encoding='utf-8'))
 labels, groups = meta['labels'], meta['groups']
 UNK = labels.index('unknown')
 
@@ -193,5 +197,5 @@ if 'real' not in report['results']:
     report['results']['real'] = None
 
 torch.save({'state': model.state_dict(), 'labels': labels, 'temperature': T}, os.path.join(a.run, 'model.pt'))
-json.dump(report, open(os.path.join(a.run, 'report.json'), 'w'), indent=2)
+json.dump(report, open(os.path.join(a.run, 'report.json'), 'w', encoding='utf-8'), indent=2, ensure_ascii=False)
 print('saved', a.run)

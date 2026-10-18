@@ -68,6 +68,11 @@ const MAIN_PARAM: Record<string, string> = {
   capacitor: 'C', inductor: 'L',
 }
 
+/** The parameter a person usually means by "the value" of a part (R for a resistor…), if it has one. */
+export function mainParamOf(cls: string): string | null {
+  return MAIN_PARAM[cls] ?? PARAMS[cls]?.[0] ?? null
+}
+
 /** A unit letter fixes which parameter a bare label means. */
 const UNIT_PARAM: Record<string, string> = { 'Ω': 'R', V: 'V', A: 'I', F: 'C', H: 'L' }
 

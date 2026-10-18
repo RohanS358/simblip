@@ -16,12 +16,16 @@ import { closeSync, mkdirSync, openSync, readFileSync, writeFileSync, writeSync 
 import { join, resolve } from 'node:path'
 import { preprocess, IMG, SEQ_LEN, SEQ_DIM, PREPROCESS_VERSION } from '../../../lib/sketch/preprocess.ts'
 import { ALL_LABELS, CLASS_LIST_VERSION, UNKNOWN_CLASS } from '../../../lib/sketch/classes.ts'
+import { CHAR_MODEL_LABELS } from '../../../lib/sketch/char-synth.ts'
 import { DEVICES } from '../../../lib/sketch/dataset.ts'
 import { groupOf, iterDirs } from './dataset.mjs'
 
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d }
 const srcs = arg('src', 'data/sketch/synthetic').split(',')
 const out = resolve(arg('out', 'D:/simblip-ml/data/synthetic-s1'))
+// --labels chars: the value reader's alphabet (no pose head to train)
+const LABELS = arg('labels', 'symbols') === 'chars' ? CHAR_MODEL_LABELS : ALL_LABELS
+const NO_POSE = arg('labels', 'symbols') === 'chars'
 mkdirSync(out, { recursive: true })
 
 const GROUPS = ['synthetic', 'real', 'public']
@@ -42,8 +46,8 @@ function flush(split) {
   rows.forEach((r, i) => {
     for (let k = 0; k < r.t.img.length; k++) img[i * 2 * IMG * IMG + k] = Math.round(r.t.img[k] * 255)
     Buffer.from(r.t.seq.buffer, r.t.seq.byteOffset, r.t.seq.byteLength).copy(seq, i * SEQ_LEN * SEQ_DIM * 4)
-    cls[i] = ALL_LABELS.indexOf(r.s.cls)
-    pose[i] = r.s.cls === UNKNOWN_CLASS ? 255 : POSES.indexOf(r.s.pose)
+    cls[i] = LABELS.indexOf(r.s.cls)
+    pose[i] = NO_POSE || r.s.cls === UNKNOWN_CLASS ? 255 : POSES.indexOf(r.s.pose)
     dev[i] = DEVICES.indexOf(r.s.device)
     grp[i] = GROUPS.indexOf(groupOf(r.s))
   })
@@ -67,7 +71,7 @@ Object.values(fds).forEach(closeSync)
 const manifests = srcs.map((d) => { try { return JSON.parse(readFileSync(join(resolve(d), 'MANIFEST.json'), 'utf8')).name } catch { return d } })
 writeFileSync(join(out, 'meta.json'), JSON.stringify({
   preprocessVersion: PREPROCESS_VERSION, classListVersion: CLASS_LIST_VERSION,
-  labels: ALL_LABELS, devices: DEVICES, groups: GROUPS, poses: POSES,
+  labels: LABELS, devices: DEVICES, groups: GROUPS, poses: POSES,
   img: [2, IMG, IMG], seq: [SEQ_LEN, SEQ_DIM], counts, sources: manifests,
 }, null, 2) + '\n')
 console.log(`exported ${JSON.stringify(counts)} to ${out} in ${((Date.now() - t0) / 1000).toFixed(1)}s`)
