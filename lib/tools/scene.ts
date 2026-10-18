@@ -35,10 +35,12 @@ export function safeBounds(pageId: string) {
 
 /** Run verified SimScript onto the page, placed by geometry (never by the
  *  script's own guess) — identical to the panel's Add button. */
-export function place(pageId: string, script: string) {
+/** `reserveBottom`: canvas px kept clear along the bottom — a lesson's captions and prediction card cover it. */
+export function place(pageId: string, script: string, opts: { reserveBottom?: number } = {}) {
   // One discrete undo step for the whole scene, however recently the user last edited.
   useDocStore.getState().pushHistory(pageId, true)
-  const bounds = safeBounds(pageId)
+  const full = safeBounds(pageId)
+  const bounds = opts.reserveBottom ? { ...full, bottom: Math.max(full.top + 200, full.bottom - opts.reserveBottom) } : full
   const origin = placeAnswerAndScene(null, true, bounds).scene ?? { x: bounds.left + 40, y: bounds.top + 40 }
   const kind = findPageMeta(useWorkspaceStore.getState().nodes, pageId)?.pageKind
   const before = Object.keys(useDocStore.getState().pages[pageId]?.objects ?? {}).length

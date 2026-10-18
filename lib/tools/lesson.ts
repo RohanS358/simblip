@@ -10,6 +10,8 @@ import { useWorkspaceStore } from '@/lib/store/workspace'
 import { storyboardFromCourse } from '@/lib/lesson/from-course'
 import { durationOf, lintStoryboard } from '@/lib/lesson/storyboard'
 import { startLesson } from '@/lib/lesson/controller'
+import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
+import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
 import { defineTool, fail, ok } from './types'
 import { registerTool } from './registry'
 import { findLesson } from './course-corpus'
@@ -29,6 +31,9 @@ export const teachLesson = registerTool(
       const issues = lintStoryboard(sb)
       if (issues.length) return fail(`The lesson "${lesson.title}" cannot be played yet: ${issues[0]}`)
 
+      // A running product tour owns a scratch notebook and the active page; end it first, so the
+      // lesson lands in the student's own notebook and the tour's cleanup cannot delete it.
+      if (useWalkthroughStore.getState().active) walkthroughEngine.stop()
       const s = useWorkspaceStore.getState()
       const parentId = s.activePageId ? s.nodes[s.activePageId]?.parentId : null
       if (!parentId) return fail('Open a notebook page first.')

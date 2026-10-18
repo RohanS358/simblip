@@ -50,7 +50,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
         if (ids.length) useDocStore.getState().removeObjects(pageId, ids)
         eqCount = 0
       }
-      place(pageId, script)
+      place(pageId, script, { reserveBottom: 300 })
       if (caption) L().set({ caption })
       await sleep(900) // let the scene settle on screen before the narrator talks about it
     },
