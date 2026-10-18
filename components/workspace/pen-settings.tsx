@@ -248,6 +248,13 @@ export function PenSettings() {
         />
       </Field>
 
+      <PrefRow
+        label="Neural symbol recogniser (experimental)"
+        detail="Hold the pen after drawing a circuit symbol and a small neural network names it. Trained on generated strokes only; not yet checked against real handwriting, so it falls back to the older matcher when unsure."
+        checked={!!pen.neuralSketch}
+        onChange={() => setPen({ neuralSketch: !pen.neuralSketch })}
+      />
+
       {isTouchDevice && (
         <div className="pt-1">
           <p className="pb-1 text-ui-xs font-bold uppercase tracking-[0.12em] text-muted-foreground">

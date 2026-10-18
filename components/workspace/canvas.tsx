@@ -55,6 +55,7 @@ import { connectorPoints } from '@/lib/render/connector-path'
 import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
+import { peekSketchNet } from '@/lib/sketch/sketchnet'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -402,6 +403,8 @@ interface Gesture {
 // Draw-and-hold: freehand ink only upgrades into a component (spring,
 // domain part) when the pen rests in place this long before lifting.
 const HOLD_MS = 500
+/** SketchNet answers below this are ignored and the older matcher decides. */
+const NEURAL_MIN_CONF = 0.9
 
 /** Pointer pen style: a finished stroke holds at full strength this long,
  *  then fades over POINTER_FADE_OUT_MS — 5s from pen-up to gone. */
@@ -1301,6 +1304,10 @@ export function InfiniteCanvas({
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const pen = usePrefs((s) => s.pen)
+  // Fetch the sketch network ahead of the first hold, so the hold never waits.
+  useEffect(() => {
+    if (pen.neuralSketch) void peekSketchNet()
+  }, [pen.neuralSketch])
   // Phone: the zoom pill appears only while zooming (see the HUD effect).
   const isPhone = useIsNarrow(767)
   // While the rotate grip is held: which object, so a live angle chip can
@@ -3006,8 +3013,24 @@ export function InfiniteCanvas({
 
           // Taught symbols win over generic shapes: match the held doodle
           // against the user's custom sketch templates (lib/sketch/custom).
+          // Experimental (pen setting, off by default): SketchNet names the held
+          // symbol first. Only a confident, non-'unknown' answer is used — anything
+          // else falls straight through to the template matcher below, so turning
+          // the setting on can never make an unsure case worse.
+          let neuralRotation = 0
+          let neuralId: string | null = null
+          if (!obj && held && penPrefs().neuralSketch) {
+            const net = peekSketchNet()
+            if (net) {
+              const pred = net.predict([points])
+              if (pred.cls !== 'unknown' && pred.conf >= NEURAL_MIN_CONF && componentById(pred.cls)) {
+                neuralId = pred.cls
+                neuralRotation = pred.pose
+              }
+            }
+          }
           if (!obj && held) {
-            const m = matchCustomSketch([points])
+            const m = neuralId ? { componentId: neuralId } : matchCustomSketch([points])
             const def = m ? componentById(m.componentId) : undefined
             if (def) {
               obj = def.create({ x: cx, y: cy })
@@ -3018,6 +3041,8 @@ export function InfiniteCanvas({
                 obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
               }
               obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
+              // SketchNet also reads which way the symbol faces (diode, battery, gate…).
+              if (neuralId && neuralRotation) obj.rotation = neuralRotation
             }
           }
           if (!obj) {

@@ -1,0 +1,222 @@
+{
+  "name": "sketchnet-v1",
+  "preprocessVersion": 1,
+  "classListVersion": 1,
+  "labels": [
+    "battery",
+    "resistor",
+    "capacitor",
+    "inductor",
+    "switch",
+    "bulb",
+    "led",
+    "diode",
+    "gnd",
+    "ac-source",
+    "voltmeter",
+    "ammeter",
+    "and-gate",
+    "or-gate",
+    "xor-gate",
+    "nand-gate",
+    "nor-gate",
+    "not-gate",
+    "bjt",
+    "mosfet",
+    "opamp",
+    "unknown"
+  ],
+  "poses": [
+    0,
+    90,
+    180,
+    270
+  ],
+  "arch": {
+    "channels": [
+      2,
+      16,
+      32,
+      64,
+      96
+    ],
+    "hidden": 64,
+    "trunk": 128
+  },
+  "temperature": 0.6342798471450806,
+  "temperatureBakedIntoClassHead": true,
+  "sha256": "87e4babe618898be7cbe102dec258beeb51b6447807b6af4a9b57eb8fc8a235a",
+  "bytes": 465448,
+  "parameters": 116570,
+  "tensors": [
+    {
+      "name": "conv0.w",
+      "shape": [
+        16,
+        2,
+        3,
+        3
+      ],
+      "offset": 0
+    },
+    {
+      "name": "conv0.b",
+      "shape": [
+        16
+      ],
+      "offset": 288
+    },
+    {
+      "name": "conv1.w",
+      "shape": [
+        32,
+        16,
+        3,
+        3
+      ],
+      "offset": 304
+    },
+    {
+      "name": "conv1.b",
+      "shape": [
+        32
+      ],
+      "offset": 4912
+    },
+    {
+      "name": "conv2.w",
+      "shape": [
+        64,
+        32,
+        3,
+        3
+      ],
+      "offset": 4944
+    },
+    {
+      "name": "conv2.b",
+      "shape": [
+        64
+      ],
+      "offset": 23376
+    },
+    {
+      "name": "conv3.w",
+      "shape": [
+        96,
+        64,
+        3,
+        3
+      ],
+      "offset": 23440
+    },
+    {
+      "name": "conv3.b",
+      "shape": [
+        96
+      ],
+      "offset": 78736
+    },
+    {
+      "name": "gru.w_ih",
+      "shape": [
+        192,
+        4
+      ],
+      "offset": 78832
+    },
+    {
+      "name": "gru.w_hh",
+      "shape": [
+        192,
+        64
+      ],
+      "offset": 79600
+    },
+    {
+      "name": "gru.b_ih",
+      "shape": [
+        192
+      ],
+      "offset": 91888
+    },
+    {
+      "name": "gru.b_hh",
+      "shape": [
+        192
+      ],
+      "offset": 92080
+    },
+    {
+      "name": "trunk.w",
+      "shape": [
+        128,
+        160
+      ],
+      "offset": 92272
+    },
+    {
+      "name": "trunk.b",
+      "shape": [
+        128
+      ],
+      "offset": 112752
+    },
+    {
+      "name": "cls.w",
+      "shape": [
+        22,
+        128
+      ],
+      "offset": 112880
+    },
+    {
+      "name": "cls.b",
+      "shape": [
+        22
+      ],
+      "offset": 115696
+    },
+    {
+      "name": "pose.w",
+      "shape": [
+        4,
+        160
+      ],
+      "offset": 115718
+    },
+    {
+      "name": "pose.b",
+      "shape": [
+        4
+      ],
+      "offset": 116358
+    }
+  ],
+  "trainedOn": {
+    "groups": [
+      "synthetic"
+    ],
+    "counts": {
+      "train": 144900,
+      "val": 31050,
+      "test": 31050
+    },
+    "sources": [
+      "synthetic-s1"
+    ]
+  },
+  "evidence": {
+    "synthetic": {
+      "n": 31050,
+      "top1": 0.9882,
+      "top3": 0.9995,
+      "ece": 0.0024,
+      "pose_acc": 0.9945,
+      "unknown_precision": 0.9785,
+      "unknown_recall": 0.9756
+    },
+    "real": null,
+    "note": "Measured on generated (synthetic) writers only. No real-world accuracy has been measured."
+  }
+}

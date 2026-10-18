@@ -19,7 +19,8 @@
     "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs lib/scene/scribble.test.mjs scripts/mcp/*.test.mjs",
     "sketch:synth": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/synth.mjs",
     "sketch:preview": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/preview.mjs",
-    "sketch:baseline": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-baseline.mjs"
+    "sketch:baseline": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/eval-baseline.mjs",
+    "sketch:export": "node --experimental-strip-types --import ./scripts/test/register.mjs scripts/ai/sketch/export-tensors.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
