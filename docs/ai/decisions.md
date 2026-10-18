@@ -144,3 +144,26 @@ Document 2 — The Sketch Model* (10 Oct 2026).
 - **Lesson:** a high synthetic score hid a distribution gap that one honest use
   exposed. The remaining gaps are unknown until real strokes exist.
   Treat toasts reporting low confidence on real drawings as the first real data.
+
+## 2026-10-18 — Held-symbol rules: intent-based bar, multi-stroke grouping
+
+- **Evidence from real strokes** (the first, from Rohan's own notebook): a
+  mouse-drawn resistor stroke scored resistor 0.59 / unknown 0.34 — correct, but
+  under the 0.9 bar picked from synthetic calibration. Handwriting strokes on the
+  same page scored unknown 0.9+, correctly. Conclusion: synthetic calibration
+  does not transfer; the right class is usually ranked but at lower confidence.
+- **Rule change (`lib/sketch/neural-pick.ts`):** holding the pen is intent, so the
+  question is which symbol, not whether to convert. Accept the best non-`unknown`
+  class when its probability ≥ 0.45 (a guess from ONE real data point — revisit
+  with real data). The result is always announced in a toast, with its
+  percentage, so a wrong guess is obvious.
+- **Multi-stroke symbols:** a hold only carries the last stroke, but a battery,
+  capacitor or gate is several. Plain ink drawn within 6 s and within 30 px of the
+  held stroke (chained, ≤ 7 strokes) is tried as one drawing; the group replaces
+  the lone stroke only if its best symbol is ≥ 0.45 and beats the lone stroke by
+  > 0.1 (or the lone stroke is below the bar). The absorbed strokes are removed
+  in one history step. Verified in the app: four hand-jittered strokes (two
+  leads + two plates) became a battery.
+- **Open:** grouping is by recency and proximity only; the full time/space
+  grouping and the ghost-preview confirm step are Phase S3. Cases the user draws
+  as one long stroke through several parts (a whole loop) are still not split.

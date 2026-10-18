@@ -56,6 +56,7 @@ import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
 import { peekSketchNet } from '@/lib/sketch/sketchnet'
+import { NEURAL_GROUP_MS, pickNeural, type Box as NeuralBox } from '@/lib/sketch/neural-pick'
 import { publishAsset } from '@/lib/data/library'
 import { useAuthStore } from '@/lib/auth/store'
 import { can } from '@/lib/auth/types'
@@ -403,8 +404,6 @@ interface Gesture {
 // Draw-and-hold: freehand ink only upgrades into a component (spring,
 // domain part) when the pen rests in place this long before lifting.
 const HOLD_MS = 500
-/** SketchNet answers below this are ignored and the older matcher decides. */
-const NEURAL_MIN_CONF = 0.9
 
 /** Pointer pen style: a finished stroke holds at full strength this long,
  *  then fades over POINTER_FADE_OUT_MS — 5s from pen-up to gone. */
@@ -1304,6 +1303,8 @@ export function InfiniteCanvas({
   const tool = useDocStore((s) => s.tool)
   const toolOption = useDocStore((s) => s.toolOption)
   const pen = usePrefs((s) => s.pen)
+  // Plain ink strokes committed recently (id + time), for grouping a multi-stroke symbol.
+  const recentInkRef = useRef<Array<{ id: string; t: number }>>([])
   // Fetch the sketch network ahead of the first hold, so the hold never waits.
   useEffect(() => {
     if (pen.neuralSketch) void peekSketchNet()
@@ -3014,28 +3015,37 @@ export function InfiniteCanvas({
           // Taught symbols win over generic shapes: match the held doodle
           // against the user's custom sketch templates (lib/sketch/custom).
           // Experimental (pen setting, off by default): SketchNet names the held
-          // symbol first. Only a confident, non-'unknown' answer is used — anything
-          // else falls straight through to the template matcher below, so turning
-          // the setting on can never make an unsure case worse.
+          // symbol first — alone, or together with the strokes just before it
+          // that touch it (a battery is two plates; a gate is body + leads).
+          // Holding is intent, so the bar is modest and the answer is announced
+          // (lib/sketch/neural-pick.ts). Anything it declines falls straight
+          // through to the template matcher below, exactly as before.
           let neuralRotation = 0
           let neuralId: string | null = null
+          let neuralBox: NeuralBox | null = null
+          let neuralAbsorb: string[] = []
           if (!obj && held && penPrefs().neuralSketch) {
             const net = peekSketchNet()
             if (!net) {
               toast('Neural recogniser is still loading — using the older matcher this time.')
             } else {
-              const pred = net.predict([points])
-              if (pred.cls !== 'unknown' && pred.conf >= NEURAL_MIN_CONF && componentById(pred.cls)) {
-                neuralId = pred.cls
-                neuralRotation = pred.pose
-              } else {
-                // An experimental feature must say when it declines, or it just looks broken.
-                toast(
-                  pred.cls === 'unknown'
-                    ? "Neural recogniser: that doesn't look like a known symbol."
-                    : `Neural recogniser wasn't sure enough (${pred.cls} ${Math.round(pred.conf * 100)}%, needs ${Math.round(NEURAL_MIN_CONF * 100)}%).`,
-                  { duration: 2500 }
-                )
+              const objs = store.pages[pageId]?.objects ?? {}
+              const now = performance.now()
+              const recent = recentInkRef.current
+                .filter((r) => now - r.t < NEURAL_GROUP_MS && objs[r.id]?.geometry.kind === 'stroke' && objs[r.id].behaviors.length === 0)
+                .map((r) => {
+                  const o = objs[r.id]
+                  return { id: r.id, pts: (o.geometry.points ?? []).map(([x, y]) => [x + o.position.x, y + o.position.y]) }
+                })
+              const pick = pickNeural(net, points, recent)
+              if (pick.kind === 'place' && componentById(pick.cls)) {
+                neuralId = pick.cls
+                neuralRotation = pick.pose
+                neuralBox = pick.box
+                neuralAbsorb = pick.absorb
+                toast(`Neural recogniser: ${pick.cls} (${Math.round(pick.p * 100)}%)${pick.absorb.length ? `, from ${pick.absorb.length + 1} strokes` : ''}`, { duration: 2000 })
+              } else if (pick.kind === 'decline') {
+                toast(pick.message, { duration: 2500 })
               }
             }
           }
@@ -3043,16 +3053,25 @@ export function InfiniteCanvas({
             const m = neuralId ? { componentId: neuralId } : matchCustomSketch([points])
             const def = m ? componentById(m.componentId) : undefined
             if (def) {
-              obj = def.create({ x: cx, y: cy })
+              // A grouped symbol is placed over the whole group, not just the last stroke.
+              const gx = neuralBox ? (neuralBox.x0 + neuralBox.x1) / 2 : cx
+              const gy = neuralBox ? (neuralBox.y0 + neuralBox.y1) / 2 : cy
+              const gw = neuralBox ? neuralBox.x1 - neuralBox.x0 : rec.w
+              const gh = neuralBox ? neuralBox.y1 - neuralBox.y0 : rec.h
+              obj = def.create({ x: gx, y: gy })
               if (obj.geometry.kind === 'symbol') {
-                const w2 = Math.min(200, Math.max(72, rec.w))
+                const w2 = Math.min(200, Math.max(72, gw))
                 obj.size = { w: w2, h: w2 / 2 }
               } else {
-                obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
+                obj.size = { w: Math.max(24, gw), h: Math.max(24, gh) }
               }
-              obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
+              obj.position = { x: gx - obj.size.w / 2, y: gy - obj.size.h / 2 }
               // SketchNet also reads which way the symbol faces (diode, battery, gate…).
               if (neuralId && neuralRotation) obj.rotation = neuralRotation
+              if (neuralAbsorb.length) {
+                store.pushHistory(pageId)
+                store.removeObjects(pageId, neuralAbsorb)
+              }
             }
           }
           if (!obj) {
@@ -3079,6 +3098,9 @@ export function InfiniteCanvas({
           if (obj.geometry.kind === 'stroke') stampInkMeta(obj)
           obj.z = topZ(pageId)
           store.addObject(pageId, obj)
+          if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
+            recentInkRef.current = [...recentInkRef.current.slice(-19), { id: obj.id, t: performance.now() }]
+          }
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) touchNoteAnchor(attachInkToNote(pageId, obj.id))
           // Plain ink stays unselected (it's writing); only strokes that
           // upgraded into live components (spring, wire, domain part) select,
