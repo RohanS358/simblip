@@ -30,13 +30,15 @@ handwriting: no real whole-circuit sketch exists yet, so every number below is s
   wires). The preview lets a person correct values and classes; wires cannot yet be edited in it.
 - A whole circuit drawn as ONE long stroke is not split. Op-amp +/- reading assumes '+' is two strokes.
 - Only the main value of a part is read/editable (not AC frequency etc.).
-- Debugging the "nothing happens" report (2026-10-18) found and fixed, in order: (1) recognition only ran after
-  a ≥0.5 s HOLD, which nothing told the person — it now also runs ~0.9 s after the last stroke, offering a
-  preview only when confident (single symbol ≥ 80 %, whole circuit only with nothing to check), and the
-  preview steps aside if drawing continues; (2) "Make it live" placed the circuit away from the sketch (layout
-  pass dodged other content) — now built at the sketch; (3) the reader dropped a small coil/zigzag as a
-  "wire" because its sampling step was a fixed 6 px — it now scales with the stroke (new test sweeps drawing size).
-  Trace the path in the browser with `localStorage.setItem('simblip-debug-sketch','1')` (console `[sketch]` lines).
+- Drawing → simulation flow (2026-10-18/19). Nothing is read while drawing: a "Done drawing" chip (or Enter, or
+  the old hold) reads the sketch (`lib/sketch/read-sketch.ts`: circuit → single symbol → named failure). A visible
+  "Reading your sketch…" state, then the ghost / circuit preview. When nothing is recognised a card says so and
+  offers Try again / Keep drawing / Redraw / Choose component (which saves an on-device correction). Failures after
+  recognition are labelled by step (`lib/sketch/pipeline.ts`: Describe, Compile, Build, Simulate) and a circuit that
+  builds but cannot run is reported as a simulate problem, not a recognition one. Reader fix: the sampling step now
+  scales with the stroke (small coils were read as wires). Make it live builds at the sketch (no dodging layout pass).
+  Trace the path with `localStorage.setItem('simblip-debug-sketch','1')` (console `[sketch]` lines). With the
+  experimental setting off none of this runs.
 - Checked in the real app with generated strokes: draw (no hold) → preview → Make it live → circuit at the
   sketch's position → Play pressed. Engine readings are covered by the Node tests, not inspected on screen.
 - The Next dev server slows evaluations badly; stop it first.

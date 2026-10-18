@@ -46,7 +46,15 @@ export type NeuralPick =
       absorb: string[]
       box: Box
     }
-  | { kind: 'decline'; message: string }
+  | {
+      kind: 'decline'
+      message: string
+      /** What it saw, when it saw anything symbol-like. */
+      best?: { cls: string; p: number }
+      /** The strokes it grouped and their box, so the person can still choose a component for them. */
+      absorb: string[]
+      box: Box
+    }
 
 export const boxOf = (pts: number[][]): Box => {
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity
@@ -118,6 +126,9 @@ export function pickNeural(net: Net, points: number[][], recent: InkCandidate[],
   const seen = gBest && (!sBest || gBest.p > sBest.p) ? gBest : sBest
   return {
     kind: 'decline',
+    best: seen ?? undefined,
+    absorb: ids,
+    box,
     message: seen
       ? `Neural recogniser: not sure enough (best guess ${seen.cls} ${Math.round(seen.p * 100)}%, needs ${Math.round(minP * 100)}%).`
       : "Neural recogniser: that doesn't look like a known symbol.",

@@ -56,7 +56,10 @@ import { applyAnnotation } from '@/lib/scene/annotate'
 import { recognize, regularPolygonPoints, type Recognition } from '@/lib/sketch/recognize'
 import { matchCustomSketch } from '@/lib/sketch/custom'
 import { peekInkChars, peekSketchNet } from '@/lib/sketch/sketchnet'
-import { NEURAL_GROUP_MS, NEURAL_SHOW_P, pickNeural, type NeuralPick } from '@/lib/sketch/neural-pick'
+import type { Box } from '@/lib/sketch/neural-pick'
+import { connectedInk, readSketch, unionBox, type ReadFailure, type ReadResult } from '@/lib/sketch/read-sketch'
+import { checkSimulates, failureFromBuild, failureFromCompile, type StepFailure } from '@/lib/sketch/pipeline'
+import { DoneChip, ReadFailureCard } from './sketch-assist'
 import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
 import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
 import { GhostPreview } from './ghost-preview'
@@ -445,10 +448,8 @@ function sketchLog(...a: unknown[]): void {
     /* storage unavailable: no trace */
   }
 }
-/** Pause after the last stroke before an unasked reading is offered (no hold needed). */
-const AUTO_READ_MS = 900
-/** How sure the network must be before a reading is offered without the person asking. */
-const AUTO_READ_P = 0.8
+/** Minimum time the "Reading your sketch…" state stays up, so it is seen as a step. */
+const READ_MIN_MS = 350
 
 // Object-drag hold-time and tap-vs-drag distance (touch only) now live in
 // Settings' Gestures tab — see gesturePrefs().holdBeforeDragMs/tapVsDragPx.
@@ -1333,17 +1334,17 @@ export function InfiniteCanvas({
   const pen = usePrefs((s) => s.pen)
   // Plain ink strokes committed recently (id + time), for grouping a multi-stroke symbol.
   const recentInkRef = useRef<Array<{ id: string; t: number }>>([])
-  // Auto-read: a short pause after the last stroke reads what was drawn, no hold needed.
-  const autoReadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const autoReadRef = useRef<((pid: string, id: string, pointerType: string) => void) | null>(null)
-  const previewOpenRef = useRef(false)
-  /** True while the open preview came from an auto-read rather than a hold. */
-  const autoOfferedRef = useRef(false)
+  // Done-drawing flow (neural setting on). Nothing is read while the person draws: after a
+  // stroke a "Done drawing" chip waits beside the unread ink; pressing it (or Enter, or
+  // holding the pen still) reads that sketch.
+  const [pending, setPending] = useState<{ pageId: string; seedId: string; box: Box; pointerType: string } | null>(null)
+  const [reading, setReading] = useState(false)
+  const [readFailure, setReadFailure] = useState<{ failure: ReadFailure; box: Box; pageId: string; seedId: string; pointerType: string } | null>(null)
   // Recognised symbol awaiting the user's confirm / correction (neural setting on).
   const [ghost, setGhost] = useState<Ghost | null>(null)
   // Whole-circuit preview ("Recognize components" with the neural setting on).
   const [circuitGhost, setCircuitGhost] = useState<CircuitGhost | null>(null)
-  const [circuitError, setCircuitError] = useState<string | null>(null)
+  const [circuitError, setCircuitError] = useState<StepFailure | null>(null)
   const [circuitHover, setCircuitHover] = useState<string | null>(null)
   useEffect(() => {
     startCircuitFromSelection = (pid) => {
@@ -1376,98 +1377,96 @@ export function InfiniteCanvas({
       startCircuitFromSelection = null
     }
   }, [])
-  // The ink the held stroke belongs to — every plain stroke joined to it, directly or
-  // through others — read as a circuit. Opens the preview only when it really is
-  // one (two or more parts and at least one connection); otherwise returns false
-  // and the single-symbol path carries on.
-  const openCircuitRef = useRef<((pid: string, seedId: string, strict?: boolean) => boolean) | null>(null)
+  // The operations behind "Done drawing" — kept in a ref so the pointer-up handler (a stable
+  // callback) always calls the current ones.
+  const sketchOps = useRef<{
+    noteStroke: (pid: string, id: string, pointerType: string) => void
+    startRead: (pid: string, id: string, pointerType: string) => void
+    runRead: (pid: string, id: string) => ReadResult
+    show: (res: ReadResult, pid: string, id: string, pointerType: string) => void
+  } | null>(null)
   useEffect(() => {
-    previewOpenRef.current = !!ghost || !!circuitGhost
-    if (!ghost && !circuitGhost) autoOfferedRef.current = false
-  }, [ghost, circuitGhost])
-  useEffect(() => {
-    openCircuitRef.current = (pid, seedId, strict) => {
-      const net = peekSketchNet()
-      if (!net) return false
-      const objs = useDocStore.getState().pages[pid]?.objects ?? {}
-      const plain = Object.values(objs).filter(
-        (o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0
-      )
-      const seed = plain.find((o) => o.id === seedId)
-      if (!seed) return false
-      const gap = (a: SceneObject, b: SceneObject) => {
-        const dx = Math.max(0, a.position.x - (b.position.x + b.size.w), b.position.x - (a.position.x + a.size.w))
-        const dy = Math.max(0, a.position.y - (b.position.y + b.size.h), b.position.y - (a.position.y + a.size.h))
-        return Math.hypot(dx, dy)
-      }
-      const inCluster = new Set<string>([seed.id])
-      const queue = [seed]
-      while (queue.length && inCluster.size < 400) {
-        const cur = queue.pop()!
-        for (const o of plain) {
-          if (!inCluster.has(o.id) && gap(cur, o) <= 48) {
-            inCluster.add(o.id)
-            queue.push(o)
-          }
-        }
-      }
-      sketchLog(`circuit: ${plain.length} plain strokes on page; grouped ${inCluster.size}; kinds`, JSON.stringify(plain.filter((o) => inCluster.has(o.id)).map((o) => [o.geometry.kind, Math.round(o.position.x), Math.round(o.position.y), Math.round(o.size.w), Math.round(o.size.h)])))
-      if (inCluster.size < 4) return sketchLog(`circuit: only ${inCluster.size} connected stroke(s), need 4`) ?? false
-      const strokes = plain
-        .filter((o) => inCluster.has(o.id))
+    const plainOf = (pid: string) =>
+      Object.values(useDocStore.getState().pages[pid]?.objects ?? {})
+        .filter((o) => (o.geometry.kind === 'stroke' || o.geometry.kind === 'line') && o.behaviors.length === 0)
         .map((o) => ({
           id: o.id,
           pts: (o.geometry.points ?? [[0, 0], [o.size.w, 0]]).map(([x, y]) => [x + o.position.x, y + o.position.y]),
         }))
-      const g = startCircuitGhost(pid, strokes, net, peekInkChars() ?? undefined)
-      sketchLog(`circuit: ${inCluster.size} strokes →`, g ? `${g.result.parts.map((p) => p.cls).join(',')}; ${g.result.ir.edges.length} connections; doubts ${JSON.stringify(g.result.ir.doubts.map((d) => d.why))}` : 'nothing read')
-      if (!g || g.result.parts.length < 2 || g.result.ir.edges.length < 1) return false
-      // Offered unasked (no hold): only a reading with nothing left to check.
-      if (strict && toCheck(g) > 0) return false
-      setCircuitError(null)
-      setCircuitGhost(g)
-      return true
+    const boxAround = (pid: string, id: string): Box => {
+      const cluster = connectedInk(plainOf(pid), id)
+      return cluster.length ? unionBox(cluster) : { x0: 0, y0: 0, x1: 0, y1: 0 }
     }
-    autoReadRef.current = (pid, id, pointerType) => {
-      if (previewOpenRef.current || gestureRef.current) return sketchLog('auto-read skipped: preview open or pen down')
-      const store = useDocStore.getState()
-      if (store.tool !== 'pen' || !store.inkToShape) return sketchLog('auto-read skipped: not the pen tool, or ink-to-shape off')
-      const net = peekSketchNet()
-      const objs = store.pages[pid]?.objects ?? {}
-      const o = objs[id]
-      if (!net) return sketchLog('auto-read skipped: recogniser not loaded yet')
-      if (!o || o.geometry.kind !== 'stroke' || o.behaviors.length > 0) return sketchLog('auto-read skipped: stroke is gone or not plain ink')
-      if (openCircuitRef.current?.(pid, id, true)) {
-        autoOfferedRef.current = true
-        return sketchLog('auto-read: opened whole-circuit preview')
+    const runRead = (pid: string, id: string): ReadResult => {
+      try {
+        const res = readSketch(pid, plainOf(pid), id, peekSketchNet(), peekInkChars() ?? undefined)
+        sketchLog('read:', res.kind, res.kind === 'fail' ? res.failure.reason : res.kind === 'symbol' ? `${res.pick.cls} ${res.pick.p.toFixed(2)}` : `${res.ghost.result.parts.length} parts`)
+        return res
+      } catch (e) {
+        sketchLog('read threw', e)
+        return { kind: 'fail', failure: { reason: 'error', message: `The recogniser hit an error: ${e instanceof Error ? e.message : String(e)}` } }
       }
-      sketchLog('auto-read: not a confident circuit, trying a single symbol')
-      const now = performance.now()
-      const toPts = (s: SceneObject) => (s.geometry.points ?? []).map(([x, y]) => [x + s.position.x, y + s.position.y])
-      const recent = recentInkRef.current
-        .filter((r) => r.id !== id && now - r.t < NEURAL_GROUP_MS && objs[r.id]?.geometry.kind === 'stroke' && objs[r.id].behaviors.length === 0)
-        .map((r) => ({ id: r.id, pts: toPts(objs[r.id]) }))
-      const pick = pickNeural(net, toPts(o), recent, { minP: AUTO_READ_P })
-      if (pick.kind !== 'place' || pick.p < AUTO_READ_P || !componentById(pick.cls)) {
-        return sketchLog('auto-read: single symbol not confident enough', pick.kind === 'place' ? `${pick.cls} ${pick.p.toFixed(2)}` : pick.message)
+    }
+    const show = (res: ReadResult, pid: string, id: string, pointerType: string) => {
+      if (res.kind === 'circuit') {
+        setCircuitError(null)
+        setReadFailure(null)
+        setPending(null)
+        setCircuitGhost(res.ghost)
+      } else if (res.kind === 'symbol') {
+        setReadFailure(null)
+        setPending(null)
+        setGhost({
+          pageId: pid,
+          cls: res.pick.cls,
+          p: res.pick.p,
+          pose: res.pick.pose,
+          box: res.pick.box,
+          ids: res.ids,
+          alts: res.pick.alts,
+          predicted: res.pick.cls,
+          predictedP: res.pick.p,
+          rotated: false,
+          device: pointerDevice(pointerType),
+        })
+      } else {
+        const f = res.failure
+        setReadFailure({ failure: f, box: 'box' in f ? f.box : boxAround(pid, id), pageId: pid, seedId: id, pointerType })
       }
-      sketchLog('auto-read: offering', pick.cls, pick.p.toFixed(2))
-      autoOfferedRef.current = true
-      setGhost({
-        pageId: pid,
-        cls: pick.cls,
-        p: pick.p,
-        pose: pick.pose,
-        box: pick.box,
-        ids: [id, ...pick.absorb],
-        alts: pick.alts,
-        predicted: pick.cls,
-        predictedP: pick.p,
-        rotated: false,
-        device: pointerDevice(pointerType),
-      })
+    }
+    sketchOps.current = {
+      runRead,
+      show,
+      noteStroke: (pid, id, pointerType) => {
+        setReadFailure(null)
+        setPending({ pageId: pid, seedId: id, box: boxAround(pid, id), pointerType })
+      },
+      startRead: (pid, id, pointerType) => {
+        setReading(true)
+        setReadFailure(null)
+        const t0 = performance.now()
+        // Let the "Reading…" state paint before the (synchronous) read starts. A timeout, not
+        // requestAnimationFrame: rAF never fires while the page is not being painted.
+        window.setTimeout(() => {
+          const res = runRead(pid, id)
+          window.setTimeout(() => {
+            show(res, pid, id, pointerType)
+            setReading(false)
+          }, Math.max(0, READ_MIN_MS - (performance.now() - t0)))
+        }, 40)
+      },
+    }
+    return () => {
+      sketchOps.current = null
     }
   }, [])
+  // True when there is not `need` px of screen below the sketch (the dock sits at the bottom).
+  const belowRoom = (box: Box, need: number) => box.y1 * viewport.zoom + viewport.y + need > (typeof window === 'undefined' ? 800 : window.innerHeight) - 90
+  const pendingAlive = useDocStore((s) => (pending ? !!s.pages[pending.pageId]?.objects[pending.seedId] : false))
+  useEffect(() => {
+    setPending(null)
+    setReadFailure(null)
+  }, [pageId])
   // "Make it live": build the circuit from the (possibly corrected) reading, then
   // swap it for the ink — one undo step. The ink is only removed once the circuit
   // has been built, so a failure leaves the sketch exactly as it was.
@@ -1475,7 +1474,7 @@ export function InfiniteCanvas({
     if (!circuitGhost) return
     const res = compileGhost(circuitGhost)
     if (!res.ok) {
-      setCircuitError(res.errors[0]?.message ?? 'Could not build this circuit.')
+      setCircuitError(failureFromCompile(res.errors))
       return
     }
     const store = useDocStore.getState()
@@ -1496,7 +1495,7 @@ export function InfiniteCanvas({
       executeSimScript(pid, res.script, { x: origin.x - 10, y: origin.y - 10 })
     } catch (e) {
       for (const o of removed) store.addObject(pid, o)
-      setCircuitError(e instanceof Error ? e.message : 'Could not build this circuit.')
+      setCircuitError(failureFromBuild(e))
       return
     }
     // select what was built, so it is plain where it went
@@ -1507,7 +1506,11 @@ export function InfiniteCanvas({
     } catch {
       /* storage blocked: the circuit is placed either way */
     }
-    toast(`Built a circuit from ${circuitGhost.result.parts.length} parts.`, { duration: 2500 })
+    // Step 5: could the engine run it? The circuit stays either way; this says what is missing.
+    const liveNow = useDocStore.getState().pages[pid]?.objects ?? {}
+    const cantRun = checkSimulates(built.map((id) => liveNow[id]).filter(Boolean))
+    if (cantRun) toast(`Built ${circuitGhost.result.parts.length} parts, but it can't run yet: ${cantRun.detail}`, { duration: 9000 })
+    else toast(`Built a circuit from ${circuitGhost.result.parts.length} parts.`, { duration: 2500 })
     setCircuitGhost(null)
     setCircuitError(null)
   }, [circuitGhost])
@@ -1521,7 +1524,11 @@ export function InfiniteCanvas({
     const store = useDocStore.getState()
     const objs = store.pages[ghost.pageId]?.objects ?? {}
     const def = componentById(ghost.cls)
-    if (!def) { setGhost(null); return }
+    if (!def) {
+      setGhost(null)
+      toast(`Couldn't place it: "${ghost.cls}" isn't an available component.`, { duration: 4000 })
+      return
+    }
     const ids = ghost.ids.filter((id) => objs[id])
     const strokes = ids.map((id) => {
       const o = objs[id]
@@ -3274,49 +3281,25 @@ export function InfiniteCanvas({
             }
           }
 
-          // Taught symbols win over generic shapes: match the held doodle
-          // against the user's custom sketch templates (lib/sketch/custom).
-          // Experimental (pen setting, off by default): SketchNet names the held
-          // symbol — alone, or together with the strokes just before it that
-          // touch it (a battery is two plates; a gate is body + leads). It is
-          // only ever a SUGGESTION: the ink stays, a ghost preview is drawn
-          // over it, and nothing is replaced until the user confirms (or
-          // corrects) it. A guess too weak to show falls through to the
-          // template matcher below, exactly as when the setting is off.
-          let ghostPick: Extract<NeuralPick, { kind: 'place' }> | null = null
-          let declineMsg: string | null = null
-          if (!obj && held && penPrefs().neuralSketch !== false) {
-            const net = peekSketchNet()
-            if (!net) {
-              toast('Neural recogniser is still loading — using the older matcher this time.')
-            } else {
-              const objs = store.pages[pageId]?.objects ?? {}
-              const now = performance.now()
-              const recent = recentInkRef.current
-                .filter((r) => now - r.t < NEURAL_GROUP_MS && objs[r.id]?.geometry.kind === 'stroke' && objs[r.id].behaviors.length === 0)
-                .map((r) => {
-                  const o = objs[r.id]
-                  return { id: r.id, pts: (o.geometry.points ?? []).map(([x, y]) => [x + o.position.x, y + o.position.y]) }
-                })
-              const pick = pickNeural(net, points, recent, { minP: NEURAL_SHOW_P })
-              if (pick.kind === 'place' && componentById(pick.cls)) ghostPick = pick
-              else if (pick.kind === 'decline') declineMsg = pick.message
-            }
-          }
-          if (!obj && held && !ghostPick) {
+          // Taught symbols win over generic shapes: match the held doodle against the
+          // user's custom sketch templates (lib/sketch/custom). With the neural setting ON the
+          // hold reads the sketch instead (below) and falls back to this if it finds nothing.
+          const taughtPart = (): SceneObject | null => {
             const m = matchCustomSketch([points])
             const def = m ? componentById(m.componentId) : undefined
-            if (def) {
-              obj = def.create({ x: cx, y: cy })
-              if (obj.geometry.kind === 'symbol') {
-                const w2 = Math.min(200, Math.max(72, rec.w))
-                obj.size = { w: w2, h: w2 / 2 }
-              } else {
-                obj.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
-              }
-              obj.position = { x: cx - obj.size.w / 2, y: cy - obj.size.h / 2 }
+            if (!def) return null
+            const part = def.create({ x: cx, y: cy })
+            if (part.geometry.kind === 'symbol') {
+              const w2 = Math.min(200, Math.max(72, rec.w))
+              part.size = { w: w2, h: w2 / 2 }
+            } else {
+              part.size = { w: Math.max(24, rec.w), h: Math.max(24, rec.h) }
             }
+            part.position = { x: cx - part.size.w / 2, y: cy - part.size.h / 2 }
+            return part
           }
+          const neuralOn = penPrefs().neuralSketch !== false
+          if (!obj && held && !neuralOn) obj = taughtPart()
           if (!obj) {
             // The pen never auto-shapes plain geometry (annoying while
             // writing) — only on draw-and-hold does a doodle upgrade, into a
@@ -3324,7 +3307,7 @@ export function InfiniteCanvas({
             // exactly the ink that was drawn; the Shaper tool is the explicit
             // way to get clean shapes.
             const keep: Recognition =
-              held && rec.kind !== 'stroke' && !ghostPick && penPrefs().neuralSketch === false
+              held && rec.kind !== 'stroke' && !neuralOn
                 ? rec
                 : {
                     kind: 'stroke',
@@ -3344,48 +3327,31 @@ export function InfiniteCanvas({
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
             recentInkRef.current = [...recentInkRef.current.slice(-19), { id: obj.id, t: performance.now() }]
           }
-          // Holding the pen after a DRAWING (symbols joined by wires) reads the whole
-          // connected sketch as a circuit; after a single symbol it names that symbol.
-          let circuitOpened = false
-          if (held && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
-            circuitOpened = openCircuitRef.current?.(pageId, obj.id) ?? false
-          }
-          if (declineMsg && !ghostPick && !circuitOpened) toast(declineMsg, { duration: 2500 })
-          // Not held: no hold is needed. Once the pen has been still for a moment, read
-          // what was drawn and offer it (only a confident reading is offered unasked).
-          if (!held && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) {
-            const id = obj.id
-            const pointerType = e.pointerType
-            sketchLog('stroke committed, auto-read in', AUTO_READ_MS, 'ms')
-            if (autoReadTimerRef.current) clearTimeout(autoReadTimerRef.current)
-            autoReadTimerRef.current = setTimeout(() => {
-              autoReadTimerRef.current = null
-              autoReadRef.current?.(pageId, id, pointerType)
-            }, AUTO_READ_MS)
-          }
-          // Recognition on: the held stroke was kept raw so it could join a circuit. If it
-          // did not, hold-to-clean-shape still works exactly as before (circle, box, line).
-          if (!circuitOpened && !ghostPick && held && rec.kind !== 'stroke' && penPrefs().neuralSketch !== false && obj.geometry.kind === 'stroke') {
-            const clean = fromRecognition(rec)
-            clean.z = obj.z
-            store.removeObjects(pageId, [obj.id])
-            store.addObject(pageId, clean)
-            obj = clean
-          }
-          if (ghostPick && !circuitOpened && obj.geometry.kind === 'stroke') {
-            setGhost({
-              pageId,
-              cls: ghostPick.cls,
-              p: ghostPick.p,
-              pose: ghostPick.pose,
-              box: ghostPick.box,
-              ids: [obj.id, ...ghostPick.absorb],
-              alts: ghostPick.alts,
-              predicted: ghostPick.cls,
-              predictedP: ghostPick.p,
-              rotated: false,
-              device: pointerDevice(e.pointerType),
-            })
+          // Neural setting on. A plain stroke is NOT read as it is drawn: a "Done drawing" chip
+          // appears beside it. Holding the pen still is the shortcut for the same thing; if the
+          // hold finds nothing, it still does what it always did — a taught symbol, then a clean
+          // shape — and only otherwise says why it found nothing.
+          if (neuralOn && obj.geometry.kind === 'stroke' && obj.behaviors.length === 0 && sketchOps.current) {
+            const ops = sketchOps.current
+            if (!held) {
+              ops.noteStroke(pageId, obj.id, e.pointerType)
+            } else {
+              const res = ops.runRead(pageId, obj.id)
+              if (res.kind !== 'fail') {
+                ops.show(res, pageId, obj.id, e.pointerType)
+              } else {
+                const taught = taughtPart()
+                const replacement = taught ?? (rec.kind !== 'stroke' ? fromRecognition(rec) : null)
+                if (replacement) {
+                  replacement.z = obj.z
+                  store.removeObjects(pageId, [obj.id])
+                  store.addObject(pageId, replacement)
+                  obj = replacement
+                } else {
+                  ops.show(res, pageId, obj.id, e.pointerType)
+                }
+              }
+            }
           }
           if (obj.geometry.kind === 'stroke' && obj.behaviors.length === 0) touchNoteAnchor(attachInkToNote(pageId, obj.id))
           // Plain ink stays unselected (it's writing); only strokes that
@@ -4615,18 +4581,9 @@ export function InfiniteCanvas({
         ...(clickThrough ? { pointerEvents: tool === 'select' && !overBlank && !docPen ? ('none' as const) : ('auto' as const) } : {}),
       }}
       onPointerDownCapture={(e) => {
-        // Drawing on: a pending auto-read waits for the next pause, and a preview that
-        // was offered unasked steps aside (one the person asked for with a hold stays).
-        if (tool === 'pen' && !(e.target as Element | null)?.closest?.('[role="dialog"]')) {
-          if (autoReadTimerRef.current) {
-            clearTimeout(autoReadTimerRef.current)
-            autoReadTimerRef.current = null
-          }
-          if (autoOfferedRef.current && previewOpenRef.current) {
-            sketchLog('auto-offered preview dismissed: drawing continued')
-            setGhost(null)
-            setCircuitGhost(null)
-          }
+        // Drawing on: a "couldn't recognise" card steps aside so the person can carry on.
+        if (tool === 'pen' && !(e.target as Element | null)?.closest?.('[role="dialog"],[aria-label="Finish drawing"]')) {
+          setReadFailure(null)
         }
         // The eraser takes the press before ANY object does — text boxes, notes
         // and tables stop pointerdown for their own editing.
@@ -4666,10 +4623,6 @@ export function InfiniteCanvas({
       onPointerLeave={() => penErasing && setPenErasing(false)}
       onPointerUp={() => penErasing && setPenErasing(false)}
       onPointerDown={(e) => {
-        if (autoReadTimerRef.current) {
-          clearTimeout(autoReadTimerRef.current)
-          autoReadTimerRef.current = null
-        }
         setCtxMenu(null)
         setWirePick(null)
         setSlash(null)
@@ -5110,6 +5063,68 @@ export function InfiniteCanvas({
               setQuickLabel(null)
             }}
           />
+        </div>
+      )}
+
+      {pen.neuralSketch !== false && tool === 'pen' && !ghost && !circuitGhost && (
+        <div
+          className="absolute left-0 top-0"
+          style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}
+        >
+          {readFailure && readFailure.pageId === pageId ? (
+            <ReadFailureCard
+              failure={readFailure.failure}
+              box={readFailure.box}
+              zoom={viewport.zoom}
+              above={belowRoom(readFailure.box, 260)}
+              onRetry={() => sketchOps.current?.startRead(readFailure.pageId, readFailure.seedId, readFailure.pointerType)}
+              onKeepDrawing={() => setReadFailure(null)}
+              onRedraw={() => {
+                const st = useDocStore.getState()
+                const f = readFailure.failure
+                const live = st.pages[readFailure.pageId]?.objects ?? {}
+                const ids = ('ids' in f ? f.ids : []).filter((id) => live[id])
+                if (ids.length) {
+                  st.pushHistory(readFailure.pageId)
+                  st.removeObjects(readFailure.pageId, ids)
+                }
+                setReadFailure(null)
+                setPending(null)
+              }}
+              onChoose={(cls) => {
+                const f = readFailure.failure
+                if (f.reason !== 'unrecognised') return
+                setReadFailure(null)
+                setPending(null)
+                setGhost({
+                  pageId: readFailure.pageId,
+                  cls,
+                  p: null,
+                  pose: 0,
+                  box: f.box,
+                  ids: f.ids,
+                  alts: [],
+                  predicted: f.best?.cls ?? cls,
+                  predictedP: f.best?.p ?? 0,
+                  rotated: false,
+                  device: pointerDevice(readFailure.pointerType),
+                })
+              }}
+            />
+          ) : (
+            pending &&
+            pending.pageId === pageId &&
+            pendingAlive && (
+              <DoneChip
+                box={pending.box}
+                zoom={viewport.zoom}
+                above={belowRoom(pending.box, 60)}
+                reading={reading}
+                onDone={() => sketchOps.current?.startRead(pending.pageId, pending.seedId, pending.pointerType)}
+                onHide={() => setPending(null)}
+              />
+            )
+          )}
         </div>
       )}
 

@@ -16,6 +16,7 @@ import { WAVE1_CLASSES } from '@/lib/sketch/classes'
 import { mainParamOf, parseQuantity } from '@/lib/sketch/compile'
 import type { CircuitGhost, PartEdit } from '@/lib/sketch/circuit-ghost'
 import { toCheck } from '@/lib/sketch/circuit-ghost'
+import { stepLine, type StepFailure } from '@/lib/sketch/pipeline'
 import { confidenceOf, ghostSize } from '@/lib/sketch/ghost'
 import { SymbolIcon } from '@/components/objects/geometry'
 
@@ -132,7 +133,7 @@ export function CircuitGhostPanel({
   onCancel,
 }: {
   ghost: CircuitGhost
-  error: string | null
+  error: StepFailure | null
   onEdit: (id: string, edit: PartEdit) => void
   onKeepLayout: (keep: boolean) => void
   onHover: (id: string | null) => void
@@ -241,7 +242,16 @@ export function CircuitGhostPanel({
         Keep my layout (otherwise the circuit is drawn tidily)
       </label>
 
-      {error && <p role="alert" className="text-[var(--accent-rose)]">{error}</p>}
+      {error && (
+        <div role="alert" className="rounded border border-[var(--accent-rose)] p-2">
+          <p className="text-ui-xs uppercase tracking-wide text-muted-foreground">{stepLine(error.step)}</p>
+          <p className="font-medium text-[var(--accent-rose)]">{error.title}</p>
+          <p className="mt-0.5 break-words text-muted-foreground">{error.detail}</p>
+          <p className="mt-1 text-muted-foreground">
+            {error.built ? 'The circuit is on the page.' : 'Your sketch is untouched.'} The recognition itself was fine — fix a part or value above and try again.
+          </p>
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <button type="button" className="flex items-center gap-1 rounded border border-border px-2.5 py-1 hover:bg-muted" onClick={onCancel}>
