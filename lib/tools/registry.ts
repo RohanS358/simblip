@@ -35,6 +35,14 @@ export const toolSpecs = () =>
     inputSchema: toolSchema(t),
   }))
 
+// Late-bound so the registry imports no auth store: the app wires who the user
+// is; tests inject a role. No source wired = no permission = gated tools refuse.
+type Can = (permission: string) => boolean
+let can: Can = () => false
+export const setPermissionCheck = (fn: Can) => {
+  can = fn
+}
+
 const MAX_SUMMARY = 600
 
 /**
@@ -44,6 +52,7 @@ const MAX_SUMMARY = 600
 export async function runTool(name: string, rawArgs: unknown, ctx: ToolContext): Promise<ToolResult> {
   const tool = tools.get(name)
   if (!tool) return fail(`Unknown tool "${name}". Available: ${[...tools.keys()].join(', ')}`)
+  if (tool.needs && !can(tool.needs)) return fail(`"${name}" needs the "${tool.needs}" permission, which this account does not have.`)
   const parsed = tool.input.safeParse(rawArgs ?? {})
   if (!parsed.success) {
     const why = parsed.error.issues

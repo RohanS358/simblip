@@ -37,6 +37,8 @@ export interface Tool<I = unknown> {
   /** Longer text for MCP clients and humans. Never put in a small-model prompt. */
   help?: string
   effect: Effect
+  /** Minimum permission (lib/auth/types.ts), e.g. 'create-assignments'. Enforced in runTool, never left to a prompt. */
+  needs?: string
   input: z.ZodType<I>
   /** Words that route a chat request to this tool (see router.ts). */
   keywords?: string[]

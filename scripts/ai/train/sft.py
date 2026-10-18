@@ -34,7 +34,7 @@ if tok.pad_token is None:
 
 def encode(row):
     msgs = row['messages']
-    prompt = tok.apply_chat_template(msgs[:2], tokenize=False, add_generation_prompt=True, enable_thinking=False)
+    prompt = tok.apply_chat_template(msgs[:2], tools=row.get('tools'), tokenize=False, add_generation_prompt=True, enable_thinking=False)
     completion = msgs[2]['content'] + '<|im_end|>\n'
     p = tok(prompt, add_special_tokens=False)['input_ids']
     c = tok(completion, add_special_tokens=False)['input_ids']
