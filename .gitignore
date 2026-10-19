@@ -37,3 +37,4 @@ public/vendor/wllama/
 
 # sketch datasets (generated / collected; manifests are what we keep)
 /data/sketch/
+/npm-cache

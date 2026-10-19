@@ -2,9 +2,10 @@
 // so a lesson moves by editing one field. This pins the derivation: nesting,
 // sibling order, and top-level lessons that have no unit at all.
 
+import { pathToFileURL } from 'node:url'
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import { execFileSync } from '../../../scripts/test/exec.mjs'
 import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -23,7 +24,7 @@ export { treeOf }
 `)
 const bundle = join(dir, 'tree.mjs')
 execFileSync('npx', ['esbuild', shim, '--bundle', '--format=esm', '--outfile=' + bundle], { stdio: 'pipe' })
-const { treeOf } = await import(bundle)
+const { treeOf } = await import(pathToFileURL(bundle).href)
 
 const row = (id, path, title) => ({ id, course_id: 'c', path, title, ord: 0 })
 
