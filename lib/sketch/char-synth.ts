@@ -30,6 +30,28 @@ export function drawChar(
   return drawn.strokes.map((s) => s.map(([x, y, t]): [number, number, number] => [x, y, t - t0]))
 }
 
+/**
+ * Two or three characters written so close that they touch or overlap — what a hand does to "47k", and what
+ * the reader sees when it groups strokes too eagerly. The right answer for such a blob is "not one character".
+ */
+export function drawMergedChars(rng: Rng, w: WriterStyle): Stroke3[] {
+  const H = rng.range(0.22, 0.5) * w.size
+  const n = rng.int(2, 3)
+  let x = rng.range(80, 800)
+  const y = rng.range(80, 500)
+  const out: Stroke3[] = []
+  let t = 0
+  for (let i = 0; i < n; i++) {
+    const ch = rng.pick(CHAR_LABELS as readonly (typeof CHAR_LABELS)[number][])
+    const strokes = drawChar(rng, w, ch, H * rng.range(0.85, 1.15), { cx: x, cy: y })
+    for (const s of strokes) out.push(s.map(([px, py, tt]): [number, number, number] => [px, py, tt + t]))
+    t = Math.max(...out.flat().map((q) => q[2])) + rng.range(40, 160)
+    x += H * rng.range(0.3, 0.7)
+  }
+  const t0 = out[0][0][2]
+  return out.map((s) => s.map(([px, py, tt]): [number, number, number] => [px, py, tt - t0]))
+}
+
 export interface CharGenOptions {
   seed: number
   writers: number
@@ -37,6 +59,8 @@ export interface CharGenOptions {
   reps: number
   /** 'unknown' gets this many times `reps`. */
   unknownFactor?: number
+  /** Merged-characters negatives per writer, as a multiple of `reps` (default 1.5). */
+  mergedFactor?: number
   split?: { train: number; val: number }
 }
 
@@ -45,6 +69,7 @@ export function* generateChars(opts: CharGenOptions): Generator<SketchSampleT> {
   const root = makeRng(opts.seed)
   const split = opts.split ?? { train: 0.7, val: 0.15 }
   const unknownFactor = opts.unknownFactor ?? 2
+  const mergedFactor = opts.mergedFactor ?? 1.5
   const order = root.fork('split').shuffle(Array.from({ length: opts.writers }, (_, i) => i))
   const splitOf = new Map<number, 'train' | 'val' | 'test'>()
   order.forEach((wi, rank) => {
@@ -67,6 +92,10 @@ export function* generateChars(opts: CharGenOptions): Generator<SketchSampleT> {
       const id = `${wid}-${UNKNOWN_CHAR}-${r}`
       const d = drawNegative(wrng.fork(id), style)
       yield { id, cls: UNKNOWN_CHAR, pose: 0, strokes: d.strokes, source: 'synthetic-negative', ...base, meta: meta(d.kind) }
+    }
+    for (let r = 0; r < Math.round(opts.reps * mergedFactor); r++) {
+      const id = `${wid}-merged-${r}`
+      yield { id, cls: UNKNOWN_CHAR, pose: 0, strokes: drawMergedChars(wrng.fork(id), style), source: 'synthetic-negative', ...base, meta: meta('merged-chars') }
     }
   }
 }

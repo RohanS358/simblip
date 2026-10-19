@@ -12,6 +12,7 @@
 // example (corrections.ts).
 
 import { compileIR, mainParamOf, type CompileResult } from './compile'
+import type { SketchIREdge, SketchIRType } from './ir'
 import { makeCorrection } from './corrections'
 import type { SketchSampleT } from './dataset'
 import { extractCircuit, rewire, type ExtractResult, type ExtractedPart, type InkStroke, type Recogniser } from './extract'
@@ -27,6 +28,8 @@ export interface CircuitGhost {
   ink: Record<string, number[][]>
   /** Place parts where they were drawn, instead of letting the schematic layout tidy them. */
   keepLayout: boolean
+  /** The person's corrections to the connections the reader found (kept across part edits, which re-read the wiring). */
+  links: { removed: string[]; added: SketchIREdge[] }
 }
 
 /** Read the circuit in `strokes`. Null when no symbol was recognised. */
@@ -39,6 +42,7 @@ export function startCircuitGhost(pageId: string, strokes: InkStroke[], net: Rec
     original: Object.fromEntries(result.parts.map((p) => [p.id, { cls: p.cls, conf: p.conf }])),
     ink: Object.fromEntries(strokes.map((s) => [s.id, s.pts])),
     keepLayout: false,
+    links: { removed: [], added: [] },
   }
 }
 
@@ -47,6 +51,8 @@ export interface PartEdit {
   pose?: Pose
   /** The text of the part's main value ("10k"); empty clears it. */
   value?: string
+  /** Other parameters typed in the preview, e.g. an AC source's frequency { f: "50" }; empty clears one. */
+  extra?: Record<string, string>
 }
 
 /** Apply one edit. A class or turn change moves the pins, so the wiring is read again. */
@@ -73,9 +79,82 @@ export function editPart(g: CircuitGhost, id: string, edit: PartEdit): CircuitGh
       }
       next.values = rest
     }
+    if (edit.extra) {
+      const rest = { ...(next.values ?? {}) }
+      for (const [k, v] of Object.entries(edit.extra)) {
+        if (v.trim()) rest[k] = v.trim()
+        else delete rest[k]
+      }
+      next.values = rest
+    }
     return next
   })
   return { ...g, result: rewire(g.result, parts) }
+}
+
+/** A part's second typed value, if it has one (an AC source's frequency). */
+export const EXTRA_PARAM: Record<string, { key: string; unit: string }> = { 'ac-source': { key: 'f', unit: 'Hz' } }
+
+// ── connections ──────────────────────────────────────────────────────────────
+
+/** One connection, ends in a fixed order, so the same two pins always have the same key. */
+export function linkKey(e: Pick<SketchIREdge, 'a' | 'b'>): string {
+  const a = `${e.a.node}.${e.a.pin}`
+  const b = `${e.b.node}.${e.b.pin}`
+  return a < b ? `${a}|${b}` : `${b}|${a}`
+}
+
+export interface LinkView {
+  key: string
+  a: { node: string; pin: string }
+  b: { node: string; pin: string }
+  /** drawn by the person, not read from the ink */
+  added: boolean
+}
+
+/** The circuit's connections as the person has corrected them: the reader's, less those removed, plus those added. */
+export function linksOf(g: CircuitGhost): LinkView[] {
+  const removed = new Set(g.links.removed)
+  const read = g.result.ir.edges.filter((e) => !removed.has(linkKey(e))).map((e) => ({ key: linkKey(e), a: e.a, b: e.b, added: false }))
+  const seen = new Set(read.map((l) => l.key))
+  const added = g.links.added.filter((e) => !seen.has(linkKey(e))).map((e) => ({ key: linkKey(e), a: e.a, b: e.b, added: true }))
+  return [...read, ...added]
+}
+
+/** The reading as an IR, with the person's connection edits applied. */
+export function irOf(g: CircuitGhost): SketchIRType {
+  const keep = new Set(linksOf(g).map((l) => l.key))
+  const edges = [...g.result.ir.edges, ...g.links.added].filter((e, i, all) => keep.has(linkKey(e)) && all.findIndex((x) => linkKey(x) === linkKey(e)) === i)
+  return { ...g.result.ir, edges }
+}
+
+export function removeLink(g: CircuitGhost, key: string): CircuitGhost {
+  const wasAdded = g.links.added.some((e) => linkKey(e) === key)
+  return {
+    ...g,
+    links: {
+      removed: wasAdded ? g.links.removed : [...new Set([...g.links.removed, key])],
+      added: g.links.added.filter((e) => linkKey(e) !== key),
+    },
+  }
+}
+
+/** Join two pins. Ignored when it joins a pin to itself, names a pin that does not exist, or is already there. */
+export function addLink(g: CircuitGhost, a: { node: string; pin: string }, b: { node: string; pin: string }): CircuitGhost {
+  const has = (e: { node: string; pin: string }) => g.result.parts.find((p) => p.id === e.node)?.pins.some((q) => q.name === e.pin)
+  if (!has(a) || !has(b) || (a.node === b.node && a.pin === b.pin)) return g
+  const edge: SketchIREdge = { a, b, kind: 'wire', conf: 1 }
+  const key = linkKey(edge)
+  if (linksOf(g).some((l) => l.key === key)) return g
+  // adding back one that was removed just restores it
+  if (g.links.removed.includes(key)) return { ...g, links: { ...g.links, removed: g.links.removed.filter((k) => k !== key) } }
+  return { ...g, links: { ...g.links, added: [...g.links.added, edge] } }
+}
+
+/** Where a pin is on the page (for drawing a connection the person added). */
+export function pinPoint(g: CircuitGhost, e: { node: string; pin: string }): [number, number] | null {
+  const pin = g.result.parts.find((p) => p.id === e.node)?.pins.find((q) => q.name === e.pin)
+  return pin ? [pin.x, pin.y] : null
 }
 
 export function setKeepLayout(g: CircuitGhost, keepLayout: boolean): CircuitGhost {
@@ -84,7 +163,7 @@ export function setKeepLayout(g: CircuitGhost, keepLayout: boolean): CircuitGhos
 
 /** The compiled circuit for the current reading (never throws; see CompileResult). */
 export function compileGhost(g: CircuitGhost): CompileResult {
-  return compileIR(g.result.ir, { layout: g.keepLayout ? 'keep' : 'auto' })
+  return compileIR(irOf(g), { layout: g.keepLayout ? 'keep' : 'auto' })
 }
 
 /** Every ink object the live circuit replaces: the parts' strokes, the wires and the dots. */

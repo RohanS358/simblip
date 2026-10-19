@@ -10,12 +10,13 @@
 //   <CircuitGhostPanel>    screen space (always readable)
 
 import { useEffect, useMemo } from 'react'
-import { Check, RotateCw, X } from 'lucide-react'
+import { useState } from 'react'
+import { Check, Plus, RotateCw, X } from 'lucide-react'
 import { componentById } from '@/lib/scene/factory'
 import { WAVE1_CLASSES } from '@/lib/sketch/classes'
 import { mainParamOf, parseQuantity } from '@/lib/sketch/compile'
 import type { CircuitGhost, PartEdit } from '@/lib/sketch/circuit-ghost'
-import { toCheck } from '@/lib/sketch/circuit-ghost'
+import { EXTRA_PARAM, linksOf, pinPoint, toCheck } from '@/lib/sketch/circuit-ghost'
 import { stepLine, type StepFailure } from '@/lib/sketch/pipeline'
 import { confidenceOf, ghostSize } from '@/lib/sketch/ghost'
 import { SymbolIcon } from '@/components/objects/geometry'
@@ -52,6 +53,13 @@ export function CircuitGhostOverlay({ ghost, zoom, hoverId }: { ghost: CircuitGh
             strokeLinejoin="round"
           />
         ))}
+        {linksOf(ghost).filter((l) => l.added).map((l) => {
+          const a = pinPoint(ghost, l.a)
+          const b = pinPoint(ghost, l.b)
+          return a && b ? (
+            <line key={l.key} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} stroke="var(--accent-blue)" strokeWidth={3 / zoom} strokeDasharray={`${6 / zoom} ${4 / zoom}`} strokeLinecap="round" />
+          ) : null
+        })}
         {(r.looseEnds ?? []).map((p, i) => (
           <circle key={i} cx={p[0]} cy={p[1]} r={7 / zoom} fill="none" stroke="var(--accent-rose)" strokeWidth={2 / zoom} />
         ))}
@@ -128,6 +136,8 @@ export function CircuitGhostPanel({
   error,
   onEdit,
   onKeepLayout,
+  onRemoveLink,
+  onAddLink,
   onHover,
   onConfirm,
   onCancel,
@@ -136,6 +146,8 @@ export function CircuitGhostPanel({
   error: StepFailure | null
   onEdit: (id: string, edit: PartEdit) => void
   onKeepLayout: (keep: boolean) => void
+  onRemoveLink: (key: string) => void
+  onAddLink: (a: { node: string; pin: string }, b: { node: string; pin: string }) => void
   onHover: (id: string | null) => void
   onConfirm: () => void
   onCancel: () => void
@@ -226,10 +238,21 @@ export function CircuitGhostPanel({
               ) : (
                 <span className="w-20" />
               )}
+              {EXTRA_PARAM[p.cls] && (
+                <input
+                  aria-label={`Part ${i + 1} ${EXTRA_PARAM[p.cls].key}`}
+                  placeholder={`${EXTRA_PARAM[p.cls].key}: 50 ${EXTRA_PARAM[p.cls].unit}`}
+                  className="w-24 rounded border border-border bg-transparent px-1.5 py-0.5 font-mono"
+                  value={p.values?.[EXTRA_PARAM[p.cls].key] ?? ''}
+                  onChange={(e) => onEdit(p.id, { extra: { [EXTRA_PARAM[p.cls].key]: e.target.value } })}
+                />
+              )}
             </li>
           )
         })}
       </ul>
+
+      <ConnectionsEditor ghost={ghost} onRemove={onRemoveLink} onAdd={onAddLink} />
 
       {lines.length > 0 && (
         <ul className="list-disc space-y-0.5 pl-5 text-muted-foreground">
@@ -266,5 +289,62 @@ export function CircuitGhostPanel({
         </button>
       </div>
     </div>
+  )
+}
+
+/** The circuit's connections, each removable, and a way to join two pins the reader missed. */
+function ConnectionsEditor({
+  ghost,
+  onRemove,
+  onAdd,
+}: {
+  ghost: CircuitGhost
+  onRemove: (key: string) => void
+  onAdd: (a: { node: string; pin: string }, b: { node: string; pin: string }) => void
+}) {
+  const links = linksOf(ghost)
+  const parts = ghost.result.parts
+  const [a, setA] = useState('')
+  const [b, setB] = useState('')
+  const name = (e: { node: string; pin: string }) => `${parts.findIndex((p) => p.id === e.node) + 1} · ${e.pin}`
+  const options = parts.flatMap((p, i) => p.pins.map((q) => ({ v: `${p.id}|${q.name}`, label: `Part ${i + 1} · ${q.name}` })))
+  const split = (v: string) => ({ node: v.split('|')[0], pin: v.split('|').slice(1).join('|') })
+  return (
+    <details className="rounded-md border border-border px-2 py-1">
+      <summary className="cursor-pointer select-none text-muted-foreground">
+        Connections ({links.length}) — fix a wrong one or add a missing one
+      </summary>
+      <ul className="mt-1 flex flex-col gap-0.5">
+        {links.map((l) => (
+          <li key={l.key} className="flex items-center gap-2">
+            <span className="font-mono text-ui-xs">{name(l.a)} ↔ {name(l.b)}</span>
+            {l.added && <span className="text-muted-foreground">(added)</span>}
+            <button type="button" aria-label={`Remove connection ${name(l.a)} to ${name(l.b)}`} className="ml-auto rounded p-1 hover:bg-muted" onClick={() => onRemove(l.key)}>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </li>
+        ))}
+        {links.length === 0 && <li className="text-muted-foreground">Nothing is connected.</li>}
+      </ul>
+      <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        <select aria-label="Join this pin" className="min-w-0 rounded border border-border bg-transparent px-1.5 py-0.5" value={a} onChange={(e) => setA(e.target.value)}>
+          <option value="">pin…</option>
+          {options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+        </select>
+        <span className="text-muted-foreground">to</span>
+        <select aria-label="to this pin" className="min-w-0 rounded border border-border bg-transparent px-1.5 py-0.5" value={b} onChange={(e) => setB(e.target.value)}>
+          <option value="">pin…</option>
+          {options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
+        </select>
+        <button
+          type="button"
+          disabled={!a || !b || a === b}
+          className="flex items-center gap-1 rounded border border-border px-2 py-0.5 hover:bg-muted disabled:opacity-40"
+          onClick={() => { onAdd(split(a), split(b)); setA(''); setB('') }}
+        >
+          <Plus className="h-3.5 w-3.5" /> Join
+        </button>
+      </div>
+    </details>
   )
 }

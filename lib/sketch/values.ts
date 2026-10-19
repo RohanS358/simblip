@@ -29,7 +29,7 @@ export interface TextRead {
   ok: boolean
 }
 
-interface Cluster {
+export interface Cluster {
   shapes: Shape[]
   box: Box
   tiny: boolean
@@ -45,8 +45,15 @@ const centerOf = (b: Box): [number, number] => [(b.x0 + b.x1) / 2, (b.y0 + b.y1)
  * and would otherwise be absorbed into a neighbour.
  */
 function clusterChars(shapes: Shape[], pad: number, tinyDiag: number): Cluster[] {
-  const tiny = shapes.filter((s) => s.diag <= tinyDiag)
-  const rest = shapes.filter((s) => s.diag > tinyDiag)
+  // A decimal point is a small, roughly round speck. A small THIN stroke (the flag of a "1", the foot
+  // of a "7", the dot-stroke of a "k") is part of a character and must be allowed to join it.
+  const speck = (s: Shape) => {
+    const w = s.box.x1 - s.box.x0
+    const h = s.box.y1 - s.box.y0
+    return s.diag <= tinyDiag && Math.max(w, h) / Math.max(1, Math.min(w, h)) < 2.2
+  }
+  const tiny = shapes.filter(speck)
+  const rest = shapes.filter((s) => !speck(s))
   const groups: Shape[][] = []
   for (const s of rest) {
     const hits = groups.filter((g) => g.some((o) => boxGap(o.box, s.box) <= pad))
@@ -117,10 +124,88 @@ function splitTouching(c: Cluster, chars: Recogniser): Cluster[] {
  * Read the text in `shapes` (small strokes and candidate decimal points). `unit`
  * is the drawing's symbol size, used to size the grouping tolerances.
  */
+/** Cost of each separate character when joining pieces: two pieces must name something better than one apiece. */
+const PIECE_COST = 0.65
+
+/**
+ * Pieces of handwriting (each already a touching group of strokes) → characters. Neighbouring pieces are
+ * joined when, together, the network names them with more confidence than it names them apart: the two
+ * arcs of a "0" drawn with a gap, the three humps of an "m", a "k" and its separate arm. Two characters
+ * that are each named confidently stay two (each piece costs PIECE_COST, so joining needs a real gain).
+ * Nothing already touching is ever torn apart here.
+ */
+function joinPieces(atoms: Cluster[], chars: Recogniser, H: number): Cluster[] {
+  const n = atoms.length
+  if (n < 2 || n > 14) return atoms
+  const MAX_RUN = 4
+  const memo = new Map<string, number>()
+  const seg = (i: number, j: number): number => {
+    const key = `${i}-${j}`
+    const hit = memo.get(key)
+    if (hit !== undefined) return hit
+    const run = atoms.slice(i, j)
+    const box = run.map((c) => c.box).reduce(unionBox)
+    let v = 0
+    // a character is about one letter tall and not much wider
+    if (widthOf(box) <= 1.35 * H && heightOf(box) <= 1.5 * H) {
+      const p = chars.predict(run.flatMap((c) => c.shapes.map((x) => x.pts)))
+      v = believed(p) ? p.conf : 0
+    }
+    memo.set(key, v)
+    return v
+  }
+  const best: number[] = [0]
+  const cut: number[] = [0]
+  for (let i = 1; i <= n; i++) {
+    best[i] = -Infinity
+    for (let j = Math.max(0, i - MAX_RUN); j < i; j++) {
+      // a single piece the network cannot name still counts (as 0): it may be a character it just does not know
+      const v = j === i - 1 ? seg(j, i) : seg(j, i)
+      if (j === i - 1 || v > 0) {
+        const cand = best[j] + v - PIECE_COST
+        if (best[j] > -Infinity && cand > best[i]) {
+          best[i] = cand
+          cut[i] = j
+        }
+      }
+    }
+  }
+  const out: Cluster[] = []
+  for (let i = n; i > 0; i = cut[i]) {
+    const run = atoms.slice(cut[i], i)
+    out.unshift(run.length === 1 ? run[0] : { shapes: run.flatMap((c) => c.shapes), box: run.map((c) => c.box).reduce(unionBox), tiny: false })
+  }
+  return out
+}
+
+/** Strokes → characters: touching strokes first (cut where the network can name the pieces), then neighbours joined (see joinPieces). */
+export function charClusters(shapes: Shape[], chars: Recogniser, unit: number): Cluster[] {
+  const tinyDiag = Math.max(5, 0.09 * unit)
+  const first = clusterChars(shapes, Math.max(3, 0.05 * unit), tinyDiag)
+  const letters = first.filter((c) => !c.tiny).flatMap((c) => splitTouching(c, chars))
+  if (letters.length === 0) return first
+  // the height of a letter on this page: tall characters (a "1" is one stroke, a "k" two) set it
+  const hs = letters.map((c) => heightOf(c.box)).sort((a, b) => a - b)
+  const H = hs[Math.floor(0.6 * (hs.length - 1))]
+  // words: pieces in a row with a gap well under a letter's width
+  const sorted = letters.slice().sort((a, b) => a.box.x0 - b.box.x0)
+  const words: Cluster[][] = []
+  for (const c of sorted) {
+    const [, cy] = centerOf(c.box)
+    const home = words.find((w) => {
+      const last = w[w.length - 1]
+      const [, ly] = centerOf(last.box)
+      return c.box.x0 - last.box.x1 <= 0.3 * H && Math.abs(cy - ly) <= 0.55 * H
+    })
+    if (home) home.push(c)
+    else words.push([c])
+  }
+  return [...first.filter((c) => c.tiny), ...words.flatMap((w) => joinPieces(w, chars, H))]
+}
+
 export function readText(shapes: Shape[], chars: Recogniser, unit: number): TextRead[] {
   if (shapes.length === 0) return []
-  const tinyDiag = Math.max(5, 0.09 * unit)
-  const clusters = clusterChars(shapes, Math.max(3, 0.05 * unit), tinyDiag).flatMap((c) => splitTouching(c, chars))
+  const clusters = charClusters(shapes, chars, unit)
   // The size of a letter on this page: the median height of the characters that are not dots.
   const letters = clusters.filter((c) => !c.tiny)
   if (letters.length === 0) return []
@@ -165,7 +250,7 @@ export function readText(shapes: Shape[], chars: Recogniser, unit: number): Text
         seen++
       }
     }
-    if (seen < Math.ceil(real.length * 0.6)) continue
+    if (seen < Math.max(1, Math.ceil(real.length * 0.3))) continue
     // The unit letter is the character most often misread (Ω especially): a number
     // that reads cleanly without it is still a number.
     let ok = !text.includes('?') && !!parseQuantity(text)

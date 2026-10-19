@@ -70,7 +70,7 @@ import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/correction
 import { GhostPreview } from './ghost-preview'
 import { CircuitGhostOverlay, CircuitGhostPanel } from './circuit-ghost'
 import {
-  compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, setKeepLayout, startCircuitGhost, toCheck,
+  addLink, compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, removeLink, setKeepLayout, startCircuitGhost, toCheck,
   type CircuitGhost, type PartEdit,
 } from '@/lib/sketch/circuit-ghost'
 import { executeSimScript } from '@/lib/scene/simscript'
@@ -5249,6 +5249,8 @@ export function InfiniteCanvas({
             error={circuitError}
             onEdit={(id: string, edit: PartEdit) => { setCircuitError(null); setCircuitGhost((g) => (g ? editPart(g, id, edit) : g)) }}
             onKeepLayout={(keep: boolean) => setCircuitGhost((g) => (g ? setKeepLayout(g, keep) : g))}
+            onRemoveLink={(key: string) => { setCircuitError(null); setCircuitGhost((g) => (g ? removeLink(g, key) : g)) }}
+            onAddLink={(a, b) => { setCircuitError(null); setCircuitGhost((g) => (g ? addLink(g, a, b) : g)) }}
             onHover={setCircuitHover}
             onConfirm={confirmCircuit}
             onCancel={() => { setCircuitGhost(null); setCircuitError(null) }}

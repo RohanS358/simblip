@@ -47,6 +47,8 @@ export interface Scene {
   strokes: Stroke3[]
   /** What each stroke is — for debugging and per-stage metrics only; the extractor never sees it. */
   roles: Array<{ role: 'symbol' | 'wire' | 'dot' | 'text'; owner: string }>
+  /** For text strokes: which character of which label it belongs to ("n3#1:7" = part n3, 2nd character, a '7'). Debugging only. */
+  chars: Array<string | null>
   /** Ground truth: the circuit that was drawn, with each node's bbox taken from its ink. */
   truth: SketchIRType
 }
@@ -113,9 +115,11 @@ export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.
 
   const strokes: Stroke3[] = []
   const roles: Scene['roles'] = []
+  const chars: Scene['chars'] = []
+  let charTag: string | null = null
   let t = 0
   const push = (list: Stroke3[], role: 'symbol' | 'wire' | 'dot' | 'text', owner: string) => {
-    for (const s of list) { strokes.push(s); roles.push({ role, owner }) }
+    for (const s of list) { strokes.push(s); roles.push({ role, owner }); chars.push(role === 'text' ? charTag : null) }
   }
 
   // 1. the parts
@@ -198,7 +202,9 @@ export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.
       // above a horizontal part, beside a vertical one
       let x = horizontal ? (box.x0 + box.x1) / 2 - width / 2 : box.x1 + H * 0.9
       const y = horizontal ? box.y0 - H * rng.range(0.9, 1.4) : (box.y0 + box.y1) / 2
+      let ci = 0
       for (const ch of text) {
+        charTag = `${n.id}#${ci++}:${ch}`
         if (ch === '.') {
           const d = drawDot(rng, w, x + advance * 0.25, y + H * 0.45, t)
           push(d.strokes, 'text', n.id)
@@ -229,5 +235,5 @@ export function drawScene(layout: Layout, rng: Rng, w: WriterStyle, id = layout.
     labels: [],
     doubts: [],
   }
-  return { id, layoutId: layout.id, writer: w.id, device: w.device, strokes: timed, roles, truth }
+  return { id, layoutId: layout.id, writer: w.id, device: w.device, strokes: timed, roles, chars, truth }
 }

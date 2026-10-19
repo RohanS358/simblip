@@ -132,7 +132,12 @@ function looksLikeWire(s: Shape, minLen: number, unit: number): boolean {
  */
 function estimateUnit(shapes: Shape[]): number {
   const bodies = shapes.filter((s) => !s.straight && !s.ortho && s.len > 25).map((s) => s.diag)
-  if (bodies.length >= 1) return Math.min(500, Math.max(40, median(bodies) * 1.25))
+  // An upper quantile, not the median: handwritten labels add many small strokes that would drag a
+  // median down to the size of a character and mis-size every symbol group.
+  if (bodies.length >= 1) {
+    const sorted = bodies.slice().sort((a, b) => a - b)
+    return Math.min(500, Math.max(40, sorted[Math.floor(0.8 * (sorted.length - 1))] * 1.25))
+  }
   // only straight strokes (plates, leads, wires): the shorter ones are the plates
   const lens = shapes.map((s) => s.len).sort((a, b) => a - b)
   const short = lens.slice(0, Math.max(1, Math.ceil(lens.length * 0.4)))
@@ -466,6 +471,13 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
     })
     const candidates = [...bodyShapes.filter((s) => s.diag <= 0.45 * U), ...free]
     textReads = findText(candidates, bodyShapes, net, opts.charNet, U)
+    // Two battery plates read as "11". Plates have wires ending ON them; a written label does not, so a
+    // line with a wire end touching it is part of a symbol, not text.
+    const slack = Math.max(3, 0.05 * U)
+    const wireEnds = wires.flatMap((w) => [w.pts[0], w.pts[w.pts.length - 1]])
+    textReads = textReads.filter(
+      (r) => !wireEnds.some((e) => e[0] >= r.box.x0 - slack && e[0] <= r.box.x1 + slack && e[1] >= r.box.y0 - slack && e[1] <= r.box.y1 + slack)
+    )
     for (const r of textReads) r.strokeIds.forEach((id) => textUsed.add(id))
     bodiesForGroups = bodyShapes.filter((s) => !textUsed.has(s.id))
   }
