@@ -15,6 +15,19 @@ export interface PlainStroke {
   pts: number[][]
 }
 
+/** How sure the network must be of a lone symbol for it to overrule the mechanics and optics readers. */
+const LONE_SYMBOL_P = 0.6
+
+/** A lone symbol is at most this many strokes (body, leads, a label). */
+const MAX_LONE_STROKES = 8
+
+/** The ink around the seed is no bigger than one symbol with its leads (about 2.5 times its body). */
+function isOneSymbolWide(cluster: PlainStroke[], body: Box): boolean {
+  const all = unionBox(cluster)
+  const diag = (b: Box) => Math.hypot(b.x1 - b.x0, b.y1 - b.y0)
+  return diag(all) <= 2.5 * diag(body) + 30
+}
+
 type Net = Parameters<typeof startCircuitGhost>[2]
 
 export type ReadFailure =
@@ -73,8 +86,8 @@ export function mechanicsEvidence(g: MechGhost): number {
   return hard + 0.7 * soft + 0.5 * (g.result?.edges.length ?? 0)
 }
 
-/** A hinge with a rod or rope to a ball that hangs below it. */
-export function hasPendulum(g: MechGhost): boolean {
+/** A hinge with a rod or rope to a ball that hangs below it (and, with `reach`, well below it). */
+export function hasPendulum(g: MechGhost, reach = 0): boolean {
   const byId = new Map(g.ir.nodes.map((n) => [n.id, n]))
   const cy = (id: string) => {
     const n = byId.get(id)
@@ -86,7 +99,9 @@ export function hasPendulum(g: MechGhost): boolean {
     const b = byId.get(e.b.node)
     if (!a || !b) return false
     const [h, m] = a.cls === 'hinge' ? [a, b] : [b, a]
-    return h.cls === 'hinge' && m.cls === 'mass' && cy(m.id) > cy(h.id) + 20
+    if (h.cls !== 'hinge' || m.cls !== 'mass' || cy(m.id) <= cy(h.id) + 20) return false
+    // `reach`: the bob hangs at least this many bob-widths from the pivot (a symbol's lead and circle sit close together)
+    return reach === 0 || cy(m.id) - cy(h.id) >= Math.max(80, reach * m.bbox[3])
   })
 }
 
@@ -113,24 +128,27 @@ export function readSketch(
   const cluster = connectedInk(strokes, seedId)
   if (!seed || cluster.length === 0) return { kind: 'fail', failure: { reason: 'no-ink', message: 'There is no sketch here to read.' } }
 
-  // Mechanics first as a candidate (ground, ramps, blocks, balls, springs, arrows), because a
-  // hatched wall reads as a circuit "ground" symbol and a spring as a resistor. It must have real
-  // mechanics evidence to win; a circuit reading with more confident parts beats it.
   // Mechanics parts are related by position, not touching (a ball above the ground), so the group is wider
   const mechCluster = connectedInk(strokes, seedId, 200)
   const mech = mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
-  // A lens settles it: a mechanics sketch has no use for one. (Checked first, so a lens drawn as a
-  // double arrow or a circle-with-a-beam is never mistaken for a pulley or a ball.)
   const optics = mechCluster.length >= 3 ? startOpticsGhost(pageId, mechCluster) : null
   const opticsScore = optics?.optics ? opticsEvidence(optics.optics) : 0
-  if (optics && opticsScore >= 3) return { kind: 'mechanics', ghost: optics }
-  if (mech?.result?.gaps.length) {
-    const gap = mech.result.gaps[0]
-    return { kind: 'fail', failure: { reason: 'unsupported', message: gap.message, box: unionBox(mechCluster), ids: mechCluster.map((s) => s.id) } }
-  }
-  const mechScore = mech ? mechanicsEvidence(mech) : 0
-  const pendulum = !!mech && hasPendulum(mech)
 
+  // The network settles a lone symbol. If everything that touches the seed is one symbol it names
+  // with real confidence (a diode's triangle, a BJT's circle, a gate's body), no geometric reader
+  // gets to call that a ramp, a ball or a block. It does not settle it when other ink nearby holds
+  // mechanics or optics evidence of its own.
+  const lone = pickNeural(net, seed.pts, cluster.filter((s) => s.id !== seedId), { minP: NEURAL_SHOW_P })
+  if (lone.kind === 'place' && lone.p >= LONE_SYMBOL_P && cluster.length <= MAX_LONE_STROKES && isOneSymbolWide(cluster, lone.box)) {
+    const group = new Set([seedId, ...lone.absorb])
+    const rest = mechCluster.filter((s) => !group.has(s.id))
+    // other ink nearby that reads as mechanics or optics (a ball over a hatched wall) outvotes the symbol
+    const elsewhere = rest.length >= 2 && ((mech ? mechanicsEvidence(mech) >= 1.5 : false) || opticsScore >= 3)
+    if (!elsewhere && !(mech && hasPendulum(mech, 2))) return { kind: 'symbol', pick: lone, ids: [seedId, ...lone.absorb] }
+  }
+
+  // The circuit reading, compared with the geometric ones. Several confident parts joined by wires
+  // is a circuit: a handwritten "0" or a lamp's circle must not turn it into a lens bench.
   let circuitParts = 0
   let circuit: CircuitGhost | null = null
   if (cluster.length >= 4) {
@@ -141,6 +159,18 @@ export function readSketch(
     }
   }
   const circuitScore = circuit ? circuit.result.parts.filter((p) => p.conf >= 0.8).length : 0
+  if (circuit && circuitScore >= 3 && circuit.result.ir.edges.length >= circuitScore - 1) return { kind: 'circuit', ghost: circuit }
+
+  // A lens settles the rest: a mechanics sketch has no use for one. (Checked before the pulley, so a
+  // lens drawn as a double arrow or a circle-with-a-beam is never mistaken for a pulley or a ball.)
+  if (optics && opticsScore >= 3) return { kind: 'mechanics', ghost: optics }
+  if (mech?.result?.gaps.length) {
+    const gap = mech.result.gaps[0]
+    return { kind: 'fail', failure: { reason: 'unsupported', message: gap.message, box: unionBox(mechCluster), ids: mechCluster.map((s) => s.id) } }
+  }
+  const mechScore = mech ? mechanicsEvidence(mech) : 0
+  const pendulum = !!mech && hasPendulum(mech)
+
   if (mech && mechScore >= 1.5 && (!circuit || mechScore > circuitScore)) return { kind: 'mechanics', ghost: mech }
   // a pendulum has no block or hatched ground to point at, so it counts only when no circuit reading competes
   if (mech && pendulum && !circuit) return { kind: 'mechanics', ghost: mech }

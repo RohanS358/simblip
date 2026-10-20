@@ -45,6 +45,8 @@ export interface OpticsResult {
 
 /** Focal length when nothing in the sketch says (the engine's own default). */
 export const DEFAULT_FOCAL_PX = 150
+/** A drawn lens outline is at least this tall (page px); anything smaller is handwriting. */
+const MIN_LENS_PX = 48
 
 const tiltOf = (theta: number) => {
   // a vertical line is 0; fold into (−90, 90]
@@ -101,7 +103,8 @@ export function extractOptics(strokes: OpticStroke[]): OpticsResult {
   for (const p of prims) {
     const c = closedShape(p, { lens: true })
     if (!c) continue
-    if (c.kind === 'lens' && c.h >= c.w) lensShapes.push({ p, c })
+    // a lens outline is a big shape; a small tall loop is a handwritten "0" or "Ω" in a value label
+    if (c.kind === 'lens') { if (c.h >= c.w && c.h >= MIN_LENS_PX) lensShapes.push({ p, c }); else continue }
     else if (c.kind === 'circle') circles.push({ p, cx: c.cx, cy: c.cy, r: c.r })
     // a small, squarish loop is a rounded-off circle (a finger or a touchpad does this), not a block
     else if (c.kind === 'rect' && c.w / c.h > 0.6 && c.w / c.h < 1.67 && Math.hypot(c.w, c.h) < 70) circles.push({ p, cx: c.cx, cy: c.cy, r: (c.w + c.h) / 4 })
