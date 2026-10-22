@@ -21,7 +21,7 @@ import { continueLesson } from '@/lib/lesson/controller'
 import { visibleBoard } from '@/lib/lesson/camera'
 import { StudyNotes } from './study-notes'
 import { Teacher } from './teacher'
-import { CircleToAsk, ExplainRing, SectionStrip, TutorReplies } from './lesson-tutor-ui'
+import { CircleToAsk, ExplainRing, PointerSpot, SectionStrip, TutorReplies } from './lesson-tutor-ui'
 
 const SPEEDS = [0.75, 1, 1.25, 1.5]
 /** The floating tool dock sits along the bottom of the canvas; the lesson controls ride above it. */
@@ -130,6 +130,7 @@ export function LessonPlayer() {
       <StudyNotes />
       <CircleToAsk rect={rect} />
       <ExplainRing />
+      <PointerSpot />
       {rect && (
         <div className="pointer-events-none fixed z-[103]" style={{ right: window.innerWidth - (rect.left + rect.width) + 8, bottom: window.innerHeight - (rect.top + rect.height) + TEACHER_LIFT }}>
           <Teacher height={teacherHeight(rect)} />
