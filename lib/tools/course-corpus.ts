@@ -5,7 +5,7 @@
 // Lesson trees are small (titles); only the best few lessons are downloaded.
 
 import { getAccessToken } from '@/lib/auth/store'
-import { bm25, type Doc } from '@/lib/learning/bm25'
+import { bm25, covers, type Doc } from '@/lib/learning/bm25'
 import type { CourseDoc } from '@/lib/store/course'
 import { setCourseCorpus } from './learn'
 
@@ -60,7 +60,8 @@ setCourseCorpus(getCorpus)
 export async function findLesson(topic: string): Promise<{ id: string; title: string; doc: CourseDoc } | null> {
   await getCorpus(topic)
   const best = bm25((titles ?? []).map((t) => ({ ...t })), topic.replace(/['’]/g, ''), 1)[0]
-  if (!best) return null
+  // A lesson that only shares a filler word ("theorem", "law") is NOT the lesson asked for.
+  if (!best || !covers(topic, `${best.doc.title} ${best.doc.text}`)) return null
   const d = docs.get(best.doc.id)
   return d ? { id: best.doc.id, ...d } : null
 }

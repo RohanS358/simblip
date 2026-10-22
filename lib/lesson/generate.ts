@@ -7,7 +7,7 @@
 
 import { toast } from 'sonner'
 import { useLearner } from '@/lib/learning/store'
-import { directLesson, planTopic, type Llm, type Runner } from './director'
+import { directLesson, NeedsClarification, planTopic, type Llm, type Runner } from './director'
 import { makeLlm } from './llm'
 import { makeRunner } from './runner'
 import { useLessonCache } from './cache'
@@ -53,7 +53,8 @@ export async function generateAndPlay(topic: string): Promise<void> {
   } catch (e) {
     if (ac.signal.aborted) return
     useLesson.getState().set({ preparing: null })
-    toast.error(e instanceof Error ? e.message : 'Could not build that lesson.')
+    if (e instanceof NeedsClarification) toast.message(e.message, { duration: 12_000 })
+    else toast.error(e instanceof Error ? e.message : 'Could not build that lesson.')
   } finally {
     if (abort === ac) abort = null
   }

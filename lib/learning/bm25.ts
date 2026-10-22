@@ -29,3 +29,17 @@ export function bm25(docs: Doc[], query: string, k = 5): { doc: Doc; score: numb
     .sort((a, b) => b.score - a.score)
     .slice(0, k)
 }
+
+/** Words that name a KIND of result, not the topic: "Kendall's theorem" is about Kendall, and sharing the
+ *  word "theorem" with the central limit theorem is not a match. */
+const GENERIC = new Set(['theorem', 'law', 'rule', 'principle', 'method', 'algorithm', 'basic', 'introduction', 'intro', 'concept', 'lesson', 'topic', 'about', 'how', 'what', 'works', 'work', 'the', 'and', 'of', 'in', 'to', 'for', 'with', 'me', 'us', 'explain', 'using', 'a', 'an', 'is', 'are'])
+
+/** Does `text` actually cover what the query is ABOUT? Every distinctive word must appear; a query made only of
+ *  generic words falls back to "most of them". Used to refuse a lesson that merely shares a filler word. */
+export function covers(query: string, text: string): boolean {
+  const have = new Set(tok(text))
+  const words = [...new Set(tok(query))]
+  const key = words.filter((w) => !GENERIC.has(w))
+  if (key.length) return key.every((w) => have.has(w))
+  return words.length > 0 && words.filter((w) => have.has(w)).length >= Math.ceil(words.length * 0.6)
+}

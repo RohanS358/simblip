@@ -10,6 +10,9 @@ export type Level = (typeof LEVELS)[number]
 
 export const planSchema = z.object({
   title: z.string().min(2).max(100),
+  /** Set INSTEAD of steps when the topic is unknown or ambiguous: the question to ask the student. A lesson on a
+   *  theorem the model half-remembers is worse than no lesson. */
+  unsure: z.string().min(3).max(240).optional(),
   steps: z
     .array(
       z.object({
@@ -24,9 +27,8 @@ export const planSchema = z.object({
         experiment: z.string().min(3).max(160).optional(),
       })
     )
-    .min(2)
     .max(8),
-})
+}).refine((p) => p.unsure || p.steps.length >= 2, { message: 'steps: need at least 2 steps (or set "unsure")' })
 export type Plan = z.infer<typeof planSchema>
 
 /** JSON Schema for grammar-constrained decoding (Ollama `format`, llama.cpp). */
@@ -34,9 +36,9 @@ export const PLAN_JSON_SCHEMA = {
   type: 'object',
   properties: {
     title: { type: 'string' },
+    unsure: { type: 'string' },
     steps: {
       type: 'array',
-      minItems: 2,
       maxItems: 8,
       items: {
         type: 'object',
@@ -65,6 +67,7 @@ export const planSystemPrompt = (level: Level) => `You plan a short animated les
 ${LEVEL_HINT[level]}
 
 Rules:
+- If you do not clearly recognise the topic, or it could mean several different things, do NOT guess and do NOT invent facts: set "unsure" to one short question asking what they mean (name the interpretations you can think of) and return an empty "steps" list.
 - 4 to 6 steps. Each step teaches ONE idea. Order: the simplest picture first, then change one thing at a time, then a formula, then a real-world use.
 - "say": 1-3 short sentences per step, at most 25 words each. They are read aloud.
 - "scene": only when a simulation helps. One sentence with concrete values. The simulator can draw: electric circuits (battery, resistor, capacitor, inductor, diode, switch, op-amp, ammeter, voltmeter, bulb, logic gates), mechanics (masses, springs, pendulums, ramps, ropes, collisions, projectiles), waves and optics (lenses, mirrors, refraction, diffraction, interference), quantum wells, data-structure visualisations, graphs and tables. Do not describe things it cannot draw.

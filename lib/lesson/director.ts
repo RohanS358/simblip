@@ -95,12 +95,18 @@ async function propose(llm: Llm, all: SceneObject[], experiment: string, signal?
   return note
 }
 
+/** The planner declined: it does not know the topic well enough to teach it. Shown to the student as a question. */
+export class NeedsClarification extends Error {}
+
 export async function planTopic(llm: Llm, topic: string, level: Level, jsonSchema: object, signal?: AbortSignal): Promise<Plan> {
   let note = ''
   for (let attempt = 0; attempt < 3; attempt++) {
     const text = await llm.complete(planSystemPrompt(level), planUserPrompt(topic) + note, { jsonSchema, signal })
     const r = parsePlan(text)
-    if (r.ok) return r.plan
+    if (r.ok) {
+      if (r.plan.unsure) throw new NeedsClarification(r.plan.unsure)
+      return r.plan
+    }
     note = `\n\nYour previous reply was invalid: ${r.error}`
   }
   throw new Error(`Could not get a usable lesson plan for "${topic}".`)
@@ -169,7 +175,12 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
       } else if (!p || !res) warnings.push(`step ${i + 1}: experiment left out (${typeof proposal === 'string' ? proposal : 'the run produced no reading'})`)
     }
   }
-  if (scenes === 0) throw new Error(`I could not build a working simulation for "${topic}" — try a more specific topic.`)
+  if (scenes === 0) {
+    // Nothing here could be drawn or measured, so nothing is checked by the simulator. Still teach it — but say so,
+    // out loud and on screen, rather than pass unverified claims off as demonstrated ones.
+    beats.splice(1, 0, { t: 'title', text: 'Explained without a simulation', sub: 'This one is not checked by the simulator — verify it against your course notes.' }, { t: 'say', text: 'A heads-up: I could not build a simulation for this topic, so what follows is explained in words and is not checked by the simulator. Please verify it against your course notes.' })
+    warnings.push('no scene could be built; delivered as an unverified, text-only lesson')
+  }
   const storyboard = storyboardSchema.parse({ title: plan.title, source: `generated:${topic}`, beats })
   const issues = lintStoryboard(storyboard)
   if (issues.length) throw new Error(`The generated lesson did not pass checks: ${issues[0]}`)
