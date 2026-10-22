@@ -2,6 +2,13 @@
 
 A lesson is taught by a drawn teacher, on a board that never loses what has been taught.
 
+## Two layouts, always
+
+Every section is written in one of two arrangements (`layoutOf`, `diagramOrigin` in `sections.ts`):
+**split** — title across the top, content (key points, words) on the left, diagram on the right; or
+**full** — title across the top, the diagram centred across the whole width. A section with anything to read
+(narration, a pointed-at part, a formula explained) is split; a bare picture is full. Formulas go under the diagram.
+
 ## Sections, not scenes (`lib/lesson/sections.ts`, `camera.ts`, `stage.ts`)
 
 A scene that opens a new idea (`clear: true`) no longer wipes the board. It opens a **section**

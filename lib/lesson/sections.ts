@@ -21,6 +21,8 @@ export interface Section {
   checks?: { q: string; a: string }[]
   /** The closing summary section (never itself summarised). */
   summary?: boolean
+  /** How the section is laid out: title, then content beside a diagram ('split'), or title and a full-width diagram ('full'). */
+  layout?: 'split' | 'full'
 }
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -148,3 +150,41 @@ export function studyMarkdown(title: string, sections: Section[]): string {
   ].filter(Boolean)
   return [`# ${title}`, ...body, ...tail].join('\n\n')
 }
+
+
+// ── how a section is laid out ───────────────────────────────────────────────
+// Every section is written on the board in one of two arrangements:
+//
+//   split   the TITLE across the top; below it the CONTENT (key points, words) on the left and the
+//           DIAGRAM on the right
+//   full    the TITLE across the top; below it the DIAGRAM, centred, across the whole width
+//
+// A section with something to read gets `split`; one that is only a picture gets `full`.
+
+export type Layout = 'split' | 'full'
+/** Width of the slide the layouts are drawn on. */
+export const SLIDE_W = 1000
+/** Width of the content column in a split layout, and the gap before the diagram. */
+export const CONTENT_W = 400
+export const COLUMN_GAP = 40
+/** Space the title takes before the body starts. */
+export const TITLE_H = 64
+
+/** Which layout a section gets: split when the beats that follow its scene (until the next section
+ *  opens) have anything to read — narration, a pointed-at part, a formula explained, an animated sweep. */
+export function layoutOf(beats: { t: string; text?: string; clear?: boolean }[], sceneBeat: number): Layout {
+  for (let i = sceneBeat + 1; i < beats.length; i++) {
+    const b = beats[i]
+    if (b.t === 'title' || (b.t === 'scene' && b.clear !== false)) break
+    if (b.t === 'say' || (b.t !== 'run' && b.t !== 'scene' && !!b.text)) return 'split'
+  }
+  return 'full'
+}
+
+/** Top-left for a diagram `w` px wide in a section whose title sits at `at`. */
+export function diagramOrigin(layout: Layout, at: { x: number; y: number }, w: number): { x: number; y: number } {
+  const y = at.y + TITLE_H
+  return layout === 'split' ? { x: at.x + CONTENT_W + COLUMN_GAP, y } : { x: at.x + Math.max(0, (SLIDE_W - w) / 2), y }
+}
+/** Top-left of the content column. */
+export const contentOrigin = (at: { x: number; y: number }) => ({ x: at.x, y: at.y + TITLE_H })

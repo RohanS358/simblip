@@ -21,7 +21,7 @@ import { checkIn } from './tutor'
 import { useTutor } from './tutor-store'
 import { shouldCheckIn } from './tutor-core'
 import { FRAME_BOTTOM, frameObjects } from './camera'
-import { boxOf, buildSummary, glossaryMarkdown, summaryMarkdown, bulletFor, definitionFrom, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
+import { boxOf, COLUMN_GAP, CONTENT_W, contentOrigin, diagramOrigin, layoutOf, buildSummary, glossaryMarkdown, summaryMarkdown, bulletFor, definitionFrom, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
 import type { Stage } from './player'
 import type { Storyboard } from './storyboard'
 
@@ -60,12 +60,22 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   }
 
   // Resuming mid-lesson: the chapter we are in is the last chapter card before `from`.
+  /** Which storyboard beat a scene came from (rebuilding after a seek replays scenes without moving the
+   *  playhead, so the playhead cannot be used to find out what follows them). */
+  let lastScene = -1
+  const beatOfScene = (script: string): number => {
+    for (let i = lastScene + 1; i < sb.beats.length; i++) {
+      const b = sb.beats[i]
+      if ((b.t === 'scene' && b.script === script) || (b.t === 'predict' && b.demo === script)) return (lastScene = i)
+    }
+    return L().index
+  }
   let lastTitle = ([...sb.beats.slice(0, from)].reverse().find((b) => b.t === 'title') as { text?: string } | undefined)?.text ?? ''
   const sections = () => L().sections
   const current = (): Section | undefined => sections()[sections().length - 1]
   const objectsOf = (ids: string[]) => pageObjects().filter((o) => ids.includes(o.id))
   /** The newest section's picture and formulas — everything but its "Key points" column. */
-  const bodyIds = () => (current()?.ids ?? []).filter((id) => id !== current()?.notes)
+  const bodyIds = () => (current()?.ids ?? []).slice(1).filter((id) => id !== current()?.notes)
   /** Lowest edge of the newest section's picture — where the next formula goes. */
   const belowScene = () => {
     const box = boxOf(objectsOf(bodyIds()))
@@ -79,7 +89,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   /** Record study notes for the current section — a key point, a word defined, a formula, a question and
    *  its answer — and keep its "Key points" block on the board (created beside the picture the first
    *  time) in step, so the board reads like slides when the lesson is over. */
-  const note = async (n: { say?: string | null; bullet?: string | null; formula?: { latex: string; text?: string }; check?: { q: string; a: string } }) => {
+  const doNote = async (n: { say?: string | null; bullet?: string | null; formula?: { latex: string; text?: string }; check?: { q: string; a: string } }) => {
     const cur = current()
     if (!cur) return
     const bullet = n.bullet ?? (n.say ? bulletFor(n.say) : null)
@@ -91,12 +101,13 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     const formulas = n.formula && !(cur.formulas ?? []).some((f) => f.latex === n.formula!.latex) ? [...(cur.formulas ?? []), n.formula] : cur.formulas
     const checks = n.check && !(cur.checks ?? []).some((c) => c.q === n.check!.q) ? [...(cur.checks ?? []), n.check] : cur.checks
     let notes = cur.notes
-    if (!notes && bullets.length) {
-      const body = objectsOf(cur.ids.slice(1)) // everything but the heading
-      const box = boxOf(body.length ? body : objectsOf(cur.ids))
+    // Only a split section has a content column to write in; a full-width diagram carries no text
+    // (its notes still go into the study notes).
+    if (!notes && bullets.length && cur.layout !== 'full') {
       const heading = objectsOf(cur.ids.slice(0, 1))[0]
+      const at = heading ? contentOrigin(heading.position) : { x: 0, y: 0 }
       const before = new Set(pageObjects().map((o) => o.id))
-      await sceneAdd.run({ component: 'text', text: notesMarkdown(bullets, definitions), x: box ? box.x + box.w + 40 : (heading?.position.x ?? 0), y: box ? box.y : (heading?.position.y ?? 0) + 64 }, { pageId })
+      await sceneAdd.run({ component: 'text', text: notesMarkdown(bullets, definitions), x: at.x, y: at.y }, { pageId })
       notes = pageObjects().find((o) => !before.has(o.id))?.id
     }
     if (notes) {
@@ -105,6 +116,9 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     }
     L().set({ sections: sections().map((s) => (s.id === cur.id ? { ...s, bullets, definitions, formulas, checks, notes, ids: notes && !s.ids.includes(notes) ? [...s.ids, notes] : s.ids } : s)) })
   }
+  /** One note at a time: two concurrent notes would each find no block yet and each create one. */
+  let noteQueue: Promise<void> = Promise.resolve()
+  const note = (n: Parameters<typeof doNote>[0]): Promise<void> => (noteQueue = noteQueue.then(() => doNote(n)).catch(() => undefined))
   const addBullet = (raw: string | null) => note({ say: raw })
   const addToSection = (ids: string[]) => {
     const cur = current()
@@ -170,9 +184,18 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
         // picture up under its heading — heading, picture and notes then read as one block.
         const picture = pageObjects().filter((o) => !withHeading.has(o.id))
         const pbox = boxOf(picture)
-        if (pbox) moveBy(picture.map((o) => o.id), at.x - pbox.x, at.y + 64 - pbox.y)
+        const layout = layoutOf(sb.beats as { t: string; text?: string; clear?: boolean }[], beatOfScene(script))
+        if (pbox) {
+          const ids = picture.map((o) => o.id)
+          const to = diagramOrigin(layout, at, pbox.w)
+          moveBy(ids, to.x - pbox.x, to.y - pbox.y)
+          // Wires re-route to their terminals when parts move, which can change the picture's extent:
+          // measure again and settle it once more so it lands where the layout says.
+          const again = boxOf(objectsOf(ids))
+          if (again) { const to2 = diagramOrigin(layout, at, again.w); if (Math.abs(to2.x - again.x) > 2 || Math.abs(to2.y - again.y) > 2) moveBy(ids, to2.x - again.x, to2.y - again.y) }
+        }
         const made = pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id)
-        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index }] })
+        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index, layout }] })
         eqCount = 0
       } else {
         place(pageId, script, { reserveBottom: FRAME_BOTTOM })
@@ -288,7 +311,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       if (!sum.parts.length) return
       const n = sections().length + 1
       const at = nextOrigin(pageObjects(), { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 40 })
-      const mk = async (component: string, text: string, x: number, y: number, h?: number, w = 460) => {
+      const mk = async (component: string, text: string, x: number, y: number, h?: number, w = CONTENT_W) => {
         const before = new Set(pageObjects().map((o) => o.id))
         await sceneAdd.run({ component, text, x, y }, { pageId })
         const id = pageObjects().find((o) => !before.has(o.id))?.id
@@ -299,18 +322,18 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       const push = (id?: string) => { if (id) ids.push(id) }
       push(await mk('text', `## ${n} · Summary: ${sb.title.length > 44 ? sb.title.slice(0, 43) + '…' : sb.title}`, at.x, at.y))
       const lines = sum.parts.flatMap((p) => [p.title, ...p.points.slice(0, 3)])
-      const sumH = notesHeight(lines, 460) + sum.parts.length * 22
+      const sumH = notesHeight(lines, CONTENT_W) + sum.parts.length * 22
       push(await mk('text', summaryMarkdown(sum), at.x, at.y + 64, sumH))
       let y = at.y + 64 + sumH + 24
       if (sum.glossary.length) {
-        const gh = notesHeight(sum.glossary.map((g) => `${g.term} — ${g.meaning}`), 460)
+        const gh = notesHeight(sum.glossary.map((g) => `${g.term} — ${g.meaning}`), CONTENT_W)
         push(await mk('text', glossaryMarkdown(sum), at.x, y, gh))
         y += gh
       }
       // the formulas, in a column beside the points
       let fy = at.y + 64
-      for (const f of sum.formulas.slice(0, 6)) { push(await mk('formula', f.latex, at.x + 500, fy)); fy += 112 }
-      L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, beat: sb.beats.length, summary: true }] })
+      for (const f of sum.formulas.slice(0, 6)) { push(await mk('formula', f.latex, at.x + CONTENT_W + COLUMN_GAP, fy)); fy += 112 }
+      L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, beat: sb.beats.length, summary: true, layout: 'split' }] })
       void frame()
       T().set({ mood: 'proud', pose: 'open' })
       await speak('That is the lesson. Everything we covered is gathered here: the key points, the formulas, and the words to remember. Open Study notes whenever you want to print it or revise.')
