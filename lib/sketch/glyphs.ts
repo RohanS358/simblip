@@ -74,7 +74,8 @@ const MID = 30
 
 function resistor(rng: Rng): Glyph {
   const teeth = rng.int(3, 6)
-  const amp = rng.range(9, 15)
+  // some people draw zigzags nearly as tall as they are wide; drawn from a side stream so the usual ones keep their draws
+  const amp = rng.range(9, 15) + (rng.fork('zig-tall').chance(0.25) ? rng.fork('zig-amp').range(4, 9) : 0)
   const xs = rng.range(18, 26)
   const xe = 100 - xs
   const pts: Pt[] = [[xs, MID]]
@@ -99,15 +100,41 @@ function capacitor(rng: Rng): Glyph {
 }
 
 function inductor(rng: Rng): Glyph {
+  // People draw a coil three ways: flat humps (a row of arches), tall arches, and loops (a curl, as in
+  // cursive "eeee"). Only the humps were generated at first, and a hand-drawn looped coil was read as a
+  // resistor. The style is chosen from its own stream so the humps keep their original random draws.
+  const style = rng.fork('coil-style').weighted([['humps', 0.35], ['tall', 0.2], ['loops', 0.45]] as const)
+  if (style === 'loops') return coilLoops(rng.fork('coil-loops'))
   const humps = rng.int(3, 5)
   const xs = rng.range(16, 24)
   const xe = 100 - xs
   const w = (xe - xs) / humps
   const r = w / 2
-  const ry = rng.range(0.9, 1.4) * r
+  const ry = style === 'tall' ? Math.min(24, rng.range(1.6, 2.8) * r) : rng.range(0.9, 1.4) * r
   const pts: Pt[] = []
   for (let i = 0; i < humps; i++) pts.push(...arc(xs + w * (i + 0.5), MID, r, ry, Math.PI, 2 * Math.PI, 12))
-  return { variant: `coil-${humps}`, strokes: [lead(0, MID, xs, MID), body(pts), lead(xe, MID, 100, MID)] }
+  return { variant: `${style === 'tall' ? 'tall-' : ''}coil-${humps}`, strokes: [lead(0, MID, xs, MID), body(pts), lead(xe, MID, 100, MID)] }
+}
+
+/** A coil drawn as loops: x advances while the pen circles, so each turn crosses itself. */
+function coilLoops(rng: Rng): Glyph {
+  const turns = rng.int(3, 5)
+  const xs = rng.range(14, 22)
+  const xe = 100 - xs
+  const a = (xe - xs) / (2 * Math.PI * turns)
+  const b = a * rng.range(1.3, 3.2)
+  const ay = rng.range(7, 12) // (turn heights below can reach 1.25x; the glyph frame is 60 high)
+  // hand-drawn loops differ turn to turn: each gets its own height
+  const turnAmp = Array.from({ length: turns + 1 }, () => rng.range(0.7, 1.25))
+  const up = rng.chance(0.7) ? -1 : 1
+  const pts: Pt[] = []
+  const steps = turns * 20
+  for (let i = 0; i <= steps; i++) {
+    const t = (2 * Math.PI * turns * i) / steps
+    const k = Math.min(turns, Math.floor(t / (2 * Math.PI)))
+    pts.push([xs + a * t - b * Math.sin(t), MID + up * ay * turnAmp[k] * (1 - Math.cos(t))])
+  }
+  return { variant: `loops-${turns}`, strokes: [lead(0, MID, xs, MID), body(pts), lead(xe, MID, 100, MID)] }
 }
 
 /** Pose 0: the long (positive) plate is on the left. */

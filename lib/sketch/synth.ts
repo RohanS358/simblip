@@ -34,7 +34,7 @@ import { UNKNOWN_CLASS, WAVE1_CLASSES, POSE_SYMMETRY, canonicalPose, type Pose, 
 import type { SketchSampleT } from './dataset'
 
 /** Bump when the generator's output distribution changes; stored in every sample's meta. */
-export const GENERATOR_VERSION = 2
+export const GENERATOR_VERSION = 3
 
 type Device = SketchSampleT['device']
 export type Stroke3 = Array<[number, number, number]>

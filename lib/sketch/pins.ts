@@ -19,7 +19,7 @@ export const PIN_TEMPLATE: Record<Wave1Class, PinTemplate[]> = {
   'battery': [{ name: 'positive', u: 0, v: 0.5 }, { name: 'negative', u: 1, v: 0.5 }],
   'resistor': [{ name: 'a', u: 0, v: 0.5 }, { name: 'b', u: 1, v: 0.5 }],
   'capacitor': [{ name: 'a', u: 0, v: 0.5 }, { name: 'b', u: 1, v: 0.5 }],
-  'inductor': [{ name: 'a', u: 0, v: 1 }, { name: 'b', u: 1, v: 1 }],
+  'inductor': [{ name: 'a', u: 0, v: 0.833 }, { name: 'b', u: 1, v: 0.833 }],
   'switch': [{ name: 'a', u: 0, v: 0.95 }, { name: 'b', u: 1, v: 0.95 }],
   'bulb': [{ name: 'a', u: 0, v: 0.5 }, { name: 'b', u: 1, v: 0.5 }],
   'led': [{ name: 'anode', u: 0, v: 0.651 }, { name: 'cathode', u: 1, v: 0.651 }],

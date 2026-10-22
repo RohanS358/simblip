@@ -21,6 +21,12 @@ const LONE_SYMBOL_P = 0.6
 /** A lone symbol is at most this many strokes (body, leads, a label). */
 const MAX_LONE_STROKES = 8
 
+/** The box of the biggest stroke: the body of a symbol (the seed may be just a lead). */
+function biggestBox(cluster: PlainStroke[]): Box {
+  const boxes = cluster.map((c) => boxOf(c.pts))
+  return boxes.reduce((m, b) => (Math.hypot(b.x1 - b.x0, b.y1 - b.y0) > Math.hypot(m.x1 - m.x0, m.y1 - m.y0) ? b : m))
+}
+
 /** The ink around the seed is no bigger than one symbol with its leads (about 2.5 times its body). */
 function isOneSymbolWide(cluster: PlainStroke[], body: Box): boolean {
   const all = unionBox(cluster)
@@ -195,8 +201,9 @@ export function readSketch(
   // gets to call that a ramp, a ball or a block. It does not settle it when other ink nearby holds
   // mechanics or optics evidence of its own.
   const lone = pickNeural(net, seed.pts, cluster.filter((s) => s.id !== seedId), { minP: NEURAL_SHOW_P })
-  if (lone.kind === 'place' && lone.p >= LONE_SYMBOL_P && tierOf(lone) === 'sure' && cluster.length <= MAX_LONE_STROKES && isOneSymbolWide(cluster, lone.box)) {
-    const group = new Set([seedId, ...lone.absorb])
+  if (lone.kind === 'place' && lone.p >= LONE_SYMBOL_P && tierOf(lone) === 'sure' && cluster.length <= MAX_LONE_STROKES && isOneSymbolWide(cluster, biggestBox(cluster))) {
+    // everything touching the seed is judged to be this one symbol (its body, its leads), so only ink beyond that counts as "elsewhere"
+    const group = new Set(cluster.map((c) => c.id))
     const rest = mechCluster.filter((s) => !group.has(s.id))
     // other ink nearby that reads as mechanics or optics (a ball over a hatched wall) outvotes the symbol
     const elsewhere = rest.length >= 2 && ((mech ? mechanicsEvidence(mech) >= 1.5 : false) || opticsScore >= 3)
