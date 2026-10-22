@@ -8,6 +8,8 @@ import { useDocStore } from '@/lib/store/document'
 import { getElement } from '@/lib/physics/world'
 import { num } from '@/lib/scene/types'
 import { applyParam } from './apply'
+import { prefetch } from '@/lib/tts/neural'
+import { upcomingLines } from './lines'
 import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
 import { play, stop as stopPhysics } from '@/lib/physics/world'
 import { narrator } from '@/lib/walkthrough/walkthrough-narrator'
@@ -347,7 +349,10 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
         })
       }
     },
-    onBeat: (index) => L().set({ index }),
+    onBeat: (index) => {
+      L().set({ index })
+      prefetch(upcomingLines(sb, index + 1), 1) // fetch the next lines' audio while this one plays
+    },
     async checkpoint(index) {
       // Her questions are answered by tapping buttons on the board: with no board on screen (a headless
       // run, a test) there is nobody to ask, so she simply carries on.

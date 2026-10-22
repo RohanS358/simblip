@@ -8,13 +8,15 @@ const listen = (s) => new Promise((r) => s.listen(0, '127.0.0.1', () => r(s.addr
 const seen = []
 const up = http.createServer(async (req, res) => {
   const chunks = []; for await (const c of req) chunks.push(c)
+  if (req.url === '/voices') return res.end(JSON.stringify({ voices: ['af_heart'] }))
+  if (req.url === '/speak') return res.end(Buffer.from('RIFFfake'))
   if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'qwen3:8b' }] }))
   const b = JSON.parse(Buffer.concat(chunks)); seen.push(b)
   res.write(JSON.stringify({ message: { content: 'hi' }, done: false }) + '\n')
   res.end(JSON.stringify({ done: true, eval_count: 7, prompt_eval_count: 3 }) + '\n')
 })
 const upPort = await listen(up)
-const cfg = { port: 0, host: '127.0.0.1', key: 'k'.repeat(24), upstream: `http://127.0.0.1:${upPort}`, concurrency: 1, maxQueue: 1, ratePerMin: 1000, keepAlive: '30m', aliases: { 'simblip-script': { model: 'ft', system: 'SHORT' }, 'simblip-explain': { model: 'qwen3:8b', think: false, options: { temperature: 0.3 } } } }
+const cfg = { port: 0, host: '127.0.0.1', key: 'k'.repeat(24), upstream: `http://127.0.0.1:${upPort}`, tts: `http://127.0.0.1:${upPort}`, concurrency: 1, maxQueue: 1, ratePerMin: 1000, keepAlive: '30m', aliases: { 'simblip-script': { model: 'ft', system: 'SHORT' }, 'simblip-explain': { model: 'qwen3:8b', think: false, options: { temperature: 0.3 } } } }
 const srv = createServer(cfg); const port = await listen(srv)
 const call = (path, opt = {}, key = cfg.key) => fetch(`http://127.0.0.1:${port}${path}`, { ...opt, headers: { ...(key ? { Authorization: `Bearer ${key}` } : {}), 'Content-Type': 'application/json' } })
 test.after(() => { srv.close(); up.close() })
@@ -53,4 +55,16 @@ test('fine-tuned lane swaps the long prompt and few-shots for its short system p
   await (await call('/api/chat', { method: 'POST', body: JSON.stringify({ model: 'simblip-script', messages }) })).text()
   assert.deepEqual(seen.at(-1).messages, [{ role: 'system', content: 'SHORT' }, { role: 'user', content: 'real request' }])
   assert.equal(seen.at(-1).model, 'ft')
+})
+
+test('speech: authed, proxied to the sidecar, and 503 when the sidecar is down', async () => {
+  assert.equal((await call('/v1/tts', { method: 'POST', body: '{}' }, '')).status, 401)
+  const ok = await call('/v1/tts', { method: 'POST', body: JSON.stringify({ text: 'hi', voice: 'af_heart' }) })
+  assert.equal(ok.status, 200)
+  assert.equal(await ok.text(), 'RIFFfake')
+  assert.deepEqual(await (await call('/v1/tts/voices')).json(), { voices: ['af_heart'] })
+  const down = createServer({ ...cfg, tts: 'http://127.0.0.1:1' }); const dp = await listen(down)
+  const r = await fetch(`http://127.0.0.1:${dp}/v1/tts`, { method: 'POST', headers: { Authorization: `Bearer ${cfg.key}` }, body: '{}' })
+  assert.equal(r.status, 503)
+  down.close()
 })

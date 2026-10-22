@@ -17,8 +17,9 @@
     "mcp": "node scripts/mcp/simblip-mcp.mjs",
     "e2e:ai": "node scripts/ai-e2e.mjs",
     "ai-server": "node ai-server/server.mjs",
+    "ai-tts": ".cache/tts-venv/bin/python ai-server/tts/tts_server.py",
     "test:ai-server": "node --test ai-server/server.test.mjs",
-    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/learning/*.test.mjs lib/lesson/*.test.mjs lib/frame/*.test.mjs lib/teacher/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs scripts/mcp/*.test.mjs"
+    "test:ai": "node --experimental-strip-types --import ./scripts/test/register.mjs --test --test-force-exit lib/ai/*.test.mjs lib/tools/*.test.mjs lib/learning/*.test.mjs lib/lesson/*.test.mjs lib/tts/*.test.mjs lib/frame/*.test.mjs lib/teacher/*.test.mjs lib/scene/rail-layout.test.mjs lib/scene/circuit-layout.test.mjs lib/sketch/*.test.mjs scripts/mcp/*.test.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

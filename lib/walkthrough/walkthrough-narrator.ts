@@ -1,6 +1,7 @@
 'use client'
 
 import { useWalkthroughStore } from '../store/walkthrough-store'
+import { neuralAvailable, pauseNeural, resumeNeural, speakNeural, stopNeural } from '../tts/neural'
 
 class WalkthroughNarrator {
   private currentUtterance: SpeechSynthesisUtterance | null = null
@@ -28,6 +29,17 @@ class WalkthroughNarrator {
    *  written out in step with the voice. Driven by the speech engine's word boundaries when it
    *  has them, and by the reading-time estimate when muted or when no voice is available. */
   public speak(text: string, onProgress?: (chars: number) => void): Promise<void> {
+    useWalkthroughStore.getState().setSubtitles(text)
+    const { muted, speed } = useWalkthroughStore.getState()
+    // A neural voice when the AI server has one (Linux browsers ship no voices at all); otherwise the
+    // browser's own, otherwise the reading-time estimate. A line never fails to finish.
+    if (!muted && typeof window !== 'undefined') {
+      return neuralAvailable().then((ok) => (ok ? speakNeural(text, speed || 0.75, onProgress).catch(() => this.browserSpeak(text, onProgress)) : this.browserSpeak(text, onProgress)))
+    }
+    return this.browserSpeak(text, onProgress)
+  }
+
+  private browserSpeak(text: string, onProgress?: (chars: number) => void): Promise<void> {
     return new Promise((resolve) => {
       useWalkthroughStore.getState().setSubtitles(text)
 
@@ -91,18 +103,21 @@ class WalkthroughNarrator {
   }
 
   public pause() {
+    pauseNeural()
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.pause()
     }
   }
 
   public resume() {
+    resumeNeural()
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.resume()
     }
   }
 
   public stop() {
+    stopNeural()
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel()
     }

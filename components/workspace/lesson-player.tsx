@@ -5,7 +5,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { FileText, Gauge, HelpCircle, List, MessageCircleQuestion, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { FileText, Gauge, HelpCircle, List, MessageCircleQuestion, Mic, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,7 @@ import { cancelPreparing } from '@/lib/lesson/generate'
 import { pauseLesson, resumeLesson, seekLesson, stopLesson } from '@/lib/lesson/controller'
 import { durationOf } from '@/lib/lesson/storyboard'
 import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
+import { WOMEN_VOICES, neuralAvailable, speakNeural, useVoicePrefs } from '@/lib/tts/neural'
 import { useTutor } from '@/lib/lesson/tutor-store'
 import { askQuestion } from '@/lib/lesson/tutor'
 import { continueLesson } from '@/lib/lesson/controller'
@@ -76,6 +77,10 @@ function Typed({ text, spoken }: { text: string; spoken: number }) {
 export function LessonPlayer() {
   const { active, storyboard, index, paused, caption, spoken, card, pending, chosen, preparing, set } = useLesson()
   const rect = useCanvasRect()
+  const voice = useVoicePrefs((v) => v.voice)
+  const setVoice = useVoicePrefs((v) => v.setVoice)
+  const [neural, setNeural] = useState(false)
+  useEffect(() => { void neuralAvailable().then(setNeural) }, [])
   const tutorMode = useTutor((s) => s.mode)
   const muted = useWalkthroughStore((s) => s.muted)
   const toggleMute = useWalkthroughStore((s) => s.toggleMute)
@@ -195,6 +200,24 @@ export function LessonPlayer() {
               {SPEEDS.map((s) => <DropdownMenuItem key={s} onClick={() => setSpeed(s)} className={cn('justify-center py-1.5 text-ui-xs', s === speed && 'font-bold text-[var(--accent-blue)]')}>{s}x</DropdownMenuItem>)}
             </DropdownMenuContent>
           </DropdownMenu>
+          {neural && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Choose the teacher's voice"><Mic className="h-4 w-4 text-[var(--accent-blue)]" /></Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                {WOMEN_VOICES.map((v) => (
+                  <DropdownMenuItem
+                    key={v.id}
+                    onClick={() => { setVoice(v.id); void speakNeural("Hi, I'll be your teacher today.", 1).catch(() => {}) }}
+                    className={cn('py-2 text-ui-xs', v.id === voice && 'font-bold text-[var(--accent-blue)]')}
+                  >
+                    {v.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={muted ? 'Unmute narration' : 'Mute narration'} onClick={toggleMute}>
             {muted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-[var(--accent-blue)]" />}
           </Button>

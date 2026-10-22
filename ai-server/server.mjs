@@ -33,6 +33,7 @@ export function loadConfig(env = process.env) {
     maxQueue: Number(env.AI_SERVER_MAX_QUEUE ?? 8),
     ratePerMin: Number(env.AI_SERVER_RATE_PER_MIN ?? 60),
     keepAlive: env.AI_SERVER_KEEP_ALIVE ?? '30m',
+    tts: env.AI_SERVER_TTS ?? 'http://127.0.0.1:8788', // the Kokoro sidecar (ai-server/tts); optional
     aliases,
   }
 }
@@ -102,6 +103,24 @@ export function createServer(cfg) {
       }
       if (req.method === 'GET' && url.pathname === '/v1/status') {
         return send(res, 200, { queue: gate.depth, concurrency: cfg.concurrency, aliases: cfg.aliases })
+      }
+      // Speech: the app asks for audio, the sidecar synthesises it (or says it is not running).
+      if (url.pathname === '/v1/tts' || url.pathname === '/v1/tts/voices') {
+        const chunks = []
+        let size = 0
+        for await (const c of req) { size += c.length; if (size > 20_000) return send(res, 413, { error: 'too large' }); chunks.push(c) }
+        const ac = new AbortController()
+        res.on('close', () => { if (!res.writableEnded) ac.abort() })
+        let up
+        try {
+          up = url.pathname === '/v1/tts/voices'
+            ? await fetch(`${cfg.tts}/voices`, { signal: ac.signal })
+            : await fetch(`${cfg.tts}/speak`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: Buffer.concat(chunks), signal: ac.signal })
+        } catch { return send(res, 503, { error: 'speech service not running' }) }
+        res.writeHead(up.status, { 'Content-Type': up.headers.get('content-type') ?? 'application/json', 'Cache-Control': 'private, max-age=86400' })
+        res.end(Buffer.from(await up.arrayBuffer()))
+        log({ route: 'tts', status: up.status, ms: Date.now() - t0 }) // length only — never the text
+        return
       }
       if (req.method === 'POST' && url.pathname === '/api/chat') {
         const chunks = []

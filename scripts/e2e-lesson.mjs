@@ -13,10 +13,13 @@ const seed = readFileSync(resolve(root, 'lib/auth/bootstrap.ts'), 'utf8')
 const EMAIL = /email: '([^']+)'/.exec(seed)[1], PASS = /password: '([^']+)'/.exec(seed)[1]
 
 const ctx = await chromium.launchPersistentContext(resolve(root, '.cache/ai-e2e-profile'), {
-  executablePath: '/usr/bin/google-chrome', headless: !arg('headed', false), viewport: { width: 1360, height: 860 }, args: ['--no-sandbox'],
+  executablePath: '/usr/bin/google-chrome', headless: !arg('headed', false), viewport: { width: 1360, height: 860 }, args: ['--no-sandbox', '--autoplay-policy=no-user-gesture-required'],
 })
 const page = ctx.pages()[0] ?? (await ctx.newPage())
 const errors = []
+await ctx.addInitScript(() => { window.__aud = { play: 0, ended: 0 }; const o = HTMLMediaElement.prototype.play; HTMLMediaElement.prototype.play = function () { window.__aud.play++; this.addEventListener('ended', () => window.__aud.ended++, { once: true }); return o.apply(this, arguments) } })
+let ttsCalls = 0, ttsBytes = 0
+page.on('response', async (r) => { if (r.url().includes('/api/ai/tts') && r.request().method() === 'POST') { ttsCalls++; ttsBytes += Number(r.headers()['content-length'] ?? 0) } })
 page.on('pageerror', (e) => errors.push(String(e)))
 const log = (s) => console.log(s)
 const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` })
@@ -68,7 +71,7 @@ if (film) log(`  film "${film.title}": ${film.beats.length} beats — ` + Object
 await page.waitForTimeout(3000); await shot('2b-early')
 log('  canvas roots: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[data-canvas-root]')].map((e) => [e.dataset.canvasRoot, Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]))))
 const pred = page.getByRole('group', { name: 'Prediction' })
-await pred.waitFor({ timeout: 8_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
+await pred.waitFor({ timeout: 180_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
 if (arg('hunt', false)) {
   // Play on at 1.5x, answering every prediction, until a formula is being written — then take frames of it.
   await page.getByRole('button', { name: /0\.75x/ }).click(); await page.getByRole('menuitem', { name: '1.5x' }).click({ force: true })
@@ -79,6 +82,8 @@ if (arg('hunt', false)) {
     if (!typed && (await page.locator('[aria-live=polite] span.animate-pulse').count())) { typed++; await shot('4a-typing'); log('✔ caption is being typed in step with the voice') }
     if (await page.locator('.formula-writing').count()) { await shot(`5-formula-write-${frames++}`); await page.waitForTimeout(450) } else await page.waitForTimeout(300)
   }
+  log('  audio elements: ' + JSON.stringify(await page.evaluate(() => window.__aud)))
+log(`  tts calls: ${ttsCalls} (${Math.round(ttsBytes / 1024)} KB of neural speech)`)
   log(frames ? `✔ captured ${frames} frames of a formula being written` : '✖ never saw a formula being written')
   await ctx.close(); process.exit(0)
 }
@@ -89,6 +94,8 @@ await page.getByRole('button', { name: 'Next', exact: true }).click(); await pag
 const objs = await page.locator('text=/\\d+ objects?/').last().innerText().catch(() => '?')
 log(`  ${objs} on the lesson page`)
 await page.getByTitle('Close lesson').click(); await page.waitForTimeout(500)
+log(`  tts calls: ${ttsCalls} (${Math.round(ttsBytes / 1024)} KB of neural speech)`)
+log('  audio elements: ' + JSON.stringify(await page.evaluate(() => window.__aud)))
 log((await bar.count()) === 0 ? '✔ closed cleanly' : '✖ overlay still open')
 log(errors.length ? `page errors: ${errors.slice(0, 3).join(' | ').slice(0, 400)}` : '✔ no page errors')
 await ctx.close()

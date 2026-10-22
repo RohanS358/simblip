@@ -32,3 +32,17 @@ Lanes are aliases in `models.json`: swap the model behind a lane without touchin
 | 1.7B fine-tune, bf16 | 93% | no gain on this set; not promoted (see docs/ai/decisions.md) |
 
 Register the fine-tune: copy `simblip-lite-Q8_0.gguf` beside `Modelfile.simblip-lite`, then `ollama create simblip-lite-q8 -f Modelfile.simblip-lite`. Weights are not in git (build: `scripts/ai/train/`, GGUF via `.cache/llama.cpp`).
+
+## Voice (text-to-speech)
+
+Linux browsers ship no speech voices, so lessons are narrated by a neural voice served from here
+(Kokoro-82M; 54 voices, women's voices curated in `lib/tts/neural.ts`; default `af_heart`).
+
+```bash
+bash ai-server/tts/setup.sh     # once: venv + ~350 MB of model files
+npm run ai-tts                  # the sidecar on 127.0.0.1:8788 (next to `npm run ai-server`)
+```
+
+The app reaches it through `/api/ai/tts` (which adds the server key); lines are synthesised once and cached on disk
+(`.cache/tts/cache`). With no sidecar the app falls back to the browser's voices, then to timed captions.
+Measured: ~4× real time on CPU (a 4.7 s sentence in 1.2 s); the player prefetches the next lines so beats never wait.
