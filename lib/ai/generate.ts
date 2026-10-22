@@ -61,7 +61,11 @@ export interface SimScriptGenerator {
      *  short. A prose answer is not: measured, a filters short-note ran 2445
      *  characters and was cut mid-word at the 700-token default, which then
      *  surfaced downstream as an orphaned `**` on a slide. See EXPLAIN_TOKENS. */
-    maxTokens?: number
+    maxTokens?: number,
+    /** A JSON Schema the output must satisfy — grammar-constrained decoding (Ollama `format`),
+     *  so structured replies are valid by construction. Backends that cannot constrain ignore it;
+     *  callers still validate. */
+    format?: object
   ): Promise<string>
 }
 // ── Stream readers ──────────────────────────────────────────────────────────
@@ -186,7 +190,7 @@ const OLLAMA_TIMEOUT_MS = 120_000
 export function makeOllamaGenerator(model: string): SimScriptGenerator {
   return {
   name: `ollama:${model}`,
-  async generate(system, user, onToken, shots, maxTokens) {
+  async generate(system, user, onToken, shots, maxTokens, format) {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), OLLAMA_TIMEOUT_MS)
     try {
@@ -201,6 +205,7 @@ export function makeOllamaGenerator(model: string): SimScriptGenerator {
             { role: 'user', content: user },
           ],
           stream: !!onToken,
+          ...(format ? { format } : {}),
           // Cold start measured at 8.7s — nearly 4x the warm generation
           // itself, and the single largest component of perceived latency.
           // Keeping the weights resident removes it entirely.

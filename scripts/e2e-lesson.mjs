@@ -41,14 +41,32 @@ await page.waitForTimeout(1500)
 if (await page.getByRole('button', { name: 'Expand sidebar' }).count()) await page.getByRole('button', { name: 'Expand sidebar' }).click()
 if (!(await box.count())) await page.getByRole('button', { name: 'Assistant' }).click()
 await box.waitFor({ state: 'visible', timeout: 60_000 })
-await box.click(); await box.fill('teach me ohms law'); await page.keyboard.press('Enter')
+const TOPIC = arg('topic', 'ohms law')
+// Generated films need the AI server: pin this browser to it for the run.
+await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith('simblip-lesson-cache')) localStorage.removeItem(k); const k = 'simblip-ai-engine'; const v = JSON.parse(localStorage.getItem(k) ?? '{"state":{},"version":0}'); v.state.backend = 'server'; localStorage.setItem(k, JSON.stringify(v)) })
+await page.reload(); await page.waitForTimeout(2500)
+if (!(await box.count())) await page.getByRole('button', { name: 'Assistant' }).click()
+await box.waitFor({ state: 'visible', timeout: 60_000 })
+await box.click(); await box.fill(`teach me ${TOPIC}`); await page.keyboard.press('Enter')
+if (arg('generate', false)) {
+  const t0 = Date.now()
+  const building = page.getByRole('status').filter({ hasText: 'Building a lesson' })
+  await building.waitFor({ timeout: 30_000 }); log('✔ progress card shown'); await shot('0-building')
+  let last = ''
+  while (await building.count()) { const t = (await building.innerText().catch(() => '')).split('\n').pop(); if (t !== last) { log(`  [${Math.round((Date.now() - t0) / 1000)}s] ${t}`); last = t } await page.waitForTimeout(1500); if (Date.now() - t0 > 600_000) throw new Error('generation took > 10 min') }
+  log(`✔ film ready after ${Math.round((Date.now() - t0) / 1000)}s`)
+}
 
 const bar = page.getByRole('progressbar', { name: /Lesson progress/ })
 await bar.waitFor({ timeout: 60_000 }); log('✔ lesson overlay appeared'); await shot('1-started')
 await page.waitForTimeout(9000); await shot('2-narrating')
-// Speed up: 1.5x then wait for the first prediction card.
+// What did the director produce? (the film is cached per user in localStorage)
+const film = await page.evaluate(() => { const k = Object.keys(localStorage).find((x) => x.startsWith('simblip-lesson-cache')); if (!k) return null; const f = Object.values(JSON.parse(localStorage.getItem(k)).state.films)[0]?.storyboard; return f ? { title: f.title, beats: f.beats.map((b) => b.t) } : null })
+if (film) log(`  film "${film.title}": ${film.beats.length} beats — ` + Object.entries(film.beats.reduce((a, t) => ((a[t] = (a[t] ?? 0) + 1), a), {})).map(([t, n]) => `${t}×${n}`).join(' '))
+await page.waitForTimeout(3000); await shot('2b-early')
+log('  canvas roots: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[data-canvas-root]')].map((e) => [e.dataset.canvasRoot, Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]))))
 const pred = page.getByRole('group', { name: 'Prediction' })
-await pred.waitFor({ timeout: 240_000 }); log('✔ prediction card appeared'); await shot('3-predict')
+await pred.waitFor({ timeout: 20_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
 const label = await pred.innerText(); log('  ' + label.replace(/\n+/g, ' | ').slice(0, 200))
 await pred.getByRole('button').first().click(); await page.waitForTimeout(3500); await shot('4-after-choice')
 log('  caption: ' + (await page.locator('[aria-live=polite]').last().innerText().catch(() => '(none)')).slice(0, 200))

@@ -29,6 +29,11 @@ export const aiRequestSchema = z.object({
    *  the measured default (lib/ai/few-shot.ts). Exists so scripts/ai-sweep.mjs
    *  can measure the model-size / example-count trade rather than guess it. */
   shots: z.number().int().min(0).max(12).optional(),
+  /** A raw completion: this system prompt + `prompt`, no lanes, no router. Used by the lesson
+   *  director for structured (JSON) planning — the caller validates what comes back. */
+  rawSystem: z.string().max(8000).optional(),
+  /** JSON Schema for a rawSystem completion (constrained decoding where the backend supports it). */
+  rawFormat: z.record(z.string(), z.unknown()).optional(),
   /** Bypass the generation cache. Development only. */
   nocache: z.boolean().optional(),
   pageContext: z
@@ -187,6 +192,10 @@ export async function runAi(req: AiRequest, deps: RunDeps): Promise<void> {
     generateSimScript(userPrompt, { systemPrompt: system, shots: req.shots, generator: await deps.script(), onToken })
 
   try {
+    if (req.rawSystem) {
+      const g = await deps.explain()
+      return done({ message: await g.generate(req.rawSystem, req.prompt, undefined, undefined, 1800, req.rawFormat) })
+    }
     // Tools first: "run it", "how fast is the ball?" have exact answers that
     // need no scene and no derivation.
     if (deps.act) {

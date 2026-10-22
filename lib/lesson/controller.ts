@@ -1,6 +1,9 @@
 'use client'
 
 import { stop as stopPhysics } from '@/lib/physics/world'
+import { useWorkspaceStore } from '@/lib/store/workspace'
+import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
+import { walkthroughEngine } from '@/lib/walkthrough/walkthrough-engine'
 import { narrator } from '@/lib/walkthrough/walkthrough-narrator'
 import { perform } from './player'
 import { bumpRun, makeStage } from './stage'
@@ -33,4 +36,14 @@ export function stopLesson() {
   narrator.stop()
   stopPhysics()
   useLesson.getState().set({ active: false, pending: null, card: null, caption: '', paused: false })
+}
+
+/** A fresh page for the film, next to the student's own — their work is never touched.
+ *  A running product tour owns a scratch notebook and the active page; end it first, so the
+ *  lesson lands in the student's notebook and the tour's cleanup cannot delete it. */
+export function openLessonPage(title: string): string | null {
+  if (useWalkthroughStore.getState().active) walkthroughEngine.stop()
+  const s = useWorkspaceStore.getState()
+  const parentId = s.activePageId ? s.nodes[s.activePageId]?.parentId : null
+  return parentId ? s.addPageIn(parentId, `Lesson: ${title}`.slice(0, 80), 'board') : null
 }

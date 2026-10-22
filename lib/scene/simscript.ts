@@ -1454,6 +1454,12 @@ export function applySceneLayout(
         patch.geometry = { ...o.geometry, points: o.geometry.points.map(([px, py]) => [px * scale, py * scale]) }
       }
     }
+    // A routed connector's bends are object-local, so a scaled scene must scale them with it —
+    // otherwise the corners stay at the old size and the route cuts across the boxes.
+    const bends = o.metadata.bends as number[][] | undefined
+    // Always for a connector (restoreShape): moving the bodies re-projected it and refit its bends
+    // against stale positions, so the snapshot's bends are the only trustworthy ones.
+    if ((scale !== 1 || restoreShape) && bends?.length) patch.metadata = { ...o.metadata, bends: bends.map(([bx, by]) => [bx * scale, by * scale]) }
     store().updateObject(pageId, o.id, patch, { history: false })
   }
   // Bodies first, connectors last. Moving a body re-projects every connector
@@ -1465,8 +1471,12 @@ export function applySceneLayout(
   // brings its routed shape back. (Found by a voltmeter-style tap wire that
   // ended 92px from its pin: the second bulb of a parallel pair was not
   // connected at all, and the circuit solved without it.)
+  // Diagram links (metadata.render 'connector') are rigid too: they were being moved with the
+  // bodies, re-projected by them, and left with bends from the old position — a flowchart
+  // whose "no" branch ran back up through its own boxes.
   const isConnector = (o: SceneObject) =>
-    o.geometry.kind === 'line' && o.behaviors.some((b) => b.type === 'wire' || b.params.targetA?.kind === 'string')
+    o.geometry.kind === 'line' &&
+    (o.metadata.render === 'connector' || o.behaviors.some((b) => b.type === 'wire' || b.params.targetA?.kind === 'string'))
   for (const o of made) if (!isConnector(o)) place(o, false)
   for (const o of made) if (isConnector(o)) place(o, true)
 }

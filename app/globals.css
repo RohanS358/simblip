@@ -1825,3 +1825,19 @@ html[data-keyboard='open'] .hide-with-keyboard {
   min-width: 1.5rem;
   min-height: 1.5rem;
 }
+
+
+/* Lesson player: a formula is written out left to right in step with the voice. The pen is the
+   bright edge that leads the wipe. Duration comes from the object's `writeMs` parameter. */
+@keyframes formula-write {
+  from { clip-path: inset(-4px 100% -4px -4px); }
+  to { clip-path: inset(-4px -4px -4px -4px); }
+}
+@keyframes formula-pen {
+  from { left: 0; opacity: 1; }
+  92% { opacity: 1; }
+  to { left: 100%; opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .formula-writing, .formula-writing::after { animation: none !important; }
+}

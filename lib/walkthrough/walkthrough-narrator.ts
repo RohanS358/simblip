@@ -24,7 +24,10 @@ class WalkthroughNarrator {
     this.isInitialized = true
   }
 
-  public speak(text: string): Promise<void> {
+  /** `onProgress(chars)` reports how much of `text` has been spoken so far, so captions can be
+   *  written out in step with the voice. Driven by the speech engine's word boundaries when it
+   *  has them, and by the reading-time estimate when muted or when no voice is available. */
+  public speak(text: string, onProgress?: (chars: number) => void): Promise<void> {
     return new Promise((resolve) => {
       useWalkthroughStore.getState().setSubtitles(text)
 
@@ -35,7 +38,15 @@ class WalkthroughNarrator {
         const words = text.split(' ').length
         const baseDuration = Math.max(2000, (words / 150) * 60 * 1000)
         const duration = baseDuration / speed
-        setTimeout(() => resolve(), duration)
+        if (onProgress) {
+          const t0 = Date.now()
+          const iv = setInterval(() => {
+            const f = Math.min(1, (Date.now() - t0) / (duration * 0.92)) // finish writing just before the line ends
+            onProgress(Math.round(text.length * f))
+            if (f >= 1) clearInterval(iv)
+          }, 50)
+        }
+        setTimeout(() => { onProgress?.(text.length); resolve() }, duration)
         return
       }
 
@@ -48,9 +59,24 @@ class WalkthroughNarrator {
       utterance.rate = 0.85 * speed // Slower, calmer speech rate
       utterance.pitch = 1.0
 
+      let boundaries = 0
+      utterance.onboundary = (e) => {
+        boundaries++
+        onProgress?.(Math.min(text.length, e.charIndex + (e.charLength || 0)))
+      }
       utterance.onend = () => {
         this.currentUtterance = null
+        onProgress?.(text.length)
         resolve()
+      }
+      // Some voices (and most mobile ones) never fire boundaries: fall back to the timed estimate.
+      if (onProgress) {
+        const est = ((text.split(' ').length / 150) * 60 * 1000) / (0.85 * speed)
+        const t0 = Date.now()
+        const iv = setInterval(() => {
+          if (boundaries > 0 || !this.currentUtterance) return clearInterval(iv)
+          onProgress(Math.round(text.length * Math.min(0.95, (Date.now() - t0) / est)))
+        }, 80)
       }
 
       utterance.onerror = (e) => {

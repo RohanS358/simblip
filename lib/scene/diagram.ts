@@ -689,21 +689,34 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
     const isBack = back.has(e) || span <= 0
     const detour = isBack || span > 1
 
+    // laneSide: the face a detour normally leaves from (toward its lane outside the drawing).
+    // freeSide: the face toward the empty gap beside the rank, used when a sibling is in the way.
+    const laneSide: DiagramSide = direction === 'down' ? 'right' : 'bottom'
+    const freeSide: DiagramSide = direction === 'down' ? 'bottom' : 'right'
+    const flowIn: DiagramSide = direction === 'down' ? 'top' : 'left'
+    const outward = (n: PlacedNode, ref: PlacedNode) => (direction === 'down' ? n.x > ref.x : n.y > ref.y)
     let aSide: DiagramSide
     let bSide: DiagramSide
     if (!detour) {
       aSide = direction === 'down' ? 'bottom' : 'right'
-      bSide = direction === 'down' ? 'top' : 'left'
-    } else if (isBack) {
-      // A return path leaves and re-enters on the same side, so it reads as
-      // a loop rather than as another step forward.
-      aSide = direction === 'down' ? 'right' : 'bottom'
-      bSide = aSide
+      bSide = flowIn
     } else {
-      // A skipping edge still moves forward: out of the side, along the lane,
-      // and into the flow-facing side of its target.
-      aSide = direction === 'down' ? 'right' : 'bottom'
-      bSide = direction === 'down' ? 'top' : 'left'
+      // Leave on the lane side — unless a sibling in the SOURCE's rank sits that way, in which
+      // case the run would cut straight through it: use the free face and cross the gap instead.
+      const rs = rank.get(e.from) ?? 0
+      const blockedOut = placed.some((n) => n !== s && (rank.get(n.id) ?? 0) === rs && outward(n, s))
+      aSide = blockedOut ? freeSide : laneSide
+      if (isBack) {
+        // A return path re-enters on the same side it left from, so it reads as a loop.
+        bSide = laneSide
+      } else {
+        // A skipping edge enters the target's OUTER side when that is clear — its own port, so it
+        // never shares (and visually merges with) the arrow already arriving at the flow face —
+        // and the flow-facing side otherwise.
+        const rt = rank.get(e.to) ?? 0
+        const outerBlocked = placed.some((n) => n !== t && (rank.get(n.id) ?? 0) === rt && outward(n, t))
+        bSide = outerBlocked ? flowIn : laneSide
+      }
     }
     const a = sidePoint(s, aSide)
     const b = sidePoint(t, bSide)
@@ -722,18 +735,33 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
       }
     } else {
       const lane = lanes++
+      const rankNodes = placed.filter((n) => (rank.get(n.id) ?? 0) === (rank.get(e.from) ?? 0))
+      const viaGap = aSide === freeSide
       if (direction === 'down') {
         const out = width + 40 + lane * 30
-        bends.push({ x: out, y: a.y })
-        if (isBack) bends.push({ x: out, y: b.y })
+        if (viaGap) {
+          const gapY = Math.max(...rankNodes.map((n) => n.y + n.h)) + 18 + lane * 10
+          bends.push({ x: a.x, y: gapY }, { x: out, y: gapY })
+          labelAt = { x: (a.x + out) / 2, y: gapY }
+        } else {
+          bends.push({ x: out, y: a.y })
+          // The label rides its own edge, just beyond where it leaves the node.
+          labelAt = { x: out, y: a.y + 24 }
+        }
+        if (bSide === laneSide) bends.push({ x: out, y: b.y })
         else bends.push({ x: out, y: b.y - GAP_RANK / 2 }, { x: b.x, y: b.y - GAP_RANK / 2 })
-        labelAt = { x: out, y: (a.y + b.y) / 2 }
       } else {
         const out = height + 40 + lane * 30
-        bends.push({ x: a.x, y: out })
-        if (isBack) bends.push({ x: b.x, y: out })
+        if (viaGap) {
+          const gapX = Math.max(...rankNodes.map((n) => n.x + n.w)) + 18 + lane * 10
+          bends.push({ x: gapX, y: a.y }, { x: gapX, y: out })
+          labelAt = { x: gapX, y: (a.y + out) / 2 }
+        } else {
+          bends.push({ x: a.x, y: out })
+          labelAt = { x: a.x + 24, y: out }
+        }
+        if (bSide === laneSide) bends.push({ x: b.x, y: out })
         else bends.push({ x: b.x - GAP_RANK / 2, y: out }, { x: b.x - GAP_RANK / 2, y: b.y })
-        labelAt = { x: (a.x + b.x) / 2, y: out }
       }
     }
 

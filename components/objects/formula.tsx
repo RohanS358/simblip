@@ -14,7 +14,7 @@ import katex from '@/lib/text/katex-impl'
 import { useDocStore } from '@/lib/store/document'
 import { parseFormula } from '@/lib/formula/steps'
 import { cn } from '@/lib/utils'
-import { getString, type ObjectRendererProps } from './types'
+import { getNumber, getString, type ObjectRendererProps } from './types'
 
 export function FormulaObject({ pageId, object, selected }: ObjectRendererProps) {
   const setStringParam = useDocStore((s) => s.setStringParam)
@@ -22,6 +22,8 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
   const [editing, setEditing] = useState(false)
   const latex = getString(object, 'latex')
   const solution = getString(object, 'solution')
+  // Set by the lesson player while it narrates the formula, and cleared when the line is done.
+  const writeMs = getNumber(object, 'writeMs', 0)
 
   const parsed = useMemo(() => parseFormula(latex), [latex])
 
@@ -71,16 +73,26 @@ export function FormulaObject({ pageId, object, selected }: ObjectRendererProps)
           onPointerDown={(e) => e.stopPropagation()}
         />
       ) : (
-        <button
-          type="button"
-          aria-label="Edit formula"
-          className="cursor-text text-left [&_.katex-display]:my-0"
-          onDoubleClick={() => {
-            pushHistory(pageId)
-            setEditing(true)
-          }}
-          dangerouslySetInnerHTML={{ __html: html }}
-        />
+        <div className="relative">
+          <button
+            type="button"
+            aria-label="Edit formula"
+            className={cn('block w-full cursor-text text-left [&_.katex-display]:my-0', writeMs > 0 && 'formula-writing')}
+            style={writeMs > 0 ? { animation: `formula-write ${writeMs}ms cubic-bezier(0.45, 0, 0.35, 1) both` } : undefined}
+            onDoubleClick={() => {
+              pushHistory(pageId)
+              setEditing(true)
+            }}
+            dangerouslySetInnerHTML={{ __html: html }}
+          />
+          {writeMs > 0 && (
+            <span
+              aria-hidden
+              className="formula-writing pointer-events-none absolute inset-y-0 w-[3px] rounded-full bg-[var(--accent-blue)] shadow-[0_0_12px_2px_var(--accent-blue)]"
+              style={{ animation: `formula-pen ${writeMs}ms cubic-bezier(0.45, 0, 0.35, 1) both` }}
+            />
+          )}
+        </div>
       )}
 
       {solution && !editing && (

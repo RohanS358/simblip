@@ -18,6 +18,19 @@ export const beatSchema = z.discriminatedUnion('t', [
   z.object({ t: z.literal('scene'), script: z.string().min(1), caption: z.string().max(200).optional(), clear: z.boolean().default(true) }),
   /** A formula appears, with what it says in words. */
   z.object({ t: z.literal('equation'), latex: z.string().min(1).max(300), text: z.string().max(420).optional() }),
+  /** The cursor glides to a named object on the canvas and rings it, while a line is said. */
+  z.object({ t: z.literal('point'), object: z.string().min(1).max(60), text: z.string().min(1).max(300) }),
+  /** A parameter sweeps from `from` to `to` over `seconds` while the simulation runs — the
+   *  motion in the motion graphic: the student watches the cause and the effect move together. */
+  z.object({
+    t: z.literal('animate'),
+    object: z.string().min(1).max(60),
+    param: z.string().min(1).max(40),
+    from: z.number(),
+    to: z.number(),
+    seconds: z.number().min(1).max(30).default(6),
+    text: z.string().max(300).optional(),
+  }),
   /** Let the simulation run for a while. */
   z.object({ t: z.literal('run'), seconds: z.number().min(0.5).max(30).default(4) }),
   /** Freeze and ask: the student commits, THEN the answer is shown (and, if `demo`, run). */
@@ -56,6 +69,7 @@ export function lintStoryboard(sb: Storyboard): string[] {
       const r = lintSimScript(script)
       if (!r.ok) out.push(`${at}: SimScript — ${r.errors[0]}`)
     }
+    if (b.t === 'animate' && b.from === b.to) out.push(`${at}: sweeps nothing (from equals to)`)
     if (b.t === 'predict') {
       if (b.correct >= b.choices.length) out.push(`${at}: correct index ${b.correct} is out of range`)
       if (b.responses.length !== b.choices.length) out.push(`${at}: needs one response per choice`)
@@ -67,4 +81,4 @@ export function lintStoryboard(sb: Storyboard): string[] {
 
 /** Rough spoken length in seconds (150 wpm) — for the progress bar and for budgeting. */
 export const durationOf = (sb: Storyboard) =>
-  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))
+  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'animate' ? b.seconds : b.t === 'point' ? 3 : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))

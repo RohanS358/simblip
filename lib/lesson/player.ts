@@ -12,6 +12,10 @@ export interface Stage {
   scene(script: string, clear: boolean, caption?: string): Promise<void>
   equation(latex: string, text?: string): Promise<void>
   run(seconds: number): Promise<void>
+  /** Glide the cursor to a named object, ring it, and say `text`. */
+  point(object: string, text: string): Promise<void>
+  /** Sweep a parameter while the simulation runs; `text` is narrated over it. */
+  animate(object: string, param: string, from: number, to: number, seconds: number, text?: string): Promise<void>
   /** Freeze and wait for the student's choice (index). */
   ask(beat: Extract<Beat, { t: 'predict' }>): Promise<number>
   /** Record the outcome (spaced-repetition card + mastery on a miss). */
@@ -49,6 +53,8 @@ export async function perform(sb: Storyboard, stage: Stage, from = 0): Promise<'
       case 'scene': await stage.scene(b.script, b.clear, b.caption); break
       case 'equation': await stage.equation(b.latex, b.text); break
       case 'run': await stage.run(b.seconds); break
+      case 'point': await stage.point(b.object, b.text); break
+      case 'animate': await stage.animate(b.object, b.param, b.from, b.to, b.seconds, b.text); break
       case 'predict': {
         const chosen = await stage.ask(b)
         if (!stage.alive()) return 'stopped'
