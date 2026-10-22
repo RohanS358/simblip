@@ -23,6 +23,7 @@ export function TermsGate() {
   const status = useAuthStore((s) => s.status)
   const role = useAuthStore((s) => s.profile?.role)
   const name = useAuthStore((s) => s.profile?.full_name)
+  const isDemo = useAuthStore((s) => s.profile?.department === 'demo')
   const outstanding = useConsent(termsOutstanding)
   const acceptTerms = useConsent((s) => s.acceptTerms)
 
@@ -65,7 +66,9 @@ export function TermsGate() {
               {firstName ? `Welcome, ${firstName}.` : 'Welcome to SIMBLIP.'}
             </h2>
             <p className="mt-1.5 text-ui-md leading-relaxed text-muted-foreground">
-              Your institution set this account up for you. Please accept the terms to continue.
+              {isDemo
+                ? 'This is a free demo account. Please accept the terms to start exploring.'
+                : 'Your institution set this account up for you. Please accept the terms to continue.'}
             </p>
           </div>
 

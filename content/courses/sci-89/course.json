@@ -6,10 +6,10 @@
   "semester": null,
   "description": "Electricity, falling things and light for Class 8–9 — every idea comes with a live experiment you can change.",
   "published": true,
-  "order": ["bulb", "falling", "light"],
+  "order": ["sci89-bulb", "sci89-falling", "sci89-light"],
   "lessons": {
-    "bulb": { "path": "Electricity", "title": "Make a Bulb Light Up" },
-    "falling": { "path": "Motion and Force", "title": "Why Do Things Fall?" },
-    "light": { "path": "Light", "title": "How Light Travels" }
+    "sci89-bulb": { "path": "Electricity", "title": "Make a Bulb Light Up" },
+    "sci89-falling": { "path": "Motion and Force", "title": "Why Do Things Fall?" },
+    "sci89-light": { "path": "Light", "title": "How Light Travels" }
   }
 }

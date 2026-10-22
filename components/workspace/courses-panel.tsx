@@ -40,6 +40,10 @@ const ORDINAL = ['', 'First', 'Second', 'Third', 'Fourth', 'Fifth', 'Sixth', 'Se
 const semesterLabel = (n: number | null) =>
   n && ORDINAL[n] ? `${ORDINAL[n]} Semester` : 'Unscheduled'
 
+/** School-level courses are not part of a university semester ladder. */
+const SCHOOL_LABEL = 'School Science · Class 8–9'
+const groupLabel = (c: Course) => (c.subject === 'school' ? SCHOOL_LABEL : semesterLabel(c.semester))
+
 export function CoursesPanel() {
   const [courses, setCourses] = useState<Course[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -145,7 +149,7 @@ export function CoursesPanel() {
   // Group by semester, preserving the server's ordering within each.
   const bySemester = new Map<string, Course[]>()
   for (const c of courses) {
-    const k = semesterLabel(c.semester)
+    const k = groupLabel(c)
     const list = bySemester.get(k)
     if (list) list.push(c)
     else bySemester.set(k, [c])
@@ -155,7 +159,9 @@ export function CoursesPanel() {
     <>
       <PanelHeader icon={GraduationCap} title="Courses" accent="var(--accent-violet)" />
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 py-1.5">
-        {[...bySemester.entries()].map(([sem, list]) => (
+        {[...bySemester.entries()]
+          .sort(([a], [b]) => Number(b === SCHOOL_LABEL) - Number(a === SCHOOL_LABEL))
+          .map(([sem, list]) => (
           <div key={sem}>
             <p className="m-0 px-2 pb-1 pt-2.5 text-ui-3xs font-bold uppercase tracking-[0.08em] text-muted-foreground opacity-70">
               {sem}

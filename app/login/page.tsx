@@ -12,6 +12,7 @@ import { homeFor } from '@/lib/auth/types'
 import { cloudConfigured } from '@/lib/data/db'
 import { Button } from '@/components/ui/button'
 import { HeroBallpit } from '@/components/landing/hero-ballpit'
+import { TryDemoButton } from '@/components/landing/try-demo-button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
@@ -135,6 +136,17 @@ export default function LoginPage() {
             Forgot your password? Ask your institution admin to reset it.
           </p>
         </form>
+
+        <div className="mt-5 rounded-2xl border border-border/60 p-4 text-center">
+          <p className="text-ui-sm font-medium">Just here to try it?</p>
+          <p className="mb-3 mt-1 text-ui-xs leading-relaxed text-muted-foreground">
+            Open a free demo notebook with science lessons for Class 8 and up. No email, no password.
+          </p>
+          <TryDemoButton
+            label="Try the demo"
+            className="w-full rounded-md border border-border bg-background px-4 py-2 text-ui-sm font-semibold transition-colors hover:bg-accent disabled:opacity-60"
+          />
+        </div>
 
         {!cloudConfigured && (
           <p className="mt-6 text-center text-ui-2xs leading-relaxed text-muted-foreground">

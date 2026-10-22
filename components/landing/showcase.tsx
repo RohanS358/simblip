@@ -5,6 +5,7 @@
 import { ScrollFx } from './scroll-fx'
 import { HeroBallpit } from './hero-ballpit'
 import { SignInLink } from './sign-in-link'
+import { TryDemoButton } from './try-demo-button'
 
 function DemoCard({
   title,

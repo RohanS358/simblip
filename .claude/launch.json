@@ -4,7 +4,23 @@
     {
       "name": "simblip-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
+      "port": 3000,
+      "autoPort": true
+    },
+    {
+      "name": "simblip-local",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "NEXT_PUBLIC_CLOUD=0",
+        "DATABASE_URL=",
+        "npm",
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "autoPort": true
     }
