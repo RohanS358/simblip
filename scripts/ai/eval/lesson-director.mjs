@@ -35,7 +35,7 @@ const llm = {
 const t0 = Date.now()
 const plan = await m.planTopic(llm, topic, 'basic', m.PLAN_JSON_SCHEMA)
 console.log(`PLAN (${Math.round((Date.now() - t0) / 1000)}s): "${plan.title}"`)
-for (const s of plan.steps) console.log(`  · ${s.heading}${s.scene ? `\n      scene: ${s.scene}` : ''}${s.experiment ? `\n      experiment: ${s.experiment}` : ''}${s.equation ? `\n      eq: ${s.equation}` : ''}`)
+for (const s of plan.steps) console.log(`  · ${s.heading}${s.scene ? `\n      scene: ${s.scene}` : ''}${s.experiment ? `\n      experiment: ${s.experiment}` : ''}${s.lab ? `\n      LAB: ${JSON.stringify(s.lab)}` : ''}${s.code ? `\n      CODE: ${s.code.slice(0, 60).replace(/\n/g, ' ')}…` : ''}${s.equation ? `\n      eq: ${s.equation}` : ''}`)
 try {
   const real = m.makeRunner()
   const runner = process.env.DEBUG_GROUND ? { ...real, async ground(sc) { const g = await real.ground(sc); console.log('GROUND', g.ok, g.error ?? '', JSON.stringify(g.objects.map((o) => [o.name, o.kind, o.params, o.channels])), JSON.stringify(g.readings)); if (process.env.DEBUG_GROUND === '2') console.log(sc); return g } } : real

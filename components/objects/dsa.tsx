@@ -70,6 +70,15 @@ export function DsaObject({ pageId, object }: ObjectRendererProps) {
   }, [source, stdin])
 
   const maxStep = Math.max(0, (trace?.steps.length ?? 0) - 1)
+
+  // The lesson player drives the stepper while it narrates (a number param, so it is never mistaken for source or
+  // stdin). Re-applied when the trace arrives, since the interpreter runs a moment after the object appears.
+  const lessonStep = object.parameters.lessonStep?.kind === 'number' ? object.parameters.lessonStep.value : null
+  useEffect(() => {
+    if (lessonStep === null || !Number.isFinite(lessonStep) || !trace) return
+    setPlaying(false)
+    setStepIdx(Math.max(0, Math.min(maxStep, Math.round(lessonStep))))
+  }, [lessonStep, trace, maxStep])
   const step = trace && trace.steps.length > 0 ? trace.steps[Math.min(stepIdx, maxStep)] : null
 
   // transport clock

@@ -203,6 +203,14 @@ export function StepLabObject({ pageId, object, selected }: ObjectRendererProps)
 
   // A new configuration starts from its first frame.
   useEffect(() => { setK(0); setPlaying(false) }, [key])
+  // The lesson player steps the stepper itself (narrating each frame). A NUMBER parameter, not a string, so it is
+  // never mistaken for an engine argument; once set, the student can still step and play as usual.
+  const lessonFrame = object.parameters.lessonFrame?.kind === 'number' ? object.parameters.lessonFrame.value : null
+  useEffect(() => {
+    if (lessonFrame === null || !Number.isFinite(lessonFrame)) return
+    setPlaying(false)
+    setK(Math.max(0, Math.min(Math.max(0, total - 1), Math.round(lessonFrame))))
+  }, [lessonFrame, total])
   useEffect(() => {
     if (!playing) return
     const id = setInterval(() => setK((v) => {
