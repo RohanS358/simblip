@@ -61,7 +61,7 @@ export const resumeLesson = () => { narrator.resume(); useLesson.getState().set(
 export function stopLesson() {
   bumpRun()
   cancelChoice()
-  useTutor.getState().set({ ring: null, mode: 'idle', resumeAt: null })
+  useTutor.getState().set({ ring: null, spot: [], mode: 'idle', resumeAt: null })
   narrator.stop()
   stopPhysics()
   useLesson.getState().set({ active: false, pending: null, card: null, caption: '', paused: false, sections: [] })

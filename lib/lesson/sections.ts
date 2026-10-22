@@ -21,6 +21,8 @@ export interface Section {
   checks?: { q: string; a: string }[]
   /** The closing summary section (never itself summarised). */
   summary?: boolean
+  /** Drawn in answer to a student's question, between the sections of the lesson proper. */
+  aside?: boolean
   /** The one formula card holding every formula taught here, one per line. */
   formulaBox?: string
   /** How the section is laid out: title, then content beside a diagram ('split'), or title and a full-width diagram ('full'). */

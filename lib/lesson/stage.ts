@@ -10,6 +10,7 @@ import { getElement } from '@/lib/physics/world'
 import { num } from '@/lib/scene/types'
 import { applyParam } from './apply'
 import { prefetch } from '@/lib/tts/neural'
+import { runEngine } from '@/lib/steplab/registry'
 import { upcomingLines } from './lines'
 import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
 import { play, stop as stopPhysics } from '@/lib/physics/world'
@@ -33,7 +34,9 @@ let run = 0
 export const currentRun = () => run
 export const bumpRun = () => ++run
 
-export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 0): Stage {
+/** `aside`: a mini-lesson drawn mid-way in answer to a question. It adds sections of its own to the board, keeps its
+ *  own notes, and never opens check-ins, moves the playhead or writes the closing summary. */
+export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 0, mode: { aside?: boolean } = {}): Stage {
   const L = () => useLesson.getState()
   const pageObjects = () => Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
   const alive = () => run === myRun && L().active
@@ -57,7 +60,10 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   const pointAndSay = async (id: string | null, text: string) => {
     const at = id ? screenOf(id) : null
     if (at) T().set({ pose: 'point', aim: at })
+    // Whatever she points at glows while she talks about it.
+    if (id) useTutor.getState().set({ spot: [id] })
     await speak(text)
+    if (id) useTutor.getState().set({ spot: [] })
     if (T().pose === 'point') T().set({ pose: 'read', aim: null })
   }
 
@@ -86,7 +92,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   }
   let lastTitle = ([...sb.beats.slice(0, from)].reverse().find((b) => b.t === 'title') as { text?: string } | undefined)?.text ?? ''
   const sections = () => L().sections
-  const current = (): Section | undefined => sections()[sections().length - 1]
+  const current = (): Section | undefined => [...sections()].reverse().find((s) => !!s.aside === !!mode.aside)
   const objectsOf = (ids: string[]) => pageObjects().filter((o) => ids.includes(o.id))
   /** The newest section's picture and formulas — everything but its "Key points" column. */
   const bodyIds = () => (current()?.ids ?? []).slice(1).filter((id) => id !== current()?.notes)
@@ -108,7 +114,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     const before = new Set(pageObjects().map((x) => x.id))
     await sceneAdd.run({ component: 'text', text: `## ${n} · ${title.length > 56 ? title.slice(0, 55) + '…' : title}`, x: at.x, y: at.y }, { pageId })
     const ids = pageObjects().filter((x) => !before.has(x.id)).map((x) => x.id)
-    L().set({ sections: [...sections(), { id: `s${n}`, title, ids, beat: L().index, layout: o.layout }] })
+    L().set({ sections: [...sections(), { id: `s${n}`, title, ids, beat: L().index, layout: o.layout, ...(mode.aside ? { aside: true } : {}) }] })
   }
   /** Lay out the content column of the newest section: the key points on top, the formula card
    *  beneath them. In a full-width section there is no column, so the formulas sit under the diagram. */
@@ -244,7 +250,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
           if (again) { const to2 = diagramOrigin(layout, at, again.w); if (Math.abs(to2.x - again.x) > 2 || Math.abs(to2.y - again.y) > 2) moveBy(ids, to2.x - again.x, to2.y - again.y) }
         }
         const made = pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id)
-        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index, layout }] })
+        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index, layout, ...(mode.aside ? { aside: true } : {}) }] })
       } else {
         place(pageId, script, { reserveBottom: FRAME_BOTTOM })
         addToSection(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
@@ -302,16 +308,47 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       await Promise.all([at ? glideTo(at, 900) : Promise.resolve(), pointAndSay(o?.id ?? null, text)])
       hideCursor()
     },
+    async lab(object, steps) {
+      const o = pageObjects().find((x) => x.name === object)
+      if (!o) return
+      const params: Record<string, string> = {}
+      for (const [k, v] of Object.entries(o.parameters)) if (v.kind === 'string') params[k] = v.value
+      const r = runEngine(params)
+      if (!r.ok) return
+      const frames = r.trace.frames
+      // At most `steps` frames, evenly spread and always ending on the last — long runs are summarised, not droned through.
+      const picks = frames.length <= steps ? frames.map((_, i) => i) : Array.from({ length: steps }, (_, i) => Math.round((i * (frames.length - 1)) / (steps - 1)))
+      for (const i of picks) {
+        if (!alive()) return
+        useDocStore.getState().updateObject(pageId, o.id, { parameters: { ...(useDocStore.getState().pages[pageId]?.objects[o.id]?.parameters ?? o.parameters), lessonFrame: num(i) } }, { history: false })
+        const note = frames[i].note?.trim()
+        if (note) await speak(note)
+        else await sleep(900)
+        await sleep(350) // a beat to look at the frame before the next one
+      }
+    },
+    async code(object, narration) {
+      const o = pageObjects().find((x) => x.name === object)
+      if (!o) return
+      for (const n of narration) {
+        if (!alive()) return
+        useDocStore.getState().updateObject(pageId, o.id, { parameters: { ...(useDocStore.getState().pages[pageId]?.objects[o.id]?.parameters ?? o.parameters), lessonStep: num(n.step) } }, { history: false })
+        await speak(n.text)
+        await sleep(300)
+      }
+    },
     async animate(object, param, from, to, seconds, text) {
       const o = pageObjects().find((x) => x.name === object)
       if (!o) return
       play(pageId)
       if (text) { void addBullet(text); void speak(text) }
+      useTutor.getState().set({ spot: [o.id] }) // the thing being swept glows as it moves
       const steps = Math.max(8, Math.round(seconds * 12))
       for (let i = 0; i <= steps && alive(); i++) {
         applyParam(pageId, object, param, from + ((to - from) * i) / steps) // the slider thumb really moves
         await sleep((seconds * 1000) / steps)
       }
+      useTutor.getState().set({ spot: [] })
     },
     ask(beat) {
       return new Promise<number>((resolve) => {
@@ -351,10 +388,12 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       }
     },
     onBeat: (index) => {
+      if (mode.aside) return // the playhead belongs to the lesson, not to its asides
       L().set({ index })
       prefetch(upcomingLines(sb, index + 1), 1) // fetch the next lines' audio while this one plays
     },
     async checkpoint(index) {
+      if (mode.aside) return
       // Her questions are answered by tapping buttons on the board: with no board on screen (a headless
       // run, a test) there is nobody to ask, so she simply carries on.
       if (typeof document === 'undefined' || !document.querySelector('[aria-label="Infinite canvas"]')) return
@@ -370,6 +409,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     alive,
     /** The lesson is over: close the board with everything it covered, so one look (or one print) revises it. */
     async finish() {
+      if (mode.aside) return
       const sum = buildSummary(sb.title, sections())
       if (!sum.parts.length) return
       const n = sections().length + 1

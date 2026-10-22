@@ -11,6 +11,7 @@ import { useLesson } from '@/lib/lesson/store'
 import { frameObjects } from '@/lib/lesson/camera'
 import { continueLesson } from '@/lib/lesson/controller'
 import { answerChip, askAbout, submitQuestion } from '@/lib/lesson/tutor'
+import { getElement } from '@/lib/physics/world'
 import { useTutor, type Ring } from '@/lib/lesson/tutor-store'
 
 interface Rect { left: number; top: number; width: number; height: number }
@@ -149,5 +150,41 @@ export function SectionStrip() {
         )
       })}
     </nav>
+  )
+}
+
+
+/** Whatever the teacher is pointing at glows: a pulsing amber ring that follows the object as the camera moves. */
+export function PointerSpot() {
+  const spot = useTutor((s) => s.spot)
+  const [rects, setRects] = useState<Rect[]>([])
+
+  useEffect(() => {
+    if (!spot.length) { setRects([]); return }
+    let raf = 0
+    const tick = () => {
+      const next = spot.flatMap((id) => {
+        const b = getElement(id)?.getBoundingClientRect()
+        return b && b.width > 4 ? [{ left: b.left, top: b.top, width: b.width, height: b.height }] : []
+      })
+      // only touch React state when something actually moved
+      setRects((cur) => (cur.length === next.length && cur.every((r, i) => Math.abs(r.left - next[i].left) < 0.5 && Math.abs(r.top - next[i].top) < 0.5 && Math.abs(r.width - next[i].width) < 0.5 && Math.abs(r.height - next[i].height) < 0.5) ? cur : next))
+      raf = requestAnimationFrame(tick)
+    }
+    tick()
+    return () => cancelAnimationFrame(raf)
+  }, [spot])
+
+  return (
+    <>
+      {rects.map((r, i) => (
+        <div
+          key={i}
+          aria-hidden
+          className="lesson-spot pointer-events-none fixed z-[103] rounded-2xl"
+          style={{ left: r.left - 8, top: r.top - 8, width: r.width + 16, height: r.height + 16 }}
+        />
+      ))}
+    </>
   )
 }

@@ -167,3 +167,12 @@ export function simplerFromNarration(lines: string[]): string {
   const firsts = lines.map((l) => l.split(/(?<=[.!?])\s+/)[0]).filter(Boolean).slice(0, 3)
   return firsts.length ? `Let me say it in fewer words. ${firsts.join(' ')}` : "Let's look at the picture again, slowly."
 }
+
+/** Is the student asking to SEE something built — "draw three resistors in parallel and show me what happens" —
+ *  rather than asking what a thing is? A request to draw, show, build or simulate gets a live mini-lesson on the
+ *  board; anything else gets an explanation. */
+export function wantsDemo(question: string): boolean {
+  const q = question.toLowerCase()
+  if (/\bshow me (the )?(answer|solution|steps|formula|equation)\b/.test(q)) return false
+  return /\b(draw|show|sketch|build|simulat|demonstrat|illustrat|visuali[sz]|animat|creat|set ?up)\w*/.test(q) || /\bwhat (happens|would happen|if) (if|when|to|we)\b/.test(q)
+}

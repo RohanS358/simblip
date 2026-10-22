@@ -23,6 +23,10 @@ export const planSchema = z.object({
         scene: z.string().min(8).max(240).optional(),
         /** The key relationship of this step as LaTeX. */
         equation: z.string().min(1).max(200).optional(),
+        /** Step Lab: an algorithm stepper to show INSTEAD of `scene`. `settings` are the engine's own arguments (e.g. {"algo":"dfs"}); only set ones you are sure of. */
+        lab: z.object({ engine: z.string().min(1).max(40), settings: z.record(z.string(), z.string()).optional() }).optional(),
+        /** DSA Lab: a short C++ program (≤ 35 lines, int main) that shows the idea, INSTEAD of `scene`. */
+        code: z.string().min(20).max(1800).optional(),
         /** One sentence: what to CHANGE in the scene so the student can predict the effect ("double the resistance"). */
         experiment: z.string().min(3).max(160).optional(),
       })
@@ -48,6 +52,8 @@ export const PLAN_JSON_SCHEMA = {
           scene: { type: 'string' },
           equation: { type: 'string' },
           experiment: { type: 'string' },
+          lab: { type: 'object', properties: { engine: { type: 'string' }, settings: { type: 'object', additionalProperties: { type: 'string' } } }, required: ['engine'] },
+          code: { type: 'string' },
         },
         required: ['heading', 'say'],
       },
@@ -62,7 +68,7 @@ const LEVEL_HINT: Record<Level, string> = {
   exam: 'The student is revising for an exam: be precise, include the formula and what examiners ask about.',
 }
 
-export const planSystemPrompt = (level: Level) => `You plan a short animated lesson for an engineering or science student. Reply with JSON only.
+export const planSystemPrompt = (level: Level, capabilities = '') => `You plan a short animated lesson for an engineering or science student. Reply with JSON only.
 
 ${LEVEL_HINT[level]}
 
@@ -70,6 +76,8 @@ Rules:
 - If you do not clearly recognise the topic, or it could mean several different things, do NOT guess and do NOT invent facts: set "unsure" to one short question asking what they mean (name the interpretations you can think of) and return an empty "steps" list.
 - 4 to 6 steps. Each step teaches ONE idea. Order: the simplest picture first, then change one thing at a time, then a formula, then a real-world use.
 - "say": 1-3 short sentences per step, at most 25 words each. They are read aloud.
+- What the simulator can show for THIS topic:\n${capabilities}
+- For an algorithm or data-structure topic: if a Step Lab engine above matches, use "lab" (engine id exactly as listed, plus settings you are sure of such as {"algo":"dfs"}) instead of "scene". If none matches but a short C++ program would show the idea (sorting, searching, stacks, recursion, trees), write it in "code" (under 35 lines, int main, standard headers only). Use "scene" only for physics, circuits, waves and optics. Never describe a physics scene for a computing topic.
 - "scene": only when a simulation helps. One sentence with concrete values. The simulator can draw: electric circuits (battery, resistor, capacitor, inductor, diode, switch, op-amp, ammeter, voltmeter, bulb, logic gates), mechanics (masses, springs, pendulums, ramps, ropes, collisions, projectiles), waves and optics (lenses, mirrors, refraction, diffraction, interference), quantum wells, data-structure visualisations, graphs and tables. Do not describe things it cannot draw.
 - "experiment": only for steps that have a scene. One sentence saying what to change so the effect can be predicted, e.g. "double the resistance" or "increase the angle to 60 degrees".
 - "equation": LaTeX of the key relationship, only when one exists.

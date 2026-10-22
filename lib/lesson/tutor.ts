@@ -21,7 +21,9 @@ import { bumpRun } from './stage'
 import { makeLlm } from './llm'
 import { useLesson } from './store'
 import { answerChip, cancelChoice, chooseChip, submitQuestion, useTutor, waitForQuestion, type Ring } from './tutor-store'
-import { adapt, explainPrompts, fallbackExplain, pickObjects, simplerFromNarration, speakable, type Feel, type Placed, type Rect } from './tutor-core'
+import { adapt, explainPrompts, fallbackExplain, pickObjects, simplerFromNarration, speakable, wantsDemo, type Feel, type Placed, type Rect } from './tutor-core'
+import { playAside } from './aside'
+import { frameObjects } from './camera'
 
 export { answerChip, submitQuestion }
 
@@ -105,6 +107,7 @@ async function explain(mode: 'what' | 'simpler' | 'more' | 'answer', objs: Place
 function interrupt() {
   if (TU().resumeAt === null) TU().set({ resumeAt: L().index })
   bumpRun() // ends the running performance; the board is left exactly as it is
+  TU().set({ spot: [] })
   narrator.stop()
   L().set({ paused: false, pending: null })
   T().set({ mood: 'thinking', pose: 'think', aim: null })
@@ -137,7 +140,21 @@ export async function askAbout(region: Ring | null, resume: (index: number) => v
   let q = question
   for (;;) {
     TU().set({ mode: 'thinking' })
-    const said = await explain(mode, objs, q)
+    let said: string | null = null
+    if (mode === 'answer' && q && wantsDemo(q)) {
+      // "Show me…": draw it and teach it right here, in new sections of the board.
+      await tutorSay("Of course — let me draw that and walk you through it.", { pose: 'open' })
+      T().set({ mood: 'thinking', pose: 'think' })
+      const status = (m: string) => L().set({ caption: m, spoken: m.length })
+      try {
+        if (await playAside(q, status)) said = 'And that is what happens. Ask about any part of it, or we can carry on with the lesson.'
+      } catch {
+        // could not plan or draw it: fall through to an explanation in words
+      }
+      if (!L().active) return
+      TU().set({ ring: null })
+    }
+    said ??= await explain(mode, objs, q)
     TU().set({ mode: 'answering' })
     await tutorSay(said, { pose: T().pose === 'point' ? 'read' : 'open' })
     T().set({ aim: null, mood: 'happy' })
@@ -163,7 +180,10 @@ export async function askAbout(region: Ring | null, resume: (index: number) => v
 /** Take the ring down and carry on from the line that was interrupted. */
 export function finishInterruption(resume: (index: number) => void) {
   const at = TU().resumeAt
-  TU().set({ ring: null, mode: 'idle', chips: [], typing: false, resumeAt: null })
+  TU().set({ ring: null, spot: [], mode: 'idle', chips: [], typing: false, resumeAt: null })
+  // Back to where the lesson was (an aside leaves the camera down among its own sections).
+  const back = [...L().sections].reverse().find((s) => !s.aside)
+  if (back && L().pageId) void frameObjects(L().pageId!, back.ids)
   T().set({ pose: 'read', aim: null, mood: 'happy' })
   useWalkthroughStore.getState().setSpeed(TU().pace.speed)
   if (at !== null && L().active) resume(at)

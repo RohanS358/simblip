@@ -31,6 +31,12 @@ export const beatSchema = z.discriminatedUnion('t', [
     seconds: z.number().min(1).max(30).default(6),
     text: z.string().max(300).optional(),
   }),
+  /** Step an algorithm stepper (Step Lab) through its frames, narrating the ENGINE's own commentary for each — the
+   *  explanation of what happens at every step is computed by the same code that draws it. */
+  z.object({ t: z.literal('lab'), object: z.string().min(1).max(60), steps: z.number().int().min(2).max(40).default(10) }),
+  /** Step a program in the DSA Lab, speaking one sentence at each of the chosen steps. The narration is written when the
+   *  film is built (from the real trace), so playback is data; the step numbers are the interpreter's own. */
+  z.object({ t: z.literal('code'), object: z.string().min(1).max(60), narration: z.array(z.object({ step: z.number().int().min(0), text: z.string().min(3).max(300) })).min(1).max(24) }),
   /** Let the simulation run for a while. */
   z.object({ t: z.literal('run'), seconds: z.number().min(0.5).max(30).default(4) }),
   /** Freeze and ask: the student commits, THEN the answer is shown (and, if `demo`, run). */
@@ -69,6 +75,7 @@ export function lintStoryboard(sb: Storyboard): string[] {
       const r = lintSimScript(script)
       if (!r.ok) out.push(`${at}: SimScript — ${r.errors[0]}`)
     }
+    if (b.t === 'code' && b.narration.some((n, k) => k > 0 && n.step < b.narration[k - 1].step)) out.push(`${at}: steps must run forward`)
     if (b.t === 'animate' && b.from === b.to) out.push(`${at}: sweeps nothing (from equals to)`)
     if (b.t === 'predict') {
       if (b.correct >= b.choices.length) out.push(`${at}: correct index ${b.correct} is out of range`)
@@ -81,4 +88,4 @@ export function lintStoryboard(sb: Storyboard): string[] {
 
 /** Rough spoken length in seconds (150 wpm) — for the progress bar and for budgeting. */
 export const durationOf = (sb: Storyboard) =>
-  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'animate' ? b.seconds : b.t === 'point' ? 3 : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))
+  Math.round(sb.beats.reduce((a, b) => a + (b.t === 'say' ? (words(b.text) / 150) * 60 : b.t === 'equation' ? 4 + (b.text ? (words(b.text) / 150) * 60 : 0) : b.t === 'run' ? b.seconds : b.t === 'lab' ? b.steps * 5 : b.t === 'code' ? b.narration.length * 5 : b.t === 'animate' ? b.seconds : b.t === 'point' ? 3 : b.t === 'scene' ? 3 : b.t === 'title' ? 2 : 6), 0))

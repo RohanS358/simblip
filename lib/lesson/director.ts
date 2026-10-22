@@ -12,7 +12,11 @@
 // simulator are injected, so ordering and grounding are tested without either.
 
 import { lintSimScript } from '@/lib/ai/simscript-lint'
+import { getEngine, runEngine } from '@/lib/steplab/registry'
+import { runCpp } from '@/lib/dsa/interpreter'
+import { capabilityPrompt, isComputing, matchLabs } from './catalog'
 import { lintStoryboard, storyboardSchema, type Beat, type Storyboard } from './storyboard'
+import { circuitRecipe } from './recipes'
 import { parsePlan, planSystemPrompt, planUserPrompt, type Level, type Plan } from './plan'
 
 export interface SceneObject { name: string; kind: string; params: Record<string, number>; channels: string[] }
@@ -129,13 +133,69 @@ export async function conceptDiagram(d: DirectorDeps, step: Plan['steps'][number
   }
 }
 
+
+// ── Algorithm steppers and the DSA Lab ──────────────────────────────────────
+// For computing topics the director does not ask a physics model to draw anything: it builds a Step Lab scene (the
+// engine's own commentary narrates it) or writes a short C++ program for the DSA Lab (the interpreter's real trace is
+// stepped, and the narration is written from that trace). Both are validated by RUNNING them.
+
+type Built = { script: string; beats: Beat[] } | { error: string }
+
+export function buildLab(lab: { engine: string; settings?: Record<string, string> }): Built {
+  const engine = getEngine(lab.engine)
+  if (!engine) return { error: `no Step Lab engine called "${lab.engine}"` }
+  const known = new Set(engine.params.map((p) => p.name))
+  const settings = Object.fromEntries(Object.entries(lab.settings ?? {}).filter(([k, v]) => known.has(k) && typeof v === 'string' && v.length <= 400))
+  let r = runEngine({ engine: engine.id, ...settings })
+  let used = settings
+  if (!r.ok && Object.keys(settings).length) { r = runEngine({ engine: engine.id }); used = {} } // a wrong setting must not cost the whole step
+  if (!r.ok) return { error: `${engine.label} would not run (${r.error})` }
+  const script = `var lab = create("steplab", ${JSON.stringify({ engine: engine.id, ...used, name: 'lab', width: 600, height: 440 })});`
+  return { script, beats: [{ t: 'lab', object: 'lab', steps: Math.max(2, Math.min(12, r.trace.frames.length)) }] }
+}
+
+const NARRATE_SYSTEM = `You narrate a C++ program being executed step by step, to a student. For EACH step given, write ONE friendly sentence (at most 22 words) saying what is happening and why, using only the facts given. Reply with JSON only: {"lines":[{"step":<number>,"text":"..."}]} with exactly one entry per step, in order.`
+const FIX_SYSTEM = `You fix a C++ program so it compiles and runs in a small teaching interpreter (iostream, vector, stack, queue, unordered_map, string only; int main). Reply with the corrected program only, no commentary, no markdown fences.`
+
+const lineOf = (source: string, n: number) => (source.split('\n')[n - 1] ?? '').trim()
+
+export async function buildCode(d: DirectorDeps, source: string, goal: string): Promise<Built> {
+  let src = source
+  let run = runCpp(src)
+  if ((run.error || !run.steps.length || run.truncated) && !d.signal?.aborted) {
+    // One repair round, with the interpreter's own message — the same loop that repairs SimScript.
+    const fixed = (await d.llm.complete(FIX_SYSTEM, `Error: ${run.error?.message ?? 'the program did nothing'} (line ${run.error?.line ?? '?'})\n\n${src}`, { signal: d.signal })).replace(/```[a-z+]*/gi, '').trim()
+    if (fixed.includes('main')) { src = fixed; run = runCpp(src) }
+  }
+  if (run.error || !run.steps.length || run.truncated) return { error: `the program did not run cleanly (${run.error?.message ?? (run.truncated ? 'it ran too long' : 'no steps')})` }
+  const script = `var lab = create("dsa", ${JSON.stringify({ source: src, name: 'lab', width: 780, height: 520 })});`
+  const lint = lintSimScript(script)
+  if (!lint.ok) return { error: `the DSA scene did not pass checks (${lint.errors[0]})` }
+
+  // The steps worth stopping at: where something is compared, called, returned, allocated or printed — evenly spread, ≤ 9, first and last included.
+  const key = run.steps.map((st, i) => ({ st, i })).filter(({ st, i }) => i === 0 || i === run.steps.length - 1 || ['compare', 'call', 'return', 'alloc', 'io'].includes(st.kind) || st.changed.length > 0)
+  const n = Math.min(9, key.length)
+  const picks = n === key.length ? key : Array.from({ length: n }, (_, k) => key[Math.round((k * (key.length - 1)) / (n - 1))])
+  const facts = picks.map(({ st, i }) => ({ step: i, line: lineOf(src, st.line), what: st.desc, ...(st.output ? { output_so_far: st.output.slice(-80) } : {}) }))
+
+  // The model words each step; the facts and the step numbers are the interpreter's. If it cannot, say the facts plainly.
+  let narration = picks.map(({ st, i }) => ({ step: i, text: `${st.desc}.`.replace(/\.\.$/, '.') }))
+  try {
+    const text = await d.llm.complete(NARRATE_SYSTEM, `Goal: ${goal}\nProgram:\n${src}\n\nSteps:\n${JSON.stringify(facts)}`, { signal: d.signal })
+    const lines = (JSON.parse(text.match(/\{[\s\S]*\}/)?.[0] ?? '') as { lines?: { step: number; text: string }[] }).lines ?? []
+    const byStep = new Map(lines.map((l) => [l.step, String(l.text).trim()]))
+    if (picks.every(({ i }) => (byStep.get(i) ?? '').length >= 3)) narration = picks.map(({ i }) => ({ step: i, text: (byStep.get(i) as string).slice(0, 280) }))
+  } catch { /* keep the plain facts */ }
+  return { script, beats: [{ t: 'code', object: 'lab', narration }] }
+}
+
 /** The planner declined: it does not know the topic well enough to teach it. Shown to the student as a question. */
 export class NeedsClarification extends Error {}
 
 export async function planTopic(llm: Llm, topic: string, level: Level, jsonSchema: object, signal?: AbortSignal): Promise<Plan> {
   let note = ''
   for (let attempt = 0; attempt < 3; attempt++) {
-    const text = await llm.complete(planSystemPrompt(level), planUserPrompt(topic) + note, { jsonSchema, signal })
+    const text = await llm.complete(planSystemPrompt(level, capabilityPrompt(topic)), planUserPrompt(topic) + note, { jsonSchema, signal })
     const r = parsePlan(text, topic)
     if (r.ok) {
       if (r.plan.unsure) throw new NeedsClarification(r.plan.unsure)
@@ -146,10 +206,37 @@ export async function planTopic(llm: Llm, topic: string, level: Level, jsonSchem
   throw new Error(`Could not get a usable lesson plan for "${topic}".`)
 }
 
-export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): Promise<{ storyboard: Storyboard; warnings: string[] }> {
+
+const PROGRAM_SYSTEM = `You write ONE short C++ program that teaches a topic by running. Rules: under 30 lines, int main, only iostream, vector, stack, queue, unordered_map and string, small fixed inputs, print what matters with cout. Reply with the program only, no commentary, no markdown fences.`
+
+/** Decide, in code, what picture each step gets for a computing topic: the registry's stepper when the topic names one, else one
+ *  C++ program for the DSA Lab; and no physics scene for any step of such a topic. The planner model is never trusted to remember. */
+export async function routePlan(topic: string, plan: Plan, d: Pick<DirectorDeps, 'llm' | 'signal'>): Promise<Plan> {
+  const labs = matchLabs(topic)
+  const computing = labs.length > 0 || isComputing(topic)
+  if (!computing) return plan
+  const steps = plan.steps.map((s) => ({ ...s, scene: undefined, experiment: undefined })) // nothing here is a physics scene
+  const slots = steps.length >= 4 ? [1, 3] : steps.length >= 2 ? [1, 0] : [0]
+  if (labs.length) {
+    labs.slice(0, slots.length).forEach((m, k) => { steps[slots[k]] = { ...steps[slots[k]], lab: { engine: m.cap.id, ...(Object.keys(m.settings).length ? { settings: m.settings } : {}) }, code: undefined } })
+  } else {
+    try {
+      const code = (await d.llm.complete(PROGRAM_SYSTEM, `Topic: ${topic}`, { signal: d.signal })).replace(/```[a-z+]*/gi, '').trim()
+      if (code.includes('main') && code.length >= 20 && code.length <= 1800) steps[slots[0]] = { ...steps[slots[0]], code }
+    } catch { /* the lesson is still taught, with concept diagrams */ }
+  }
+  return { ...plan, steps }
+}
+
+export async function directLesson(topic: string, planned: Plan, d: DirectorDeps): Promise<{ storyboard: Storyboard; warnings: string[] }> {
+  const plan = await routePlan(topic, planned, d)
   const beats: Beat[] = [{ t: 'title', text: plan.title, sub: topic }]
   const warnings: string[] = []
   let scenes = 0
+  // After a recipe circuit has been drawn, the steps that go on about its parts and numbers are about THAT picture: they
+  // get their own slide showing the same circuit. (Asking the model for a fresh scene for each is how a parallel
+  // lesson ends up over a series loop.)
+  let recipeOnBoard = null as string | null // the script of the recipe circuit last drawn
   for (const [i, step] of plan.steps.entries()) {
     if (d.signal?.aborted) throw new Error('cancelled')
     d.onProgress?.(`Step ${i + 1} of ${plan.steps.length}: ${step.heading}`)
@@ -161,9 +248,25 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
 
     let script: string | undefined
     let ground: Ground | undefined
+    // A stepper or a program for the DSA Lab, built here rather than drawn by a physics model.
+    if (step.lab || step.code) {
+      const built = step.lab ? buildLab(step.lab) : await buildCode(d, step.code as string, `${step.heading}. ${step.say.join(' ')}`)
+      if ('error' in built) warnings.push(`step ${i + 1}: ${step.lab ? 'Step Lab' : 'DSA Lab'} left out (${built.error})`)
+      else {
+        scenes++
+        beats.push({ t: 'scene', script: built.script, caption: step.heading, clear: true })
+        say()
+        beats.push(...built.beats)
+        if (step.equation) beats.push({ t: 'equation', latex: step.equation })
+        continue
+      }
+    }
+    const recipe = step.scene ? circuitRecipe(step.scene) : null
+    const samePicture: boolean = !!recipeOnBoard && !recipe && !!step.scene && /\b(r\d|resistors?|bulbs?|lamps?|branch(es)?|current|voltage|battery|parallel|series|circuit)\b/i.test(step.scene)
     if (step.scene) {
       try {
-        script = await d.llm.script(step.scene, d.signal)
+        // A plain series/parallel circuit is written exactly; anything else is the model's to draw.
+        script = recipe ?? (samePicture ? (recipeOnBoard as string) : await d.llm.script(step.scene, d.signal))
         const lint = lintSimScript(script) // defence in depth: whatever produced it, only verified SimScript is drawn
         if (!lint.ok) throw new Error(lint.errors[0])
         script = lint.cleaned
@@ -172,6 +275,7 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
       } catch (e) { warnings.push(`step ${i + 1}: scene failed (${e instanceof Error ? e.message : e})`); script = undefined }
     }
     if (script && ground) {
+      recipeOnBoard = recipe ?? (samePicture ? recipeOnBoard : null)
       scenes++
       beats.push({ t: 'scene', script, caption: step.scene, clear: true })
       say()

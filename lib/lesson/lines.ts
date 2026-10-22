@@ -11,6 +11,7 @@ export function upcomingLines(sb: Storyboard, from: number, count = 4): string[]
     else if (b.t === 'title') out.push(b.text)
     else if (b.t === 'equation' && b.text) out.push(b.text)
     else if (b.t === 'animate' && b.text) out.push(b.text)
+    else if (b.t === 'code') out.push(...b.narration.slice(0, 3).map((n) => n.text))
     else if (b.t === 'predict') out.push(b.prompt, ...b.responses) // answers are spoken the instant the student picks
   }
   return out.slice(0, count + 4)

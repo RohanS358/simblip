@@ -16,6 +16,10 @@ export interface Stage {
   run(seconds: number): Promise<void>
   /** Glide the cursor to a named object, ring it, and say `text`. */
   point(object: string, text: string): Promise<void>
+  /** Step a Step Lab stepper through up to `steps` frames, speaking each frame's commentary. */
+  lab(object: string, steps: number): Promise<void>
+  /** Step a DSA Lab program to each narrated step, speaking its sentence. */
+  code(object: string, narration: { step: number; text: string }[]): Promise<void>
   /** Sweep a parameter while the simulation runs; `text` is narrated over it. */
   animate(object: string, param: string, from: number, to: number, seconds: number, text?: string): Promise<void>
   /** Freeze and wait for the student's choice (index). */
@@ -69,6 +73,8 @@ export async function perform(sb: Storyboard, stage: Stage, from = 0, opts: { re
       case 'equation': await stage.equation(b.latex, b.text); break
       case 'run': await stage.run(b.seconds); break
       case 'point': await stage.point(b.object, b.text); break
+      case 'code': await stage.code(b.object, b.narration); break
+      case 'lab': await stage.lab(b.object, b.steps); break
       case 'animate': await stage.animate(b.object, b.param, b.from, b.to, b.seconds, b.text); break
       case 'predict': {
         const chosen = await stage.ask(b)

@@ -15,6 +15,8 @@ interface TutorState {
   /** Screen rectangle of what the teacher is explaining — drawn as a ring on the board. */
   ring: Ring | null
   chips: Chip[]
+  /** Objects the teacher is pointing at right now: they glow on the board. */
+  spot: string[]
   /** A free-text question box is open. */
   typing: boolean
   pace: Pace
@@ -30,6 +32,7 @@ export const useTutor = create<TutorState>((set) => ({
   mode: 'idle',
   ring: null,
   chips: [],
+  spot: [],
   typing: false,
   pace: START_PACE,
   missesInRow: 0,
