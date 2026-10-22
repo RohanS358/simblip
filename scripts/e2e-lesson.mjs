@@ -66,7 +66,20 @@ if (film) log(`  film "${film.title}": ${film.beats.length} beats — ` + Object
 await page.waitForTimeout(3000); await shot('2b-early')
 log('  canvas roots: ' + JSON.stringify(await page.evaluate(() => [...document.querySelectorAll('[data-canvas-root]')].map((e) => [e.dataset.canvasRoot, Math.round(e.getBoundingClientRect().width), Math.round(e.getBoundingClientRect().height)]))))
 const pred = page.getByRole('group', { name: 'Prediction' })
-await pred.waitFor({ timeout: 20_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
+await pred.waitFor({ timeout: 8_000 }).catch(async (e) => { await shot("9-no-predict"); throw e }); log('✔ prediction card appeared'); await shot('3-predict')
+if (arg('hunt', false)) {
+  // Play on at 1.5x, answering every prediction, until a formula is being written — then take frames of it.
+  await page.getByRole('button', { name: /0\.75x/ }).click(); await page.getByRole('menuitem', { name: '1.5x' }).click({ force: true })
+  let frames = 0, typed = 0
+  for (let i = 0; i < 900 && frames < 4; i++) {
+    const p = page.getByRole('group', { name: 'Prediction' })
+    if (await p.count()) { await p.getByRole('button').nth(1).click().catch(() => {}); await page.waitForTimeout(400); continue }
+    if (!typed && (await page.locator('[aria-live=polite] span.animate-pulse').count())) { typed++; await shot('4a-typing'); log('✔ caption is being typed in step with the voice') }
+    if (await page.locator('.formula-writing').count()) { await shot(`5-formula-write-${frames++}`); await page.waitForTimeout(450) } else await page.waitForTimeout(300)
+  }
+  log(frames ? `✔ captured ${frames} frames of a formula being written` : '✖ never saw a formula being written')
+  await ctx.close(); process.exit(0)
+}
 const label = await pred.innerText(); log('  ' + label.replace(/\n+/g, ' | ').slice(0, 200))
 await pred.getByRole('button').first().click(); await page.waitForTimeout(3500); await shot('4-after-choice')
 log('  caption: ' + (await page.locator('[aria-live=polite]').last().innerText().catch(() => '(none)')).slice(0, 200))

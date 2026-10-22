@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
 import { q, pgConfigured } from '@/lib/server/pg'
+import { randomUUID } from 'node:crypto'
 import { signToken, verifyPassword, verifyToken } from '@/lib/server/auth'
 
 // Token endpoint (replaces GoTrue). Grants:
 //   { grant: 'password', email, password }
 //   { grant: 'refresh', refresh_token }
+//   { grant: 'demo' }  — a throwaway student account in the demo institution
 // Response matches the shape the auth store adopted from GoTrue:
 //   { access_token, refresh_token, expires_in, user: { id } }
 
@@ -57,6 +59,28 @@ function noteIpFailure(ip: string): void {
     ipFailures.set(ip, { count: 1, resetAt: now + WINDOW_MS })
     if (ipFailures.size > 5000) for (const [k, v] of ipFailures) if (now > v.resetAt) ipFailures.delete(k)
   } else rec.count++
+}
+
+// ── Demo accounts ───────────────────────────────────────────────────────────
+// "Try it" for someone with no institution: each visitor gets their OWN student
+// profile in the demo institution (so notebooks and sync never mix between
+// visitors), with no password — it can only be reached through this grant, and
+// only until it is pruned. Creation is rate-limited per IP, but far more
+// loosely than password failures: a whole class tries it from one school IP.
+const DEMO_SLUG = 'simblip-demo'
+const DEMO_MAX_PER_HOUR = 120
+const DEMO_KEEP_DAYS = 14
+const demoCreates = new Map<string, { count: number; resetAt: number }>()
+function demoLimited(ip: string): boolean {
+  const now = Date.now()
+  const rec = demoCreates.get(ip)
+  if (!rec || now > rec.resetAt) {
+    demoCreates.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 })
+    if (demoCreates.size > 5000) for (const [k, v] of demoCreates) if (now > v.resetAt) demoCreates.delete(k)
+    return false
+  }
+  rec.count++
+  return rec.count > DEMO_MAX_PER_HOUR
 }
 
 /** Successful login clears the counter, so ordinary users are never locked. */
@@ -132,6 +156,37 @@ export async function POST(req: Request) {
       }
       clearAttempts(key)
       return issue(p)
+    }
+
+    if (body.grant === 'demo') {
+      if (demoLimited(clientIp(req))) {
+        return NextResponse.json(
+          { msg: 'Too many demo sessions from this network. Try again in a little while.' },
+          { status: 429, headers: { 'Retry-After': '3600' } }
+        )
+      }
+      const inst = await q<{ id: string }>(
+        `select id from simblip_institutions where slug = $1 and active`,
+        [DEMO_SLUG]
+      )
+      if (!inst[0]) {
+        return NextResponse.json({ msg: 'The demo is not set up on this server.' }, { status: 404 })
+      }
+      // Demo accounts are disposable: drop the stale ones as new ones arrive.
+      // Cascades remove their notebooks and synced pages with them.
+      await q(
+        `delete from simblip_profiles
+          where institution_id = $1 and department = 'demo'
+            and created_at < now() - make_interval(days => $2)`,
+        [inst[0].id, DEMO_KEEP_DAYS]
+      )
+      const made = await q<ProfileAuthRow>(
+        `insert into simblip_profiles (institution_id, role, full_name, email, department)
+         values ($1, 'student', 'Explorer', $2, 'demo')
+         returning id, role, institution_id, active, password_hash`,
+        [inst[0].id, `demo-${randomUUID()}@demo.simblip.invalid`]
+      )
+      return issue(made[0])
     }
 
     if (body.grant === 'refresh') {

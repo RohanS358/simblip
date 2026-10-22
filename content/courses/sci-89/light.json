@@ -1,0 +1,173 @@
+{
+  "title": "How Light Travels",
+  "kicker": "Light · Lesson 1",
+  "subtitle": "Straight lines, mirrors and lenses, and why the sky is a colour at all.",
+  "sections": [
+    {
+      "id": "hook",
+      "locator": "1",
+      "eyebrow": "Start here",
+      "title": "Why do you have a shadow?",
+      "body": "<p>Stand in the sun and you have a shadow. Hold up your hand in front of a torch and your hand has a shadow on the wall. Why?</p>\n<p>The reason is the single most important fact about light in everyday life: <b>light travels in straight lines</b>. Your body blocks the straight path from the Sun to the ground, and the space behind you is dark. This lesson looks at what light does when it meets different things: a screen, a mirror and a lens.</p>"
+    },
+    {
+      "id": "beam",
+      "locator": "2",
+      "eyebrow": "Watch it",
+      "title": "A beam of light",
+      "body": "<p>Here is a small lamp that sends out a beam, and a screen that catches it. Press Simulate. The beam leaves the lamp and goes straight across to the screen without bending.</p>\n<p>Light is the fastest thing in the universe: about 300,000 kilometres every second. It could go around the Earth more than seven times in the time you blink once.</p>",
+      "figures": [
+        {
+          "id": "f-beam",
+          "caption": "Figure 1.1 — a lamp, a beam and a screen",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"optics\", width: 520, height: 360 });\nvar lamp = create(\"light-source\", { x: 60, y: 180, name: \"lamp\" });\nvar scr = create(\"screen\", { x: 440, y: 180, name: \"scr\" });",
+          "note": "Press Simulate. Notice that the beam is a straight line."
+        }
+      ]
+    },
+    {
+      "id": "mirror",
+      "locator": "3",
+      "eyebrow": "Bouncing",
+      "title": "Mirrors bounce light",
+      "body": "<p>When light hits a smooth shiny surface such as a mirror, it bounces off. This is called <b>reflection</b>. The bounce follows a rule, the <b>law of reflection</b>: the angle the light comes in at equals the angle it goes out at.</p>\n<p>That is why you can see yourself in a mirror: light from you reaches the mirror, bounces, and goes into your eyes.</p>",
+      "figures": [
+        {
+          "id": "f-mirror",
+          "caption": "Figure 1.2 — light reflecting from a mirror",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"optics\", width: 520, height: 360 });\nvar lamp = create(\"light-source\", { x: 60, y: 180, name: \"lamp\" });\nvar mir = create(\"mirror\", { x: 330, y: 180, name: \"mir\" });",
+          "note": "Press Simulate. The beam hits the mirror and bounces back."
+        }
+      ],
+      "questions": [
+        {
+          "id": "reflect",
+          "prompt": "A ray of light hits a flat mirror and makes an angle of 30° with the mirror's straight-out line (the \"normal\"). At what angle does it leave?",
+          "choices": [
+            {
+              "text": "0°, it goes straight back."
+            },
+            {
+              "text": "30° on the other side of the normal.",
+              "correct": true
+            },
+            {
+              "text": "60°, double the angle."
+            }
+          ],
+          "responses": [
+            {
+              "title": "That only happens if the light hits straight on.",
+              "body": "If it comes in along the normal, it goes straight back. This light comes in at an angle, so it bounces off at an angle."
+            },
+            {
+              "title": "Correct.",
+              "body": "The law of reflection says the angle in equals the angle out, measured from the normal. In at 30°, out at 30°, on the other side."
+            },
+            {
+              "title": "The angle does not double.",
+              "body": "Reflection does not change the size of the angle, it only flips the direction. In at 30° means out at 30°."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lens",
+      "locator": "4",
+      "eyebrow": "Bending",
+      "title": "Lenses bend light",
+      "body": "<p>Glasses, cameras, magnifying glasses and your own eyes all use <b>lenses</b>. A lens is a piece of clear material shaped so that it bends light. A lens that is thick in the middle brings the beams together to one spot, called the <b>focus</b>.</p>\n<p>How strongly it bends is described by its <b>focal length</b>, written <i>f</i>. A short focal length is a strong lens. A long one is a weak lens. Drag the slider and watch the spot move.</p>",
+      "figures": [
+        {
+          "id": "f-lens",
+          "caption": "Figure 1.3 — a lens bringing light to a focus",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"optics\", width: 520, height: 360 });\nvar lamp = create(\"light-source\", { x: 50, y: 180, name: \"lamp\" });\nvar lns = create(\"thin-lens\", { x: 210, y: 180, f: 150, name: \"lns\" });\nvar scr = create(\"screen\", { x: 450, y: 180, name: \"scr\" });\nvar sld = create(\"slider\", { min: 60, max: 300, step: 10, value: 150, label: \"Lens strength: focal length f\", targetObjectId: lns, targetParamName: \"f\" });",
+          "note": "Drag the slider to change the lens. A stronger lens (smaller f) brings the light to a point sooner."
+        }
+      ]
+    },
+    {
+      "id": "predict",
+      "locator": "5",
+      "eyebrow": "Guess first",
+      "title": "Which lens is stronger?",
+      "questions": [
+        {
+          "id": "strong",
+          "prompt": "Lens A has a focal length of 50 mm. Lens B has a focal length of 200 mm. Which lens bends light more strongly?",
+          "choices": [
+            {
+              "text": "Lens A, because it brings the light to a focus sooner.",
+              "correct": true
+            },
+            {
+              "text": "Lens B, because 200 is the bigger number."
+            },
+            {
+              "text": "They are equal."
+            }
+          ],
+          "responses": [
+            {
+              "title": "Correct.",
+              "body": "A short focal length means the light is gathered to a point close to the lens, so the lens bends the light strongly. A magnifying glass is a short-focal-length lens."
+            },
+            {
+              "title": "The bigger number is the weaker lens.",
+              "body": "The focal length is a distance, not a strength. A longer distance to the focus means the lens bends the light more gently."
+            },
+            {
+              "title": "They are different.",
+              "body": "Same shape of idea, different strength. The one with the shorter focal length bends light more."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worked",
+      "locator": "6",
+      "eyebrow": "Do the sum",
+      "title": "How long is a light journey?",
+      "body": "<p>Sunlight takes about 8 minutes to reach us. How far away is the Sun? Light travels at 300,000 km/s.</p>",
+      "worked": [
+        {
+          "why": "Convert 8 minutes into seconds, because the speed is in km per second.",
+          "math": "8 \\times 60 = 480\\,\\text{s}"
+        },
+        {
+          "why": "Distance is speed multiplied by time.",
+          "math": "d = v \\times t"
+        },
+        {
+          "why": "Multiply.",
+          "math": "d = 300\\,000 \\times 480 = 144\\,000\\,000\\,\\text{km}",
+          "hero": true
+        },
+        {
+          "why": "That is about 144 million km. The true distance is about 150 million km. Our answer is close because \"8 minutes\" was rounded."
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "locator": "7",
+      "eyebrow": "Your turn",
+      "title": "Try these",
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>Moonlight takes about 1.3 seconds to reach us. How far away is the Moon? (Light: 300,000 km/s.)</p>",
+          "math": "d = 300\\,000 \\times 1.3 = 390\\,000\\,\\text{km}",
+          "answer": "<p>Distance = speed × time = 300,000 × 1.3 = 390,000 km. (The real distance is about 384,000 km.)</p>"
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>Why can you not see around a corner, yet you can hear around a corner?</p>",
+          "answer": "<p>Light travels in straight lines, so a wall blocks it. Sound spreads out and bends around corners far more, so it reaches you.</p>"
+        }
+      ]
+    }
+  ]
+}

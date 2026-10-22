@@ -50,12 +50,16 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
     const objs = pageObjects()
     if (!root || !objs.length) return
     const r = root.getBoundingClientRect()
+    // The root runs under the sidebar and panels; the part the student can actually SEE is the
+    // inner canvas element, so frame into that, offset from the root's origin.
+    const vis = (document.querySelector('[aria-label="Infinite canvas"]') as HTMLElement | null)?.getBoundingClientRect() ?? r
+    const offX = vis.left - r.left, offY = vis.top - r.top
     const x1 = Math.min(...objs.map((o) => o.position.x)), y1 = Math.min(...objs.map((o) => o.position.y))
     const x2 = Math.max(...objs.map((o) => o.position.x + o.size.w)), y2 = Math.max(...objs.map((o) => o.position.y + o.size.h))
-    const pad = 28, bottomReserve = FRAME_BOTTOM
-    const availW = Math.max(200, r.width - pad * 2), availH = Math.max(160, r.height - bottomReserve - pad)
+    const pad = 28, topReserve = 76 /* the page header floats over the board */, bottomReserve = FRAME_BOTTOM
+    const availW = Math.max(200, vis.width - pad * 2), availH = Math.max(160, vis.height - bottomReserve - topReserve)
     const zoom = Math.max(0.3, Math.min(1.1, availW / Math.max(1, x2 - x1), availH / Math.max(1, y2 - y1)))
-    const target = { zoom, x: pad + (availW - (x2 - x1) * zoom) / 2 - x1 * zoom, y: pad + (availH - (y2 - y1) * zoom) / 2 - y1 * zoom }
+    const target = { zoom, x: offX + pad + (availW - (x2 - x1) * zoom) / 2 - x1 * zoom, y: offY + topReserve + (availH - (y2 - y1) * zoom) / 2 - y1 * zoom }
     const from = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
     const steps = 12
     for (let i = 1; i <= steps && alive(); i++) {

@@ -34,6 +34,8 @@ import { homeFor, type Role } from './types'
 
 export const ACTIVE_USER_KEY = 'simblip-active-user'
 const SESSION_KEY = 'simblip-session'
+const LOCAL_DEMO_ID = 'user-demo'
+const LOCAL_DEMO_INSTITUTION = 'inst-demo'
 
 /**
  * A successfully authenticated user may continue using the application
@@ -89,6 +91,8 @@ interface AuthState {
 
   init: () => Promise<void>
   login: (email: string, password: string) => Promise<ProfileRow | null>
+  /** "Try it" with no account: a throwaway student in the demo institution. */
+  loginDemo: () => Promise<ProfileRow | null>
   logout: () => void
 }
 
@@ -731,6 +735,55 @@ export const useAuthStore = create<AuthState>((set, get) => ({
           : String(err),
       })
 
+      return null
+    }
+  },
+
+  // ── Demo ───────────────────────────────────────────────────────────────────
+
+  loginDemo: async () => {
+    set({ error: null })
+
+    try {
+      let session: StoredSession
+
+      if (db.cloudConfigured) {
+        session = adoptTokens(await tokenGrant({ grant: 'demo' }))
+      } else {
+        // Local mode: the demo student is one more row in the in-browser db.
+        const rows = await db.list<ProfileRow>('profiles')
+        const existing = rows.find((p) => p.id === LOCAL_DEMO_ID)
+        if (!existing) {
+          db.seedTable('institutions', [
+            { id: LOCAL_DEMO_INSTITUTION, name: 'SIMBLIP Demo', slug: 'simblip-demo', logo_url: null, accent_color: null, active: true },
+          ])
+          await db.insert('profiles', [
+            {
+              id: LOCAL_DEMO_ID,
+              institution_id: LOCAL_DEMO_INSTITUTION,
+              role: 'student',
+              full_name: 'Explorer',
+              email: 'explorer@demo.simblip.invalid',
+              department: 'demo',
+              active: true,
+              password: '',
+            },
+          ])
+        }
+        session = { userId: LOCAL_DEMO_ID }
+      }
+
+      saveSession(session)
+      const ctx = await loadContext(session.userId)
+      if (!ctx) throw new Error('The demo could not start. Please try again.')
+
+      localStorage.setItem(ACTIVE_USER_KEY, ctx.profile.id)
+      set({ status: 'authed', ...ctx, error: null })
+      startRefreshLoop()
+      return ctx.profile
+    } catch (err) {
+      saveSession(null)
+      set({ error: err instanceof Error ? err.message : String(err) })
       return null
     }
   },

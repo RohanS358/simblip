@@ -234,18 +234,23 @@ export function Landing() {
               <span className="text-[var(--accent-mint)]">experiments</span>
             </h1>
             <p className="mt-6 max-w-xl text-pretty text-ui-lg leading-relaxed text-muted-foreground sm:text-ui-xl">
-              Sketch mechanics, wire circuits, build logic, fire photons at a double slit — then
-              press Play. One canvas, real physics, real Kirchhoff, real interference. Everything
-              editable while it runs.
+              Learn science by playing with it. Light a bulb, drop a ball, bounce a beam off a
+              mirror — then change one thing and see what happens. Students in Class 8 and up
+              can start in one click; engineering classes can go all the way to circuits, waves
+              and quantum.
             </p>
             <div className="mt-9 flex flex-wrap items-center gap-3">
+              <TryDemoButton
+                label="Try it now — no sign-up"
+                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-ui-md font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97] disabled:opacity-60"
+              />
               <SignInLink
-                signedOutLabel="Sign in to your institution"
-                className="rounded-full bg-[var(--accent-blue)] px-7 py-3 text-ui-md font-semibold text-primary-foreground shadow-[0_12px_36px_color-mix(in_oklch,var(--accent-blue)_50%,transparent)] transition-[opacity,transform] duration-150 ease-out hover:opacity-90 active:scale-[0.97]"
+                signedOutLabel="Sign in to your school"
+                className="liquid-glass rounded-full px-7 py-3 text-ui-md font-medium text-foreground transition-transform active:scale-[0.97]"
               />
               <a
                 href="#demos"
-                className="liquid-glass rounded-full px-7 py-3 text-ui-md font-medium text-foreground transition-transform active:scale-[0.97]"
+                className="rounded-full px-4 py-3 text-ui-md font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
               >
                 See it in action
               </a>

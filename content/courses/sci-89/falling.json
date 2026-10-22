@@ -1,0 +1,190 @@
+{
+  "title": "Why Do Things Fall?",
+  "kicker": "Motion and Force · Lesson 1",
+  "subtitle": "A feather and a hammer, and what really makes things fall.",
+  "sections": [
+    {
+      "id": "hook",
+      "locator": "1",
+      "eyebrow": "Start here",
+      "title": "Let go of something",
+      "body": "<p>Hold a pen in the air and let go. It falls. It has always fallen. Nobody ever had to teach you that, and you have never seen a pen float up on its own.</p>\n<p>But <em>why</em> does it fall? The answer is a force that pulls every object towards the centre of the Earth. It is called <b>gravity</b>. In this lesson you will watch gravity at work, and then test a question people argued about for about two thousand years: <b>does a heavy thing fall faster than a light thing?</b></p>"
+    },
+    {
+      "id": "drop",
+      "locator": "2",
+      "eyebrow": "Watch it",
+      "title": "A ball falling",
+      "body": "<p>Here is a ball above the ground. Press Simulate and watch it. Next to the ball a graph draws its <b>speed</b>, and a second line draws its <b>height</b>.</p>\n<p>Look at the speed line. It does not jump to a fixed value. It starts at zero and keeps <b>climbing</b>. The ball goes faster and faster every second while it falls. That steady speeding-up is called <b>acceleration</b>.</p>",
+      "figures": [
+        {
+          "id": "f-drop",
+          "caption": "Figure 1.1 — one ball falling, with a speed and height graph",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 520, height: 360 });\nvar ground = create(\"ground\", { x: 20, y: 310, width: 480 });\nvar ball = create(\"mass\", { x: 240, y: 60, mass: 2, name: \"ball\" });\ngraph.plot(ball.vy);\ngraph.plot(ball.y);",
+          "note": "Press Simulate and watch the speed line climb until the ball lands."
+        }
+      ]
+    },
+    {
+      "id": "gravity",
+      "locator": "3",
+      "eyebrow": "The big number",
+      "title": "How fast does it speed up?",
+      "body": "<p>On Earth, every falling object (with no air to slow it) gains about <b>9.8 metres per second</b> of speed <em>every second</em>. We write this as <b>g = 9.8 m/s²</b> and call it the acceleration due to gravity.</p>\n<p>So after 1 second the speed is about 9.8 m/s. After 2 seconds it is about 19.6 m/s. After 3 seconds, about 29.4 m/s. The rule is simple: <b>speed = g × time</b>.</p>",
+      "figures": [
+        {
+          "id": "d-g",
+          "caption": "Figure 1.2 — the pattern of falling",
+          "script": "diagram(\"direction: right\\n[Let go: speed = 0] as a #blue\\n[After 1 s: about 9.8 m/s] as b #mint\\n[After 2 s: about 19.6 m/s] as c #amber\\n[After 3 s: about 29.4 m/s] as d #rose\\na -> b : +9.8\\nb -> c : +9.8\\nc -> d : +9.8\");"
+        }
+      ]
+    },
+    {
+      "id": "predict",
+      "locator": "4",
+      "eyebrow": "Guess first",
+      "title": "Heavy or light?",
+      "body": "<p>Imagine two balls, one 1 kg and one 10 kg, let go from the same height at the same moment. There is no air to get in the way.</p>",
+      "questions": [
+        {
+          "id": "heavy-light",
+          "prompt": "Which ball hits the ground first?",
+          "choices": [
+            {
+              "text": "The heavy ball, because gravity pulls harder on it."
+            },
+            {
+              "text": "The light ball, because it is easier to move."
+            },
+            {
+              "text": "They land at the same moment.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "Gravity does pull harder on the heavy ball, but there is a catch.",
+              "body": "The pull is ten times bigger on the 10 kg ball. But that ball is also ten times harder to get moving. The bigger pull and the bigger resistance to moving cancel out exactly, so both speed up at the same rate."
+            },
+            {
+              "title": "It feels right, but the bigger push and the bigger load cancel.",
+              "body": "A light ball is easier to move, but gravity also pulls on it ten times less. Again the two effects cancel, so it speeds up no faster than the heavy one."
+            },
+            {
+              "title": "Correct.",
+              "body": "In air-free conditions every object falls with the same acceleration, 9.8 m/s², whatever its mass. The graph below shows two speed lines lying right on top of each other."
+            }
+          ],
+          "verify": {
+            "id": "v-two",
+            "caption": "Check it — a 1 kg and a 10 kg ball dropped together",
+            "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 520, height: 360 });\nvar ground = create(\"ground\", { x: 20, y: 310, width: 480 });\nvar light = create(\"mass\", { x: 150, y: 60, mass: 1, name: \"light\" });\nvar heavy = create(\"mass\", { x: 330, y: 60, mass: 10, name: \"heavy\" });\ngraph.plot(light.vy);\ngraph.plot(heavy.vy);",
+            "note": "Press Simulate: the two speed lines are the same line, and both balls reach the ground together."
+          }
+        }
+      ]
+    },
+    {
+      "id": "air",
+      "locator": "5",
+      "eyebrow": "But a feather floats!",
+      "title": "So why does a feather fall slowly?",
+      "body": "<p>You have seen a feather drift down much more slowly than a stone. That is <b>air</b>, not gravity. A feather is wide and very light, so the air pushes up on it a lot compared with its tiny weight. This push is called <b>air resistance</b> (or drag).</p>\n<p>On the Moon there is no air. When astronaut David Scott dropped a hammer and a feather together there in 1971, they landed at the same time. Try changing the mass of the ball below. The speed graph stays the same.</p>",
+      "figures": [
+        {
+          "id": "f-mass",
+          "caption": "Figure 1.3 — change the mass while the ball falls",
+          "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 520, height: 360 });\nvar ground = create(\"ground\", { x: 20, y: 310, width: 480 });\nvar ball = create(\"mass\", { x: 240, y: 60, mass: 2, name: \"ball\" });\nvar sld = create(\"slider\", { min: 1, max: 50, step: 1, value: 2, label: \"Mass of the ball (kg)\", targetObjectId: ball, targetParamName: \"mass\" });\ngraph.plot(ball.vy);",
+          "note": "Drag the slider between runs. The speed graph does not change, whatever the mass."
+        }
+      ],
+      "questions": [
+        {
+          "id": "feather",
+          "prompt": "A feather and a stone are dropped together inside a room where all the air has been pumped out. What happens?",
+          "choices": [
+            {
+              "text": "The stone lands first."
+            },
+            {
+              "text": "The feather lands first."
+            },
+            {
+              "text": "They land together.",
+              "correct": true
+            }
+          ],
+          "responses": [
+            {
+              "title": "That is what happens in air, not in a vacuum.",
+              "body": "In air the feather is slowed down by air resistance. With the air removed there is nothing to slow it, so only gravity is left, and gravity gives the same acceleration to both."
+            },
+            {
+              "title": "The feather has no special advantage.",
+              "body": "It is lighter, but lightness does not make something fall faster. Without air, nothing pushes back on either object differently."
+            },
+            {
+              "title": "Correct.",
+              "body": "With no air, only gravity acts, and gravity gives every object the same acceleration. This has been tested in huge vacuum chambers and also on the Moon."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "worked",
+      "locator": "6",
+      "eyebrow": "Do the sum",
+      "title": "How fast after 3 seconds?",
+      "body": "<p>A stone is dropped off a bridge. How fast is it going after 3 seconds? (Ignore air.)</p>",
+      "worked": [
+        {
+          "why": "Write down what you know: the acceleration of gravity and the time.",
+          "math": "g = 9.8\\,\\text{m/s}^2,\\quad t = 3\\,\\text{s}"
+        },
+        {
+          "why": "The stone starts from rest, so its speed is just g multiplied by the time.",
+          "math": "v = g \\times t"
+        },
+        {
+          "why": "Multiply.",
+          "math": "v = 9.8 \\times 3 = 29.4\\,\\text{m/s}",
+          "hero": true
+        },
+        {
+          "why": "Does the answer make sense? 29.4 m/s is about 106 km/h, which is fast, and that is why dropping things from a bridge is dangerous."
+        }
+      ]
+    },
+    {
+      "id": "practice",
+      "locator": "7",
+      "eyebrow": "Your turn",
+      "title": "Try these",
+      "problems": [
+        {
+          "id": "p1",
+          "prompt": "<p>How fast is a dropped ball going after 2 seconds? Use g = 9.8 m/s².</p>",
+          "math": "v = 9.8 \\times 2 = 19.6\\,\\text{m/s}",
+          "answer": "<p>Speed = g × time = 9.8 × 2 = 19.6 m/s.</p>"
+        },
+        {
+          "id": "p2",
+          "prompt": "<p>A 5 kg ball and a 0.5 kg ball are dropped together in a vacuum. After 1 second, which is going faster?</p>",
+          "answer": "<p>Neither. Both have the same speed, about 9.8 m/s. In a vacuum all objects have the same acceleration.</p>",
+          "verify": {
+            "id": "v-p2",
+            "caption": "Check it — two different masses dropped together",
+            "script": "var sys = create(\"system\", { x: 0, y: 0, domain: \"mechanics\", width: 520, height: 360 });\nvar ground = create(\"ground\", { x: 20, y: 310, width: 480 });\nvar light = create(\"mass\", { x: 150, y: 60, mass: 1, name: \"light\" });\nvar heavy = create(\"mass\", { x: 330, y: 60, mass: 10, name: \"heavy\" });\ngraph.plot(light.vy);\ngraph.plot(heavy.vy);",
+            "note": "The two speed lines match."
+          }
+        },
+        {
+          "id": "p3",
+          "prompt": "<p>Why does a sheet of paper fall slowly, but the same sheet crumpled into a ball falls fast?</p>",
+          "answer": "<p>Gravity pulls on both the same. The flat sheet catches a lot of air, so air resistance slows it. Crumpled, it catches much less air, so gravity wins and it speeds up more.</p>"
+        }
+      ]
+    }
+  ]
+}
