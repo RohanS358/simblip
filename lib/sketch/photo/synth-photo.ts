@@ -99,3 +99,15 @@ export function renderPhoto(strokes0: number[][][], rng: Rng, o: PhotoOptions = 
   }
   return { data, width: W, height: H, shiftX: (margin - x0) / zoom, shiftY: (margin - y0) / zoom }
 }
+
+/**
+ * A "writer" that draws like a drawing program or a printer: no tremor, no tilt, sharp corners, every
+ * symbol with its leads, wires meeting exactly. A synthetic stand-in for the clean printed diagrams of the
+ * plan's S5 target — still the generator's own symbol shapes, so it says nothing about other fonts or styles.
+ */
+export function printedWriter(id: string): import('../synth').WriterStyle {
+  return {
+    id, device: 'pen', wobble: 0, jitter: 0, rounding: 0, size: 110, aspect: 1, tilt: 0, shear: 0, endNoise: 0,
+    mergeProb: 0.9, splitProb: 0, orderShuffle: 0, speed: 0.5, dt: 6, leadOmit: 0, leadless: 0,
+  }
+}

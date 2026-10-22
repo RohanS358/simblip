@@ -107,7 +107,7 @@ function edgesOf(skel: Mask): Edge[] {
  * ends that continue each other most smoothly were one stroke. Join those (and only those, and only when the
  * turn is gentle), so a zigzag or a wire along a rail is one stroke again, as it was drawn.
  */
-function mergeThroughJunctions(lines: Pt[][], reach: number): Pt[][] {
+function mergeThroughJunctions(lines: Pt[][], reach: number, fragment: number): Pt[][] {
   const out = lines.map((l) => l.slice())
   const alive = out.map(() => true)
   // the direction a line LEAVES its end in (unit vector pointing away from the line)
@@ -144,7 +144,15 @@ function mergeThroughJunctions(lines: Pt[][], reach: number): Pt[][] {
         // two ends continue each other when they point in opposite directions
         const cos = -(a.d[0] * b.d[0] + a.d[1] * b.d[1])
         const turn = (Math.acos(Math.max(-1, Math.min(1, cos))) * 180) / Math.PI
-        if (turn <= 55 && (!best || turn < best.turn)) best = { a, b, turn }
+        // Two ends meeting ALONE are one line however sharp the turn (the tip of a zigzag, a corner); where a
+        // third end is also there, only a gentle continuation is joined.
+        const alone = ends.filter((c) => c !== a && c !== b && (Math.hypot(c.p[0] - a.p[0], c.p[1] - a.p[1]) <= reach || Math.hypot(c.p[0] - b.p[0], c.p[1] - b.p[1]) <= reach)).length === 0
+        // a sharp turn joins only two SHORT pieces (the teeth of a zigzag, the loops of a coil, broken at their tips):
+        // joining a long wire to a symbol at a sharp turn would make one stroke of the two, which nothing can read
+        const lenOf = (e: (typeof ends)[number]) => out[e.i].reduce((acc, q, k) => acc + (k ? Math.hypot(q[0] - out[e.i][k - 1][0], q[1] - out[e.i][k - 1][1]) : 0), 0)
+        const ok = alone ? (turn <= 55 || (turn <= 170 && lenOf(a) <= fragment && lenOf(b) <= fragment)) : turn <= 55
+        const score = alone ? turn - 1000 : turn // meetings of exactly two ends go first
+        if (ok && (!best || score < best.turn)) best = { a, b, turn: score }
       }
     }
     if (!best) break
@@ -219,7 +227,7 @@ export function traceStrokes(thick: Mask, skel: Mask): TraceResult {
   const strokes: TraceResult['strokes'] = []
   let n = 0
   const grow = 0.9 * strokeWidth // thinning eats about a line width off every free end
-  for (const pts of mergeThroughJunctions(lines, Math.max(3, 2.2 * strokeWidth))) {
+  for (const pts of mergeThroughJunctions(lines, Math.max(3, 2.2 * strokeWidth), 16 * strokeWidth)) {
     const ext = (e: Pt, q: Pt): number[] => {
       const dx = e[0] - q[0]
       const dy = e[1] - q[1]

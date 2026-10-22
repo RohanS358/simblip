@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createSketchNet } from '../../../lib/sketch/sketchnet.ts'
 import { readPhoto } from '../../../lib/sketch/photo/index.ts'
-import { renderPhoto } from '../../../lib/sketch/photo/synth-photo.ts'
+import { renderPhoto, printedWriter } from '../../../lib/sketch/photo/synth-photo.ts'
 import { drawScene } from '../../../lib/sketch/scene-synth.ts'
 import { makeWriter } from '../../../lib/sketch/synth.ts'
 import { makeRng } from '../../../lib/sketch/rng.ts'
@@ -15,11 +15,12 @@ const net = load('sketchnet-v1'), charNet = load('inkchars-v1')
 const { layouts } = JSON.parse(readFileSync(resolve('lib/sketch/golden/scene-layouts.json'), 'utf8'))
 const arg = (n, d) => { const i = process.argv.indexOf(`--${n}`); return i > 0 ? process.argv[i + 1] : d }
 const N = Number(arg('n', layouts.length)); const W = Number(arg('width', 2)); const Z = Number(arg('zoom', 1)); const hard = process.argv.includes('--hard')
+const conf = {}
 let classOk = 0, matchedN = 0, netsMiss = 0, netsExtra = 0, n = 0, circuit = 0, partsFound = 0, partsTruth = 0, exact = 0; const why = {}
 for (let i = 0; i < Math.min(N, layouts.length); i++) {
   const rng = makeRng(900 + i)
-  const sc = drawScene(layouts[i], rng.fork('s'), makeWriter(rng.fork('w'), `ph-${i}`, 'pen'), undefined, undefined, { text: false })
-  const img = renderPhoto(sc.strokes, rng.fork('p'), hard ? { width: 4, blur: 2, shade: 0.3, noise: 10, tilt: 3 } : { width: W, blur: 1, shade: 0.12, noise: 4, tilt: 0, zoom: Z })
+  const sc = drawScene(layouts[i], rng.fork('s'), (process.argv.includes('--printed') ? printedWriter(`pr-${i}`) : makeWriter(rng.fork('w'), `ph-${i}`, 'pen')), undefined, undefined, { text: false })
+  const img = renderPhoto(sc.strokes, rng.fork('p'), hard ? { width: 4, blur: 2, shade: 0.3, noise: 10, tilt: 3 } : { width: W, blur: Number(arg('blur', 1)), shade: Number(arg('shade', 0.12)), noise: Number(arg('noise', 4)), tilt: 0, zoom: Z })
   const r = readPhoto(img, net, charNet)
   n++
   partsTruth += sc.truth.nodes.length
@@ -30,15 +31,17 @@ for (let i = 0; i < Math.min(N, layouts.length); i++) {
   partsFound += got.parts.length
   // back into the truth's coordinates (the picture was shifted and shrunk); tilt cannot be undone, so hard mode compares part lists
   const sc2 = r.ink.scale
-  const mapped = { ...got.ir, nodes: got.ir.nodes.map((nd) => ({ ...nd, bbox: [nd.bbox[0] / sc2 - img.shiftX, nd.bbox[1] / sc2 - img.shiftY, nd.bbox[2] / sc2, nd.bbox[3] / sc2] })) }
+  const mapped = { ...got.ir, nodes: got.ir.nodes.map((nd) => ({ ...nd, bbox: [nd.bbox[0] / sc2 / Z - img.shiftX, nd.bbox[1] / sc2 / Z - img.shiftY, nd.bbox[2] / sc2 / Z, nd.bbox[3] / sc2 / Z] })) }
   const sameParts = got.ir.nodes.map((x) => x.cls).sort().join() === sc.truth.nodes.map((x) => x.cls).sort().join()
   const cmpx = compareIR(mapped, sc.truth)
   if (process.argv.includes('--detail') && i === 0) console.log('pred', JSON.stringify(mapped.nodes.map((x) => [x.cls, x.bbox.map(Math.round)])), 'truth', JSON.stringify(sc.truth.nodes.map((x) => [x.cls, x.bbox.map(Math.round)])), 'shift', img.shiftX, img.shiftY, 'scale', sc2)
   if (process.argv.includes('--detail') && sameParts) console.log(i, 'matched', cmpx.matched, '/', cmpx.truthNodes, 'class ok', cmpx.classCorrect, 'nets missing/extra', cmpx.netsMissing, cmpx.netsExtra, 'edges', got.ir.edges.length, 'truth edges', sc.truth.edges.length)
+  if (process.argv.includes('--conf')) { for (const t of sc.truth.nodes) { const tc = [t.bbox[0] + t.bbox[2] / 2, t.bbox[1] + t.bbox[3] / 2]; const hit = mapped.nodes.find((q) => Math.hypot(q.bbox[0] + q.bbox[2] / 2 - tc[0], q.bbox[1] + q.bbox[3] / 2 - tc[1]) <= 0.75 * Math.hypot(t.bbox[2], t.bbox[3]) + 12); const k = `${t.cls}→${hit ? hit.cls : 'MISSING'}`; if (!hit || hit.cls !== t.cls) conf[k] = (conf[k] ?? 0) + 1 } }
   if (!hard) { classOk += cmpx.classCorrect; matchedN += cmpx.matched; netsMiss += cmpx.netsMissing; netsExtra += cmpx.netsExtra }
   const good = hard ? sameParts : cmpx.exact
   if (good) exact++; else why[sameParts ? 'right parts, wrong wiring' : 'wrong parts'] = (why[sameParts ? 'right parts, wrong wiring' : 'wrong parts'] ?? 0) + 1
 }
 console.log(`SYNTHETIC photos${hard ? ' (hard: blur, shade, noise, tilt)' : ''} n=${n}: read as circuit ${circuit}/${n}, scene right ${exact}/${n} (${(100 * exact / n).toFixed(0)}%), parts ${partsFound}/${partsTruth}`)
 if (!hard) console.log(`parts matched by position ${matchedN}/${partsTruth}, of those right class ${classOk}; nets missing/extra ${netsMiss}/${netsExtra}`)
+if (process.argv.includes('--conf')) console.log('confusions', JSON.stringify(Object.entries(conf).sort((a, b) => b[1] - a[1])))
 console.log('why not:', JSON.stringify(why))

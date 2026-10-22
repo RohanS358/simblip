@@ -19,8 +19,31 @@ export interface Mask {
   px: Uint8Array
 }
 
+/** Pictures whose longest side is at most this are enlarged ×2 before thresholding. */
+export const UPSCALE_BELOW = 1000
+
+function upscale2(grey: Float32Array, w: number, h: number): { grey: Float32Array; w: number; h: number; scale: number } {
+  const nw = w * 2
+  const nh = h * 2
+  const out = new Float32Array(nw * nh)
+  for (let y = 0; y < nh; y++) {
+    const fy = Math.max(0, Math.min(h - 1, (y + 0.5) / 2 - 0.5))
+    const y0 = Math.floor(fy)
+    const y1 = Math.min(h - 1, y0 + 1)
+    const ty = fy - y0
+    for (let x = 0; x < nw; x++) {
+      const fx = Math.max(0, Math.min(w - 1, (x + 0.5) / 2 - 0.5))
+      const x0 = Math.floor(fx)
+      const x1 = Math.min(w - 1, x0 + 1)
+      const tx = fx - x0
+      out[y * nw + x] = (grey[y0 * w + x0] * (1 - tx) + grey[y0 * w + x1] * tx) * (1 - ty) + (grey[y1 * w + x0] * (1 - tx) + grey[y1 * w + x1] * tx) * ty
+    }
+  }
+  return { grey: out, w: nw, h: nh, scale: 2 }
+}
+
 /** Longest side the reader works at: symbols then land at about the size people draw them on the canvas. */
-export const MAX_SIDE = 900
+export const MAX_SIDE = 1800
 
 export function toGrey(img: RgbaImage): Float32Array {
   const n = img.width * img.height
@@ -36,7 +59,12 @@ export function toGrey(img: RgbaImage): Float32Array {
 /** Box-average downscale so the longest side is at most `max`. Returns the grey image and the scale used (≤ 1). */
 export function downscale(grey: Float32Array, w: number, h: number, max = MAX_SIDE): { grey: Float32Array; w: number; h: number; scale: number } {
   const scale = Math.min(1, max / Math.max(w, h))
-  if (scale >= 1) return { grey, w, h, scale: 1 }
+  if (scale >= 1) {
+    // A small picture is enlarged (bilinear): thinning a line that is only 2 px wide throws away where the
+    // centre was by up to half a pixel, which at this size is a sixth of a zigzag tooth. Smoother grey in, truer centre line out.
+    if (Math.max(w, h) <= UPSCALE_BELOW) return upscale2(grey, w, h)
+    return { grey, w, h, scale: 1 }
+  }
   const nw = Math.max(1, Math.round(w * scale))
   const nh = Math.max(1, Math.round(h * scale))
   const out = new Float32Array(nw * nh)
