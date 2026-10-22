@@ -15,58 +15,63 @@ import { sleep, glideTo, canvasToScreen, hideCursor } from '@/lib/walkthrough/wa
 import { place, safeBounds, sceneAdd } from '@/lib/tools/scene'
 import { useLearner } from '@/lib/learning/store'
 import { useLesson } from './store'
+import { useTeacher } from '@/lib/teacher/store'
+import { checkIn } from './tutor'
+import { useTutor } from './tutor-store'
+import { shouldCheckIn } from './tutor-core'
+import { FRAME_BOTTOM, frameObjects } from './camera'
+import { boxOf, nextOrigin, sectionTitle, type Section } from './sections'
 import type { Stage } from './player'
 import type { Storyboard } from './storyboard'
 
 /** One film at a time: starting another (or closing) invalidates the previous run. */
 let run = 0
-/** Space kept clear along the bottom of the board for the caption bar, controls and tool dock. */
-const FRAME_BOTTOM = 340
 export const currentRun = () => run
 export const bumpRun = () => ++run
 
-export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage {
+export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 0): Stage {
   const L = () => useLesson.getState()
   const pageObjects = () => Object.values(useDocStore.getState().pages[pageId]?.objects ?? {})
   let eqCount = 0
   const alive = () => run === myRun && L().active
   /** Caption + voice together: the caption writes itself out as the line is spoken. */
-  const speak = (text: string) => {
+  const T = () => useTeacher.getState()
+  const speak = async (text: string) => {
     L().set({ caption: text, spoken: 0 })
-    return narrator.speak(text, (n) => L().set({ spoken: n }))
+    // She gestures while she talks, unless she is already pointing at something.
+    if (T().pose === 'read') T().set({ pose: 'open' })
+    await narrator.speak(text, (n) => L().set({ spoken: n }))
+    L().set({ spoken: text.length }) // a voice that errors out (no TTS here) must not leave the caption unwritten
+    if (T().pose === 'open') T().set({ pose: 'read' })
+  }
+  /** Screen position of the middle of an object — where the teacher points. */
+  const screenOf = (id: string) => {
+    const o = pageObjects().find((x) => x.id === id)
+    return o ? canvasToScreen(pageId, { x: o.position.x + o.size.w / 2, y: o.position.y + o.size.h / 2 }) : null
+  }
+  /** Point at something for as long as it takes to say `text`, then lower the arm. */
+  const pointAndSay = async (id: string | null, text: string) => {
+    const at = id ? screenOf(id) : null
+    if (at) T().set({ pose: 'point', aim: at })
+    await speak(text)
+    if (T().pose === 'point') T().set({ pose: 'read', aim: null })
   }
 
-  /** Lowest edge of what is on the page — where the next formula goes. */
+  // Resuming mid-lesson: the chapter we are in is the last chapter card before `from`.
+  let lastTitle = ([...sb.beats.slice(0, from)].reverse().find((b) => b.t === 'title') as { text?: string } | undefined)?.text ?? ''
+  const sections = () => L().sections
+  const current = (): Section | undefined => sections()[sections().length - 1]
+  const objectsOf = (ids: string[]) => pageObjects().filter((o) => ids.includes(o.id))
+  /** Lowest edge of the newest section — where the next formula goes. */
   const belowScene = () => {
-    const objs = pageObjects()
-    const b = safeBounds(pageId)
-    return objs.length ? Math.max(...objs.map((o) => o.position.y + o.size.h)) + 24 : b.top + 40
+    const box = boxOf(objectsOf(current()?.ids ?? []))
+    return box ? box.y + box.h + 24 : safeBounds(pageId).top + 40
   }
-
-  /** The camera: pan and zoom so everything on the page sits inside the visible board, clear of the
-   *  caption bar and the tool dock. Tweened, so the picture glides into frame instead of cutting. */
-  const frame = async () => {
-    const root = document.querySelector(`[data-canvas-root="${pageId}"]`) as HTMLElement | null
-    const objs = pageObjects()
-    if (!root || !objs.length) return
-    const r = root.getBoundingClientRect()
-    // The root runs under the sidebar and panels; the part the student can actually SEE is the
-    // inner canvas element, so frame into that, offset from the root's origin.
-    const vis = (document.querySelector('[aria-label="Infinite canvas"]') as HTMLElement | null)?.getBoundingClientRect() ?? r
-    const offX = vis.left - r.left, offY = vis.top - r.top
-    const x1 = Math.min(...objs.map((o) => o.position.x)), y1 = Math.min(...objs.map((o) => o.position.y))
-    const x2 = Math.max(...objs.map((o) => o.position.x + o.size.w)), y2 = Math.max(...objs.map((o) => o.position.y + o.size.h))
-    const pad = 28, topReserve = 76 /* the page header floats over the board */, bottomReserve = FRAME_BOTTOM
-    const availW = Math.max(200, vis.width - pad * 2), availH = Math.max(160, vis.height - bottomReserve - topReserve)
-    const zoom = Math.max(0.3, Math.min(1.1, availW / Math.max(1, x2 - x1), availH / Math.max(1, y2 - y1)))
-    const target = { zoom, x: offX + pad + (availW - (x2 - x1) * zoom) / 2 - x1 * zoom, y: offY + topReserve + (availH - (y2 - y1) * zoom) / 2 - y1 * zoom }
-    const from = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
-    const steps = 12
-    for (let i = 1; i <= steps && alive(); i++) {
-      const t = 1 - Math.pow(1 - i / steps, 3) // ease-out
-      useDocStore.getState().setViewport(pageId, { x: from.x + (target.x - from.x) * t, y: from.y + (target.y - from.y) * t, zoom: from.zoom + (target.zoom - from.zoom) * t })
-      await sleep(30)
-    }
+  /** The camera: glide to the newest section so it sits inside the visible board. */
+  const frame = () => frameObjects(pageId, current()?.ids ?? null, () => !alive())
+  const addToSection = (ids: string[]) => {
+    const cur = current()
+    if (cur) L().set({ sections: sections().map((s) => (s === cur ? { ...s, ids: [...s.ids, ...ids] } : s)) })
   }
   /** The canvas for a brand-new page mounts a moment after the page opens; placing before it
    *  exists measures a stale viewport and puts the scene off to one side. */
@@ -93,38 +98,59 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
     async say(text) {
       await speak(text)
     },
-    async title(text, sub) {
+    async title(text, sub, instant) {
+      lastTitle = text
+      if (instant) return
+      if (!sections().length) { T().set({ mood: 'happy', pose: 'wave' }); setTimeout(() => { if (T().pose === 'wave') T().set({ pose: 'read' }) }, 1900) }
       L().set({ card: { text, sub }, caption: '', spoken: 0 })
       await Promise.all([narrator.speak(text), sleep(1600)])
       L().set({ card: null })
     },
-    async scene(script, clear, caption) {
-      if (clear) {
-        stopPhysics()
-        const ids = pageObjects().map((o) => o.id)
-        if (ids.length) useDocStore.getState().removeObjects(pageId, ids)
-        eqCount = 0
-      }
+    async scene(script, clear, caption, opts) {
+      stopPhysics() // one simulation runs at a time; the older sections stay, at rest
       await canvasReady()
       const before = new Set(pageObjects().map((o) => o.id))
-      place(pageId, script, { reserveBottom: FRAME_BOTTOM })
-      if (caption) L().set({ caption, spoken: caption.length })
+      const opens = clear || !sections().length
+      if (opens) {
+        const n = sections().length + 1
+        const title = opts?.section ? `${lastTitle || sb.title}: ${opts.section.toLowerCase()}` : lastTitle || sectionTitle(sb.beats, L().index, n)
+        const at = nextOrigin(pageObjects(), { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 40 })
+        // A heading names the section on the board itself, so a student scrolling back knows what each block is.
+        await sceneAdd.run({ component: 'text', text: `## ${n} · ${title.length > 56 ? title.slice(0, 55) + '…' : title}`, x: at.x, y: at.y }, { pageId })
+        // place() puts a scene inside the VISIBLE board. Aim the view at the empty space below the
+        // heading for the instant it takes to place it, then put the view back exactly as it was —
+        // synchronously, so nothing paints in between and the camera move below does the travelling.
+        const vp = useDocStore.getState().viewports[pageId] ?? { x: 0, y: 0, zoom: 1 }
+        useDocStore.getState().setViewport(pageId, { zoom: vp.zoom, x: -at.x * vp.zoom, y: -(at.y + 72) * vp.zoom })
+        place(pageId, script, { reserveBottom: FRAME_BOTTOM })
+        useDocStore.getState().setViewport(pageId, vp)
+        const made = pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id)
+        L().set({ sections: [...sections(), { id: `s${n}`, title, ids: made, beat: L().index }] })
+        eqCount = 0
+      } else {
+        place(pageId, script, { reserveBottom: FRAME_BOTTOM })
+        addToSection(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
+      }
+      if (caption && !opts?.instant) L().set({ caption, spoken: caption.length })
+      if (opts?.instant) return
       void frame()
       await drawIn(pageObjects().filter((o) => !before.has(o.id)).map((o) => o.id))
     },
-    async equation(latex, text) {
-      const b = safeBounds(pageId)
+    async equation(latex, text, instant) {
+      const box = boxOf(objectsOf(current()?.ids ?? []))
       const before = new Set(pageObjects().map((o) => o.id))
-      await sceneAdd.run({ component: 'formula', text: latex, x: (b.left + b.right) / 2 - 160, y: belowScene() + eqCount * 8 }, { pageId })
+      await sceneAdd.run({ component: 'formula', text: latex, x: box ? box.x + box.w / 2 - 160 : (safeBounds(pageId).left + safeBounds(pageId).right) / 2 - 160, y: belowScene() + eqCount * 8 }, { pageId })
       eqCount++
-      void frame()
       const made = pageObjects().find((o) => !before.has(o.id))
+      if (made) addToSection([made.id])
+      if (instant) return
+      void frame()
       // Written out left to right while it is explained: the formula takes about as long to
       // write as the explanation takes to say, so the two arrive together.
       const spokenMs = text ? ((text.split(' ').length / 150) * 60 * 1000) / Math.max(0.5, useWalkthroughStore.getState().speed) : 0
       const writeMs = Math.round(Math.min(4500, Math.max(1400, spokenMs * 0.8, latex.length * 70)) / Math.max(0.5, useWalkthroughStore.getState().speed))
       if (made) useDocStore.getState().updateObject(pageId, made.id, { parameters: { ...made.parameters, writeMs: num(writeMs) } }, { history: false })
-      if (text) await Promise.all([speak(text), sleep(writeMs)])
+      if (text) await Promise.all([pointAndSay(made?.id ?? null, text), sleep(writeMs)])
       else await sleep(writeMs + 400)
       if (made && useDocStore.getState().pages[pageId]?.objects[made.id]) {
         const cur = useDocStore.getState().pages[pageId].objects[made.id]
@@ -140,7 +166,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
     async point(object, text) {
       const o = pageObjects().find((x) => x.name === object)
       const at = o && canvasToScreen(pageId, { x: o.position.x + o.size.w / 2, y: o.position.y + o.size.h / 2 })
-      await Promise.all([at ? glideTo(at, 900) : Promise.resolve(), speak(text)])
+      await Promise.all([at ? glideTo(at, 900) : Promise.resolve(), pointAndSay(o?.id ?? null, text)])
       hideCursor()
     },
     async animate(object, param, from, to, seconds, text) {
@@ -156,6 +182,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
     },
     ask(beat) {
       return new Promise<number>((resolve) => {
+        T().set({ mood: 'curious', pose: 'open' })
         L().set({ pending: beat, chosen: null, caption: beat.prompt, spoken: beat.prompt.length })
         void narrator.speak(beat.prompt)
         const iv = setInterval(() => {
@@ -163,6 +190,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
           if (c !== null || !alive()) {
             clearInterval(iv)
             L().set({ pending: null })
+            T().set({ pose: 'read' })
             resolve(c ?? 0)
           }
         }, 120)
@@ -172,6 +200,10 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
       const learner = useLearner.getState()
       const right = chosen === beat.correct
       learner.record(sb.title, right)
+      // Her face answers before her words do: delight for a right answer, gentle concern for a miss.
+      T().set({ mood: right ? 'excited' : 'concerned' })
+      useTutor.getState().set({ missesInRow: right ? 0 : useTutor.getState().missesInRow + 1 })
+      setTimeout(() => T().set({ mood: 'happy' }), 4200)
       // A miss becomes a flash card whose deep link reopens this very lesson page.
       if (!right) {
         learner.addCard({
@@ -184,7 +216,23 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number): Stage 
       }
     },
     onBeat: (index) => L().set({ index }),
+    async checkpoint(index) {
+      // Her questions are answered by tapping buttons on the board: with no board on screen (a headless
+      // run, a test) there is nobody to ask, so she simply carries on.
+      if (typeof document === 'undefined' || !document.querySelector('[aria-label="Infinite canvas"]')) return
+      const tu = useTutor.getState()
+      if (!shouldCheckIn({ beatIsChapter: true, sinceLast: index - tu.lastCheck, missesInRow: tu.missesInRow })) return
+      useTutor.getState().set({ lastCheck: index })
+      // What was just taught: the narration since the previous chapter card.
+      let start = index - 1
+      while (start > 0 && sb.beats[start].t !== 'title') start--
+      const lines = sb.beats.slice(start, index).flatMap((b) => (b.t === 'say' ? [b.text] : b.t === 'equation' && b.text ? [b.text] : []))
+      await checkIn(lines, alive, 'chapter')
+    },
     alive,
+    async settle() {
+      await frame()
+    },
     async gate() {
       while (L().paused && alive()) await new Promise((r) => setTimeout(r, 150))
     },

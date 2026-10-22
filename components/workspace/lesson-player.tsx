@@ -5,7 +5,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Gauge, List, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { Gauge, HelpCircle, List, MessageCircleQuestion, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -14,6 +14,12 @@ import { cancelPreparing } from '@/lib/lesson/generate'
 import { pauseLesson, resumeLesson, seekLesson, stopLesson } from '@/lib/lesson/controller'
 import { durationOf } from '@/lib/lesson/storyboard'
 import { useWalkthroughStore } from '@/lib/store/walkthrough-store'
+import { useTutor } from '@/lib/lesson/tutor-store'
+import { askQuestion } from '@/lib/lesson/tutor'
+import { continueLesson } from '@/lib/lesson/controller'
+import { visibleBoard } from '@/lib/lesson/camera'
+import { Teacher } from './teacher'
+import { CircleToAsk, ExplainRing, SectionStrip, TutorReplies } from './lesson-tutor-ui'
 
 const SPEEDS = [0.75, 1, 1.25, 1.5]
 /** The floating tool dock sits along the bottom of the canvas; the lesson controls ride above it. */
@@ -27,8 +33,7 @@ function useCanvasRect(): Rect | null {
   const [rect, setRect] = useState<Rect | null>(null)
   useEffect(() => {
     const read = () => {
-      const b = document.querySelector('[aria-label="Infinite canvas"]')?.getBoundingClientRect()
-      const next = b && b.width > 240 && b.height > 200 ? { left: b.left, top: b.top, width: b.width, height: b.height } : null
+      const next = visibleBoard()
       setRect((cur) => (cur && next && cur.left === next.left && cur.top === next.top && cur.width === next.width && cur.height === next.height ? cur : next))
     }
     read()
@@ -64,6 +69,7 @@ function Typed({ text, spoken }: { text: string; spoken: number }) {
 export function LessonPlayer() {
   const { active, storyboard, index, paused, caption, spoken, card, pending, chosen, preparing, set } = useLesson()
   const rect = useCanvasRect()
+  const tutorMode = useTutor((s) => s.mode)
   const muted = useWalkthroughStore((s) => s.muted)
   const toggleMute = useWalkthroughStore((s) => s.toggleMute)
   const speed = useWalkthroughStore((s) => s.speed)
@@ -109,7 +115,17 @@ export function LessonPlayer() {
         )}
       </AnimatePresence>
 
+      <CircleToAsk rect={rect} />
+      <ExplainRing />
+      {rect && (
+        <div className="pointer-events-none fixed z-[103]" style={{ left: rect.left + 6, bottom: window.innerHeight - (rect.top + rect.height) + 6 }}>
+          <Teacher height={Math.max(150, Math.min(280, rect.height * 0.38))} />
+        </div>
+      )}
+
       <Anchor rect={rect}>
+        <SectionStrip />
+        <TutorReplies />
         {pending && (
           <div role="group" aria-label="Prediction" className="glass-strong rounded-2xl border border-border/60 p-3.5 shadow-2xl">
             <p className="text-ui-xs font-bold uppercase tracking-wider text-[var(--accent-blue)]">Predict first</p>
@@ -174,6 +190,10 @@ export function LessonPlayer() {
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title={muted ? 'Unmute narration' : 'Mute narration'} onClick={toggleMute}>
             {muted ? <VolumeX className="h-4 w-4 text-muted-foreground" /> : <Volume2 className="h-4 w-4 text-[var(--accent-blue)]" />}
           </Button>
+          <Button size="sm" variant={tutorMode === 'selecting' ? 'default' : 'ghost'} className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Circle something on the board and the teacher explains it" onClick={() => useTutor.getState().set({ mode: tutorMode === 'selecting' ? 'idle' : 'selecting' })}>
+            <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />Ask
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Type a question for the teacher" onClick={() => void askQuestion(continueLesson)}><MessageCircleQuestion className="h-4 w-4" /></Button>
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive" title="Close lesson" onClick={stopLesson}><X className="h-4 w-4" /></Button>
         </div>
       </Anchor>

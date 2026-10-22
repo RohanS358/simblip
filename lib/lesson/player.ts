@@ -7,10 +7,12 @@ import type { Beat, Storyboard } from './storyboard'
 export interface Stage {
   /** Narrate + caption; resolves when the line is finished (or its reading time has passed). */
   say(text: string): Promise<void>
-  title(text: string, sub?: string): Promise<void>
-  /** Put a simulation on the canvas. `clear` removes the previous scene (and stops it) first. */
-  scene(script: string, clear: boolean, caption?: string): Promise<void>
-  equation(latex: string, text?: string): Promise<void>
+  title(text: string, sub?: string, instant?: boolean): Promise<void>
+  /** Put a simulation on the board. `clear` opens a NEW SECTION further down the board (the camera
+   *  moves to it; the older sections stay for the student to look back at) and stops any running
+   *  simulation. `instant` skips the drawing-in and the camera move — used to rebuild after a seek. */
+  scene(script: string, clear: boolean, caption?: string, opts?: { instant?: boolean; section?: string }): Promise<void>
+  equation(latex: string, text?: string, instant?: boolean): Promise<void>
   run(seconds: number): Promise<void>
   /** Glide the cursor to a named object, ring it, and say `text`. */
   point(object: string, text: string): Promise<void>
@@ -26,27 +28,37 @@ export interface Stage {
   alive(): boolean
   /** Resolves when not paused. */
   gate(): Promise<void>
+  /** After an instant rebuild: bring the camera to the newest section. */
+  settle?(): Promise<void>
+  /** Offered before each chapter after the first: the teacher may check in with the student. */
+  checkpoint?(index: number): Promise<void>
 }
 
-/** Beats that must be re-applied to reach beat `index` after a seek: the latest scene and
- *  the equations shown since it. Without this, "next" would narrate a circuit that is not there. */
+/** Beats that must be re-applied to reach beat `index` after a seek. The board keeps EVERY section, so
+ *  all the chapter names, scenes and equations before the point are rebuilt (instantly), not just the
+ *  latest scene: seeking forward must not lose the sections the student would have seen on the way. */
 export function catchUp(sb: Storyboard, index: number): Beat[] {
-  let sceneAt = -1
-  for (let i = Math.min(index, sb.beats.length) - 1; i >= 0; i--) if (sb.beats[i].t === 'scene') { sceneAt = i; break }
-  return sceneAt < 0 ? [] : sb.beats.slice(sceneAt, index).filter((b) => b.t === 'scene' || b.t === 'equation')
+  return sb.beats.slice(0, Math.max(0, Math.min(index, sb.beats.length))).flatMap((b): Beat[] => {
+    if (b.t === 'title' || b.t === 'scene' || b.t === 'equation') return [b]
+    if (b.t === 'predict' && b.demo) return [{ t: 'scene', script: b.demo, clear: true, caption: 'Watch it happen' }]
+    return []
+  })
 }
 
-export async function perform(sb: Storyboard, stage: Stage, from = 0): Promise<'done' | 'stopped'> {
-  for (const b of catchUp(sb, from)) {
-    if (b.t === 'scene') await stage.scene(b.script, b.clear, b.caption)
-    else if (b.t === 'equation') await stage.equation(b.latex)
+export async function perform(sb: Storyboard, stage: Stage, from = 0, opts: { rebuild?: boolean } = {}): Promise<'done' | 'stopped'> {
+  for (const b of opts.rebuild === false ? [] : catchUp(sb, from)) {
+    if (b.t === 'title') await stage.title(b.text, b.sub, true)
+    else if (b.t === 'scene') await stage.scene(b.script, b.clear, b.caption, { instant: true, section: b.caption === 'Watch it happen' ? b.caption : undefined })
+    else if (b.t === 'equation') await stage.equation(b.latex, undefined, true)
   }
+  if (from > 0 && opts.rebuild !== false) await stage.settle?.()
   for (let i = from; i < sb.beats.length; i++) {
     if (!stage.alive()) return 'stopped'
     await stage.gate()
     if (!stage.alive()) return 'stopped'
     stage.onBeat(i)
     const b = sb.beats[i]
+    if (b.t === 'title' && i > from) { await stage.checkpoint?.(i); if (!stage.alive()) return 'stopped' }
     switch (b.t) {
       case 'title': await stage.title(b.text, b.sub); break
       case 'say': await stage.say(b.text); break
@@ -62,7 +74,7 @@ export async function perform(sb: Storyboard, stage: Stage, from = 0): Promise<'
         // Explain the choice they made — a wrong one gets the reason it is appealing, not a score.
         await stage.say(b.responses[chosen] ?? '')
         if (chosen !== b.correct) await stage.say(`The answer is: ${b.choices[b.correct]}. ${b.responses[b.correct]}`)
-        if (b.demo) { await stage.scene(b.demo, true, 'Watch it happen'); await stage.run(4) }
+        if (b.demo) { await stage.scene(b.demo, true, 'Watch it happen', { section: 'Watch it happen' }); await stage.run(4) }
         break
       }
     }

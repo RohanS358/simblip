@@ -711,7 +711,7 @@ export function WorkspaceShell() {
         className="relative flex min-h-0 flex-1"
         style={{ paddingLeft: 'var(--sidebar-reserve-w, 0px)' }}
       >
-        <div className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
+        <div data-board-inset="left" className="absolute bottom-0 left-0 top-12 z-30 flex">{leftDock}</div>
         {/* The gallery is the person's surface, not the page's — it opens from
             the right edge, over the canvas, rather than becoming a seventh
             section inside the left rail. */}
