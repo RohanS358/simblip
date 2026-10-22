@@ -69,6 +69,18 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     }
     return L().index
   }
+  /** A film with no picture anywhere (a topic the simulator cannot draw) has nothing to open a section: each chapter
+   *  that has something to say becomes a text-only section of its own, so the board is never left blank. */
+  const textOnly = !sb.beats.some((b) => b.t === 'scene' || (b.t === 'predict' && !!b.demo))
+  let lastTitleBeat = -1
+  const beatOfTitle = (text: string): number => {
+    for (let i = lastTitleBeat + 1; i < sb.beats.length; i++) if (sb.beats[i].t === 'title' && (sb.beats[i] as { text: string }).text === text) return (lastTitleBeat = i)
+    return L().index
+  }
+  const hasWords = (from: number): boolean => {
+    for (let i = from + 1; i < sb.beats.length && sb.beats[i].t !== 'title'; i++) if (sb.beats[i].t === 'say' || sb.beats[i].t === 'equation') return true
+    return false
+  }
   let lastTitle = ([...sb.beats.slice(0, from)].reverse().find((b) => b.t === 'title') as { text?: string } | undefined)?.text ?? ''
   const sections = () => L().sections
   const current = (): Section | undefined => sections()[sections().length - 1]
@@ -187,6 +199,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
     },
     async title(text, sub, instant) {
       lastTitle = text
+      if (textOnly && hasWords(beatOfTitle(text))) await openSection({ layout: 'split' })
       if (instant) return
       if (!sections().length) { T().set({ mood: 'happy', pose: 'wave' }); setTimeout(() => { if (T().pose === 'wave') T().set({ pose: 'read' }) }, 1900) }
       L().set({ card: { text, sub }, caption: '', spoken: 0 })

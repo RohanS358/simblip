@@ -14,6 +14,7 @@ import { useLessonCache } from './cache'
 import { PLAN_JSON_SCHEMA } from './plan'
 import { openLessonPage, startLesson } from './controller'
 import { useLesson } from './store'
+import { resolveRoute } from '@/lib/ai/transport'
 
 export interface DirectorParts { llm: Llm; runner: Runner }
 let parts: () => DirectorParts = () => ({ llm: makeLlm(), runner: makeRunner() })
@@ -42,7 +43,7 @@ export async function generateAndPlay(topic: string): Promise<void> {
   try {
     const { llm, runner } = parts()
     const plan = await planTopic(llm, topic, level, PLAN_JSON_SCHEMA, ac.signal)
-    const { storyboard, warnings } = await directLesson(topic, plan, { llm, runner, level, signal: ac.signal, onProgress: set })
+    const { storyboard, warnings } = await directLesson(topic, plan, { llm, runner, level, signal: ac.signal, onProgress: set, diagrams: true })
     if (ac.signal.aborted) return
     useLessonCache.getState().put(topic, level, storyboard)
     useLesson.getState().set({ preparing: null })
@@ -54,7 +55,12 @@ export async function generateAndPlay(topic: string): Promise<void> {
     if (ac.signal.aborted) return
     useLesson.getState().set({ preparing: null })
     if (e instanceof NeedsClarification) toast.message(e.message, { duration: 12_000 })
-    else toast.error(e instanceof Error ? e.message : 'Could not build that lesson.')
+    else {
+      const msg = e instanceof Error ? e.message : 'Could not build that lesson.'
+      // A plan needs a capable model: the small on-device one cannot write it, and says nothing useful when it fails.
+      const onDevice = /usable lesson plan/.test(msg) && resolveRoute().where === 'device'
+      toast.error(onDevice ? `${msg} The on-device model is too small to plan a lesson — switch the assistant to Server for this.` : msg)
+    }
   } finally {
     if (abort === ac) abort = null
   }

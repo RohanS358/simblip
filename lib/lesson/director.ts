@@ -32,7 +32,9 @@ export interface Runner {
   /** Run the scene as drawn, then with `change` applied; report `watch` before and after. */
   experiment(script: string, change: Change, watch: Watch): Promise<{ before: number; after: number; base: number; moved: boolean } | null>
 }
-export interface DirectorDeps { llm: Llm; runner: Runner; level: Level; onProgress?: (msg: string) => void; signal?: AbortSignal }
+export interface DirectorDeps { llm: Llm; runner: Runner; level: Level; onProgress?: (msg: string) => void; signal?: AbortSignal
+  /** Draw a small concept diagram for a step the simulator cannot show, so every section has a picture. */
+  diagrams?: boolean }
 
 // ── number formatting ───────────────────────────────────────────────────────
 const CHANNEL_NAME: Record<string, string> = { I: 'current', V: 'voltage', P: 'power', x: 'horizontal position', y: 'height', speed: 'speed', omega: 'angular speed', ke: 'kinetic energy', angle: 'angle', vx: 'horizontal speed', vy: 'vertical speed' }
@@ -95,6 +97,38 @@ async function propose(llm: Llm, all: SceneObject[], experiment: string, signal?
   return note
 }
 
+const DIAGRAM_SYSTEM = `You draw a small concept diagram for one step of a lesson, in a tiny text language. Reply with the diagram lines ONLY — no code fences, no commentary.
+
+Language:
+  direction: right            (first line; "right" or "down")
+  [Short label] as a #blue    (a box: 2-5 words, a short id, a colour: blue mint amber violet rose)
+  a -> b : verb               (an arrow, with an optional word)
+
+Rules: 3 to 6 boxes. Show how the ideas of the step connect (cause and effect, a process, parts of a whole). Labels are plain words, no formulas, no quotes. Example:
+direction: right
+[Electrons as waves] as w #blue
+[Pass two slits] as s #mint
+[Interference pattern] as p #amber
+w -> s : travel
+s -> p : overlap`
+
+/** A concept diagram for a step, as verified SimScript — or null when the model's diagram does not parse/run. */
+export async function conceptDiagram(d: DirectorDeps, step: Plan['steps'][number]): Promise<string | null> {
+  try {
+    const text = await d.llm.complete(DIAGRAM_SYSTEM, `Step: ${step.heading}\nWhat is said: ${step.say.join(' ')}`, { signal: d.signal })
+    const lines = text.replace(/```[a-z]*/gi, '').split('\n').map((l) => l.trim()).filter(Boolean)
+    const src = lines.filter((l) => /^direction:/i.test(l) || /^\[.+\]\s+as\s+\w+/.test(l) || /^\w+\s*->\s*\w+/.test(l)).join('\n')
+    if (!/\]\s+as\s+\w+/.test(src) || !/->/.test(src)) return null
+    const script = `diagram(${JSON.stringify(src)});`
+    const lint = lintSimScript(script)
+    if (!lint.ok) return null
+    const ground = await d.runner.ground(lint.cleaned)
+    return ground.ok ? lint.cleaned : null
+  } catch {
+    return null
+  }
+}
+
 /** The planner declined: it does not know the topic well enough to teach it. Shown to the student as a question. */
 export class NeedsClarification extends Error {}
 
@@ -102,7 +136,7 @@ export async function planTopic(llm: Llm, topic: string, level: Level, jsonSchem
   let note = ''
   for (let attempt = 0; attempt < 3; attempt++) {
     const text = await llm.complete(planSystemPrompt(level), planUserPrompt(topic) + note, { jsonSchema, signal })
-    const r = parsePlan(text)
+    const r = parsePlan(text, topic)
     if (r.ok) {
       if (r.plan.unsure) throw new NeedsClarification(r.plan.unsure)
       return r.plan
@@ -120,7 +154,10 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
     if (d.signal?.aborted) throw new Error('cancelled')
     d.onProgress?.(`Step ${i + 1} of ${plan.steps.length}: ${step.heading}`)
     beats.push({ t: 'title', text: step.heading })
-    for (const text of step.say) beats.push({ t: 'say', text })
+    // The picture comes first and the words after it: the board writes each section as title, picture, then
+    // what is said about it, so the narration belongs to the section whose picture it is explaining.
+    let said = false
+    const say = () => { if (!said) { said = true; for (const text of step.say) beats.push({ t: 'say', text }) } }
 
     let script: string | undefined
     let ground: Ground | undefined
@@ -137,6 +174,7 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
     if (script && ground) {
       scenes++
       beats.push({ t: 'scene', script, caption: step.scene, clear: true })
+      say()
       // What the instruments really read — measured, so the narration can quote it.
       const inst = ground.objects.find((o) => INSTRUMENTS.test(o.name) || INSTRUMENTS.test(o.kind))
       if (inst) beats.push({ t: 'point', object: inst.name, text: 'This instrument reads the live value.' })
@@ -145,6 +183,12 @@ export async function directLesson(topic: string, plan: Plan, d: DirectorDeps): 
       const reads = ground.readings.filter((r) => !r.channel.includes('.')).slice(0, 3).map((r) => `the ${r.object}'s ${channelName(r.channel)} ${r.channel.includes('.') ? 'reaches' : 'settles at'} ${fmt(r.value, r.channel)}`)
       if (reads.length) beats.push({ t: 'run', seconds: 3 }, { t: 'say', text: `With these values, ${reads.join(', and ')}.` })
     }
+    // No simulation for this step: a concept diagram still gives it a picture beside its words.
+    if (!script && d.diagrams) {
+      const diagram = await conceptDiagram(d, step)
+      if (diagram) beats.push({ t: 'scene', script: diagram, caption: step.heading, clear: true })
+    }
+    say() // (a step with no picture just speaks)
     if (step.equation) beats.push({ t: 'equation', latex: step.equation })
 
     if (script && ground && step.experiment) {

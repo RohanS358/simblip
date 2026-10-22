@@ -22,7 +22,9 @@ const log = (s) => console.log(s)
 const shot = (n) => page.screenshot({ path: `${OUT}/${n}.png` })
 
 await page.goto(`${BASE}/login`)
-if (await page.getByPlaceholder('you@institution.edu').count()) {
+// A saved session bounces /login straight to the notebook; give that a moment before filling the form.
+await page.waitForURL(/\/notebook/, { timeout: 6000 }).catch(() => {})
+if (!/\/notebook/.test(page.url()) && (await page.getByPlaceholder('you@institution.edu').count())) {
   await page.getByPlaceholder('you@institution.edu').fill(EMAIL)
   await page.locator('input[type=password]').fill(PASS)
   await page.getByRole('button', { name: 'Sign in' }).click()
