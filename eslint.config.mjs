@@ -7,7 +7,7 @@ export default [
   ...next,
   ...nextTs,
   {
-    ignores: ['.next/**', 'node_modules/**', 'public/**', 'out/**', 'scratch/**', '**/*.test.mjs', 'scripts/**', 'app.js', 'third-party-licenses.txt'],
+    ignores: ['.next/**', '.next-local/**', 'node_modules/**', 'public/**', 'out/**', 'scratch/**', '**/*.test.mjs', 'scripts/**', 'app.js', 'third-party-licenses.txt'],
   },
   {
     rules: {

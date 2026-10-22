@@ -62,6 +62,8 @@ import {
   Subscript as SubscriptIcon,
 } from 'lucide-react'
 import { motion as fm } from 'framer-motion'
+import { requestPhotoRead } from '@/lib/sketch/photo/bridge'
+import { toast } from 'sonner'
 import { useSpring } from '@/lib/motion'
 import { useDocStore, type Viewport } from '@/lib/store/document'
 import { useWorkspaceStore, ownerPageOf, findPageMeta } from '@/lib/store/workspace'
@@ -3586,6 +3588,24 @@ function ObjectProperties({ pageId, object }: { pageId: string; object: SceneObj
 
       {object.geometry.kind !== 'text' && (
         <AppearanceSection pageId={pageId} object={object} />
+      )}
+
+      {object.geometry.kind === 'picture' && (
+        <OptionCard>
+          <SectionTitle>Diagram</SectionTitle>
+          <p className="mb-2 text-ui-xs text-muted-foreground">
+            A photo or scan of a circuit diagram (dark lines on light paper) can be read into a live circuit. You see a preview and can correct it first.
+          </p>
+          <button
+            type="button"
+            className="w-full rounded-md bg-[var(--accent-blue)] px-3 py-1.5 text-ui-sm font-medium text-white hover:opacity-90"
+            onClick={() => {
+              if (!requestPhotoRead(pageId, object.id)) toast('Open the page on the canvas first.')
+            }}
+          >
+            Read as circuit
+          </button>
+        </OptionCard>
       )}
 
       {object.geometry.kind === 'symbol' && MODEL_OPTIONS[object.geometry.symbol ?? ''] && (

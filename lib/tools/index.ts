@@ -5,6 +5,7 @@
 
 import './scene'
 import './pages'
+import './sketch'
 
 export { listTools, getTool, runTool, toolSpecs, toolSchema, setToolGenerator } from './registry'
 export { activeContext } from './context'

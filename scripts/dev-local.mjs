@@ -8,4 +8,4 @@ await import('./build-sketch-worker.mjs') // the reader worker is a built file: 
 const port = process.argv[2] ?? '3114'
 const root = resolve(import.meta.dirname, '..')
 const nextBin = resolve(root, 'node_modules/next/dist/bin/next')
-spawn(process.execPath, [nextBin, 'dev', '-p', port], { cwd: root, stdio: 'inherit', env: { ...process.env, NEXT_PUBLIC_CLOUD: '0', DATABASE_URL: '' } })
+spawn(process.execPath, [nextBin, 'dev', '-p', port], { cwd: root, stdio: 'inherit', env: { ...process.env, NEXT_PUBLIC_CLOUD: '0', DATABASE_URL: '', NEXT_DIST_DIR: '.next-local' } })

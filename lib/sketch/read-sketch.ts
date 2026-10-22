@@ -166,16 +166,18 @@ export function readSketch(
   strokes: PlainStroke[],
   seedId: string,
   net: Net | null,
-  charNet?: Parameters<typeof startCircuitGhost>[3]
+  charNet?: Parameters<typeof startCircuitGhost>[3],
+  /** all: the strokes are ONE drawing (a photographed diagram), not a page with other things on it. */
+  opts: { all?: boolean } = {}
 ): ReadResult {
   if (!net) return { kind: 'fail', failure: { reason: 'not-loaded', message: 'The sketch recogniser is still loading. Try again in a moment.' } }
   let seed = strokes.find((s) => s.id === seedId)
-  let cluster = connectedInk(strokes, seedId)
+  let cluster = opts.all ? strokes : connectedInk(strokes, seedId)
   if (!seed || cluster.length === 0) return { kind: 'fail', failure: { reason: 'no-ink', message: 'There is no sketch here to read.' } }
 
   // The seed may be a label drawn last, beside a bigger drawing: if the circuit reader uses the seed's
   // ink as part of that drawing (a value, or a wired part), the drawing is what is being finished.
-  const host = hostDrawing(strokes, seedId)
+  const host = opts.all ? null : hostDrawing(strokes, seedId)
   if (host) {
     const merged = startCircuitGhost(pageId, host.cluster, net, charNet)
     const used = new Set<string>([
@@ -191,7 +193,7 @@ export function readSketch(
 
   if (!seed) return { kind: 'fail', failure: { reason: 'no-ink', message: 'There is no sketch here to read.' } }
   // Mechanics parts are related by position, not touching (a ball above the ground), so the group is wider
-  const mechCluster = connectedInk(strokes, seedId, 200)
+  const mechCluster = opts.all ? strokes : connectedInk(strokes, seedId, 200)
   const mech = mechCluster.length >= 3 ? startMechGhost(pageId, mechCluster) : null
   const optics = mechCluster.length >= 3 ? startOpticsGhost(pageId, mechCluster) : null
   const opticsScore = optics?.optics ? opticsEvidence(optics.optics) : 0

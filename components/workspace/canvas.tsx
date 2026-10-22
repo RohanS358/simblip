@@ -58,19 +58,20 @@ import { matchCustomSketch } from '@/lib/sketch/custom'
 import { peekInkChars, peekSketchNet } from '@/lib/sketch/sketchnet'
 import type { Box } from '@/lib/sketch/neural-pick'
 import { connectedInk, unionBox, type ReadFailure, type ReadResult } from '@/lib/sketch/read-sketch'
-import { readSketchAsync } from '@/lib/sketch/read-client'
-import { checkSimulates, failureFromBuild, failureFromCompile, type StepFailure } from '@/lib/sketch/pipeline'
+import { readPhotoAsync, readSketchAsync } from '@/lib/sketch/read-client'
+import { decodePicture } from '@/lib/sketch/photo/picture'
+import { requestPhotoRead, setPhotoReadHandler } from '@/lib/sketch/photo/bridge'
+import { type StepFailure } from '@/lib/sketch/pipeline'
+import { applyCircuit, applyMech } from '@/lib/sketch/apply'
 import { DoneChip, ReadFailureCard } from './sketch-assist'
 import { MechGhostOverlay, MechGhostPanel } from './mech-ghost'
-import { compileMechGhost, editMechLink, editMechPart, mechInkToReplace, mechOrigin, type MechEdit, type MechGhost } from '@/lib/sketch/mech-ghost'
-import { verifyScene } from '@/lib/scene/verify-scene'
-import { traceRays } from '@/lib/optics/engine'
+import { editMechLink, editMechPart, type MechEdit, type MechGhost } from '@/lib/sketch/mech-ghost'
 import { ghostSize, pointerDevice, type Ghost } from '@/lib/sketch/ghost'
 import { addCorrection, makeCorrection, writerId } from '@/lib/sketch/corrections'
 import { GhostPreview } from './ghost-preview'
 import { CircuitGhostOverlay, CircuitGhostPanel } from './circuit-ghost'
 import {
-  addLink, compileGhost, editPart, examplesFrom, inkBounds, inkOrigin, inkToReplace, removeLink, setKeepLayout, startCircuitGhost, toCheck,
+  addLink, editPart, examplesFrom, removeLink, setKeepLayout, startCircuitGhost, toCheck,
   type CircuitGhost, type PartEdit,
 } from '@/lib/sketch/circuit-ghost'
 import { executeSimScript } from '@/lib/scene/simscript'
@@ -1469,6 +1470,35 @@ export function InfiniteCanvas({
         })
       },
     }
+    // "Read as circuit" on a picture (inspector button, tutor tool): decode it, read it off-thread, and show the
+    // same preview a drawing gets, laid over the picture.
+    setPhotoReadHandler((pid, objId) => {
+      const o = useDocStore.getState().pages[pid]?.objects[objId]
+      const src = o?.geometry.kind === 'picture' ? o.geometry.src : undefined
+      if (!o || !src) return
+      const box: Box = { x0: o.position.x, y0: o.position.y, x1: o.position.x + o.size.w, y1: o.position.y + o.size.h }
+      const mine = ++readToken.current
+      setReading(true)
+      setReadFailure(null)
+      void (async () => {
+        let res: ReadResult
+        try {
+          sketchLog('photo: decoding', src.slice(0, 40))
+          const img = await decodePicture(src)
+          sketchLog('photo: decoded', img ? `${img.width}x${img.height}` : 'nothing')
+          res = img
+            ? await readPhotoAsync(pid, img, { x: o.position.x, y: o.position.y, k: o.size.w / img.width })
+            : { kind: 'fail', failure: { reason: 'no-ink', message: 'I could not open that picture.' } }
+        } catch (e) {
+          res = { kind: 'fail', failure: { reason: 'error', message: `Reading the picture failed: ${e instanceof Error ? e.message : String(e)}` } }
+        }
+        sketchLog('photo: read', res.kind, res.kind === 'fail' ? res.failure.reason : '')
+        if (mine !== readToken.current) return
+        setReading(false)
+        if (res.kind === 'fail') setReadFailure({ failure: res.failure, box: 'box' in res.failure ? res.failure.box : box, pageId: pid, seedId: objId, pointerType: 'mouse' })
+        else show(res, pid, objId, 'mouse')
+      })()
+    })
     // Debug hook (only with the trace flag on): window.__sketch.read(i) reads the sketch around the
     // i-th newest ink stroke on the open page, exactly as pressing "Done drawing" would.
     try {
@@ -1489,6 +1519,7 @@ export function InfiniteCanvas({
     }
     return () => {
       sketchOps.current = null
+      setPhotoReadHandler(null)
     }
   }, [])
   // True when there is not `need` px of screen below the sketch (the dock sits at the bottom).
@@ -1504,45 +1535,18 @@ export function InfiniteCanvas({
   // has been built, so a failure leaves the sketch exactly as it was.
   const confirmCircuit = useCallback(() => {
     if (!circuitGhost) return
-    const res = compileGhost(circuitGhost)
-    if (!res.ok) {
-      setCircuitError(failureFromCompile(res.errors))
+    // building is shared with the tutor's sketch.to_scene (lib/sketch/apply.ts)
+    const out = applyCircuit(circuitGhost)
+    if (!out.ok) {
+      setCircuitError(out.failure)
       return
     }
-    const store = useDocStore.getState()
-    const pid = circuitGhost.pageId
-    const live = store.pages[pid]?.objects ?? {}
-    const ids = inkToReplace(circuitGhost).filter((id) => live[id])
-    const removed = ids.map((id) => live[id])
-    store.pushHistory(pid, true)
-    const origin = inkOrigin(circuitGhost)
-    const bounds = inkBounds(circuitGhost)
-    // The sketch goes first, so the new circuit is laid out where it was drawn and
-    // does not dodge the very ink it replaces; if building fails, the ink comes back.
-    if (ids.length) store.removeObjects(pid, ids)
-    const before = new Set(Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}))
-    try {
-      // No layout pass: it would dodge unrelated content and drift away from the sketch.
-      void bounds
-      executeSimScript(pid, res.script, { x: origin.x - 10, y: origin.y - 10 })
-    } catch (e) {
-      for (const o of removed) store.addObject(pid, o)
-      setCircuitError(failureFromBuild(e))
-      return
-    }
-    // select what was built, so it is plain where it went
-    const built = Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}).filter((id) => !before.has(id))
-    if (built.length) useDocStore.getState().setSelection(built)
     try {
       for (const ex of examplesFrom(circuitGhost, writerId(localStorage))) addCorrection(localStorage, ex)
     } catch {
       /* storage blocked: the circuit is placed either way */
     }
-    // Step 5: could the engine run it? The circuit stays either way; this says what is missing.
-    const liveNow = useDocStore.getState().pages[pid]?.objects ?? {}
-    const cantRun = checkSimulates(built.map((id) => liveNow[id]).filter(Boolean))
-    if (cantRun) toast(`Built ${circuitGhost.result.parts.length} parts, but it can't run yet: ${cantRun.detail}`, { duration: 9000 })
-    else toast(`Built a circuit from ${circuitGhost.result.parts.length} parts.`, { duration: 2500 })
+    toast(out.message, { duration: out.problem ? 9000 : 2500 })
     setCircuitGhost(null)
     setCircuitError(null)
   }, [circuitGhost])
@@ -1553,44 +1557,12 @@ export function InfiniteCanvas({
   // (restoring the ink if building fails), then ask the real scene verifier whether it will work.
   const confirmMech = useCallback(() => {
     if (!mechGhost) return
-    const res = compileMechGhost(mechGhost)
-    if (!res.ok) {
-      setMechError(failureFromCompile(res.errors))
+    const out = applyMech(mechGhost)
+    if (!out.ok) {
+      setMechError(out.failure)
       return
     }
-    const store = useDocStore.getState()
-    const pid = mechGhost.pageId
-    const live = store.pages[pid]?.objects ?? {}
-    const ids = mechInkToReplace(mechGhost).filter((id) => live[id])
-    const removed = ids.map((id) => live[id])
-    store.pushHistory(pid, true)
-    const origin = mechOrigin(mechGhost)
-    if (ids.length) store.removeObjects(pid, ids)
-    const before = new Set(Object.keys(useDocStore.getState().pages[pid]?.objects ?? {}))
-    try {
-      executeSimScript(pid, res.script, origin)
-    } catch (e) {
-      for (const o of removed) store.addObject(pid, o)
-      setMechError(failureFromBuild(e))
-      return
-    }
-    const now = useDocStore.getState().pages[pid]?.objects ?? {}
-    const built = Object.keys(now).filter((id) => !before.has(id))
-    if (built.length) useDocStore.getState().setSelection(built)
-    // Step 5: would it work as drawn?
-    const n = mechGhost.ir.nodes.length
-    if (mechGhost.domain === 'optics') {
-      // optics is traced live (no Play): the question is whether any ray was cast at all
-      const rays = traceRays(built.map((id) => now[id]).filter(Boolean))
-      if (!rays.length) toast(`Built ${n} parts, but no ray is traced: ${built.some((id) => now[id]?.behaviors.some((b) => b.type === 'lightSource')) ? 'nothing reaches an optical part' : 'there is no light source'}.`, { duration: 9000 })
-      else toast(`Built an optical bench from ${n} parts — the rays are traced live.`, { duration: 3500 })
-    } else {
-      // A spring that touches nothing, a body with nothing under it...
-      const report = verifyScene(Object.values(now), built)
-      const bad = report.issues.find((i) => i.level === 'error')
-      if (bad) toast(`Built ${n} parts, but it may not run as drawn: ${bad.message}`, { duration: 9000 })
-      else toast(`Built a mechanics scene from ${n} parts. Press Play.`, { duration: 3000 })
-    }
+    toast(out.message, { duration: out.problem ? 9000 : 3000 })
     setMechGhost(null)
     setMechError(null)
   }, [mechGhost])
@@ -5127,7 +5099,11 @@ export function InfiniteCanvas({
         </div>
       )}
 
-      {pen.neuralSketch !== false && tool === 'pen' && !ghost && !circuitGhost && !mechGhost && (
+      {pen.neuralSketch !== false &&
+        (tool === 'pen' || (!!readFailure && useDocStore.getState().pages[readFailure.pageId]?.objects[readFailure.seedId]?.geometry.kind === 'picture')) &&
+        !ghost &&
+        !circuitGhost &&
+        !mechGhost && (
         <div
           className="absolute left-0 top-0"
           style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`, transformOrigin: '0 0' }}
@@ -5138,7 +5114,12 @@ export function InfiniteCanvas({
               box={readFailure.box}
               zoom={viewport.zoom}
               above={belowRoom(readFailure.box, 260)}
-              onRetry={() => sketchOps.current?.startRead(readFailure.pageId, readFailure.seedId, readFailure.pointerType)}
+              onRetry={() => {
+                // a picture that could not be read is read again as a picture, not as ink
+                const so = useDocStore.getState().pages[readFailure.pageId]?.objects[readFailure.seedId]
+                if (so?.geometry.kind === 'picture') requestPhotoRead(readFailure.pageId, readFailure.seedId)
+                else sketchOps.current?.startRead(readFailure.pageId, readFailure.seedId, readFailure.pointerType)
+              }}
               onKeepDrawing={() => setReadFailure(null)}
               onRedraw={() => {
                 const st = useDocStore.getState()

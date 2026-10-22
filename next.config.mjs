@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // scripts/dev-local.mjs runs a second dev server beside the main one; it needs its own build directory
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // The client's backend switch, derived from the server's.
   //
   // `NEXT_PUBLIC_CLOUD` decides whether the browser talks to Postgres through
