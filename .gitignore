@@ -33,6 +33,7 @@ image copy 2.png
 .claude/agents/simple-reviwer.md
 public/third-party-licenses.txt
 public/vendor/wllama/
+public/workers/
 .cache/
 
 # sketch datasets (generated / collected; manifests are what we keep)

@@ -21,6 +21,26 @@ export const NEURAL_MIN_P = 0.45
 /** Lowest probability worth SHOWING in the ghost preview for the user to confirm
  *  or correct — a wrong-but-plausible guess is where a correction teaches most. */
 export const NEURAL_SHOW_P = 0.15
+
+/**
+ * How far a symbol reading can be trusted. A confident-looking probability is not enough: the network
+ * gave an op-amp 55 % for a whole hand-drawn circuit. A reading is
+ *   sure   — clearly ahead of the alternatives AND the ink looks like something the network knows;
+ *   unsure — plausible, but the person must look and choose (never placed on a bare Enter);
+ *   null   — too weak to offer at all.
+ */
+export const SURE_P = 0.6
+export const SURE_MARGIN = 0.2
+export const SURE_LOGIT = 5
+export const UNSURE_P = 0.3
+export const UNSURE_LOGIT = 4
+export type Tier = 'sure' | 'unsure'
+export function tierOf(pick: { p: number; margin: number; logit?: number }): Tier | null {
+  const known = pick.logit === undefined ? 1 : pick.logit
+  if (pick.p >= SURE_P && pick.margin >= SURE_MARGIN && known >= SURE_LOGIT) return 'sure'
+  if (pick.p >= UNSURE_P && known >= UNSURE_LOGIT) return 'unsure'
+  return null
+}
 /** Strokes drawn within this long of the hold can belong to the same symbol. */
 export const NEURAL_GROUP_MS = 6000
 /** How near (page px) another stroke must be to join the group. */
@@ -45,6 +65,10 @@ export type NeuralPick =
       alts: Array<{ cls: string; p: number }>
       absorb: string[]
       box: Box
+      /** Largest raw logit of the prediction that chose it (see SketchPrediction.logit); absent from older nets. */
+      logit?: number
+      /** How far the class is ahead of the next most likely thing (including 'unknown'). */
+      margin: number
     }
   | {
       kind: 'decline'
@@ -77,6 +101,12 @@ export function bestSymbol(pred: SketchPrediction): { cls: string; p: number } |
 }
 
 type Net = { predict(strokes: number[][][]): SketchPrediction }
+
+const marginOf = (pred: SketchPrediction, chosen: string): number => {
+  const me = pred.top.find((t) => t.cls === chosen)?.conf ?? 0
+  const next = pred.top.find((t) => t.cls !== chosen)?.conf ?? 0
+  return me - next
+}
 
 const altsOf = (pred: SketchPrediction, chosen: string) =>
   pred.top.filter((t) => t.cls !== 'unknown' && t.cls !== chosen).map((t) => ({ cls: t.cls, p: t.conf }))
@@ -118,10 +148,10 @@ export function pickNeural(net: Net, points: number[][], recent: InkCandidate[],
   // reads well must not swallow its neighbours.
   const useGroup = !!gBest && gBest.p >= minP && (!sBest || sBest.p < minP || gBest.p > sBest.p + 0.1)
   if (useGroup && gBest && group) {
-    return { kind: 'place', cls: gBest.cls, p: gBest.p, pose: group.pose, alts: altsOf(group, gBest.cls), absorb: ids, box }
+    return { kind: 'place', cls: gBest.cls, p: gBest.p, pose: group.pose, alts: altsOf(group, gBest.cls), absorb: ids, box, logit: group.logit, margin: marginOf(group, gBest.cls) }
   }
   if (sBest && sBest.p >= minP) {
-    return { kind: 'place', cls: sBest.cls, p: sBest.p, pose: single.pose, alts: altsOf(single, sBest.cls), absorb: [], box: boxOf(points) }
+    return { kind: 'place', cls: sBest.cls, p: sBest.p, pose: single.pose, alts: altsOf(single, sBest.cls), absorb: [], box: boxOf(points), logit: single.logit, margin: marginOf(single, sBest.cls) }
   }
   const seen = gBest && (!sBest || gBest.p > sBest.p) ? gBest : sBest
   return {

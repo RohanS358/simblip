@@ -14,6 +14,11 @@ import { join } from 'node:path'
 // image optimizer). jszip is dual MIT/GPL — used under MIT. dompurify is dual
 // MPL/Apache — used under Apache. @vercel/analytics is MPL-2.0, unmodified.
 const ALLOWED_COPYLEFT = new Set(['@img/sharp-libvips-linux-x64', '@img/sharp-libvips-linuxmusl-x64', '@img/sharp-libvips-darwin-arm64', '@img/sharp-libvips-darwin-x64', '@img/sharp-libvips-win32-x64', 'jszip', 'dompurify', '@vercel/analytics'])
+// Windows developer machines only: on win32 sharp ships libvips STATICALLY LINKED inside the native addon
+// (@img/sharp-win32-x64, Apache-2.0 AND LGPL-3.0-or-later) instead of a separate shared library. It is only
+// ever installed on Windows (an optional platform package), never in the Linux deployment, where libvips is
+// the dynamically linked, reviewed package above. Do not ship a Windows-built artifact without re-reviewing it.
+const DEV_ONLY_COPYLEFT = process.platform === 'win32' ? new Set(['@img/sharp-win32-x64']) : new Set()
 const COPYLEFT = /\b(A?GPL|LGPL|MPL|EPL|CDDL|SSPL|CC-BY-SA|CC-BY-NC)/i
 
 const VENDORED = [
@@ -48,7 +53,7 @@ for (const dir of dirs) {
   if (!pkg.name || seen.has(id)) continue
   let license = pkg.license ?? pkg.licenses?.map((l) => l.type ?? l).join(' OR ') ?? 'UNKNOWN'
   if (typeof license === 'object') license = license.type
-  if (COPYLEFT.test(license) && !ALLOWED_COPYLEFT.has(pkg.name)) bad.push(`${id} (${license})`)
+  if (COPYLEFT.test(license) && !ALLOWED_COPYLEFT.has(pkg.name) && !DEV_ONLY_COPYLEFT.has(pkg.name)) bad.push(`${id} (${license})`)
   const file = readdirSync(dir).find((f) => /^(licen[cs]e|copying|notice)/i.test(f))
   const text = file ? readFileSync(join(dir, file), 'utf8').trim() : `License: ${license}`
   seen.set(id, { name: id, license, text })

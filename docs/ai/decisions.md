@@ -210,7 +210,8 @@ Document 2 — The Sketch Model* (10 Oct 2026).
   train/export scripts and covered by a test on the label set.
 - **Stray-part pruning:** a part nothing is wired to is dropped (usually a label that read as a symbol). Cost: a
   little recall on text-free sketches (parts found 96.7 → 95.5 %).
-- **Honest numbers (synthetic):** 71 % exact without labels, 31 % with labels drawn; see docs/ai/s3-progress.md.
+- **Honest numbers (synthetic):** 75 % exact without labels, 52 % with labels drawn (after the retrained character
+  network); see docs/ai/s3-progress.md.
 - **Test infrastructure:** tests that spawn `npx esbuild` now use `scripts/test/exec.mjs` and file URLs, so the
   whole suite runs on Windows.
 
@@ -230,7 +231,8 @@ Document 2 — The Sketch Model* (10 Oct 2026).
   the engine's springs are heavily damped; both are the engine's behaviour and are recorded, not worked around.
 - **Domain choice** is evidence-based and conservative: a lens ⇒ optics; a block / hatched ground / wedge ⇒
   mechanics; a hinge-rod-bob pendulum only when no circuit reading competes. A circuit is never read as mechanics
-  (16/16 generated layouts). Force vs velocity arrows are one class until a label can be read; the preview switches it.
+  (see the audit-router numbers in docs/ai/s4-progress.md: that earlier "16/16" was measured with the router bypassed
+  and without labels). Force vs velocity arrows are one class until a label can be read; the preview switches it.
 - **Engine change:** `create()` for optics lines now scales the endpoints by width/height (the aperture a script
   asked for used to be dropped). `advanceWorld` (headless step) was added to `lib/physics/world.ts` for tests.
 - **Honest status:** synthetic only — mechanics 92.6 % exact, optics 92.5 %, and every scene read right behaves as

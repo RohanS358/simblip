@@ -11,7 +11,7 @@ import { useEffect, useMemo } from 'react'
 import { Check, RotateCw, X } from 'lucide-react'
 import { componentById } from '@/lib/scene/factory'
 import { MECH_PICK, WAVE1_CLASSES } from '@/lib/sketch/classes'
-import { confidenceOf, ghostSize, type Ghost } from '@/lib/sketch/ghost'
+import { confidenceOf, ghostSize, needsChoice, type Ghost } from '@/lib/sketch/ghost'
 import { SymbolIcon } from '@/components/objects/geometry'
 
 const DOT: Record<ReturnType<typeof confidenceOf>, string> = {
@@ -50,12 +50,13 @@ export function GhostPreview({
     const onKey = (e: KeyboardEvent) => {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
-      if (e.key === 'Enter') { e.preventDefault(); onConfirm() }
+      // an uncertain guess is never placed by a bare Enter: the person picks the part first
+      if (e.key === 'Enter') { e.preventDefault(); if (!needsChoice(ghost)) onConfirm() }
       if (e.key === 'Escape') { e.preventDefault(); onDismiss() }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onConfirm, onDismiss])
+  }, [onConfirm, onDismiss, ghost])
 
   // Other choices: the model's own first guess (so a mistaken pick can be undone),
   // then its runners-up — leaving out noise below 3 %. "Other…" covers the rest.
@@ -122,7 +123,7 @@ export function GhostPreview({
             style={{ background: DOT[conf] }}
             title={conf === 'chosen' ? 'You chose this' : conf === 'high' ? 'Confident' : conf === 'medium' ? 'Fairly sure' : 'Unsure — check it'}
           />
-          <span className="whitespace-nowrap font-medium">{labelOf(ghost.cls)}</span>
+          <span className="whitespace-nowrap font-medium">{needsChoice(ghost) ? `Maybe ${labelOf(ghost.cls)}` : labelOf(ghost.cls)}</span>
           <span className="whitespace-nowrap text-muted-foreground">{ghost.p === null ? 'your choice' : `${Math.round(ghost.p * 100)}%`}</span>
           <span className="ml-auto flex items-center gap-1">
             <button
@@ -145,7 +146,9 @@ export function GhostPreview({
             </button>
             <button
               type="button"
-              className="flex items-center gap-1 whitespace-nowrap rounded bg-[var(--accent-blue)] px-2 py-1 font-medium text-white hover:opacity-90"
+              disabled={needsChoice(ghost)}
+              title={needsChoice(ghost) ? 'Not sure yet — choose the part below' : undefined}
+              className="flex items-center gap-1 whitespace-nowrap rounded bg-[var(--accent-blue)] px-2 py-1 font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               onClick={onConfirm}
             >
               <Check className="h-3.5 w-3.5" /> Make it live
@@ -153,8 +156,13 @@ export function GhostPreview({
           </span>
         </div>
 
+        {needsChoice(ghost) && (
+          <p role="alert" className="text-[var(--accent-amber)]">
+            Not sure what this is — it may be several parts, or not a symbol I know. Pick the right part to place it.
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-1">
-          <span className="whitespace-nowrap text-muted-foreground">Not right?</span>
+          <span className="whitespace-nowrap text-muted-foreground">{needsChoice(ghost) ? 'Is it…' : 'Not right?'}</span>
           {choices.map((a) => (
             <button
               key={a.cls}

@@ -226,24 +226,6 @@ export function PageThumbnail({ pageId, className, live }: Props) {
     }
   }, [kind, pageId])
 
-  if (kind === 'pdf') {
-    return (
-      <div className={className}>
-        {pdfImg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={pdfImg} alt="" className="h-full w-full rounded-[4px] object-cover object-top" />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
-            <FileText className="h-6 w-6" />
-            {meta?.fileName && (
-              <span className="max-w-full truncate px-1 text-ui-3xs">{meta.fileName}</span>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
-
   // pptx pages render into a FIXED 960×540 slide frame everywhere else in
   // the app (the editor stage, PresentOverlay — see presentation-view.tsx),
   // clipped with overflow:hidden so content positioned off-slide (bleed art,
@@ -310,6 +292,25 @@ export function PageThumbnail({ pageId, className, live }: Props) {
         <svg viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet" className="h-full w-full opacity-40">
           <line x1="10" y1="50" x2="90" y2="50" className="stroke-border" strokeWidth="0.5" strokeDasharray="2 2" vectorEffect="non-scaling-stroke" />
         </svg>
+      </div>
+    )
+  }
+
+  // after every hook above, so the hook order never depends on the page kind
+  if (kind === 'pdf') {
+    return (
+      <div className={className}>
+        {pdfImg ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={pdfImg} alt="" className="h-full w-full rounded-[4px] object-cover object-top" />
+        ) : (
+          <div className="flex h-full w-full flex-col items-center justify-center gap-1 text-muted-foreground/50">
+            <FileText className="h-6 w-6" />
+            {meta?.fileName && (
+              <span className="max-w-full truncate px-1 text-ui-3xs">{meta.fileName}</span>
+            )}
+          </div>
+        )}
       </div>
     )
   }

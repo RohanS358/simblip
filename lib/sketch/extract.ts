@@ -17,6 +17,7 @@ import { pinsOf, type WorldPin } from './pins'
 import { bestSymbol } from './neural-pick'
 import { canonicalPose, type Pose } from './classes'
 import { attachValues, findText, type TextRead } from './values'
+import { baseId, splitStrokes } from './split'
 import type { SketchPrediction } from './sketchnet'
 
 export interface InkStroke {
@@ -119,6 +120,8 @@ export function shapeOf(s: InkStroke): Shape {
  * however long, never does — so a long, mostly-straight, mostly-axis stroke counts too.
  */
 function looksLikeWire(s: Shape, minLen: number, unit: number): boolean {
+  // A straight piece cut from a longer stroke (split.ts) is a stretch of wire between two things, however short
+  if (s.id.includes('#') && (s.straight || s.ortho) && s.len >= 0.2 * unit) return true
   if (s.closed || s.len < minLen) return false
   if (s.straight || s.ortho) return true
   return s.len >= 1.3 * unit && s.chord / s.len >= 0.7 && s.axisFraction >= 0.5
@@ -132,11 +135,13 @@ function looksLikeWire(s: Shape, minLen: number, unit: number): boolean {
  */
 function estimateUnit(shapes: Shape[]): number {
   const bodies = shapes.filter((s) => !s.straight && !s.ortho && s.len > 25).map((s) => s.diag)
-  // An upper quantile, not the median: handwritten labels add many small strokes that would drag a
-  // median down to the size of a character and mis-size every symbol group.
   if (bodies.length >= 1) {
-    const sorted = bodies.slice().sort((a, b) => a - b)
-    return Math.min(500, Math.max(40, sorted[Math.floor(0.8 * (sorted.length - 1))] * 1.25))
+    // Handwritten labels add many small strokes that would drag a plain median down to the size of a
+    // character, so only bodies that are not tiny next to the biggest one count; their upper part is the size.
+    const top = Math.max(...bodies)
+    const real = bodies.filter((d) => d >= 0.35 * top).sort((x, y) => x - y)
+    const pick = real[Math.floor(0.8 * (real.length - 1))]
+    return Math.min(500, Math.max(40, pick * 1.25))
   }
   // only straight strokes (plates, leads, wires): the shorter ones are the plates
   const lens = shapes.map((s) => s.len).sort((a, b) => a - b)
@@ -265,19 +270,79 @@ const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v
 /** Scale candidates tried around the first guess. A wrong scale merges neighbours or shreds symbols, and the network then reads nothing. */
 const SCALE_STEPS = [0.55, 0.75, 1, 1.35, 1.8]
 
+/** The size a symbol is assumed to be while the ink is first cut into pieces (before the real size is known). */
+const FIRST_CUT_UNIT = 120
+
+/** A reading speaks of the strokes the person drew, not of the pieces they were cut into. */
+function inTermsOf(result: ExtractResult): ExtractResult {
+  const base = (ids: string[]) => [...new Set(ids.map(baseId))]
+  return {
+    ...result,
+    wireIds: base(result.wireIds),
+    dotIds: base(result.dotIds),
+    ignoredIds: base(result.ignoredIds),
+    textIds: result.textIds ? base(result.textIds) : result.textIds,
+    parts: result.parts.map((p) => ({ ...p, strokeIds: base(p.strokeIds) })),
+    texts: result.texts?.map((t) => ({ ...t, strokeIds: base(t.strokeIds) })),
+  }
+}
+
 export function extractCircuit(strokes: InkStroke[], net: Recogniser, opts: ExtractOptions = {}): ExtractResult {
-  const shapes = strokes.filter((s) => s.pts.length >= 2).map(shapeOf)
-  if (shapes.length === 0) {
+  const usable = strokes.filter((s) => s.pts.length >= 2)
+  if (usable.length === 0) {
     return { ir: { domain: 'circuit', nodes: [], edges: [], labels: [], doubts: [] }, parts: [], wireIds: [], dotIds: [], ignoredIds: [], unit: opts.unit ?? 80 }
   }
-  if (opts.unit) return readAt(shapes, net, opts.unit, opts).result
-  const U0 = estimateUnit(shapes)
+  // People draw wire, zigzag, wire, coil in ONE stroke; cut such strokes into what they draw (split.ts)
+  const shapesAt = (U: number) => splitStrokes(usable, U).map(shapeOf)
+  if (opts.unit) return inTermsOf(readAt(shapesAt(opts.unit), net, opts.unit, opts).result)
+  const U0 = estimateUnit(shapesAt(FIRST_CUT_UNIT))
   let best: { result: ExtractResult; score: number } | null = null
   for (const k of SCALE_STEPS) {
-    const r = readAt(shapes, net, U0 * k, opts)
+    const r = readAt(shapesAt(U0 * k), net, U0 * k, opts)
     if (!best || r.score > best.score) best = r
   }
-  return best!.result
+  return inTermsOf(best!.result)
+}
+
+/**
+ * Long straight strokes that are really the plates of a battery or capacitor: two lines that run the same
+ * way, side by side and close together (much closer than they are long), that the network reads as a
+ * battery or a capacitor.
+ */
+function plateLines(shapes: Shape[], U: number, net: Recogniser): Set<string> {
+  const lines = shapes.filter((s) => s.straight && !s.closed && s.len >= 0.12 * U && s.len <= 2.4 * U && !s.id.includes('#'))
+  const out = new Set<string>()
+  const dir = (s: Shape): Pt => {
+    const dx = s.pts[s.pts.length - 1][0] - s.pts[0][0]
+    const dy = s.pts[s.pts.length - 1][1] - s.pts[0][1]
+    const l = Math.hypot(dx, dy) || 1
+    return [dx / l, dy / l]
+  }
+  for (let i = 0; i < lines.length; i++) {
+    for (let j = i + 1; j < lines.length; j++) {
+      const a = lines[i]
+      const b = lines[j]
+      const da = dir(a)
+      const db = dir(b)
+      if (Math.abs(da[0] * db[1] - da[1] * db[0]) > 0.31) continue // not parallel (about 18 degrees)
+      const long = Math.max(a.len, b.len)
+      const short = Math.min(a.len, b.len)
+      const ca: Pt = [(a.box.x0 + a.box.x1) / 2, (a.box.y0 + a.box.y1) / 2]
+      const cb: Pt = [(b.box.x0 + b.box.x1) / 2, (b.box.y0 + b.box.y1) / 2]
+      const along = Math.abs((cb[0] - ca[0]) * da[0] + (cb[1] - ca[1]) * da[1])
+      const across = Math.abs((cb[0] - ca[0]) * -da[1] + (cb[1] - ca[1]) * da[0])
+      if (across > 0.35 * long || across < 1) continue // far apart: two wires; the same line twice
+      if (along > 0.5 * (a.len + b.len) / 2 + 0.5 * long) continue // not side by side
+      if (short < 0.2 * long || long < 0.9 * U) continue // (one of the two must be wire-sized, or nothing is mistaken)
+      // the shape is a candidate; the network says whether the pair really is a battery or a capacitor
+      const pred = net.predict([a.pts, b.pts])
+      const best = bestSymbol(pred)
+      if (!best || (best.cls !== 'battery' && best.cls !== 'capacitor') || best.p < 0.8) continue
+      out.add(a.id)
+      out.add(b.id)
+    }
+  }
+  return out
 }
 
 /** What the wiring step needs to know about a part. */
@@ -454,8 +519,12 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
   const isDot = (s: Shape) => s.diag <= Math.max(8, 0.12 * U) && s.len >= 2 * Math.max(s.diag, 3) && s.len <= 6 * Math.max(s.diag, 3)
   const dots = shapes.filter(isDot)
   const rest = shapes.filter((s) => !isDot(s))
-  const wires: Shape[] = rest.filter((s) => looksLikeWire(s, 0.9 * U, U))
-  const bodyShapes = rest.filter((s) => !looksLikeWire(s, 0.9 * U, U))
+  // Battery and capacitor plates are straight lines too, and a big one is as long as a wire. Two parallel
+  // lines close together, drawn side by side, are plates, not two wires.
+  const plates = plateLines(rest, U, net)
+  const wireLike = (s: Shape) => !plates.has(s.id) && looksLikeWire(s, 0.9 * U, U)
+  const wires: Shape[] = rest.filter(wireLike)
+  const bodyShapes = rest.filter((s) => !wireLike(s))
 
   // ── 1b. values written beside parts — found BEFORE the symbols are grouped,
   //        or a label 30 px from a resistor is swept into the resistor's strokes ──
@@ -549,7 +618,12 @@ function readAt(shapes: Shape[], net: Recogniser, U: number, opts: ExtractOption
     wiring = wireUp(parts, wires, wiringDots, U, opts)
   }
   const ir = irFrom(parts, wiring)
-  const score = parts.reduce((a, p) => a + p.conf, 0) - 0.4 * ignored.length - 0.25 * wiring.danglingEnds - 0.5 * strayIds.length / 4
+  // How well this reading explains the ink. A part is worth what it is trusted above a coin flip (a 0.6
+  // "op-amp" over half the page is worth almost nothing, so swallowing everything into one shaky part cannot
+  // win); wires that join parts are worth something; ink left unexplained costs by how much of it there is.
+  const totalInk = shapes.reduce((acc, sh) => acc + sh.len, 0) || 1
+  const unexplained = [...ignored, ...shapes.filter((sh) => strayIds.includes(sh.id))].reduce((acc, sh) => acc + sh.len, 0) / totalInk
+  const score = parts.reduce((acc, p) => acc + (p.conf - 0.5), 0) + 0.2 * wiring.edges.length - 1.5 * unexplained - 0.25 * wiring.danglingEnds
   return {
     result: {
       ir,

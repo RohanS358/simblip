@@ -1438,6 +1438,7 @@ export function InfiniteCanvas({
           predictedP: res.pick.p,
           rotated: false,
           device: pointerDevice(pointerType),
+          unsure: res.tier === 'unsure',
         })
       } else {
         const f = res.failure
@@ -5176,9 +5177,6 @@ export function InfiniteCanvas({
             pending.pageId === pageId &&
             pendingAlive && (
               <DoneChip
-                box={pending.box}
-                zoom={viewport.zoom}
-                above={belowRoom(pending.box, 60)}
                 reading={reading}
                 onDone={() => sketchOps.current?.startRead(pending.pageId, pending.seedId, pending.pointerType)}
                 onHide={() => setPending(null)}

@@ -16,9 +16,9 @@ handwriting: no real whole-circuit sketch exists yet, so every number below is s
   `sketch:eval-scenes / debug-scenes / preview-scenes`.
 
 ## Measured (SYNTHETIC generated hands; tolerances tuned on this same set, so optimistic)
-- Circuits read back exactly, values not drawn: **71 %** (100 circuits). Parts found 95 %, class correct 97 %.
-- Same with values drawn beside parts: **31 %** exact; values read 57 %, read correctly 35 %. Reading without
-  the character network at all: 15 %. So handwritten labels are the weakest part.
+- Circuits read back exactly, values not drawn: **75 %** (100 circuits; `npm run sketch:eval-scenes`). Parts found 95 %, class correct 97 %.
+- Same with values drawn beside parts: **52 %** exact (with the retrained character network; was 31 % before).
+  Reading without the character network at all: 15 %. So handwritten labels are the weakest part.
 - Character network on generated handwriting: 99.8 % (easy, synthetic).
 - End to end in the real engine: a circuit read exactly behaves identically to the one drawn (engine readings
   match) — `sketch-to-circuit.test.mjs`.

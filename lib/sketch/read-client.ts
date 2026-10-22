@@ -8,6 +8,9 @@ import type { ReadReply, ReadRequest } from './read-worker'
 /** Give up on the worker after this long and read here instead. */
 export const WORKER_TIMEOUT_MS = 20000
 
+/** Built from read-worker.ts by scripts/build-sketch-worker.mjs (predev / prebuild). */
+export const WORKER_URL = '/workers/sketch-read.js'
+
 let worker: Worker | null = null
 let broken = false
 let nextId = 1
@@ -46,7 +49,7 @@ function getWorker(): Worker | null {
   if (broken || typeof Worker === 'undefined') return null
   if (worker) return worker
   try {
-    const w = new Worker(new URL('./read-worker.ts', import.meta.url), { type: 'module' })
+    const w = new Worker(WORKER_URL)
     w.onmessage = (e: MessageEvent<ReadReply>) => {
       const hit = waiting.get(e.data.id)
       if (!hit) return

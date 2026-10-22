@@ -36,6 +36,13 @@ export interface SketchPrediction {
   top: Array<{ cls: string; conf: number }>
   pose: 0 | 90 | 180 | 270
   poseConf: number
+  /**
+   * The largest raw logit. Softmax says how the classes compare with each other, never whether the ink is
+   * any of them: on ink the network was not trained on (several parts at once, scribbles) it still hands out
+   * 60 % to something. The logit does fall there (≈7–9 on symbols it knows, ≈3–4 on whole circuits), so it is
+   * what "does this look like something I know" is judged by.
+   */
+  logit?: number
 }
 
 export interface SketchNet {
@@ -234,6 +241,7 @@ export function createSketchNet(manifest: SketchNetManifest, weights: ArrayBuffe
       top: order.slice(0, 3).map((i) => ({ cls: manifest.labels[i], conf: p[i] })),
       pose: manifest.poses[pi] as SketchPrediction['pose'],
       poseConf: pp[pi],
+      logit: Math.max(...out.cls),
     }
   }
 

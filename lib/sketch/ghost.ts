@@ -25,11 +25,19 @@ export interface Ghost {
   predictedP: number
   rotated: boolean
   device: Device
+  /**
+   * The reading is only a guess (see tierOf): it is shown so the person can pick the right part from the
+   * choices, but it is not placed on a bare Enter / "Make it live" until they have chosen.
+   */
+  unsure?: boolean
 }
 
 export type Confidence = 'high' | 'medium' | 'low' | 'chosen'
 
 /** Green ≥ 0.9, amber 0.6–0.9, red below (plan §3.4); 'chosen' once the user decides. */
+/** The reading still needs the person's say before it can be placed. */
+export const needsChoice = (g: Pick<Ghost, 'p' | 'unsure'>): boolean => !!g.unsure && g.p !== null
+
 export function confidenceOf(p: number | null): Confidence {
   if (p === null) return 'chosen'
   return p >= 0.9 ? 'high' : p >= 0.6 ? 'medium' : 'low'

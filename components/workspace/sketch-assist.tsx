@@ -1,11 +1,12 @@
 'use client'
 
 // The two small pieces of UI around reading a sketch:
-//   • DoneChip     — "✓ Done drawing", beside the unread ink; becomes a spinner while it reads.
+//   • DoneChip     — "✓ Done drawing", a fixed control at the top right of the screen; a spinner while it reads.
 //   • ReadFailureCard — "Couldn't recognise this sketch", with what was seen and what to do next.
 // Both live in the canvas' page-coordinate layer (they move and zoom with the drawing) and
 // counter-scale so they stay a readable size.
 
+import { createPortal } from 'react-dom'
 import { useEffect } from 'react'
 import { Check, Loader2, Pencil, RotateCw, Trash2 } from 'lucide-react'
 import { componentById } from '@/lib/scene/factory'
@@ -29,17 +30,16 @@ function typing(e: KeyboardEvent): boolean {
   return !!t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)
 }
 
+/**
+ * "Done drawing" — a standing control in a fixed corner of the canvas, NOT beside the ink. Beside the ink
+ * it sat exactly where the next stroke (a value label, a wire) starts: a stroke begun on it was swallowed
+ * and its tap counted as Done, reading the sketch mid-drawing (reproduced in the browser).
+ */
 export function DoneChip({
-  box,
-  zoom,
-  above = false,
   reading,
   onDone,
   onHide,
 }: {
-  box: Box
-  zoom: number
-  above?: boolean
   reading: boolean
   onDone: () => void
   onHide: () => void
@@ -56,12 +56,14 @@ export function DoneChip({
     return () => window.removeEventListener('keydown', onKey)
   }, [onDone, onHide, reading])
 
-  return (
+  // The canvas draws in page space (panned and zoomed); this control belongs to the screen, so it is portalled
+  // out of that layer.
+  if (typeof document === 'undefined') return null
+  return createPortal(
     <div
       role="group"
       aria-label="Finish drawing"
-      className="pointer-events-auto absolute z-40 flex w-max items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-1 pr-2 text-ui-sm shadow-md"
-      style={anchor(box, zoom, above)}
+      className="pointer-events-auto fixed right-4 top-14 z-40 flex w-max items-center gap-1.5 rounded-full border border-border bg-card py-1 pl-1 pr-2 text-ui-sm shadow-md"
       onPointerDown={stop}
       onPointerUp={stop}
       onClick={stop}
@@ -83,7 +85,8 @@ export function DoneChip({
           <span className="hidden whitespace-nowrap text-muted-foreground sm:inline">or press Enter</span>
         </>
       )}
-    </div>
+    </div>,
+    document.body
   )
 }
 
@@ -117,7 +120,7 @@ export function ReadFailureCard({
   }, [onKeepDrawing])
 
   const canChoose = failure.reason === 'unrecognised'
-  const title = failure.reason === 'not-loaded' ? (/download/i.test(failure.message) ? 'Recogniser unavailable' : 'Recogniser still loading') : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : failure.reason === 'unsupported' ? "Can't build this yet" : "Couldn't recognise this sketch"
+  const title = failure.reason === 'not-loaded' ? (/download/i.test(failure.message) ? 'Recogniser unavailable' : 'Recogniser still loading') : failure.reason === 'no-ink' ? 'Nothing to read' : failure.reason === 'error' ? 'Reading failed' : failure.reason === 'not-connected' ? "Couldn't connect these parts" : failure.reason === 'incomplete' ? 'Not enough for a circuit yet' : failure.reason === 'unsupported' ? "Can't build this yet" : "Couldn't recognise this sketch"
 
   return (
     <div

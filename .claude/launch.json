@@ -4,9 +4,21 @@
     {
       "name": "simblip-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3000,
       "autoPort": true
+    },
+    {
+      "name": "simblip-local",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "scripts/dev-local.mjs",
+        "3114"
+      ],
+      "port": 3114
     }
   ]
 }

@@ -743,6 +743,8 @@ export function AiPanel({ pageId }: { pageId: string | null }) {
                   onServer={() => {
                     // Cancel the slow on-device attempt, then ask the server — once.
                     abortRef.current?.abort()
+                    // not a hook, despite the name (it sets a one-shot routing flag)
+                    // eslint-disable-next-line react-hooks/rules-of-hooks
                     useServerOnce()
                     setTimeout(() => void send(t.prompt), 400)
                   }}

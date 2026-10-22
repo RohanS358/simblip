@@ -17,7 +17,8 @@ handwriting: no real mechanics or optics sketch exists yet, so every rate below 
   Defaults when nothing was typed: block 2 kg, ball 1 kg, push 4 N per kg, launch 1.5 m/s (the canvas is 1 px = 1 mm).
 - **Domain choice** (`read-sketch.ts`): a lens ⇒ optics; a block, a confidently hatched ground or a wedge ⇒ mechanics;
   a pendulum (hinge + rod + hanging ball) when no circuit reading competes; otherwise the circuit reading. A circuit is
-  never read as mechanics: 16/16 generated circuit layouts stay circuits.
+  never read as mechanics: after the router fix, 64/64 unlabelled and 60/64 labelled generated circuits stay circuits
+  (before it, labelled circuits were misrouted 36 % of the time: the earlier "16/16" bypassed labels).
 - **Preview** (`components/workspace/mech-ghost.tsx`): parts drawn over the ink, numbered; kind, mass / force / f typed
   per part; links editable; Make it live in one undo step, built where it was drawn. After building, the real scene
   verifier (`verifyScene`, mechanics) or the ray tracer (optics) says whether it will work.
@@ -27,8 +28,11 @@ handwriting: no real mechanics or optics sketch exists yet, so every rate below 
 ## Measured (SYNTHETIC generated hands; thresholds tuned on this same set, so optimistic)
 - Mechanics: 21 situations × 8 writers drawn → **163/176 = 92.6 %** read back exactly (parts, slope angles, links);
   pulley reported as a gap 8/8. Optics: 10 situations × 8 → **74/80 = 92.5 %**; focal length right where marked 29/30.
-- Domain choice through the full Done flow: circuits as circuits 16/16; mechanics as mechanics 86/88; optics benches
-  that contain a lens as optics 27/28.
+- Domain choice through the full Done flow (`scripts/ai/sketch/audit-router.mjs`, 4 writers each): single symbols read
+  right 96.2 % (2 of 504 sent to mechanics, was 42); circuits without labels 100 %, with labels 93.8 % → circuit;
+  mechanics benches 97.8 %; optics benches that contain a lens 96.4 %. Known misses: a label drawn last and far from the
+  circuit is read alone (Done reads the last stroke's cluster); weak circuit readings (<3 confident parts) can lose to
+  the mechanics reader.
 - **It behaves as drawn on the real engines** (readings that were exact): a block on a 30° ramp slides DOWN the slope;
   a block on level ground stays put; a dropped ball lands on the ground and rests there; a hung or pulled spring holds
   its mass and settles; a pendulum swings; a force arrow pushes the block the way it points; a convex lens brings a
