@@ -24,6 +24,13 @@ as the teacher says it (first sentence of each narration, plus formula explanati
 captions, and a "Check: question — answer" line after each prediction), so when the lesson ends the
 board reads like slides a student can revise from. Seeking rebuilds the notes too.
 
+**Richer notes.** Besides key points, each section records the *words it defined* (conservative pattern match on
+"…is called X" / "X is the …"), its *formulas* (with the explanation she gave) and its *checks* (each prediction with
+the right answer). When the lesson ends the board gets a **Summary** section: the first points of every section, a
+glossary and the formulas in a column. The **Study notes** button (page icon in the lesson controls) opens a clean
+document of everything — per section, then a formula sheet and glossary — that prints or saves as a PDF with the
+browser's print dialog (only the notes page prints), or copies as Markdown.
+
 ## The teacher (`components/workspace/teacher.tsx`, `lib/teacher/`)
 
 She stands at the board's bottom-right, mirrored to face the board. The figure is the reference illustration

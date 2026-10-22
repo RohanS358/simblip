@@ -5,7 +5,7 @@
 
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Gauge, HelpCircle, List, MessageCircleQuestion, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
+import { FileText, Gauge, HelpCircle, List, MessageCircleQuestion, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ import { useTutor } from '@/lib/lesson/tutor-store'
 import { askQuestion } from '@/lib/lesson/tutor'
 import { continueLesson } from '@/lib/lesson/controller'
 import { visibleBoard } from '@/lib/lesson/camera'
+import { StudyNotes } from './study-notes'
 import { Teacher } from './teacher'
 import { CircleToAsk, ExplainRing, SectionStrip, TutorReplies } from './lesson-tutor-ui'
 
@@ -121,6 +122,7 @@ export function LessonPlayer() {
         )}
       </AnimatePresence>
 
+      <StudyNotes />
       <CircleToAsk rect={rect} />
       <ExplainRing />
       {rect && (
@@ -199,6 +201,7 @@ export function LessonPlayer() {
           <Button size="sm" variant={tutorMode === 'selecting' ? 'default' : 'ghost'} className="h-8 gap-1 px-2 text-ui-xs font-semibold" title="Circle something on the board and the teacher explains it" onClick={() => useTutor.getState().set({ mode: tutorMode === 'selecting' ? 'idle' : 'selecting' })}>
             <HelpCircle className="h-4 w-4 text-[var(--accent-blue)]" />Ask
           </Button>
+          <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Study notes — read, print or save as PDF" onClick={() => set({ notesOpen: true })}><FileText className="h-4 w-4" /></Button>
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Type a question for the teacher" onClick={() => void askQuestion(continueLesson)}><MessageCircleQuestion className="h-4 w-4" /></Button>
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-destructive/10 hover:text-destructive" title="Close lesson" onClick={stopLesson}><X className="h-4 w-4" /></Button>
         </div>

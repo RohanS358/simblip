@@ -72,6 +72,20 @@ check(n >= 2, `older content stays: the board has ${n} sections, each reachable 
 const objsBefore = await page.evaluate(() => document.querySelectorAll('[data-object-id], [data-obj]').length)
 await shot("2-sections")
 
+// Study notes: readable, printable, savable as a PDF.
+await page.getByTitle(/Study notes/).click()
+const notesDlg = page.getByRole('dialog', { name: 'Study notes' })
+await notesDlg.waitFor({ timeout: 10_000 })
+const notesText = await notesDlg.innerText()
+check(/Study notes/.test(notesText) && /1\. /.test(notesText), 'the study notes page lists the sections taught so far')
+await shot('2b-study-notes')
+await page.emulateMedia({ media: 'print' })
+const visibleInPrint = await page.evaluate(() => [...document.body.children].filter((e) => getComputedStyle(e).display !== 'none' && !/SCRIPT|STYLE|NEXT/.test(e.tagName)).length)
+check(visibleInPrint === 1, `printing shows only the notes page (${visibleInPrint} top-level element visible)`)
+await page.pdf({ path: `${OUT}/study-notes.pdf`, format: 'A4' }).then(() => check(true, 'saved as a PDF')).catch((e) => check(false, 'PDF: ' + e.message))
+await page.emulateMedia({ media: 'screen' })
+await page.keyboard.press('Escape')
+
 // Circle something on the board.
 await page.getByTitle(/Circle something on the board/).click()
 check(await page.getByText(/Circle the part you want me to explain/).isVisible(), 'Ask mode: the board waits for a circle')

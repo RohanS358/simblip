@@ -1841,3 +1841,10 @@ html[data-keyboard='open'] .hide-with-keyboard {
 @media (prefers-reduced-motion: reduce) {
   .formula-writing, .formula-writing::after { animation: none !important; }
 }
+
+/* Printing the lesson's study notes: only the notes page is shown. */
+@media print {
+  body.printing-study-notes > *:not(.study-notes-root) { display: none !important; }
+  .study-notes-root { position: static !important; inset: auto !important; overflow: visible !important; background: #fff !important; color: #000 !important; }
+  .study-notes-root .no-print { display: none !important; }
+}

@@ -13,6 +13,14 @@ export interface Section {
   /** The "Key points" block beside it, and what it says so far. */
   notes?: string
   bullets?: string[]
+  /** Formulas taught in this section, with what each says in words. */
+  formulas?: { latex: string; text?: string }[]
+  /** Words introduced here ("current — the flow of charge …"). */
+  definitions?: { term: string; meaning: string }[]
+  /** Predictions asked here, with the answer. */
+  checks?: { q: string; a: string }[]
+  /** The closing summary section (never itself summarised). */
+  summary?: boolean
 }
 
 export interface Box { x: number; y: number; w: number; h: number }
@@ -57,15 +65,86 @@ export function bulletFor(spoken: string): string | null {
   const first = spoken.replace(/\s+/g, ' ').trim().split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/)[0] ?? ''
   if (first.length < 24) return null
   if (/^(let'?s|now|so|okay|ok|watch|look|press|try|here)\b/i.test(first) && first.length < 48) return null
-  return first.length > 150 ? first.slice(0, first.lastIndexOf(' ', 147)) + '…' : first
+  if (first.length <= 150) return first
+  // too long to be a bullet: cut at the last natural pause, else at a word
+  const head = first.slice(0, 148)
+  const pause = Math.max(head.lastIndexOf(', '), head.lastIndexOf('; '), head.lastIndexOf(' — '))
+  return (pause > 60 ? head.slice(0, pause) : head.slice(0, head.lastIndexOf(' '))) + '…'
 }
 
-/** The block's markdown: a heading and the bullets. */
-export const notesMarkdown = (bullets: string[]): string => `**Key points**\n\n${bullets.map((b) => `- ${b}`).join('\n')}`
+/** The block's markdown: key points, then the words introduced in the section. */
+export function notesMarkdown(bullets: string[], definitions: { term: string; meaning: string }[] = []): string {
+  const words = definitions.length ? `\n\n**Words to know**\n\n${definitions.map((d) => `- **${d.term}** — ${d.meaning}`).join('\n')}` : ''
+  return `**Key points**\n\n${bullets.map((b) => `- ${b}`).join('\n')}${words}`
+}
+
+/** A definition hiding in a spoken sentence — "…is called the resistance", "Current is the flow of…" — or null.
+ *  Deliberately conservative: a wrong glossary entry teaches the wrong thing. */
+export function definitionFrom(sentence: string): { term: string; meaning: string } | null {
+  const s = sentence.replace(/\s+/g, ' ').trim()
+  if (s.length < 30 || s.length > 220) return null
+  const clean = (t: string) => t.replace(/^(the|a|an)\s+/i, '').trim()
+  const named = /\b(?:is|are|we)?\s*(?:called|known as|named|call it)\s+(?:the\s+)?([A-Za-z][A-Za-z -]{1,28}?)(?=[.,;:)]|$)/i.exec(s)
+  if (named && !/\b(it|this|that|they|these)\b/i.test(named[1])) return { term: clean(named[1]), meaning: s }
+  const is = /^(?:The |A |An )?([A-Z][a-z]+(?: [a-z]+){0,2}) (?:is|are) (?:the|a|an) (.{14,})$/.exec(s)
+  if (is && !/^(This|That|These|Those|There|Here|What|Which|It|Everything|Something|Nothing|Anything|Each|Every|Both|Most|Some|Many|Another|Other|One|Two|All)\b/i.test(is[1]) && !/\b(that|which|who|follows)\b/i.test(is[1]) && is[1].split(' ').length <= 2) return { term: is[1].toLowerCase(), meaning: s }
+  return null
+}
+
+export interface Summary {
+  title: string
+  parts: { n: number; title: string; points: string[]; checks: { q: string; a: string }[] }[]
+  formulas: { latex: string; text?: string; section: string }[]
+  glossary: { term: string; meaning: string }[]
+}
+
+/** A section's key points as study notes: the "Check:" lines live under *Check yourself* instead. */
+export const keyPoints = (s: { bullets?: string[] }): string[] => (s.bullets ?? []).filter((b) => !b.startsWith('Check: '))
+
+/** Everything the lesson taught, gathered from its sections: the print view shows it all, the board's
+ *  closing summary the first few points of each. */
+export function buildSummary(title: string, sections: Section[]): Summary {
+  const seen = new Set<string>()
+  const glossary: Summary['glossary'] = []
+  sections = sections.filter((s) => !s.summary)
+  for (const s of sections) for (const d of s.definitions ?? []) if (!seen.has(d.term.toLowerCase())) { seen.add(d.term.toLowerCase()); glossary.push(d) }
+  return {
+    title,
+    parts: sections
+      .filter((s) => keyPoints(s).length + (s.checks?.length ?? 0) > 0)
+      .map((s, i) => ({ n: i + 1, title: s.title, points: keyPoints(s), checks: s.checks ?? [] })),
+    formulas: sections.flatMap((s) => (s.formulas ?? []).map((f) => ({ ...f, section: s.title }))),
+    glossary: glossary.sort((a, b) => a.term.localeCompare(b.term)),
+  }
+}
+
+/** The closing summary's text block on the board: each section's first few points. */
+export function summaryMarkdown(sum: Summary, perSection = 3): string {
+  return sum.parts.map((p) => `**${p.n}. ${p.title}**\n\n${p.points.slice(0, perSection).map((b) => `- ${b}`).join('\n')}`).join('\n\n')
+}
+export const glossaryMarkdown = (sum: Summary): string => (sum.glossary.length ? `**Words to remember**\n\n${sum.glossary.map((d) => `- **${d.term}** — ${d.meaning}`).join('\n')}` : '')
 
 /** Height of the notes block for `width` px of text (about 52 characters a line at that width). */
-export function notesHeight(bullets: string[], width = 400): number {
+export function notesHeight(bullets: string[], width = 400, definitions: { term: string; meaning: string }[] = []): number {
   const perLine = Math.max(24, Math.floor(width / 7.6))
-  const lines = bullets.reduce((n, b) => n + Math.ceil((b.length + 2) / perLine), 0)
-  return Math.round(64 + lines * 25 + bullets.length * 9)
+  const all = [...bullets, ...definitions.map((d) => `${d.term} — ${d.meaning}`)]
+  const lines = all.reduce((n, b) => n + Math.ceil((b.length + 2) / perLine), 0)
+  return Math.round(64 + lines * 25 + all.length * 9 + (definitions.length ? 56 : 0))
+}
+
+/** The full study notes as Markdown — everything in the print view, for copying into another app. */
+export function studyMarkdown(title: string, sections: Section[]): string {
+  const sum = buildSummary(title, sections)
+  const body = sections.filter((s) => !s.summary && (keyPoints(s).length + (s.checks?.length ?? 0) > 0)).map((s, i) => {
+    const out = [`## ${i + 1}. ${s.title}`, ...keyPoints(s).map((b) => `- ${b}`)]
+    if (s.definitions?.length) out.push('', '**Words to know**', ...s.definitions.map((d) => `- **${d.term}** — ${d.meaning}`))
+    if (s.formulas?.length) out.push('', '**Formulas**', ...s.formulas.map((f) => `- $${f.latex}$${f.text ? ` — ${f.text}` : ''}`))
+    if (s.checks?.length) out.push('', '**Check yourself**', ...s.checks.map((c) => `- ${c.q}\n  - Answer: ${c.a}`))
+    return out.join('\n')
+  })
+  const tail = [
+    sum.formulas.length ? `## Formula sheet\n\n${sum.formulas.map((f) => `- $${f.latex}$${f.text ? ` — ${f.text}` : ''}`).join('\n')}` : '',
+    sum.glossary.length ? `## Glossary\n\n${sum.glossary.map((d) => `- **${d.term}** — ${d.meaning}`).join('\n')}` : '',
+  ].filter(Boolean)
+  return [`# ${title}`, ...body, ...tail].join('\n\n')
 }

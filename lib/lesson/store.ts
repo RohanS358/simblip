@@ -24,6 +24,8 @@ interface LessonState {
   chosen: number | null
   /** The board's sections, in the order they were opened. Kept for the whole film. */
   sections: Section[]
+  /** The study-notes (print) view is open. */
+  notesOpen: boolean
   /** A film being generated: what the director is doing now. */
   preparing: { topic: string; message: string } | null
   set: (p: Partial<Omit<LessonState, 'set'>>) => void
@@ -41,6 +43,7 @@ export const useLesson = create<LessonState>((set) => ({
   pending: null,
   chosen: null,
   sections: [],
+  notesOpen: false,
   preparing: null,
   set: (p) => set(p),
 }))

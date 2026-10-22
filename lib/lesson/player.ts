@@ -30,6 +30,8 @@ export interface Stage {
   gate(): Promise<void>
   /** After an instant rebuild: bring the camera to the newest section. */
   settle?(): Promise<void>
+  /** The lesson ran to its end: the stage may close the board with a summary. */
+  finish?(): Promise<void>
   /** Offered before each chapter after the first: the teacher may check in with the student. */
   checkpoint?(index: number): Promise<void>
 }
@@ -80,5 +82,6 @@ export async function perform(sb: Storyboard, stage: Stage, from = 0, opts: { re
       }
     }
   }
+  if (stage.alive()) await stage.finish?.()
   return stage.alive() ? 'done' : 'stopped'
 }

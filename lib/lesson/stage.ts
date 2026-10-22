@@ -21,7 +21,7 @@ import { checkIn } from './tutor'
 import { useTutor } from './tutor-store'
 import { shouldCheckIn } from './tutor-core'
 import { FRAME_BOTTOM, frameObjects } from './camera'
-import { boxOf, bulletFor, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
+import { boxOf, buildSummary, glossaryMarkdown, summaryMarkdown, bulletFor, definitionFrom, nextOrigin, notesHeight, notesMarkdown, sectionTitle, type Section } from './sections'
 import type { Stage } from './player'
 import type { Storyboard } from './storyboard'
 
@@ -76,27 +76,36 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   const moveBy = (ids: string[], dx: number, dy: number) => {
     for (const o of objectsOf(ids)) useDocStore.getState().updateObject(pageId, o.id, { position: { x: o.position.x + dx, y: o.position.y + dy } }, { history: false })
   }
-  /** Add a line to the current section's "Key points" block (creating the block beside its picture
-   *  the first time), so the board reads like slides when the lesson is over. */
-  const addBullet = async (raw: string | null) => {
+  /** Record study notes for the current section — a key point, a word defined, a formula, a question and
+   *  its answer — and keep its "Key points" block on the board (created beside the picture the first
+   *  time) in step, so the board reads like slides when the lesson is over. */
+  const note = async (n: { say?: string | null; bullet?: string | null; formula?: { latex: string; text?: string }; check?: { q: string; a: string } }) => {
     const cur = current()
-    const text = raw && bulletFor(raw)
-    if (!cur || !text || (cur.bullets ?? []).includes(text) || (cur.bullets ?? []).length >= 8) return
-    const bullets = [...(cur.bullets ?? []), text]
+    if (!cur) return
+    const bullet = n.bullet ?? (n.say ? bulletFor(n.say) : null)
+    const def = n.say ? n.say.split(/(?<=[.!?])\s+(?=[A-Z0-9"'(])/).map(definitionFrom).find(Boolean) ?? null : null
+    const bullets = [...(cur.bullets ?? [])]
+    if (bullet && !bullets.includes(bullet) && bullets.length < 8) bullets.push(bullet)
+    const definitions = [...(cur.definitions ?? [])]
+    if (def && !definitions.some((d) => d.term === def.term) && definitions.length < 5) definitions.push(def)
+    const formulas = n.formula && !(cur.formulas ?? []).some((f) => f.latex === n.formula!.latex) ? [...(cur.formulas ?? []), n.formula] : cur.formulas
+    const checks = n.check && !(cur.checks ?? []).some((c) => c.q === n.check!.q) ? [...(cur.checks ?? []), n.check] : cur.checks
     let notes = cur.notes
-    if (!notes) {
+    if (!notes && bullets.length) {
       const body = objectsOf(cur.ids.slice(1)) // everything but the heading
       const box = boxOf(body.length ? body : objectsOf(cur.ids))
       const heading = objectsOf(cur.ids.slice(0, 1))[0]
       const before = new Set(pageObjects().map((o) => o.id))
-      await sceneAdd.run({ component: 'text', text: notesMarkdown(bullets), x: box ? box.x + box.w + 40 : (heading?.position.x ?? 0), y: box ? box.y : (heading?.position.y ?? 0) + 64 }, { pageId })
+      await sceneAdd.run({ component: 'text', text: notesMarkdown(bullets, definitions), x: box ? box.x + box.w + 40 : (heading?.position.x ?? 0), y: box ? box.y : (heading?.position.y ?? 0) + 64 }, { pageId })
       notes = pageObjects().find((o) => !before.has(o.id))?.id
-      if (!notes) return
     }
-    useDocStore.getState().setStringParam(pageId, notes, 'text', notesMarkdown(bullets))
-    useDocStore.getState().updateObject(pageId, notes, { size: { w: 400, h: notesHeight(bullets) } }, { history: false })
-    L().set({ sections: sections().map((s) => (s.id === cur.id ? { ...s, bullets, notes, ids: s.ids.includes(notes!) ? s.ids : [...s.ids, notes!] } : s)) })
+    if (notes) {
+      useDocStore.getState().setStringParam(pageId, notes, 'text', notesMarkdown(bullets, definitions))
+      useDocStore.getState().updateObject(pageId, notes, { size: { w: 400, h: notesHeight(bullets, 400, definitions) } }, { history: false })
+    }
+    L().set({ sections: sections().map((s) => (s.id === cur.id ? { ...s, bullets, definitions, formulas, checks, notes, ids: notes && !s.ids.includes(notes) ? [...s.ids, notes] : s.ids } : s)) })
   }
+  const addBullet = (raw: string | null) => note({ say: raw })
   const addToSection = (ids: string[]) => {
     const cur = current()
     if (cur) L().set({ sections: sections().map((s) => (s === cur ? { ...s, ids: [...s.ids, ...ids] } : s)) })
@@ -182,7 +191,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       eqCount++
       const made = pageObjects().find((o) => !before.has(o.id))
       if (made) addToSection([made.id])
-      if (text) void addBullet(`Formula: ${text}`)
+      void note({ formula: { latex, text }, say: text })
       if (instant) return
       void frame()
       // Written out left to right while it is explained: the formula takes about as long to
@@ -242,7 +251,7 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       const right = chosen === beat.correct
       learner.record(sb.title, right)
       // Her face answers before her words do: delight for a right answer, gentle concern for a miss.
-      void addBullet(`Check: ${beat.prompt.replace(/\s+/g, ' ').slice(0, 90)} — ${beat.choices[beat.correct]}`)
+      void note({ bullet: `Check: ${beat.prompt.replace(/\s+/g, ' ').slice(0, 90)} — ${beat.choices[beat.correct]}`, check: { q: beat.prompt, a: `${beat.choices[beat.correct]} ${beat.responses[beat.correct].replace(/^Correct\.\s*/i, '')}` } })
       T().set({ mood: right ? 'excited' : 'sympathetic', pose: right ? 'thumb' : 'open' })
       setTimeout(() => { if (T().pose === 'thumb') T().set({ pose: 'read' }) }, 2600)
       useTutor.getState().set({ missesInRow: right ? 0 : useTutor.getState().missesInRow + 1 })
@@ -273,6 +282,39 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
       await checkIn(lines, alive, 'chapter')
     },
     alive,
+    /** The lesson is over: close the board with everything it covered, so one look (or one print) revises it. */
+    async finish() {
+      const sum = buildSummary(sb.title, sections())
+      if (!sum.parts.length) return
+      const n = sections().length + 1
+      const at = nextOrigin(pageObjects(), { x: safeBounds(pageId).left + 40, y: safeBounds(pageId).top + 40 })
+      const mk = async (component: string, text: string, x: number, y: number, h?: number, w = 460) => {
+        const before = new Set(pageObjects().map((o) => o.id))
+        await sceneAdd.run({ component, text, x, y }, { pageId })
+        const id = pageObjects().find((o) => !before.has(o.id))?.id
+        if (id && h) useDocStore.getState().updateObject(pageId, id, { size: { w, h } }, { history: false })
+        return id
+      }
+      const ids: string[] = []
+      const push = (id?: string) => { if (id) ids.push(id) }
+      push(await mk('text', `## ${n} · Summary: ${sb.title.length > 44 ? sb.title.slice(0, 43) + '…' : sb.title}`, at.x, at.y))
+      const lines = sum.parts.flatMap((p) => [p.title, ...p.points.slice(0, 3)])
+      const sumH = notesHeight(lines, 460) + sum.parts.length * 22
+      push(await mk('text', summaryMarkdown(sum), at.x, at.y + 64, sumH))
+      let y = at.y + 64 + sumH + 24
+      if (sum.glossary.length) {
+        const gh = notesHeight(sum.glossary.map((g) => `${g.term} — ${g.meaning}`), 460)
+        push(await mk('text', glossaryMarkdown(sum), at.x, y, gh))
+        y += gh
+      }
+      // the formulas, in a column beside the points
+      let fy = at.y + 64
+      for (const f of sum.formulas.slice(0, 6)) { push(await mk('formula', f.latex, at.x + 500, fy)); fy += 112 }
+      L().set({ sections: [...sections(), { id: `s${n}`, title: 'Summary', ids, beat: sb.beats.length, summary: true }] })
+      void frame()
+      T().set({ mood: 'proud', pose: 'open' })
+      await speak('That is the lesson. Everything we covered is gathered here: the key points, the formulas, and the words to remember. Open Study notes whenever you want to print it or revise.')
+    },
     async settle() {
       await frame()
     },
