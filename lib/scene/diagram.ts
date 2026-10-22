@@ -561,9 +561,16 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
   const alongSize = (n: PlacedNode) => (direction === 'down' ? n.h : n.w)
   const crossSize = (n: PlacedNode) => (direction === 'down' ? n.w : n.h)
 
+  // Left-to-right, an arrow's label sits on its last segment, so the gap after a rank must be wide enough
+  // for the widest label leaving it — otherwise the words run into the next box.
+  const labelRoom = (r: number): number => {
+    if (direction !== 'right') return 0
+    const widths = ast.edges.filter((e) => e.label && !back.has(e) && (rank.get(e.from) ?? 0) === r).map((e) => (e.label ?? '').length * 7.6 + 54)
+    return widths.length ? Math.max(...widths) : 0
+  }
   let along = 0
   const crossExtent: number[] = []
-  buckets.forEach((bucket) => {
+  buckets.forEach((bucket, r) => {
     let cross = 0
     for (const n of bucket) {
       if (direction === 'down') {
@@ -576,7 +583,7 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
       cross += crossSize(n) + gapSibling
     }
     crossExtent.push(Math.max(0, cross - gapSibling))
-    along += Math.max(...bucket.map(alongSize), 0) + gapRank
+    along += Math.max(...bucket.map(alongSize), 0) + Math.max(gapRank, labelRoom(r))
   })
 
   // Centre every rank on the widest one, so the diagram reads as a column
@@ -724,14 +731,20 @@ export function layoutDiagram(ast: DiagramAst): DiagramLayout {
     let labelAt: { x: number; y: number } | undefined
 
     if (!detour) {
+      // A box with several arrows leaving it shares one short stem and then branches, and each branch's
+      // label rides its OWN last segment — beside the box it points at, where there is no doubt which
+      // arrow it names. (Mid-gap labels all piled onto the one shared stem.)
+      const fan = ast.edges.filter((x) => x.from === e.from && !back.has(x)).length > 1
       if (direction === 'down') {
-        const mid = (a.y + b.y) / 2
-        if (Math.abs(a.x - b.x) > 1) bends.push({ x: a.x, y: mid }, { x: b.x, y: mid })
-        labelAt = { x: (a.x + b.x) / 2, y: mid }
+        const mid = fan ? a.y + 18 : (a.y + b.y) / 2
+        const elbow = Math.abs(a.x - b.x) > 1
+        if (elbow) bends.push({ x: a.x, y: mid }, { x: b.x, y: mid })
+        labelAt = fan && elbow ? { x: b.x, y: (mid + b.y) / 2 } : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
       } else {
-        const mid = (a.x + b.x) / 2
-        if (Math.abs(a.y - b.y) > 1) bends.push({ x: mid, y: a.y }, { x: mid, y: b.y })
-        labelAt = { x: mid, y: (a.y + b.y) / 2 }
+        const mid = fan ? a.x + 16 : (a.x + b.x) / 2
+        const elbow = Math.abs(a.y - b.y) > 1
+        if (elbow) bends.push({ x: mid, y: a.y }, { x: mid, y: b.y })
+        labelAt = fan && elbow ? { x: (mid + b.x) / 2, y: b.y } : { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }
       }
     } else {
       const lane = lanes++

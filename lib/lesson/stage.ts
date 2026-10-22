@@ -5,6 +5,7 @@
 // the same code a user-initiated action does (place() = the panel's Add button).
 
 import { useDocStore } from '@/lib/store/document'
+import { shiftScene } from '@/lib/scene/simscript'
 import { getElement } from '@/lib/physics/world'
 import { num } from '@/lib/scene/types'
 import { applyParam } from './apply'
@@ -96,9 +97,9 @@ export function makeStage(sb: Storyboard, pageId: string, myRun: number, from = 
   }
   /** The camera: glide to the newest section so it sits inside the visible board. */
   const frame = () => frameObjects(pageId, current()?.ids ?? null, () => !alive())
-  const moveBy = (ids: string[], dx: number, dy: number) => {
-    for (const o of objectsOf(ids)) useDocStore.getState().updateObject(pageId, o.id, { position: { x: o.position.x + dx, y: o.position.y + dy } }, { history: false })
-  }
+  // Rigid shift: moving bodies re-projects the connectors bound to them and flattens their routes, so scenes
+  // (flowcharts above all) are only ever moved through shiftScene, which restores each connector's shape.
+  const moveBy = (ids: string[], dx: number, dy: number) => shiftScene(pageId, ids, dx, dy)
   /** Open a section that has no picture of its own yet (a formula arriving before any scene): just its heading. */
   const openSection = async (o: { layout: 'split' | 'full' }) => {
     const n = sections().length + 1

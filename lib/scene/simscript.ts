@@ -1012,7 +1012,9 @@ export function executeSimScript(
         const tag = create('rect', {
           // Beside the line rather than on it: an orthogonal route has a long
           // middle segment, and a label centred on it would be struck through.
-          x: ox + e.labelAt.x - origin.x + (layout.direction === 'down' ? 10 : -w / 2),
+          // Top-to-bottom the words sit just beside the line (the rect is padded, so pull it in by its padding);
+          // left-to-right they are centred on the segment, above it.
+          x: ox + e.labelAt.x - origin.x + (layout.direction === 'down' ? 8 - (w - e.label.length * 7.6) / 2 : -w / 2),
           y: oy + e.labelAt.y - origin.y - (layout.direction === 'down' ? 11 : 28),
           width: w, height: 22,
           fill: 'transparent', strokeWidth: 0,
@@ -1438,8 +1440,23 @@ export function applySceneLayout(
     fixedFrame: surface.fixedFrame,
   })
 
-  if (dx === 0 && dy === 0 && scale === 1) return
+  shiftScene(pageId, createdIds, dx, dy, scale)
+}
 
+/**
+ * Move (and optionally scale) a set of objects rigidly, keeping routed connectors intact.
+ *
+ * Bodies first, then connectors — see the note below. Anything that relocates a scene after it was
+ * built (placing it on the page, a lesson laying a diagram into a slide) goes through this, never
+ * through per-object updates: those re-project connectors and flatten their routes.
+ */
+export function shiftScene(pageId: string, ids: string[], dx: number, dy: number, scale = 1): void {
+  if (dx === 0 && dy === 0 && scale === 1) return
+  const page = store().pages[pageId]
+  if (!page) return
+  const rectOf = (o: SceneObject) => ({ x: o.position.x, y: o.position.y, w: o.size.w, h: o.size.h })
+  const made = ids.map((id) => page.objects[id]).filter(Boolean)
+  if (made.length === 0) return
   // Scale about the scene's own top-left so relative geometry is preserved
   // exactly — a spring's endpoints move with the bodies they are bound to.
   const box = unionRect(made.map(rectOf))!
